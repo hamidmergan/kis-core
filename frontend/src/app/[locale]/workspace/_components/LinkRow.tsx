@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import { CalendarBlank, Check, Copy, Trash } from "@phosphor-icons/react";
 import IconButton from "@/components/ui/IconButton";
+import { copyTextFromPromise } from "@/lib/clipboard";
 import type { AccessLink } from "../_shared";
 
 interface LinkRowProps {
@@ -26,14 +27,10 @@ export default function LinkRow({ link, onRequestDelete }: LinkRowProps) {
     : null;
   const isExpired = link.expires_at ? new Date(link.expires_at) < new Date() : false;
 
-  async function handleCopy() {
-    try {
-      await navigator.clipboard.writeText(enrollLink);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    } catch {
-      /* ignore */
-    }
+  function handleCopy() {
+    copyTextFromPromise(Promise.resolve(enrollLink));
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
   }
 
   return (

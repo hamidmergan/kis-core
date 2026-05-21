@@ -64,7 +64,8 @@ def get_schedule_entries_for_user(
                    AS module_relation
           FROM aia_schedule_entries s
           JOIN aia_workspaces m ON m.id = s.workspace_id
-         WHERE s.workspace_id IN (
+         WHERE s.user_id = %(uid)s
+           AND s.workspace_id IN (
                  SELECT id FROM aia_workspaces WHERE user_id = %(uid)s
                  UNION
                  SELECT m2.id
@@ -102,6 +103,27 @@ def get_schedule_entries(workspace_id: int, user_id: int) -> list[dict]:
                  ORDER BY due_date NULLS LAST, due_time NULLS LAST, id
                 """,
                 (workspace_id, user_id),
+            )
+            return [dict(r) for r in cur.fetchall()]
+
+
+def get_schedule_entries_for_workspace(workspace_id: int) -> list[dict]:
+    """All entries across every user in a workspace.
+    Used by the schedule pipeline as anchor titles for cross-user
+    title harmonization: when user A already extracted an event,
+    user B's new candidate for the same event aligns to A's wording
+    instead of producing a duplicate entry.
+    """
+    with get_connection() as conn:
+        with conn.cursor(cursor_factory=RealDictCursor) as cur:
+            cur.execute(
+                f"""
+                SELECT {_ENTRY_COLS}, user_id
+                  FROM aia_schedule_entries
+                 WHERE workspace_id = %s
+                 ORDER BY due_date NULLS LAST, due_time NULLS LAST, id
+                """,
+                (workspace_id,),
             )
             return [dict(r) for r in cur.fetchall()]
 

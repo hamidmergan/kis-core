@@ -75,7 +75,7 @@ async def generate_cloze(
     enforce_aia_burst(user_id, locale)
     enforce_quota(user_id, "aia_generate", is_admin_user(current_user), locale)
 
-    entries = db.get_aia_glossary_by_workspace(workspace["id"])
+    entries = db.get_aia_glossary_by_workspace(workspace["id"], user_id)
     if not entries:
         raise HTTPException(status_code=400, detail=t("glossary.notProvided", locale))
 
@@ -108,7 +108,7 @@ async def generate_vocab_test(
     enforce_aia_burst(user_id, locale)
     enforce_quota(user_id, "aia_generate", is_admin_user(current_user), locale)
 
-    entries = db.get_aia_glossary_by_workspace(workspace["id"])
+    entries = db.get_aia_glossary_by_workspace(workspace["id"], user_id)
     if not entries:
         raise HTTPException(status_code=400, detail=t("glossary.notProvided", locale))
 

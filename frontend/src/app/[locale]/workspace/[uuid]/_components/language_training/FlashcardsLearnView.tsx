@@ -285,7 +285,7 @@ export function FlashcardsLearnView({
                             const ChipIcon = _getChipIcon(s.source_label);
                             return (
                             <button key={si} type="button"
-                              onClick={() => { if (onSourceClick) onSourceClick(s.source_label, s.page_number ?? 1, s.start_time, card.front); }}
+                              onClick={() => { if (onSourceClick) onSourceClick(s.source_label, s.page_number ?? 1, s.start_time, s.highlight_text || card.front); }}
                               className="chip-cite inline-flex items-center gap-0.5 text-[10px] font-medium px-2 py-1 rounded-full border-none cursor-pointer transition-colors"
                               style={{ color: "var(--kb)", backgroundColor: "rgba(var(--kb-rgb),0.07)" }}>
                               <ChipIcon size={10} weight="bold" /> {multiFile ? `[${fileIndex[s.source_label]}] ` : ""}{_chunkLabel(s.source_label, s.page_number ?? 1, s.start_time)}

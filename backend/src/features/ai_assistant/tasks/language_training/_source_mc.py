@@ -16,8 +16,12 @@ _SOURCE_RULE = (
     "- For every question, include source_label and page_number, the source/page the content came from.\n"
 )
 _PERSONAL_RULE = (
-    "IMPORTANT:\n- Do NOT use personal names in questions. Instead of 'laut Prof. X', write 'laut Quelle' (German) or 'according to the source' (English), matching the source language.\n"
+    "IMPORTANT:\n- Do NOT use personal names in questions. Instead of 'laut Prof. X', write 'laut Quelle' (German) or 'according to the source' (English), matching the output language.\n"
 )
+
+
+def _language_label(locale: str) -> str:
+    return "English" if (locale or "").lower().startswith("en") else "German"
 
 
 def generate_mc_from_source(
@@ -26,11 +30,16 @@ def generate_mc_from_source(
     tool: str,
     count: int,
     existing_fronts: list[str],
+    locale: str = "de",
 ) -> tuple[list[dict], str]:
-    tool_prompt = _build_prompt(tool, count)
+    language = _language_label(locale)
+    tool_prompt = _build_prompt(tool, count, language)
     messages = [
         {"role": "system", "content": tool_prompt},
-        {"role": "user", "content": with_avoid(existing_fronts, f"Sources:\n\n{ctx.context}")},
+        {"role": "user", "content": with_avoid(
+            existing_fronts,
+            f"Write the output in {language}.\n\nSources:\n\n{ctx.context}",
+        )},
     ]
     response = client.chat.completions.create(model=model, messages=messages, temperature=0.3)
     answer = _clean_llm_json(response.choices[0].message.content or "")
@@ -56,8 +65,12 @@ def generate_mc_from_source(
     return items, title
 
 
-def _build_prompt(tool: str, count: int) -> str:
-    base = "You create exercises based on the given source text. Write all questions, sentences, options, and answers in the SAME language as the source text (German source -> German content).\n\n"
+def _build_prompt(tool: str, count: int, language: str) -> str:
+    base = (
+        f"You create exercises based on the given source text. "
+        f"Write ALL questions, sentences, options, and answers in {language}, "
+        f"regardless of the source-text language. Translate source content into {language} if needed.\n\n"
+    )
     if tool == "lueckentext":
         return base + (
             "Create cloze (gap-filling) exercises. Respond ONLY with a JSON array:\n"

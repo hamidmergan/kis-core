@@ -87,7 +87,6 @@ export function StaffNoteBox({ text, links, isOwner, workspaceUuid, onEdit }: St
               aria-label={t("edit")}
               title={t("edit")}
               className="w-7 h-7 flex items-center justify-center rounded-full btn-icon"
-              style={{ backgroundColor: "var(--background)" }}
             >
               <PencilSimple size={13} weight="bold" />
             </button>

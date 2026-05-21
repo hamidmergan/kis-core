@@ -1368,7 +1368,10 @@
           "emptyTitle": "Noch kein Glossar generiert. Klicke oben auf „Begriffe extrahieren\", um Fachbegriffe aus deinen Quellen zu extrahieren.",
           "context": "Kontext",
           "explanation": "Erklärung",
-          "pageShort": "S. {page}"
+          "pageShort": "S. {page}",
+          "sortRecent": "Neueste",
+          "sortAlpha": "A–Z",
+          "sortAriaLabel": "Sortierung wählen"
         },
         "overview": {
           "glossaryCounter": "{count}/{max} Glossar",
@@ -1772,8 +1775,6 @@
       "emptyTitle": "Noch keine {label} vorhanden.",
       "emptyText": "Mit dem Button oben anlegen.",
       "welcomeTitle": "Willkommen bei KIS",
-      "enrollPrompt": "Einschreibecode eingeben",
-      "enrollPlaceholder": "z. B. a1b2c3d4",
       "enroll": "Einschreiben",
       "enrollInvalidCode": "Ungültiger Code",
       "unknownError": "Unbekannter Fehler",

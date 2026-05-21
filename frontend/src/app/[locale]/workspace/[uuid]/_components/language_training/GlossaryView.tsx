@@ -1,5 +1,5 @@
-import { useEffect, useRef, useState } from "react";
-import { Book, CaretDown, CaretUp, DotsThreeVertical, FilePdf, Files, Sparkle, Trash } from "@phosphor-icons/react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { Book, CaretDown, CaretUp, ClockCounterClockwise, DotsThreeVertical, FilePdf, Files, Sparkle, TextAa, Trash } from "@phosphor-icons/react";
 import { useTranslations } from "next-intl";
 import HelpTooltip from "@/components/ui/HelpTooltip";
 import Spinner from "@/components/ui/Spinner";
@@ -62,6 +62,13 @@ export function GlossaryView({
   const t = useTranslations("workspace.detail.languageTraining");
   const noSources = sourceCount === 0;
   const [expandedId, setExpandedId] = useState<number | null>(null);
+  const [sortMode, setSortMode] = useState<"recent" | "alpha">("recent");
+  const sortedEntries = useMemo(() => {
+    if (sortMode === "alpha") {
+      return [...entries].sort((a, b) => a.term_de.localeCompare(b.term_de, "de", { sensitivity: "base" }));
+    }
+    return [...entries].sort((a, b) => b.id - a.id);
+  }, [entries, sortMode]);
   return (
     <div className="flex flex-col h-full">
       {onBack && <SubviewHeader title={t("glossary.title")} toolKey="Glossary" onBack={onBack} breadcrumbs={breadcrumbs} category="language_training" />}
@@ -126,6 +133,31 @@ export function GlossaryView({
           )}
         </div>
 
+        {entries.length > 1 && (
+          <div className="w-full flex justify-end gap-1 px-1" role="group" aria-label={t("glossary.sortAriaLabel")}>
+            {(["recent", "alpha"] as const).map((mode) => {
+              const active = sortMode === mode;
+              const Icon = mode === "recent" ? ClockCounterClockwise : TextAa;
+              return (
+                <button
+                  key={mode}
+                  type="button"
+                  onClick={() => setSortMode(mode)}
+                  aria-pressed={active}
+                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium transition-colors"
+                  style={{
+                    backgroundColor: active ? "var(--kb)" : "transparent",
+                    color: active ? "#fff" : "var(--muted)",
+                  }}
+                >
+                  <Icon size={12} weight="bold" />
+                  {t(mode === "recent" ? "glossary.sortRecent" : "glossary.sortAlpha")}
+                </button>
+              );
+            })}
+          </div>
+        )}
+
         {entries.length > 0 && (
           <div className="w-full px-1 pb-3">
             <div
@@ -135,9 +167,9 @@ export function GlossaryView({
                 boxShadow: "0 2px 10px rgba(0,40,60,0.05), 0 0 0 1px rgba(0,40,60,0.03)",
               }}
             >
-              {entries.map((entry, idx) => {
+              {sortedEntries.map((entry, idx) => {
                 const isExpanded = expandedId === entry.id;
-                const isLast = idx === entries.length - 1;
+                const isLast = idx === sortedEntries.length - 1;
                 const ChipIcon = entry.filename ? _getChipIcon(entry.filename) : FilePdf;
                 return (
                   <div key={entry.id} style={{ borderBottom: isLast && !isExpanded ? "none" : "1px solid var(--border)" }}>

@@ -41,6 +41,12 @@ def run_generate_exercise_set(self, set_id: int, workspace_id: int, tool: str,
             db.fail_exercise_set(set_id)
             return
 
+        ex_set = db.get_exercise_set_with_items(set_id)
+        if not ex_set:
+            db.fail_exercise_set(set_id)
+            return
+        user_id = ex_set["user_id"]
+
         client, model, _ = _get_llm_client()
         existing_fronts = db.get_existing_exercise_fronts(workspace_id, tool)
 
@@ -48,7 +54,7 @@ def run_generate_exercise_set(self, set_id: int, workspace_id: int, tool: str,
         title = "Wird generiert…"
 
         if mode == "glossary":
-            result = generate_from_glossary(client, model, workspace_id, tool, count)
+            result = generate_from_glossary(client, model, workspace_id, user_id, tool, count, locale=locale)
             if result is None:
                 db.fail_exercise_set(set_id)
                 return
@@ -69,7 +75,7 @@ def run_generate_exercise_set(self, set_id: int, workspace_id: int, tool: str,
             elif tool == "karteikarten":
                 items, title = generate_cards_from_source(client, model, ctx, count, existing_fronts, locale=locale)
             else:
-                items, title = generate_mc_from_source(client, model, ctx, tool, count, existing_fronts)
+                items, title = generate_mc_from_source(client, model, ctx, tool, count, existing_fronts, locale=locale)
 
         if not items:
             db.fail_exercise_set(set_id)

@@ -1,161 +1,186 @@
-"""KI-Assistent Celery tasks - glossary generation."""
+"""KI-Assistent Celery tasks - glossary generation.
 
-import concurrent.futures
-import os
-import re
+Pull-based generation model
+---------------------------
+Entries are a workspace-shared pool keyed by (source_id, chunk_id). Each user
+has a personal pick list (``aia_user_glossary_picks``). One generate-click
+delivers up to ``PICKS_PER_RUN`` fresh picks for the user:
 
-from langfuse.decorators import langfuse_context, observe
+1. Grab unpicked pool entries for the user's selected sources.
+2. If still short, atomically claim the next unprocessed chunk in those
+   sources, LLM-extract its learnable terms, and add them to the pool.
+3. Loop until the user has 10 fresh picks or no unprocessed chunks remain.
+
+A "processed" chunk never gets a second LLM call — User B/C reuses the pool
+User A built up. The flag (``aia_chunks.glossary_processed``) is set even when
+the LLM returns zero terms for a chunk, so empty chunks don't get re-tried.
+"""
+
+import json
+
+from langfuse.decorators import observe
 from loguru import logger
 
 from src.celery_app import celery_app
 from src import database as db
-from src.storage import open_input_file
-from src.limits import (
-    AIA_SUMMARY_MAX_RETRIES,
-    AIA_SUMMARY_TIMEOUT_SMALL,
-    AIA_SUMMARY_TIMEOUT_LARGE,
-    AIA_SUMMARY_MAX_TOKENS_SMALL,
-    AIA_SUMMARY_MAX_TOKENS_LARGE,
-    AIA_SUMMARY_MAX_TOKENS_BATCH,
-    AIA_SUMMARY_CONTENT_MAX_CHARS,
-    AIA_SUMMARY_PARALLEL_WORKERS_SMALL,
-    AIA_SUMMARY_PARALLEL_WORKERS_LARGE,
-    AIA_SUMMARY_BATCH_SIZE,
-)
+from src.limits import GLOSSARY_LIMIT
 from src.features.ai_assistant.tasks._helpers import (
     _get_llm_client,
     _clean_llm_json,
 )
 
-_GLOSSARY_PROMPT = """You are a technical-terminology expert. Extract the most important technical terms from the following text.
 
-Text fragments are marked with source citations: [Q1, S. 5] = source 1, page 5.
+PICKS_PER_RUN = 10
+MAX_CHUNKS_PER_RUN = 20  # safety cap so one click can't burn through a 500-chunk doc
 
-For every term return EXACTLY this JSON format (as a JSON array):
+
+_GLOSSARY_CHUNK_PROMPT = """You extract learnable technical and academic terms for B1-level international students from ONE short text chunk.
+
+Return ALL terms in this chunk that a B1 learner should learn for university study. Do not artificially cap the count — return everything genuinely useful. If the chunk is empty, generic, or contains only function words, return [].
+
+Respond ONLY with a JSON array:
 [
   {
-    "term_de": "Technical term in the source language",
+    "term_de": "Technical/academic term in the source language",
     "term_en": "Translation (see rules)",
     "definition": "Short explanation in German (B1 level, 1-2 sentences)",
     "definition_en": "Short explanation in English (B1 level, 1-2 sentences)",
-    "example_sentence": "A sentence from the text that uses the term (source language)",
-    "example_sentence_en": "English translation of the example sentence",
-    "source_label": "Q1",
-    "page_number": 5
+    "example_sentence": "A sentence from the chunk that uses the term",
+    "example_sentence_en": "English translation of the example sentence"
   }
 ]
 
 Rules:
-- Extract exactly 5 technical terms (the most important and frequent ones)
-- Only true technical terms, no general words
-- CRITICAL for term_de: the term must appear VERBATIM as a contiguous word or phrase in the text. If the text says "in den deutschen Arbeitsmarkt zu integrieren", you may NOT turn that into "Arbeitsmarktintegration". Take "Arbeitsmarkt" instead, or skip it. Do NOT invent compounds or nominalizations that are not exactly in the text.
-- term_en: if the source text is NOT English, translate the term to English. If the source text is English, translate the term to German. Never the same language as term_de.
-- definition: simple explanation in German, understandable at B1 level
-- definition_en: simple explanation in English, understandable at B1 level
-- example_sentence: a sentence from the given text that uses the term
-- example_sentence_en: English translation of that sentence
-- source_label: the source citation (Q1, Q2, ...) the term comes from
-- page_number: the page number where the term appears
-- Respond ONLY with the JSON array, no other text."""
+- Two categories are allowed: (a) domain-specific technical terms, (b) academic/educational language that goes beyond A2/B1 everyday vocabulary.
+- DO NOT extract: function words, trivial A1/A2 everyday words.
+- CRITICAL for term_de: the term must appear VERBATIM as a contiguous word or phrase in the chunk. If the text says "in den deutschen Arbeitsmarkt zu integrieren", you may NOT turn that into "Arbeitsmarktintegration". Take "Arbeitsmarkt" or "integrieren" instead. Do NOT invent compounds or nominalizations that are not exactly in the text.
+- For inflected verbs/adjectives the base form as term_de is allowed when the form is clearly recognizable (e.g. text "zu erhöhen" -> term_de "erhöhen" is fine).
+- term_en: if the source text is NOT English, translate to English. If the source text IS English, translate to German. Never the same language as term_de.
+- definition / definition_en: simple explanation at B1 level.
+- example_sentence: a sentence from THIS chunk that uses the term.
+- Respond ONLY with the JSON array."""
 
 
 @celery_app.task(bind=True, name="aia.generate_glossary", queue="aia",
-                 soft_time_limit=120, time_limit=180)
+                 soft_time_limit=180, time_limit=240)
 @observe(name="aia-glossary")
-def run_generate_glossary(self, workspace_id: int, source_ids: list[int]):
-    """Generate glossary entries from source chunks as a background job."""
-    import json as _json
-
+def run_generate_glossary(self, workspace_id: int, user_id: int, source_ids: list[int]):
+    """Deliver up to PICKS_PER_RUN fresh glossary picks for one user. May trigger
+    LLM calls on previously-unseen chunks; reuses the shared pool wherever
+    possible."""
     try:
-        logger.info("KI Tutor: generating glossary for workspace {} sources {}", workspace_id, source_ids)
-
-        # Gather chunks from all selected sources, track which source each chunk belongs to
-        all_chunks: list[dict] = []
-        for sid in source_ids:
-            chunks = db.get_chunks_by_source(sid)
-            for c in chunks:
-                c["_source_id"] = sid
-            all_chunks.extend(chunks)
-        if not all_chunks:
-            logger.warning("KI Tutor: glossary generation - no chunks found")
+        logger.info(
+            "KI Tutor: glossary pull for workspace {} user {} sources {}",
+            workspace_id, user_id, source_ids,
+        )
+        if not source_ids:
             return
 
-        # Build source label map: source_id → "Q1", "Q2", ...
-        sid_to_label: dict[int, str] = {}
-        label_to_sid: dict[str, int] = {}
-        for i, sid in enumerate(source_ids, 1):
-            label = f"Q{i}"
-            sid_to_label[sid] = label
-            label_to_sid[label] = sid
-
-        # Build context (max ~200000 chars) with source labels
-        context_parts: list[str] = []
-        context_len = 0
-        for chunk in all_chunks:
-            label = sid_to_label.get(chunk["_source_id"], "Q1")
-            part = f"[{label}, S. {chunk['page_number']}]\n{chunk['content']}"
-            if context_len + len(part) > 200000:
-                break
-            context_parts.append(part)
-            context_len += len(part)
-        context = "\n\n---\n\n".join(context_parts)
-
-        # Tell LLM which terms already exist so it doesn't repeat them
-        existing = db.get_aia_glossary_by_workspace(workspace_id)
-        existing_terms_list = [e["term_de"] for e in existing]
-        exclude_hint = ""
-        if existing_terms_list:
-            exclude_hint = f"\n\nFolgende Begriffe existieren bereits - überspringe diese: {', '.join(existing_terms_list)}"
-
-        client, model, _ = _get_llm_client()
-        messages = [
-            {"role": "system", "content": _GLOSSARY_PROMPT},
-            {"role": "user", "content": f"Extrahiere Fachbegriffe aus folgendem Text:\n\n{context}{exclude_hint}"},
-        ]
-
-        response = client.chat.completions.create(model=model, messages=messages, temperature=0.1)
-        raw = response.choices[0].message.content
-        if not raw:
-            logger.error("KI Tutor: glossary generation - LLM returned empty content")
-            return
-
-        entries_raw = _json.loads(_clean_llm_json(raw))
-        if not isinstance(entries_raw, list):
-            logger.error("KI Tutor: glossary generation - expected JSON array")
-            return
-
-        # Validate: term must appear verbatim in source text
-        context_lower = context.lower()
-        entries_raw = [e for e in entries_raw if e.get("term_de", "").strip().lower() in context_lower]
-
-        # Deduplicate: skip terms that already exist
-        existing = db.get_aia_glossary_by_workspace(workspace_id)
-        existing_terms = {e["term_de"].strip().lower() for e in existing}
-        new_entries = [e for e in entries_raw if e.get("term_de", "").strip().lower() not in existing_terms]
-
-        # Respect overall limit of 150 and cap at 5 new entries per run
-        remaining_slots = 150 - len(existing)
+        existing_picks = db.get_user_glossary_pick_count(workspace_id, user_id)
+        remaining_slots = GLOSSARY_LIMIT - existing_picks
         if remaining_slots <= 0:
-            logger.info("KI Tutor: glossary limit reached for workspace {}, skipping", workspace_id)
+            logger.info("KI Tutor: glossary limit reached for user {} in workspace {}",
+                        user_id, workspace_id)
             return
-        new_entries = new_entries[:min(5, remaining_slots)]
 
-        if new_entries:
-            # Group entries by source_id based on LLM's source_label
-            from collections import defaultdict
-            entries_by_source: dict[int, list[dict]] = defaultdict(list)
-            for entry in new_entries:
-                lbl = entry.pop("source_label", "Q1")
-                sid = label_to_sid.get(lbl, source_ids[0])
-                entries_by_source[sid].append(entry)
-            for sid, entries in entries_by_source.items():
-                db.bulk_create_glossary_entries(sid, entries)
-        logger.info("KI Tutor: glossary added {} new entries (skipped {} duplicates) for workspace {}",
-                     len(new_entries), len(entries_raw) - len(new_entries), workspace_id)
+        target = min(PICKS_PER_RUN, remaining_slots)
+        # Accumulate picks in memory and only commit at the very end. The
+        # frontend polls the glossary list every 3s and stops as soon as
+        # entries.length changes — so partial writes would freeze the UI at
+        # the first intermediate count (e.g. user sees 3 of 10).
+        to_pick: list[int] = [e["id"] for e in db.get_unpicked_pool_entries(source_ids, user_id, target)]
+
+        client = None
+        chunks_processed = 0
+        if len(to_pick) < target:
+            workspace_terms = db.get_pool_terms_for_workspace(workspace_id)
+            while len(to_pick) < target and chunks_processed < MAX_CHUNKS_PER_RUN:
+                chunk = db.claim_next_unprocessed_chunk(source_ids)
+                if not chunk:
+                    logger.info("KI Tutor: glossary - no more unprocessed chunks for sources {}", source_ids)
+                    break
+                chunks_processed += 1
+
+                if client is None:
+                    client, model, _ = _get_llm_client()
+                new_pool_ids = _extract_and_store_chunk(
+                    client, model, chunk, workspace_terms,
+                )
+                if not new_pool_ids:
+                    continue  # empty chunk — already marked processed, move on
+                remaining = target - len(to_pick)
+                to_pick.extend(new_pool_ids[:remaining])
+
+        if to_pick:
+            db.create_user_picks(user_id, to_pick)
+        logger.info(
+            "KI Tutor: glossary delivered {} picks (LLM-touched {} chunks) for user {}",
+            len(to_pick), chunks_processed, user_id,
+        )
 
     except Exception as e:
-        logger.error("KI Tutor: glossary generation failed for workspace {}: {}", workspace_id, e)
+        logger.error("KI Tutor: glossary generation failed for workspace {} user {}: {}",
+                     workspace_id, user_id, e)
 
 
-# ── Exercise Set generation (replaces threading.Thread) ──────────────────────
+def _extract_and_store_chunk(client, model, chunk: dict, workspace_terms: set[str]) -> list[int]:
+    """Run the LLM on one chunk, persist its terms to the shared pool, return
+    the new pool entry ids. ``workspace_terms`` (lowercased) is mutated in
+    place so subsequent chunks in the same run skip duplicates."""
+    content = chunk.get("content") or ""
+    if not content.strip():
+        return []
 
+    messages = [
+        {"role": "system", "content": _GLOSSARY_CHUNK_PROMPT},
+        {"role": "user", "content": f"Chunk:\n\n{content}"},
+    ]
+    try:
+        response = client.chat.completions.create(model=model, messages=messages, temperature=0.1)
+    except Exception as e:
+        logger.warning("KI Tutor: glossary LLM call failed for chunk {}: {}", chunk["id"], e)
+        return []
+
+    raw = response.choices[0].message.content or ""
+    try:
+        parsed = json.loads(_clean_llm_json(raw))
+    except (json.JSONDecodeError, ValueError):
+        logger.warning("KI Tutor: glossary LLM returned invalid JSON for chunk {}", chunk["id"])
+        return []
+    if not isinstance(parsed, list):
+        return []
+
+    content_lower = content.lower()
+    chunk_seen: set[str] = set()
+    new_entries: list[dict] = []
+    for raw_entry in parsed:
+        if not isinstance(raw_entry, dict):
+            continue
+        term = (raw_entry.get("term_de") or "").strip()
+        if not term:
+            continue
+        term_key = term.lower()
+        # Verbatim: term must appear in THIS chunk.
+        if term_key not in content_lower:
+            continue
+        # Dedup against existing pool (workspace-wide) and within this batch.
+        if term_key in workspace_terms or term_key in chunk_seen:
+            continue
+        chunk_seen.add(term_key)
+        new_entries.append({
+            "term_de": term,
+            "term_en": (raw_entry.get("term_en") or "").strip(),
+            "definition": (raw_entry.get("definition") or "").strip(),
+            "definition_en": (raw_entry.get("definition_en") or "").strip(),
+            "example_sentence": (raw_entry.get("example_sentence") or "").strip(),
+            "example_sentence_en": (raw_entry.get("example_sentence_en") or "").strip(),
+            "page_number": chunk.get("page_number"),
+        })
+
+    if not new_entries:
+        return []
+
+    rows = db.bulk_create_pool_entries(chunk["source_id"], chunk["id"], new_entries)
+    for r in rows:
+        workspace_terms.add(r["term_de"].lower())
+    return [r["id"] for r in rows]

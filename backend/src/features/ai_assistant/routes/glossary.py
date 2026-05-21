@@ -70,7 +70,7 @@ async def get_glossary(
     if not is_owner and not is_enrolled:
         raise HTTPException(status_code=403, detail=t("workspace.accessDenied", locale))
 
-    entries = db.get_aia_glossary_by_workspace(workspace["id"])
+    entries = db.get_aia_glossary_by_workspace(workspace["id"], user_id)
     return {"entries": entries}
 
 @router.post("/ai-assistant/workspaces/{workspace_uuid}/glossary/generate")
@@ -96,7 +96,7 @@ async def generate_glossary(
     source_ids = _resolve_source_ids(workspace, body.active_source_ids, locale=locale)
 
     from src.tasks.aia_tasks import run_generate_glossary
-    run_generate_glossary.delay(workspace["id"], source_ids)
+    run_generate_glossary.delay(workspace["id"], user_id, source_ids)
     return {"status": "generating"}
 
 @router.delete("/ai-assistant/workspaces/{workspace_uuid}/glossary/{entry_id}")
@@ -106,7 +106,17 @@ async def delete_glossary_entry_endpoint(
     current_user: dict = Depends(get_current_user),
     locale: str = Depends(get_locale),
 ):
-    if not db.delete_glossary_entry(entry_id):
+    user_id = current_user["user_id"]
+    workspace = db.get_aia_workspace(workspace_uuid)
+    if not workspace:
+        raise HTTPException(status_code=404, detail=t("workspace.notFound", locale))
+
+    is_owner = workspace["user_id"] == user_id
+    is_enrolled = db.is_student_enrolled(workspace["id"], user_id)
+    if not is_owner and not is_enrolled:
+        raise HTTPException(status_code=403, detail=t("workspace.accessDenied", locale))
+
+    if not db.delete_glossary_entry(entry_id, user_id):
         raise HTTPException(status_code=404, detail=t("entry.notFound", locale))
     return {"ok": True}
 
@@ -116,14 +126,39 @@ async def delete_all_glossary_endpoint(
     current_user: dict = Depends(get_current_user),
     locale: str = Depends(get_locale),
 ):
+    user_id = current_user["user_id"]
     workspace = db.get_aia_workspace(workspace_uuid)
     if not workspace:
         raise HTTPException(status_code=404, detail=t("workspace.notFound", locale))
-    count = db.delete_all_glossary_entries(workspace["id"])
+
+    is_owner = workspace["user_id"] == user_id
+    is_enrolled = db.is_student_enrolled(workspace["id"], user_id)
+    if not is_owner and not is_enrolled:
+        raise HTTPException(status_code=403, detail=t("workspace.accessDenied", locale))
+
+    count = db.delete_all_glossary_entries(workspace["id"], user_id)
     return {"ok": True, "deleted": count}
 
 
 # ─── Glossary: Aus Markierung extrahieren ─────────────────────────────────────
+
+_GLOSSARY_SINGLE_PROMPT = """You are a language expert for international students at B1 level. The user has manually selected ONE specific term/phrase to add to their glossary.
+
+Respond ONLY with a JSON object describing this exact term. Do NOT split compounds, do NOT decompose, do NOT extract sub-words. Return exactly one entry for the term AS GIVEN.
+
+{
+  "term_en": "Translation (see rules)",
+  "definition": "Short explanation in German (B1 level, 1-2 sentences)",
+  "definition_en": "Short explanation in English (B1 level, 1-2 sentences)",
+  "example_sentence": "Example sentence using the term in its source language",
+  "example_sentence_en": "English translation of the example sentence"
+}
+
+Rules:
+- term_en: if the input term is German, translate to English. If English, translate to German. Never the same language as the input.
+- definition: simple explanation in German, understandable at B1 level
+- definition_en: simple explanation in English, understandable at B1 level
+- Respond ONLY with the JSON object, no array, no markdown fences."""
 
 _GLOSSARY_EXTRACT_PROMPT = """You are a language expert for international students at B1 level. Analyze the highlighted text and extract words/phrases that a B1 learner should learn for university study.
 
@@ -178,7 +213,7 @@ async def extract_glossary_from_selection(
     enforce_quota(user_id, "aia_generate", is_admin_user(current_user), locale)
 
     # Check glossary limit
-    current_count = db.get_glossary_count(workspace["id"])
+    current_count = db.get_glossary_count(workspace["id"], user_id)
     if current_count >= GLOSSARY_LIMIT:
         return {"added": 0, "message": t("ai.glossary.full", locale, current=current_count, max=GLOSSARY_LIMIT)}
 
@@ -193,11 +228,54 @@ async def extract_glossary_from_selection(
         raise HTTPException(status_code=404, detail=t("source.notFound", locale))
 
     # Get existing terms to avoid duplicates
-    existing = db.get_aia_glossary_by_workspace(workspace["id"])
+    existing = db.get_aia_glossary_by_workspace(workspace["id"], user_id)
     existing_terms = {e["term_de"].lower() for e in existing}
 
-    # Ask LLM to extract terms
+    # Short selections (single term / short phrase) → take the marked text verbatim,
+    # ask LLM only for translation/definition. Avoids the LLM splitting compounds
+    # like "Prüfungsleistung" into "Prüfung" + "Leistung" + "Prüfungsleistung".
+    tokens = [w for w in re.split(r"\s+", text) if w]
+    is_single_term_selection = len(tokens) <= 3 and len(text) <= 60
+
     try:
+        if is_single_term_selection:
+            messages = [
+                {"role": "system", "content": _GLOSSARY_SINGLE_PROMPT},
+                {"role": "user", "content": f"Markierter Begriff: {text}"},
+            ]
+            response = llm._client.chat.completions.create(
+                model=llm._model, messages=messages, temperature=0.2,
+                **(llm._extra_body and {"extra_body": llm._extra_body} or {}),
+            )
+            answer = response.choices[0].message.content.strip()
+            if answer.startswith("```"):
+                answer = answer.split("\n", 1)[1].rsplit("```", 1)[0].strip()
+
+            parsed = json.loads(answer)
+            if isinstance(parsed, list):
+                parsed = parsed[0] if parsed else None
+            if not isinstance(parsed, dict):
+                return {"added": 0, "message": t("ai.glossary.noLearnableTerms", locale)}
+
+            if text.lower() in existing_terms:
+                return {"added": 0, "message": t("ai.glossary.alreadyKnown", locale)}
+
+            entry = {
+                "term_de": text,
+                "term_en": parsed.get("term_en", ""),
+                "definition": parsed.get("definition", ""),
+                "definition_en": parsed.get("definition_en", ""),
+                "example_sentence": parsed.get("example_sentence", ""),
+                "example_sentence_en": parsed.get("example_sentence_en", ""),
+                "page_number": body.page_number,
+            }
+            db.bulk_create_glossary_entries(source["id"], user_id, [entry])
+            return {
+                "added": 1,
+                "message": t("ai.glossary.added", locale, count=1),
+                "entries": [entry],
+            }
+
         messages = [
             {"role": "system", "content": _GLOSSARY_EXTRACT_PROMPT},
             {"role": "user", "content": f"Markierter Text:\n\n{text}"},
@@ -244,7 +322,7 @@ async def extract_glossary_from_selection(
                 return {"added": 0, "message": t("ai.glossary.alreadyKnown", locale)}
             return {"added": 0, "message": t("ai.glossary.noNewTerms", locale)}
 
-        db.bulk_create_glossary_entries(source["id"], new_entries)
+        db.bulk_create_glossary_entries(source["id"], user_id, new_entries)
         count = len(new_entries)
         return {
             "added": count,

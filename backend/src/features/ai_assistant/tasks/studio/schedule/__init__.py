@@ -123,16 +123,26 @@ def run_generate_schedule(self, job_id: int, workspace_id: int, user_id: int,
             logger.info("Schedule job {}: no candidates found", job_id)
             return
 
-        # Load existing entries now so the harmonize pass can align new
-        # candidate titles with DB entries already present on the same date.
+        # Load existing entries so the harmonize pass can align new candidate
+        # titles with DB entries already present on the same date.
+        # `existing_entries` (own) drives the merge loop below.
+        # `harmonize_anchors` adds entries from OTHER users in the same workspace
+        # so user B's job inherits user A's canonical wording (otherwise
+        # harmonize has no anchor when user B uploads both sources at once
+        # and the LLM may keep semantically-equal titles like
+        # "Abgabe Hausarbeit" vs "Abgabe schriftliche Ausarbeitung" apart).
         existing_entries: list[dict] = list(db.get_schedule_entries(workspace_id, user_id))
+        workspace_entries: list[dict] = list(db.get_schedule_entries_for_workspace(workspace_id))
+        own_ids = {e["id"] for e in existing_entries}
+        cross_user_anchors = [e for e in workspace_entries if e["id"] not in own_ids]
+        harmonize_anchors = existing_entries + cross_user_anchors
 
         # STAGE 2c: Cross-candidate title harmonization for events on the same date.
         # Aligns new candidates with each other AND with existing DB entries so
         # fuzzy-merge downstream picks them up instead of creating duplicates.
         try:
             _harmonize_same_date_titles(
-                client, model, all_candidates, classifications, today_d, existing_entries,
+                client, model, all_candidates, classifications, today_d, harmonize_anchors,
             )
         except Exception as e:
             logger.warning("Schedule job {}: harmonize pass failed (non-fatal): {}", job_id, e)

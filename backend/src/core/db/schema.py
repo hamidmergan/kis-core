@@ -600,6 +600,136 @@ def init_db(admin_email: Optional[str] = None) -> None:
             # Migration: add English columns to glossary
             cur.execute("ALTER TABLE aia_glossary_entries ADD COLUMN IF NOT EXISTS definition_en TEXT")
             cur.execute("ALTER TABLE aia_glossary_entries ADD COLUMN IF NOT EXISTS example_sentence_en TEXT")
+
+            # ─── Glossary pool migration ──────────────────────────────────────
+            # Entries are now a workspace-shared pool (one row per learnable term
+            # per chunk), and each user maintains an M:N pick list. This allows
+            # User A's LLM-extracted terms to be reused by User B/C without
+            # re-running the model.
+            cur.execute(
+                "ALTER TABLE aia_glossary_entries "
+                "ADD COLUMN IF NOT EXISTS chunk_id INTEGER REFERENCES aia_chunks(id) ON DELETE CASCADE"
+            )
+            cur.execute(
+                "ALTER TABLE aia_chunks "
+                "ADD COLUMN IF NOT EXISTS glossary_processed BOOLEAN NOT NULL DEFAULT FALSE"
+            )
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS aia_user_glossary_picks (
+                    user_id    INTEGER NOT NULL,
+                    entry_id   INTEGER NOT NULL
+                                 REFERENCES aia_glossary_entries(id) ON DELETE CASCADE,
+                    status     TEXT NOT NULL DEFAULT 'active'
+                                 CHECK (status IN ('active', 'hidden')),
+                    created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+                    PRIMARY KEY (user_id, entry_id)
+                )
+            """)
+            cur.execute(
+                "CREATE INDEX IF NOT EXISTS idx_user_glossary_picks_user "
+                "ON aia_user_glossary_picks(user_id, status)"
+            )
+
+            # Backfill chunk_id from page_number for legacy rows.
+            cur.execute("""
+                UPDATE aia_glossary_entries g
+                SET chunk_id = c.id
+                FROM aia_chunks c
+                WHERE g.chunk_id IS NULL
+                  AND c.source_id = g.source_id
+                  AND c.page_number = g.page_number
+            """)
+            # Orphans (page_number NULL or no chunk match): pin to first chunk
+            # of the source so the pool stays usable. If the source has no
+            # chunks at all (shouldn't happen in practice), chunk_id stays NULL.
+            cur.execute("""
+                UPDATE aia_glossary_entries g
+                SET chunk_id = sub.first_chunk_id
+                FROM (
+                    SELECT source_id, MIN(id) AS first_chunk_id
+                    FROM aia_chunks
+                    GROUP BY source_id
+                ) sub
+                WHERE g.chunk_id IS NULL AND g.source_id = sub.source_id
+            """)
+
+            # Migrate per-user entries → pool + picks (idempotent: only fires
+            # while the legacy user_id column still exists).
+            cur.execute("""
+                SELECT 1 FROM information_schema.columns
+                WHERE table_schema = 'public'
+                  AND table_name = 'aia_glossary_entries'
+                  AND column_name = 'user_id'
+            """)
+            if cur.fetchone():
+                # Copy each (user_id, entry_id) into picks before we lose user_id.
+                cur.execute("""
+                    INSERT INTO aia_user_glossary_picks (user_id, entry_id, status, created_at)
+                    SELECT user_id, id, 'active', created_at
+                    FROM aia_glossary_entries
+                    WHERE user_id IS NOT NULL
+                    ON CONFLICT DO NOTHING
+                """)
+
+                # Dedupe: each (source_id, lower(term_de)) survives once. Repoint
+                # picks to the surviving id, dropping picks that would collide
+                # with an already-existing pick for the same user.
+                cur.execute("""
+                    DELETE FROM aia_user_glossary_picks p
+                    USING (
+                        SELECT id, MIN(id) OVER (
+                            PARTITION BY source_id, lower(term_de)
+                        ) AS keep_id
+                        FROM aia_glossary_entries
+                    ) d
+                    WHERE p.entry_id = d.id
+                      AND d.id <> d.keep_id
+                      AND EXISTS (
+                          SELECT 1 FROM aia_user_glossary_picks p2
+                          WHERE p2.user_id = p.user_id AND p2.entry_id = d.keep_id
+                      )
+                """)
+                cur.execute("""
+                    UPDATE aia_user_glossary_picks p
+                    SET entry_id = d.keep_id
+                    FROM (
+                        SELECT id, MIN(id) OVER (
+                            PARTITION BY source_id, lower(term_de)
+                        ) AS keep_id
+                        FROM aia_glossary_entries
+                    ) d
+                    WHERE p.entry_id = d.id AND d.id <> d.keep_id
+                """)
+                cur.execute("""
+                    DELETE FROM aia_glossary_entries e
+                    USING (
+                        SELECT id, MIN(id) OVER (
+                            PARTITION BY source_id, lower(term_de)
+                        ) AS keep_id
+                        FROM aia_glossary_entries
+                    ) d
+                    WHERE e.id = d.id AND d.id <> d.keep_id
+                """)
+
+                # Any chunk that already produced an entry was clearly seen by
+                # the LLM at some point — mark it processed so the new puller
+                # doesn't re-extract those chunks for every user from scratch.
+                cur.execute("""
+                    UPDATE aia_chunks c
+                    SET glossary_processed = TRUE
+                    WHERE NOT c.glossary_processed
+                      AND EXISTS (
+                          SELECT 1 FROM aia_glossary_entries g WHERE g.chunk_id = c.id
+                      )
+                """)
+
+                cur.execute("DROP INDEX IF EXISTS idx_glossary_source_user")
+                cur.execute("ALTER TABLE aia_glossary_entries DROP COLUMN IF EXISTS user_id")
+
+            cur.execute(
+                "CREATE INDEX IF NOT EXISTS idx_glossary_source_chunk "
+                "ON aia_glossary_entries(source_id, chunk_id)"
+            )
             # ─── Exercise Sets ──────────────────────────────────
             cur.execute("""
                 CREATE TABLE IF NOT EXISTS aia_exercise_sets (

@@ -382,7 +382,7 @@ export default function KiTutorWorkspacePage() {
           setViewerSource({ uuid: src.uuid, filename: src.filename, page: 0, startTime, nonce: Date.now() });
           setPanels((prev) => ({ ...prev, quellen: true }));
         } else {
-          handleOpenViewer(src, page, highlightText);
+          handleOpenViewer(src, page, highlightText, true);
         }
       }}
       onDelete={deleteGlossaryEntry}

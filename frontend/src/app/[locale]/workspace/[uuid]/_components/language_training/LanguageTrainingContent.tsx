@@ -75,7 +75,7 @@ export function LanguageTrainingContent(props: LanguageTrainingContentProps) {
 
   const onSourceClick = (filename: string, page: number, startTime?: number, highlightText?: string) => {
     const src = sources.find((s) => s.filename === filename);
-    if (src) handlePillClick(src.uuid, page, filename, highlightText, startTime);
+    if (src) handlePillClick(src.uuid, page, filename, highlightText, startTime, true);
   };
 
   const studioLabel = t("common.studio");

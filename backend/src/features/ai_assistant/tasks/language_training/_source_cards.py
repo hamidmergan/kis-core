@@ -96,7 +96,11 @@ def _generate_questions(
 
 def _build_chat_context(ctx: QuelleContext) -> tuple[str, list[dict]]:
     """Build the same XML <documents> context that chat.py uses, plus a qmap that
-    resolves doc index N -> {uuid, filename, source_label}."""
+    resolves doc index N -> {uuid, filename, source_label, chunks}.
+
+    qmap entries carry their source chunks so citation parsing can resolve the
+    real page where a keyword appears (LLM citations frequently point at the
+    wrong page, same bug pattern that was fixed for the glossary task)."""
     from src import database as db
 
     parts: list[str] = []
@@ -126,6 +130,7 @@ def _build_chat_context(ctx: QuelleContext) -> tuple[str, list[dict]]:
             "uuid": src["uuid"],
             "filename": sname,
             "is_media": Path(sname).suffix.lower() in _MEDIA_EXTS,
+            "chunks": [(c["page_number"], (c["content"] or "").lower()) for c in chunks],
         })
 
     xml = f"<documents>\n{''.join(parts)}\n</documents>"
@@ -182,6 +187,21 @@ def _parse_citations_to_chips(answer: str, qmap: list[dict]) -> list[dict]:
             tp = [int(x) for x in time_str.split(":")]
             start_time = tp[0] * 3600 + tp[1] * 60 + tp[2] if len(tp) == 3 else tp[0] * 60 + tp[1]
         keyword = (keywords or "").strip().strip("\"'") if keywords else ""
+        # Match the Lernkarten/Vokabeltest pattern: highlight_text must be a
+        # single verbatim token so exactSelection=true matching succeeds. LLM
+        # multi-word keyword phrases ("Mentorin Lenka Kleinau") often don't
+        # appear contiguously on the page and break exact match.
+        keyword = keyword.split()[0] if keyword else ""
+        # Same chunk-resolution as the glossary task: the LLM cites pages
+        # unreliably. Look up the keyword in the source's chunks and override
+        # the citation's page with the chunk where it actually appears, so the
+        # frontend exactSelection match has something to find.
+        if keyword and not start_time:
+            kw_lower = keyword.lower()
+            for chunk_page, chunk_content in entry.get("chunks", []):
+                if kw_lower in chunk_content:
+                    page = chunk_page
+                    break
         key = (entry["filename"], page)
         if key in seen:
             continue

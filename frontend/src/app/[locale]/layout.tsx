@@ -60,7 +60,7 @@ export default async function RootLayout({ children, params }: Props) {
         <link rel="license" href="https://www.apache.org/licenses/LICENSE-2.0" />
         <script dangerouslySetInnerHTML={{ __html: themeBootScript }} />
       </head>
-      <body className={`${geist.variable} min-h-screen flex flex-col`}>
+      <body className={`${geist.variable} min-h-screen flex flex-col`} suppressHydrationWarning>
         <NextIntlClientProvider locale={locale} messages={messages}>
           <NextTopLoader color="#668DA0" showSpinner={false} height={3} />
           <MaintenanceGuard />

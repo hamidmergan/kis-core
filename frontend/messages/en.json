@@ -1368,7 +1368,10 @@
           "emptyTitle": "No glossary generated yet. Click \"Extract terms\" above to extract subject terms from your sources.",
           "context": "Context",
           "explanation": "Explanation",
-          "pageShort": "p. {page}"
+          "pageShort": "p. {page}",
+          "sortRecent": "Newest",
+          "sortAlpha": "A–Z",
+          "sortAriaLabel": "Choose sort order"
         },
         "overview": {
           "glossaryCounter": "{count}/{max} glossary",
@@ -1772,8 +1775,6 @@
       "emptyTitle": "No {label} yet.",
       "emptyText": "Use the button above to add one.",
       "welcomeTitle": "Welcome to KIS",
-      "enrollPrompt": "Enter enrollment code",
-      "enrollPlaceholder": "e.g. a1b2c3d4",
       "enroll": "Enroll",
       "enrollInvalidCode": "Invalid code",
       "unknownError": "Unknown error",

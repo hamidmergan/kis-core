@@ -132,7 +132,7 @@ export function StudioPanelContent(props: StudioPanelContentProps) {
 
   const onSourceClick = (filename: string, page: number, startTime?: number, highlightText?: string) => {
     const src = sources.find((s) => s.filename === filename);
-    if (src) onPillClick(src.uuid, page, filename, highlightText, startTime);
+    if (src) onPillClick(src.uuid, page, filename, highlightText, startTime, true);
   };
 
   if (activeSet && activeSet.tool === "karteikarten") {

@@ -9,19 +9,34 @@ from src.features.ai_assistant.tasks._helpers import _clean_llm_json
 from src.features.ai_assistant.tasks.language_training._title import title_from_glossary_terms
 
 
+def _language_label(locale: str) -> str:
+    return "English" if (locale or "").lower().startswith("en") else "German"
+
+
 def generate_from_glossary(
     client, model,
     workspace_id: int,
+    user_id: int,
     tool: str,
     count: int,
+    locale: str = "de",
 ) -> tuple[list[dict], str] | None:
     """Returns (items, title) oder None wenn kein Glossary vorhanden."""
-    glossary = db.get_aia_glossary_by_workspace(workspace_id)
+    glossary = db.get_aia_glossary_by_workspace(workspace_id, user_id)
     if not glossary:
         return None
 
     selected = random.sample(glossary, min(count, len(glossary)))
     items: list[dict] = []
+    language = _language_label(locale)
+
+    def _sources_for(e: dict) -> list[dict]:
+        return [{
+            "source_label": e.get("filename", ""),
+            "page_number": e.get("page_number"),
+            "start_time": None,
+            "highlight_text": e["term_de"],
+        }]
 
     if tool == "flashcards":
         items = [
@@ -31,6 +46,7 @@ def generate_from_glossary(
                 "back_en": e["term_en"],
                 "source_label": e.get("filename", ""),
                 "page_number": e.get("page_number"),
+                "sources": _sources_for(e),
             }
             for e in selected
         ]
@@ -41,13 +57,14 @@ def generate_from_glossary(
                 "back": f"{e['term_en']} - {e['definition']}",
                 "source_label": e.get("filename", ""),
                 "page_number": e.get("page_number"),
+                "sources": _sources_for(e),
             }
             for e in selected
         ]
     elif tool == "lueckentext":
-        items = _generate_lueckentext(client, model, selected, count)
+        items = _generate_lueckentext(client, model, selected, count, language)
     elif tool == "vokabeltest":
-        items = _generate_vokabeltest(client, model, selected, count)
+        items = _generate_vokabeltest(client, model, selected, count, language)
 
     title = title_from_glossary_terms(client, model, [e["term_de"] for e in selected])
     return items, title
@@ -79,13 +96,15 @@ def _build_term_lookup(selected: list[dict]):
     return find
 
 
-def _generate_lueckentext(client, model, selected: list[dict], count: int) -> list[dict]:
+def _generate_lueckentext(client, model, selected: list[dict], count: int, language: str) -> list[dict]:
     terms_text = "\n".join(f"- {e['term_de']} ({e['term_en']}): {e['definition']}" for e in selected)
     messages = [
         {"role": "system", "content": (
             "You create cloze (gap-filling) exercises. For every term, build a sentence "
             "with a gap that must be filled by the term. "
-            "Write sentences and answers in the SAME language as the input terms (German terms -> German sentences).\n\n"
+            f"Write ALL sentences, options, and answers in {language}. "
+            f"If the input term is not in {language}, use its {language} equivalent in the sentence and options "
+            "(but keep term_de exactly as given so the source page can be looked up).\n\n"
             "Respond ONLY with a JSON array:\n"
             '[{"sentence": "Der Prozess der ___ reduziert Redundanz.", '
             '"answer": "Normalisierung", '
@@ -95,10 +114,10 @@ def _generate_lueckentext(client, model, selected: list[dict], count: int) -> li
             "- correct_idx = index of the correct option (0-3)\n"
             "- ___ as the gap placeholder\n"
             "- term_de MUST exactly match the input term (used to look up the source page)\n"
-            "- Do NOT use personal names in questions. Instead of 'laut Prof. X', write 'laut Quelle' (German) or 'according to the source' (English), matching the source language\n"
+            "- Do NOT use personal names in questions. Instead of 'laut Prof. X', write 'laut Quelle' (German) or 'according to the source' (English), matching the output language\n"
             "- Respond ONLY with the JSON array."
         )},
-        {"role": "user", "content": f"Create cloze exercises (in the source language of the terms):\n\n{terms_text}"},
+        {"role": "user", "content": f"Create cloze exercises in {language}:\n\n{terms_text}"},
     ]
     response = client.chat.completions.create(model=model, messages=messages, temperature=0.3)
     answer = _clean_llm_json(response.choices[0].message.content or "")
@@ -132,12 +151,15 @@ def _generate_lueckentext(client, model, selected: list[dict], count: int) -> li
     return items
 
 
-def _generate_vokabeltest(client, model, selected: list[dict], count: int) -> list[dict]:
+def _generate_vokabeltest(client, model, selected: list[dict], count: int, language: str) -> list[dict]:
     terms_text = "\n".join(f"- {e['term_de']} ({e['term_en']}): {e['definition']}" for e in selected)
     messages = [
         {"role": "system", "content": (
             "You create a vocabulary quiz on technical terms (multiple choice). "
-            "Write questions and explanations in the SAME language as the input terms (German terms -> German questions).\n\n"
+            f"Write ALL questions and explanations in {language}. "
+            "Translation questions (e.g. 'What is the English translation of X?' / "
+            "'Was ist die deutsche Übersetzung von X?') are allowed and keep their target term in "
+            "the other language — but the question wording itself is in the output language.\n\n"
             "Respond ONLY with a JSON array:\n"
             '[{"question": "Was ist die englische Übersetzung von Normalisierung?", '
             '"options": ["Indexing", "Normalization", "Partitioning", "Denormalization"], '
@@ -147,10 +169,10 @@ def _generate_vokabeltest(client, model, selected: list[dict], count: int) -> li
             "- Pick terms suitable for MC (clear definition, plausible distractors)\n"
             "- Exactly 4 options, one correct\n- correct_idx = 0-3\n"
             "- term_de MUST exactly match the input term (used to look up the source page)\n"
-            "- Do NOT use personal names in questions. Instead of 'laut Prof. X', write 'laut Quelle' (German) or 'according to the source' (English), matching the source language\n"
+            "- Do NOT use personal names in questions. Instead of 'laut Prof. X', write 'laut Quelle' (German) or 'according to the source' (English), matching the output language\n"
             "- Respond ONLY with the JSON array."
         )},
-        {"role": "user", "content": f"Create vocabulary-quiz questions for these technical terms (in the source language of the terms):\n\n{terms_text}"},
+        {"role": "user", "content": f"Create vocabulary-quiz questions in {language} for these technical terms:\n\n{terms_text}"},
     ]
     response = client.chat.completions.create(model=model, messages=messages, temperature=0.3)
     answer = _clean_llm_json(response.choices[0].message.content or "")

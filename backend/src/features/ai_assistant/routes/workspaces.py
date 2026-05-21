@@ -304,6 +304,21 @@ async def delete_workspace(
     logger.info("KI Tutor: workspace {} deleted by user {}", workspace_uuid, current_user["user_id"])
     return {"deleted": workspace_uuid}
 
+@router.get("/ai-assistant/access-link/preview")
+async def preview_access_link(
+    code: str,
+    current_user: dict = Depends(get_current_user),
+    locale: str = Depends(get_locale),
+):
+    result = db.get_workspace_by_access_link_code(code)
+    if result:
+        workspace, _link = result
+        return {"workspace_uuid": workspace["uuid"], "title": workspace["title"]}
+    workspace = db.get_workspace_by_enroll_code(code)
+    if not workspace:
+        raise HTTPException(status_code=404, detail=t("ai.workspace.invalidEnrollCode", locale))
+    return {"workspace_uuid": workspace["uuid"], "title": workspace["title"]}
+
 @router.post("/ai-assistant/enroll")
 async def enroll(
     body: schemas.EnrollBody,
