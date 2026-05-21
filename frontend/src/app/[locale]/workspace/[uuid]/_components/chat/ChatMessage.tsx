@@ -23,6 +23,22 @@ const POPUP_ACTION_ICONS: Record<string, PhosphorIconType> = {
 
 const SORRY_PATTERN = /nichts gefunden|keine information|in den quellen nicht enthalten|nicht in den (?:bereitgestellten |angegebenen )?quellen|kann ich nicht beantworten|steht nicht in den|not in the (?:provided |given )?sources?|no information (?:found|available|in)|could(?:n['']t| not) find|cannot find|is not (?:in|available in|contained in) (?:the )?sources?/i;
 
+// Translate popup may fail silently in two ways: LLM echoes the input verbatim, or
+// it follows the (now-removed but legacy) "no personal names" rule and outputs a
+// 'laut Quelle' / 'according to the source' sentinel. Both cases get replaced with
+// a generic "could not translate" message so the user knows to retry or rephrase.
+function _normalizeForCompare(s: string): string {
+  return s.toLowerCase().replace(/[\s\p{P}\p{S}]+/gu, " ").trim();
+}
+function _isTranslateNoop(output: string, input: string | undefined): boolean {
+  if (!input) return false;
+  const out = _normalizeForCompare(output);
+  if (!out) return false;
+  const inp = _normalizeForCompare(input);
+  if (out === inp) return true;
+  return /^(laut quelle|according to the source)\b/.test(out);
+}
+
 
 interface ChatMessageProps {
   msg: ChatMessageType;
@@ -77,11 +93,19 @@ function ChatMessageImpl({
   const wrapCitations = (children: React.ReactNode) =>
     withCitations(children, msg, activeSourceIds, getFilename, onChipClick);
 
+  const isTranslatePopup = msg.popup_selection?.action_key === "translate";
+  const isStreaming = loading && isLatest;
+  const translateFailed = msg.role === "assistant"
+    && isTranslatePopup
+    && !!msg.content
+    && !isStreaming
+    && _isTranslateNoop(msg.content, msg.popup_selection?.text);
+
   let avatarState: HildeState = "idle";
   if (msg.role === "assistant") {
     if (!msg.content && loading) {
       avatarState = "thinking";
-    } else if (SORRY_PATTERN.test(msg.content)) {
+    } else if (translateFailed || SORRY_PATTERN.test(msg.content)) {
       avatarState = "confused";
     } else if (isLatest && msgQmap.length > 0) {
       avatarState = "found";
@@ -187,6 +211,10 @@ function ChatMessageImpl({
           ) : msg.role === "assistant" && !msg.content && msg.aborted ? (
             <span className="text-xs italic" style={{ color: "var(--muted)" }}>
               {t("noAnswer")}
+            </span>
+          ) : msg.role === "assistant" && translateFailed ? (
+            <span className="text-sm italic" style={{ color: "var(--muted)" }}>
+              {t("translateFailed")}
             </span>
           ) : msg.role === "assistant" ? (
             <>

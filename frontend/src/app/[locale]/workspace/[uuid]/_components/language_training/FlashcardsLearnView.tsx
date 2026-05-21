@@ -383,8 +383,7 @@ export function FlashcardsLearnView({
               {flipped ? (
                 <>
                   <button key="again" type="button" onClick={() => answer(false)} title={t("common.again")}
-                    className="w-11 h-11 rounded-full flex items-center justify-center transition-colors hover:bg-[rgba(212,69,58,0.08)]"
-                    style={{ border: "2px solid #d4453a", color: "#d4453a", backgroundColor: "var(--surface)", boxShadow: "0 1px 3px rgba(0,40,60,0.06)" }}>
+                    className="btn-outline-danger w-11 h-11 rounded-full flex items-center justify-center">
                     <XIcon size={18} weight="bold" />
                   </button>
                   <button key="back-to-question" type="button" onClick={() => setFlipped(false)}
@@ -392,8 +391,7 @@ export function FlashcardsLearnView({
                     {t("common.showQuestion")}
                   </button>
                   <button key="knew" type="button" onClick={() => answer(true)} title={t("common.know")}
-                    className="w-11 h-11 rounded-full flex items-center justify-center transition-colors hover:bg-[rgba(26,138,92,0.08)]"
-                    style={{ border: "2px solid #1a8a5c", color: "#1a8a5c", backgroundColor: "var(--surface)", boxShadow: "0 1px 3px rgba(0,40,60,0.06)" }}>
+                    className="btn-outline-success w-11 h-11 rounded-full flex items-center justify-center">
                     <Check size={18} weight="bold" />
                   </button>
                 </>

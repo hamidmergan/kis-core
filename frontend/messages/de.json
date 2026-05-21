@@ -1506,7 +1506,8 @@
         "sourcesCount": "{n, plural, =1 {1 Quelle} other {# Quellen}}",
         "indexingInProgress": "{label} wird noch indiziert. Bitte warte einen Moment und versuche es erneut.",
         "tooManyRequests": "Zu viele Anfragen. Bitte einen Moment warten und erneut senden.",
-        "genericError": "Es ist ein Fehler aufgetreten. Bitte versuche es erneut."
+        "genericError": "Es ist ein Fehler aufgetreten. Bitte versuche es erneut.",
+        "translateFailed": "Diese Passage konnte nicht übersetzt werden."
       },
       "sources": {
         "title": "Quellen",

@@ -2,8 +2,8 @@ import React, { useContext, useEffect, useRef, useState } from "react";
 import { CaretLeft, CaretRight, Chat, Check, Lightbulb, Question, SidebarSimple } from "@phosphor-icons/react";
 import { useTranslations } from "next-intl";
 import Spinner from "@/components/ui/Spinner";
-import type { ExerciseItem, ExerciseSet, Source } from "../../_types";
-import { _chunkLabel, _getChipIcon, _md } from "../../_utils";
+import type { ExerciseItem, ExerciseItemSource, ExerciseSet, Source } from "../../_types";
+import { _chunkLabel, _getChipIcon, _md, _sourceChipKey } from "../../_utils";
 import { MinimizeContext } from "../../_context";
 import { _getToolBadge, type BreadcrumbItem } from "../layout/SubviewHeader";
 
@@ -188,7 +188,7 @@ export function MCExerciseView({
                           /___+/g,
                           answered
                             ? `<span style="font-weight:700;color:${isCorrect ? '#1a8a5c' : '#d4453a'};border-bottom:2px solid ${isCorrect ? '#1a8a5c' : '#d4453a'};padding:0 4px">${card.back}</span>`
-                            : '<span style="display:inline-block;min-width:80px;border-bottom:2px dashed var(--kb);color:var(--kb);font-weight:700;padding:0 4px">___________</span>'
+                            : '<span style="display:inline-block;min-width:80px;color:var(--kb);font-weight:700;padding:0 4px">__________</span>'
                         ),
                       }}
                     />
@@ -229,23 +229,45 @@ export function MCExerciseView({
                       {isCorrect ? `✓ ${t("common.correctShort")}` : <span dangerouslySetInnerHTML={{ __html: `✗ ${t("mcExercise.correctIs")} ${_md(card.back)}` }} />}
                     </div>
                   )}
-                  {/* Source chip + Hint */}
+                  {/* Source chips + Hint */}
                   <div className="flex items-center justify-between mt-1 gap-2">
                     <div className="min-w-0">
-                      {card.source_label && (() => {
-                        const ChipIcon = _getChipIcon(card.source_label);
+                      {(() => {
+                        const cardSource = card.source_label ? { source_label: card.source_label, page_number: card.page_number, start_time: card.start_time } : null;
+                        const rawSrcs: ExerciseItemSource[] = card.sources?.length ? card.sources as ExerciseItemSource[] : cardSource ? [cardSource] : [];
+                        const seenKeys = new Set<string>();
+                        const srcs = rawSrcs.filter((s) => {
+                          const k = _sourceChipKey(s.source_label, s.page_number, s.start_time, s.highlight_text);
+                          if (seenKeys.has(k)) return false;
+                          seenKeys.add(k);
+                          return true;
+                        });
+                        if (!srcs.length) return null;
+                        const uniqueFiles = [...new Set(srcs.map(s => s.source_label))];
+                        const fileIndex = Object.fromEntries(uniqueFiles.map((f, i) => [f, i + 1]));
+                        const multiFile = uniqueFiles.length > 1;
+                        const highlightFallback = card.back.replace(/[*_#`~<>[\](){}|]/g, "");
                         return (
-                        <div className="flex flex-col gap-1">
-                          <div className="flex items-center gap-1 flex-wrap">
-                            <button type="button"
-                              onClick={() => { if (onSourceClick) onSourceClick(card.source_label!, card.page_number ?? 1, card.start_time, card.back.replace(/[*_#`~<>[\](){}|]/g, "")); }}
-                              className="chip-cite inline-flex items-center gap-0.5 text-[10px] font-medium px-2 py-1 rounded-full border-none cursor-pointer transition-colors"
-                              style={{ color: "var(--kb)", backgroundColor: "rgba(var(--kb-rgb),0.07)" }}>
-                              <ChipIcon size={10} weight="bold" /> {_chunkLabel(card.source_label, card.page_number ?? 1, card.start_time)}
-                            </button>
+                          <div className="flex flex-col gap-1">
+                            <div className="flex items-center gap-1 flex-wrap">
+                              {srcs.map((s, si) => {
+                                const ChipIcon = _getChipIcon(s.source_label);
+                                return (
+                                  <button key={si} type="button"
+                                    onClick={() => { if (onSourceClick) onSourceClick(s.source_label, s.page_number ?? 1, s.start_time, s.highlight_text || highlightFallback); }}
+                                    className="chip-cite inline-flex items-center gap-0.5 text-[10px] font-medium px-2 py-1 rounded-full border-none cursor-pointer transition-colors"
+                                    style={{ color: "var(--kb)", backgroundColor: "rgba(var(--kb-rgb),0.07)" }}>
+                                    <ChipIcon size={10} weight="bold" /> {multiFile ? `[${fileIndex[s.source_label]}] ` : ""}{_chunkLabel(s.source_label, s.page_number ?? 1, s.start_time)}
+                                  </button>
+                                );
+                              })}
+                            </div>
+                            {uniqueFiles.map((f, fi) => (
+                              <span key={fi} className="text-[9px] truncate text-[var(--muted)]">
+                                {multiFile ? `[${fi + 1}] ` : ""}{f}
+                              </span>
+                            ))}
                           </div>
-                          <span className="text-[9px] truncate text-[var(--muted)]">{card.source_label}</span>
-                        </div>
                         );
                       })()}
                     </div>

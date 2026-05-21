@@ -96,8 +96,7 @@ export function StaffNoteBox({ text, links, isOwner, workspaceUuid, onEdit }: St
             type="button"
             onClick={() => setOpen((v) => !v)}
             aria-label={open ? t("collapse") : t("expand")}
-            className="w-7 h-7 flex items-center justify-center rounded-full btn-icon"
-            style={{ backgroundColor: "var(--background)" }}
+            className="w-7 h-7 flex items-center justify-center text-[var(--muted)] hover:text-[var(--kb)] transition-colors"
           >
             <CaretDown
               size={13}

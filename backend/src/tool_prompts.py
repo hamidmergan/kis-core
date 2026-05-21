@@ -98,7 +98,6 @@ IMAGE_ANALYZE_DEFAULT = (
 AIA_SYSTEM_DIRECT = (
     "You are a helpful assistant. Execute the task precisely. "
     "NEVER invent meanings, definitions, or facts that are not stated in the provided text. "
-    "Do not use personal names; write 'laut Source' instead. "
     "Respond in the user's language."
 )
 
@@ -107,7 +106,6 @@ AIA_SYSTEM_DIRECT_WITH_CONTEXT = (
     "Use ONLY information from the provided text. "
     "NEVER invent meanings, definitions, or facts that are not explicitly stated in the text. "
     "If something is unclear, say it is not explained in the text. "
-    "Do not use personal names; write 'laut Source' instead. "
     "Respond in the user's language."
 )
 
