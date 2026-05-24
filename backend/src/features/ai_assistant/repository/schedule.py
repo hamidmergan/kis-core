@@ -299,19 +299,24 @@ def delete_all_schedule_entries(workspace_id: int, user_id: int) -> int:
         return count
 
 
-def prune_old_entries(months: int = 1) -> int:
+def prune_old_entries(days: int) -> int:
     """System-wide cleanup: delete schedule entries (checked or not) whose
-    due_date is older than N months. Future entries are never touched, even
+    due_date is older than N days. Future entries are never touched, even
     if they are already checked. Idempotent - safe to call repeatedly.
+
+    Passing days <= 0 disables pruning entirely (returns 0 without touching
+    the table).
     """
+    if days <= 0:
+        return 0
     with get_connection() as conn:
         with conn.cursor() as cur:
             cur.execute(
                 "DELETE FROM aia_schedule_entries "
                 "WHERE due_date IS NOT NULL "
                 "  AND due_date < (NOW() AT TIME ZONE 'Europe/Berlin')::date "
-                "                 - (%s || ' months')::interval",
-                (str(months),),
+                "                 - (%s || ' days')::interval",
+                (str(days),),
             )
             count = cur.rowcount
         conn.commit()

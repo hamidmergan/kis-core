@@ -114,10 +114,8 @@
     "tbdHeading": "By arrangement",
     "tbdLabel": "open",
     "card": {
-      "pastLockedAria": "Past entries cannot be changed",
       "uncheckAria": "Mark as not done",
       "checkAria": "Mark as done",
-      "pastLockedTitle": "Past entries are locked",
       "ownTooltip": "Own workspace",
       "sharedTooltip": "Shared workspace"
     }
@@ -916,6 +914,16 @@
       "hint": "How many documents users may upload per {label}. Takes effect immediately for new uploads.",
       "unit": "sources",
       "outOfRange": "Value must be between 1 and 1000.",
+      "saveFailed": "Save failed."
+    },
+    "scheduleRetentionCard": {
+      "title": "Schedule retention",
+      "hint": "Past entries (done or not) are automatically deleted daily after this many days. Leave empty for 'never delete' (default). Future entries are always kept.",
+      "unit": "days",
+      "placeholderNever": "never",
+      "modeNever": "Never delete",
+      "modeDays": "{n, plural, =1 {Entries older than 1 day get deleted} other {Entries older than # days get deleted}}",
+      "outOfRange": "Value must be between 1 and 3650, or empty for 'never delete'.",
       "saveFailed": "Save failed."
     },
     "workspaceLabel": {
@@ -1724,10 +1732,8 @@
             "confirm": "Delete all"
           },
           "entry": {
-            "pastLockedAria": "Past entries cannot be changed",
             "uncheckAria": "Mark as not done",
             "checkAria": "Mark as done",
-            "pastLockedTitle": "Past entries are locked",
             "edit": "Edit",
             "delete": "Delete"
           },

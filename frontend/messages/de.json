@@ -114,10 +114,8 @@
     "tbdHeading": "Nach Vereinbarung",
     "tbdLabel": "offen",
     "card": {
-      "pastLockedAria": "Vergangene Termine können nicht geändert werden",
       "uncheckAria": "Erledigt aufheben",
       "checkAria": "Als erledigt markieren",
-      "pastLockedTitle": "Vergangene Termine sind gesperrt",
       "ownTooltip": "Eigener Arbeitsraum",
       "sharedTooltip": "Geteilter Arbeitsraum"
     }
@@ -916,6 +914,16 @@
       "hint": "Wie viele Dokumente Nutzer pro {label} hochladen dürfen. Greift sofort für neue Uploads.",
       "unit": "Quellen",
       "outOfRange": "Wert muss zwischen 1 und 1000 liegen.",
+      "saveFailed": "Speichern fehlgeschlagen."
+    },
+    "scheduleRetentionCard": {
+      "title": "Zeitplan-Aufbewahrung",
+      "hint": "Vergangene Einträge (erledigt oder nicht) werden nach dieser Anzahl Tagen täglich automatisch gelöscht. Leer lassen für 'nie löschen' (Default). Zukünftige Einträge bleiben immer erhalten.",
+      "unit": "Tage",
+      "placeholderNever": "nie",
+      "modeNever": "Nie löschen",
+      "modeDays": "{n, plural, =1 {Älter als 1 Tag wird gelöscht} other {Älter als # Tage wird gelöscht}}",
+      "outOfRange": "Wert muss zwischen 1 und 3650 liegen, oder leer für 'nie löschen'.",
       "saveFailed": "Speichern fehlgeschlagen."
     },
     "workspaceLabel": {
@@ -1724,10 +1732,8 @@
             "confirm": "Alles löschen"
           },
           "entry": {
-            "pastLockedAria": "Vergangene Termine können nicht geändert werden",
             "uncheckAria": "Erledigt aufheben",
             "checkAria": "Als erledigt markieren",
-            "pastLockedTitle": "Vergangene Termine sind gesperrt",
             "edit": "Bearbeiten",
             "delete": "Löschen"
           },

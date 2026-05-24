@@ -55,6 +55,9 @@ class UpdateSettingsRequest(BaseModel):
     mascot_enabled: bool | None = None
     # Per-workspace source upload cap (admin-tunable, default 30).
     aia_workspace_max_sources: int | None = None
+    # Schedule entries older than this many days are pruned daily.
+    # 0 = never delete (default). Bounded to a sane upper limit.
+    aia_schedule_retention_days: int | None = None
 
 
 class ToggleToolRequest(BaseModel):

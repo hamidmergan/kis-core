@@ -38,7 +38,10 @@ def _configure_logging() -> None:
 
 async def _periodic_cleanup() -> None:
     """Delete expired job files hourly. Prune past schedule entries once per
-    day: anything with due_date older than 1 month is removed (checked or not)."""
+    day: anything with due_date older than the admin-configured retention is
+    removed (checked or not). Setting ``aia_schedule_retention_days`` controls
+    the cutoff; -1 (default) disables pruning entirely so entries persist
+    forever."""
     DAY_SECS = 24 * 3600
     seconds_since_prune = 0
     while True:
@@ -53,9 +56,19 @@ async def _periodic_cleanup() -> None:
         if seconds_since_prune >= DAY_SECS:
             seconds_since_prune = 0
             try:
-                pruned = await asyncio.to_thread(db.prune_old_entries, 1)
-                if pruned:
-                    logger.info("Schedule cleanup: {} past entries pruned (>1mo)", pruned)
+                raw = db.get_setting("aia_schedule_retention_days", "-1")
+                try:
+                    retention_days = int(raw)
+                except ValueError:
+                    retention_days = -1
+                if retention_days > 0:
+                    pruned = await asyncio.to_thread(db.prune_old_entries, retention_days)
+                    if pruned:
+                        logger.info(
+                            "Schedule cleanup: {} past entries pruned (>{}d)",
+                            pruned,
+                            retention_days,
+                        )
             except Exception as e:
                 logger.warning("Schedule cleanup error: {}", e)
 

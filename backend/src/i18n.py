@@ -197,6 +197,10 @@ MESSAGES: dict[str, dict[str, str]] = {
         "de": "Quellen-Limit muss zwischen {min} und {max} liegen.",
         "en": "Source limit must be between {min} and {max}.",
     },
+    "admin.settings.scheduleRetentionOutOfRange": {
+        "de": "Aufbewahrungsdauer muss zwischen {min} und {max} Tagen liegen, oder leer für 'nie löschen'.",
+        "en": "Retention must be between {min} and {max} days, or empty for 'never delete'.",
+    },
     # Quota enforcement
     "quota.limitReached": {
         "de": "Limit erreicht für {label}.",

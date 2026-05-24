@@ -166,6 +166,11 @@ async def get_settings(_admin=Depends(get_admin_user)):
         "aia_workspace_max_sources": int(
             db.get_setting("aia_workspace_max_sources", "30")
         ),
+        # ── Schedule retention (admin-tunable) ──
+        # -1 = never delete (default). UI renders this as an empty input.
+        "aia_schedule_retention_days": int(
+            db.get_setting("aia_schedule_retention_days", "-1")
+        ),
     }
 
 
@@ -321,6 +326,23 @@ async def update_settings(
                 detail=t("admin.settings.maxSourcesOutOfRange", locale, min=1, max=1000),
             )
         db.set_setting("aia_workspace_max_sources", str(value))
+
+    # Schedule retention in days. -1 disables pruning entirely (UI: empty
+    # field). Otherwise must be 1..3650 so a typo cannot effectively disable
+    # retention or trigger a zero-day prune.
+    if body.aia_schedule_retention_days is not None:
+        value = body.aia_schedule_retention_days
+        if value != -1 and (value < 1 or value > 3650):
+            raise HTTPException(
+                status_code=400,
+                detail=t(
+                    "admin.settings.scheduleRetentionOutOfRange",
+                    locale,
+                    min=1,
+                    max=3650,
+                ),
+            )
+        db.set_setting("aia_schedule_retention_days", str(value))
 
     # Provider model names
     if body.models:
