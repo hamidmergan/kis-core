@@ -4,11 +4,12 @@ import { useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
 import Spinner from "@/components/ui/Spinner";
 import RoleBuilderDialog from "./RoleBuilderDialog";
+import { useWorkspaceLabel } from "@/hooks/useWorkspaceLabel";
 
 interface CustomRole {
   id: number;
   name: string;
-  allow_aia: boolean;
+  aia_access: "none" | "read" | "edit";
   allowed_tools: string[];
 }
 
@@ -20,6 +21,8 @@ interface RolesResponse {
 
 export default function RolesTab() {
   const t = useTranslations("admin.roles");
+  const tTools = useTranslations("toolsSidebar.items");
+  const ws = useWorkspaceLabel();
   const [data, setData] = useState<RolesResponse | null>(null);
   const [loading, setLoading] = useState(true);
   // undefined = closed, null = creating, value = editing
@@ -57,13 +60,12 @@ export default function RolesTab() {
     <div className="space-y-8">
       <section>
         <h3 className="text-base font-semibold mb-1">{t("system")}</h3>
-        <p className="text-sm" style={{ color: "var(--muted)" }}>{t("systemHint")}</p>
+        <p className="text-sm text-muted">{t("systemHint")}</p>
         <ul className="mt-3 flex flex-wrap gap-2">
           {data.system_roles.map((r) => (
             <li
               key={r}
-              className="text-xs font-mono px-2 py-1 rounded-md"
-              style={{ background: "var(--surface)", border: "1px solid var(--border)" }}
+              className="text-xs font-mono px-2 py-1 rounded-md bg-surface border border-border"
             >
               {r}
             </li>
@@ -77,32 +79,38 @@ export default function RolesTab() {
           <button
             type="button"
             onClick={() => setEditing(null)}
-            className="px-4 py-2 rounded-md text-sm font-medium btn-primary"
+            className="px-4 py-2 text-sm bg-kb text-white rounded-md"
           >
             + {t("newRole")}
           </button>
         </div>
 
-        {data.custom_roles.length === 0 ? (
-          <p className="text-sm" style={{ color: "var(--muted)" }}></p>
-        ) : (
+        {data.custom_roles.length > 0 && (
           <div className="overflow-x-auto">
             <table className="w-full text-sm border border-border-soft rounded-xl overflow-hidden">
               <thead className="bg-surface text-xs text-muted uppercase">
                 <tr>
                   <th className="px-4 py-3 text-left">{t("name")}</th>
-                  <th className="px-4 py-3 text-left">{t("allowAia")}</th>
+                  <th className="px-4 py-3 text-left">{t("aiaAccess", { label: ws.singular })}</th>
                   <th className="px-4 py-3 text-left">{t("tools")}</th>
                   <th className="px-4 py-3 text-right"></th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border-soft bg-background">
                 {data.custom_roles.map((r) => (
-                  <tr key={r.id}>
-                    <td className="px-4 py-3 font-medium">{r.name}</td>
-                    <td className="px-4 py-3">{r.allow_aia ? "+" : "-"}</td>
-                    <td className="px-4 py-3 text-xs" style={{ color: "var(--muted-soft)" }}>
-                      {r.allowed_tools.length ? r.allowed_tools.join(", ") : "-"}
+                  <tr key={r.id} className="hover:bg-surface/60">
+                    <td className="px-4 py-3 font-medium text-foreground">{r.name}</td>
+                    <td className="px-4 py-3 text-foreground-soft">
+                      {r.aia_access === "edit"
+                        ? t("aiaEdit", { label: ws.singular, plural: ws.plural })
+                        : r.aia_access === "read"
+                          ? t("aiaRead", { label: ws.singular, plural: ws.plural })
+                          : t("aiaNone", { label: ws.singular, plural: ws.plural })}
+                    </td>
+                    <td className="px-4 py-3 text-xs text-muted-soft">
+                      {r.allowed_tools.length
+                        ? r.allowed_tools.map((k) => tTools(k as Parameters<typeof tTools>[0])).join(", ")
+                        : "-"}
                     </td>
                     <td className="px-4 py-3 text-right whitespace-nowrap">
                       <button
@@ -113,8 +121,7 @@ export default function RolesTab() {
                       </button>
                       <button
                         onClick={() => remove(r)}
-                        className="text-xs hover:underline"
-                        style={{ color: "var(--error)" }}
+                        className="text-xs text-error hover:underline"
                       >
                         {t("delete")}
                       </button>

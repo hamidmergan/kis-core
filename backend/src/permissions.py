@@ -94,21 +94,27 @@ def _resolve_base_permissions(
         if cr is None:
             # Custom role was deleted concurrently; degrade gracefully to 'user'.
             return permissions_for_system_role("user")
-        return custom_role_permissions(cr["allow_aia"], cr["allowed_tools"])
+        return custom_role_permissions(cr["aia_access"], cr["allowed_tools"])
     # Unknown / corrupt role -> safest fallback
     return permissions_for_system_role("user")
 
 
-def custom_role_permissions(allow_aia: bool, tool_keys: list[str]) -> Permissions:
+def custom_role_permissions(aia_access: str, tool_keys: list[str]) -> Permissions:
     """Permissions for a DB-backed custom role.
 
-    Custom roles never grant admin or workspace-create rights.
+    Custom roles never grant admin panel or LDAP-user-create. `aia_access`
+    controls the workspace dimension independently of the user base:
+      'none' -> no AIA, tools-only role
+      'read' -> link access to assigned workspaces (student view)
+      'edit' -> lecturer view: create + manage workspaces (staff-level AIA)
+    `tool_keys` adds global tool access on top.
     """
     valid_tools = tuple(k for k in tool_keys if k in ALL_TOOL_KEYS)
+    is_edit = aia_access == "edit"
     return Permissions(
         allow_admin_panel=False,
-        allow_aia=allow_aia,
-        allow_workspace_create=False,
+        allow_aia=aia_access in ("read", "edit"),
+        allow_workspace_create=is_edit,
         allow_ldap_user_create=False,
         tools=valid_tools,
     )
