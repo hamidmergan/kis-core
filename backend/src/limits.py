@@ -88,9 +88,8 @@ RENDER_MAX_WORKERS = 2  # ThreadPoolExecutor limit for PDF->PNG and FFmpeg
 # since under-powered TTS servers (e.g. myLab/XTTS-2) collapse under load.
 SCREENCAST_TTS_DEFAULT_PARALLELISM = 1
 SCREENCAST_TTS_PROVIDER_PARALLELISM: dict[str, int] = {
-    "mylab":      1,    # XTTS-2: serialise, server returns 500s under any parallel load
-    "kokoro":     10,   # KISSKI GPU cluster: handles high parallelism
-    "elevenlabs": 10,   # SaaS: handles high parallelism
+    "mylab":  1,    # XTTS-2: serialise, server returns 500s under any parallel load
+    "kokoro": 10,   # KISSKI GPU cluster: handles high parallelism
 }
 
 # --- Celery task timeouts (in seconds) --------------------------------------

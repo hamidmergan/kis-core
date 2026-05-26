@@ -27,7 +27,8 @@ import UsersTab from "./_components/UsersTab";
 import StatsTab from "./_components/StatsTab";
 import KiTutorTab from "./_components/KiTutorTab";
 import JobsTab from "./_components/JobsTab";
-import SettingsTab, { type SettingsSection } from "./_components/SettingsTab";
+import SettingsTab from "./_components/SettingsTab";
+import ProvidersTab from "./_components/providers";
 import PromptsTab from "./_components/PromptsTab";
 import QuotaTab from "./_components/QuotaTab";
 import HildeTab from "./_components/HildeTab";
@@ -55,7 +56,6 @@ interface NavItem {
   key: Tab;
   label: string;
   icon: React.ReactNode;
-  hasSubs?: boolean;
 }
 
 interface NavGroup {
@@ -68,7 +68,6 @@ const ICON_PROPS = { size: 18, weight: "bold" as const };
 export default function AdminPage() {
   const t = useTranslations("admin");
   const [tab, setTab] = useState<Tab>("system");
-  const [kiSection, setKiSection] = useState<Exclude<SettingsSection, "system">>("speech");
   const [checking, setChecking] = useState(true);
   const [adminEmail, setAdminEmail] = useState("");
   const [quotaTargetId, setQuotaTargetId] = useState<number | null>(null);
@@ -80,7 +79,7 @@ export default function AdminPage() {
       label: t("nav.configuration"),
       items: [
         { key: "system", label: t("nav.system"), icon: <GearSix {...ICON_PROPS} /> },
-        { key: "ki", label: t("nav.ki"), icon: <Sparkle {...ICON_PROPS} />, hasSubs: true },
+        { key: "ki", label: t("nav.ki"), icon: <Sparkle {...ICON_PROPS} /> },
         { key: "prompts", label: t("nav.prompts"), icon: <NotePencil {...ICON_PROPS} /> },
       ],
     },
@@ -114,13 +113,6 @@ export default function AdminPage() {
     },
   ];
 
-  const KI_SUBS: { key: Exclude<SettingsSection, "system">; label: string }[] = [
-    { key: "speech", label: t("nav.speech") },
-    { key: "images", label: t("nav.images") },
-    { key: "embedding", label: t("nav.embedding") },
-    { key: "llm", label: t("nav.llm") },
-  ];
-
   const flatItems = (): NavItem[] => NAV.flatMap((g) => g.items);
   const findItem = (key: Tab): NavItem | undefined => flatItems().find((i) => i.key === key);
 
@@ -147,10 +139,7 @@ export default function AdminPage() {
   if (checking) return null;
 
   const currentItem = findItem(tab);
-  const currentLabel =
-    tab === "ki"
-      ? t("nav.kiCrumb", { section: KI_SUBS.find((s) => s.key === kiSection)?.label ?? "" })
-      : currentItem?.label ?? "";
+  const currentLabel = currentItem?.label ?? "";
 
   const selectTab = (k: Tab) => {
     setTab(k);
@@ -223,39 +212,7 @@ export default function AdminPage() {
                       {item.icon}
                     </span>
                     <span className="flex-1">{item.label}</span>
-                    {item.hasSubs && (
-                      <span
-                        className={`text-xs transition-all ${
-                          active ? "rotate-90 text-kb dark:text-white" : "text-muted group-hover:text-kb dark:group-hover:text-white"
-                        }`}
-                      >
-                        ›
-                      </span>
-                    )}
                   </button>
-                  {item.hasSubs && active && (
-                    <div className="ml-7 my-1 border-l border-border-soft flex flex-col gap-0.5 pl-1">
-                      {KI_SUBS.map((sub) => {
-                        const subActive = kiSection === sub.key;
-                        return (
-                          <button
-                            key={sub.key}
-                            onClick={() => {
-                              setKiSection(sub.key);
-                              setMobileNavOpen(false);
-                            }}
-                            className={`px-3 py-1.5 rounded-md text-[13px] text-left transition-colors ${
-                              subActive
-                                ? "admin-nav-active text-kb dark:text-white font-semibold"
-                                : "text-muted hover:text-kb dark:hover:text-white hover:bg-surface-dim"
-                            }`}
-                          >
-                            {sub.label}
-                          </button>
-                        );
-                      })}
-                    </div>
-                  )}
                 </div>
               );
             })}
@@ -268,7 +225,7 @@ export default function AdminPage() {
           <h2 className="text-lg font-semibold mb-6">{currentLabel}</h2>
 
           {tab === "system" && <SettingsTab section="system" />}
-          {tab === "ki" && <SettingsTab section={kiSection} />}
+          {tab === "ki" && <ProvidersTab />}
           {tab === "prompts" && <PromptsTab />}
           {tab === "pending" && <PendingTab />}
           {tab === "whitelist" && <WhitelistTab adminEmail={adminEmail} />}

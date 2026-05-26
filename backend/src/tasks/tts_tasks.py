@@ -29,12 +29,7 @@ def run_tts(
     filename: str,
     voice_id: str,
     speed: float,
-    stability: float,
-    similarity_boost: float,
-    style: float,
-    use_speaker_boost: bool,
-    pause_preset: str,
-    provider: str = "elevenlabs",
+    provider: str = "kokoro",
     voice_label: str = "",
 ):
     """Synthesize uploaded document to MP3.
@@ -47,9 +42,7 @@ def run_tts(
         # Save params so the job can be manually retried later via POST /jobs/{uuid}/retry
         tts_params = {
             "voice_id": voice_id, "voice_label": voice_label, "speed": speed,
-            "stability": stability, "similarity_boost": similarity_boost,
-            "style": style, "use_speaker_boost": use_speaker_boost,
-            "pause_preset": pause_preset, "provider": provider,
+            "provider": provider,
         }
         db.update_job_status(job_uuid, "running", progress={"step": "extract", "tts_params": tts_params})
         job_row = db.get_job(job_uuid)
@@ -69,42 +62,34 @@ def run_tts(
         if not text.strip():
             raise ValueError("Kein Text in der Datei gefunden")
 
-        from src.config import Settings
-        from src.dependencies import is_elevenlabs_enabled, is_kokoro_enabled
-        settings = Settings()
+        from src.dependencies import (
+            get_kokoro_client, get_mylab_client,
+            is_kokoro_enabled, is_mylab_enabled,
+        )
 
-        # Provider-Auswahl
-        requested_provider = tts_params.get("provider", "elevenlabs")
+        requested_provider = tts_params.get("provider", "kokoro")
 
-        # Hard-stop: reject if provider was disabled between submit and execution
-        if requested_provider == "kokoro" and not is_kokoro_enabled():
-            raise RuntimeError("Kokoro TTS wurde deaktiviert.")
-        elif requested_provider == "mylab":
-            from src.dependencies import is_mylab_enabled
+        # Hard-stop: reject if provider was disabled / unconfigured between
+        # submit and execution. Both helpers now read the providers table via
+        # feature_router, so an unconfigured TTS route fails loudly here.
+        if requested_provider == "mylab":
             if not is_mylab_enabled():
                 raise RuntimeError("myLab TTS wurde deaktiviert.")
-        elif requested_provider not in ("kokoro", "mylab") and not is_elevenlabs_enabled():
-            raise RuntimeError("ElevenLabs wurde deaktiviert.")
-
-        if requested_provider == "kokoro" and bool(settings.kokoro_base_url):
-            from src.services.kokoro_client import KokoroClient, _split_text
-            client = KokoroClient(settings.kokoro_base_url)
-            chunks = _split_text(text)
-        elif requested_provider == "mylab" and bool(settings.mylab_tts_base_url):
-            from src.services.openai_compat_tts import OpenAICompatTTSClient, _split_text
-            from src.services.runtime_models import get_model
-            client = OpenAICompatTTSClient(settings.mylab_tts_base_url, model=get_model("mylab_tts_model"))
-            chunks = _split_text(text)
+            client = get_mylab_client()
+            if client is None:
+                raise RuntimeError("myLab TTS-Anbieter nicht verfügbar.")
+            from src.services.openai_compat_tts import _split_text
         else:
-            from src.services.elevenlabs_client import ElevenLabsClient, _split_text, _insert_pauses
-            if not settings.elevenlabs_api_key:
-                raise RuntimeError("ElevenLabs API Key nicht konfiguriert")
-            client = ElevenLabsClient(settings.elevenlabs_api_key)
-            chunks = _split_text(_insert_pauses(text, pause_preset))
+            if not is_kokoro_enabled():
+                raise RuntimeError("Kokoro TTS wurde deaktiviert.")
+            client = get_kokoro_client()
+            if client is None:
+                raise RuntimeError("Kokoro TTS-Anbieter nicht verfügbar.")
+            from src.services.kokoro_client import _split_text
+        chunks = _split_text(text)
         n = len(chunks)
 
         audio_parts: list[bytes] = []
-        prev_text = ""
 
         for i, chunk in enumerate(chunks):
             chunk_filename = f"chunk_{i:03d}.mp3"
@@ -113,7 +98,6 @@ def run_tts(
             try:
                 existing = get_job_file(user_id, job_uuid, chunk_filename)
                 audio_parts.append(existing)
-                prev_text = chunk
                 logger.info("TTS {}: chunk {}/{} already saved, skipping", job_uuid, i + 1, n)
                 continue
             except Exception:
@@ -126,16 +110,10 @@ def run_tts(
                     chunk,
                     voice_id=voice_id,
                     speed=speed,
-                    stability=stability,
-                    similarity_boost=similarity_boost,
-                    style=style,
-                    use_speaker_boost=use_speaker_boost,
-                    previous_text=prev_text,
                 )
 
             save_job_file(user_id, job_uuid, chunk_filename, mp3)
             audio_parts.append(mp3)
-            prev_text = chunk
 
         # Combine all chunks and save final result
         result_path = save_result_file(user_id, job_uuid, ".mp3", b"".join(audio_parts))
@@ -153,7 +131,7 @@ def run_tts(
             logger.warning("TTS {} network error, retry {}/{} in {}s: {}", job_uuid, self.request.retries + 1, self.max_retries, wait, e)
             raise self.retry(exc=e, countdown=wait)
         logger.error("TTS {} gave up after {} retries: {}", job_uuid, self.max_retries, e)
-        provider_name = {"kokoro": "Kokoro", "mylab": "myLab TTS"}.get(provider, "ElevenLabs")
+        provider_name = {"kokoro": "Kokoro", "mylab": "myLab TTS"}.get(provider, "Kokoro")
         job = db.get_job(job_uuid)
         locale = (job and job.get("creator_locale")) or "de"
         db.update_job_status(job_uuid, "failed", error_message=t("job.providerUnreachableRetry", locale, provider=provider_name))
@@ -167,6 +145,6 @@ def run_tts(
             locale = (job and job.get("creator_locale")) or "de"
             db.update_job_status(job_uuid, "failed", error_message=t("job.timeoutRetry", locale))
             return  # exit cleanly before the hard SIGKILL fires
-        logger.error("TTS task {} failed: {}", job_uuid, e)
-        db.update_job_status(job_uuid, "failed", error_message=str(e))
+        from src.tasks._errors import handle_task_exception
+        handle_task_exception(job_uuid, e, task_label="TTS")
         raise

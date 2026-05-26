@@ -10,79 +10,54 @@ import os
 
 from fastapi import APIRouter, Depends
 
-from src import database as db
 from src import limits as L
 from src.dependencies import get_admin_user
-from src.services.runtime_models import MODEL_DEFAULTS, get_model
+from src.services import feature_router
 
 router = APIRouter(tags=["admin: system-info"])
 
 
-def _enabled(key: str, default: str = "true") -> bool:
-    return db.get_setting(key, default).lower() == "true"
-
-
-def _active_provider(group: tuple[str, ...]) -> str | None:
-    """Return the *_enabled key whose value is currently true, stripped of suffix."""
-    for key in group:
-        if _enabled(key, "false"):
-            return key.removesuffix("_enabled")
-    return None
-
-
-# Provider selection groups (mirrors settings.py).
-_LLM_GROUP = ("primary_llm_enabled", "fallback_llm_enabled", "local_llm_enabled")
-_EMBED_GROUP = (
-    "primary_embedding_enabled",
-    "fallback_embedding_enabled",
-    "local_embedding_enabled",
-)
-_OCR_GROUP = ("docling_ocr_enabled", "fallback_ocr_enabled")
-_IMAGE_GEN_GROUP = ("primary_image_gen_enabled", "fallback_image_gen_enabled")
-_IMAGE_EDIT_GROUP = ("primary_image_edit_enabled", "fallback_image_edit_enabled")
-_IMAGE_ANALYZE_GROUP = ("primary_image_analyze_enabled", "fallback_image_analyze_enabled")
-_WHISPER_GROUP = ("primary_whisper_enabled", "fallback_whisper_enabled")
-
-
-def _model_for(provider: str | None, key_suffix: str) -> str | None:
-    """Resolve the active model name for a provider+capability, or None."""
-    if not provider:
+def _binding_view(feature: str) -> dict | None:
+    """Render a feature's active binding as ``{provider, model}`` or None."""
+    try:
+        binding = feature_router.resolve(feature)
+    except feature_router.FeatureNotConfigured:
         return None
-    key = f"{provider}_{key_suffix}"
-    if key in MODEL_DEFAULTS:
-        return get_model(key)
-    return None
+    return {
+        "provider": binding.provider.get("name"),
+        "model": binding.model or None,
+    }
+
+
+def _user_choice_view(feature: str) -> list[dict]:
+    """List of providers the admin enabled for end-user multi-pick on ``feature``."""
+    rows = feature_router.providers_for_feature(feature)
+    return [{"provider": r.get("name"), "protocol": r.get("protocol")} for r in rows]
+
+
+def _empty_binding() -> dict:
+    """Fallback row when a feature route is unconfigured. Keeps the response
+    shape stable so the frontend doesn't need to null-check every field."""
+    return {"provider": None, "model": None}
 
 
 @router.get("/system-info")
 async def get_system_info(_admin=Depends(get_admin_user)):
-    # ── Active models per capability ───────────────────────────────────
-    llm_provider = _active_provider(_LLM_GROUP)
-    embed_provider = _active_provider(_EMBED_GROUP)
-    ocr_provider = _active_provider(_OCR_GROUP)
-    image_gen_provider = _active_provider(_IMAGE_GEN_GROUP)
-    image_edit_provider = _active_provider(_IMAGE_EDIT_GROUP)
-    image_analyze_provider = _active_provider(_IMAGE_ANALYZE_GROUP)
-    whisper_provider = _active_provider(_WHISPER_GROUP)
-
-    tts_active = [
-        name for name, key in (
-            ("ElevenLabs", "elevenlabs_enabled"),
-            ("Kokoro", "kokoro_enabled"),
-            ("myLab", "mylab_enabled"),
-        ) if _enabled(key, "false")
-    ]
-
+    # ── Active bindings per feature route ──────────────────────────────
+    tts_providers = _user_choice_view("tts")
     models = {
-        "llm": {"provider": llm_provider, "model": _model_for(llm_provider, "llm_model")},
-        "embedding": {"provider": embed_provider, "model": _model_for(embed_provider, "embedding_model")},
-        "ocr": {"provider": ocr_provider, "model": _model_for(ocr_provider, "ocr_model")},
-        "image_gen": {"provider": image_gen_provider, "model": _model_for(image_gen_provider, "image_gen_model")},
-        "image_edit": {"provider": image_edit_provider, "model": _model_for(image_edit_provider, "image_edit_model")},
-        "image_analyze": {"provider": image_analyze_provider, "model": _model_for(image_analyze_provider, "image_analyze_model")},
-        "whisper": {"provider": whisper_provider, "model": None},
-        "tts_active": tts_active,
-        "tts_mylab_model": get_model("mylab_tts_model") if _enabled("mylab_enabled", "false") else None,
+        "llm": _binding_view("chat") or _empty_binding(),
+        "embedding": _binding_view("embedding") or _empty_binding(),
+        "ocr": _binding_view("ocr") or _empty_binding(),
+        "image_gen": _binding_view("image_gen") or _empty_binding(),
+        "image_edit": _binding_view("image_edit") or _empty_binding(),
+        "image_analyze": _binding_view("vision") or _empty_binding(),
+        "whisper": _binding_view("stt") or _empty_binding(),
+        # Backward-compatible list of TTS provider names for the existing UI.
+        "tts_active": [p["provider"] for p in tts_providers if p.get("provider")],
+        "tts_mylab_model": None,
+        "doc_translate": _user_choice_view("doc_translate"),
+        "screencast_translate": _user_choice_view("screencast_translate"),
     }
 
     # ── Rate limits ────────────────────────────────────────────────────

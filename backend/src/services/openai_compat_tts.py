@@ -168,7 +168,7 @@ class OpenAICompatTTSClient:
         speed: float = 1.0,
         **kwargs,
     ) -> dict:
-        """Drop-in for ElevenLabsClient.synthesize_with_timestamps().
+        """Synthesize with optional alignment data.
 
         Returns {"audio_bytes": bytes, "alignment": None},
         since XTTS-v2 does not provide word timestamps.

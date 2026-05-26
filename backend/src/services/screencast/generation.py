@@ -1,15 +1,15 @@
-"""Async generation: scripts (LLM batch), TTS (ElevenLabs parallel), image conversion."""
+"""Async generation: scripts (LLM batch), TTS parallel synthesis, image conversion."""
 
 import asyncio
 import json
 from collections.abc import Callable
 from pathlib import Path
+from typing import Any
 
 from fastapi import HTTPException
 from loguru import logger
 
 from src.limits import SCREENCAST_TTS_DEFAULT_PARALLELISM, SCREENCAST_TTS_PROVIDER_PARALLELISM
-from src.services.elevenlabs_client import ElevenLabsClient
 from src.services.openai_compat_llm import OpenAICompatLLMClient
 from src.services.screencast.pptx import pptx_to_images
 from src.storage import get_job_file, save_job_file
@@ -43,16 +43,16 @@ async def generate_all_scripts(
 
 async def generate_all_tts(
     slide_scripts: list[str],
-    tts_client: ElevenLabsClient,
+    tts_client: Any,
     tmp: Path,
     speed: float,
     voice_id: str = "",
     on_slide_done: Callable[[int, int], None] | None = None,
     job_uuid: str | None = None,
     user_id: int | None = None,
-    provider: str = "elevenlabs",
+    provider: str = "kokoro",
 ) -> list[tuple[Path, dict | None]]:
-    """Generate TTS audio for all slides in parallel via ElevenLabs.
+    """Generate TTS audio for all slides in parallel.
 
     Returns a list of (audio_path, alignment_or_None) tuples.
     on_slide_done(current, total) is called after each slide completes.
@@ -96,7 +96,7 @@ async def generate_all_tts(
 
             async with sem:
                 # Retry transient server errors (5xx) with exponential backoff.
-                # myLab/ElevenLabs occasionally return 500s that recover within seconds.
+                # myLab/Kokoro occasionally return 500s that recover within seconds.
                 retry_delays = (2.0, 5.0, 10.0)
                 last_error: Exception | None = None
                 for attempt in range(len(retry_delays) + 1):

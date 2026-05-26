@@ -1,18 +1,15 @@
 import uuid
 from pathlib import Path
-from urllib.parse import quote
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile
-from fastapi.responses import StreamingResponse
 from loguru import logger
 
-from src.dependencies import get_elevenlabs_client, get_current_user, is_admin_user
+from src.dependencies import get_current_user, is_admin_user
 from src.i18n import get_locale, t
 from src.quotas import enforce_quota
 from src.security.rate_limit import enforce_tool_burst
 from src import database as db
 from src.storage import save_queue_file
-from src.services.elevenlabs_client import DEFAULT_VOICE_ID
 from src.utils.file_validation import TTS_EXTENSIONS, MAX_UPLOAD_BYTES, TTS_MAX_CHARS, validate_or_raise
 from src.utils.text_extraction import EXTRACTORS
 from src.dependencies_rbac import require_tool_access
@@ -26,33 +23,10 @@ router = APIRouter(
 # ---------- Routes ----------
 
 
-_FALLBACK_VOICES = [
-    {"voice_id": DEFAULT_VOICE_ID, "label": "Brian", "preview_url": None},
-]
-
-_EXCLUDED_VOICES = {
-    "adam", "alice", "bella", "charlotte", "clyde", "daniel", "domi", "elli", "ethan",
-    "fin", "gigi", "harry", "james", "jeremy", "jessie", "liam", "lily", "michael",
-    "mimi", "miss applewood", "nicole", "patrick", "paul", "rover", "roger",
-    "sam", "serena", "thomas", "will", "bill", "arnold", "brian", "callum"
-}
-
-_NON_ENGLISH = {
-    "german", "deutsch", "de",
-    "french", "français", "fr",
-    "spanish", "español", "es",
-    "portuguese", "português", "pt",
-    "italian", "italiano", "it",
-    "dutch", "nl", "polish", "pl",
-    "russian", "ru", "japanese", "ja",
-    "chinese", "zh", "korean", "ko",
-}
-
-
 @router.get("/tts/providers")
 async def get_tts_providers():
     """Return which TTS providers are currently enabled and reachable (public endpoint)."""
-    from src.dependencies import is_elevenlabs_enabled, is_kokoro_enabled, get_kokoro_client, is_mylab_enabled, get_mylab_client
+    from src.dependencies import is_kokoro_enabled, get_kokoro_client, is_mylab_enabled, get_mylab_client
     kokoro_enabled = is_kokoro_enabled()
     if kokoro_enabled:
         client = get_kokoro_client()
@@ -62,7 +36,6 @@ async def get_tts_providers():
         client = get_mylab_client()
         mylab_enabled = bool(client and client.is_available())
     return {
-        "elevenlabs_enabled": is_elevenlabs_enabled(),
         "kokoro_enabled": kokoro_enabled,
         "mylab_enabled": mylab_enabled,
     }
@@ -152,53 +125,6 @@ async def list_mylab_voices():
     return {"voices": client.get_voices()}
 
 
-@router.get("/voices")
-async def list_voices():
-    """Return all English premade voices from ElevenLabs, sorted A-Z."""
-    from src.dependencies import get_settings, is_elevenlabs_enabled
-    import httpx
-
-    if not is_elevenlabs_enabled():
-        return {"voices": []}
-
-    settings = get_settings()
-    if not settings.elevenlabs_api_key:
-        return {"voices": _FALLBACK_VOICES}
-
-    try:
-        with httpx.Client(timeout=10.0) as client:
-            resp = client.get(
-                "https://api.elevenlabs.io/v1/voices",
-                headers={"xi-api-key": settings.elevenlabs_api_key},
-                params={"show_legacy": "true"},
-            )
-        if resp.status_code != 200:
-            return {"voices": _FALLBACK_VOICES}
-
-        voices = []
-        for v in resp.json().get("voices", []):
-            if v.get("category") not in ("premade", "professional", "cloned"):
-                continue
-            voice_name_lower = v["name"].lower().strip()
-            if any(voice_name_lower == ex or voice_name_lower.startswith(ex + " ") for ex in _EXCLUDED_VOICES):
-                continue
-            labels = v.get("labels") or {}
-            language = labels.get("language", "").lower().strip()
-            accent = labels.get("accent", "").lower().strip()
-            if language in _NON_ENGLISH or accent in _NON_ENGLISH:
-                continue
-            voices.append({
-                "voice_id": v["voice_id"],
-                "label": v["name"],
-                "preview_url": v.get("preview_url"),
-            })
-
-        voices.sort(key=lambda x: x["label"].lower())
-        return {"voices": voices or _FALLBACK_VOICES}
-    except Exception:
-        return {"voices": _FALLBACK_VOICES}
-
-
 def _sanitize_tts_text(raw: str) -> str:
     """Normalize free-form text for safe pipeline use.
 
@@ -225,12 +151,7 @@ async def text_to_speech(
     text: str = Form(""),
     voice_id: str = Form(""),
     speed: float = Form(1.0),
-    stability: float = Form(0.70),
-    similarity_boost: float = Form(0.60),
-    style: float = Form(0.20),
-    use_speaker_boost: bool = Form(True),
-    pause_preset: str = Form("medium"),
-    provider: str = Form("elevenlabs"),
+    provider: str = Form("kokoro"),
     voice_label: str = Form(""),
     current_user: dict = Depends(get_current_user),
     locale: str = Depends(get_locale),
@@ -241,10 +162,6 @@ async def text_to_speech(
     immediately. Poll ``GET /jobs/{job_uuid}`` for status. On success the
     result contains ``download_url`` for the MP3.
     """
-    valid_presets = {"short", "medium", "long", "very_long"}
-    if pause_preset not in valid_presets:
-        raise HTTPException(status_code=400, detail=t("tts.invalidPausePreset", locale))
-
     has_file = bool(file and file.filename)
     has_text = bool(text and text.strip())
     if has_file and has_text:
@@ -307,14 +224,7 @@ async def text_to_speech(
         source_filename = file.filename
 
     # Validate provider + client
-    if provider == "kokoro":
-        from src.dependencies import is_kokoro_enabled, get_kokoro_client
-        if not is_kokoro_enabled():
-            raise HTTPException(status_code=400, detail=t("kokoro.notEnabled", locale))
-        kokoro_client = get_kokoro_client()
-        if not kokoro_client or not kokoro_client.is_available():
-            raise HTTPException(status_code=503, detail=t("kokoro.unreachable", locale))
-    elif provider == "mylab":
+    if provider == "mylab":
         from src.dependencies import is_mylab_enabled, get_mylab_client
         if not is_mylab_enabled():
             raise HTTPException(status_code=400, detail=t("mylab.notEnabled", locale))
@@ -322,10 +232,12 @@ async def text_to_speech(
         if not mylab_client or not mylab_client.is_available():
             raise HTTPException(status_code=503, detail=t("mylab.ttsUnreachable", locale))
     else:
-        from src.dependencies import is_elevenlabs_enabled
-        if not is_elevenlabs_enabled():
-            raise HTTPException(status_code=400, detail=t("elevenlabs.notEnabled", locale))
-        get_elevenlabs_client()
+        from src.dependencies import is_kokoro_enabled, get_kokoro_client
+        if not is_kokoro_enabled():
+            raise HTTPException(status_code=400, detail=t("kokoro.notEnabled", locale))
+        kokoro_client = get_kokoro_client()
+        if not kokoro_client or not kokoro_client.is_available():
+            raise HTTPException(status_code=503, detail=t("kokoro.unreachable", locale))
 
     user_id = current_user.get("user_id", 0)
     enforce_tool_burst(user_id, "tts", locale)
@@ -343,11 +255,6 @@ async def text_to_speech(
         source_filename,
         voice_id,
         speed,
-        stability,
-        similarity_boost,
-        style,
-        use_speaker_boost,
-        pause_preset,
         provider,
         voice_label,
     ])

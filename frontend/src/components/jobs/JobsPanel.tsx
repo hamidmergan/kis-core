@@ -364,7 +364,7 @@ export default function JobsPanel() {
                           <p className="text-xs text-muted-soft truncate mt-0.5">{job.original_filename}</p>
                           {job.tts_params?.voice_label || job.tts_params?.provider ? (
                             <p className="text-xs text-muted-soft truncate mt-0.5">
-                              {job.tts_params.provider === "kokoro" ? "Kokoro TTS" : job.tts_params.provider === "mylab" ? "THL myLab" : job.tts_params.provider === "elevenlabs" ? "ElevenLabs" : job.tts_params.provider}
+                              {job.tts_params.provider === "kokoro" ? "Kokoro TTS" : job.tts_params.provider === "mylab" ? "THL myLab" : job.tts_params.provider}
                               {job.tts_params.voice_label ? ` · ${job.tts_params.voice_label}` : ""}
                             </p>
                           ) : null}

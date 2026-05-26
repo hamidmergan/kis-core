@@ -889,6 +889,52 @@ def init_db(admin_email: Optional[str] = None) -> None:
                 )
             """)
 
+            # ─── AI Providers ─────────────────────────────────────────────────
+            # Provider-centric admin model: each row is an endpoint the admin
+            # registered (Name + Protocol + URL + Key). Capabilities are filled
+            # by probe (openai_compat) or by protocol definition (deepl/docling).
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS providers (
+                    id             SERIAL PRIMARY KEY,
+                    name           TEXT NOT NULL UNIQUE,
+                    protocol       TEXT NOT NULL,
+                    base_url       TEXT NOT NULL,
+                    api_key        TEXT,
+                    capabilities   JSONB NOT NULL DEFAULT '[]'::jsonb,
+                    enabled        BOOLEAN NOT NULL DEFAULT TRUE,
+                    last_probed_at TIMESTAMP WITH TIME ZONE,
+                    probe_status   TEXT,
+                    probe_error    TEXT,
+                    created_at     TIMESTAMP NOT NULL DEFAULT NOW(),
+                    updated_at     TIMESTAMP NOT NULL DEFAULT NOW()
+                )
+            """)
+            cur.execute("""
+                CREATE INDEX IF NOT EXISTS idx_providers_protocol
+                ON providers(protocol)
+            """)
+            cur.execute("""
+                CREATE INDEX IF NOT EXISTS idx_providers_enabled
+                ON providers(enabled) WHERE enabled = TRUE
+            """)
+
+            # ─── Feature Routes ───────────────────────────────────────────────
+            # One row per feature (chat, embedding, ocr, ...). Maps a feature to
+            # a chosen provider + model. user_choices is the multi-pill list of
+            # provider IDs the user may pick from in the tool UI (used for tts,
+            # doc_translate, screencast_translate). Unset feature row means the
+            # feature is unconfigured and not available.
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS feature_routes (
+                    id           SERIAL PRIMARY KEY,
+                    feature      TEXT NOT NULL UNIQUE,
+                    provider_id  INTEGER REFERENCES providers(id) ON DELETE SET NULL,
+                    model_name   TEXT,
+                    user_choices JSONB NOT NULL DEFAULT '[]'::jsonb,
+                    updated_at   TIMESTAMP NOT NULL DEFAULT NOW()
+                )
+            """)
+
             # ─── LLM Usage Log ────────────────────────────────────────────────
             # One row per request: for daily alerts (anomaly detection) and
             # admin visibility. Token columns are nullable - Langfuse has
@@ -956,9 +1002,9 @@ def init_db(admin_email: Optional[str] = None) -> None:
             # Stage 5: rename provider-specific settings keys to generic slot names
             # (kisski_* → primary_*, mylab_* → fallback_*, ollama_* → local_*).
             # Idempotent: if the new key already exists, the legacy row is dropped.
-            # TTS keys (mylab_enabled, mylab_tts_model, elevenlabs_*, kokoro_*)
-            # are intentionally NOT renamed - TTS providers are a flat list, not
-            # a primary/fallback/local hierarchy.
+            # TTS keys (mylab_enabled, mylab_tts_model, kokoro_*) are intentionally
+            # NOT renamed - TTS providers are a flat list, not a primary/fallback/
+            # local hierarchy.
             for old_key, new_key in (
                 ("kisski_llm_enabled",            "primary_llm_enabled"),
                 ("kisski_llm_model",              "primary_llm_model"),
@@ -1007,68 +1053,28 @@ def init_db(admin_email: Optional[str] = None) -> None:
             # Docling API has no model parameter, so the setting is orphaned.
             cur.execute("DELETE FROM settings WHERE key = 'primary_ocr_model'")
 
-            # Provider radio groups: exactly one provider per group may be active.
-            # Switching is a manual admin action — there is no automatic failover.
-            for keys, default, label in (
-                (("primary_embedding_enabled", "fallback_embedding_enabled", "local_embedding_enabled"),
-                    "primary_embedding_enabled", "Embedding"),
-                (("primary_llm_enabled", "fallback_llm_enabled", "local_llm_enabled"),
-                    "primary_llm_enabled", "LLM"),
-                (("primary_whisper_enabled", "fallback_whisper_enabled"),
-                    "primary_whisper_enabled", "Whisper"),
-                (("primary_image_gen_enabled", "fallback_image_gen_enabled"),
-                    "primary_image_gen_enabled", "Image generation"),
-                (("primary_image_edit_enabled", "fallback_image_edit_enabled"),
-                    "primary_image_edit_enabled", "Image editing"),
-                (("primary_image_analyze_enabled", "fallback_image_analyze_enabled"),
-                    "primary_image_analyze_enabled", "Image analysis"),
-                (("docling_ocr_enabled", "fallback_ocr_enabled"),
-                    "docling_ocr_enabled", "OCR"),
-            ):
-                _enforce_radio_group(cur, _log, keys=keys, default=default, label=label)
-
-            # Runtime-tunable model names: seed only the explicitly-listed keys
-            # (SEEDED_MODEL_KEYS). Other keys live as pure code-side defaults so
-            # bumping a default in code rolls out to every install automatically;
-            # DB stores user overrides only. Existing seeded values are never
-            # overwritten — admin edits are preserved.
-            from src.services.runtime_models import MODEL_DEFAULTS, SEEDED_MODEL_KEYS
-            for key in SEEDED_MODEL_KEYS:
-                cur.execute("""
-                    INSERT INTO settings (key, value) VALUES (%s, %s)
-                    ON CONFLICT (key) DO NOTHING
-                """, (key, MODEL_DEFAULTS[key]))
+            # ─── Legacy provider toggles cleanup ──────────────────────────────
+            # The admin panel moved from per-feature *_enabled radio rows to the
+            # provider-centric ``providers`` + ``feature_routes`` tables. Any
+            # remaining legacy rows are inert (nothing reads them) but kept
+            # around they confuse future debugging and bloat the settings table.
+            cur.execute(
+                """
+                DELETE FROM settings WHERE key IN (
+                    'primary_llm_enabled', 'fallback_llm_enabled', 'local_llm_enabled',
+                    'primary_whisper_enabled', 'fallback_whisper_enabled',
+                    'primary_embedding_enabled', 'fallback_embedding_enabled', 'local_embedding_enabled',
+                    'primary_image_gen_enabled', 'fallback_image_gen_enabled',
+                    'primary_image_analyze_enabled', 'fallback_image_analyze_enabled',
+                    'primary_image_edit_enabled', 'fallback_image_edit_enabled',
+                    'ocr_enabled', 'docling_ocr_enabled', 'fallback_ocr_enabled',
+                    'kokoro_enabled', 'mylab_enabled',
+                    'transcript_translation_provider', 'translation_llm_provider',
+                    'deepl_api_key_override'
+                )
+                """
+            )
         conn.commit()
-
-
-def _enforce_radio_group(cur, _log, *, keys: tuple[str, ...], default: str, label: str) -> None:
-    """Ensure exactly one key in the group is "true"; seed default if none set."""
-    placeholders = ",".join(["%s"] * len(keys))
-    cur.execute(f"SELECT key, value FROM settings WHERE key IN ({placeholders})", keys)
-    state = {row[0]: row[1].lower() for row in cur.fetchall()}
-    active = [k for k in keys if state.get(k) == "true"]
-
-    if len(active) == 1:
-        return
-
-    if len(active) == 0:
-        cur.execute("""
-            INSERT INTO settings (key, value) VALUES (%s, 'true')
-            ON CONFLICT (key) DO UPDATE SET value = 'true', updated_at = NOW()
-        """, (default,))
-        _log.info("{} radio group: no provider active - seeded default {}", label, default)
-        return
-
-    # Multiple active: keep the highest-priority one (order in keys)
-    winner = next(k for k in keys if k in active)
-    for k in active:
-        if k == winner:
-            continue
-        cur.execute("""
-            INSERT INTO settings (key, value) VALUES (%s, 'false')
-            ON CONFLICT (key) DO UPDATE SET value = 'false', updated_at = NOW()
-        """, (k,))
-    _log.warning("{} radio group violated - kept {} active, disabled others.", label, winner)
 
 
 # --- Users ---

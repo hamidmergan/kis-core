@@ -15,13 +15,6 @@ import Tabs from "@/components/ui/Tabs";
 
 type InputMode = "text" | "file";
 
-interface Voice {
-  voice_id: string;
-  label: string;
-  description?: string | null;
-  use_case?: string | null;
-}
-
 const KOKORO_ACCENT_LABEL: Record<string, string> = {
   "American": "🇺🇸",
   "British": "🇬🇧",
@@ -32,23 +25,10 @@ const MYLAB_LANGUAGE_FLAG: Record<string, string> = {
   "en": "🇺🇸",
 };
 
-const PAUSE_KEYS = ["short", "medium", "long", "very_long"] as const;
-
 export default function TtsPage() {
   const t = useTranslations("tools.tts");
-  const tDesc = useTranslations("tools.tts.voiceDescription");
   const tProgress = useTranslations("tools.tts.progress");
   const tCommon = useTranslations("common");
-
-  const translateDesc = useCallback((description?: string | null): string | null => {
-    if (!description) return null;
-    return description.split(",").map(d => {
-      const key = d.trim();
-      // tDesc.has() is not available; use try-catch via has check using raw keys.
-      const known = ["Laid-Back","Casual","Formal","Friendly","Warm","Authoritative","Confident","Calm","Energetic","Upbeat","Serious","Raspy","Smooth","Deep","Resonant","Crisp","Soft","Husky","Clear","Conversational","Narrative","Expressive","Melodic","Mature","Powerful","Bright","Grounded","Soothing","Professional"];
-      return known.includes(key) ? tDesc(key) : key;
-    }).join(" · ");
-  }, [tDesc]);
 
   const [ttsState, setTtsState] = useState<TTSState>("idle");
   const [inputMode, setInputMode] = useState<InputMode>("text");
@@ -61,36 +41,25 @@ export default function TtsPage() {
   const [ttsProgressLabel, setTtsProgressLabel] = useState<string>("");
 
   // Provider
-  const [provider, setProvider] = useState<"elevenlabs" | "kokoro" | "mylab">("elevenlabs");
-  const [elevenlabsEnabled, setElevenlabsEnabled] = useState(false);
+  const [provider, setProvider] = useState<"kokoro" | "mylab">("kokoro");
   const [kokoroEnabled, setKokoroEnabled] = useState(false);
   const [mylabEnabled, setMylabEnabled] = useState(false);
   const [providersLoaded, setProvidersLoaded] = useState(false);
 
   // Voice selection
-  const [voices, setVoices] = useState<Voice[]>([]);
   const [kokoroVoices, setKokoroVoices] = useState<Array<{voice_id: string; name: string; language?: string; accent: string; gender: string}>>([]);
   const [mylabVoices, setMylabVoices] = useState<Array<{voice_id: string; name: string; description: string; language?: string}>>([]);
   const [voiceId, setVoiceId] = useState("");
 
   // Audio settings
   const [speed, setSpeed] = useState(1.0);
-  const [pausePreset, setPausePreset] = useState("medium");
 
   useEffect(() => {
-    api.getJson<{ elevenlabs_enabled: boolean; kokoro_enabled: boolean; mylab_enabled: boolean }>("/api/tts/providers").then((data) => {
-      setElevenlabsEnabled(data.elevenlabs_enabled);
+    api.getJson<{ kokoro_enabled: boolean; mylab_enabled: boolean }>("/api/tts/providers").then((data) => {
       setKokoroEnabled(data.kokoro_enabled ?? false);
       setMylabEnabled(data.mylab_enabled ?? false);
-      if (data.elevenlabs_enabled) setProvider("elevenlabs");
-      else if (data.kokoro_enabled) setProvider("kokoro");
+      if (data.kokoro_enabled) setProvider("kokoro");
       else if (data.mylab_enabled) setProvider("mylab");
-      if (data.elevenlabs_enabled) {
-        api.getJson<{ voices: Voice[] }>("/api/voices").then((vData) => {
-          setVoices(vData.voices);
-          if (vData.voices.length > 0) setVoiceId(vData.voices[0].voice_id);
-        }).catch(() => {});
-      }
       if (data.kokoro_enabled) {
         api.getJson<{ voices: Array<{voice_id: string; name: string; accent: string; gender: string}> }>("/api/kokoro/voices")
           .then((d) => {
@@ -116,10 +85,8 @@ export default function TtsPage() {
       if (kokoroVoices.length > 0) setVoiceId(kokoroVoices[0].voice_id);
     } else if (provider === "mylab") {
       if (mylabVoices.length > 0) setVoiceId(mylabVoices[0].voice_id);
-    } else {
-      if (voices.length > 0) setVoiceId(voices[0].voice_id);
     }
-  }, [provider, voices, kokoroVoices, mylabVoices]);
+  }, [provider, kokoroVoices, mylabVoices]);
 
   const abortControllerRef = useRef<AbortController | null>(null);
   const currentJobUuidRef = useRef<string | null>(null);
@@ -129,7 +96,7 @@ export default function TtsPage() {
   }, []);
 
   const isProcessing = ttsState === "uploading" || ttsState === "processing";
-  const noProvider = providersLoaded && !elevenlabsEnabled && !kokoroEnabled && !mylabEnabled;
+  const noProvider = providersLoaded && !kokoroEnabled && !mylabEnabled;
 
   const handleTtsFileSelected = useCallback((file: File) => {
     setPendingFile(file);
@@ -157,9 +124,7 @@ export default function TtsPage() {
     try {
       const voiceLabel = provider === "kokoro"
         ? (() => { const v = kokoroVoices.find(x => x.voice_id === voiceId); return v ? `${KOKORO_ACCENT_LABEL[v.accent] ?? ""} ${v.name}`.trim() : voiceId; })()
-        : provider === "mylab"
-        ? (() => { const v = mylabVoices.find(x => x.voice_id === voiceId); return v ? `${MYLAB_LANGUAGE_FLAG[v.language ?? ""] ?? ""} ${v.name}`.trim() : voiceId; })()
-        : (voices.find(x => x.voice_id === voiceId)?.label ?? voiceId);
+        : (() => { const v = mylabVoices.find(x => x.voice_id === voiceId); return v ? `${MYLAB_LANGUAGE_FLAG[v.language ?? ""] ?? ""} ${v.name}`.trim() : voiceId; })();
 
       const formData = new FormData();
       if (inputMode === "file" && pendingFile) {
@@ -170,7 +135,6 @@ export default function TtsPage() {
       formData.append("voice_id", voiceId);
       formData.append("voice_label", voiceLabel);
       formData.append("speed", String(speed));
-      formData.append("pause_preset", pausePreset);
       formData.append("provider", provider);
 
       const uploadRes = await fetch("/api/tts", {
@@ -297,7 +261,7 @@ export default function TtsPage() {
           )}
 
           {/* Provider */}
-          {providersLoaded && (elevenlabsEnabled || kokoroEnabled || mylabEnabled) && (
+          {providersLoaded && (kokoroEnabled || mylabEnabled) && (
           <div className="mt-6 mb-2">
             <label htmlFor="provider-select" className="block text-sm font-medium text-foreground-soft mb-2">
               {t("providerLabel")}
@@ -305,10 +269,9 @@ export default function TtsPage() {
             <Select
               id="provider-select"
               value={provider}
-              onChange={(v) => setProvider(v as "elevenlabs" | "kokoro" | "mylab")}
+              onChange={(v) => setProvider(v as "kokoro" | "mylab")}
               disabled={isProcessing}
               options={[
-                ...(elevenlabsEnabled ? [{ value: "elevenlabs", label: "ElevenLabs" }] : []),
                 ...(kokoroEnabled ? [{ value: "kokoro", label: "Kokoro TTS" }] : []),
                 ...(mylabEnabled ? [{ value: "mylab", label: "THL myLab (XTTS-v2)" }] : []),
               ]}
@@ -317,7 +280,7 @@ export default function TtsPage() {
           )}
 
           {/* Voice */}
-          {providersLoaded && (elevenlabsEnabled || kokoroEnabled || mylabEnabled) && (
+          {providersLoaded && (kokoroEnabled || mylabEnabled) && (
           <div className="mt-4 mb-6 space-y-3">
             <div>
               <label htmlFor="voice-select" className="block text-sm font-medium text-foreground-soft mb-2">
@@ -331,25 +294,10 @@ export default function TtsPage() {
                 options={
                   provider === "kokoro"
                     ? kokoroVoices.map((v) => ({ value: v.voice_id, label: `${KOKORO_ACCENT_LABEL[v.accent] ?? ""} ${v.name}`.trim() }))
-                    : provider === "mylab"
-                    ? mylabVoices.map((v) => ({ value: v.voice_id, label: `${MYLAB_LANGUAGE_FLAG[v.language ?? ""] ?? ""} ${v.name} - ${v.description}`.trim() }))
-                    : voices.map((v) => {
-                        const desc = translateDesc(v.description);
-                        return { value: v.voice_id, label: desc ? `${v.label} - ${desc}` : v.label };
-                      })
+                    : mylabVoices.map((v) => ({ value: v.voice_id, label: `${MYLAB_LANGUAGE_FLAG[v.language ?? ""] ?? ""} ${v.name} - ${v.description}`.trim() }))
                 }
               />
             </div>
-            {provider === "elevenlabs" && (
-              <a
-                href="/tools/tts/voices"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-sm text-kb hover:underline"
-              >
-                {t("previewVoices")}
-              </a>
-            )}
             {provider === "kokoro" && (
               <a
                 href="/tools/tts/voices?tab=kokoro"
@@ -395,22 +343,6 @@ export default function TtsPage() {
               <span>{t("speedFast")}</span>
             </div>
           </div>
-
-          {/* Pauses (ElevenLabs only) */}
-          {provider === "elevenlabs" && (
-            <div className="mb-6">
-              <label htmlFor="pause-select" className="block text-sm font-medium text-foreground-soft mb-2">
-                {t("pauses")}
-              </label>
-              <Select
-                id="pause-select"
-                value={pausePreset}
-                onChange={setPausePreset}
-                disabled={isProcessing}
-                options={PAUSE_KEYS.map((k) => ({ value: k, label: t(`pause.${k}`) }))}
-              />
-            </div>
-          )}
 
           {ttsState !== "done" && (
             <div className="mb-6 flex items-center gap-3">

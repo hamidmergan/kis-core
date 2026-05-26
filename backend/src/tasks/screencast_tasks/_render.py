@@ -35,7 +35,7 @@ def run_screencast_render(
     slide_pause: float,
     original_filename: str = "screencast",
     dpi: int = 100,
-    provider: str = "elevenlabs",
+    provider: str = "kokoro",
     voice_label: str = "",
     is_admin: bool = False,
 ):

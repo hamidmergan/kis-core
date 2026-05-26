@@ -1,0 +1,319 @@
+"use client";
+
+import { useCallback, useMemo, useState } from "react";
+import { useTranslations } from "next-intl";
+import { Check, CheckCircle, Lightning, Spinner, XCircle } from "@phosphor-icons/react";
+import { testFeatureRoute } from "./_api";
+import type { Capability, Feature, FeatureRoute, Provider, ProviderMeta } from "./_types";
+
+type Props = {
+  meta: ProviderMeta;
+  providers: Provider[];
+  routes: FeatureRoute[];
+  onChangeProvider: (feature: Feature, providerId: number | null) => Promise<void>;
+  onChangeModel: (feature: Feature, modelName: string | null) => Promise<void>;
+  onToggleUserChoice: (feature: Feature, providerId: number, on: boolean) => Promise<void>;
+};
+
+type TestState =
+  | { kind: "idle" }
+  | { kind: "running" }
+  | { kind: "ok" }
+  | { kind: "error"; message: string };
+
+// Each feature is satisfied by one capability. Used to filter the provider
+// dropdown down to providers that actually offer the feature.
+const FEATURE_CAPABILITY: Record<Feature, Capability> = {
+  chat: "chat",
+  embedding: "embedding",
+  vision: "vision",
+  ocr: "ocr",
+  stt: "stt",
+  tts: "tts",
+  image_gen: "image_gen",
+  image_edit: "image_edit",
+  doc_translate: "translation",
+  screencast_translate: "translation",
+};
+
+// For translation features the dropdown should also accept any chat-capable
+// provider (LLM-driven translation). This widens the capability check.
+const FEATURE_EXTRA_CAPABILITIES: Partial<Record<Feature, Capability[]>> = {
+  doc_translate: ["chat"],
+  screencast_translate: ["chat"],
+};
+
+// Display order in the routing table.
+const FEATURE_ORDER: Feature[] = [
+  "chat",
+  "embedding",
+  "vision",
+  "image_gen",
+  "image_edit",
+  "ocr",
+  "stt",
+  "tts",
+  "doc_translate",
+  "screencast_translate",
+];
+
+export default function FeatureRoutingCard({
+  meta,
+  providers,
+  routes,
+  onChangeProvider,
+  onChangeModel,
+  onToggleUserChoice,
+}: Props) {
+  const t = useTranslations("admin.providers");
+  const [testStates, setTestStates] = useState<Record<string, TestState>>({});
+
+  const routeByFeature = useMemo(() => {
+    const m = new Map<Feature, FeatureRoute>();
+    for (const r of routes) m.set(r.feature, r);
+    return m;
+  }, [routes]);
+
+  const providerById = useMemo(() => {
+    const m = new Map<number, Provider>();
+    for (const p of providers) m.set(p.id, p);
+    return m;
+  }, [providers]);
+
+  const onTest = useCallback(async (feature: Feature) => {
+    setTestStates((s) => ({ ...s, [feature]: { kind: "running" } }));
+    try {
+      const res = await testFeatureRoute(feature);
+      setTestStates((s) => ({
+        ...s,
+        [feature]:
+          res.status === "ok"
+            ? { kind: "ok" }
+            : { kind: "error", message: res.error || "unknown error" },
+      }));
+    } catch (e) {
+      setTestStates((s) => ({
+        ...s,
+        [feature]: { kind: "error", message: (e as Error).message || "request failed" },
+      }));
+    }
+  }, []);
+
+  return (
+    <section className="border border-border-soft rounded-xl bg-background p-5">
+      <p className="text-sm font-medium text-foreground mb-1">{t("routes.title")}</p>
+      <p className="text-xs text-muted-soft mb-4 max-w-2xl">{t("routes.hint")}</p>
+
+      <div className="divide-y divide-border-soft">
+        {FEATURE_ORDER.filter((f) => meta.features.includes(f)).map((feature) => {
+          const route = routeByFeature.get(feature);
+          const isUserChoice = meta.user_choice_features.includes(feature);
+          const eligible = providers.filter((p) => {
+            const caps = new Set(p.capabilities);
+            if (caps.has(FEATURE_CAPABILITY[feature])) return true;
+            const extras = FEATURE_EXTRA_CAPABILITIES[feature] || [];
+            return extras.some((c) => caps.has(c));
+          });
+
+          return (
+            <FeatureRow
+              key={feature}
+              feature={feature}
+              route={route}
+              eligible={eligible}
+              providerById={providerById}
+              isUserChoice={isUserChoice}
+              testState={testStates[feature] ?? { kind: "idle" }}
+              onTest={() => onTest(feature)}
+              onChangeProvider={(pid) => onChangeProvider(feature, pid)}
+              onChangeModel={(model) => onChangeModel(feature, model)}
+              onToggleUserChoice={(pid, on) => onToggleUserChoice(feature, pid, on)}
+            />
+          );
+        })}
+      </div>
+    </section>
+  );
+}
+
+function FeatureRow({
+  feature,
+  route,
+  eligible,
+  providerById,
+  isUserChoice,
+  testState,
+  onTest,
+  onChangeProvider,
+  onChangeModel,
+  onToggleUserChoice,
+}: {
+  feature: Feature;
+  route: FeatureRoute | undefined;
+  eligible: Provider[];
+  providerById: Map<number, Provider>;
+  isUserChoice: boolean;
+  testState: TestState;
+  onTest: () => void;
+  onChangeProvider: (id: number | null) => void;
+  onChangeModel: (model: string | null) => void;
+  onToggleUserChoice: (id: number, on: boolean) => void;
+}) {
+  const t = useTranslations("admin.providers");
+  const providerId = route?.provider_id ?? null;
+  const provider = providerId != null ? providerById.get(providerId) : undefined;
+  const userChoices = route?.user_choices ?? [];
+  const canTest = providerId != null;
+
+  if (isUserChoice) {
+    const primary = provider;
+    const primaryNeedsModel = primary?.protocol === "openai_compat";
+    return (
+      <div className="grid grid-cols-[1fr_auto] gap-4 items-start py-4">
+        <div className="min-w-0">
+          <p className="text-sm font-medium text-foreground">{t(`featureName.${feature}`)}</p>
+          <p className="text-xs text-muted-soft mt-0.5">{t(`featureDesc.${feature}`)}</p>
+          <TestStatusLine state={testState} />
+        </div>
+        <div className="flex flex-col gap-2 items-end max-w-[460px]">
+          <div className="flex flex-wrap gap-2 items-center justify-end">
+            {eligible.length === 0 ? (
+              <span className="text-[11.5px] text-muted-soft italic">{t("routes.noEligible")}</span>
+            ) : (
+              eligible.map((p) => {
+                const on = userChoices.includes(p.id);
+                return (
+                  <button
+                    key={p.id}
+                    type="button"
+                    onClick={() => onToggleUserChoice(p.id, !on)}
+                    className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md border-2 transition-colors ${
+                      on
+                        ? "border-kb bg-[rgba(var(--kb-rgb),0.07)] text-kb"
+                        : "border-border bg-background text-foreground-soft hover:border-kb"
+                    }`}
+                  >
+                    <span
+                      className={`w-3.5 h-3.5 rounded border flex items-center justify-center ${
+                        on ? "bg-kb border-kb text-white" : "bg-background border-border"
+                      }`}
+                    >
+                      {on && <Check size={9} weight="bold" />}
+                    </span>
+                    {p.name}
+                  </button>
+                );
+              })
+            )}
+          </div>
+          {primary && (
+            <div className="flex gap-2 items-center w-full">
+              <label className="text-[11px] text-muted-soft whitespace-nowrap ml-auto">
+                {t("routes.modelForPrimary", { name: primary.name })}
+              </label>
+              <input
+                type="text"
+                value={route?.model_name ?? ""}
+                onChange={(e) => onChangeModel(e.target.value || null)}
+                onBlur={(e) => onChangeModel(e.target.value.trim() || null)}
+                placeholder={primaryNeedsModel ? t("routes.modelPlaceholder") : t("routes.modelOptional")}
+                spellCheck={false}
+                className="text-xs px-2 py-1.5 border-2 border-border rounded-md font-mono w-[180px] hover:border-kb focus:outline-none focus:border-kb bg-background"
+              />
+              <TestButton state={testState} disabled={!canTest} onClick={onTest} />
+            </div>
+          )}
+          {!primary && (
+            <TestButton state={testState} disabled={!canTest} onClick={onTest} />
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="grid grid-cols-[1fr_180px_220px_auto] gap-3 items-center py-4">
+      <div className="min-w-0">
+        <p className="text-sm font-medium text-foreground">{t(`featureName.${feature}`)}</p>
+        <p className="text-xs text-muted-soft mt-0.5">{t(`featureDesc.${feature}`)}</p>
+        <TestStatusLine state={testState} />
+      </div>
+      <select
+        value={providerId ?? ""}
+        onChange={(e) => onChangeProvider(e.target.value ? Number(e.target.value) : null)}
+        disabled={eligible.length === 0}
+        className="text-xs px-2 py-1.5 border-2 border-border rounded-md hover:border-kb focus:outline-none focus:border-kb bg-background disabled:opacity-60 disabled:cursor-not-allowed"
+      >
+        <option value="">{t("routes.unselected")}</option>
+        {eligible.map((p) => (
+          <option key={p.id} value={p.id}>
+            {p.name}
+          </option>
+        ))}
+      </select>
+      <input
+        type="text"
+        value={route?.model_name ?? ""}
+        onChange={(e) => onChangeModel(e.target.value || null)}
+        onBlur={(e) => onChangeModel(e.target.value.trim() || null)}
+        disabled={!provider}
+        placeholder={provider ? t("routes.modelPlaceholder") : "—"}
+        spellCheck={false}
+        className="text-xs px-2 py-1.5 border-2 border-border rounded-md font-mono hover:border-kb focus:outline-none focus:border-kb bg-background disabled:opacity-60 disabled:cursor-not-allowed"
+      />
+      <TestButton state={testState} disabled={!canTest} onClick={onTest} />
+    </div>
+  );
+}
+
+function TestButton({
+  state,
+  disabled,
+  onClick,
+}: {
+  state: TestState;
+  disabled: boolean;
+  onClick: () => void;
+}) {
+  const t = useTranslations("admin.providers");
+  const running = state.kind === "running";
+  const label = t("routes.test");
+  const ok = state.kind === "ok";
+  const err = state.kind === "error";
+  const tone = ok
+    ? "text-success hover:outline hover:outline-2 hover:outline-success"
+    : err
+      ? "text-error hover:outline hover:outline-2 hover:outline-error"
+      : "text-muted hover:text-kb hover:outline hover:outline-2 hover:outline-kb";
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled || running}
+      title={label}
+      aria-label={label}
+      className={`w-8 h-8 rounded-md border border-border-soft bg-background flex items-center justify-center transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${tone}`}
+    >
+      {running ? (
+        <Spinner size={14} weight="bold" className="animate-spin" />
+      ) : ok ? (
+        <CheckCircle size={14} weight="bold" />
+      ) : err ? (
+        <XCircle size={14} weight="bold" />
+      ) : (
+        <Lightning size={14} weight="bold" />
+      )}
+    </button>
+  );
+}
+
+function TestStatusLine({ state }: { state: TestState }) {
+  const t = useTranslations("admin.providers");
+  if (state.kind === "ok") {
+    return <p className="text-[11px] text-success mt-1">{t("routes.testOk")}</p>;
+  }
+  if (state.kind === "error") {
+    return <p className="text-[11px] text-error mt-1">{state.message}</p>;
+  }
+  return null;
+}

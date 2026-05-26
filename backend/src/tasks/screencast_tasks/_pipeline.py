@@ -36,7 +36,7 @@ def _run_render_pipeline(
     slide_pause: float,
     slide_images_override: list[Path] | None = None,
     dpi: int = 100,
-    provider: str = "elevenlabs",
+    provider: str = "kokoro",
     is_admin: bool = False,
 ) -> dict:
     """

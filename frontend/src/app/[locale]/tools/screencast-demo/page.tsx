@@ -25,13 +25,6 @@ import RegenChatModal from "@/app/[locale]/tools/screencast/_components/RegenCha
 import { useDemoRegen } from "./_hooks/useDemoRegen";
 import { useDemoScriptEditing } from "./_hooks/useDemoScriptEditing";
 
-interface Voice {
-  voice_id: string;
-  label: string;
-  description?: string | null;
-  use_case?: string | null;
-}
-
 interface TranslateResponse {
   slide_count: number;
   slide_texts: string[];
@@ -68,12 +61,10 @@ function ScreencastDemoPageInner() {
   const [errorMessage, setErrorMessage] = useState("");
   const [loading, setLoading] = useState(false);
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
-  const [voices, setVoices] = useState<Voice[]>([]);
   const [kokoroVoices, setKokoroVoices] = useState<Array<{ voice_id: string; name: string; accent: string; gender: string }>>([]);
   const [mylabVoices, setMylabVoices] = useState<Array<{ voice_id: string; name: string; description: string; language?: string }>>([]);
   const [voiceId, setVoiceId] = useState("");
-  const [ttsProvider, setTtsProvider] = useState<"elevenlabs" | "kokoro" | "mylab">("kokoro");
-  const [elevenlabsEnabled, setElevenlabsEnabled] = useState(false);
+  const [ttsProvider, setTtsProvider] = useState<"kokoro" | "mylab">("kokoro");
   const [kokoroEnabled, setKokoroEnabled] = useState(false);
   const [mylabEnabled, setMylabEnabled] = useState(false);
   const [providersLoaded, setProvidersLoaded] = useState(false);
@@ -86,19 +77,11 @@ function ScreencastDemoPageInner() {
   const abortControllerRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
-    api.getJson<{ elevenlabs_enabled: boolean; kokoro_enabled: boolean; mylab_enabled: boolean }>("/api/tts/providers").then((data) => {
-      setElevenlabsEnabled(data.elevenlabs_enabled);
+    api.getJson<{ kokoro_enabled: boolean; mylab_enabled: boolean }>("/api/tts/providers").then((data) => {
       setKokoroEnabled(data.kokoro_enabled ?? false);
       setMylabEnabled(data.mylab_enabled ?? false);
       if (data.kokoro_enabled) setTtsProvider("kokoro");
       else if (data.mylab_enabled) setTtsProvider("mylab");
-      else if (data.elevenlabs_enabled) setTtsProvider("elevenlabs");
-      if (data.elevenlabs_enabled) {
-        api.getJson<{ voices: Voice[] }>("/api/voices").then((vData) => {
-          setVoices(vData.voices);
-          if (vData.voices.length > 0) setVoiceId(vData.voices[0].voice_id);
-        }).catch(() => {});
-      }
       if (data.kokoro_enabled) {
         api.getJson<{ voices: Array<{ voice_id: string; name: string; accent: string; gender: string }> }>("/api/kokoro/voices")
           .then((kData) => {
@@ -139,8 +122,8 @@ function ScreencastDemoPageInner() {
     setScriptInputMode("generate");
     setImportedScripts(null);
     setImportError(null);
-    setTtsProvider(kokoroEnabled ? "kokoro" : elevenlabsEnabled ? "elevenlabs" : "kokoro");
-  }, [videoUrl, kokoroEnabled, elevenlabsEnabled]);
+    setTtsProvider(kokoroEnabled ? "kokoro" : "mylab");
+  }, [videoUrl, kokoroEnabled]);
 
   const handleStepClick = useCallback((index: number) => {
     if (step === "rendering" || step === "generating-scripts") return;
@@ -239,9 +222,7 @@ function ScreencastDemoPageInner() {
       const mylabFlag: Record<string, string> = { de: "🇩🇪", en: "🇺🇸" };
       const voiceLabel = ttsProvider === "kokoro"
         ? (() => { const v = kokoroVoices.find(x => x.voice_id === voiceId); return v ? `${KOKORO_ACCENT_LABEL[v.accent] ?? ""} ${v.name}`.trim() : voiceId; })()
-        : ttsProvider === "mylab"
-        ? (() => { const v = mylabVoices.find(x => x.voice_id === voiceId); return v ? `${mylabFlag[v.language ?? ""] ?? ""} ${v.name}`.trim() : voiceId; })()
-        : (voices.find(x => x.voice_id === voiceId)?.label ?? voiceId);
+        : (() => { const v = mylabVoices.find(x => x.voice_id === voiceId); return v ? `${mylabFlag[v.language ?? ""] ?? ""} ${v.name}`.trim() : voiceId; })();
       const response = await fetch("/api/screencast-demo/render", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -257,7 +238,7 @@ function ScreencastDemoPageInner() {
       if (err instanceof Error && err.name === "AbortError") return;
       goError(err instanceof Error ? err.message : tCommon("unknownError"));
     }
-  }, [voiceId, speed, slidePause, dpi, ttsProvider, kokoroVoices, mylabVoices, voices, translateJobUuid, goError, processRenderResponse, tCommon]);
+  }, [voiceId, speed, slidePause, dpi, ttsProvider, kokoroVoices, mylabVoices, translateJobUuid, goError, processRenderResponse, tCommon]);
 
   const handleJsonImport = useCallback((file: File) => {
     setImportError(null);
@@ -413,11 +394,9 @@ function ScreencastDemoPageInner() {
         {step === "tts-settings" && (
           <TtsSettingsStep
             providersLoaded={providersLoaded}
-            elevenlabsEnabled={elevenlabsEnabled}
             kokoroEnabled={kokoroEnabled}
             mylabEnabled={mylabEnabled}
             ttsProvider={ttsProvider}
-            voices={voices}
             kokoroVoices={kokoroVoices}
             mylabVoices={mylabVoices}
             voiceId={voiceId}

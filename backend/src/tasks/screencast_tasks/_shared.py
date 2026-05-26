@@ -53,16 +53,8 @@ def _get_screencast_helpers():
     )
 
 
-def _get_tts_client(provider: str = "elevenlabs"):
-    if provider == "kokoro":
-        from src.dependencies import is_kokoro_enabled, get_kokoro_client
-        if not is_kokoro_enabled():
-            raise RuntimeError("Kokoro TTS ist nicht aktiviert")
-        client = get_kokoro_client()
-        if not client or not client.is_available():
-            raise RuntimeError("Kokoro Server nicht erreichbar")
-        return client
-    elif provider == "mylab":
+def _get_tts_client(provider: str = "kokoro"):
+    if provider == "mylab":
         from src.dependencies import is_mylab_enabled, get_mylab_client
         if not is_mylab_enabled():
             raise RuntimeError("myLab TTS ist nicht aktiviert")
@@ -70,13 +62,13 @@ def _get_tts_client(provider: str = "elevenlabs"):
         if not client or not client.is_available():
             raise RuntimeError("myLab TTS Server nicht erreichbar")
         return client
-    else:
-        from src.services.elevenlabs_client import ElevenLabsClient
-        from src.config import Settings
-        api_key = Settings().elevenlabs_api_key
-        if not api_key:
-            raise RuntimeError("ElevenLabs API Key nicht konfiguriert")
-        return ElevenLabsClient(api_key)
+    from src.dependencies import is_kokoro_enabled, get_kokoro_client
+    if not is_kokoro_enabled():
+        raise RuntimeError("Kokoro TTS ist nicht aktiviert")
+    client = get_kokoro_client()
+    if not client or not client.is_available():
+        raise RuntimeError("Kokoro Server nicht erreichbar")
+    return client
 
 
 def _get_pptx_for_render(user_id: int, save_uuid: str) -> bytes:

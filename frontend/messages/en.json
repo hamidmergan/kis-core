@@ -805,6 +805,99 @@
       "overrideHint": "-1 = unlimited, empty = default",
       "defaultsTitle": "Default limits (global)"
     },
+    "providers": {
+      "intro": "Providers are endpoints that deliver AI features (chat, embedding, TTS, vision, ...). Register as many as you like. For each feature below, pick which provider handles it.",
+      "list": {
+        "title": "Providers",
+        "hint": "“Re-check” verifies the endpoint is reachable. To test whether a specific feature actually works, use the row test buttons under “Features”.",
+        "add": "Add provider",
+        "emptyTitle": "No provider configured yet",
+        "emptyHint": "Add your first provider to enable AI features."
+      },
+      "row": {
+        "keySuffix": "· Key: ...{chars}",
+        "probe": "Re-check reachability",
+        "edit": "Edit",
+        "delete": "Delete",
+        "statusActive": "reachable",
+        "statusError": "error",
+        "statusUnprobed": "not checked yet"
+      },
+      "routes": {
+        "title": "Features",
+        "hint": "One provider and one model per feature. The bolt button tests whether the selected pairing (e.g. TTS via KISSKI) actually works.",
+        "unselected": "— pick a provider —",
+        "modelPlaceholder": "model name",
+        "userChoiceLabel": "User may choose:",
+        "noEligible": "No provider supports this feature.",
+        "test": "Test selection",
+        "testOk": "Test succeeded",
+        "testNoProvider": "No provider selected.",
+        "modelForPrimary": "Model for {name}:",
+        "modelOptional": "(optional)"
+      },
+      "delete": {
+        "confirmEmpty": "Delete provider \"{name}\"?",
+        "confirmWithRoutes": "\"{name}\" is used for {features}. Deleting will disable those features until you assign other providers. Delete anyway?"
+      },
+      "dialog": {
+        "titleCreate": "Add provider",
+        "titleEdit": "Edit provider",
+        "close": "Close",
+        "cancel": "Cancel",
+        "save": "Save and probe",
+        "saving": "Saving…",
+        "fieldName": "Name",
+        "namePlaceholder": "e.g. OpenAI, KISSKI, My Ollama",
+        "nameHint": "Free-form; shown in the feature dropdowns.",
+        "fieldProtocol": "Protocol",
+        "fieldBaseUrl": "Base URL",
+        "fieldApiKey": "API key",
+        "showKey": "Show key",
+        "hideKey": "Hide key",
+        "apiKeyHint": "Leave empty if the endpoint needs no key.",
+        "apiKeyEditHint": "Leaving empty keeps the existing key.",
+        "probeHint": "After save, KIS verifies the endpoint is reachable. Whether each feature actually works is tested per row under “Features”.",
+        "fixedCapabilitiesHint": "Protocol-fixed: {caps}",
+        "deeplFreeDetected": "DeepL Free key detected (suffix :fx) → api-free.deepl.com.",
+        "deeplProDetected": "DeepL Pro key detected → api.deepl.com.",
+        "deeplFreeOnProUrl": "DeepL Free key (suffix :fx) detected, but the base URL points to the Pro endpoint. KIS will auto-route to api-free.deepl.com.",
+        "deeplProOnFreeUrl": "DeepL Pro key detected, but the base URL points to the Free endpoint. KIS will auto-route to api.deepl.com."
+      },
+      "validation": {
+        "required": "Name and base URL are required."
+      },
+      "protocolName": {
+        "openai_compat": "OpenAI-compatible",
+        "deepl": "DeepL",
+        "docling": "Docling",
+        "kokoro": "Kokoro"
+      },
+      "featureName": {
+        "chat": "Chat",
+        "embedding": "Embeddings",
+        "vision": "Vision",
+        "ocr": "OCR / document extraction",
+        "stt": "Speech-to-Text",
+        "tts": "Text-to-Speech",
+        "image_gen": "Image generation",
+        "image_edit": "Image edit",
+        "doc_translate": "Document translation",
+        "screencast_translate": "Screencast translation"
+      },
+      "featureDesc": {
+        "chat": "Chat, summaries, tool calls",
+        "embedding": "Vector search, semantic indexing",
+        "vision": "Recognize and describe image content",
+        "ocr": "Full text from PDFs, layout extraction",
+        "stt": "Audio transcription, Whisper-based",
+        "tts": "Voice output for screencast / read-aloud. The user picks a provider inside the tool.",
+        "image_gen": "Text-to-image",
+        "image_edit": "Edit images via prompt",
+        "doc_translate": "PDF / DOCX into target language. The user picks a provider inside the tool.",
+        "screencast_translate": "Subtitles and audio for videos. The user picks a provider inside the tool."
+      }
+    },
     "settings": {
       "providerNotConfigured": "Not configured.",
       "providerDisabled": "Disabled - will not be shown.",
@@ -1859,5 +1952,24 @@
     "description": "KIS - Services of TH Lübeck",
     "author": "Hamid Mergan, Institute for Interactive Systems (ISy), Technische Hochschule Lübeck",
     "copyright": "© 2026 Hamid Mergan, Institute for Interactive Systems (ISy), Technische Hochschule Lübeck"
+  },
+  "ki": {
+    "notConfigured": {
+      "title": "AI not configured",
+      "missing": "These feature(s) are not set up: {features}",
+      "configureLink": "Configure now →",
+      "featureName": {
+        "chat": "Chat",
+        "embedding": "Embeddings",
+        "vision": "Vision",
+        "ocr": "OCR",
+        "stt": "Speech-to-Text",
+        "tts": "Text-to-Speech",
+        "image_gen": "Image generation",
+        "image_edit": "Image edit",
+        "doc_translate": "Document translation",
+        "screencast_translate": "Screencast translation"
+      }
+    }
   }
 }

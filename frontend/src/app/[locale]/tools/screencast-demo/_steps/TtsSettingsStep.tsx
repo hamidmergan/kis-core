@@ -1,27 +1,18 @@
 "use client";
 
 import { useFormatter, useTranslations } from "next-intl";
-import { translateDesc } from "@/lib/voice-labels";
 import type { SlideData } from "@/types";
 import Select from "@/components/ui/Select";
 
 
-interface Voice {
-  voice_id: string;
-  label: string;
-  description?: string | null;
-}
-
-type TtsProvider = "elevenlabs" | "kokoro" | "mylab";
+type TtsProvider = "kokoro" | "mylab";
 
 
 interface TtsSettingsStepProps {
   providersLoaded: boolean;
-  elevenlabsEnabled: boolean;
   kokoroEnabled: boolean;
   mylabEnabled: boolean;
   ttsProvider: TtsProvider;
-  voices: Voice[];
   kokoroVoices: Array<{ voice_id: string; name: string; accent: string; gender: string }>;
   mylabVoices: Array<{ voice_id: string; name: string; description: string; language?: string }>;
   voiceId: string;
@@ -45,8 +36,8 @@ interface TtsSettingsStepProps {
 
 
 export function TtsSettingsStep({
-  providersLoaded, elevenlabsEnabled, kokoroEnabled, mylabEnabled,
-  ttsProvider, voices, kokoroVoices, mylabVoices, voiceId,
+  providersLoaded, kokoroEnabled, mylabEnabled,
+  ttsProvider, kokoroVoices, mylabVoices, voiceId,
   speed, slidePause, dpi, slides, totalWords, totalChars, scriptOverLimit, maxChars, ttsSettingsError,
   onTtsProviderChange, onVoiceIdChange, onSpeedChange, onSlidePauseChange, onDpiChange,
   onBackToScripts, onStartRender,
@@ -60,14 +51,13 @@ export function TtsSettingsStep({
     onTtsProviderChange(p);
     if (p === "kokoro" && kokoroVoices.length > 0) onVoiceIdChange(kokoroVoices[0].voice_id);
     else if (p === "mylab" && mylabVoices.length > 0) onVoiceIdChange(mylabVoices[0].voice_id);
-    else if (p === "elevenlabs" && voices.length > 0) onVoiceIdChange(voices[0].voice_id);
   };
 
   return (
     <section className="animate-[fadeIn_0.3s_ease-out]">
       <h2 className="text-lg font-bold mb-6">{t("ttsSettings.heading")}</h2>
 
-      {providersLoaded && (elevenlabsEnabled || kokoroEnabled || mylabEnabled) && (
+      {providersLoaded && (kokoroEnabled || mylabEnabled) && (
         <div className="mb-2">
           <label htmlFor="sc-provider-select" className="block text-sm font-medium text-foreground-soft mb-2">{t("ttsSettings.providerLabel")}</label>
           <Select id="sc-provider-select" value={ttsProvider}
@@ -75,13 +65,12 @@ export function TtsSettingsStep({
             options={[
               ...(kokoroEnabled ? [{ value: "kokoro", label: "Kokoro TTS" }] : []),
               ...(mylabEnabled ? [{ value: "mylab", label: "THL myLab (XTTS-v2)" }] : []),
-              ...(elevenlabsEnabled ? [{ value: "elevenlabs", label: "ElevenLabs" }] : []),
             ]}
           />
         </div>
       )}
 
-      {providersLoaded && (elevenlabsEnabled || kokoroEnabled || mylabEnabled) && (
+      {providersLoaded && (kokoroEnabled || mylabEnabled) && (
         <div className="mb-6 mt-4 space-y-3">
           <div>
             <label htmlFor="sc-voice-select" className="block text-sm font-medium text-foreground-soft mb-2">{t("ttsSettings.voiceLabel")}</label>
@@ -92,21 +81,13 @@ export function TtsSettingsStep({
                       const flag = v.accent === "American" ? "🇺🇸" : v.accent === "British" ? "🇬🇧" : "";
                       return { value: v.voice_id, label: `${flag} ${v.name}`.trim() };
                     })
-                  : ttsProvider === "mylab"
-                  ? mylabVoices.map((v) => {
+                  : mylabVoices.map((v) => {
                       const flag = v.language === "de" ? "🇩🇪" : v.language === "en" ? "🇺🇸" : "";
                       return { value: v.voice_id, label: `${flag} ${v.name} - ${v.description}`.trim() };
-                    })
-                  : voices.map((v) => {
-                      const desc = translateDesc(v.description);
-                      return { value: v.voice_id, label: desc ? `${v.label} - ${desc}` : v.label };
                     })
               }
             />
           </div>
-          {ttsProvider === "elevenlabs" && (
-            <a href="/tools/tts/voices" target="_blank" rel="noopener noreferrer" className="text-sm text-kb hover:underline">{t("ttsSettings.previewVoices")}</a>
-          )}
           {ttsProvider === "kokoro" && (
             <a href="/tools/tts/voices?tab=kokoro" target="_blank" rel="noopener noreferrer" className="text-sm text-kb hover:underline">{t("ttsSettings.previewVoices")}</a>
           )}

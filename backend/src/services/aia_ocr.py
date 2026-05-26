@@ -118,53 +118,24 @@ class DoclingOcrProvider(OcrProvider):
         return markdown.strip()
 
 
-# ── Per-provider factory functions ─────────────────────────────────────────
-
-def _make_docling_ocr_provider() -> DoclingOcrProvider:
-    """Build the GWDG/KISSKI Docling OCR provider."""
-    from src.config import Settings
-    s = Settings()
-    if not s.primary_provider_api_key:
-        raise RuntimeError("Docling OCR requires PRIMARY_PROVIDER_API_KEY")
-    return DoclingOcrProvider(
-        base_url=s.primary_provider_base_url,
-        api_key=s.primary_provider_api_key,
-    )
-
-
-def _make_mylab_ocr_provider() -> OpenAICompatOcrProvider:
-    """Build the THL myLab Vision-LLM OCR provider (chandra-ocr-2 default)."""
-    from src.config import Settings
-    from src.services.runtime_models import get_model
-    s = Settings()
-    base = (s.fallback_provider_base_url or "").rstrip("/")
-    if not base:
-        raise RuntimeError("myLab OCR base URL not configured")
-    return OpenAICompatOcrProvider(
-        base_url=f"{base}/v1",
-        api_key="ignored",
-        model=get_model("fallback_ocr_model"),
-    )
-
-
 def get_ocr_provider() -> Optional[OcrProvider]:
-    """Return the currently-active OCR provider, or None if OCR is disabled.
+    """Return the currently-active OCR provider, or None if OCR is unconfigured.
 
-    Master toggle ``ocr_enabled`` short-circuits everything. The per-provider
-    toggles (``docling_ocr_enabled`` / ``fallback_ocr_enabled``) form a radio
-    group selecting which backend handles OCR when it is enabled.
+    Reads the ``ocr`` feature route from the admin tab. The chosen protocol
+    determines the concrete client:
+      - ``docling``: returns the ``DoclingAdapter`` (which carries an
+        ``ocr_image`` method that matches the ``OcrProvider`` interface).
+      - ``openai_compat``: returns an ``OpenAICompatOcrProvider`` driving a
+        Vision-LLM via ``/v1/chat/completions``.
     """
-    from src import database as db
-    if db.get_setting("ocr_enabled", "true").lower() != "true":
+    from src.services import feature_router
+    try:
+        binding = feature_router.resolve("ocr")
+    except feature_router.FeatureNotConfigured as e:
+        logger.warning("OCR resolver: {}", e)
         return None
-    if db.get_setting("docling_ocr_enabled", "true").lower() == "true":
-        try:
-            return _make_docling_ocr_provider()
-        except Exception as e:
-            logger.warning("Docling OCR init failed: {}", e)
-    if db.get_setting("fallback_ocr_enabled", "false").lower() == "true":
-        try:
-            return _make_mylab_ocr_provider()
-        except Exception as e:
-            logger.warning("myLab OCR init failed: {}", e)
-    return None
+    try:
+        return feature_router.make_ocr_provider(binding)
+    except Exception as e:
+        logger.warning("OCR provider init failed: {}", e)
+        return None

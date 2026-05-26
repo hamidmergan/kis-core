@@ -51,10 +51,6 @@ MESSAGES: dict[str, dict[str, str]] = {
         "de": "Nur .docx, .md oder .txt erlaubt",
         "en": "Only .docx, .md or .txt allowed",
     },
-    "tts.invalidPausePreset": {
-        "de": "Ungültiges Pausen-Preset",
-        "en": "Invalid pause preset",
-    },
     "tts.unsupportedFileType": {
         "de": "Dateityp wird nicht unterstützt",
         "en": "File type not supported",
@@ -95,11 +91,6 @@ MESSAGES: dict[str, dict[str, str]] = {
         "de": "myLab TTS ist nicht aktiviert",
         "en": "myLab TTS is not enabled",
     },
-    "elevenlabs.notEnabled": {
-        "de": "ElevenLabs ist nicht aktiviert",
-        "en": "ElevenLabs is not enabled",
-    },
-
     # ── summary ──────────────────────────────────────────────────────────────
     "summary.unsupportedFormat": {
         "de": "Nur {formats} erlaubt",
@@ -192,6 +183,10 @@ MESSAGES: dict[str, dict[str, str]] = {
     "job.demoParamsExpired": {
         "de": "Demo-Parameter nicht mehr vorhanden (abgelaufen)",
         "en": "Demo parameters no longer available (expired)",
+    },
+    "job.featureNotConfigured": {
+        "de": "Diese Funktion ist nicht konfiguriert. Bitte Admin kontaktieren.",
+        "en": "This feature is not configured. Please contact your admin.",
     },
 
     # ── screencast ───────────────────────────────────────────────────────────

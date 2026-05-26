@@ -108,15 +108,13 @@ function ScreencastPageInner() {
     providers,
     defaultProvider,
     defaultVoiceId,
-    elevenlabs: voices,
     kokoro: kokoroVoices,
     mylab: mylabVoices,
   } = voicesResult;
-  const elevenlabsEnabled = providers.elevenlabs;
   const kokoroEnabled = providers.kokoro;
   const mylabEnabled = providers.mylab;
   const [voiceId, setVoiceId] = useState("");
-  const [ttsProvider, setTtsProvider] = useState<"elevenlabs" | "kokoro" | "mylab">("kokoro");
+  const [ttsProvider, setTtsProvider] = useState<"kokoro" | "mylab">("kokoro");
   useEffect(() => {
     if (defaultProvider) setTtsProvider(defaultProvider);
   }, [defaultProvider]);
@@ -197,7 +195,7 @@ function ScreencastPageInner() {
     setSourceLang("DE");
     setTargetLang("EN-US");
     scriptInput.reset();
-    setTtsProvider(kokoroEnabled ? "kokoro" : elevenlabsEnabled ? "elevenlabs" : "kokoro");
+    setTtsProvider(kokoroEnabled ? "kokoro" : "mylab");
     if (fileRef.current) fileRef.current.value = "";
   }, [translateJobUuid]);
 
@@ -247,7 +245,6 @@ function ScreencastPageInner() {
     voiceId,
     ttsProvider,
     kokoroVoices,
-    voices,
     mylabVoices,
     failedRender,
     renderResult,
@@ -569,11 +566,9 @@ function ScreencastPageInner() {
         {!resumeLoading && step === "tts-settings" && (
           <TtsSettingsStep
             providersLoaded={providersLoaded}
-            elevenlabsEnabled={elevenlabsEnabled}
             kokoroEnabled={kokoroEnabled}
             mylabEnabled={mylabEnabled}
             ttsProvider={ttsProvider}
-            voices={voices}
             kokoroVoices={kokoroVoices}
             mylabVoices={mylabVoices}
             voiceId={voiceId}

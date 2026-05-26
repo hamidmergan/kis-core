@@ -1,16 +1,9 @@
 "use client";
 
 import { useFormatter, useTranslations } from "next-intl";
-import { translateVoiceDescription } from "@/lib/voice-labels";
 import type { SlideData } from "@/types";
 import Select from "@/components/ui/Select";
 
-interface ElevenLabsVoice {
-  voice_id: string;
-  label: string;
-  description?: string | null;
-  use_case?: string | null;
-}
 interface KokoroVoice {
   voice_id: string;
   name: string;
@@ -29,15 +22,13 @@ const MYLAB_FLAG: Record<string, string> = {
   "en": "🇺🇸",
 };
 
-type TtsProvider = "elevenlabs" | "kokoro" | "mylab";
+type TtsProvider = "kokoro" | "mylab";
 
 interface TtsSettingsStepProps {
   providersLoaded: boolean;
-  elevenlabsEnabled: boolean;
   kokoroEnabled: boolean;
   mylabEnabled: boolean;
   ttsProvider: TtsProvider;
-  voices: ElevenLabsVoice[];
   kokoroVoices: KokoroVoice[];
   mylabVoices: MylabVoice[];
   voiceId: string;
@@ -62,11 +53,9 @@ interface TtsSettingsStepProps {
 export default function TtsSettingsStep(props: TtsSettingsStepProps) {
   const {
     providersLoaded,
-    elevenlabsEnabled,
     kokoroEnabled,
     mylabEnabled,
     ttsProvider,
-    voices,
     kokoroVoices,
     mylabVoices,
     voiceId,
@@ -89,12 +78,11 @@ export default function TtsSettingsStep(props: TtsSettingsStepProps) {
   } = props;
 
   const t = useTranslations("tools.screencast");
-  const tDesc = useTranslations("tools.tts.voiceDescription");
   const format = useFormatter();
   const charsText = format.number(totalChars);
   const maxText = format.number(maxChars);
 
-  const anyProvider = elevenlabsEnabled || kokoroEnabled || mylabEnabled;
+  const anyProvider = kokoroEnabled || mylabEnabled;
 
   return (
     <section className="animate-[fadeIn_0.3s_ease-out]">
@@ -113,12 +101,10 @@ export default function TtsSettingsStep(props: TtsSettingsStepProps) {
               onTtsProviderChange(p);
               if (p === "kokoro" && kokoroVoices.length > 0) onVoiceIdChange(kokoroVoices[0].voice_id);
               else if (p === "mylab" && mylabVoices.length > 0) onVoiceIdChange(mylabVoices[0].voice_id);
-              else if (p === "elevenlabs" && voices.length > 0) onVoiceIdChange(voices[0].voice_id);
             }}
             options={[
               ...(kokoroEnabled ? [{ value: "kokoro", label: "Kokoro TTS" }] : []),
               ...(mylabEnabled ? [{ value: "mylab", label: "THL myLab (XTTS-v2)" }] : []),
-              ...(elevenlabsEnabled ? [{ value: "elevenlabs", label: "ElevenLabs" }] : []),
             ]}
           />
         </div>
@@ -140,20 +126,10 @@ export default function TtsSettingsStep(props: TtsSettingsStepProps) {
                       const flag = v.accent === "American" ? "🇺🇸" : v.accent === "British" ? "🇬🇧" : "";
                       return { value: v.voice_id, label: `${flag} ${v.name}`.trim() };
                     })
-                  : ttsProvider === "mylab"
-                  ? mylabVoices.map((v) => ({ value: v.voice_id, label: `${MYLAB_FLAG[v.language ?? ""] ?? ""} ${v.name} - ${v.description}`.trim() }))
-                  : voices.map((v) => {
-                      const desc = translateVoiceDescription(v.description, tDesc);
-                      return { value: v.voice_id, label: desc ? `${v.label} - ${desc}` : v.label };
-                    })
+                  : mylabVoices.map((v) => ({ value: v.voice_id, label: `${MYLAB_FLAG[v.language ?? ""] ?? ""} ${v.name} - ${v.description}`.trim() }))
               }
             />
           </div>
-          {ttsProvider === "elevenlabs" && (
-            <a href="/tools/tts/voices" target="_blank" rel="noopener noreferrer" className="text-sm text-kb hover:underline">
-              {t("ttsSettings.previewVoices")}
-            </a>
-          )}
           {ttsProvider === "kokoro" && (
             <a href="/tools/tts/voices?tab=kokoro" target="_blank" rel="noopener noreferrer" className="text-sm text-kb hover:underline">
               {t("ttsSettings.previewVoices")}

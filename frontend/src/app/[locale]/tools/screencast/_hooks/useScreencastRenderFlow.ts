@@ -4,7 +4,7 @@ import { useCallback, useEffect, type Dispatch, type MutableRefObject } from "re
 import { downloadJobAsBlob, parseDetail, pollJob, type JobStatus } from "@/lib/api";
 import { notifyJobsChanged } from "@/lib/jobs-events";
 import type { SlideData } from "@/types";
-import type { ElevenLabsVoice, KokoroVoice, OpenAITtsVoice, TtsProvider } from "@/hooks/useVoices";
+import type { KokoroVoice, OpenAITtsVoice, TtsProvider } from "@/hooks/useVoices";
 import type { useFailedRender } from "@/hooks/useFailedRender";
 import type { useRenderResult } from "@/hooks/useRenderResult";
 import { computeVoiceLabel, renderProgress, type RenderProgress } from "../_utils";
@@ -39,7 +39,6 @@ interface UseScreencastRenderFlowOptions {
   voiceId: string;
   ttsProvider: TtsProvider;
   kokoroVoices: KokoroVoice[];
-  voices: ElevenLabsVoice[];
   mylabVoices: OpenAITtsVoice[];
 
   // Sub-hooks
@@ -71,7 +70,6 @@ export function useScreencastRenderFlow(opts: UseScreencastRenderFlowOptions) {
     voiceId,
     ttsProvider,
     kokoroVoices,
-    voices,
     mylabVoices,
     failedRender,
     renderResult,
@@ -131,7 +129,7 @@ export function useScreencastRenderFlow(opts: UseScreencastRenderFlowOptions) {
           scripts: slides.map((s) => s.script),
           translate_job_uuid: translateJobUuid,
           voice_id: voiceId,
-          voice_label: computeVoiceLabel(ttsProvider, voiceId, kokoroVoices, voices, mylabVoices),
+          voice_label: computeVoiceLabel(ttsProvider, voiceId, kokoroVoices, mylabVoices),
           speed,
           slide_pause: slidePause,
           dpi,
@@ -178,7 +176,7 @@ export function useScreencastRenderFlow(opts: UseScreencastRenderFlowOptions) {
       goError(err instanceof Error ? err.message : messages.unknownError);
     }
   }, [
-    slides, translateJobUuid, voiceId, ttsProvider, kokoroVoices, voices,
+    slides, translateJobUuid, voiceId, ttsProvider, kokoroVoices, mylabVoices,
     speed, slidePause, dpi,
     newSignal, onRenderProgress, setRenderProgressLabel, setTtsSettingsError,
     failedRender, processRenderResultFromJob,

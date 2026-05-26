@@ -805,6 +805,99 @@
       "overrideHint": "-1 = unlimitiert, leer = Standard",
       "defaultsTitle": "Standard-Limits (global)"
     },
+    "providers": {
+      "intro": "Anbieter sind Endpoints, die KI-Funktionen liefern (Chat, Embedding, TTS, Bildanalyse, ...). Lege beliebig viele an. Pro Funktion wählst du unten, welcher Anbieter sie übernimmt.",
+      "list": {
+        "title": "Anbieter",
+        "hint": "Mit „Erneut prüfen“ testest du, ob der Endpoint erreichbar ist. Welche Funktionen tatsächlich funktionieren, prüfst du pro Zeile im Bereich „Funktionen“.",
+        "add": "Anbieter hinzufügen",
+        "emptyTitle": "Noch kein Anbieter konfiguriert",
+        "emptyHint": "Lege deinen ersten Anbieter an, um KI-Funktionen freizuschalten."
+      },
+      "row": {
+        "keySuffix": "· Schlüssel: ...{chars}",
+        "probe": "Erreichbarkeit prüfen",
+        "edit": "Bearbeiten",
+        "delete": "Löschen",
+        "statusActive": "erreichbar",
+        "statusError": "Fehler",
+        "statusUnprobed": "noch nicht geprüft"
+      },
+      "routes": {
+        "title": "Funktionen",
+        "hint": "Pro Funktion ein Anbieter und ein Modell. Mit dem Blitz-Symbol testest du, ob die konkrete Auswahl (z.B. TTS bei KISSKI) tatsächlich funktioniert.",
+        "unselected": "— Anbieter wählen —",
+        "modelPlaceholder": "Modellname",
+        "userChoiceLabel": "Nutzer kann wählen:",
+        "noEligible": "Kein Anbieter unterstützt diese Funktion.",
+        "test": "Auswahl testen",
+        "testOk": "Test erfolgreich",
+        "testNoProvider": "Kein Anbieter ausgewählt.",
+        "modelForPrimary": "Modell für {name}:",
+        "modelOptional": "(optional)"
+      },
+      "delete": {
+        "confirmEmpty": "Anbieter \"{name}\" löschen?",
+        "confirmWithRoutes": "\"{name}\" wird für {features} verwendet. Wenn du löschst, sind diese Funktionen nicht mehr verfügbar bis du andere Anbieter zuweist. Trotzdem löschen?"
+      },
+      "dialog": {
+        "titleCreate": "Anbieter hinzufügen",
+        "titleEdit": "Anbieter bearbeiten",
+        "close": "Schließen",
+        "cancel": "Abbrechen",
+        "save": "Speichern und prüfen",
+        "saving": "Speichert…",
+        "fieldName": "Name",
+        "namePlaceholder": "z.B. OpenAI, KISSKI, Mein Ollama",
+        "nameHint": "Frei wählbar, wird in den Funktions-Dropdowns angezeigt.",
+        "fieldProtocol": "Protokoll",
+        "fieldBaseUrl": "Base-URL",
+        "fieldApiKey": "API-Schlüssel",
+        "showKey": "Schlüssel anzeigen",
+        "hideKey": "Schlüssel verbergen",
+        "apiKeyHint": "Leer lassen wenn der Endpoint keinen Schlüssel benötigt.",
+        "apiKeyEditHint": "Leer lassen behält den bestehenden Schlüssel.",
+        "probeHint": "Nach dem Speichern prüft KIS die Erreichbarkeit des Endpoints. Welche Funktionen tatsächlich laufen, testest du pro Zeile im Bereich „Funktionen“.",
+        "fixedCapabilitiesHint": "Protokoll-fest: {caps}",
+        "deeplFreeDetected": "DeepL-Free-Key erkannt (Suffix :fx) → api-free.deepl.com.",
+        "deeplProDetected": "DeepL-Pro-Key erkannt → api.deepl.com.",
+        "deeplFreeOnProUrl": "DeepL-Free-Key (Suffix :fx) erkannt, Base-URL zeigt aber auf den Pro-Endpoint. KIS leitet automatisch auf api-free.deepl.com um.",
+        "deeplProOnFreeUrl": "DeepL-Pro-Key erkannt, Base-URL zeigt aber auf den Free-Endpoint. KIS leitet automatisch auf api.deepl.com um."
+      },
+      "validation": {
+        "required": "Name und Base-URL sind Pflicht."
+      },
+      "protocolName": {
+        "openai_compat": "OpenAI-kompatibel",
+        "deepl": "DeepL",
+        "docling": "Docling",
+        "kokoro": "Kokoro"
+      },
+      "featureName": {
+        "chat": "Chat",
+        "embedding": "Embeddings",
+        "vision": "Bildanalyse",
+        "ocr": "OCR / Dokumenten-Extraktion",
+        "stt": "Speech-to-Text",
+        "tts": "Text-to-Speech",
+        "image_gen": "Bildgenerierung",
+        "image_edit": "Bild-Edit",
+        "doc_translate": "Dokumenten-Übersetzung",
+        "screencast_translate": "Screencast-Übersetzung"
+      },
+      "featureDesc": {
+        "chat": "Konversation, Zusammenfassungen, Werkzeug-Aufrufe",
+        "embedding": "Vektor-Suche, semantische Indexierung",
+        "vision": "Bildinhalt erkennen, beschreiben",
+        "ocr": "Volltext aus PDFs, Layout-Erkennung",
+        "stt": "Audio-Transkription, Whisper-basiert",
+        "tts": "Sprachausgabe für Screencast und Vorlesen. Nutzer wählt im Tool, welcher Anbieter verwendet wird.",
+        "image_gen": "Text-zu-Bild",
+        "image_edit": "Bilder bearbeiten via Prompt",
+        "doc_translate": "PDF / DOCX in Zielsprache. Nutzer wählt im Tool, welcher Anbieter verwendet wird.",
+        "screencast_translate": "Untertitel und Audio für Videos. Nutzer wählt im Tool, welcher Anbieter verwendet wird."
+      }
+    },
     "settings": {
       "providerNotConfigured": "Nicht konfiguriert.",
       "providerDisabled": "Deaktiviert - wird nicht angezeigt.",
@@ -1859,5 +1952,24 @@
     "description": "KIS - Services der TH Lübeck",
     "author": "Hamid Mergan, Institut für Interaktive Systeme (ISy), Technische Hochschule Lübeck",
     "copyright": "© 2026 Hamid Mergan, Institut für Interaktive Systeme (ISy), Technische Hochschule Lübeck"
+  },
+  "ki": {
+    "notConfigured": {
+      "title": "KI nicht konfiguriert",
+      "missing": "Diese Funktion(en) sind nicht eingerichtet: {features}",
+      "configureLink": "Jetzt konfigurieren →",
+      "featureName": {
+        "chat": "Chat",
+        "embedding": "Embeddings",
+        "vision": "Bildanalyse",
+        "ocr": "OCR",
+        "stt": "Speech-to-Text",
+        "tts": "Text-to-Speech",
+        "image_gen": "Bildgenerierung",
+        "image_edit": "Bild-Edit",
+        "doc_translate": "Dokumenten-Übersetzung",
+        "screencast_translate": "Screencast-Übersetzung"
+      }
+    }
   }
 }

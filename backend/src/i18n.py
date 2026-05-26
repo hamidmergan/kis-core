@@ -168,10 +168,6 @@ MESSAGES: dict[str, dict[str, str]] = {
         "de": "Kein LLM-Provider konfiguriert",
         "en": "No LLM provider configured",
     },
-    "elevenlabs.notConfigured": {
-        "de": "ElevenLabs API Key nicht konfiguriert",
-        "en": "ElevenLabs API key not configured",
-    },
     "kokoro.unreachable": {
         "de": "Kokoro Server nicht erreichbar",
         "en": "Kokoro server unreachable",
@@ -200,6 +196,42 @@ MESSAGES: dict[str, dict[str, str]] = {
     "admin.settings.scheduleRetentionOutOfRange": {
         "de": "Aufbewahrungsdauer muss zwischen {min} und {max} Tagen liegen, oder leer für 'nie löschen'.",
         "en": "Retention must be between {min} and {max} days, or empty for 'never delete'.",
+    },
+    "admin.providers.requiredFields": {
+        "de": "Name und Base-URL sind Pflicht.",
+        "en": "Name and base URL are required.",
+    },
+    "admin.providers.unknownProtocol": {
+        "de": "Unbekanntes Protokoll: {protocol}",
+        "en": "Unknown protocol: {protocol}",
+    },
+    "admin.providers.nameTaken": {
+        "de": "Ein Anbieter mit dem Namen \"{name}\" existiert bereits.",
+        "en": "A provider with the name \"{name}\" already exists.",
+    },
+    "admin.providers.notFound": {
+        "de": "Anbieter nicht gefunden.",
+        "en": "Provider not found.",
+    },
+    "admin.providers.unknownCapability": {
+        "de": "Unbekannte Funktion(en): {items}",
+        "en": "Unknown capability/ies: {items}",
+    },
+    "admin.providers.unknownFeature": {
+        "de": "Unbekannte Funktion: {feature}",
+        "en": "Unknown feature: {feature}",
+    },
+    "admin.providers.userChoiceNotSupported": {
+        "de": "Funktion {feature} unterstützt keine Nutzer-Auswahl.",
+        "en": "Feature {feature} does not support a user-choice list.",
+    },
+    "admin.providers.userChoiceUnknownProvider": {
+        "de": "Anbieter {provider_id} aus der Auswahl existiert nicht.",
+        "en": "Provider {provider_id} from the choice list does not exist.",
+    },
+    "admin.providers.testNoProvider": {
+        "de": "Kein Anbieter für diese Funktion ausgewählt.",
+        "en": "No provider selected for this feature.",
     },
     # Quota enforcement
     "quota.limitReached": {

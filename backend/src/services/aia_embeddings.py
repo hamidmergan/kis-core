@@ -82,16 +82,13 @@ class OllamaEmbeddingProvider(EmbeddingProvider):
     # -> 1000 chars ~ 400-500 tokens, safely within limit
     _NUM_CTX = 2048
 
-    def __init__(self) -> None:
-        from src.config import Settings
-        from src.services.runtime_models import get_model
+    def __init__(self, base_url: str, model: str) -> None:
         from langfuse import Langfuse
-        s = Settings()
-        base = s.local_provider_base_url.rstrip("/")
+        base = base_url.rstrip("/")
         if base.endswith("/v1"):
             base = base[:-3]
         self._embed_url = base + "/api/embed"
-        self._model = get_model("local_embedding_model")
+        self._model = model
         self._langfuse = Langfuse()
 
     # Safety net only - chunker now produces <=600 char chunks, this should never trigger
@@ -159,55 +156,40 @@ class OllamaEmbeddingProvider(EmbeddingProvider):
         return results
 
 
-# ── Factory functions per admin-panel slot ─────────────────────────────────
-
-def _make_primary_embedding_provider() -> OpenAICompatEmbeddingProvider:
-    """Build an OpenAI-compat embedding provider against the primary slot
-    (today: KISSKI/GWDG)."""
-    from src.config import Settings
-    from src.services.runtime_models import get_model
-    s = Settings()
-    return OpenAICompatEmbeddingProvider(
-        base_url=s.primary_provider_base_url,
-        api_key=s.primary_provider_api_key,
-        model=get_model("primary_embedding_model"),
-    )
-
-
-def _make_fallback_embedding_provider() -> OpenAICompatEmbeddingProvider:
-    """Build an OpenAI-compat embedding provider against the fallback slot
-    (today: THL myLab)."""
-    from src.config import Settings
-    from src.services.runtime_models import get_model
-    s = Settings()
-    base = (s.fallback_provider_base_url or "").rstrip("/")
-    if not base:
-        raise RuntimeError("Fallback embedding base URL not configured")
-    # The fallback endpoint is open/unauthenticated within the TH network — any non-empty key works.
-    return OpenAICompatEmbeddingProvider(
-        base_url=f"{base}/v1",
-        api_key="ignored",
-        model=get_model("fallback_embedding_model"),
-    )
-
-
 def get_embedding_provider() -> EmbeddingProvider:
     """Return the currently-active embedding provider.
 
-    Exactly one of the three admin toggles must be enabled. No env-var fallback:
-    the admin explicitly picks a provider and any change requires a reindex,
-    so a silent fallback would corrupt the index.
+    Reads the ``embedding`` feature route from the admin tab. Ollama endpoints
+    are detected by base_url (``11434`` or ``ollama`` in the host); they use
+    the native ``/api/embed`` endpoint so we can pass ``options.num_ctx``,
+    which the OpenAI-compat shim drops on Ollama.
+
+    Changing the route requires a reindex, so a silent fallback would corrupt
+    the index — when no route is configured we raise.
     """
-    from src import database as db
-    if db.get_setting("primary_embedding_enabled", "").lower() == "true":
-        return _make_primary_embedding_provider()
-    if db.get_setting("fallback_embedding_enabled", "").lower() == "true":
-        return _make_fallback_embedding_provider()
-    if db.get_setting("local_embedding_enabled", "").lower() == "true":
-        return OllamaEmbeddingProvider()
-    raise RuntimeError(
-        "Kein Embedding-Anbieter aktiv. Bitte im Admin-Bereich unter 'Embeddings (KI-Assistent)' "
-        "genau einen Anbieter aktivieren."
+    from src.services import feature_router
+    try:
+        binding = feature_router.resolve("embedding")
+    except feature_router.FeatureNotConfigured as e:
+        raise RuntimeError(
+            "Kein Embedding-Anbieter aktiv. Bitte im Admin-Bereich unter 'KI' den "
+            "Anbieter für das Feature 'Embedding' setzen. (" + str(e) + ")"
+        )
+
+    provider = binding.provider
+    base_url = provider["base_url"].rstrip("/")
+    model = binding.model or ""
+
+    is_ollama = "11434" in base_url or "ollama" in base_url.lower()
+    if is_ollama:
+        return OllamaEmbeddingProvider(base_url=base_url, model=model)
+
+    if not base_url.endswith("/v1"):
+        base_url = f"{base_url}/v1"
+    return OpenAICompatEmbeddingProvider(
+        base_url=base_url,
+        api_key=provider.get("api_key") or "not-needed",
+        model=model,
     )
 
 

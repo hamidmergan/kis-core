@@ -33,40 +33,35 @@ def _get_llm_client():
     return OpenAICompatLLMClient(api_key=api_key, base_url=base_url, model=model, provider=provider)
 
 
-def _primary_http_client(extra_headers: dict | None = None, timeout: float = 120.0):
-    """HTTP client for the primary OpenAI-compat endpoint (today: KISSKI/GWDG)."""
+def _image_http_client(feature: str, *, extra_headers: dict | None = None, timeout: float = 120.0):
+    """Build (base_url, model, httpx.Client) for an image-feature route.
+
+    Resolves the admin-configured provider for ``feature`` (``image_gen``,
+    ``image_edit``, ``vision``) via the central feature_router. Propagates
+    ``FeatureNotConfigured`` unchanged so the task's outer handler can
+    translate it into a localized job error_message.
+    """
     import httpx
-    from src.config import Settings
-    s = Settings()
-    if not s.primary_provider_api_key:
-        raise RuntimeError("Primary provider API key not configured")
-    base_url = s.primary_provider_base_url.rstrip("/")
-    headers = {"Authorization": f"Bearer {s.primary_provider_api_key}"}
+    from src.services import feature_router
+
+    binding = feature_router.resolve(feature)  # raises FeatureNotConfigured
+
+    provider = binding.provider
+    base = provider["base_url"].rstrip("/")
+    if not base.endswith("/v1"):
+        base = f"{base}/v1"
+
+    headers: dict[str, str] = {}
+    api_key = provider.get("api_key")
+    if api_key:
+        headers["Authorization"] = f"Bearer {api_key}"
     if extra_headers:
         headers.update(extra_headers)
-    return base_url, httpx.Client(headers=headers, timeout=timeout)
+
+    return base, (binding.model or ""), httpx.Client(headers=headers, timeout=timeout)
 
 
-def _fallback_http_client(timeout: float = 120.0):
-    """HTTP client for the fallback OpenAI-compat endpoint (today: THL myLab)."""
-    import httpx
-    from src.config import Settings
-    s = Settings()
-    base_url = (s.fallback_provider_base_url or "").rstrip("/")
-    if not base_url:
-        raise RuntimeError("Fallback provider base URL not configured")
-    return f"{base_url}/v1", httpx.Client(timeout=timeout)
-
-
-def _image_provider(task: str) -> str:
-    """Choose provider slot for image tasks via admin settings.
-
-    task: "gen" | "edit" | "analyze". If ``fallback_image_<task>_enabled`` is
-    set, route to the fallback endpoint; otherwise use the primary (default).
-    """
-    if db.get_setting(f"fallback_image_{task}_enabled", "false") == "true":
-        return "fallback"
-    return "primary"
+from src.tasks._errors import handle_task_exception as _handle_task_exception
 
 
 # -- Translation --------------------------------------------------------------
@@ -164,8 +159,7 @@ def run_translate(
         logger.info("Translate task {} completed: {}", job_uuid, translated_filename)
 
     except Exception as e:
-        logger.error("Translate task {} failed: {}", job_uuid, e)
-        db.update_job_status(job_uuid, "failed", error_message=str(e))
+        _handle_task_exception(job_uuid, e, task_label="Translate")
         raise
 
 
@@ -211,8 +205,7 @@ def run_transcribe(
         logger.info("Transcribe task {} completed: {}", job_uuid, output_name)
 
     except Exception as e:
-        logger.error("Transcribe task {} failed: {}", job_uuid, e)
-        db.update_job_status(job_uuid, "failed", error_message=str(e))
+        _handle_task_exception(job_uuid, e, task_label="Transcribe")
         raise
 
 
@@ -229,20 +222,23 @@ def run_image_generate(
         db.update_job_status(job_uuid, "running")
         user_id = _resolve_user_id(job_uuid)
 
-        provider = _image_provider("gen")
-        if provider == "fallback":
-            from src.services.runtime_models import get_model
-            base_url, client = _fallback_http_client(timeout=120.0)
-            body: dict = {"model": get_model("fallback_image_gen_model"), "prompt": prompt, "size": size, "n": 1, "response_format": "b64_json"}
-        else:
-            base_url, client = _primary_http_client(timeout=120.0)
-            body = {"model": "flux", "prompt": prompt, "size": size, "n": 1, "response_format": "b64_json"}
+        base_url, model, client = _image_http_client("image_gen", timeout=120.0)
+        if not model:
+            from src.services.feature_router import FeatureNotConfigured
+            raise FeatureNotConfigured("image_gen route has no model_name")
+        body: dict = {
+            "model": model,
+            "prompt": prompt,
+            "size": size,
+            "n": 1,
+            "response_format": "b64_json",
+        }
 
         with job_heartbeat(job_uuid), client:
             response = client.post(f"{base_url}/images/generations", json=body)
 
         if response.status_code != 200:
-            raise RuntimeError(f"Fehler bei der Bildgenerierung ({provider}): {response.text[:200]}")
+            raise RuntimeError(f"Fehler bei der Bildgenerierung: {response.text[:200]}")
 
         data = response.json()
         images = data.get("data", [])
@@ -258,8 +254,7 @@ def run_image_generate(
         logger.info("Image generate task {} completed", job_uuid)
 
     except Exception as e:
-        logger.error("Image generate task {} failed: {}", job_uuid, e)
-        db.update_job_status(job_uuid, "failed", error_message=str(e))
+        _handle_task_exception(job_uuid, e, task_label="Image generate")
         raise
 
 
@@ -281,37 +276,34 @@ def run_image_edit(
         ext = Path(filename).suffix.lower()
         mime = "image/png" if ext == ".png" else "image/jpeg"
 
-        provider = _image_provider("edit")
-        if provider == "fallback":
-            from src.services.runtime_models import get_model
-            base_url, client = _fallback_http_client(timeout=120.0)
-            # Fallback image-edit endpoint quirk: the "quality" param isn't honoured;
-            # send guidance_scale / num_inference_steps explicitly instead.
-            form_data = {
-                "prompt": prompt,
-                "model": get_model("fallback_image_edit_model"),
-                "response_format": "b64_json",
-                "guidance_scale": "2.5",
-                "num_inference_steps": "25",
-            }
-            edits_url = f"{base_url}/images/edits"
-        else:
-            base_url, client = _primary_http_client(
-                extra_headers={"inference-service": "image-edit-2511"},
-                timeout=120.0,
-            )
-            form_data = {"prompt": prompt}
-            edits_url = f"{base_url}/images/edits/"
+        # The admin-set model name is sent as the ``inference-service`` header
+        # — that's how KISSKI's image-edit gateway picks the container.
+        # Vanilla OpenAI-compat providers ignore the unknown header.
+        # We deliberately do NOT add ``model`` to the multipart body: KISSKI's
+        # endpoint rejects the request with 404 "Model Not Found" when the
+        # body carries a model field. The trailing slash on ``/images/edits/``
+        # also matters — KISSKI returns 308 redirects otherwise.
+        from src.services import feature_router
+        binding = feature_router.resolve("image_edit")
+        edit_model = binding.model or ""
+        if not edit_model:
+            raise feature_router.FeatureNotConfigured("image_edit route has no model_name")
+        base_url, _model, client = _image_http_client(
+            "image_edit",
+            extra_headers={"inference-service": edit_model},
+            timeout=120.0,
+        )
+        form_data: dict[str, str] = {"prompt": prompt}
 
         with job_heartbeat(job_uuid), client:
             response = client.post(
-                edits_url,
+                f"{base_url}/images/edits/",
                 files={"image": (filename, content, mime)},
                 data=form_data,
             )
 
         if response.status_code != 200:
-            raise RuntimeError(f"Fehler bei der Bildbearbeitung ({provider}, Status {response.status_code}): {response.text[:300]}")
+            raise RuntimeError(f"Fehler bei der Bildbearbeitung (Status {response.status_code}): {response.text[:300]}")
 
         content_type = response.headers.get("content-type", "")
         if content_type.startswith("image/"):
@@ -320,7 +312,7 @@ def run_image_edit(
             try:
                 resp_data = response.json()
             except Exception:
-                raise RuntimeError(f"Unerwartetes Antwortformat ({provider}, Content-Type: {content_type}): {response.text[:300]}")
+                raise RuntimeError(f"Unerwartetes Antwortformat (Content-Type: {content_type}): {response.text[:300]}")
             b64 = (
                 (resp_data.get("data") or [{}])[0].get("b64_json")
                 or (resp_data.get("data") or [{}])[0].get("b64")
@@ -329,7 +321,7 @@ def run_image_edit(
             )
             if not b64:
                 keys = list(resp_data.keys()) if isinstance(resp_data, dict) else type(resp_data).__name__
-                raise RuntimeError(f"Unerwartetes Antwortformat ({provider}, keys: {keys}): {str(resp_data)[:300]}")
+                raise RuntimeError(f"Unerwartetes Antwortformat (keys: {keys}): {str(resp_data)[:300]}")
             img_bytes = base64.b64decode(b64)
 
         result_filename = f"{Path(filename).stem}.png"
@@ -340,8 +332,7 @@ def run_image_edit(
         logger.info("Image edit task {} completed", job_uuid)
 
     except Exception as e:
-        logger.error("Image edit task {} failed: {}", job_uuid, e)
-        db.update_job_status(job_uuid, "failed", error_message=str(e))
+        _handle_task_exception(job_uuid, e, task_label="Image edit")
         raise
 
 
@@ -374,16 +365,24 @@ def run_image_analyze(
         # embed the system instructions as the first text block in the user message.
         # Same pattern works for qwen3-vl on the fallback slot.
         system_prompt = db.get_setting("prompt_image_analyze", _IMAGE_ANALYZE_SYSTEM_PROMPT)
-        user_content = f"{system_prompt}\n\n{user_text}"
+        # Force the response language to the job creator's UI locale so the
+        # user gets German output when they were running KIS in German etc.
+        from src.tasks._errors import job_locale
+        locale = job_locale(job_uuid)
+        target_language = "German" if locale == "de" else "English"
+        user_content = (
+            f"{system_prompt}\n\n"
+            f"Respond in {target_language}.\n\n"
+            f"{user_text}"
+        )
 
-        from src.services.runtime_models import get_model
-        provider = _image_provider("analyze")
-        if provider == "fallback":
-            base_url, client = _fallback_http_client(timeout=60.0)
-            model = get_model("fallback_image_analyze_model")
-        else:
-            base_url, client = _primary_http_client(timeout=60.0)
-            model = get_model("primary_image_analyze_model")
+        base_url, model, client = _image_http_client("vision", timeout=60.0)
+        if not model:
+            # Vision has no defacto-default model name across providers
+            # (qwen3-omni / qwen3-vl / gpt-4-vision / claude-3 are all valid
+            # depending on the configured provider), so we fail loudly here.
+            from src.services.feature_router import FeatureNotConfigured
+            raise FeatureNotConfigured("vision route has no model_name")
         with job_heartbeat(job_uuid), client:
             response = client.post(
                 f"{base_url}/chat/completions",
@@ -415,8 +414,7 @@ def run_image_analyze(
         logger.info("Image analyze task {} completed", job_uuid)
 
     except Exception as e:
-        logger.error("Image analyze task {} failed: {}", job_uuid, e)
-        db.update_job_status(job_uuid, "failed", error_message=str(e))
+        _handle_task_exception(job_uuid, e, task_label="Image analyze")
         raise
 
 

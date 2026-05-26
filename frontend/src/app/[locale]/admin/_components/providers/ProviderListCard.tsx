@@ -1,0 +1,185 @@
+"use client";
+
+import { useTranslations } from "next-intl";
+import { ArrowsClockwise, Cube, NotePencil, Plus, Trash } from "@phosphor-icons/react";
+import type { Provider } from "./_types";
+
+type Props = {
+  providers: Provider[];
+  onAdd: () => void;
+  onEdit: (p: Provider) => void;
+  onProbe: (p: Provider) => void;
+  onDelete: (p: Provider) => void;
+};
+
+export default function ProviderListCard({
+  providers,
+  onAdd,
+  onEdit,
+  onProbe,
+  onDelete,
+}: Props) {
+  const t = useTranslations("admin.providers");
+
+  return (
+    <section className="border border-border-soft rounded-xl bg-background p-5">
+      <div className="flex items-start justify-between gap-4 mb-1">
+        <div>
+          <div className="flex items-center gap-2 text-sm font-medium text-foreground">
+            {t("list.title")}
+            <span className="bg-surface-dim text-muted text-[11px] font-mono px-1.5 py-0.5 rounded-full">
+              {providers.length}
+            </span>
+          </div>
+          <p className="text-xs text-muted-soft mt-1 mb-4 max-w-2xl">{t("list.hint")}</p>
+        </div>
+        {providers.length > 0 && (
+          <button
+            type="button"
+            onClick={onAdd}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium bg-kb text-white rounded-md border-2 border-kb hover:bg-background hover:text-kb transition-colors"
+          >
+            <Plus size={14} weight="bold" />
+            {t("list.add")}
+          </button>
+        )}
+      </div>
+
+      {providers.length === 0 ? (
+        <EmptyState onAdd={onAdd} />
+      ) : (
+        <div className="-my-3 divide-y divide-border-soft">
+          {providers.map((p) => (
+            <ProviderRow
+              key={p.id}
+              provider={p}
+              onEdit={() => onEdit(p)}
+              onProbe={() => onProbe(p)}
+              onDelete={() => onDelete(p)}
+            />
+          ))}
+        </div>
+      )}
+    </section>
+  );
+}
+
+function EmptyState({ onAdd }: { onAdd: () => void }) {
+  const t = useTranslations("admin.providers");
+  return (
+    <div className="text-center py-10 px-6 border border-dashed border-border-soft rounded-lg">
+      <Cube size={32} weight="bold" className="mx-auto text-muted mb-3" />
+      <p className="text-sm font-medium text-foreground mb-1">{t("list.emptyTitle")}</p>
+      <p className="text-xs text-muted-soft mb-4 max-w-md mx-auto">{t("list.emptyHint")}</p>
+      <button
+        type="button"
+        onClick={onAdd}
+        className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium bg-kb text-white rounded-md border-2 border-kb hover:bg-background hover:text-kb transition-colors"
+      >
+        <Plus size={14} weight="bold" />
+        {t("list.add")}
+      </button>
+    </div>
+  );
+}
+
+function ProviderRow({
+  provider,
+  onEdit,
+  onProbe,
+  onDelete,
+}: {
+  provider: Provider;
+  onEdit: () => void;
+  onProbe: () => void;
+  onDelete: () => void;
+}) {
+  const t = useTranslations("admin.providers");
+
+  return (
+    <div className="grid grid-cols-[auto_1fr_auto] gap-4 items-center py-4">
+      <div className="w-9 h-9 bg-surface border border-border-soft rounded-lg flex items-center justify-center text-kb">
+        <Cube size={18} weight="bold" />
+      </div>
+      <div className="min-w-0">
+        <div className="flex items-center gap-2 text-sm font-medium text-foreground mb-0.5">
+          <span className="truncate">{provider.name}</span>
+          <StatusPill provider={provider} />
+        </div>
+        <div className="text-[11.5px] font-mono text-muted truncate">
+          {provider.base_url}
+          {provider.api_key_set && provider.api_key_last_chars && (
+            <span className="ml-2">{t("row.keySuffix", { chars: provider.api_key_last_chars })}</span>
+          )}
+        </div>
+        {provider.probe_status === "error" && provider.probe_error && (
+          <p className="mt-2 text-[11px] text-error">{provider.probe_error}</p>
+        )}
+      </div>
+      <div className="flex gap-1">
+        <IconButton onClick={onProbe} label={t("row.probe")}>
+          <ArrowsClockwise size={14} weight="bold" />
+        </IconButton>
+        <IconButton onClick={onEdit} label={t("row.edit")}>
+          <NotePencil size={14} weight="bold" />
+        </IconButton>
+        <IconButton onClick={onDelete} label={t("row.delete")} danger>
+          <Trash size={14} weight="bold" />
+        </IconButton>
+      </div>
+    </div>
+  );
+}
+
+function StatusPill({ provider }: { provider: Provider }) {
+  const t = useTranslations("admin.providers");
+  if (provider.probe_status === "error") {
+    return (
+      <span className="inline-flex items-center gap-1 text-[11px] font-medium px-1.5 py-0.5 rounded-full bg-error-bg text-error-strong">
+        <span className="w-1.5 h-1.5 rounded-full bg-error" />
+        {t("row.statusError")}
+      </span>
+    );
+  }
+  if (!provider.probe_status) {
+    return (
+      <span className="inline-flex items-center gap-1 text-[11px] font-medium px-1.5 py-0.5 rounded-full bg-warn-bg text-warn-strong">
+        <span className="w-1.5 h-1.5 rounded-full bg-warn" />
+        {t("row.statusUnprobed")}
+      </span>
+    );
+  }
+  return (
+    <span className="inline-flex items-center gap-1 text-[11px] font-medium px-1.5 py-0.5 rounded-full bg-success-bg text-success-strong">
+      <span className="w-1.5 h-1.5 rounded-full bg-success" />
+      {t("row.statusActive")}
+    </span>
+  );
+}
+
+function IconButton({
+  onClick,
+  label,
+  danger,
+  children,
+}: {
+  onClick: () => void;
+  label: string;
+  danger?: boolean;
+  children: React.ReactNode;
+}) {
+  const stateClass = danger
+    ? "text-muted hover:text-error hover:border-transparent hover:outline hover:outline-2 hover:outline-error"
+    : "text-muted hover:text-kb hover:border-transparent hover:outline hover:outline-2 hover:outline-kb";
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      title={label}
+      aria-label={label}
+      className={`w-8 h-8 rounded-md border border-border-soft bg-background flex items-center justify-center transition-colors ${stateClass}`}
+    >
+      {children}
+    </button>
+  );
+}
