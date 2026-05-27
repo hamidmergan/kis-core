@@ -46,7 +46,10 @@ def _split_text(text: str) -> list[str]:
 
 class KokoroClient:
     def __init__(self, base_url: str = DEFAULT_BASE_URL):
-        self._base_url = base_url.rstrip("/")
+        url = base_url.rstrip("/")
+        if url.endswith("/v1"):
+            url = url[:-3]
+        self._base_url = url
 
     def _headers(self) -> dict:
         return {"Content-Type": "application/json"}
