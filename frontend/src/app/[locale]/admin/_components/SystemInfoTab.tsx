@@ -40,7 +40,6 @@ interface SystemInfo {
     image_analyze: ModelInfo;
     whisper: ModelInfo;
     tts_active: string[];
-    tts_mylab_model: string | null;
   };
   rate_limits: Record<string, number>;
   quotas: QuotaEntry[];
@@ -57,7 +56,6 @@ interface SystemInfo {
 
 const PROVIDER_LABEL: Record<string, string> = {
   kisski: "KISSKI",
-  mylab: "myLab",
   ollama: "Ollama (local)",
 };
 
@@ -194,9 +192,6 @@ export default function SystemInfoTab() {
               )
             }
           />
-          {models.tts_mylab_model && (
-            <Row label={t("systemInfo.ttsMylabModel")} value={<span className="text-xs">{models.tts_mylab_model}</span>} />
-          )}
         </Section>
 
         <Section

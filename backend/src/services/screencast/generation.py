@@ -9,7 +9,7 @@ from typing import Any
 from fastapi import HTTPException
 from loguru import logger
 
-from src.limits import SCREENCAST_TTS_DEFAULT_PARALLELISM, SCREENCAST_TTS_PROVIDER_PARALLELISM
+from src.limits import SCREENCAST_TTS_DEFAULT_PARALLELISM
 from src.services.openai_compat_llm import OpenAICompatLLMClient
 from src.services.screencast.pptx import pptx_to_images
 from src.storage import get_job_file, save_job_file

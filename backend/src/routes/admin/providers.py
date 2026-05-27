@@ -84,23 +84,34 @@ async def create_provider(
     if db.get_provider_by_name(name) is not None:
         raise HTTPException(409, t("admin.providers.nameTaken", locale, name=name))
 
-    # Seed capabilities from the protocol's fixed list (if any) so the row is
-    # immediately usable in feature-route dropdowns even before the probe runs.
+    # Determine initial capability list:
+    # - Protocol with fixed caps (deepl, docling) → use those.
+    # - Admin provided explicit selection via initial_capabilities → use that,
+    #   and probe only for status (not seeding), so the selection sticks.
+    # - Otherwise → seed from probe result (default auto-detect behaviour).
     fixed = fixed_capabilities(body.protocol) or ()
+    if fixed:
+        initial_caps: list[str] = list(fixed)
+        seed = True  # probe will overwrite with same fixed list anyway
+    elif body.initial_capabilities is not None:
+        initial_caps = [c for c in body.initial_capabilities if c in CAPABILITIES]
+        seed = False  # keep admin selection; probe only updates status
+    else:
+        initial_caps = []
+        seed = True  # probe seeds capabilities automatically
+
     provider = db.create_provider(
         name=name,
         protocol=body.protocol,
         base_url=base_url,
         api_key=(body.api_key or None),
-        capabilities=list(fixed),
+        capabilities=initial_caps,
         voices=[v.model_dump() for v in body.voices],
         enabled=body.enabled,
     )
 
     # Auto-probe synchronously so the response already carries probe results.
-    # ``seed_capabilities=True`` is the only path that overwrites the row's
-    # capability list — re-probe later does not, so manual edits stick.
-    probe_provider(provider["id"], seed_capabilities=True)
+    probe_provider(provider["id"], seed_capabilities=seed)
     refreshed = db.get_provider(provider["id"])
     return {"provider": _mask_provider(refreshed)}
 
@@ -234,13 +245,16 @@ async def discover_voices(
     if url.endswith("/v1"):
         url = url[:-3]
 
+    voices_path = (body.voices_path or "/v1/audio/voices").lstrip("/")
+    voices_url = f"{url}/{voices_path}"
+
     headers: dict = {"Accept": "application/json"}
     if body.api_key:
         headers["Authorization"] = f"Bearer {body.api_key}"
 
     try:
         async with httpx.AsyncClient(timeout=8.0) as client:
-            resp = await client.get(f"{url}/v1/audio/voices", headers=headers)
+            resp = await client.get(voices_url, headers=headers)
         if resp.status_code != 200:
             return {"voices": [], "discoverable": False}
 

@@ -59,6 +59,7 @@ class CreateProviderRequest(BaseModel):
     api_key: str | None = None
     voices: list[VoiceEntry] = []
     enabled: bool = True
+    initial_capabilities: list[str] | None = None  # if set, skips probe-seeding
 
 
 class UpdateProviderRequest(BaseModel):
@@ -73,6 +74,7 @@ class UpdateProviderRequest(BaseModel):
 class DiscoverVoicesRequest(BaseModel):
     base_url: str
     api_key: str | None = None
+    voices_path: str | None = None  # default: /v1/audio/voices
 
 
 class SetFeatureRouteRequest(BaseModel):

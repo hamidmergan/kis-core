@@ -83,14 +83,10 @@ MAX_QUEUED_SCREENCAST_JOBS     = 5  # max jobs in user queue (including running)
 # Rule of thumb: half the core count, leaves enough CPU for Uvicorn + OS
 RENDER_MAX_WORKERS = 2  # ThreadPoolExecutor limit for PDF->PNG and FFmpeg
 
-# Per-provider TTS concurrency for screencast batch generation. Conservative
-# default (1) for any provider not listed — opt-in to parallelism explicitly,
-# since under-powered TTS servers (e.g. myLab/XTTS-2) collapse under load.
+# Per-provider TTS concurrency for screencast batch generation.
+# Conservative default (1) — providers are identified by numeric ID now;
+# parallelism can be tuned per-provider in the admin panel if needed.
 SCREENCAST_TTS_DEFAULT_PARALLELISM = 1
-SCREENCAST_TTS_PROVIDER_PARALLELISM: dict[str, int] = {
-    "mylab":  1,    # XTTS-2: serialise, server returns 500s under any parallel load
-    "kokoro": 10,   # KISSKI GPU cluster: handles high parallelism
-}
 
 # --- Celery task timeouts (in seconds) --------------------------------------
 TTS_SOFT_TIME_LIMIT             = 5400   # 90 min, SoftTimeLimitExceeded -> graceful DB update

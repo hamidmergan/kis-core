@@ -66,7 +66,7 @@ export default async function RootLayout({ children, params }: Props) {
           <NextTopLoader color="#668DA0" showSpinner={false} height={3} />
           <MaintenanceGuard />
           <main className="flex-1">
-            <LayoutShell hasSession={hasSession} localMode={isLocalMode}>{children}</LayoutShell>
+            <LayoutShell hasSession={hasSession}>{children}</LayoutShell>
           </main>
           <FooterWrapper hasSession={hasSession} />
         </NextIntlClientProvider>

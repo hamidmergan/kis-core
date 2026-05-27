@@ -23,11 +23,9 @@ function matchesPrefix(pathname: string, prefixes: string[]): boolean {
 export default function LayoutShell({
   children,
   hasSession,
-  localMode = false,
 }: {
   children: React.ReactNode;
   hasSession: boolean;
-  localMode?: boolean;
 }) {
   const pathname = usePathname();
 
@@ -40,7 +38,7 @@ export default function LayoutShell({
   if (!showSidebar) {
     return (
       <>
-        {showHeader && <Header hasSession={hasSession} showLogout={!localMode} showToolsToggle={false} />}
+        {showHeader && <Header hasSession={hasSession} showLogout showToolsToggle={false} />}
         {children}
       </>
     );
@@ -48,7 +46,7 @@ export default function LayoutShell({
 
   return (
     <>
-      {showHeader && <Header hasSession={hasSession} showLogout={!localMode} showToolsToggle />}
+      {showHeader && <Header hasSession={hasSession} showLogout showToolsToggle />}
       <div className="flex items-stretch min-h-[calc(100vh-4rem)] overflow-x-hidden">
         <ToolsSidebar />
         <div className="flex-1 min-w-0">{children}</div>

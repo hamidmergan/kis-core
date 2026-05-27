@@ -75,22 +75,6 @@ MESSAGES: dict[str, dict[str, str]] = {
         "de": "Bitte entweder Text eingeben oder eine Datei hochladen, nicht beides.",
         "en": "Please provide either text or a file, not both.",
     },
-    "kokoro.notActive": {
-        "de": "Kokoro nicht aktiv",
-        "en": "Kokoro not active",
-    },
-    "kokoro.notEnabled": {
-        "de": "Kokoro TTS ist nicht aktiviert",
-        "en": "Kokoro TTS is not enabled",
-    },
-    "mylab.notActive": {
-        "de": "myLab TTS nicht aktiv",
-        "en": "myLab TTS not active",
-    },
-    "mylab.notEnabled": {
-        "de": "myLab TTS ist nicht aktiviert",
-        "en": "myLab TTS is not enabled",
-    },
     # ── summary ──────────────────────────────────────────────────────────────
     "summary.unsupportedFormat": {
         "de": "Nur {formats} erlaubt",

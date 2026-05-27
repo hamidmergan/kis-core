@@ -33,6 +33,7 @@ export type CreateProviderInput = {
   base_url: string;
   api_key: string | null;
   voices?: Voice[];
+  initial_capabilities?: string[];  // if omitted → probe auto-detects
 };
 
 export async function createProvider(input: CreateProviderInput): Promise<Provider> {
@@ -141,12 +142,17 @@ export type DiscoverVoicesResult = {
 export async function discoverVoices(
   baseUrl: string,
   apiKey?: string | null,
+  voicesPath?: string | null,
 ): Promise<DiscoverVoicesResult> {
   const res = await fetch(`${BASE}/providers/discover-voices`, {
     method: "POST",
     credentials: "include",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ base_url: baseUrl, api_key: apiKey }),
+    body: JSON.stringify({
+      base_url: baseUrl,
+      api_key: apiKey,
+      voices_path: voicesPath || null,
+    }),
   });
   return jsonOrThrow<DiscoverVoicesResult>(res);
 }

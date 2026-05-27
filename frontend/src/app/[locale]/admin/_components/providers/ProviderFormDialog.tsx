@@ -17,6 +17,8 @@ type Props = {
     base_url: string;
     api_key: string | null;
     voices: Voice[];
+    initial_capabilities?: string[];
+    capabilities?: string[];
   }) => Promise<void>;
 };
 
@@ -40,23 +42,38 @@ export default function ProviderFormDialog({
   const [baseUrl, setBaseUrl] = useState(initial?.base_url ?? "");
   const [apiKey, setApiKey] = useState("");
   const [voices, setVoices] = useState<Voice[]>(initial?.voices ?? []);
+  const [voicesPath, setVoicesPath] = useState("/v1/audio/voices");
+  // Capability selection: pre-populated from existing caps in edit mode; empty = auto-detect in create mode.
+  const [selectedCaps, setSelectedCaps] = useState<Set<string>>(
+    new Set(initial?.capabilities ?? []),
+  );
   const [showKey, setShowKey] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const isEdit = mode === "edit";
 
-  // Show voices editor when provider has/will have tts capability
+  // Lock body scroll while modal is open
+  useEffect(() => {
+    document.body.style.overflow = "hidden";
+    return () => { document.body.style.overflow = ""; };
+  }, []);
+
+  // Show voices editor when tts is checked (both create and edit mode).
   const showVoicesEditor = useMemo(() => {
-    if (isEdit) return initial?.capabilities.includes("tts") ?? false;
-    // In create mode: only openai_compat can have tts
-    return protocol === "openai_compat";
-  }, [isEdit, initial, protocol]);
+    if (protocol !== "openai_compat") return false;
+    return selectedCaps.has("tts");
+  }, [protocol, selectedCaps]);
 
   const protocolMeta = useMemo(
     () => meta.protocols.find((p) => p.id === protocol),
     [meta.protocols, protocol],
   );
+
+  // Show capability checkboxes for protocols without fixed capabilities (both create and edit).
+  const showCapabilityPicker = useMemo(() => {
+    return (protocolMeta?.fixed_capabilities.length ?? 0) === 0;
+  }, [protocolMeta]);
 
   const deeplKeyHint = useMemo(() => {
     if (protocol !== "deepl" || !apiKey.trim()) return null;
@@ -97,6 +114,14 @@ export default function ProviderFormDialog({
         base_url: trimmedUrl,
         api_key: keyValue,
         voices,
+        // Create: send pre-selection when user picked something; empty = auto-detect.
+        initial_capabilities: !isEdit && selectedCaps.size > 0
+          ? Array.from(selectedCaps)
+          : undefined,
+        // Edit: always send current selection so admin changes are saved.
+        capabilities: isEdit && showCapabilityPicker
+          ? Array.from(selectedCaps)
+          : undefined,
       });
       onClose();
     } catch (e) {
@@ -109,7 +134,7 @@ export default function ProviderFormDialog({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-      <div className="bg-background border border-border rounded-xl shadow-xl w-full max-w-lg p-6 space-y-4">
+      <div className="bg-background border border-border rounded-xl shadow-xl w-full max-w-2xl p-6 space-y-4">
         <div className="flex items-center justify-between">
           <h2 className="text-lg font-semibold">
             {isEdit ? t("dialog.titleEdit") : t("dialog.titleCreate")}
@@ -209,6 +234,37 @@ export default function ProviderFormDialog({
             />
           </div>
 
+          {showCapabilityPicker && (
+            <div className="space-y-2">
+              <div>
+                <label className="text-xs uppercase tracking-wide text-muted">{t("dialog.fieldCapabilities")}</label>
+                <p className="text-xs text-muted-soft mt-0.5">{t("dialog.capabilitiesHint")}</p>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {meta.capabilities.map((cap) => {
+                  const checked = selectedCaps.has(cap);
+                  return (
+                    <label key={cap} className="flex items-center gap-1.5 cursor-pointer select-none">
+                      <input
+                        type="checkbox"
+                        checked={checked}
+                        onChange={() => {
+                          setSelectedCaps((prev) => {
+                            const next = new Set(prev);
+                            if (checked) next.delete(cap); else next.add(cap);
+                            return next;
+                          });
+                        }}
+                        className="h-3.5 w-3.5 rounded text-kb focus:ring-kb"
+                      />
+                      <span className="text-xs text-foreground-soft">{t(`capabilityName.${cap}`)}</span>
+                    </label>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
           <div className="space-y-1">
             <label className="text-xs uppercase tracking-wide text-muted">{t("dialog.fieldApiKey")}</label>
             <div className="relative">
@@ -257,6 +313,8 @@ export default function ProviderFormDialog({
                 onChange={setVoices}
                 baseUrl={baseUrl}
                 apiKey={apiKey || null}
+                voicesPath={voicesPath}
+                onVoicesPathChange={setVoicesPath}
               />
             </div>
           )}

@@ -213,14 +213,14 @@ function FeatureRow({
               </label>
               <div className="flex gap-2 items-center">
                 <input
-                  type="text"
-                  value={route?.model_name ?? ""}
-                  onChange={(e) => onChangeModel(e.target.value || null)}
-                  onBlur={(e) => onChangeModel(e.target.value.trim() || null)}
-                  placeholder={primaryNeedsModel ? t("routes.modelPlaceholder") : t("routes.modelOptional")}
-                  spellCheck={false}
-                  className="flex-1 sm:flex-none sm:w-[180px] text-xs px-2 py-1.5 border-2 border-border rounded-md font-mono hover:border-kb focus:outline-none focus:border-kb bg-background"
-                />
+                    type="text"
+                    value={route?.model_name ?? ""}
+                    onChange={(e) => onChangeModel(e.target.value || null)}
+                    onBlur={(e) => onChangeModel(e.target.value.trim() || null)}
+                    placeholder={primaryNeedsModel ? t("routes.modelPlaceholder") : t("routes.modelOptional")}
+                    spellCheck={false}
+                    className="flex-1 sm:flex-none sm:w-[180px] text-xs px-2 py-1.5 border-2 border-border rounded-md font-mono hover:border-kb focus:outline-none focus:border-kb bg-background"
+                  />
                 <TestButton state={testState} disabled={!canTest} onClick={onTest} />
               </div>
             </div>
@@ -262,7 +262,7 @@ function FeatureRow({
           disabled={!provider}
           placeholder={provider ? t("routes.modelPlaceholder") : "—"}
           spellCheck={false}
-          className="flex-1 min-w-0 text-xs px-2 py-1.5 border-2 border-border rounded-md font-mono hover:border-kb focus:outline-none focus:border-kb bg-background disabled:opacity-60 disabled:cursor-not-allowed"
+          className="text-xs px-2 py-1.5 border-2 border-border rounded-md font-mono hover:border-kb focus:outline-none focus:border-kb bg-background disabled:opacity-60 disabled:cursor-not-allowed"
         />
         <TestButton state={testState} disabled={!canTest} onClick={onTest} />
       </div>
@@ -321,3 +321,4 @@ function TestStatusLine({ state }: { state: TestState }) {
   }
   return null;
 }
+

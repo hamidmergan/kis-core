@@ -851,6 +851,8 @@
         "nameHint": "Frei wählbar, wird in den Funktions-Dropdowns angezeigt.",
         "fieldProtocol": "Protokoll",
         "fieldBaseUrl": "Base-URL",
+        "fieldCapabilities": "Fähigkeiten",
+        "capabilitiesHint": "Nur auswählen was dieser Anbieter unterstützt. Leer lassen = wird nach dem Speichern automatisch ermittelt.",
         "fieldApiKey": "API-Schlüssel",
         "showKey": "Schlüssel anzeigen",
         "hideKey": "Schlüssel verbergen",
@@ -872,11 +874,13 @@
         "addManual": "Stimme manuell hinzufügen",
         "add": "Hinzufügen",
         "cancel": "Abbrechen",
+        "voicesPathLabel": "Stimmen-Endpoint",
         "colVoiceId": "Voice-ID",
         "colName": "Name",
         "colLang": "Sprache",
         "colDesc": "Beschreibung",
-        "languageRequired": "Alle Stimmen müssen eine Sprache haben (z. B. de, en)."
+        "languageRequired": "Alle Stimmen müssen eine Sprache haben (z. B. de, en).",
+        "remove": "Stimme entfernen"
       },
       "validation": {
         "required": "Name und Base-URL sind Pflicht."
@@ -959,10 +963,6 @@
       "providerDocling": "GWDG Docling",
       "providerOllama": "Ollama (lokal)",
       "providerElevenlabs": "ElevenLabs",
-      "providerKokoro": "Kokoro TTS",
-      "providerMylabXtts": "THL myLab (XTTS-v2)",
-      "providerMylab": "THL myLab",
-      "providerMylabWhisper3": "THL myLab (Whisper-3-large)",
       "deeplKey": {
         "title": "DeepL API Key",
         "hint": "Leer → Standard-Key vom Backend.",
@@ -1086,7 +1086,6 @@
       "modelImageAnalyze": "Bild-Analyse",
       "modelWhisper": "Transkription (Whisper)",
       "ttsActive": "TTS-Provider aktiv",
-      "ttsMylabModel": "myLab TTS Modell",
       "rateLimitsTitle": "Rate-Limits (Burst-Schutz)",
       "rateLimitsSubtitle": "Greift bei Bots/Bugs. Keine Tages-/Stunden-Limits.",
       "chatBurst": "Chat: max Anfragen / Fenster",

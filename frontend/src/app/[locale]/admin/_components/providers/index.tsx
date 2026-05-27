@@ -51,6 +51,8 @@ export default function ProvidersTab() {
       base_url: string;
       api_key: string | null;
       voices: import("./_types").Voice[];
+      initial_capabilities?: string[];
+      capabilities?: string[];
     }) => {
       if (dialog.open && dialog.mode === "edit") {
         // For edits, only patch fields the dialog actually changes. api_key
@@ -63,9 +65,19 @@ export default function ProvidersTab() {
         if (data.api_key !== null) {
           patch.api_key = data.api_key;
         }
+        if (data.capabilities !== undefined) {
+          patch.capabilities = data.capabilities;
+        }
         await updateProvider(dialog.provider.id, patch);
       } else {
-        await createProvider(data);
+        await createProvider({
+          name: data.name,
+          protocol: data.protocol,
+          base_url: data.base_url,
+          api_key: data.api_key,
+          voices: data.voices,
+          initial_capabilities: data.initial_capabilities,
+        });
       }
       await refreshAll();
     },

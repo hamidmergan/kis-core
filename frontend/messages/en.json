@@ -851,6 +851,8 @@
         "nameHint": "Free-form; shown in the feature dropdowns.",
         "fieldProtocol": "Protocol",
         "fieldBaseUrl": "Base URL",
+        "fieldCapabilities": "Capabilities",
+        "capabilitiesHint": "Select only what this provider supports. Leave empty = auto-detected after saving.",
         "fieldApiKey": "API key",
         "showKey": "Show key",
         "hideKey": "Hide key",
@@ -872,11 +874,13 @@
         "addManual": "Add voice manually",
         "add": "Add",
         "cancel": "Cancel",
+        "voicesPathLabel": "Voices endpoint",
         "colVoiceId": "Voice ID",
         "colName": "Name",
         "colLang": "Language",
         "colDesc": "Description",
-        "languageRequired": "All voices must have a language set (e.g. de, en)."
+        "languageRequired": "All voices must have a language set (e.g. de, en).",
+        "remove": "Remove voice"
       },
       "validation": {
         "required": "Name and base URL are required."
@@ -959,10 +963,6 @@
       "providerDocling": "GWDG Docling",
       "providerOllama": "Ollama (local)",
       "providerElevenlabs": "ElevenLabs",
-      "providerKokoro": "Kokoro TTS",
-      "providerMylabXtts": "THL myLab (XTTS-v2)",
-      "providerMylab": "THL myLab",
-      "providerMylabWhisper3": "THL myLab (Whisper-3-large)",
       "deeplKey": {
         "title": "DeepL API key",
         "hint": "Empty → backend default key.",
@@ -1086,7 +1086,6 @@
       "modelImageAnalyze": "Image analysis",
       "modelWhisper": "Transcription (Whisper)",
       "ttsActive": "Active TTS providers",
-      "ttsMylabModel": "myLab TTS model",
       "rateLimitsTitle": "Rate limits (burst protection)",
       "rateLimitsSubtitle": "Triggers on bots/bugs. No daily/hourly limits.",
       "chatBurst": "Chat: max requests / window",

@@ -47,15 +47,19 @@ def _split_text(text: str) -> list[str]:
 class OpenAICompatTTSClient:
     """Client for any OpenAI-compatible TTS endpoint (POST /v1/audio/speech)."""
 
-    def __init__(self, base_url: str, model: str = _DEFAULT_MODEL):
+    def __init__(self, base_url: str, model: str = _DEFAULT_MODEL, api_key: str = "not-needed"):
         url = base_url.rstrip("/")
         if url.endswith("/v1"):
             url = url[:-3]
         self._base_url = url
         self._model = model
+        self._api_key = api_key or "not-needed"
 
     def _headers(self) -> dict:
-        return {"Content-Type": "application/json"}
+        return {
+            "Content-Type": "application/json",
+            "Authorization": f"Bearer {self._api_key}",
+        }
 
     def synthesize(
         self,

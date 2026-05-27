@@ -18,12 +18,6 @@ interface JobListItemProps {
 }
 
 
-function providerLabel(provider: string | undefined): string {
-  if (provider === "kokoro") return "Kokoro TTS";
-  if (provider === "mylab") return "THL myLab";
-  return provider ?? "";
-}
-
 
 export function JobListItem({
   job, isAdmin, cancelling, retrying, onCancel, onRetry, onRequestDelete,
@@ -42,7 +36,7 @@ export function JobListItem({
           <p className="text-xs text-muted-soft truncate mt-0.5">{job.original_filename}</p>
           {job.tts_params?.voice_label || job.tts_params?.provider ? (
             <p className="text-xs text-muted-soft mt-0.5">
-              {providerLabel(job.tts_params.provider)}
+              {job.tts_params.provider ?? ""}
               {job.tts_params.voice_label ? ` · ${job.tts_params.voice_label}` : ""}
             </p>
           ) : null}

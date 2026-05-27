@@ -168,14 +168,6 @@ MESSAGES: dict[str, dict[str, str]] = {
         "de": "Kein LLM-Provider konfiguriert",
         "en": "No LLM provider configured",
     },
-    "kokoro.unreachable": {
-        "de": "Kokoro Server nicht erreichbar",
-        "en": "Kokoro server unreachable",
-    },
-    "mylab.ttsUnreachable": {
-        "de": "myLab TTS Server nicht erreichbar",
-        "en": "myLab TTS server unreachable",
-    },
     # Rate limiting / burst block
     "rateLimit.blocked": {
         "de": "Chat ist bis {time} Uhr gesperrt (zu viele Anfragen in kurzer Zeit). Bitte später erneut versuchen.",

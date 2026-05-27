@@ -53,9 +53,7 @@ async def get_system_info(_admin=Depends(get_admin_user)):
         "image_edit": _binding_view("image_edit") or _empty_binding(),
         "image_analyze": _binding_view("vision") or _empty_binding(),
         "whisper": _binding_view("stt") or _empty_binding(),
-        # Backward-compatible list of TTS provider names for the existing UI.
         "tts_active": [p["provider"] for p in tts_providers if p.get("provider")],
-        "tts_mylab_model": None,
         "doc_translate": _user_choice_view("doc_translate"),
         "screencast_translate": _user_choice_view("screencast_translate"),
     }
