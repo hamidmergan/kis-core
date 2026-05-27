@@ -86,7 +86,13 @@ class OpenAICompatTTSClient:
     """Client for any OpenAI-compatible TTS endpoint (POST /v1/audio/speech)."""
 
     def __init__(self, base_url: str, model: str = _DEFAULT_MODEL):
-        self._base_url = base_url.rstrip("/")
+        # Providers store URLs with a trailing /v1 (the codebase convention).
+        # We build every endpoint as {base_url}/v1/<path>, so strip the suffix
+        # here to avoid the doubled /v1/v1/... that would otherwise result.
+        url = base_url.rstrip("/")
+        if url.endswith("/v1"):
+            url = url[:-3]
+        self._base_url = url
         self._model = model
 
     def _headers(self) -> dict:

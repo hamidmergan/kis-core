@@ -873,6 +873,17 @@
         "docling": "Docling",
         "kokoro": "Kokoro"
       },
+      "capabilityName": {
+        "chat": "Chat",
+        "embedding": "Embeddings",
+        "vision": "Bildanalyse",
+        "ocr": "OCR",
+        "stt": "Speech-to-Text",
+        "tts": "Text-to-Speech",
+        "image_gen": "Bildgenerierung",
+        "image_edit": "Bild-Edit",
+        "translation": "Übersetzung"
+      },
       "featureName": {
         "chat": "Chat",
         "embedding": "Embeddings",

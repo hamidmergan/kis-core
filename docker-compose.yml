@@ -141,21 +141,20 @@ services:
         max-file: "7"
 
   openldap:
-    image: tiredofit/openldap:latest
+    image: osixia/openldap:latest
     container_name: kis-openldap
     environment:
-      HOSTNAME: openldap
-      ORGANIZATION: TH Luebeck
-      DOMAIN: th-luebeck.de
-      ADMIN_PASS: admin
-      ENABLE_TLS: "FALSE"
-      LOG_LEVEL: 256
+      LDAP_ORGANISATION: TH Luebeck
+      LDAP_DOMAIN: th-luebeck.de
+      LDAP_ADMIN_PASSWORD: admin
+      LDAP_TLS: "false"
     ports:
       - "389:389"
     volumes:
-      - ./docker/ldap/seed.ldif:/assets/slapd/bootstrap/ldif/seed.ldif
+      - ./docker/ldap/seed.ldif:/container/service/slapd/assets/config/bootstrap/ldif/custom/seed.ldif:ro
       - kis-openldap-data:/var/lib/ldap
       - kis-openldap-config:/etc/ldap/slapd.d
+    command: --copy-service
     healthcheck:
       test: ["CMD", "ldapsearch", "-x", "-H", "ldap://localhost", "-D", "cn=admin,dc=th-luebeck,dc=de", "-w", "admin", "-b", "dc=th-luebeck,dc=de"]
       interval: 10s

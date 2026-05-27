@@ -169,14 +169,14 @@ function FeatureRow({
     const primary = provider;
     const primaryNeedsModel = primary?.protocol === "openai_compat";
     return (
-      <div className="grid grid-cols-[1fr_auto] gap-4 items-start py-4">
+      <div className="py-4 flex flex-col gap-3 sm:grid sm:grid-cols-[1fr_auto] sm:gap-4 sm:items-start">
         <div className="min-w-0">
           <p className="text-sm font-medium text-foreground">{t(`featureName.${feature}`)}</p>
           <p className="text-xs text-muted-soft mt-0.5">{t(`featureDesc.${feature}`)}</p>
           <TestStatusLine state={testState} />
         </div>
-        <div className="flex flex-col gap-2 items-end max-w-[460px]">
-          <div className="flex flex-wrap gap-2 items-center justify-end">
+        <div className="flex flex-col gap-2 sm:items-end sm:max-w-[460px]">
+          <div className="flex flex-wrap gap-2 items-center sm:justify-end">
             {eligible.length === 0 ? (
               <span className="text-[11.5px] text-muted-soft italic">{t("routes.noEligible")}</span>
             ) : (
@@ -207,20 +207,22 @@ function FeatureRow({
             )}
           </div>
           {primary && (
-            <div className="flex gap-2 items-center w-full">
-              <label className="text-[11px] text-muted-soft whitespace-nowrap ml-auto">
+            <div className="flex flex-col gap-1.5 w-full sm:flex-row sm:items-center sm:gap-2">
+              <label className="text-[11px] text-muted-soft whitespace-nowrap sm:ml-auto">
                 {t("routes.modelForPrimary", { name: primary.name })}
               </label>
-              <input
-                type="text"
-                value={route?.model_name ?? ""}
-                onChange={(e) => onChangeModel(e.target.value || null)}
-                onBlur={(e) => onChangeModel(e.target.value.trim() || null)}
-                placeholder={primaryNeedsModel ? t("routes.modelPlaceholder") : t("routes.modelOptional")}
-                spellCheck={false}
-                className="text-xs px-2 py-1.5 border-2 border-border rounded-md font-mono w-[180px] hover:border-kb focus:outline-none focus:border-kb bg-background"
-              />
-              <TestButton state={testState} disabled={!canTest} onClick={onTest} />
+              <div className="flex gap-2 items-center">
+                <input
+                  type="text"
+                  value={route?.model_name ?? ""}
+                  onChange={(e) => onChangeModel(e.target.value || null)}
+                  onBlur={(e) => onChangeModel(e.target.value.trim() || null)}
+                  placeholder={primaryNeedsModel ? t("routes.modelPlaceholder") : t("routes.modelOptional")}
+                  spellCheck={false}
+                  className="flex-1 sm:flex-none sm:w-[180px] text-xs px-2 py-1.5 border-2 border-border rounded-md font-mono hover:border-kb focus:outline-none focus:border-kb bg-background"
+                />
+                <TestButton state={testState} disabled={!canTest} onClick={onTest} />
+              </div>
             </div>
           )}
           {!primary && (
@@ -232,36 +234,38 @@ function FeatureRow({
   }
 
   return (
-    <div className="grid grid-cols-[1fr_180px_220px_auto] gap-3 items-center py-4">
+    <div className="py-4 flex flex-col gap-3 sm:grid sm:grid-cols-[1fr_180px_220px_auto] sm:items-center sm:gap-3">
       <div className="min-w-0">
         <p className="text-sm font-medium text-foreground">{t(`featureName.${feature}`)}</p>
         <p className="text-xs text-muted-soft mt-0.5">{t(`featureDesc.${feature}`)}</p>
         <TestStatusLine state={testState} />
       </div>
-      <select
-        value={providerId ?? ""}
-        onChange={(e) => onChangeProvider(e.target.value ? Number(e.target.value) : null)}
-        disabled={eligible.length === 0}
-        className="text-xs px-2 py-1.5 border-2 border-border rounded-md hover:border-kb focus:outline-none focus:border-kb bg-background disabled:opacity-60 disabled:cursor-not-allowed"
-      >
-        <option value="">{t("routes.unselected")}</option>
-        {eligible.map((p) => (
-          <option key={p.id} value={p.id}>
-            {p.name}
-          </option>
-        ))}
-      </select>
-      <input
-        type="text"
-        value={route?.model_name ?? ""}
-        onChange={(e) => onChangeModel(e.target.value || null)}
-        onBlur={(e) => onChangeModel(e.target.value.trim() || null)}
-        disabled={!provider}
-        placeholder={provider ? t("routes.modelPlaceholder") : "—"}
-        spellCheck={false}
-        className="text-xs px-2 py-1.5 border-2 border-border rounded-md font-mono hover:border-kb focus:outline-none focus:border-kb bg-background disabled:opacity-60 disabled:cursor-not-allowed"
-      />
-      <TestButton state={testState} disabled={!canTest} onClick={onTest} />
+      <div className="flex gap-2 sm:contents">
+        <select
+          value={providerId ?? ""}
+          onChange={(e) => onChangeProvider(e.target.value ? Number(e.target.value) : null)}
+          disabled={eligible.length === 0}
+          className="flex-1 min-w-0 text-xs px-2 py-1.5 border-2 border-border rounded-md hover:border-kb focus:outline-none focus:border-kb bg-background disabled:opacity-60 disabled:cursor-not-allowed"
+        >
+          <option value="">{t("routes.unselected")}</option>
+          {eligible.map((p) => (
+            <option key={p.id} value={p.id}>
+              {p.name}
+            </option>
+          ))}
+        </select>
+        <input
+          type="text"
+          value={route?.model_name ?? ""}
+          onChange={(e) => onChangeModel(e.target.value || null)}
+          onBlur={(e) => onChangeModel(e.target.value.trim() || null)}
+          disabled={!provider}
+          placeholder={provider ? t("routes.modelPlaceholder") : "—"}
+          spellCheck={false}
+          className="flex-1 min-w-0 text-xs px-2 py-1.5 border-2 border-border rounded-md font-mono hover:border-kb focus:outline-none focus:border-kb bg-background disabled:opacity-60 disabled:cursor-not-allowed"
+        />
+        <TestButton state={testState} disabled={!canTest} onClick={onTest} />
+      </div>
     </div>
   );
 }
