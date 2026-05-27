@@ -36,4 +36,8 @@ class Settings(BaseSettings):
     # Disable on prod / SSO deployments.
     ldap_user_creation_enabled: bool = False
 
+    @property
+    def is_local_mode(self) -> bool:
+        return not bool(self.ldap_server.strip())
+
     model_config = {"env_file": ".env", "env_file_encoding": "utf-8", "populate_by_name": True}
