@@ -4,16 +4,15 @@ Endpoints used (OpenAI Audio spec):
     POST /v1/audio/speech   -> audio bytes (mp3)
     GET  /v1/models         -> health probe
 
-Currently configured against TH Luebeck's myLab deployment of Coqui XTTS-v2
-(``models.mylab.th-luebeck.dev``); any other openedai-speech / OpenAI-compat
-TTS server with the same surface area works as a drop-in replacement.
+Works with any OpenAI-compatible TTS server (openedai-speech, XTTS-v2, etc.).
+Voices are managed in the providers.voices DB column, not hardcoded here.
 """
 from __future__ import annotations
 
 import httpx
 
 _DEFAULT_VOICE = "alloy"
-_DEFAULT_MODEL = "xtts-v2"
+_DEFAULT_MODEL = "tts-1"
 
 _CHUNK_MAX = 10_000
 _CHUNK_MIN = 9_500
@@ -45,50 +44,10 @@ def _split_text(text: str) -> list[str]:
     return chunks
 
 
-# Known voices of the OpenAI-compatible TTS API (openedai-speech).
-# Each underlying voice is multilingual (XTTS-v2 auto-detects from input),
-# so we expose every voice once per supported UI language. The "@<lang>"
-# suffix is consumed by _synthesize_one before the request is sent upstream.
-_SUPPORTED_LANGUAGES = ("de", "en")
-
-_BASE_VOICES = [
-    {"voice_id": "alloy",   "name": "Alloy",    "description": "Neutral, vielseitig"},
-    {"voice_id": "echo",    "name": "Echo",     "description": "Warm, klar"},
-    {"voice_id": "fable",   "name": "Fable",    "description": "Erzählerisch, ausdrucksstark"},
-    {"voice_id": "onyx",    "name": "Onyx",     "description": "Tief, autoritär"},
-    {"voice_id": "nova",    "name": "Nova",     "description": "Freundlich, energetisch"},
-    {"voice_id": "shimmer", "name": "Shimmer",  "description": "Sanft, beruhigend"},
-]
-
-
-def _split_voice_language(voice_id: str) -> tuple[str, str | None]:
-    """Strip an optional ``@<lang>`` suffix off a voice id."""
-    if "@" in voice_id:
-        base, lang = voice_id.rsplit("@", 1)
-        if lang in _SUPPORTED_LANGUAGES:
-            return base, lang
-    return voice_id, None
-
-
-_BUILTIN_VOICES = [
-    {
-        "voice_id": f"{v['voice_id']}@{lang}",
-        "name": v["name"],
-        "description": v["description"],
-        "language": lang,
-    }
-    for v in _BASE_VOICES
-    for lang in _SUPPORTED_LANGUAGES
-]
-
-
 class OpenAICompatTTSClient:
     """Client for any OpenAI-compatible TTS endpoint (POST /v1/audio/speech)."""
 
     def __init__(self, base_url: str, model: str = _DEFAULT_MODEL):
-        # Providers store URLs with a trailing /v1 (the codebase convention).
-        # We build every endpoint as {base_url}/v1/<path>, so strip the suffix
-        # here to avoid the doubled /v1/v1/... that would otherwise result.
         url = base_url.rstrip("/")
         if url.endswith("/v1"):
             url = url[:-3]
@@ -101,7 +60,7 @@ class OpenAICompatTTSClient:
     def synthesize(
         self,
         text: str,
-        language: str = "DE",
+        language: str = "de",
         *,
         voice_id: str = "default",
         speed: float = 1.0,
@@ -123,6 +82,7 @@ class OpenAICompatTTSClient:
         *,
         voice_id: str = "default",
         speed: float = 1.0,
+        language: str = "de",
         **kwargs,
     ) -> bytes:
         """Synthesize a single chunk (for crash recovery in tts_tasks)."""
@@ -138,11 +98,7 @@ class OpenAICompatTTSClient:
         speed: float = 1.0,
     ) -> bytes:
         text = " ".join(line.strip() for line in text.splitlines() if line.strip())
-        # Strip the internal ``@<lang>`` suffix - the upstream server only knows
-        # the bare voice name. The language hint is purely UI metadata; XTTS-v2
-        # auto-detects the spoken language from the input text itself.
-        base_voice, _ = _split_voice_language(voice_id)
-        voice = _DEFAULT_VOICE if base_voice in ("default", "") else base_voice
+        voice = _DEFAULT_VOICE if voice_id in ("default", "") else voice_id
         payload: dict = {
             "model": self._model,
             "input": text,
@@ -161,14 +117,10 @@ class OpenAICompatTTSClient:
             )
         return response.content
 
-    def get_voices(self) -> list[dict]:
-        """Return the available voices."""
-        return list(_BUILTIN_VOICES)
-
     def synthesize_with_timestamps(
         self,
         text: str,
-        language: str = "DE",
+        language: str = "de",
         *,
         voice_id: str = "default",
         speed: float = 1.0,
@@ -176,8 +128,7 @@ class OpenAICompatTTSClient:
     ) -> dict:
         """Synthesize with optional alignment data.
 
-        Returns {"audio_bytes": bytes, "alignment": None},
-        since XTTS-v2 does not provide word timestamps.
+        Returns {"audio_bytes": bytes, "alignment": None} — no timestamp support.
         """
         audio_bytes = self.synthesize(text, language, voice_id=voice_id, speed=speed)
         return {"audio_bytes": audio_bytes, "alignment": None}

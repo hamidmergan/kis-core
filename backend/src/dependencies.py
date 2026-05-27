@@ -158,62 +158,41 @@ def get_llm_client(locale: str = Depends(get_locale)) -> OpenAICompatLLMClient:
     return client
 
 
-# ─── TTS resolvers (kokoro / openai-compat TTS) ────────────────────────────
+# ─── TTS resolvers ─────────────────────────────────────────────────────────
 
-def _tts_providers_by_protocol(protocol: str) -> list[dict]:
-    """Return enabled tts-routed providers matching ``protocol``."""
-    matches: list[dict] = []
-    for p in feature_router.providers_for_feature("tts"):
-        if p.get("protocol") == protocol:
-            matches.append(p)
-    return matches
-
-
-def _tts_model_for(provider_id: int, default: str) -> str:
-    """Read the model_name out of the TTS feature_route, falling back to a default
-    when the route is unset or the chosen provider doesn't match."""
+def get_tts_providers_with_voices() -> list[dict]:
+    """All enabled openai_compat providers that have the tts capability,
+    including their voices list from the DB."""
     from src import database as db
-    route = db.get_route("tts")
-    if not route:
-        return default
-    if route.get("provider_id") == provider_id and route.get("model_name"):
-        return route["model_name"] or default
-    return default
+    providers = db.list_providers_with_capability("tts")
+    return [p for p in providers if p.get("protocol") == "openai_compat"]
 
 
-def is_kokoro_enabled() -> bool:
-    """True when at least one kokoro-protocol provider is wired into the TTS route."""
-    return bool(_tts_providers_by_protocol("kokoro"))
-
-
-def get_kokoro_client():
-    """Instantiate a ``KokoroClient`` for the first kokoro provider on the TTS route."""
-    from src.services.kokoro_client import KokoroClient
-    candidates = _tts_providers_by_protocol("kokoro")
-    if not candidates:
-        return None
-    return KokoroClient(candidates[0]["base_url"])
-
-
-def is_mylab_enabled() -> bool:
-    """True when at least one openai_compat TTS provider is wired into the TTS route.
-
-    Name is historical — "myLab" used to be the only such provider; today this
-    covers any OpenAI-compat speech endpoint the admin registered (XTTS-v2,
-    openedai-speech, etc.).
-    """
-    return bool(_tts_providers_by_protocol("openai_compat"))
-
-
-def get_mylab_client():
-    """Instantiate the openai_compat TTS client for the first matching provider."""
+def get_tts_client_for_provider(provider_id: int):
+    """Return an OpenAICompatTTSClient for the given provider_id, or None."""
+    from src import database as db
     from src.services.openai_compat_tts import OpenAICompatTTSClient
-    candidates = _tts_providers_by_protocol("openai_compat")
-    if not candidates:
+    provider = db.get_provider(provider_id)
+    if not provider or not provider.get("enabled"):
         return None
-    provider = candidates[0]
-    model = _tts_model_for(provider["id"], default="xtts-v2")
+    route = db.get_route("tts")
+    model = (route.get("model_name") if route and route.get("provider_id") == provider_id else None) or "tts-1"
     return OpenAICompatTTSClient(provider["base_url"], model=model)
+
+
+def _voice_language_for(provider_id: int, voice_id: str) -> str:
+    """Look up the language for a (provider_id, voice_id) pair from the DB voices list.
+
+    Returns empty string if not found — callers should treat '' as 'unknown'.
+    """
+    from src import database as db
+    provider = db.get_provider(provider_id)
+    if not provider:
+        return ""
+    for v in provider.get("voices", []):
+        if v.get("voice_id") == voice_id:
+            return v.get("language", "")
+    return ""
 
 
 # ─── DeepL resolvers ───────────────────────────────────────────────────────

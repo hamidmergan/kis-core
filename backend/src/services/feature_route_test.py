@@ -20,7 +20,6 @@ from loguru import logger
 from src.services.protocols import make_adapter
 from src.services.protocols.deepl import DeepLAdapter
 from src.services.protocols.docling import DoclingAdapter
-from src.services.protocols.kokoro import KokoroAdapter
 from src.services.protocols.openai_compat import OpenAICompatAdapter
 
 
@@ -56,7 +55,7 @@ def test_feature_route(
             )
         # Non-openai protocols are single-capability: probe IS the feature test.
         adapter = make_adapter(protocol=protocol, base_url=base_url, api_key=api_key)
-        if isinstance(adapter, (DeepLAdapter, DoclingAdapter, KokoroAdapter)):
+        if isinstance(adapter, (DeepLAdapter, DoclingAdapter)):
             result = adapter.probe()
             return FeatureTestResult(status=result.status, error=result.error)
         return FeatureTestResult(status="error", error=f"unsupported protocol: {protocol}")

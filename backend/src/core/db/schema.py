@@ -917,6 +917,11 @@ def init_db(admin_email: Optional[str] = None) -> None:
                 CREATE INDEX IF NOT EXISTS idx_providers_enabled
                 ON providers(enabled) WHERE enabled = TRUE
             """)
+            # Migration: add voices column (provider-specific voice catalogue)
+            cur.execute("""
+                ALTER TABLE providers
+                ADD COLUMN IF NOT EXISTS voices JSONB NOT NULL DEFAULT '[]'::jsonb
+            """)
 
             # ─── Feature Routes ───────────────────────────────────────────────
             # One row per feature (chat, embedding, ocr, ...). Maps a feature to

@@ -43,7 +43,7 @@ def dispatch_next_screencast_job_for_user(user_id: int) -> None:
                 job_uuid, scripts,
                 params["voice_id"], params["speed"], params["slide_pause"],
                 job["original_filename"] or "screencast.pptx",
-                params["dpi"], params["provider"], params["voice_label"],
+                params["dpi"], int(params.get("provider_id", 0)), params["voice_label"],
                 params["is_admin"],
             ])
             db.set_render_queued_at(job_uuid)

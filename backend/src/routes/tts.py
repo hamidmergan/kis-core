@@ -20,123 +20,63 @@ router = APIRouter(
 )
 
 
-# ---------- Routes ----------
+# ─── Provider + Voice catalogue ────────────────────────────────────────────
 
 
-@router.get("/tts/providers")
-async def get_tts_providers():
-    """Return which TTS providers are currently enabled and reachable (public endpoint)."""
-    from src.dependencies import is_kokoro_enabled, get_kokoro_client, is_mylab_enabled, get_mylab_client
-    kokoro_enabled = is_kokoro_enabled()
-    if kokoro_enabled:
-        client = get_kokoro_client()
-        kokoro_enabled = bool(client and client.is_available())
-    mylab_enabled = is_mylab_enabled()
-    if mylab_enabled:
-        client = get_mylab_client()
-        mylab_enabled = bool(client and client.is_available())
+@router.get("/tts/providers-with-voices")
+async def get_tts_providers_with_voices():
+    """Return all enabled openai_compat TTS providers with their voice catalogues."""
+    from src.dependencies import get_tts_providers_with_voices
+    providers = get_tts_providers_with_voices()
+    # Strip sensitive fields before sending to frontend
     return {
-        "kokoro_enabled": kokoro_enabled,
-        "mylab_enabled": mylab_enabled,
+        "providers": [
+            {
+                "id": p["id"],
+                "name": p["name"],
+                "voices": p.get("voices", []),
+            }
+            for p in providers
+        ]
     }
 
 
-@router.post("/kokoro/preview")
-async def kokoro_preview(
+@router.post("/tts/providers/{provider_id}/preview")
+async def tts_provider_preview(
+    provider_id: int,
     body: dict,
     _user=Depends(get_current_user),
     locale: str = Depends(get_locale),
 ):
-    """Synthesize a short preview sample for a Kokoro voice."""
+    """Synthesize a short preview sample for a voice on the given provider."""
     from fastapi.responses import Response as FastAPIResponse
-    from src.dependencies import is_kokoro_enabled, get_kokoro_client
-    if not is_kokoro_enabled():
-        raise HTTPException(status_code=400, detail=t("kokoro.notActive", locale))
-    client = get_kokoro_client()
-    if not client or not client.is_available():
-        raise HTTPException(status_code=503, detail=t("kokoro.unreachable", locale))
-    voice_id = body.get("voice_id", "af_heart")
-    # Kokoro is restricted to English voices: preview text is always English
-    # to match the voice character, regardless of the user's UI locale.
-    preview_text = "Hello! This is a preview of the selected voice. I hope you enjoy the sound."
-    audio = client.synthesize_chunk(
-        preview_text,
-        voice_id=voice_id,
-        speed=1.0,
-    )
-    return FastAPIResponse(content=audio, media_type="audio/mpeg")
+    from src.dependencies import get_tts_client_for_provider, _voice_language_for
 
+    client = get_tts_client_for_provider(provider_id)
+    if client is None:
+        raise HTTPException(status_code=503, detail=t("tts.providerUnavailable", locale))
+    if not client.is_available():
+        raise HTTPException(status_code=503, detail=t("tts.providerUnavailable", locale))
 
-@router.get("/kokoro/voices")
-async def list_kokoro_voices():
-    """Return all available Kokoro voices from the local server."""
-    from src.dependencies import is_kokoro_enabled, get_kokoro_client
-    if not is_kokoro_enabled():
-        return {"voices": []}
-    client = get_kokoro_client()
-    if not client or not client.is_available():
-        return {"voices": []}
-    return {"voices": client.get_voices()}
+    voice_id = body.get("voice_id", "")
+    # Derive language from DB — do not trust client input
+    lang = _voice_language_for(provider_id, voice_id) if voice_id else locale
 
-
-@router.post("/mylab/preview")
-async def mylab_preview(
-    body: dict,
-    _user=Depends(get_current_user),
-    locale: str = Depends(get_locale),
-):
-    """Synthesize a short preview sample for a myLab voice."""
-    from fastapi.responses import Response as FastAPIResponse
-    from src.dependencies import is_mylab_enabled, get_mylab_client
-    if not is_mylab_enabled():
-        raise HTTPException(status_code=400, detail=t("mylab.notActive", locale))
-    client = get_mylab_client()
-    if not client or not client.is_available():
-        raise HTTPException(status_code=503, detail=t("mylab.ttsUnreachable", locale))
-    voice_id = body.get("voice_id", "alloy")
-    # Voice id encodes language (e.g. "alloy@de"); preview text follows that
-    # so users hear the voice in the language they actually selected. Fall
-    # back to UI locale for legacy voice ids without a suffix.
-    from src.services.openai_compat_tts import _split_voice_language
-    _, voice_lang = _split_voice_language(voice_id)
-    effective_lang = voice_lang or locale
     preview_text = (
         "Hello! This is a preview of the selected voice. I hope you enjoy the sound."
-        if effective_lang == "en"
+        if lang == "en"
         else "Hallo! Dies ist eine Vorschau der ausgewählten Stimme. Ich hoffe, sie gefällt Ihnen."
     )
-    audio = client.synthesize_chunk(
-        preview_text,
-        voice_id=voice_id,
-        speed=1.0,
-    )
+    audio = client.synthesize_chunk(preview_text, voice_id=voice_id, speed=1.0)
     return FastAPIResponse(content=audio, media_type="audio/mpeg")
 
 
-@router.get("/mylab/voices")
-async def list_mylab_voices():
-    """Return all available myLab TTS voices."""
-    from src.dependencies import is_mylab_enabled, get_mylab_client
-    if not is_mylab_enabled():
-        return {"voices": []}
-    client = get_mylab_client()
-    if not client or not client.is_available():
-        return {"voices": []}
-    return {"voices": client.get_voices()}
+# ─── TTS Job ───────────────────────────────────────────────────────────────
 
 
 def _sanitize_tts_text(raw: str) -> str:
-    """Normalize free-form text for safe pipeline use.
-
-    Strips NULs and other C0 control bytes (except common whitespace), normalises
-    newlines to ``\n``, and trims surrounding whitespace. The DB layer uses
-    parameterised statements throughout, so the goal here is not SQL escaping
-    but defence-in-depth: keep the stored text printable and free of bytes
-    that could break extractors, log lines, or downstream HTTP bodies.
-    """
-    # Normalise line endings before stripping control chars so \r\n -> \n
+    """Normalize free-form text for safe pipeline use."""
     cleaned = raw.replace("\r\n", "\n").replace("\r", "\n")
-    # Keep tab / newline, drop the rest of C0 plus DEL
     cleaned = "".join(
         ch for ch in cleaned
         if ch in ("\t", "\n") or (ord(ch) >= 32 and ord(ch) != 127)
@@ -151,17 +91,12 @@ async def text_to_speech(
     text: str = Form(""),
     voice_id: str = Form(""),
     speed: float = Form(1.0),
-    provider: str = Form("kokoro"),
+    provider_id: int = Form(...),
     voice_label: str = Form(""),
     current_user: dict = Depends(get_current_user),
     locale: str = Depends(get_locale),
 ):
-    """Queue a TTS job: synthesize uploaded document or pasted text to MP3.
-
-    Either ``file`` or ``text`` must be supplied. Returns ``{ job_uuid }``
-    immediately. Poll ``GET /jobs/{job_uuid}`` for status. On success the
-    result contains ``download_url`` for the MP3.
-    """
+    """Queue a TTS job: synthesize uploaded document or pasted text to MP3."""
     has_file = bool(file and file.filename)
     has_text = bool(text and text.strip())
     if has_file and has_text:
@@ -185,15 +120,12 @@ async def text_to_speech(
             )
         ext = ".txt"
         content = cleaned.encode("utf-8")
-        # Synthetic filename so the result MP3 still gets a sensible stem.
         source_filename = "text.txt"
     else:
-        assert file is not None  # narrowed by has_file
+        assert file is not None
         ext = Path(file.filename).suffix.lower()
         if ext not in TTS_EXTENSIONS:
-            raise HTTPException(
-                status_code=400, detail=t("tts.unsupportedFormat", locale)
-            )
+            raise HTTPException(status_code=400, detail=t("tts.unsupportedFormat", locale))
 
         content_length = request.headers.get("content-length")
         if content_length is not None and int(content_length) > MAX_UPLOAD_BYTES:
@@ -223,21 +155,13 @@ async def text_to_speech(
             )
         source_filename = file.filename
 
-    # Validate provider + client
-    if provider == "mylab":
-        from src.dependencies import is_mylab_enabled, get_mylab_client
-        if not is_mylab_enabled():
-            raise HTTPException(status_code=400, detail=t("mylab.notEnabled", locale))
-        mylab_client = get_mylab_client()
-        if not mylab_client or not mylab_client.is_available():
-            raise HTTPException(status_code=503, detail=t("mylab.ttsUnreachable", locale))
-    else:
-        from src.dependencies import is_kokoro_enabled, get_kokoro_client
-        if not is_kokoro_enabled():
-            raise HTTPException(status_code=400, detail=t("kokoro.notEnabled", locale))
-        kokoro_client = get_kokoro_client()
-        if not kokoro_client or not kokoro_client.is_available():
-            raise HTTPException(status_code=503, detail=t("kokoro.unreachable", locale))
+    # Validate provider
+    from src.dependencies import get_tts_client_for_provider
+    client = get_tts_client_for_provider(provider_id)
+    if client is None:
+        raise HTTPException(status_code=400, detail=t("tts.providerNotFound", locale))
+    if not client.is_available():
+        raise HTTPException(status_code=503, detail=t("tts.providerUnavailable", locale))
 
     user_id = current_user.get("user_id", 0)
     enforce_tool_burst(user_id, "tts", locale)
@@ -255,10 +179,10 @@ async def text_to_speech(
         source_filename,
         voice_id,
         speed,
-        provider,
+        provider_id,
         voice_label,
     ])
     db.set_job_celery_task_id(job_uuid, task.id)
 
-    logger.info("TTS job queued: job_uuid={}, source={}", job_uuid, source_filename)
+    logger.info("TTS job queued: job_uuid={}, provider_id={}, source={}", job_uuid, provider_id, source_filename)
     return {"job_uuid": job_uuid}

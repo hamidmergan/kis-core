@@ -12,14 +12,12 @@ from typing import Optional
 from src.services.protocols.base import CAPABILITIES, ProbeResult, ProviderAdapter
 from src.services.protocols.deepl import DeepLAdapter
 from src.services.protocols.docling import DoclingAdapter
-from src.services.protocols.kokoro import KokoroAdapter
 from src.services.protocols.openai_compat import OpenAICompatAdapter
 
 _REGISTRY: dict[str, type[ProviderAdapter]] = {
     OpenAICompatAdapter.PROTOCOL: OpenAICompatAdapter,
     DeepLAdapter.PROTOCOL: DeepLAdapter,
     DoclingAdapter.PROTOCOL: DoclingAdapter,
-    KokoroAdapter.PROTOCOL: KokoroAdapter,
 }
 
 
@@ -53,7 +51,6 @@ __all__ = [
     "CAPABILITIES",
     "DeepLAdapter",
     "DoclingAdapter",
-    "KokoroAdapter",
     "OpenAICompatAdapter",
     "ProbeResult",
     "ProviderAdapter",

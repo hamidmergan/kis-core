@@ -54,7 +54,7 @@ class DemoRenderRequest(BaseModel):
     slide_pause: float = 0.5
     voice_id: str = ""
     voice_label: str = ""
-    provider: str = "kokoro"
+    provider_id: int = 0
 
 
 # ── S3 helpers ────────────────────────────────────────────────────────────────

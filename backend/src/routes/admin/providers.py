@@ -22,6 +22,7 @@ from src.features.ai_providers.repository.feature_routes import (
 from src.i18n import get_locale, t
 from src.routes.admin._models import (
     CreateProviderRequest,
+    DiscoverVoicesRequest,
     SetFeatureRouteRequest,
     UpdateProviderRequest,
 )
@@ -92,6 +93,7 @@ async def create_provider(
         base_url=base_url,
         api_key=(body.api_key or None),
         capabilities=list(fixed),
+        voices=[v.model_dump() for v in body.voices],
         enabled=body.enabled,
     )
 
@@ -148,6 +150,8 @@ async def update_provider(
         if bad:
             raise HTTPException(400, t("admin.providers.unknownCapability", locale, items=bad))
         updates["capabilities"] = sorted(set(body.capabilities))
+    if body.voices is not None:
+        updates["voices"] = [v.model_dump() for v in body.voices]
     if body.enabled is not None:
         updates["enabled"] = body.enabled
 
@@ -206,6 +210,55 @@ async def get_affected_features(
         raise HTTPException(404, t("admin.providers.notFound", locale))
     affected = db.routes_using_provider(provider_id)
     return {"affected": affected}
+
+
+# ─── Voice Discovery ───────────────────────────────────────────────────────
+
+
+@router.post("/providers/discover-voices")
+async def discover_voices(
+    body: DiscoverVoicesRequest,
+    _admin=Depends(get_admin_user),
+):
+    """Try GET {base_url}/v1/audio/voices and return whatever the provider exposes.
+
+    On success: ``{ voices: [{ voice_id, name }], discoverable: true }``
+    On failure (404, timeout, unreachable): ``{ voices: [], discoverable: false }``
+
+    The ``language`` field is intentionally NOT filled in — the admin must set
+    it manually since providers don't expose language metadata.
+    """
+    import httpx
+
+    url = body.base_url.rstrip("/")
+    if url.endswith("/v1"):
+        url = url[:-3]
+
+    headers: dict = {"Accept": "application/json"}
+    if body.api_key:
+        headers["Authorization"] = f"Bearer {body.api_key}"
+
+    try:
+        async with httpx.AsyncClient(timeout=8.0) as client:
+            resp = await client.get(f"{url}/v1/audio/voices", headers=headers)
+        if resp.status_code != 200:
+            return {"voices": [], "discoverable": False}
+
+        data = resp.json()
+        raw = data.get("voices") or data.get("data", [])
+        voices = []
+        for v in raw:
+            if isinstance(v, str):
+                voices.append({"voice_id": v, "name": v, "language": ""})
+            elif isinstance(v, dict):
+                vid = v.get("id") or v.get("voice_id") or v.get("name", "")
+                vname = v.get("name") or vid
+                voices.append({"voice_id": vid, "name": vname, "language": ""})
+        return {"voices": voices, "discoverable": True}
+
+    except Exception as exc:
+        logger.debug("discover-voices failed for {}: {}", body.base_url, exc)
+        return {"voices": [], "discoverable": False}
 
 
 # ─── Feature routes ────────────────────────────────────────────────────────

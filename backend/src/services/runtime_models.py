@@ -36,8 +36,6 @@ MODEL_DEFAULTS: dict[str, str] = {
     # Image analysis (vision LLM via chat/completions)
     "primary_image_analyze_model": "qwen3-omni-30b-a3b-instruct",
     "fallback_image_analyze_model": "qwen3-vl-8b",
-    # TTS (slot identity = product name; not part of primary/fallback/local hierarchy)
-    "mylab_tts_model": "xtts-v2",
 }
 
 MODEL_KEYS: tuple[str, ...] = tuple(MODEL_DEFAULTS.keys())
@@ -56,7 +54,6 @@ SEEDED_MODEL_KEYS: frozenset[str] = frozenset({
     "fallback_ocr_model",
     "fallback_image_gen_model",
     "fallback_image_edit_model",
-    "mylab_tts_model",
 })
 
 

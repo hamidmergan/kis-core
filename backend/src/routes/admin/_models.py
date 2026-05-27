@@ -45,11 +45,19 @@ class SetQuotaOverrideRequest(BaseModel):
     limit_value: int  # -1 = unlimited
 
 
+class VoiceEntry(BaseModel):
+    voice_id: str
+    name: str
+    language: str               # required – e.g. "de", "en"
+    description: str | None = None
+
+
 class CreateProviderRequest(BaseModel):
     name: str
     protocol: str
     base_url: str
     api_key: str | None = None
+    voices: list[VoiceEntry] = []
     enabled: bool = True
 
 
@@ -58,7 +66,13 @@ class UpdateProviderRequest(BaseModel):
     base_url: str | None = None
     api_key: str | None = None  # empty string clears the key
     capabilities: list[str] | None = None  # admin override after probe
+    voices: list[VoiceEntry] | None = None
     enabled: bool | None = None
+
+
+class DiscoverVoicesRequest(BaseModel):
+    base_url: str
+    api_key: str | None = None
 
 
 class SetFeatureRouteRequest(BaseModel):

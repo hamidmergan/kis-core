@@ -13,13 +13,20 @@ import psycopg2.extras
 
 from src.core.db.pool import get_connection
 
+_SELECT = """SELECT id, name, protocol, base_url, api_key, capabilities,
+                    voices, enabled, last_probed_at, probe_status, probe_error,
+                    created_at, updated_at"""
+
 
 def _row_to_dict(row) -> dict:
     """Coerce a DictRow (mixed types from psycopg2) into a JSON-friendly dict."""
     d = dict(row)
-    caps = d.get("capabilities")
-    if isinstance(caps, str):
-        d["capabilities"] = json.loads(caps)
+    for jsonb_col in ("capabilities", "voices"):
+        v = d.get(jsonb_col)
+        if isinstance(v, str):
+            d[jsonb_col] = json.loads(v)
+        elif v is None:
+            d[jsonb_col] = []
     for ts in ("last_probed_at", "created_at", "updated_at"):
         v = d.get(ts)
         if isinstance(v, datetime):
@@ -32,9 +39,7 @@ def list_providers() -> list[dict]:
     with get_connection() as conn:
         with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
             cur.execute(
-                """SELECT id, name, protocol, base_url, api_key, capabilities,
-                          enabled, last_probed_at, probe_status, probe_error,
-                          created_at, updated_at
+                f"""{_SELECT}
                    FROM providers
                    ORDER BY created_at ASC"""
             )
@@ -45,9 +50,7 @@ def get_provider(provider_id: int) -> Optional[dict]:
     with get_connection() as conn:
         with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
             cur.execute(
-                """SELECT id, name, protocol, base_url, api_key, capabilities,
-                          enabled, last_probed_at, probe_status, probe_error,
-                          created_at, updated_at
+                f"""{_SELECT}
                    FROM providers WHERE id = %s""",
                 (provider_id,),
             )
@@ -59,9 +62,7 @@ def get_provider_by_name(name: str) -> Optional[dict]:
     with get_connection() as conn:
         with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
             cur.execute(
-                """SELECT id, name, protocol, base_url, api_key, capabilities,
-                          enabled, last_probed_at, probe_status, probe_error,
-                          created_at, updated_at
+                f"""{_SELECT}
                    FROM providers WHERE name = %s""",
                 (name,),
             )
@@ -76,23 +77,23 @@ def create_provider(
     base_url: str,
     api_key: Optional[str] = None,
     capabilities: Optional[list[str]] = None,
+    voices: Optional[list[dict]] = None,
     enabled: bool = True,
 ) -> dict:
     with get_connection() as conn:
         with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
             cur.execute(
-                """INSERT INTO providers
-                       (name, protocol, base_url, api_key, capabilities, enabled)
-                   VALUES (%s, %s, %s, %s, %s::jsonb, %s)
-                   RETURNING id, name, protocol, base_url, api_key, capabilities,
-                             enabled, last_probed_at, probe_status, probe_error,
-                             created_at, updated_at""",
+                f"""INSERT INTO providers
+                       (name, protocol, base_url, api_key, capabilities, voices, enabled)
+                   VALUES (%s, %s, %s, %s, %s::jsonb, %s::jsonb, %s)
+                   RETURNING {_SELECT.split('SELECT ')[1]}""",
                 (
                     name,
                     protocol,
                     base_url,
                     api_key,
                     json.dumps(capabilities or []),
+                    json.dumps(voices or []),
                     enabled,
                 ),
             )
@@ -101,8 +102,8 @@ def create_provider(
 
 
 def update_provider(provider_id: int, **fields: Any) -> Optional[dict]:
-    """Patch any of name / protocol / base_url / api_key / capabilities / enabled."""
-    allowed = {"name", "protocol", "base_url", "api_key", "capabilities", "enabled"}
+    """Patch any of name / protocol / base_url / api_key / capabilities / voices / enabled."""
+    allowed = {"name", "protocol", "base_url", "api_key", "capabilities", "voices", "enabled"}
     updates = {k: v for k, v in fields.items() if k in allowed}
     if not updates:
         return get_provider(provider_id)
@@ -110,8 +111,8 @@ def update_provider(provider_id: int, **fields: Any) -> Optional[dict]:
     sets: list[str] = []
     values: list[Any] = []
     for key, value in updates.items():
-        if key == "capabilities":
-            sets.append("capabilities = %s::jsonb")
+        if key in ("capabilities", "voices"):
+            sets.append(f"{key} = %s::jsonb")
             values.append(json.dumps(value or []))
         else:
             sets.append(f"{key} = %s")
@@ -123,9 +124,7 @@ def update_provider(provider_id: int, **fields: Any) -> Optional[dict]:
         with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
             cur.execute(
                 f"""UPDATE providers SET {", ".join(sets)} WHERE id = %s
-                    RETURNING id, name, protocol, base_url, api_key, capabilities,
-                              enabled, last_probed_at, probe_status, probe_error,
-                              created_at, updated_at""",
+                    RETURNING {_SELECT.split('SELECT ')[1]}""",
                 values,
             )
             row = cur.fetchone()
@@ -172,9 +171,7 @@ def list_providers_with_capability(capability: str) -> list[dict]:
     with get_connection() as conn:
         with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
             cur.execute(
-                """SELECT id, name, protocol, base_url, api_key, capabilities,
-                          enabled, last_probed_at, probe_status, probe_error,
-                          created_at, updated_at
+                f"""{_SELECT}
                    FROM providers
                    WHERE enabled = TRUE
                      AND capabilities ? %s

@@ -29,7 +29,7 @@ def run_tts(
     filename: str,
     voice_id: str,
     speed: float,
-    provider: str = "kokoro",
+    provider_id: int,
     voice_label: str = "",
 ):
     """Synthesize uploaded document to MP3.
@@ -39,10 +39,11 @@ def run_tts(
     for already completed chunks.
     """
     try:
-        # Save params so the job can be manually retried later via POST /jobs/{uuid}/retry
         tts_params = {
-            "voice_id": voice_id, "voice_label": voice_label, "speed": speed,
-            "provider": provider,
+            "voice_id": voice_id,
+            "voice_label": voice_label,
+            "speed": speed,
+            "provider_id": provider_id,
         }
         db.update_job_status(job_uuid, "running", progress={"step": "extract", "tts_params": tts_params})
         job_row = db.get_job(job_uuid)
@@ -62,33 +63,18 @@ def run_tts(
         if not text.strip():
             raise ValueError("Kein Text in der Datei gefunden")
 
-        from src.dependencies import (
-            get_kokoro_client, get_mylab_client,
-            is_kokoro_enabled, is_mylab_enabled,
-        )
+        from src.dependencies import get_tts_client_for_provider, _voice_language_for
+        from src.services.openai_compat_tts import _split_text
 
-        requested_provider = tts_params.get("provider", "kokoro")
+        client = get_tts_client_for_provider(provider_id)
+        if client is None:
+            raise RuntimeError(f"TTS-Provider {provider_id} nicht verfügbar.")
 
-        # Hard-stop: reject if provider was disabled / unconfigured between
-        # submit and execution. Both helpers now read the providers table via
-        # feature_router, so an unconfigured TTS route fails loudly here.
-        if requested_provider == "mylab":
-            if not is_mylab_enabled():
-                raise RuntimeError("myLab TTS wurde deaktiviert.")
-            client = get_mylab_client()
-            if client is None:
-                raise RuntimeError("myLab TTS-Anbieter nicht verfügbar.")
-            from src.services.openai_compat_tts import _split_text
-        else:
-            if not is_kokoro_enabled():
-                raise RuntimeError("Kokoro TTS wurde deaktiviert.")
-            client = get_kokoro_client()
-            if client is None:
-                raise RuntimeError("Kokoro TTS-Anbieter nicht verfügbar.")
-            from src.services.kokoro_client import _split_text
+        # Derive language from DB — needed by some providers for phonemizer config
+        language = _voice_language_for(provider_id, voice_id) or "de"
+
         chunks = _split_text(text)
         n = len(chunks)
-
         audio_parts: list[bytes] = []
 
         for i, chunk in enumerate(chunks):
@@ -110,12 +96,12 @@ def run_tts(
                     chunk,
                     voice_id=voice_id,
                     speed=speed,
+                    language=language,
                 )
 
             save_job_file(user_id, job_uuid, chunk_filename, mp3)
             audio_parts.append(mp3)
 
-        # Combine all chunks and save final result
         result_path = save_result_file(user_id, job_uuid, ".mp3", b"".join(audio_parts))
         result_filename = f"{Path(filename).stem}.mp3"
         save_result_and_evict(user_id, job_uuid, result_path, result_filename)
@@ -131,10 +117,9 @@ def run_tts(
             logger.warning("TTS {} network error, retry {}/{} in {}s: {}", job_uuid, self.request.retries + 1, self.max_retries, wait, e)
             raise self.retry(exc=e, countdown=wait)
         logger.error("TTS {} gave up after {} retries: {}", job_uuid, self.max_retries, e)
-        provider_name = {"kokoro": "Kokoro", "mylab": "myLab TTS"}.get(provider, "Kokoro")
         job = db.get_job(job_uuid)
         locale = (job and job.get("creator_locale")) or "de"
-        db.update_job_status(job_uuid, "failed", error_message=t("job.providerUnreachableRetry", locale, provider=provider_name))
+        db.update_job_status(job_uuid, "failed", error_message=t("job.providerUnreachableRetry", locale, provider=f"Provider {provider_id}"))
         raise
 
     except Exception as e:
@@ -144,7 +129,7 @@ def run_tts(
             job = db.get_job(job_uuid)
             locale = (job and job.get("creator_locale")) or "de"
             db.update_job_status(job_uuid, "failed", error_message=t("job.timeoutRetry", locale))
-            return  # exit cleanly before the hard SIGKILL fires
+            return
         from src.tasks._errors import handle_task_exception
         handle_task_exception(job_uuid, e, task_label="TTS")
         raise

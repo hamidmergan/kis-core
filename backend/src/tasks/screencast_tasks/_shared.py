@@ -53,21 +53,13 @@ def _get_screencast_helpers():
     )
 
 
-def _get_tts_client(provider: str = "kokoro"):
-    if provider == "mylab":
-        from src.dependencies import is_mylab_enabled, get_mylab_client
-        if not is_mylab_enabled():
-            raise RuntimeError("myLab TTS ist nicht aktiviert")
-        client = get_mylab_client()
-        if not client or not client.is_available():
-            raise RuntimeError("myLab TTS Server nicht erreichbar")
-        return client
-    from src.dependencies import is_kokoro_enabled, get_kokoro_client
-    if not is_kokoro_enabled():
-        raise RuntimeError("Kokoro TTS ist nicht aktiviert")
-    client = get_kokoro_client()
-    if not client or not client.is_available():
-        raise RuntimeError("Kokoro Server nicht erreichbar")
+def _get_tts_client(provider_id: int):
+    from src.dependencies import get_tts_client_for_provider
+    client = get_tts_client_for_provider(provider_id)
+    if client is None:
+        raise RuntimeError(f"TTS-Provider {provider_id} nicht gefunden oder deaktiviert")
+    if not client.is_available():
+        raise RuntimeError(f"TTS-Provider {provider_id} nicht erreichbar")
     return client
 
 

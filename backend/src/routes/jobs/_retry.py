@@ -59,16 +59,14 @@ async def retry_job(
             raise HTTPException(status_code=409, detail=t("job.parallelRunning", locale))
 
         from src.tasks.tts_tasks import run_tts
-        provider = params.get("provider", "kokoro")
-        if provider not in ("kokoro", "mylab"):
-            provider = "kokoro"
+        provider_id = int(params.get("provider_id", 0))
         task = run_tts.apply_async(args=[
             job_uuid,
             job["input_path"],
             job["original_filename"],
             params["voice_id"],
             params["speed"],
-            provider,
+            provider_id,
             params.get("voice_label", ""),
         ])
         try:
@@ -80,16 +78,14 @@ async def retry_job(
         db.set_job_celery_task_id(job_uuid, task.id)
 
     elif job["tool"] in ("screencast_translate", "screencast_render"):
-        legacy_provider = render_params.get("provider", "kokoro")
-        if legacy_provider not in ("kokoro", "mylab"):
-            legacy_provider = "kokoro"
+        provider_id = int(render_params.get("provider_id", 0))
         save_job_file(job["user_id"], job_uuid, "queue_params.json", json.dumps({
             "dispatch_as": "render",
             "voice_id": render_params["voice_id"],
             "speed": render_params["speed"],
             "slide_pause": render_params["slide_pause"],
             "dpi": render_params["dpi"],
-            "provider": legacy_provider,
+            "provider_id": provider_id,
             "voice_label": render_params.get("voice_label", ""),
             "is_admin": render_params.get("is_admin", False),
         }).encode())

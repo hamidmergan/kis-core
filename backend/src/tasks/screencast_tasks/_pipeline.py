@@ -36,7 +36,7 @@ def _run_render_pipeline(
     slide_pause: float,
     slide_images_override: list[Path] | None = None,
     dpi: int = 100,
-    provider: str = "kokoro",
+    provider_id: int = 0,
     is_admin: bool = False,
 ) -> dict:
     """
@@ -54,7 +54,7 @@ def _run_render_pipeline(
         _create_outro_image, _get_image_dimensions,
     ) = _get_screencast_helpers()
 
-    tts_client = _get_tts_client(provider)
+    tts_client = _get_tts_client(provider_id)
 
     # Resolve user_id once for storage keying
     job_row = db.get_job(job_uuid)
@@ -66,7 +66,7 @@ def _run_render_pipeline(
     save_job_file(user_id, job_uuid, "render_params.json", json.dumps({
         "voice_id": voice_id, "speed": speed,
         "slide_pause": slide_pause, "dpi": dpi,
-        "provider": provider,
+        "provider_id": provider_id,
     }).encode())
     save_job_file(user_id, job_uuid, "render_scripts.json", json.dumps(scripts).encode())
 
@@ -133,7 +133,7 @@ def _run_render_pipeline(
             _assert_not_cancelled(job_uuid)
             db.update_job_status(job_uuid, "running", progress={"step": "tts", "current": current, "total": total})
 
-        tts_results = asyncio.run(_generate_all_tts(scripts, tts_client, tmp, speed, voice_id, on_slide_done=_tts_progress, job_uuid=job_uuid, user_id=user_id, provider=provider))
+        tts_results = asyncio.run(_generate_all_tts(scripts, tts_client, tmp, speed, voice_id, on_slide_done=_tts_progress, job_uuid=job_uuid, user_id=user_id, provider_id=provider_id))
         audio_paths = [r[0] for r in tts_results]
         alignments = [r[1] for r in tts_results]
 

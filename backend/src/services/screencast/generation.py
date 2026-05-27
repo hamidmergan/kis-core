@@ -50,7 +50,7 @@ async def generate_all_tts(
     on_slide_done: Callable[[int, int], None] | None = None,
     job_uuid: str | None = None,
     user_id: int | None = None,
-    provider: str = "kokoro",
+    provider_id: int = 0,
 ) -> list[tuple[Path, dict | None]]:
     """Generate TTS audio for all slides in parallel.
 
@@ -59,8 +59,8 @@ async def generate_all_tts(
     Each slide's audio is saved to persistent storage immediately after synthesis
     so a crash can be recovered without re-paying for completed slides.
     """
-    parallelism = SCREENCAST_TTS_PROVIDER_PARALLELISM.get(provider, SCREENCAST_TTS_DEFAULT_PARALLELISM)
-    logger.info("TTS provider {}: parallelism={}", provider, parallelism)
+    parallelism = SCREENCAST_TTS_DEFAULT_PARALLELISM
+    logger.info("TTS provider_id={}: parallelism={}", provider_id, parallelism)
     sem = asyncio.Semaphore(parallelism)
     lock = asyncio.Lock()
     counter = 0
