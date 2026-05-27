@@ -114,11 +114,47 @@ def create_app() -> FastAPI:
         return response
 
     @application.middleware("http")
+    async def local_mode_session(request: Request, call_next) -> Response:
+        """In local mode: inject a long-lived session cookie so Next.js
+        layout sees hasSession=true after the first API call."""
+        if not settings.is_local_mode:
+            return await call_next(request)
+
+        token = request.cookies.get("session")
+        store = get_session_store()
+        if token and store.validate(token):
+            return await call_next(request)
+
+        local_user = db.get_user_by_username("local")
+        if local_user:
+            new_token = store.create(data={
+                "user_id": local_user["id"],
+                "username": "local",
+                "display_name": "Admin",
+                "email": "",
+                "role": "admin",
+                "custom_role_id": None,
+            })
+            response = await call_next(request)
+            response.set_cookie(
+                key="session",
+                value=new_token,
+                httponly=True,
+                samesite="lax",
+                max_age=86400 * 365,
+            )
+            return response
+
+        return await call_next(request)
+
+    @application.middleware("http")
     async def maintenance_gate(request: Request, call_next) -> Response:
         if request.method == "OPTIONS":
             return await call_next(request)
         path = request.url.path
         if path in _MAINTENANCE_OPEN_PATHS or any(path.startswith(p) for p in _MAINTENANCE_OPEN_PREFIXES):
+            return await call_next(request)
+        if settings.is_local_mode:
             return await call_next(request)
         try:
             enabled = db.get_setting("maintenance_mode", "false").lower() == "true"

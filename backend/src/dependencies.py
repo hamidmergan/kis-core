@@ -28,9 +28,22 @@ def get_settings() -> Settings:
 async def get_current_user(request: Request) -> dict:
     """Return session data for the authenticated user.
 
-    verify_auth already confirmed the session is valid, so this just
-    reads the data. Falls back to defaults if something unexpected happens.
+    In local mode: always returns the local admin user from DB.
     """
+    settings = get_settings()
+    if settings.is_local_mode:
+        from src import database as _db
+        local_user = _db.get_user_by_username("local")
+        if local_user:
+            return {
+                "user_id": local_user["id"],
+                "username": "local",
+                "display_name": "Admin",
+                "email": "",
+                "role": "admin",
+                "custom_role_id": None,
+            }
+
     token = request.cookies.get("session")
     if token:
         store = get_session_store()
@@ -177,7 +190,8 @@ def get_tts_client_for_provider(provider_id: int):
         return None
     route = db.get_route("tts")
     model = (route.get("model_name") if route and route.get("provider_id") == provider_id else None) or "tts-1"
-    return OpenAICompatTTSClient(provider["base_url"], model=model)
+    api_key = provider.get("api_key") or "not-needed"
+    return OpenAICompatTTSClient(provider["base_url"], model=model, api_key=api_key)
 
 
 def _voice_language_for(provider_id: int, voice_id: str) -> str:
