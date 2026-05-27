@@ -117,6 +117,33 @@ async def logout(request: Request, response: Response):
 
 @router.get("/status")
 async def auth_status(request: Request):
+    settings = get_settings()
+
+    if settings.is_local_mode:
+        from src import database as _db
+        from src.permissions import resolve_user_permissions
+        local_user = _db.get_user_by_username("local")
+        user_id = local_user["id"] if local_user else 0
+        perms = resolve_user_permissions(role="admin", custom_role_id=None, is_env_admin=True)
+        return {
+            "authenticated": True,
+            "local_mode": True,
+            "is_admin": True,
+            "role": "admin",
+            "custom_role_id": None,
+            "user_id": user_id,
+            "username": "local",
+            "display_name": "Admin",
+            "email": "",
+            "permissions": {
+                "allow_admin_panel": perms.allow_admin_panel,
+                "allow_aia": perms.allow_aia,
+                "allow_workspace_create": perms.allow_workspace_create,
+                "allow_ldap_user_create": perms.allow_ldap_user_create,
+                "tools": list(perms.tools),
+            },
+        }
+
     token = request.cookies.get("session")
     if not token:
         return {"authenticated": False}
