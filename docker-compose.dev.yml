@@ -73,32 +73,6 @@ services:
       - kis-minio-data:/data
     restart: unless-stopped
 
-  # CPU-Image als Default; gpu.yml swappt auf GPU-Image und reserviert NVIDIA
-  kokoro:
-    image: ghcr.io/remsky/kokoro-fastapi-cpu:latest
-    container_name: kis-kokoro
-    ports:
-      - "8880:8880"
-    restart: unless-stopped
-    logging:
-      driver: json-file
-      options:
-        max-size: "10m"
-        max-file: "7"
-
-  ollama:
-    image: ollama/ollama
-    container_name: kis-ollama
-    ports:
-      - "11434:11434"
-    volumes:
-      - kis-ollama-data:/root/.ollama
-    restart: unless-stopped
-    logging:
-      driver: json-file
-      options:
-        max-size: "10m"
-        max-file: "7"
 
   langfuse-db-init:
     image: postgres:16-alpine
@@ -141,4 +115,3 @@ services:
 
 volumes:
   kis-minio-data:
-  kis-ollama-data:
