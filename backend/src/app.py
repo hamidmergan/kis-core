@@ -78,6 +78,9 @@ async def lifespan(app: FastAPI):
     settings = get_settings()
     init_db(admin_email=settings.admin_email or None)
     logger.info("Database initialised")
+    if settings.is_local_mode:
+        user_id = db.ensure_local_admin()
+        logger.info("Local mode: admin user ensured (id={})", user_id)
     stuck = reset_stuck_jobs()
     if stuck:
         logger.warning("Startup: {} stuck job(s) reset to failed (server was restarted)", stuck)

@@ -154,3 +154,17 @@ def deactivate_user_by_email(email: str) -> None:
             )
         conn.commit()
 
+
+def ensure_local_admin() -> int:
+    """Create the local admin user if it doesn't exist yet. Returns user_id."""
+    existing = get_user_by_username("local")
+    if existing:
+        return existing["id"]
+    return create_user(
+        ldap_username="local",
+        display_name="Admin",
+        email="",
+        active=1,
+        role="admin",
+    )
+
