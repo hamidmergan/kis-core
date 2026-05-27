@@ -1,28 +1,27 @@
-export const KOKORO_LANGUAGE_ORDER = ["English"];
-export const KOKORO_LANGUAGE_LABEL: Record<string, string> = {
-  "English": "🇺🇸🇬🇧 English",
+export const LANGUAGE_LABEL: Record<string, string> = {
+  de: "🇩🇪 Deutsch",
+  en: "🇺🇸 English",
+  fr: "🇫🇷 Français",
+  es: "🇪🇸 Español",
+  it: "🇮🇹 Italiano",
+  nl: "🇳🇱 Nederlands",
+  pt: "🇵🇹 Português",
+  pl: "🇵🇱 Polski",
+  tr: "🇹🇷 Türkçe",
+  zh: "🇨🇳 中文",
+  ja: "🇯🇵 日本語",
+  ko: "🇰🇷 한국어",
 };
 
-export const MYLAB_LANGUAGE_ORDER = ["de", "en"];
-export const MYLAB_LANGUAGE_LABEL: Record<string, string> = {
-  "de": "🇩🇪 Deutsch",
-  "en": "🇺🇸 English",
-};
-
-
-export interface KokoroVoice {
-  voice_id: string;
+export interface ProviderWithVoices {
+  id: number;
   name: string;
-  language?: string;
-  accent: string;
-  gender: string;
+  voices: Voice[];
 }
 
-export interface OpenAITtsVoice {
+export interface Voice {
   voice_id: string;
   name: string;
-  description: string;
-  language?: string;
+  language: string;
+  description?: string;
 }
-
-export type VoicesTab = "kokoro" | "mylab";

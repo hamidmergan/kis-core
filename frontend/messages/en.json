@@ -306,10 +306,9 @@
       "voices": {
         "title": "Available voices",
         "loading": "Loading…",
-        "noVoices": "No voices available.",
+        "noVoices": "No voices configured for this provider.",
+        "noProviders": "No TTS providers with voices configured.",
         "noSample": "No sample",
-        "kokoroUnavailable": "Kokoro server not reachable or no voices found.",
-        "mylabUnavailable": "myLab TTS server not reachable or no voices found.",
         "voiceSingular": "voice",
         "voicePlural": "voices",
         "genderFemale": "Female",
@@ -864,14 +863,28 @@
         "deeplFreeOnProUrl": "DeepL Free key (suffix :fx) detected, but the base URL points to the Pro endpoint. KIS will auto-route to api-free.deepl.com.",
         "deeplProOnFreeUrl": "DeepL Pro key detected, but the base URL points to the Free endpoint. KIS will auto-route to api.deepl.com."
       },
+      "voices": {
+        "label": "Voices",
+        "discover": "Load voices",
+        "discovering": "Loading…",
+        "notDiscoverable": "No voices found via API. Please add them manually.",
+        "discoverFailed": "Could not reach the provider. Check the URL.",
+        "addManual": "Add voice manually",
+        "add": "Add",
+        "cancel": "Cancel",
+        "colVoiceId": "Voice ID",
+        "colName": "Name",
+        "colLang": "Language",
+        "colDesc": "Description",
+        "languageRequired": "All voices must have a language set (e.g. de, en)."
+      },
       "validation": {
         "required": "Name and base URL are required."
       },
       "protocolName": {
         "openai_compat": "OpenAI-compatible",
         "deepl": "DeepL",
-        "docling": "Docling",
-        "kokoro": "Kokoro"
+        "docling": "Docling"
       },
       "capabilityName": {
         "chat": "Chat",

@@ -1,24 +1,23 @@
 import type { JobStatus } from "@/lib/api";
-import { KOKORO_ACCENT_LABEL } from "@/lib/voice-labels";
-import type { KokoroVoice, OpenAITtsVoice } from "@/hooks/useVoices";
+import type { ProviderWithVoices } from "@/hooks/useVoices";
 
-const MYLAB_FLAG: Record<string, string> = {
-  "de": "🇩🇪",
-  "en": "🇺🇸",
+const LANGUAGE_FLAG: Record<string, string> = {
+  de: "🇩🇪", en: "🇺🇸", fr: "🇫🇷", es: "🇪🇸",
+  it: "🇮🇹", nl: "🇳🇱", pt: "🇵🇹", pl: "🇵🇱",
+  tr: "🇹🇷", zh: "🇨🇳", ja: "🇯🇵", ko: "🇰🇷",
 };
 
 export function computeVoiceLabel(
-  provider: string,
+  providerId: number,
   voiceId: string,
-  kokoroVoices: KokoroVoice[],
-  mylabVoices: OpenAITtsVoice[] = [],
+  providers: ProviderWithVoices[],
 ): string {
-  if (provider === "mylab") {
-    const v = mylabVoices.find((x) => x.voice_id === voiceId);
-    return v ? `${MYLAB_FLAG[v.language ?? ""] ?? ""} ${v.name}`.trim() : voiceId;
-  }
-  const v = kokoroVoices.find((x) => x.voice_id === voiceId);
-  return v ? `${KOKORO_ACCENT_LABEL[v.accent] ?? ""} ${v.name}`.trim() : voiceId;
+  const provider = providers.find((p) => p.id === providerId);
+  if (!provider) return voiceId;
+  const voice = provider.voices.find((v) => v.voice_id === voiceId);
+  if (!voice) return voiceId;
+  const flag = LANGUAGE_FLAG[voice.language] ?? "";
+  return `${flag} ${voice.name}`.trim();
 }
 
 

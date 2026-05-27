@@ -50,6 +50,7 @@ export default function ProvidersTab() {
       protocol: string;
       base_url: string;
       api_key: string | null;
+      voices: import("./_types").Voice[];
     }) => {
       if (dialog.open && dialog.mode === "edit") {
         // For edits, only patch fields the dialog actually changes. api_key
@@ -57,6 +58,7 @@ export default function ProvidersTab() {
         const patch: Record<string, unknown> = {
           name: data.name,
           base_url: data.base_url,
+          voices: data.voices,
         };
         if (data.api_key !== null) {
           patch.api_key = data.api_key;

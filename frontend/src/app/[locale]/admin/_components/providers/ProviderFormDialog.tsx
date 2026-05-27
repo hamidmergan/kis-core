@@ -3,7 +3,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
 import { Eye, EyeSlash, X } from "@phosphor-icons/react";
-import type { Provider, ProviderMeta } from "./_types";
+import type { Provider, ProviderMeta, Voice } from "./_types";
+import { VoicesEditor } from "./VoicesEditor";
 
 type Props = {
   meta: ProviderMeta;
@@ -15,6 +16,7 @@ type Props = {
     protocol: string;
     base_url: string;
     api_key: string | null;
+    voices: Voice[];
   }) => Promise<void>;
 };
 
@@ -22,7 +24,6 @@ const DEFAULT_BASE_URL: Record<string, string> = {
   openai_compat: "",
   deepl: "https://api.deepl.com",
   docling: "https://chat-ai.academiccloud.de/v1/documents/convert",
-  kokoro: "http://kis-kokoro:8880",
 };
 
 export default function ProviderFormDialog({
@@ -38,11 +39,19 @@ export default function ProviderFormDialog({
   const [protocol, setProtocol] = useState(initial?.protocol ?? meta.protocols[0]?.id ?? "openai_compat");
   const [baseUrl, setBaseUrl] = useState(initial?.base_url ?? "");
   const [apiKey, setApiKey] = useState("");
+  const [voices, setVoices] = useState<Voice[]>(initial?.voices ?? []);
   const [showKey, setShowKey] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const isEdit = mode === "edit";
+
+  // Show voices editor when provider has/will have tts capability
+  const showVoicesEditor = useMemo(() => {
+    if (isEdit) return initial?.capabilities.includes("tts") ?? false;
+    // In create mode: only openai_compat can have tts
+    return protocol === "openai_compat";
+  }, [isEdit, initial, protocol]);
 
   const protocolMeta = useMemo(
     () => meta.protocols.find((p) => p.id === protocol),
@@ -87,6 +96,7 @@ export default function ProviderFormDialog({
         protocol,
         base_url: trimmedUrl,
         api_key: keyValue,
+        voices,
       });
       onClose();
     } catch (e) {
@@ -114,7 +124,7 @@ export default function ProviderFormDialog({
           </button>
         </div>
 
-        <form onSubmit={submit} className="space-y-3" autoComplete="off">
+        <form onSubmit={submit} className="space-y-3 max-h-[80vh] overflow-y-auto pr-1" autoComplete="off">
           {/* Hidden honeypot inputs trick Chromium-based password managers
               (Google Password Manager, 1Password, LastPass) into autofilling
               into these throwaway fields instead of the real Base-URL / API-Key
@@ -239,6 +249,17 @@ export default function ProviderFormDialog({
               <p className="text-xs text-muted">{deeplKeyHint}</p>
             )}
           </div>
+
+          {showVoicesEditor && (
+            <div className="space-y-1 pt-1 border-t border-border">
+              <VoicesEditor
+                voices={voices}
+                onChange={setVoices}
+                baseUrl={baseUrl}
+                apiKey={apiKey || null}
+              />
+            </div>
+          )}
 
           {error && <p className="text-sm text-error">{error}</p>}
 

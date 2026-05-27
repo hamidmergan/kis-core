@@ -3,17 +3,17 @@
 import { Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import ProtectedRoute from "@/components/auth/ProtectedRoute";
-import { api, parseDetail } from "@/lib/api";
+import { parseDetail } from "@/lib/api";
 import BackLink from "@/components/ui/BackLink";
 import { SCREENCAST_MAX_CHARS } from "@/lib/constants";
 import { wordCount } from "@/lib/text";
-import { KOKORO_ACCENT_LABEL } from "@/lib/voice-labels";
 import ScreencastStepper from "@/components/screencast/ScreencastStepper";
 import { stepToIndex } from "@/components/screencast/steps";
 import type {
   ScreencastStep,
   SlideData,
 } from "@/types";
+import type { ProviderWithVoices } from "@/hooks/useVoices";
 import { UploadStep } from "./_steps/UploadStep";
 import { TranslatingStep, GeneratingScriptsStep, RenderingStep, ErrorStep } from "./_steps/StatusSteps";
 import { UserPromptStep } from "./_steps/UserPromptStep";
@@ -61,13 +61,13 @@ function ScreencastDemoPageInner() {
   const [errorMessage, setErrorMessage] = useState("");
   const [loading, setLoading] = useState(false);
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
-  const [kokoroVoices, setKokoroVoices] = useState<Array<{ voice_id: string; name: string; accent: string; gender: string }>>([]);
-  const [mylabVoices, setMylabVoices] = useState<Array<{ voice_id: string; name: string; description: string; language?: string }>>([]);
+
+  // TTS providers/voices — loaded from /api/tts/providers-with-voices
+  const [providers, setProviders] = useState<ProviderWithVoices[]>([]);
+  const [providerId, setProviderId] = useState<number>(0);
   const [voiceId, setVoiceId] = useState("");
-  const [ttsProvider, setTtsProvider] = useState<"kokoro" | "mylab">("kokoro");
-  const [kokoroEnabled, setKokoroEnabled] = useState(false);
-  const [mylabEnabled, setMylabEnabled] = useState(false);
   const [providersLoaded, setProvidersLoaded] = useState(false);
+
   const [audioId, setAudioId] = useState<string>("");
   const [maxReachedIdx, setMaxReachedIdx] = useState(0);
   const [scriptInputMode, setScriptInputMode] = useState<"generate" | "manual" | "import">("generate");
@@ -77,26 +77,18 @@ function ScreencastDemoPageInner() {
   const abortControllerRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
-    api.getJson<{ kokoro_enabled: boolean; mylab_enabled: boolean }>("/api/tts/providers").then((data) => {
-      setKokoroEnabled(data.kokoro_enabled ?? false);
-      setMylabEnabled(data.mylab_enabled ?? false);
-      if (data.kokoro_enabled) setTtsProvider("kokoro");
-      else if (data.mylab_enabled) setTtsProvider("mylab");
-      if (data.kokoro_enabled) {
-        api.getJson<{ voices: Array<{ voice_id: string; name: string; accent: string; gender: string }> }>("/api/kokoro/voices")
-          .then((kData) => {
-            setKokoroVoices(kData.voices ?? []);
-            if (kData.voices?.length > 0) setVoiceId(kData.voices[0].voice_id);
-          }).catch(() => {});
-      }
-      if (data.mylab_enabled) {
-        api.getJson<{ voices: Array<{ voice_id: string; name: string; description: string; language?: string }> }>("/api/mylab/voices")
-          .then((mData) => {
-            setMylabVoices(mData.voices ?? []);
-            if (mData.voices?.length > 0 && !data.kokoro_enabled) setVoiceId(mData.voices[0].voice_id);
-          }).catch(() => {});
-      }
-    }).catch(() => { /* leave all disabled — UI will show no-provider state */ }).finally(() => { setProvidersLoaded(true); });
+    fetch("/api/tts/providers-with-voices", { credentials: "include" })
+      .then((r) => r.json())
+      .then((data) => {
+        const list: ProviderWithVoices[] = data.providers ?? [];
+        setProviders(list);
+        if (list.length > 0) {
+          setProviderId(list[0].id);
+          if (list[0].voices.length > 0) setVoiceId(list[0].voices[0].voice_id);
+        }
+      })
+      .catch(() => {})
+      .finally(() => setProvidersLoaded(true));
   }, []);
 
   useEffect(() => { return () => { abortControllerRef.current?.abort(); }; }, []);
@@ -122,8 +114,7 @@ function ScreencastDemoPageInner() {
     setScriptInputMode("generate");
     setImportedScripts(null);
     setImportError(null);
-    setTtsProvider(kokoroEnabled ? "kokoro" : "mylab");
-  }, [videoUrl, kokoroEnabled]);
+  }, [videoUrl]);
 
   const handleStepClick = useCallback((index: number) => {
     if (step === "rendering" || step === "generating-scripts") return;
@@ -219,17 +210,25 @@ function ScreencastDemoPageInner() {
     setStep("rendering");
     setLoading(true);
     try {
-      const mylabFlag: Record<string, string> = { de: "🇩🇪", en: "🇺🇸" };
-      const voiceLabel = ttsProvider === "kokoro"
-        ? (() => { const v = kokoroVoices.find(x => x.voice_id === voiceId); return v ? `${KOKORO_ACCENT_LABEL[v.accent] ?? ""} ${v.name}`.trim() : voiceId; })()
-        : (() => { const v = mylabVoices.find(x => x.voice_id === voiceId); return v ? `${mylabFlag[v.language ?? ""] ?? ""} ${v.name}`.trim() : voiceId; })();
+      // Build voice label from loaded providers data
+      const activeProvider = providers.find((p) => p.id === providerId);
+      const activeVoice = activeProvider?.voices.find((v) => v.voice_id === voiceId);
+      const LANGUAGE_FLAG: Record<string, string> = {
+        de: "🇩🇪", en: "🇺🇸", fr: "🇫🇷", es: "🇪🇸",
+        it: "🇮🇹", nl: "🇳🇱", pt: "🇵🇹", pl: "🇵🇱",
+        tr: "🇹🇷", zh: "🇨🇳", ja: "🇯🇵", ko: "🇰🇷",
+      };
+      const voiceLabel = activeVoice
+        ? `${LANGUAGE_FLAG[activeVoice.language] ?? ""} ${activeVoice.name}`.trim()
+        : voiceId;
+
       const response = await fetch("/api/screencast-demo/render", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           translate_job_uuid: translateJobUuid || "demo",
           voice_id: voiceId, voice_label: voiceLabel,
-          speed, slide_pause: slidePause, dpi, provider: ttsProvider,
+          speed, slide_pause: slidePause, dpi, provider_id: providerId,
         }),
         credentials: "include",
       });
@@ -238,7 +237,7 @@ function ScreencastDemoPageInner() {
       if (err instanceof Error && err.name === "AbortError") return;
       goError(err instanceof Error ? err.message : tCommon("unknownError"));
     }
-  }, [voiceId, speed, slidePause, dpi, ttsProvider, kokoroVoices, mylabVoices, translateJobUuid, goError, processRenderResponse, tCommon]);
+  }, [voiceId, speed, slidePause, dpi, providerId, providers, translateJobUuid, goError, processRenderResponse, tCommon]);
 
   const handleJsonImport = useCallback((file: File) => {
     setImportError(null);
@@ -394,11 +393,8 @@ function ScreencastDemoPageInner() {
         {step === "tts-settings" && (
           <TtsSettingsStep
             providersLoaded={providersLoaded}
-            kokoroEnabled={kokoroEnabled}
-            mylabEnabled={mylabEnabled}
-            ttsProvider={ttsProvider}
-            kokoroVoices={kokoroVoices}
-            mylabVoices={mylabVoices}
+            providers={providers}
+            providerId={providerId}
             voiceId={voiceId}
             speed={speed}
             slidePause={slidePause}
@@ -409,7 +405,7 @@ function ScreencastDemoPageInner() {
             scriptOverLimit={scriptOverLimit}
             maxChars={SCREENCAST_MAX_CHARS}
             ttsSettingsError={ttsSettingsError}
-            onTtsProviderChange={setTtsProvider}
+            onProviderIdChange={setProviderId}
             onVoiceIdChange={setVoiceId}
             onSpeedChange={setSpeed}
             onSlidePauseChange={setSlidePause}

@@ -53,28 +53,20 @@ const nextConfig: NextConfig = {
         destination: `${backendUrl}/translate-document`,
       },
       {
+        source: "/api/tts/providers-with-voices",
+        destination: `${backendUrl}/tts/providers-with-voices`,
+      },
+      {
+        source: "/api/tts/providers/:id/preview",
+        destination: `${backendUrl}/tts/providers/:id/preview`,
+      },
+      {
         source: "/api/tts/providers",
         destination: `${backendUrl}/tts/providers`,
       },
       {
         source: "/api/tts",
         destination: `${backendUrl}/tts`,
-      },
-      {
-        source: "/api/kokoro/voices",
-        destination: `${backendUrl}/kokoro/voices`,
-      },
-      {
-        source: "/api/kokoro/preview",
-        destination: `${backendUrl}/kokoro/preview`,
-      },
-      {
-        source: "/api/mylab/voices",
-        destination: `${backendUrl}/mylab/voices`,
-      },
-      {
-        source: "/api/mylab/preview",
-        destination: `${backendUrl}/mylab/preview`,
       },
       {
         source: "/api/voices",

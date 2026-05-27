@@ -3,6 +3,7 @@ import type {
   FeatureRoute,
   Provider,
   ProviderMeta,
+  Voice,
 } from "./_types";
 
 const BASE = "/api/admin";
@@ -31,6 +32,7 @@ export type CreateProviderInput = {
   protocol: string;
   base_url: string;
   api_key: string | null;
+  voices?: Voice[];
 };
 
 export async function createProvider(input: CreateProviderInput): Promise<Provider> {
@@ -49,6 +51,7 @@ export type UpdateProviderInput = Partial<{
   base_url: string;
   api_key: string | null;
   capabilities: string[];
+  voices: Voice[];
 }>;
 
 export async function updateProvider(
@@ -128,4 +131,22 @@ export async function testFeatureRoute(feature: Feature): Promise<FeatureTestRes
     credentials: "include",
   });
   return jsonOrThrow<FeatureTestResult>(res);
+}
+
+export type DiscoverVoicesResult = {
+  voices: Array<{ voice_id: string; name: string; language: string }>;
+  discoverable: boolean;
+};
+
+export async function discoverVoices(
+  baseUrl: string,
+  apiKey?: string | null,
+): Promise<DiscoverVoicesResult> {
+  const res = await fetch(`${BASE}/providers/discover-voices`, {
+    method: "POST",
+    credentials: "include",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ base_url: baseUrl, api_key: apiKey }),
+  });
+  return jsonOrThrow<DiscoverVoicesResult>(res);
 }

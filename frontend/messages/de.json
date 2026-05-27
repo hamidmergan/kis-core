@@ -306,10 +306,9 @@
       "voices": {
         "title": "Verfügbare Stimmen",
         "loading": "Wird geladen…",
-        "noVoices": "Keine Stimmen verfügbar.",
+        "noVoices": "Keine Stimmen für diesen Provider konfiguriert.",
+        "noProviders": "Keine TTS-Provider mit Stimmen konfiguriert.",
         "noSample": "Kein Sample",
-        "kokoroUnavailable": "Kokoro Server nicht erreichbar oder keine Stimmen gefunden.",
-        "mylabUnavailable": "myLab TTS Server nicht erreichbar oder keine Stimmen gefunden.",
         "voiceSingular": "Stimme",
         "voicePlural": "Stimmen",
         "genderFemale": "Weiblich",
@@ -864,14 +863,28 @@
         "deeplFreeOnProUrl": "DeepL-Free-Key (Suffix :fx) erkannt, Base-URL zeigt aber auf den Pro-Endpoint. KIS leitet automatisch auf api-free.deepl.com um.",
         "deeplProOnFreeUrl": "DeepL-Pro-Key erkannt, Base-URL zeigt aber auf den Free-Endpoint. KIS leitet automatisch auf api.deepl.com um."
       },
+      "voices": {
+        "label": "Stimmen",
+        "discover": "Stimmen laden",
+        "discovering": "Lädt…",
+        "notDiscoverable": "Keine Stimmen über API gefunden. Bitte manuell eintragen.",
+        "discoverFailed": "Provider nicht erreichbar. URL prüfen.",
+        "addManual": "Stimme manuell hinzufügen",
+        "add": "Hinzufügen",
+        "cancel": "Abbrechen",
+        "colVoiceId": "Voice-ID",
+        "colName": "Name",
+        "colLang": "Sprache",
+        "colDesc": "Beschreibung",
+        "languageRequired": "Alle Stimmen müssen eine Sprache haben (z. B. de, en)."
+      },
       "validation": {
         "required": "Name und Base-URL sind Pflicht."
       },
       "protocolName": {
         "openai_compat": "OpenAI-kompatibel",
         "deepl": "DeepL",
-        "docling": "Docling",
-        "kokoro": "Kokoro"
+        "docling": "Docling"
       },
       "capabilityName": {
         "chat": "Chat",

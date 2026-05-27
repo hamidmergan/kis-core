@@ -30,12 +30,20 @@ export type ProviderMeta = {
   user_choice_features: Feature[];
 };
 
+export type Voice = {
+  voice_id: string;
+  name: string;
+  language: string;       // required – e.g. "de", "en"
+  description?: string;
+};
+
 export type Provider = {
   id: number;
   name: string;
   protocol: Protocol;
   base_url: string;
   capabilities: Capability[];
+  voices: Voice[];
   last_probed_at: string | null;
   probe_status: string | null;
   probe_error: string | null;

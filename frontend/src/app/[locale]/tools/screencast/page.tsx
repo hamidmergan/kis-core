@@ -106,18 +106,14 @@ function ScreencastPageInner() {
   const {
     loaded: providersLoaded,
     providers,
-    defaultProvider,
+    defaultProviderId,
     defaultVoiceId,
-    kokoro: kokoroVoices,
-    mylab: mylabVoices,
   } = voicesResult;
-  const kokoroEnabled = providers.kokoro;
-  const mylabEnabled = providers.mylab;
   const [voiceId, setVoiceId] = useState("");
-  const [ttsProvider, setTtsProvider] = useState<"kokoro" | "mylab">("kokoro");
+  const [providerId, setProviderId] = useState<number>(0);
   useEffect(() => {
-    if (defaultProvider) setTtsProvider(defaultProvider);
-  }, [defaultProvider]);
+    if (defaultProviderId != null && providerId === 0) setProviderId(defaultProviderId);
+  }, [defaultProviderId, providerId]);
   useEffect(() => {
     if (defaultVoiceId && !voiceId) setVoiceId(defaultVoiceId);
   }, [defaultVoiceId, voiceId]);
@@ -195,7 +191,6 @@ function ScreencastPageInner() {
     setSourceLang("DE");
     setTargetLang("EN-US");
     scriptInput.reset();
-    setTtsProvider(kokoroEnabled ? "kokoro" : "mylab");
     if (fileRef.current) fileRef.current.value = "";
   }, [translateJobUuid]);
 
@@ -243,9 +238,8 @@ function ScreencastPageInner() {
     slidePause,
     dpi,
     voiceId,
-    ttsProvider,
-    kokoroVoices,
-    mylabVoices,
+    providerId,
+    providers,
     failedRender,
     renderResult,
     checkBeforeSubmit,
@@ -566,11 +560,8 @@ function ScreencastPageInner() {
         {!resumeLoading && step === "tts-settings" && (
           <TtsSettingsStep
             providersLoaded={providersLoaded}
-            kokoroEnabled={kokoroEnabled}
-            mylabEnabled={mylabEnabled}
-            ttsProvider={ttsProvider}
-            kokoroVoices={kokoroVoices}
-            mylabVoices={mylabVoices}
+            providers={providers}
+            providerId={providerId}
             voiceId={voiceId}
             speed={speed}
             slidePause={slidePause}
@@ -581,7 +572,7 @@ function ScreencastPageInner() {
             scriptOverLimit={scriptOverLimit}
             maxChars={SCREENCAST_MAX_CHARS}
             ttsSettingsError={ttsSettingsError}
-            onTtsProviderChange={setTtsProvider}
+            onProviderIdChange={setProviderId}
             onVoiceIdChange={setVoiceId}
             onSpeedChange={setSpeed}
             onSlidePauseChange={setSlidePause}
