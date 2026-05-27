@@ -52,7 +52,8 @@ export default async function RootLayout({ children, params }: Props) {
   const cookieStore = await cookies();
   const themeCookie = cookieStore.get("kis-theme")?.value;
   const dataTheme = themeCookie === "dark" ? "dark" : undefined;
-  const hasSession = !!cookieStore.get("session")?.value;
+  const isLocalMode = !process.env.LDAP_SERVER;
+  const hasSession = isLocalMode || !!cookieStore.get("session")?.value;
 
   return (
     <html lang={locale} data-theme={dataTheme} suppressHydrationWarning>
@@ -65,7 +66,7 @@ export default async function RootLayout({ children, params }: Props) {
           <NextTopLoader color="#668DA0" showSpinner={false} height={3} />
           <MaintenanceGuard />
           <main className="flex-1">
-            <LayoutShell hasSession={hasSession}>{children}</LayoutShell>
+            <LayoutShell hasSession={hasSession} localMode={isLocalMode}>{children}</LayoutShell>
           </main>
           <FooterWrapper hasSession={hasSession} />
         </NextIntlClientProvider>

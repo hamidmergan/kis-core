@@ -9,6 +9,7 @@ export interface UserPermissions {
 
 export interface AuthStatus {
   authenticated: boolean;
+  local_mode?: boolean;
   user_id?: number;
   username?: string;
   display_name?: string;
