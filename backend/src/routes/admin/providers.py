@@ -26,6 +26,7 @@ from src.i18n import get_locale, t
 from src.routes.admin._models import (
     CreateProviderRequest,
     DiscoverVoicesRequest,
+    ImportConfigRequest,
     SetFeatureRouteRequest,
     UpdateProviderRequest,
 )
@@ -468,4 +469,131 @@ def build_export(*, exported_from: str | None) -> dict:
         "feature_routes": exported_routes,
     }
 
+
+def _needs_api_key(protocol: str, base_url: str) -> bool:
+    """Heuristic: does this provider need an api_key?
+
+    deepl always does. openai_compat usually does unless it's a local
+    endpoint (Kokoro, local Ollama, etc.).
+    """
+    if protocol == "deepl":
+        return True
+    if protocol == "openai_compat":
+        lowered = base_url.lower()
+        if any(token in lowered for token in ("localhost", "127.0.0.1", "0.0.0.0")):
+            return False
+        return True
+    return False  # docling and friends: no key needed
+
+
+def validate_import_config(cfg: dict) -> None:
+    """Validate an import payload before preview or commit. Raises 400."""
+    if cfg.get("schema_version") != SCHEMA_VERSION:
+        raise HTTPException(
+            400,
+            f"Unsupported schema_version {cfg.get('schema_version')!r} "
+            f"(expected {SCHEMA_VERSION})",
+        )
+
+    bad_protocols = sorted({
+        p["protocol"] for p in cfg.get("providers", [])
+        if p.get("protocol") not in known_protocols()
+    })
+    if bad_protocols:
+        raise HTTPException(400, f"Unknown protocols: {bad_protocols}")
+
+    bad_caps: set[str] = set()
+    for p in cfg.get("providers", []):
+        for cap in p.get("capabilities", []):
+            if cap not in CAPABILITIES:
+                bad_caps.add(cap)
+    if bad_caps:
+        raise HTTPException(400, f"Unknown capabilities: {sorted(bad_caps)}")
+
+    bad_features = sorted({
+        r["feature"] for r in cfg.get("feature_routes", [])
+        if r.get("feature") not in FEATURES
+    })
+    if bad_features:
+        raise HTTPException(400, f"Unknown features: {bad_features}")
+
+    names = [p["name"] for p in cfg.get("providers", [])]
+    if len(names) != len(set(names)):
+        dups = sorted({n for n in names if names.count(n) > 1})
+        raise HTTPException(400, f"Duplicate provider names in import: {dups}")
+
+
+def build_import_preview(cfg: dict) -> dict:
+    """Compute the diff between current DB state and the import payload.
+
+    Does NOT modify the DB.
+    """
+    validate_import_config(cfg)
+
+    existing_by_name = {p["name"]: p for p in db.list_providers()}
+
+    # Provider diffs.
+    provider_diffs: list[dict] = []
+    imported_names: set[str] = set()
+    for p in cfg.get("providers", []):
+        imported_names.add(p["name"])
+        existing = existing_by_name.get(p["name"])
+        action = "update" if existing else "create"
+        protocol_change = None
+        existing_has_key = False
+        if existing:
+            existing_has_key = bool(existing.get("api_key"))
+            if existing["protocol"] != p["protocol"]:
+                protocol_change = {
+                    "from": existing["protocol"], "to": p["protocol"],
+                }
+        provider_diffs.append({
+            "name": p["name"],
+            "action": action,
+            "needs_api_key": _needs_api_key(p["protocol"], p["base_url"]),
+            "existing_has_key": existing_has_key,
+            "protocol_change": protocol_change,
+        })
+
+    # Route diffs. A route's resolved_provider must exist either in the
+    # import payload OR on the target system after merge.
+    available_names = set(existing_by_name.keys()) | imported_names
+
+    route_diffs: list[dict] = []
+    for r in cfg.get("feature_routes", []):
+        pname = r.get("provider_name")
+        if pname is None:
+            route_diffs.append({
+                "feature": r["feature"], "action": "skip_unresolved",
+                "reason": "Keine Provider-Zuordnung im Export",
+            })
+            continue
+        if pname not in available_names:
+            route_diffs.append({
+                "feature": r["feature"], "action": "skip_unresolved",
+                "reason": f"Provider '{pname}' nicht im Import enthalten",
+            })
+            continue
+        # action is "update" if a route for that feature already exists,
+        # else "create". We need list_routes to determine that.
+        action = "update" if _route_exists(r["feature"]) else "create"
+        route_diffs.append({
+            "feature": r["feature"], "action": action,
+            "resolved_provider": pname,
+        })
+
+    return {"providers": provider_diffs, "routes": route_diffs}
+
+
+def _route_exists(feature: str) -> bool:
+    """Helper: is there already a row in feature_routes for this feature?"""
+    return any(r["feature"] == feature for r in db.list_routes())
+
+
+@router.post("/providers/import/preview")
+async def import_preview(
+    body: ImportConfigRequest,
+    _admin=Depends(get_admin_user),
+):
+    return build_import_preview(body.config.model_dump())
 

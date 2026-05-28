@@ -113,3 +113,204 @@ def test_export_drops_routes_with_missing_provider_id(monkeypatch):
     result = build_export(exported_from=None)
     chat = next(r for r in result["feature_routes"] if r["feature"] == "chat")
     assert chat["provider_name"] is None
+
+
+# ─── Import preview ────────────────────────────────────────────────────────
+
+
+def _valid_config(providers=None, routes=None):
+    return {
+        "schema_version": 1,
+        "exported_at": "2026-05-28T12:00:00Z",
+        "exported_from": "https://test.example",
+        "providers": providers or [],
+        "feature_routes": routes or [],
+    }
+
+
+def _exported_provider(name, *, protocol="openai_compat",
+                       base_url="https://example.com",
+                       capabilities=None, voices=None, enabled=True):
+    return {
+        "name": name, "protocol": protocol, "base_url": base_url,
+        "capabilities": capabilities or [], "voices": voices or [],
+        "enabled": enabled,
+    }
+
+
+def _exported_route(feature, provider_name=None, model_name=None,
+                    user_choices=None, provider_models=None):
+    return {
+        "feature": feature, "provider_name": provider_name,
+        "model_name": model_name,
+        "user_choices": user_choices or [],
+        "provider_models": provider_models or {},
+    }
+
+
+def test_preview_new_provider_action_create(monkeypatch):
+    from src.routes.admin.providers import build_import_preview
+
+    monkeypatch.setattr("src.routes.admin.providers.db.list_providers",
+                        lambda: [])
+    cfg = _valid_config(providers=[_exported_provider("KISSKI")])
+
+    result = build_import_preview(cfg)
+    assert len(result["providers"]) == 1
+    p = result["providers"][0]
+    assert p["name"] == "KISSKI"
+    assert p["action"] == "create"
+    assert p["needs_api_key"] is True  # remote openai_compat
+    assert p["existing_has_key"] is False
+    assert p["protocol_change"] is None
+
+
+def test_preview_existing_provider_action_update_preserves_key_flag(monkeypatch):
+    from src.routes.admin.providers import build_import_preview
+
+    existing = _make_provider(1, "KISSKI", api_key="sk-existing")
+    monkeypatch.setattr("src.routes.admin.providers.db.list_providers",
+                        lambda: [existing])
+    cfg = _valid_config(providers=[_exported_provider("KISSKI")])
+
+    result = build_import_preview(cfg)
+    p = result["providers"][0]
+    assert p["action"] == "update"
+    assert p["existing_has_key"] is True
+
+
+def test_preview_protocol_change_detected(monkeypatch):
+    from src.routes.admin.providers import build_import_preview
+
+    existing = _make_provider(1, "AltProvider", protocol="openai_compat")
+    monkeypatch.setattr("src.routes.admin.providers.db.list_providers",
+                        lambda: [existing])
+    cfg = _valid_config(providers=[
+        _exported_provider("AltProvider", protocol="deepl")
+    ])
+
+    result = build_import_preview(cfg)
+    p = result["providers"][0]
+    assert p["protocol_change"] == {"from": "openai_compat", "to": "deepl"}
+
+
+def test_preview_needs_api_key_false_for_localhost(monkeypatch):
+    from src.routes.admin.providers import build_import_preview
+
+    monkeypatch.setattr("src.routes.admin.providers.db.list_providers",
+                        lambda: [])
+    cfg = _valid_config(providers=[
+        _exported_provider("Kokoro lokal",
+                           base_url="http://localhost:8880/v1"),
+    ])
+
+    result = build_import_preview(cfg)
+    p = result["providers"][0]
+    assert p["needs_api_key"] is False
+
+
+def test_preview_route_with_unknown_provider_skipped(monkeypatch):
+    from src.routes.admin.providers import build_import_preview
+
+    monkeypatch.setattr("src.routes.admin.providers.db.list_providers",
+                        lambda: [])
+    monkeypatch.setattr("src.routes.admin.providers.db.list_routes",
+                        lambda: [])
+    cfg = _valid_config(
+        providers=[_exported_provider("KISSKI")],
+        routes=[
+            _exported_route("chat", provider_name="KISSKI",
+                            model_name="m1"),
+            _exported_route("doc_translate", provider_name="GhostProvider"),
+        ],
+    )
+
+    result = build_import_preview(cfg)
+    routes_by_feature = {r["feature"]: r for r in result["routes"]}
+    assert routes_by_feature["chat"]["action"] == "create"
+    assert routes_by_feature["chat"]["resolved_provider"] == "KISSKI"
+    assert routes_by_feature["doc_translate"]["action"] == "skip_unresolved"
+    assert "GhostProvider" in routes_by_feature["doc_translate"]["reason"]
+
+
+def test_preview_does_not_modify_db(monkeypatch):
+    """Preview must be a pure read — verify no mutating DB calls happen."""
+    from src.routes.admin.providers import build_import_preview
+
+    create_mock = MagicMock()
+    update_mock = MagicMock()
+    monkeypatch.setattr("src.routes.admin.providers.db.list_providers",
+                        lambda: [])
+    monkeypatch.setattr("src.routes.admin.providers.db.create_provider",
+                        create_mock)
+    monkeypatch.setattr("src.routes.admin.providers.db.update_provider",
+                        update_mock)
+
+    cfg = _valid_config(providers=[_exported_provider("KISSKI")])
+    build_import_preview(cfg)
+
+    create_mock.assert_not_called()
+    update_mock.assert_not_called()
+
+
+def test_validate_rejects_unknown_schema_version():
+    from src.routes.admin.providers import validate_import_config
+    import pytest
+    from fastapi import HTTPException
+
+    cfg = {"schema_version": 99, "exported_at": "x", "providers": [],
+           "feature_routes": []}
+    with pytest.raises(HTTPException) as exc:
+        validate_import_config(cfg)
+    assert exc.value.status_code == 400
+    assert "schema" in exc.value.detail.lower() or "version" in exc.value.detail.lower()
+
+
+def test_validate_rejects_unknown_protocol():
+    from src.routes.admin.providers import validate_import_config
+    import pytest
+    from fastapi import HTTPException
+
+    cfg = _valid_config(providers=[
+        _exported_provider("X", protocol="nonsense_protocol")
+    ])
+    with pytest.raises(HTTPException) as exc:
+        validate_import_config(cfg)
+    assert exc.value.status_code == 400
+
+
+def test_validate_rejects_unknown_capability():
+    from src.routes.admin.providers import validate_import_config
+    import pytest
+    from fastapi import HTTPException
+
+    cfg = _valid_config(providers=[
+        _exported_provider("X", capabilities=["nonsense_capability"])
+    ])
+    with pytest.raises(HTTPException) as exc:
+        validate_import_config(cfg)
+    assert exc.value.status_code == 400
+
+
+def test_validate_rejects_unknown_feature():
+    from src.routes.admin.providers import validate_import_config
+    import pytest
+    from fastapi import HTTPException
+
+    cfg = _valid_config(routes=[_exported_route("nonsense_feature")])
+    with pytest.raises(HTTPException) as exc:
+        validate_import_config(cfg)
+    assert exc.value.status_code == 400
+
+
+def test_validate_rejects_duplicate_provider_names():
+    from src.routes.admin.providers import validate_import_config
+    import pytest
+    from fastapi import HTTPException
+
+    cfg = _valid_config(providers=[
+        _exported_provider("A"), _exported_provider("A"),
+    ])
+    with pytest.raises(HTTPException) as exc:
+        validate_import_config(cfg)
+    assert exc.value.status_code == 400
