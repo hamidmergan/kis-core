@@ -172,14 +172,19 @@ def run_index_source(self, source_uuid: str, locale: str = "de"):
             workspace = db.get_aia_workspace_by_id(workspace_id)
             translation_mode = (workspace or {}).get("transcript_translation_mode", "manual")
             if translation_mode == "auto":
-                translation_provider = db.get_setting(
-                    "transcript_translation_provider", "llm"
-                )
-                run_translate_transcript_en.delay(source_uuid, translation_provider)
-                logger.info(
-                    "KI Tutor: dispatched EN translation for {} (provider={})",
-                    source_uuid, translation_provider,
-                )
+                from src.services import feature_router
+                try:
+                    binding = feature_router.resolve("transcript_translate")
+                    run_translate_transcript_en.delay(source_uuid, binding["provider_id"])
+                    logger.info(
+                        "KI Tutor: dispatched EN translation for {} (provider_id={})",
+                        source_uuid, binding["provider_id"],
+                    )
+                except feature_router.FeatureNotConfigured:
+                    logger.warning(
+                        "KI Tutor: transcript_translate not configured, skipping auto EN translation for {}",
+                        source_uuid,
+                    )
             else:
                 logger.info(
                     "KI Tutor: skipping EN auto-translation for {} (mode={})",
