@@ -12,6 +12,7 @@ import {
   fetchMeta,
   fetchProviders,
   fetchRoutes,
+  importConfig,
   importPreview,
   probeProvider,
   setFeatureRoute,
@@ -20,6 +21,7 @@ import {
 import ProviderListCard from "./ProviderListCard";
 import ProviderFormDialog from "./ProviderFormDialog";
 import FeatureRoutingCard from "./FeatureRoutingCard";
+import ImportPreviewDialog from "./ImportPreviewDialog";
 
 type DialogState =
   | { open: false }
@@ -239,6 +241,18 @@ export default function ProvidersTab() {
     }
   }, [t]);
 
+  const handleImportConfirm = useCallback(async () => {
+    if (!dialog.open || dialog.mode !== "import-preview") return;
+    const result = await importConfig(dialog.config);
+    setDialog({ open: false });
+    await refreshAll();
+    window.alert(
+      t("exportImport.importSuccessToast", {
+        count: result.providers_needing_key.length,
+      }),
+    );
+  }, [dialog, refreshAll, t]);
+
   if (loading || !meta) {
     return <Spinner className="flex justify-center py-12" />;
   }
@@ -276,6 +290,17 @@ export default function ProvidersTab() {
           initial={dialog.mode === "edit" ? dialog.provider : undefined}
           onClose={() => setDialog({ open: false })}
           onSubmit={handleSubmit}
+        />
+      )}
+
+      {dialog.open && dialog.mode === "import-preview" && (
+        <ImportPreviewDialog
+          filename={dialog.filename}
+          exportedAt={(dialog.config as { exported_at?: string }).exported_at}
+          exportedFrom={(dialog.config as { exported_from?: string }).exported_from ?? undefined}
+          preview={dialog.preview}
+          onCancel={() => setDialog({ open: false })}
+          onConfirm={handleImportConfirm}
         />
       )}
     </div>
