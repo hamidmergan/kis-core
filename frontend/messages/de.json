@@ -967,7 +967,6 @@
         "export": {
           "providersHeading": "Provider",
           "selectAll": "Alle",
-          "selectNone": "Keine",
           "selectedCount": "{selected} von {total}",
           "confirmButton": "Exportieren ({count})"
         },
@@ -978,7 +977,7 @@
         },
         "exportButton": "Exportieren",
         "importButton": "Importieren",
-        "exportHint": "Die exportierte Datei enthält KEINE API-Keys — diese müssen auf dem Zielsystem manuell neu gesetzt werden.",
+        "exportHint": "Inkl. Endpoints, Modelle, Stimmen, Capabilities und Feature-Routen. KEINE API-Keys — diese am Zielsystem manuell neu setzen.",
         "preview": {
           "title": "Konfiguration importieren",
           "source": "Quelle: {filename}",

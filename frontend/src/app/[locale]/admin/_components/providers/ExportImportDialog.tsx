@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
-import { CheckCircle, Warning } from "@phosphor-icons/react";
+import { CheckCircle } from "@phosphor-icons/react";
 import { filterExportConfig } from "./_exportFilter";
 import { fetchExportConfig } from "./_api";
 import type { ImportPreviewResult, Provider } from "./_types";
@@ -151,29 +151,37 @@ function ExportTab({
   return (
     <>
       <div className="p-5 space-y-5">
-        <div className="text-[12px] text-amber-700 dark:text-amber-400 border-l-2 border-amber-500 pl-2 flex items-start gap-1">
-          <Warning size={14} weight="bold" className="mt-0.5 shrink-0" />
-          <span>{t("exportHint")}</span>
-        </div>
+        <p className="text-[12px] text-amber-700 dark:text-amber-400 border-l-2 border-amber-500 pl-2">
+          {t("exportHint")}
+        </p>
 
         <section>
           <div className="flex items-center justify-between mb-2">
             <h3 className="text-xs font-semibold uppercase tracking-wide text-muted">
               {t("export.providersHeading")}
             </h3>
-            <div className="text-xs text-muted flex items-center gap-2">
-              <span>{t("export.selectedCount", { selected: count, total })}</span>
-              <span aria-hidden="true">·</span>
-              <button
-                type="button"
-                onClick={toggleAll}
-                className="text-kb hover:underline"
-              >
-                {allSelected ? t("export.selectNone") : t("export.selectAll")}
-              </button>
-            </div>
+            <span className="text-xs text-muted">
+              {t("export.selectedCount", { selected: count, total })}
+            </span>
           </div>
           <ul className="space-y-1.5">
+            <li>
+              <label className="flex items-center gap-2 text-sm font-medium text-foreground cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={allSelected}
+                  ref={(el) => {
+                    if (el) el.indeterminate = count > 0 && count < total;
+                  }}
+                  onChange={toggleAll}
+                  className="accent-kb"
+                />
+                <span>{t("export.selectAll")}</span>
+              </label>
+            </li>
+            <li aria-hidden="true">
+              <div className="border-t border-border-soft my-1" />
+            </li>
             {providers.map((p) => (
               <li key={p.name}>
                 <label className="flex items-center gap-2 text-sm text-foreground cursor-pointer">
@@ -381,8 +389,7 @@ function PreviewBody({ preview }: { preview: ImportPreviewResult }) {
                 </p>
               )}
               {p.needs_api_key && !p.existing_has_key && (
-                <p className="mt-1 text-[12px] text-red-600 dark:text-red-400 border-l-2 border-red-600 pl-2 flex items-center gap-1">
-                  <Warning size={12} weight="bold" />
+                <p className="mt-1 text-[12px] text-red-600 dark:text-red-400 border-l-2 border-red-600 pl-2">
                   {t("apiKeyMissing")}
                 </p>
               )}
@@ -412,7 +419,6 @@ function PreviewBody({ preview }: { preview: ImportPreviewResult }) {
             <li key={`${r.feature}-${i}`} className="text-sm flex items-start gap-2">
               {r.action === "skip_unresolved" ? (
                 <>
-                  <Warning size={14} weight="bold" className="text-amber-600 mt-0.5" />
                   <span className="text-foreground">
                     <span className="font-medium">{r.feature}</span> —{" "}
                     <span className="text-amber-700 dark:text-amber-400">
