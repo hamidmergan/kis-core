@@ -1,7 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
+import { Warning } from "@phosphor-icons/react";
+import { filterExportConfig } from "./_exportFilter";
+import { fetchExportConfig } from "./_api";
 import type { ImportPreviewResult, Provider } from "./_types";
 
 type Tab = "export" | "import";
@@ -100,12 +103,115 @@ function TabButton({
   );
 }
 
-function ExportTab(_: {
+function ExportTab({
+  providers,
+  onCancel,
+  onDownload,
+}: {
   providers: Provider[];
   onCancel: () => void;
   onDownload: (config: unknown, filename: string) => void;
 }) {
-  return <div className="p-5 text-sm text-muted">Export tab — implemented in Task 5</div>;
+  const t = useTranslations("admin.providers.exportImport");
+  const allNames = useMemo(() => providers.map((p) => p.name), [providers]);
+  const [selected, setSelected] = useState<Set<string>>(() => new Set(allNames));
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const total = allNames.length;
+  const count = selected.size;
+  const allSelected = count === total;
+
+  const toggleAll = () => {
+    setSelected(allSelected ? new Set() : new Set(allNames));
+  };
+  const toggleOne = (name: string) => {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(name)) next.delete(name);
+      else next.add(name);
+      return next;
+    });
+  };
+
+  const handleExport = async () => {
+    setBusy(true);
+    setError(null);
+    try {
+      const { config, filename } = await fetchExportConfig();
+      const filtered = filterExportConfig(config, selected);
+      onDownload(filtered, filename);
+    } catch (err) {
+      setError((err as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <>
+      <div className="p-5 space-y-5">
+        <div className="text-[12px] text-amber-700 dark:text-amber-400 border-l-2 border-amber-500 pl-2 flex items-start gap-1">
+          <Warning size={14} weight="bold" className="mt-0.5 shrink-0" />
+          <span>{t("exportHint")}</span>
+        </div>
+
+        <section>
+          <div className="flex items-center justify-between mb-2">
+            <h3 className="text-xs font-semibold uppercase tracking-wide text-muted">
+              {t("export.providersHeading")}
+            </h3>
+            <div className="text-xs text-muted flex items-center gap-2">
+              <span>{t("export.selectedCount", { selected: count, total })}</span>
+              <span aria-hidden="true">·</span>
+              <button
+                type="button"
+                onClick={toggleAll}
+                className="text-kb hover:underline"
+              >
+                {allSelected ? t("export.selectNone") : t("export.selectAll")}
+              </button>
+            </div>
+          </div>
+          <ul className="space-y-1.5">
+            {providers.map((p) => (
+              <li key={p.name}>
+                <label className="flex items-center gap-2 text-sm text-foreground cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={selected.has(p.name)}
+                    onChange={() => toggleOne(p.name)}
+                    className="accent-kb"
+                  />
+                  <span className="truncate">{p.name}</span>
+                </label>
+              </li>
+            ))}
+          </ul>
+        </section>
+
+        {error && <p className="text-[12px] text-error">{error}</p>}
+      </div>
+
+      <div className="p-5 border-t border-border-soft flex justify-end gap-2">
+        <button
+          type="button"
+          onClick={onCancel}
+          className="px-3 py-1.5 text-sm font-medium border border-border-soft rounded-md hover:bg-surface"
+        >
+          {t("modal.cancel")}
+        </button>
+        <button
+          type="button"
+          onClick={handleExport}
+          disabled={busy || count === 0}
+          className="px-3 py-1.5 text-sm font-medium bg-kb text-white rounded-md border-2 border-kb hover:bg-background hover:text-kb disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          {t("export.confirmButton", { count })}
+        </button>
+      </div>
+    </>
+  );
 }
 
 function ImportTab(_: {
