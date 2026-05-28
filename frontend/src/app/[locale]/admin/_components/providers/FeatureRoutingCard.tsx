@@ -2,7 +2,7 @@
 
 import { useCallback, useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
-import { Check, CheckCircle, Lightning, Spinner, XCircle } from "@phosphor-icons/react";
+import { CheckCircle, Lightning, Spinner, XCircle } from "@phosphor-icons/react";
 import { testFeatureRoute } from "./_api";
 import type { Capability, Feature, FeatureRoute, Provider, ProviderMeta } from "./_types";
 
@@ -12,8 +12,11 @@ type Props = {
   routes: FeatureRoute[];
   onChangeProvider: (feature: Feature, providerId: number | null) => Promise<void>;
   onChangeModel: (feature: Feature, modelName: string | null) => Promise<void>;
+  onChangeProviderModel: (feature: Feature, providerId: number, modelName: string | null) => Promise<void>;
   onToggleUserChoice: (feature: Feature, providerId: number, on: boolean) => Promise<void>;
 };
+
+type ProviderTestStates = Record<number, TestState>;
 
 type TestState =
   | { kind: "idle" }
@@ -54,7 +57,6 @@ const FEATURE_ORDER: Feature[] = [
   "stt",
   "tts",
   "doc_translate",
-  "screencast_translate",
 ];
 
 export default function FeatureRoutingCard({
@@ -63,6 +65,7 @@ export default function FeatureRoutingCard({
   routes,
   onChangeProvider,
   onChangeModel,
+  onChangeProviderModel,
   onToggleUserChoice,
 }: Props) {
   const t = useTranslations("admin.providers");
@@ -99,6 +102,23 @@ export default function FeatureRoutingCard({
     }
   }, []);
 
+  const onTestProvider = useCallback(async (feature: Feature, providerId: number) => {
+    const key = `${feature}-${providerId}`;
+    setTestStates((s) => ({ ...s, [key]: { kind: "running" } }));
+    try {
+      const res = await testFeatureRoute(feature, providerId);
+      setTestStates((s) => ({
+        ...s,
+        [key]: res.status === "ok" ? { kind: "ok" } : { kind: "error", message: res.error || "unknown error" },
+      }));
+    } catch (e) {
+      setTestStates((s) => ({
+        ...s,
+        [key]: { kind: "error", message: (e as Error).message || "request failed" },
+      }));
+    }
+  }, []);
+
   return (
     <section className="border border-border-soft rounded-xl bg-background p-5">
       <p className="text-sm font-medium text-foreground mb-1">{t("routes.title")}</p>
@@ -115,6 +135,9 @@ export default function FeatureRoutingCard({
             return extras.some((c) => caps.has(c));
           });
 
+          const providerTestStates: ProviderTestStates = Object.fromEntries(
+            eligible.map((p) => [p.id, testStates[`${feature}-${p.id}`] ?? { kind: "idle" as const }])
+          );
           return (
             <FeatureRow
               key={feature}
@@ -124,9 +147,12 @@ export default function FeatureRoutingCard({
               providerById={providerById}
               isUserChoice={isUserChoice}
               testState={testStates[feature] ?? { kind: "idle" }}
+              providerTestStates={providerTestStates}
               onTest={() => onTest(feature)}
+              onTestProvider={(pid) => onTestProvider(feature, pid)}
               onChangeProvider={(pid) => onChangeProvider(feature, pid)}
               onChangeModel={(model) => onChangeModel(feature, model)}
+              onChangeProviderModel={(pid, model) => onChangeProviderModel(feature, pid, model)}
               onToggleUserChoice={(pid, on) => onToggleUserChoice(feature, pid, on)}
             />
           );
@@ -143,9 +169,12 @@ function FeatureRow({
   providerById,
   isUserChoice,
   testState,
+  providerTestStates,
   onTest,
+  onTestProvider,
   onChangeProvider,
   onChangeModel,
+  onChangeProviderModel,
   onToggleUserChoice,
 }: {
   feature: Feature;
@@ -154,9 +183,12 @@ function FeatureRow({
   providerById: Map<number, Provider>;
   isUserChoice: boolean;
   testState: TestState;
+  providerTestStates: ProviderTestStates;
   onTest: () => void;
+  onTestProvider: (providerId: number) => void;
   onChangeProvider: (id: number | null) => void;
   onChangeModel: (model: string | null) => void;
+  onChangeProviderModel: (providerId: number, model: string | null) => void;
   onToggleUserChoice: (id: number, on: boolean) => void;
 }) {
   const t = useTranslations("admin.providers");
@@ -164,6 +196,45 @@ function FeatureRow({
   const provider = providerId != null ? providerById.get(providerId) : undefined;
   const userChoices = route?.user_choices ?? [];
   const canTest = providerId != null;
+
+  if (isUserChoice && (feature === "tts" || feature === "doc_translate")) {
+    return (
+      <div className="py-4 flex flex-col gap-2">
+        <div className="min-w-0">
+          <p className="text-sm font-medium text-foreground">{t(`featureName.${feature}`)}</p>
+          <p className="text-xs text-muted-soft mt-0.5">{t(`featureDesc.${feature}`)}</p>
+        </div>
+        <div className="flex flex-col gap-1.5 mt-1">
+          {eligible.length === 0 ? (
+            <span className="text-[11.5px] text-muted-soft italic">{t("routes.noEligible")}</span>
+          ) : (
+            eligible.map((p) => {
+              const modelVal = route?.provider_models?.[String(p.id)] ?? "";
+              const pState = providerTestStates[p.id] ?? { kind: "idle" as const };
+              return (
+                <div key={p.id} className="flex flex-col gap-0.5">
+                  <div className="flex items-center gap-2">
+                    <span className="flex-1 min-w-0 truncate text-sm text-foreground-soft">{p.name}</span>
+                    <input
+                      key={`${p.id}-${modelVal}`}
+                      type="text"
+                      defaultValue={modelVal}
+                      onBlur={(e) => onChangeProviderModel(p.id, e.target.value.trim() || null)}
+                      placeholder={t("routes.modelOptional")}
+                      spellCheck={false}
+                      className="flex-1 text-xs px-2 py-1.5 border-2 border-border rounded-md font-mono hover:border-kb focus:outline-none focus:border-kb bg-background text-left"
+                    />
+                    <TestButton state={pState} disabled={false} onClick={() => onTestProvider(p.id)} />
+                  </div>
+                  <TestStatusLine state={pState} />
+                </div>
+              );
+            })
+          )}
+        </div>
+      </div>
+    );
+  }
 
   if (isUserChoice) {
     const primary = provider;
@@ -187,19 +258,12 @@ function FeatureRow({
                     key={p.id}
                     type="button"
                     onClick={() => onToggleUserChoice(p.id, !on)}
-                    className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md border-2 transition-colors ${
+                    className={`px-3 py-1.5 text-xs font-medium rounded-md border-2 transition-colors ${
                       on
                         ? "border-kb bg-[rgba(var(--kb-rgb),0.07)] text-kb"
                         : "border-border bg-background text-foreground-soft hover:border-kb"
                     }`}
                   >
-                    <span
-                      className={`w-3.5 h-3.5 rounded border flex items-center justify-center ${
-                        on ? "bg-kb border-kb text-white" : "bg-background border-border"
-                      }`}
-                    >
-                      {on && <Check size={9} weight="bold" />}
-                    </span>
                     {p.name}
                   </button>
                 );
@@ -213,9 +277,9 @@ function FeatureRow({
               </label>
               <div className="flex gap-2 items-center">
                 <input
+                    key={route?.model_name ?? ""}
                     type="text"
-                    value={route?.model_name ?? ""}
-                    onChange={(e) => onChangeModel(e.target.value || null)}
+                    defaultValue={route?.model_name ?? ""}
                     onBlur={(e) => onChangeModel(e.target.value.trim() || null)}
                     placeholder={primaryNeedsModel ? t("routes.modelPlaceholder") : t("routes.modelOptional")}
                     spellCheck={false}
@@ -255,9 +319,9 @@ function FeatureRow({
           ))}
         </select>
         <input
+          key={route?.model_name ?? ""}
           type="text"
-          value={route?.model_name ?? ""}
-          onChange={(e) => onChangeModel(e.target.value || null)}
+          defaultValue={route?.model_name ?? ""}
           onBlur={(e) => onChangeModel(e.target.value.trim() || null)}
           disabled={!provider}
           placeholder={provider ? t("routes.modelPlaceholder") : "—"}
@@ -317,7 +381,24 @@ function TestStatusLine({ state }: { state: TestState }) {
     return <p className="text-[11px] text-success mt-1">{t("routes.testOk")}</p>;
   }
   if (state.kind === "error") {
-    return <p className="text-[11px] text-error mt-1">{state.message}</p>;
+    const knownCodes = new Set([
+      "model_name_not_set",
+      "tts_speech_endpoint_not_found",
+      "endpoint_not_found",
+      "auth_rejected",
+      "server_error",
+      "unreachable",
+    ]);
+    let msg: string;
+    if (knownCodes.has(state.message)) {
+      msg = t(`routes.testErrors.${state.message}` as Parameters<typeof t>[0]);
+    } else {
+      const invalidModel = state.message.match(/^unsupported model:\s*(.+)$/i);
+      msg = invalidModel
+        ? t("routes.testErrors.invalid_model", { model: invalidModel[1] })
+        : state.message;
+    }
+    return <p className="text-[11px] text-error mt-1">{msg}</p>;
   }
   return null;
 }
