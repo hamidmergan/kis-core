@@ -7,6 +7,7 @@ import type { Feature, FeatureRoute, Provider, ProviderMeta } from "./_types";
 import {
   createProvider,
   deleteProvider,
+  exportConfig,
   fetchAffectedFeatures,
   fetchMeta,
   fetchProviders,
@@ -190,6 +191,23 @@ export default function ProvidersTab() {
     [routes, refreshAll],
   );
 
+  const handleExport = useCallback(async () => {
+    try {
+      const { blob, filename } = await exportConfig();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      window.alert(t("exportImport.exportToast"));
+    } catch (err) {
+      window.alert((err as Error).message);
+    }
+  }, [t]);
+
   if (loading || !meta) {
     return <Spinner className="flex justify-center py-12" />;
   }
@@ -204,6 +222,7 @@ export default function ProvidersTab() {
         onEdit={(p) => setDialog({ open: true, mode: "edit", provider: p })}
         onProbe={handleProbe}
         onDelete={handleDelete}
+        onExport={handleExport}
       />
 
       {providers.length > 0 && (

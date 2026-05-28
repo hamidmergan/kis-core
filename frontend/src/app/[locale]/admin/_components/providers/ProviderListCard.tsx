@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useTranslations } from "next-intl";
-import { ArrowsClockwise, Cube, NotePencil, Plus, Trash } from "@phosphor-icons/react";
+import { ArrowsClockwise, Cube, DownloadSimple, NotePencil, Plus, Trash } from "@phosphor-icons/react";
 import type { Provider } from "./_types";
 
 const _PROBE_ERROR_CODES = new Set([
@@ -18,6 +18,7 @@ type Props = {
   onEdit: (p: Provider) => void;
   onProbe: (p: Provider) => Promise<void> | void;
   onDelete: (p: Provider) => void;
+  onExport: () => void | Promise<void>;
 };
 
 export default function ProviderListCard({
@@ -26,6 +27,7 @@ export default function ProviderListCard({
   onEdit,
   onProbe,
   onDelete,
+  onExport,
 }: Props) {
   const t = useTranslations("admin.providers");
 
@@ -42,14 +44,25 @@ export default function ProviderListCard({
           <p className="text-xs text-muted-soft mt-1 mb-4 max-w-2xl">{t("list.hint")}</p>
         </div>
         {providers.length > 0 && (
-          <button
-            type="button"
-            onClick={onAdd}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium bg-kb text-white rounded-md border-2 border-kb hover:bg-background hover:text-kb transition-colors"
-          >
-            <Plus size={14} weight="bold" />
-            {t("list.add")}
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={onExport}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-foreground border border-border-soft bg-background rounded-md hover:bg-surface transition-colors"
+            >
+              <DownloadSimple size={14} weight="bold" />
+              {t("exportImport.exportButton")}
+            </button>
+            {/* Import button + kebab inserted in later tasks */}
+            <button
+              type="button"
+              onClick={onAdd}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium bg-kb text-white rounded-md border-2 border-kb hover:bg-background hover:text-kb transition-colors"
+            >
+              <Plus size={14} weight="bold" />
+              {t("list.add")}
+            </button>
+          </div>
         )}
       </div>
 
@@ -180,7 +193,7 @@ function StatusPill({ provider, probing }: { provider: Provider; probing?: boole
     );
   }
   return (
-    <span className="inline-flex items-center gap-1 text-[11px] font-medium px-1.5 py-0.5 rounded-full bg-success-bg text-success-strong">
+    <span className="inline-flex items-center gap-1 text-[11px] font-medium px-1.5 py-0.5 rounded-full text-success-strong">
       <span className="w-1.5 h-1.5 rounded-full bg-success" />
       {t("row.statusActive")}
     </span>
