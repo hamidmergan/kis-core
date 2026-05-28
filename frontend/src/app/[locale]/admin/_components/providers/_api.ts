@@ -164,18 +164,6 @@ export async function discoverVoices(
 
 // ─── Export / Import / Clear ──────────────────────────────────────────────
 
-export async function exportConfig(): Promise<{ blob: Blob; filename: string }> {
-  const res = await fetch(`${BASE}/providers/export`, { credentials: "include" });
-  if (!res.ok) {
-    throw new Error((await res.text()) || `HTTP ${res.status}`);
-  }
-  const disposition = res.headers.get("Content-Disposition") || "";
-  const match = /filename="?([^"]+)"?/.exec(disposition);
-  const filename = match ? match[1] : `kis-ai-config-${new Date().toISOString().slice(0, 10)}.json`;
-  const blob = await res.blob();
-  return { blob, filename };
-}
-
 export async function fetchExportConfig(): Promise<{ config: unknown; filename: string }> {
   const res = await fetch(`${BASE}/providers/export`, { credentials: "include" });
   if (!res.ok) {
