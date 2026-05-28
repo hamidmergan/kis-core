@@ -813,7 +813,8 @@
         "add": "Hinzufügen",
         "emptyTitle": "Noch kein Anbieter konfiguriert",
         "emptyHint": "Lege deinen ersten Anbieter an, um KI-Funktionen freizuschalten.",
-        "exportImportMenuItem": "Export / Import…"
+        "exportImportMenuItem": "Export / Import…",
+        "moreActions": "Weitere Aktionen"
       },
       "row": {
         "keySuffix": "· Schlüssel: ...{chars}",

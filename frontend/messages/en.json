@@ -813,7 +813,8 @@
         "add": "Add",
         "emptyTitle": "No provider configured yet",
         "emptyHint": "Add your first provider to enable AI features.",
-        "exportImportMenuItem": "Export / Import…"
+        "exportImportMenuItem": "Export / Import…",
+        "moreActions": "More actions"
       },
       "row": {
         "keySuffix": "· Key: ...{chars}",

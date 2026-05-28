@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useTranslations } from "next-intl";
-import { ArrowsClockwise, Cube, DotsThreeVertical, NotePencil, Plus, Trash, UploadSimple } from "@phosphor-icons/react";
+import { ArrowsClockwise, Cube, NotePencil, Plus, Trash, UploadSimple } from "@phosphor-icons/react";
 import type { Provider } from "./_types";
 
 const _PROBE_ERROR_CODES = new Set([
@@ -19,7 +19,6 @@ type Props = {
   onProbe: (p: Provider) => Promise<void> | void;
   onDelete: (p: Provider) => void;
   onOpenExportImport: (initialTab: "export" | "import") => void;
-  onClearAll: () => void;
 };
 
 export default function ProviderListCard({
@@ -29,10 +28,8 @@ export default function ProviderListCard({
   onProbe,
   onDelete,
   onOpenExportImport,
-  onClearAll,
 }: Props) {
   const t = useTranslations("admin.providers");
-  const [menuOpen, setMenuOpen] = useState(false);
 
   return (
     <section className="border border-border-soft rounded-xl bg-background p-5">
@@ -47,57 +44,14 @@ export default function ProviderListCard({
           <p className="text-xs text-muted-soft mt-1 mb-4 max-w-2xl">{t("list.hint")}</p>
         </div>
         {providers.length > 0 && (
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={onAdd}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium bg-kb text-white rounded-md border-2 border-kb hover:bg-background hover:text-kb transition-colors"
-            >
-              <Plus size={14} weight="bold" />
-              {t("list.add")}
-            </button>
-            <div className="relative">
-              <button
-                type="button"
-                onClick={() => setMenuOpen((v) => !v)}
-                aria-label="More actions"
-                className="w-8 h-8 inline-flex items-center justify-center text-muted border border-border-soft rounded-md bg-background hover:bg-surface"
-              >
-                <DotsThreeVertical size={16} weight="bold" />
-              </button>
-              {menuOpen && (
-                <>
-                  <div
-                    className="fixed inset-0 z-40"
-                    onClick={() => setMenuOpen(false)}
-                  />
-                  <div className="absolute right-0 top-full mt-1 w-56 bg-background border border-border-soft rounded-md shadow-lg z-50 py-1">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setMenuOpen(false);
-                        onOpenExportImport("export");
-                      }}
-                      className="w-full text-left px-3 py-2 text-sm text-foreground hover:bg-surface"
-                    >
-                      {t("list.exportImportMenuItem")}
-                    </button>
-                    <div className="my-1 border-t border-border-soft" />
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setMenuOpen(false);
-                        onClearAll();
-                      }}
-                      className="w-full text-left px-3 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/30"
-                    >
-                      {t("clearAll.menuItem")}
-                    </button>
-                  </div>
-                </>
-              )}
-            </div>
-          </div>
+          <button
+            type="button"
+            onClick={onAdd}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium bg-kb text-white rounded-md border-2 border-kb hover:bg-background hover:text-kb transition-colors"
+          >
+            <Plus size={14} weight="bold" />
+            {t("list.add")}
+          </button>
         )}
       </div>
 

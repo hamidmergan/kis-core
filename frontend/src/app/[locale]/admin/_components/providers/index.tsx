@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
+import { DotsThreeVertical } from "@phosphor-icons/react";
 import Spinner from "@/components/ui/Spinner";
 import type { Feature, FeatureRoute, Provider, ProviderMeta } from "./_types";
 import {
@@ -39,6 +40,7 @@ export default function ProvidersTab() {
   const [loading, setLoading] = useState(true);
   const [dialog, setDialog] = useState<DialogState>({ open: false });
   const [clearAllOpen, setClearAllOpen] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<
     { provider: Provider; affectedFeatures: Feature[] } | null
   >(null);
@@ -243,7 +245,52 @@ export default function ProvidersTab() {
 
   return (
     <div className="space-y-4">
-      <p className="text-sm text-foreground-soft max-w-2xl">{t("intro")}</p>
+      <header className="flex items-start justify-between gap-4">
+        <p className="text-sm text-foreground-soft max-w-2xl">{t("intro")}</p>
+        {providers.length > 0 && (
+          <div className="relative shrink-0">
+            <button
+              type="button"
+              onClick={() => setMenuOpen((v) => !v)}
+              aria-label={t("list.moreActions")}
+              className="w-8 h-8 inline-flex items-center justify-center text-muted border border-border-soft rounded-md bg-background hover:bg-surface"
+            >
+              <DotsThreeVertical size={16} weight="bold" />
+            </button>
+            {menuOpen && (
+              <>
+                <div
+                  className="fixed inset-0 z-40"
+                  onClick={() => setMenuOpen(false)}
+                />
+                <div className="absolute right-0 top-full mt-1 w-56 bg-background border border-border-soft rounded-md shadow-lg z-50 py-1">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setMenuOpen(false);
+                      handleOpenExportImport("export");
+                    }}
+                    className="w-full text-left px-3 py-2 text-sm text-foreground hover:bg-surface"
+                  >
+                    {t("list.exportImportMenuItem")}
+                  </button>
+                  <div className="my-1 border-t border-border-soft" />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setMenuOpen(false);
+                      handleClearAllRequest();
+                    }}
+                    className="w-full text-left px-3 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/30"
+                  >
+                    {t("clearAll.menuItem")}
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        )}
+      </header>
 
       <ProviderListCard
         providers={providers}
@@ -252,7 +299,6 @@ export default function ProvidersTab() {
         onProbe={handleProbe}
         onDelete={handleDelete}
         onOpenExportImport={handleOpenExportImport}
-        onClearAll={handleClearAllRequest}
       />
 
       {providers.length > 0 && (
