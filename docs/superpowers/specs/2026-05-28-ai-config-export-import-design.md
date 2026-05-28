@@ -179,6 +179,20 @@ Führt den Merge transaktional aus (dieselbe Validierung wie Preview):
 
 Das Frontend nutzt `providers_needing_key` für die Warn-Indikatoren in der Provider-Liste nach dem Import.
 
+### `DELETE /admin/providers/all`
+
+Destruktiver Reset für den Fall, dass der Admin vor einem Import einen sauberen Zustand will (statt Merge in die bestehende Konfiguration). Bewusst als eigene Aktion getrennt, nicht als Import-Option — so ist die Entscheidung "ich werfe alles weg" eine eigenständige, sichtbare Handlung und nicht ein Häkchen im Import-Dialog.
+
+- Löscht **alle** Zeilen aus der `providers`-Tabelle.
+- Löscht **alle** Zeilen aus der `feature_routes`-Tabelle (Feature-Routes referenzieren Provider, werden ohnehin ungültig).
+- Ruft `invalidate_fingerprint_cache()` auf (analog zu `set_feature_route`).
+- Antwort:
+  ```json
+  { "providers_deleted": 5, "routes_deleted": 8 }
+  ```
+
+Keine zusätzliche Authentifizierung über `get_admin_user` hinaus — die Schutz-Schicht ist die UI-Bestätigung (siehe Frontend).
+
 ### Pydantic-Modelle
 
 Neue Modelle in [backend/src/routes/admin/_models.py](backend/src/routes/admin/_models.py):
@@ -195,11 +209,45 @@ Neue Modelle in [backend/src/routes/admin/_models.py](backend/src/routes/admin/_
 Erweitert [ProviderListCard.tsx](frontend/src/app/[locale]/admin/_components/providers/ProviderListCard.tsx):
 
 ```
-[ Provider ]                  [Exportieren] [Importieren] [+ Provider hinzufügen]
+[ Provider ]            [Exportieren] [Importieren] [+ Provider hinzufügen] [⋮]
 ```
 
 - **Exportieren** → `fetch('/api/admin/providers/export')`, Response als Blob, Browser-Download via `URL.createObjectURL` + temporärer `<a>`-Klick. Danach Toast: *"Export enthält keine API-Keys. Auf dem Zielsystem müssen Keys neu gesetzt werden."*
 - **Importieren** → öffnet versteckten `<input type="file" accept="application/json">`. Nach Datei-Auswahl: JSON parsen → an `/api/admin/providers/import/preview` schicken → Preview-Dialog öffnen mit der Diff-Antwort. Bei Parse-Fehler: Fehler-Toast, kein Dialog.
+- **⋮ (Drei-Punkte-Menü)** → öffnet Dropdown mit einem Eintrag *"Alles löschen…"* (rot, `text-red-600`). Klick darauf öffnet den Clear-All-Bestätigungs-Modal (siehe unten). Bewusst hinter dem Drei-Punkte-Menü versteckt, weil destruktiv und selten gebraucht.
+
+### Clear-All-Bestätigungs-Modal
+
+Neue Komponente `ClearAllConfirmDialog.tsx`. Zwei-stufiger Schutz: erst Drei-Punkte-Menü öffnen + "Alles löschen" wählen, dann erscheint dieser Modal als zweite explizite Bestätigung.
+
+```
+┌─ ⚠ Alle Provider und Routes löschen? ────────────┐
+│                                                  │
+│   Diese Aktion löscht UNWIDERRUFLICH:            │
+│                                                  │
+│     • 5 Provider (inkl. aller API-Keys)          │
+│     • 8 Feature-Route-Zuordnungen                │
+│                                                  │
+│   ⚠ KI-Funktionen (Chat, TTS, ASR, Übersetzung,  │
+│      Embedding) stehen danach NICHT mehr zur     │
+│      Verfügung, bis Provider neu angelegt oder   │
+│      importiert wurden.                          │
+│                                                  │
+│   Diese Aktion kann NICHT rückgängig gemacht     │
+│   werden. Vorher ggf. Export erstellen.          │
+│                                                  │
+│         [Abbrechen]   [Ja, alles löschen]        │
+└──────────────────────────────────────────────────┘
+```
+
+**Styling:**
+- Modal-Header rot (`bg-red-50` mit `border-red-200`, Icon ⚠ in `text-red-600`).
+- "Ja, alles löschen"-Button rot (`bg-red-600 hover:bg-red-700`, weißer Text), klar als destruktiv erkennbar.
+- "Abbrechen" als Default-Fokus, damit Enter-Taste nicht versehentlich löscht.
+
+**Zähler in der Warnung** (5 Provider / 8 Routes) kommen aus dem aktuellen lokalen State (`providers.length`, `routes.length`) — keine extra API-Calls nötig.
+
+**Klick auf "Ja, alles löschen"** → `DELETE /api/admin/providers/all` → Bei Erfolg: Modal schließen, `refreshAll()` (Liste ist jetzt leer), Toast *"Alle Provider und Routes gelöscht."*
 
 ### Import-Preview-Dialog
 
@@ -269,6 +317,7 @@ Alle neuen Strings unter `admin.providers.exportImport.*` in [frontend/messages/
 - `importSuccessToast` (mit `{count}`)
 - `provider.missingKeyTooltip`
 - `errors.invalidJson`, `errors.invalidSchemaVersion`, `errors.unknownProtocol`, `errors.duplicateNames`
+- `clearAll.menuItem`, `clearAll.title`, `clearAll.bodyCounts` (mit `{providers}`, `{routes}`), `clearAll.warningFeaturesUnavailable`, `clearAll.warningIrreversible`, `clearAll.confirm`, `clearAll.cancel`, `clearAll.successToast`
 
 ### Frontend-API-Layer
 
@@ -278,6 +327,7 @@ Erweitert [_api.ts](frontend/src/app/[locale]/admin/_components/providers/_api.t
 export async function exportConfig(): Promise<Blob>;
 export async function importPreview(config: unknown): Promise<ImportPreviewResult>;
 export async function importConfig(config: unknown): Promise<ImportResult>;
+export async function clearAllProviders(): Promise<{ providers_deleted: number; routes_deleted: number }>;
 ```
 
 Plus passende TS-Types in `_types.ts`.
@@ -321,6 +371,13 @@ Neue Test-Datei `backend/tests/test_provider_import_export.py`:
 - `test_import_invalidates_fingerprint_cache_when_embedding_route_changes`
 - `test_import_response_lists_providers_needing_key`
 
+**Clear-All:**
+- `test_clear_all_deletes_all_providers`
+- `test_clear_all_deletes_all_feature_routes`
+- `test_clear_all_invalidates_fingerprint_cache`
+- `test_clear_all_on_empty_db_returns_zero_counts`
+- `test_clear_all_response_contains_correct_counts`
+
 ### Frontend — manuelle Test-Checkliste
 
 Keine automatisierten Tests (Projekt-Konvention: Provider-UI hat aktuell keine Frontend-Tests). Stattdessen explizite Checkliste, die nach Implementierung durchgegangen wird:
@@ -334,6 +391,10 @@ Keine automatisierten Tests (Projekt-Konvention: Provider-UI hat aktuell keine F
 - [ ] Nach Bestätigung: Provider-Liste zeigt ⚠-Indikatoren bei Providern ohne Key.
 - [ ] Datei kaputt / kein JSON → Fehler-Toast, kein Crash.
 - [ ] Falsches `schema_version` → Fehlermeldung "Datei stammt aus einer neueren Version" (oder umgekehrt).
+- [ ] Drei-Punkte-Menü → "Alles löschen" → Bestätigungs-Modal erscheint mit korrekten Zählern.
+- [ ] Bestätigungs-Modal "Abbrechen" → keine Änderung, Modal schließt.
+- [ ] Bestätigungs-Modal "Ja, alles löschen" → Provider-Liste ist danach leer, Toast erscheint.
+- [ ] Default-Fokus im Modal liegt auf "Abbrechen" (Enter löscht nicht aus Versehen).
 
 ## Edge-Cases (explizit abgehandelt)
 
@@ -347,7 +408,7 @@ Keine automatisierten Tests (Projekt-Konvention: Provider-UI hat aktuell keine F
 
 - Keine Schedule-/Auto-Backup-Funktion.
 - Keine Verschlüsselung oder Signing der Export-Datei (Klartext-JSON reicht — keine sensiblen Daten drin).
-- Kein Replace-Modus (Wipe & Restore) — Merge ist als einziger Modus festgelegt, ist immer sicher.
+- Kein Replace-Modus innerhalb des Import-Flows — wer einen sauberen Stand will, nutzt vorher die separate Clear-All-Aktion (Drei-Punkte-Menü) und importiert danach. Diese explizite Zwei-Schritt-Sequenz macht "ich werfe alles weg" zu einer bewussten Entscheidung statt einer leicht übersehenen Import-Checkbox.
 - Kein Multi-File-Bundle / ZIP mit mehreren Configs.
 - Keine UI für Konflikt-Auflösung "field by field" — Provider-Felder werden komplett überschrieben (außer Key), das ist explizit und einfach.
 - Keine Prompts/Templates im Export (würde Scope sprengen — kann später als separates Feature ergänzt werden mit kompatiblem Schema-Versionssprung).
@@ -363,3 +424,5 @@ Keine automatisierten Tests (Projekt-Konvention: Provider-UI hat aktuell keine F
 7. Nach dem Import zeigt die Provider-Liste rot/orange Warn-Indikatoren bei Providern, deren Key fehlt.
 8. Alle UI-Strings sind in DE und EN übersetzt.
 9. Backend-Tests decken die Sicherheits-Invariante (kein Key im Export), die Merge-Regeln, und die Validierung ab.
+10. Admin kann über ein Drei-Punkte-Menü oben im Provider-Tab die Aktion "Alles löschen" auswählen. Nach Klick erscheint ein **zweiter** Bestätigungs-Modal mit rotem Warnhinweis und korrekten Zählern (X Provider, Y Routes). Erst nach expliziter Bestätigung im Modal werden alle Provider und Feature-Routes gelöscht.
+
