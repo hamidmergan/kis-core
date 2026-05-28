@@ -30,6 +30,7 @@ def dispatch_next_screencast_job_for_user(user_id: int) -> None:
                 job_uuid, params["input_path"], params["filename"],
                 params["glossary_json"],
                 params["source_lang"], params["target_lang"],
+                params.get("provider_id"),
             ])
         elif dispatch_as == "render":
             scripts = json.loads(get_job_file(user_id, job_uuid, "render_scripts.json"))
