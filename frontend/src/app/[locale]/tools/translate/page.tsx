@@ -24,9 +24,9 @@ export default function UebersetzungPage() {
   const [stallMessage, setStallMessage] = useState<string>("");
   const [doneJobUuid, setDoneJobUuid] = useState<string | null>(null);
 
-  const [providers, setProviders] = useState<{ id: string; label: string }[]>([]);
+  const [providers, setProviders] = useState<{ id: number; label: string }[]>([]);
   const [languages, setLanguages] = useState<{ id: string; label: string }[]>([]);
-  const [translationProvider, setTranslationProvider] = useState<string>("");
+  const [translationProviderId, setTranslationProviderId] = useState<number | null>(null);
   const [sourceLang, setSourceLang] = useState<string>("DE");
   const [targetLang, setTargetLang] = useState<string>("");
 
@@ -35,9 +35,10 @@ export default function UebersetzungPage() {
       .fetch("/translate/config")
       .then((r) => r.json())
       .then((data) => {
-        setProviders(data.providers ?? []);
+        const provs: { id: number; label: string }[] = data.providers ?? [];
+        setProviders(provs);
         setLanguages(data.languages ?? []);
-        setTranslationProvider(data.default_provider ?? "");
+        if (provs.length > 0) setTranslationProviderId(provs[0].id);
         setSourceLang(data.default_source ?? "DE");
         setTargetLang(data.default_target ?? "");
       })
@@ -62,7 +63,7 @@ export default function UebersetzungPage() {
       const formData = new FormData();
       formData.append("file", pendingFile);
       if (glossaryJson) formData.append("glossary", glossaryJson);
-      if (translationProvider) formData.append("translation_provider", translationProvider);
+      if (translationProviderId != null) formData.append("provider_id", String(translationProviderId));
       if (sourceLang && sourceLang !== "auto") formData.append("source_lang", sourceLang);
       if (targetLang) formData.append("target_lang", targetLang);
       const response = await api.fetch("/translate", { method: "POST", body: formData });
@@ -165,16 +166,16 @@ export default function UebersetzungPage() {
             </div>
           )}
 
-          {providers.length > 0 && (
+          {providers.length > 1 && (
             <div className="mb-4">
               <label className="block text-sm font-medium text-foreground-soft mb-1">
                 {t("engine")}
               </label>
               <Select
-                value={translationProvider}
-                onChange={setTranslationProvider}
+                value={translationProviderId != null ? String(translationProviderId) : ""}
+                onChange={(v) => setTranslationProviderId(v ? Number(v) : null)}
                 disabled={processing}
-                options={providers.map((p) => ({ value: p.id, label: p.label }))}
+                options={providers.map((p) => ({ value: String(p.id), label: p.label }))}
               />
             </div>
           )}
