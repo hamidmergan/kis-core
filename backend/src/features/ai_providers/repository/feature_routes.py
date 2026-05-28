@@ -165,3 +165,13 @@ def clear_provider_from_routes(provider_id: int) -> int:
             )
             conn.commit()
             return cleared
+
+
+def delete_all_routes() -> int:
+    """Delete every row from the feature_routes table. Returns count deleted."""
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute("DELETE FROM feature_routes")
+            deleted = cur.rowcount
+            conn.commit()
+            return deleted

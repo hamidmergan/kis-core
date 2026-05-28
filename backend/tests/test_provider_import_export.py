@@ -537,3 +537,67 @@ def test_import_response_lists_providers_needing_key(monkeypatch):
 
     assert "KISSKI" in result["providers_needing_key"]
     assert "Kokoro" not in result["providers_needing_key"]
+
+
+# ─── Clear all ─────────────────────────────────────────────────────────────
+
+
+def test_clear_all_deletes_providers_and_routes(monkeypatch):
+    from src.routes.admin.providers import perform_clear_all
+
+    del_providers = MagicMock(return_value=3)
+    del_routes = MagicMock(return_value=5)
+    monkeypatch.setattr("src.routes.admin.providers.db.delete_all_providers",
+                        del_providers)
+    monkeypatch.setattr("src.routes.admin.providers.db.delete_all_routes",
+                        del_routes)
+    monkeypatch.setattr(
+        "src.routes.admin._embedding.invalidate_fingerprint_cache",
+        MagicMock(),
+    )
+
+    result = perform_clear_all()
+    del_providers.assert_called_once()
+    del_routes.assert_called_once()
+    assert result == {"providers_deleted": 3, "routes_deleted": 5}
+
+
+def test_clear_all_invalidates_fingerprint_cache(monkeypatch):
+    from src.routes.admin.providers import perform_clear_all
+
+    monkeypatch.setattr("src.routes.admin.providers.db.delete_all_providers",
+                        lambda: 0)
+    monkeypatch.setattr("src.routes.admin.providers.db.delete_all_routes",
+                        lambda: 0)
+    invalidate_mock = MagicMock()
+    monkeypatch.setattr(
+        "src.routes.admin._embedding.invalidate_fingerprint_cache",
+        invalidate_mock,
+    )
+
+    perform_clear_all()
+    invalidate_mock.assert_called_once()
+
+
+def test_clear_all_routes_deleted_before_providers(monkeypatch):
+    """Routes reference providers via FK; if FK is RESTRICT, routes must
+    go first. If it's CASCADE/SET NULL it doesn't matter, but the safe
+    order shouldn't change either way."""
+    from src.routes.admin.providers import perform_clear_all
+
+    call_order: list[str] = []
+    monkeypatch.setattr(
+        "src.routes.admin.providers.db.delete_all_routes",
+        lambda: call_order.append("routes") or 0,
+    )
+    monkeypatch.setattr(
+        "src.routes.admin.providers.db.delete_all_providers",
+        lambda: call_order.append("providers") or 0,
+    )
+    monkeypatch.setattr(
+        "src.routes.admin._embedding.invalidate_fingerprint_cache",
+        MagicMock(),
+    )
+
+    perform_clear_all()
+    assert call_order == ["routes", "providers"]

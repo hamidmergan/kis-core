@@ -179,3 +179,13 @@ def list_providers_with_capability(capability: str) -> list[dict]:
                 (capability,),
             )
             return [_row_to_dict(r) for r in cur.fetchall()]
+
+
+def delete_all_providers() -> int:
+    """Delete every row from the providers table. Returns count deleted."""
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute("DELETE FROM providers")
+            deleted = cur.rowcount
+            conn.commit()
+            return deleted

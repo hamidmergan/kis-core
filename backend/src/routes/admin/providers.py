@@ -193,6 +193,11 @@ async def update_provider(
     return {"provider": _mask_provider(row)}
 
 
+@router.delete("/providers/all")
+async def clear_all(_admin=Depends(get_admin_user)):
+    return perform_clear_all()
+
+
 @router.delete("/providers/{provider_id}")
 async def delete_provider(
     provider_id: int,
@@ -694,4 +699,18 @@ async def import_config(
     _admin=Depends(get_admin_user),
 ):
     return perform_import(body.config.model_dump())
+
+
+def perform_clear_all() -> dict:
+    """Wipe all providers + feature_routes. Destructive."""
+    routes_deleted = db.delete_all_routes()
+    providers_deleted = db.delete_all_providers()
+
+    from src.routes.admin._embedding import invalidate_fingerprint_cache
+    invalidate_fingerprint_cache()
+
+    return {
+        "providers_deleted": providers_deleted,
+        "routes_deleted": routes_deleted,
+    }
 
