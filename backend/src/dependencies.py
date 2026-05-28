@@ -136,16 +136,16 @@ def resolve_whisper_client() -> OpenAICompatLLMClient:
     """
     binding = feature_router.resolve("stt")
     api_key, base_url, model, provider_name = _binding_tuple(binding)
-    # Whisper model name lives in the feature_route's model_name slot. If
-    # the admin left it blank, pick a sane default that matches the
-    # historical fallback.
-    whisper_model = model or "whisper-large-v2"
+    if not model:
+        raise feature_router.FeatureNotConfigured(
+            "stt route has no model_name — set it in the admin KI panel"
+        )
     return OpenAICompatLLMClient(
         api_key=api_key,
         base_url=base_url,
         model=model,
         provider=provider_name,
-        whisper_model=whisper_model,
+        whisper_model=model,
     )
 
 
@@ -191,7 +191,11 @@ def get_tts_client_for_provider(provider_id: int):
         return None
     route = db.get_route("tts")
     provider_models = (route.get("provider_models") if route else None) or {}
-    model = provider_models.get(str(provider_id)) or (route.get("model_name") if route else None) or "tts-1"
+    model = provider_models.get(str(provider_id)) or (route.get("model_name") if route else None)
+    if not model:
+        raise feature_router.FeatureNotConfigured(
+            "tts route has no model_name — set it in the admin KI panel"
+        )
     api_key = provider.get("api_key") or "not-needed"
     return OpenAICompatTTSClient(provider["base_url"], model=model, api_key=api_key)
 
