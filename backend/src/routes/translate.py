@@ -35,16 +35,14 @@ async def get_translate_config(
     current_user: dict = Depends(get_current_user),
     locale: str = Depends(get_locale),
 ):
-    providers = [
-        {"id": "deepl", "label": t("translateProvider.deepl", locale)},
-        {"id": "llm", "label": t("translateProvider.llm", locale)},
-    ]
+    from src.dependencies import get_translation_providers
+    raw_providers = get_translation_providers()
+    providers = [{"id": p["id"], "label": p["name"]} for p in raw_providers]
 
     languages = [{"id": lang, "label": t(f"lang.{lang}", locale)} for lang in TRANSLATE_LANGUAGES]
 
     return {
         "providers": providers,
-        "default_provider": "deepl",
         "languages": languages,
         "default_source": DEFAULT_TRANSLATE_SOURCE,
         "default_target": DEFAULT_TRANSLATE_TARGET,
