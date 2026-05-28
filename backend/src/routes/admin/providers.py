@@ -349,7 +349,7 @@ async def test_route(
         model_name=model_name,
         voices=provider.get("voices") or [],
     )
-    return {"status": result.status, "error": result.error}
+    return {"status": result.status, "error": result.error, "warning": result.warning}
 
 
 @router.patch("/feature-routes/{feature}")
