@@ -30,7 +30,7 @@ def _get_llm_client():
     api_key, base_url, model, provider = _resolve_llm_provider()
     if not api_key:
         raise RuntimeError("Kein LLM-Provider konfiguriert")
-    return OpenAICompatLLMClient(api_key=api_key, base_url=base_url, model=model, provider=provider)
+    return OpenAICompatLLMClient(api_key=api_key, base_url=base_url, model=model, whisper_model=model, provider=provider)
 
 
 def _image_http_client(feature: str, *, extra_headers: dict | None = None, timeout: float = 120.0):

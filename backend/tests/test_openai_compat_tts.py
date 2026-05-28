@@ -35,3 +35,16 @@ def test_make_tts_client_raises_when_no_model():
     )
     with pytest.raises(FeatureNotConfigured, match="model_name"):
         make_tts_client(binding)
+
+
+def test_openai_compat_llm_client_requires_whisper_model():
+    """Constructing OpenAICompatLLMClient without whisper_model must raise TypeError."""
+    from src.services.openai_compat_llm import OpenAICompatLLMClient
+    with pytest.raises(TypeError):
+        OpenAICompatLLMClient(
+            api_key="k",
+            base_url="http://example.com",
+            model="gpt-4",
+            provider="test",
+            # whisper_model intentionally omitted
+        )

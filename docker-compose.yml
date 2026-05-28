@@ -31,6 +31,7 @@ services:
     volumes:
       - ./backend/src:/app/src:ro
       - ./backend/demo:/app/demo:ro
+      - ./backend/tests:/app/tests:ro
       - kis-storage:/app/storage
     ports:
       - "8000:8000"

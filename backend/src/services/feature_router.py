@@ -114,10 +114,12 @@ def make_llm_client(binding: FeatureBinding):
     from src.services.openai_compat_llm import OpenAICompatLLMClient
 
     provider = binding.provider
+    model = binding.model or ""
     return OpenAICompatLLMClient(
         api_key=provider.get("api_key") or "not-needed",
         base_url=_ensure_v1(provider["base_url"]),
-        model=binding.model or "",
+        model=model,
+        whisper_model=model,
         provider=provider["name"],
     )
 

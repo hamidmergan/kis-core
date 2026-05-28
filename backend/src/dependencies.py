@@ -159,6 +159,7 @@ def get_llm_client(locale: str = Depends(get_locale)) -> OpenAICompatLLMClient:
         api_key=api_key,
         base_url=base_url,
         model=model,
+        whisper_model=model,
         provider=provider,
     )
     # Ollama defaults to a tiny num_ctx (4096) on its OpenAI-compat endpoint,
