@@ -391,3 +391,81 @@ def _mask_provider(row: dict | None) -> dict | None:
         masked["api_key_last_chars"] = None
     masked.pop("api_key", None)
     return masked
+
+
+# ─── Export / Import ───────────────────────────────────────────────────────
+
+
+SCHEMA_VERSION = 1
+
+
+def build_export(*, exported_from: str | None) -> dict:
+    """Build the export payload from current DB state.
+
+    Strips api_key and id from providers. Translates feature_routes'
+    provider_id (+ user_choices / provider_models keys) into provider names
+    for portability.
+    """
+    from datetime import datetime, timezone
+
+    providers = db.list_providers()
+    routes = db.list_routes()
+
+    id_to_name = {p["id"]: p["name"] for p in providers}
+
+    exported_providers: list[dict] = []
+    for p in providers:
+        exported_providers.append({
+            "name": p["name"],
+            "protocol": p["protocol"],
+            "base_url": p["base_url"],
+            "capabilities": list(p.get("capabilities") or []),
+            "voices": list(p.get("voices") or []),
+            "enabled": bool(p.get("enabled", True)),
+        })
+
+    exported_routes: list[dict] = []
+    for r in routes:
+        user_choice_names = [
+            id_to_name[pid] for pid in (r.get("user_choices") or [])
+            if pid in id_to_name
+        ]
+        provider_models_named: dict[str, str] = {}
+        for key, model in (r.get("provider_models") or {}).items():
+            try:
+                pid = int(key)
+            except (TypeError, ValueError):
+                continue
+            if pid in id_to_name:
+                provider_models_named[id_to_name[pid]] = model
+        exported_routes.append({
+            "feature": r["feature"],
+            "provider_name": id_to_name.get(r.get("provider_id")),
+            "model_name": r.get("model_name"),
+            "user_choices": user_choice_names,
+            "provider_models": provider_models_named,
+        })
+
+    return {
+        "schema_version": SCHEMA_VERSION,
+        "exported_at": datetime.now(timezone.utc).isoformat(),
+        "exported_from": exported_from,
+        "providers": exported_providers,
+        "feature_routes": exported_routes,
+    }
+
+
+@router.get("/providers/export")
+async def export_config(
+    _admin=Depends(get_admin_user),
+):
+    """Download the full AI config as JSON. Never includes api_keys."""
+    from datetime import date
+    from fastapi.responses import JSONResponse
+
+    payload = build_export(exported_from=None)
+    filename = f"kis-ai-config-{date.today().isoformat()}.json"
+    return JSONResponse(
+        content=payload,
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
