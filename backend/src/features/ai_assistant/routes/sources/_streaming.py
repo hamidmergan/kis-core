@@ -118,12 +118,12 @@ async def regenerate_en_transcript(
         )
 
     from src.tasks.aia_tasks import run_translate_transcript_en
-    run_translate_transcript_en.delay(source_uuid, binding["provider_id"])
+    run_translate_transcript_en.delay(source_uuid, binding.provider["id"])
     logger.info(
         "KI Tutor: manual EN translation dispatched for {} (provider_id={})",
-        source_uuid, binding["provider_id"],
+        source_uuid, binding.provider["id"],
     )
-    return {"uuid": source_uuid, "status": "dispatched", "provider_id": binding["provider_id"]}
+    return {"uuid": source_uuid, "status": "dispatched", "provider_id": binding.provider["id"]}
 
 
 @router.get("/ai-assistant/workspaces/{workspace_uuid}/sources/{source_uuid}/transcript")

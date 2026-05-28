@@ -175,10 +175,10 @@ def run_index_source(self, source_uuid: str, locale: str = "de"):
                 from src.services import feature_router
                 try:
                     binding = feature_router.resolve("transcript_translate")
-                    run_translate_transcript_en.delay(source_uuid, binding["provider_id"])
+                    run_translate_transcript_en.delay(source_uuid, binding.provider["id"])
                     logger.info(
                         "KI Tutor: dispatched EN translation for {} (provider_id={})",
-                        source_uuid, binding["provider_id"],
+                        source_uuid, binding.provider["id"],
                     )
                 except feature_router.FeatureNotConfigured:
                     logger.warning(
