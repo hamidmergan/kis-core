@@ -807,12 +807,13 @@
     },
     "providers": {
       "intro": "Providers are endpoints that deliver AI features (chat, embedding, TTS, vision, ...). Register as many as you like. For each feature below, pick which provider handles it.",
-      "list": {
-        "title": "Providers",
-        "hint": "“Re-check” verifies the endpoint is reachable. To test whether a specific feature actually works, use the row test buttons under “Features”.",
-        "add": "Add",
-        "emptyTitle": "No provider configured yet",
-        "emptyHint": "Add your first provider to enable AI features."
+      “list”: {
+        “title”: “Providers”,
+        “hint”: “”Re-check” verifies the endpoint is reachable. To test whether a specific feature actually works, use the row test buttons under “Features”.”,
+        “add”: “Add”,
+        “emptyTitle”: “No provider configured yet”,
+        “emptyHint”: “Add your first provider to enable AI features.”,
+        “exportImportMenuItem”: “Export / Import…”
       },
       "row": {
         "keySuffix": "· Key: ...{chars}",
@@ -956,6 +957,24 @@
         "transcript_translate": "AIA workspace: translate DE transcript to EN. Provider is admin-configured."
       },
       "exportImport": {
+        "modal": {
+          "title": "Export / Import",
+          "tabExport": "Export",
+          "tabImport": "Import",
+          "cancel": "Cancel"
+        },
+        "export": {
+          "providersHeading": "Providers",
+          "selectAll": "All",
+          "selectNone": "None",
+          "selectedCount": "{selected} of {total}",
+          "confirmButton": "Export ({count})"
+        },
+        "import": {
+          "dropzoneHint": "Drop a JSON file here or click to select",
+          "chooseAnotherFile": "Choose another file",
+          "confirmButton": "Confirm import"
+        },
         "exportButton": "Export",
         "importButton": "Import",
         "exportHint": "The exported file contains NO API keys — these must be set manually on the target system.",
