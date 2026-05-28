@@ -193,7 +193,7 @@ function StatusPill({ provider, probing }: { provider: Provider; probing?: boole
     );
   }
   return (
-    <span className="inline-flex items-center gap-1 text-[11px] font-medium px-1.5 py-0.5 rounded-full text-success-strong">
+    <span className="inline-flex items-center gap-1 text-[11px] font-medium px-1.5 py-0.5 rounded-full bg-success-bg text-success-strong">
       <span className="w-1.5 h-1.5 rounded-full bg-success" />
       {t("row.statusActive")}
     </span>
