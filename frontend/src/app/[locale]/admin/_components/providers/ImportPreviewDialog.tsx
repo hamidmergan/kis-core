@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useTranslations } from "next-intl";
 import { Warning, CheckCircle } from "@phosphor-icons/react";
 import type { ImportPreviewResult } from "./_types";
@@ -20,6 +20,18 @@ export default function ImportPreviewDialog({
   const t = useTranslations("admin.providers.exportImport.preview");
   const [submitting, setSubmitting] = useState(false);
 
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && !submitting) onCancel();
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [onCancel, submitting]);
+
+  const handleBackdropClick = () => {
+    if (!submitting) onCancel();
+  };
+
   const handleConfirm = async () => {
     setSubmitting(true);
     try {
@@ -30,8 +42,8 @@ export default function ImportPreviewDialog({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-      <div className="bg-background border border-border-soft rounded-xl shadow-xl w-full max-w-2xl max-h-[85vh] overflow-y-auto">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={handleBackdropClick}>
+      <div className="bg-background border border-border-soft rounded-xl shadow-xl w-full max-w-2xl max-h-[85vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
         <div className="p-5 border-b border-border-soft">
           <h2 className="text-base font-semibold text-foreground">{t("title")}</h2>
           <p className="text-xs text-muted mt-1">{t("source", { filename })}</p>

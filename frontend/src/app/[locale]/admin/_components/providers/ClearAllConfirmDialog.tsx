@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useTranslations } from "next-intl";
 import { Warning } from "@phosphor-icons/react";
 
@@ -17,6 +17,18 @@ export default function ClearAllConfirmDialog({
   const t = useTranslations("admin.providers.clearAll");
   const [submitting, setSubmitting] = useState(false);
 
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && !submitting) onCancel();
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [onCancel, submitting]);
+
+  const handleBackdropClick = () => {
+    if (!submitting) onCancel();
+  };
+
   const handleConfirm = async () => {
     setSubmitting(true);
     try {
@@ -27,8 +39,8 @@ export default function ClearAllConfirmDialog({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-      <div className="bg-background border border-red-300 dark:border-red-700 rounded-xl shadow-xl w-full max-w-md">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={handleBackdropClick}>
+      <div className="bg-background border border-red-300 dark:border-red-700 rounded-xl shadow-xl w-full max-w-md" onClick={(e) => e.stopPropagation()}>
         <div className="p-5 bg-red-50 dark:bg-red-950/30 border-b border-red-200 dark:border-red-800 rounded-t-xl flex items-start gap-3">
           <Warning size={22} weight="fill" className="text-red-600 dark:text-red-400 shrink-0" />
           <h2 className="text-base font-semibold text-red-700 dark:text-red-300">{t("title")}</h2>

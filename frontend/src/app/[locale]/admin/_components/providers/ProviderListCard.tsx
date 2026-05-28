@@ -121,7 +121,7 @@ export default function ProviderListCard({
       </div>
 
       {providers.length === 0 ? (
-        <EmptyState onAdd={onAdd} />
+        <EmptyState onAdd={onAdd} onImport={onImport} />
       ) : (
         <div className="-my-3 divide-y divide-border-soft">
           {providers.map((p) => (
@@ -139,21 +139,43 @@ export default function ProviderListCard({
   );
 }
 
-function EmptyState({ onAdd }: { onAdd: () => void }) {
+function EmptyState({ onAdd, onImport }: { onAdd: () => void; onImport: (file: File) => void | Promise<void> }) {
   const t = useTranslations("admin.providers");
+  const fileInputRef = useRef<HTMLInputElement>(null);
   return (
     <div className="text-center py-10 px-6 border border-dashed border-border-soft rounded-lg">
       <Cube size={32} weight="bold" className="mx-auto text-muted mb-3" />
       <p className="text-sm font-medium text-foreground mb-1">{t("list.emptyTitle")}</p>
       <p className="text-xs text-muted-soft mb-4 max-w-md mx-auto">{t("list.emptyHint")}</p>
-      <button
-        type="button"
-        onClick={onAdd}
-        className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium bg-kb text-white rounded-md border-2 border-kb hover:bg-background hover:text-kb transition-colors"
-      >
-        <Plus size={14} weight="bold" />
-        {t("list.add")}
-      </button>
+      <div className="flex items-center justify-center gap-2">
+        <button
+          type="button"
+          onClick={onAdd}
+          className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium bg-kb text-white rounded-md border-2 border-kb hover:bg-background hover:text-kb transition-colors"
+        >
+          <Plus size={14} weight="bold" />
+          {t("list.add")}
+        </button>
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="application/json"
+          className="hidden"
+          onChange={(e) => {
+            const file = e.target.files?.[0];
+            if (file) onImport(file);
+            e.target.value = "";
+          }}
+        />
+        <button
+          type="button"
+          onClick={() => fileInputRef.current?.click()}
+          className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-foreground border border-border-soft bg-background rounded-md hover:bg-surface transition-colors"
+        >
+          <UploadSimple size={14} weight="bold" />
+          {t("exportImport.importButton")}
+        </button>
+      </div>
     </div>
   );
 }
