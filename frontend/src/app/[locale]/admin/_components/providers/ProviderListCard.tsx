@@ -78,6 +78,14 @@ export default function ProviderListCard({
               <UploadSimple size={14} weight="bold" />
               {t("exportImport.importButton")}
             </button>
+            <button
+              type="button"
+              onClick={onAdd}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium bg-kb text-white rounded-md border-2 border-kb hover:bg-background hover:text-kb transition-colors"
+            >
+              <Plus size={14} weight="bold" />
+              {t("list.add")}
+            </button>
             <div className="relative">
               <button
                 type="button"
@@ -108,14 +116,6 @@ export default function ProviderListCard({
                 </>
               )}
             </div>
-            <button
-              type="button"
-              onClick={onAdd}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium bg-kb text-white rounded-md border-2 border-kb hover:bg-background hover:text-kb transition-colors"
-            >
-              <Plus size={14} weight="bold" />
-              {t("list.add")}
-            </button>
           </div>
         )}
       </div>

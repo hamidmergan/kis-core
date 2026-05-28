@@ -261,10 +261,14 @@ export default function ProvidersTab() {
   }, []);
 
   const handleClearAllConfirm = useCallback(async () => {
-    await clearAllProviders();
-    setClearAllOpen(false);
-    await refreshAll();
-    window.alert(t("clearAll.successToast"));
+    try {
+      await clearAllProviders();
+      setClearAllOpen(false);
+      await refreshAll();
+      window.alert(t("clearAll.successToast"));
+    } catch (err) {
+      window.alert((err as Error).message);
+    }
   }, [refreshAll, t]);
 
   if (loading || !meta) {
