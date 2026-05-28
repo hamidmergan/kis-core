@@ -94,7 +94,7 @@ async def translate(
     request: Request,
     file: UploadFile = File(...),
     glossary: str = Form(""),
-    translation_provider: str = Form(""),
+    provider_id: int | None = Form(None),
     source_lang: str = Form(""),
     target_lang: str = Form(""),
     current_user: dict = Depends(get_current_user),
@@ -152,7 +152,7 @@ async def translate(
         glossary,
         effective_source,
         effective_target,
-        translation_provider,
+        provider_id,
     )
 
     logger.info("Translate job {} queued for '{}'", job_uuid, file.filename)
