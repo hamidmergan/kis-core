@@ -11,9 +11,6 @@ from __future__ import annotations
 
 import httpx
 
-_DEFAULT_VOICE = "alloy"
-_DEFAULT_MODEL = "tts-1"
-
 _CHUNK_MAX = 10_000
 _CHUNK_MIN = 9_500
 
@@ -47,7 +44,7 @@ def _split_text(text: str) -> list[str]:
 class OpenAICompatTTSClient:
     """Client for any OpenAI-compatible TTS endpoint (POST /v1/audio/speech)."""
 
-    def __init__(self, base_url: str, model: str = _DEFAULT_MODEL, api_key: str = "not-needed"):
+    def __init__(self, base_url: str, model: str, api_key: str = "not-needed"):
         url = base_url.rstrip("/")
         if url.endswith("/v1"):
             url = url[:-3]
@@ -102,7 +99,11 @@ class OpenAICompatTTSClient:
         speed: float = 1.0,
     ) -> bytes:
         text = " ".join(line.strip() for line in text.splitlines() if line.strip())
-        voice = _DEFAULT_VOICE if voice_id in ("default", "") else voice_id
+        if not voice_id or voice_id == "default":
+            raise ValueError(
+                "voice_id must be set — configure voices for this provider in the admin KI panel"
+            )
+        voice = voice_id
         payload: dict = {
             "model": self._model,
             "input": text,
