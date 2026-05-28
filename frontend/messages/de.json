@@ -807,13 +807,13 @@
     },
     "providers": {
       "intro": "Anbieter sind Endpoints, die KI-Funktionen liefern (Chat, Embedding, TTS, Bildanalyse, ...). Lege beliebig viele an. Pro Funktion wählst du unten, welcher Anbieter sie übernimmt.",
-      “list”: {
-        “title”: “Anbieter”,
-        “hint”: “Mit „Erneut prüfen” testest du, ob der Endpoint erreichbar ist. Welche Funktionen tatsächlich funktionieren, prüfst du pro Zeile im Bereich „Funktionen”.”,
-        “add”: “Hinzufügen”,
-        “emptyTitle”: “Noch kein Anbieter konfiguriert”,
-        “emptyHint”: “Lege deinen ersten Anbieter an, um KI-Funktionen freizuschalten.”,
-        “exportImportMenuItem”: “Export / Import…”
+      "list": {
+        "title": "Anbieter",
+        "hint": "Mit „Erneut prüfen\" testest du, ob der Endpoint erreichbar ist. Welche Funktionen tatsächlich funktionieren, prüfst du pro Zeile im Bereich „Funktionen\".",
+        "add": "Hinzufügen",
+        "emptyTitle": "Noch kein Anbieter konfiguriert",
+        "emptyHint": "Lege deinen ersten Anbieter an, um KI-Funktionen freizuschalten.",
+        "exportImportMenuItem": "Export / Import…"
       },
       "row": {
         "keySuffix": "· Schlüssel: ...{chars}",
@@ -997,7 +997,6 @@
           "confirm": "Import bestätigen",
           "cancel": "Abbrechen"
         },
-        "importSuccessToast": "Import erfolgreich. {count, plural, =0 {Alle Provider haben einen Key} one {# Provider benötigt noch einen API-Key} other {# Provider benötigen noch einen API-Key}}.",
         "errors": {
           "invalidJson": "Die Datei ist kein gültiges JSON.",
           "importFailed": "Import fehlgeschlagen: {message}"

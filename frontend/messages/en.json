@@ -807,13 +807,13 @@
     },
     "providers": {
       "intro": "Providers are endpoints that deliver AI features (chat, embedding, TTS, vision, ...). Register as many as you like. For each feature below, pick which provider handles it.",
-      “list”: {
-        “title”: “Providers”,
-        “hint”: “”Re-check” verifies the endpoint is reachable. To test whether a specific feature actually works, use the row test buttons under “Features”.”,
-        “add”: “Add”,
-        “emptyTitle”: “No provider configured yet”,
-        “emptyHint”: “Add your first provider to enable AI features.”,
-        “exportImportMenuItem”: “Export / Import…”
+      "list": {
+        "title": "Providers",
+        "hint": "\"Re-check\" verifies the endpoint is reachable. To test whether a specific feature actually works, use the row test buttons under \"Features\".",
+        "add": "Add",
+        "emptyTitle": "No provider configured yet",
+        "emptyHint": "Add your first provider to enable AI features.",
+        "exportImportMenuItem": "Export / Import…"
       },
       "row": {
         "keySuffix": "· Key: ...{chars}",
@@ -997,7 +997,6 @@
           "confirm": "Confirm import",
           "cancel": "Cancel"
         },
-        "importSuccessToast": "Import successful. {count, plural, =0 {All providers have a key} one {# provider still needs an API key} other {# providers still need an API key}}.",
         "errors": {
           "invalidJson": "The file is not valid JSON.",
           "importFailed": "Import failed: {message}"
