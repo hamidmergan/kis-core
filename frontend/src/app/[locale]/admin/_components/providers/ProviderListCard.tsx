@@ -1,8 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useTranslations } from "next-intl";
-import { ArrowsClockwise, Cube, DownloadSimple, NotePencil, Plus, Trash } from "@phosphor-icons/react";
+import { ArrowsClockwise, Cube, DownloadSimple, NotePencil, Plus, Trash, UploadSimple } from "@phosphor-icons/react";
 import type { Provider } from "./_types";
 
 const _PROBE_ERROR_CODES = new Set([
@@ -19,6 +19,7 @@ type Props = {
   onProbe: (p: Provider) => Promise<void> | void;
   onDelete: (p: Provider) => void;
   onExport: () => void | Promise<void>;
+  onImport: (file: File) => void | Promise<void>;
 };
 
 export default function ProviderListCard({
@@ -28,8 +29,10 @@ export default function ProviderListCard({
   onProbe,
   onDelete,
   onExport,
+  onImport,
 }: Props) {
   const t = useTranslations("admin.providers");
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   return (
     <section className="border border-border-soft rounded-xl bg-background p-5">
@@ -53,7 +56,26 @@ export default function ProviderListCard({
               <DownloadSimple size={14} weight="bold" />
               {t("exportImport.exportButton")}
             </button>
-            {/* Import button + kebab inserted in later tasks */}
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="application/json"
+              className="hidden"
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (file) onImport(file);
+                e.target.value = "";  // allow re-selecting the same file
+              }}
+            />
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-foreground border border-border-soft bg-background rounded-md hover:bg-surface transition-colors"
+            >
+              <UploadSimple size={14} weight="bold" />
+              {t("exportImport.importButton")}
+            </button>
+            {/* Kebab inserted in Task 11 */}
             <button
               type="button"
               onClick={onAdd}

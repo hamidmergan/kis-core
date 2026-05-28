@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
 import Spinner from "@/components/ui/Spinner";
-import type { Feature, FeatureRoute, Provider, ProviderMeta } from "./_types";
+import type { Feature, FeatureRoute, ImportPreviewResult, Provider, ProviderMeta } from "./_types";
 import {
   createProvider,
   deleteProvider,
@@ -12,6 +12,7 @@ import {
   fetchMeta,
   fetchProviders,
   fetchRoutes,
+  importPreview,
   probeProvider,
   setFeatureRoute,
   updateProvider,
@@ -23,7 +24,14 @@ import FeatureRoutingCard from "./FeatureRoutingCard";
 type DialogState =
   | { open: false }
   | { open: true; mode: "create" }
-  | { open: true; mode: "edit"; provider: Provider };
+  | { open: true; mode: "edit"; provider: Provider }
+  | {
+      open: true;
+      mode: "import-preview";
+      filename: string;
+      config: unknown;
+      preview: ImportPreviewResult;
+    };
 
 export default function ProvidersTab() {
   const t = useTranslations("admin.providers");
@@ -208,6 +216,29 @@ export default function ProvidersTab() {
     }
   }, [t]);
 
+  const handleImportFile = useCallback(async (file: File) => {
+    try {
+      const text = await file.text();
+      let config: unknown;
+      try {
+        config = JSON.parse(text);
+      } catch {
+        window.alert(t("exportImport.errors.invalidJson"));
+        return;
+      }
+      const preview = await importPreview(config);
+      setDialog({
+        open: true,
+        mode: "import-preview",
+        filename: file.name,
+        config,
+        preview,
+      });
+    } catch (err) {
+      window.alert(t("exportImport.errors.importFailed", { message: (err as Error).message }));
+    }
+  }, [t]);
+
   if (loading || !meta) {
     return <Spinner className="flex justify-center py-12" />;
   }
@@ -223,6 +254,7 @@ export default function ProvidersTab() {
         onProbe={handleProbe}
         onDelete={handleDelete}
         onExport={handleExport}
+        onImport={handleImportFile}
       />
 
       {providers.length > 0 && (
@@ -237,7 +269,7 @@ export default function ProvidersTab() {
         />
       )}
 
-      {dialog.open && (
+      {dialog.open && (dialog.mode === "create" || dialog.mode === "edit") && (
         <ProviderFormDialog
           meta={meta}
           mode={dialog.mode}
