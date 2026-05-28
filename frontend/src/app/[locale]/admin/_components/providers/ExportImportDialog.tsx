@@ -151,7 +151,7 @@ function ExportTab({
   return (
     <>
       <div className="p-5 space-y-5">
-        <p className="text-[12px] text-amber-700 dark:text-amber-400 border-l-2 border-amber-500 pl-2">
+        <p className="text-[12px] text-amber-700 dark:text-amber-400">
           {t("exportHint")}
         </p>
 
