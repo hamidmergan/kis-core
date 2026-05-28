@@ -38,6 +38,7 @@ interface UseScreencastTranslateFlowOptions {
   sourceLang: string;
   targetLang: string;
   glossaryIds: string[];
+  translationProviderId: number | null;
   mergeToApiJson: (ids: string[]) => string | null;
 
   // Callbacks from other hooks
@@ -64,6 +65,7 @@ export function useScreencastTranslateFlow(opts: UseScreencastTranslateFlowOptio
     sourceLang,
     targetLang,
     glossaryIds,
+    translationProviderId,
     mergeToApiJson,
     checkBeforeSubmit,
     checkJobStillValid,
@@ -131,6 +133,7 @@ export function useScreencastTranslateFlow(opts: UseScreencastTranslateFlowOptio
       formData.append("file", file);
       const glossaryJson = mergeToApiJson(glossaryIds);
       if (glossaryJson) formData.append("glossary_json", glossaryJson);
+      if (translationProviderId != null) formData.append("provider_id", String(translationProviderId));
       formData.append("source_lang", sourceLang);
       formData.append("target_lang", targetLang);
 
@@ -169,7 +172,7 @@ export function useScreencastTranslateFlow(opts: UseScreencastTranslateFlowOptio
       goError(err instanceof Error ? err.message : "Unbekannter Fehler");
     }
   }, [
-    file, sourceLang, targetLang, glossaryIds, mergeToApiJson,
+    file, sourceLang, targetLang, glossaryIds, translationProviderId, mergeToApiJson,
     checkBeforeSubmit, goError,
     newSignal, dispatch, currentJobUuidRef,
   ]);
