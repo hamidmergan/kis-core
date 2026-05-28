@@ -254,20 +254,19 @@ def run_generate_doc_summary(self, source_uuid: str):
 
 
 @celery_app.task(bind=True, name="aia.translate_transcript_en", queue="aia")
-def run_translate_transcript_en(self, source_uuid: str, provider: str = "deepl"):
+def run_translate_transcript_en(self, source_uuid: str, provider_id: int | None = None):
     """Translate a media source's source-language VTT to English.
 
     Runs as a follow-up to indexing so chat is available before translation completes.
-    ``provider`` is ``"deepl"`` (fast, quota-limited) or ``"llm"`` (via KISSKI chat,
-    used as manual fallback when DeepL's free-tier quota is exhausted).
+    ``provider_id`` is resolved from the ``transcript_translate`` feature route.
     """
     try:
-        return _run_translate_transcript_en_inner(source_uuid, provider)
+        return _run_translate_transcript_en_inner(source_uuid, provider_id)
     except Exception as e:
         msg = str(e).lower()
         is_rate_limit = "429" in msg or "rate limit" in msg
         if is_rate_limit and self.request.retries < 5:
-            countdown = 60 * (2 ** self.request.retries)  # 1m, 2m, 4m, 8m, 16m
+            countdown = 60 * (2 ** self.request.retries)
             logger.warning(
                 "KI Tutor EN-translate: source {} hit rate limit (attempt {}/{}), retrying in {}s",
                 source_uuid, self.request.retries + 1, 5, countdown,
@@ -277,9 +276,10 @@ def run_translate_transcript_en(self, source_uuid: str, provider: str = "deepl")
         raise
 
 
-def _run_translate_transcript_en_inner(source_uuid: str, provider: str) -> None:
+def _run_translate_transcript_en_inner(source_uuid: str, provider_id: int | None) -> None:
     from src.services.subtitle_converter import vtt_to_segments, segments_to_vtt
     from src.storage import file_exists, get_file
+    from src.dependencies import get_translate_client_for_provider
 
     source = db.get_aia_source(source_uuid)
     if source is None:
@@ -319,45 +319,33 @@ def _run_translate_transcript_en_inner(source_uuid: str, provider: str) -> None:
     lang_name_map = {"de": "German"}
     source_lang_name = lang_name_map.get(source_lang, source_lang)
 
-    if provider == "llm":
-        from src.services.llm_translation_client import LLMTranslationClient
-        from src.dependencies import _resolve_translation_llm_provider
-        api_key, base_url, model, prov = _resolve_translation_llm_provider()
-        if not api_key:
-            raise RuntimeError("Kein LLM-Provider konfiguriert")
-        client = LLMTranslationClient(
-            api_key=api_key, base_url=base_url, model=model, provider=prov,
+    client, _glossary = get_translate_client_for_provider(provider_id)
+    if client is None:
+        raise RuntimeError(
+            "transcript_translate: no translation provider configured — set one in the admin KI panel"
         )
-        # Chunk to keep each batch below the client's 4096 output-token cap -
-        # larger batches truncate and trigger slow one-by-one fallback.
-        _LLM_CHUNK = 30
-        translated: list[str] = []
-        for start in range(0, len(texts), _LLM_CHUNK):
-            chunk = texts[start:start + _LLM_CHUNK]
-            translated.extend(client.translate_batch(
-                chunk, source_lang=source_lang_name, target_lang="English",
-            ))
-            logger.info(
-                "KI Tutor EN-translate: LLM progress {}/{} segments",
-                min(start + _LLM_CHUNK, len(texts)), len(texts),
-            )
-    else:  # deepl
-        from src.dependencies import get_deepl_client
-        deepl_client = get_deepl_client()
-        if deepl_client is None:
-            raise RuntimeError("DeepL ist nicht konfiguriert")
-        translated = deepl_client.translate_batch(
+
+    # DeepLClient expects ISO codes ("DE", "EN-US"); LLMTranslationClient uses
+    # human-readable names embedded in the prompt ("German", "English").
+    from src.services.deepl_client import DeepLClient
+
+    if isinstance(client, DeepLClient):
+        translated: list[str] = client.translate_batch(
             texts, source_lang=source_lang.upper(), target_lang="EN-US",
+        )
+    else:
+        translated = client.translate_batch(
+            texts, source_lang=source_lang_name, target_lang="English",
         )
 
     en_segments = [
-        {"start": s["start"], "end": s["end"], "text": t}
-        for s, t in zip(segments, translated)
+        {"start": s["start"], "end": s["end"], "text": t_text}
+        for s, t_text in zip(segments, translated)
     ]
     _save_transcript_artifact(en_key, segments_to_vtt(en_segments))
     logger.info(
-        "KI Tutor EN-translate: saved {} ({} segments via {})",
-        en_key, len(en_segments), provider,
+        "KI Tutor EN-translate: saved {} ({} segments via provider_id={})",
+        en_key, len(en_segments), provider_id,
     )
 
 
