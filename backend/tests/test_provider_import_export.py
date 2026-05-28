@@ -81,8 +81,36 @@ def test_export_wraps_api_key_when_export_key_set(monkeypatch):
     assert result["api_keys_encrypted"] is True
     p = result["providers"][0]
     env = p["api_key"]
-    assert env["alg"] == "aesgcm-v1"
-    assert try_unwrap_api_key(env) == "sk-secret"
+    assert env["alg"] == "aesgcm-v2"
+    assert try_unwrap_api_key(env, provider_name="KISSKI") == "sk-secret"
+
+
+def test_export_envelope_rejects_provider_name_swap(monkeypatch):
+    """v2 envelopes are bound to the provider name via AAD: unwrapping the
+    same ciphertext under a different name must fail."""
+    from src.services.export_crypto import (
+        try_unwrap_api_key, wrap_api_key,
+    )
+
+    monkeypatch.setenv("KIS_EXPORT_KEY", "test-secret-xyz")
+    env = wrap_api_key("sk-secret", provider_name="KISSKI")
+    assert try_unwrap_api_key(env, provider_name="KISSKI") == "sk-secret"
+    assert try_unwrap_api_key(env, provider_name="Evil") is None
+
+
+def test_export_v1_envelope_still_decryptable(monkeypatch):
+    """Legacy v1 envelopes (no AAD) must still round-trip on import for
+    backups produced before the v2 hardening."""
+    import os
+    from cryptography.hazmat.primitives.ciphers.aead import AESGCM
+    from src.services.export_crypto import _derive_key, _b64e, try_unwrap_api_key
+
+    monkeypatch.setenv("KIS_EXPORT_KEY", "test-secret-xyz")
+    key = _derive_key("test-secret-xyz")
+    nonce = os.urandom(12)
+    ct = AESGCM(key).encrypt(nonce, b"sk-legacy", None)
+    legacy_env = {"alg": "aesgcm-v1", "nonce": _b64e(nonce), "ct": _b64e(ct)}
+    assert try_unwrap_api_key(legacy_env, provider_name="Whatever") == "sk-legacy"
 
 
 def test_export_skips_envelope_for_providers_without_key(monkeypatch):
@@ -399,7 +427,7 @@ def test_import_decrypts_envelope_and_sets_key_on_create(monkeypatch):
                         lambda pid, **kw: None)
 
     provider = _exported_provider("KISSKI")
-    provider["api_key"] = wrap_api_key("sk-real")
+    provider["api_key"] = wrap_api_key("sk-real", provider_name="KISSKI")
     cfg = _valid_config(providers=[provider])
     perform_import(cfg)
 
@@ -413,7 +441,7 @@ def test_import_ignores_envelope_with_wrong_secret(monkeypatch):
     from src.services.export_crypto import wrap_api_key
 
     monkeypatch.setenv("KIS_EXPORT_KEY", "secret-A")
-    envelope = wrap_api_key("sk-real")
+    envelope = wrap_api_key("sk-real", provider_name="KISSKI")
     monkeypatch.setenv("KIS_EXPORT_KEY", "secret-B")
 
     monkeypatch.setattr("src.routes.admin.providers.db.list_providers",
@@ -456,7 +484,7 @@ def test_import_does_not_overwrite_existing_key_with_envelope(monkeypatch):
                         lambda pid, **kw: None)
 
     provider = _exported_provider("KISSKI")
-    provider["api_key"] = wrap_api_key("sk-from-backup")
+    provider["api_key"] = wrap_api_key("sk-from-backup", provider_name="KISSKI")
     perform_import(_valid_config(providers=[provider]))
 
     assert "api_key" not in update_mock.call_args.kwargs
@@ -482,7 +510,7 @@ def test_import_restores_key_into_empty_existing_row(monkeypatch):
                         lambda pid, **kw: None)
 
     provider = _exported_provider("KISSKI")
-    provider["api_key"] = wrap_api_key("sk-from-backup")
+    provider["api_key"] = wrap_api_key("sk-from-backup", provider_name="KISSKI")
     perform_import(_valid_config(providers=[provider]))
 
     assert update_mock.call_args.kwargs["api_key"] == "sk-from-backup"

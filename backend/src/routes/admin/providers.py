@@ -454,7 +454,7 @@ def build_export(*, exported_from: str | None) -> dict:
         }
         raw_key = p.get("api_key")
         if encrypt_keys and raw_key:
-            entry["api_key"] = wrap_api_key(raw_key)
+            entry["api_key"] = wrap_api_key(raw_key, provider_name=p["name"])
         exported_providers.append(entry)
 
     exported_routes: list[dict] = []
@@ -569,7 +569,8 @@ def build_import_preview(cfg: dict) -> dict:
         envelope = p.get("api_key")
         encrypted_key_present = is_envelope(envelope)
         encrypted_key_recoverable = (
-            encrypted_key_present and try_unwrap_api_key(envelope) is not None
+            encrypted_key_present
+            and try_unwrap_api_key(envelope, provider_name=p["name"]) is not None
         )
         provider_diffs.append({
             "name": p["name"],
@@ -641,7 +642,9 @@ def perform_import(cfg: dict) -> dict:
         voices = list(p.get("voices") or [])
         envelope = p.get("api_key")
         recovered_key = (
-            try_unwrap_api_key(envelope) if is_envelope(envelope) else None
+            try_unwrap_api_key(envelope, provider_name=p["name"])
+            if is_envelope(envelope)
+            else None
         )
         if existing is None:
             row = db.create_provider(
