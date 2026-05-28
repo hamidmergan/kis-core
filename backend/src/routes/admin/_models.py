@@ -82,3 +82,34 @@ class SetFeatureRouteRequest(BaseModel):
     model_name: str | None = None
     user_choices: list[int] | None = None  # multi-pill provider ids
     provider_models: dict[str, str] | None = None  # per-provider model overrides
+
+
+# ─── Export/Import schema ──────────────────────────────────────────────────
+
+class ExportedProvider(BaseModel):
+    name: str
+    protocol: str
+    base_url: str
+    capabilities: list[str] = []
+    voices: list[VoiceEntry] = []
+    enabled: bool = True
+
+
+class ExportedFeatureRoute(BaseModel):
+    feature: str
+    provider_name: str | None = None
+    model_name: str | None = None
+    user_choices: list[str] = []
+    provider_models: dict[str, str] = {}
+
+
+class ExportedConfig(BaseModel):
+    schema_version: int
+    exported_at: str
+    exported_from: str | None = None
+    providers: list[ExportedProvider] = []
+    feature_routes: list[ExportedFeatureRoute] = []
+
+
+class ImportConfigRequest(BaseModel):
+    config: ExportedConfig
