@@ -3,12 +3,11 @@
 import { useCallback, useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
 import Spinner from "@/components/ui/Spinner";
-import type { Feature, FeatureRoute, ImportPreviewResult, Provider, ProviderMeta } from "./_types";
+import type { Feature, FeatureRoute, Provider, ProviderMeta } from "./_types";
 import {
   clearAllProviders,
   createProvider,
   deleteProvider,
-  exportConfig,
   fetchAffectedFeatures,
   fetchMeta,
   fetchProviders,
@@ -22,7 +21,7 @@ import {
 import ProviderListCard from "./ProviderListCard";
 import ProviderFormDialog from "./ProviderFormDialog";
 import FeatureRoutingCard from "./FeatureRoutingCard";
-import ImportPreviewDialog from "./ImportPreviewDialog";
+import ExportImportDialog from "./ExportImportDialog";
 import ClearAllConfirmDialog from "./ClearAllConfirmDialog";
 import DeleteProviderConfirmDialog from "./DeleteProviderConfirmDialog";
 
@@ -30,13 +29,7 @@ type DialogState =
   | { open: false }
   | { open: true; mode: "create" }
   | { open: true; mode: "edit"; provider: Provider }
-  | {
-      open: true;
-      mode: "import-preview";
-      filename: string;
-      config: unknown;
-      preview: ImportPreviewResult;
-    };
+  | { open: true; mode: "export-import"; initialTab: "export" | "import" };
 
 export default function ProvidersTab() {
   const t = useTranslations("admin.providers");
@@ -206,56 +199,28 @@ export default function ProvidersTab() {
     [routes, refreshAll],
   );
 
-  const handleExport = useCallback(async () => {
-    try {
-      const { blob, filename } = await exportConfig();
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = filename;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
-    } catch (err) {
-      window.alert((err as Error).message);
-    }
+  const handleExportDownload = useCallback((config: unknown, filename: string) => {
+    const blob = new Blob([JSON.stringify(config, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    setDialog({ open: false });
   }, []);
 
-  const handleImportFile = useCallback(async (file: File) => {
-    try {
-      const text = await file.text();
-      let config: unknown;
-      try {
-        config = JSON.parse(text);
-      } catch {
-        window.alert(t("exportImport.errors.invalidJson"));
-        return;
-      }
-      const preview = await importPreview(config);
-      setDialog({
-        open: true,
-        mode: "import-preview",
-        filename: file.name,
-        config,
-        preview,
-      });
-    } catch (err) {
-      window.alert(t("exportImport.errors.importFailed", { message: (err as Error).message }));
-    }
-  }, [t]);
-
-  const handleImportConfirm = useCallback(async () => {
-    if (!dialog.open || dialog.mode !== "import-preview") return;
-    const result = await importConfig(dialog.config);
+  const handleImportConfirm = useCallback(async (config: unknown) => {
+    await importConfig(config);
     setDialog({ open: false });
     await refreshAll();
-    window.alert(
-      t("exportImport.importSuccessToast", {
-        count: result.providers_needing_key.length,
-      }),
-    );
-  }, [dialog, refreshAll, t]);
+  }, [refreshAll]);
+
+  const handleOpenExportImport = useCallback((initialTab: "export" | "import") => {
+    setDialog({ open: true, mode: "export-import", initialTab });
+  }, []);
 
   const handleClearAllRequest = useCallback(() => {
     setClearAllOpen(true);
@@ -286,8 +251,7 @@ export default function ProvidersTab() {
         onEdit={(p) => setDialog({ open: true, mode: "edit", provider: p })}
         onProbe={handleProbe}
         onDelete={handleDelete}
-        onExport={handleExport}
-        onImport={handleImportFile}
+        onOpenExportImport={handleOpenExportImport}
         onClearAll={handleClearAllRequest}
       />
 
@@ -313,14 +277,14 @@ export default function ProvidersTab() {
         />
       )}
 
-      {dialog.open && dialog.mode === "import-preview" && (
-        <ImportPreviewDialog
-          filename={dialog.filename}
-          exportedAt={(dialog.config as { exported_at?: string }).exported_at}
-          exportedFrom={(dialog.config as { exported_from?: string }).exported_from ?? undefined}
-          preview={dialog.preview}
-          onCancel={() => setDialog({ open: false })}
-          onConfirm={handleImportConfirm}
+      {dialog.open && dialog.mode === "export-import" && (
+        <ExportImportDialog
+          providers={providers}
+          initialTab={dialog.initialTab}
+          onClose={() => setDialog({ open: false })}
+          onExportDownload={handleExportDownload}
+          onImportPreview={importPreview}
+          onImportConfirm={handleImportConfirm}
         />
       )}
 
