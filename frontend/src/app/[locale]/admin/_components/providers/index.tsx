@@ -5,6 +5,7 @@ import { useTranslations } from "next-intl";
 import Spinner from "@/components/ui/Spinner";
 import type { Feature, FeatureRoute, ImportPreviewResult, Provider, ProviderMeta } from "./_types";
 import {
+  clearAllProviders,
   createProvider,
   deleteProvider,
   exportConfig,
@@ -22,6 +23,7 @@ import ProviderListCard from "./ProviderListCard";
 import ProviderFormDialog from "./ProviderFormDialog";
 import FeatureRoutingCard from "./FeatureRoutingCard";
 import ImportPreviewDialog from "./ImportPreviewDialog";
+import ClearAllConfirmDialog from "./ClearAllConfirmDialog";
 
 type DialogState =
   | { open: false }
@@ -42,6 +44,7 @@ export default function ProvidersTab() {
   const [routes, setRoutes] = useState<FeatureRoute[]>([]);
   const [loading, setLoading] = useState(true);
   const [dialog, setDialog] = useState<DialogState>({ open: false });
+  const [clearAllOpen, setClearAllOpen] = useState(false);
 
   const refreshAll = useCallback(async () => {
     const [m, p, r] = await Promise.all([fetchMeta(), fetchProviders(), fetchRoutes()]);
@@ -253,6 +256,17 @@ export default function ProvidersTab() {
     );
   }, [dialog, refreshAll, t]);
 
+  const handleClearAllRequest = useCallback(() => {
+    setClearAllOpen(true);
+  }, []);
+
+  const handleClearAllConfirm = useCallback(async () => {
+    await clearAllProviders();
+    setClearAllOpen(false);
+    await refreshAll();
+    window.alert(t("clearAll.successToast"));
+  }, [refreshAll, t]);
+
   if (loading || !meta) {
     return <Spinner className="flex justify-center py-12" />;
   }
@@ -269,6 +283,7 @@ export default function ProvidersTab() {
         onDelete={handleDelete}
         onExport={handleExport}
         onImport={handleImportFile}
+        onClearAll={handleClearAllRequest}
       />
 
       {providers.length > 0 && (
@@ -301,6 +316,15 @@ export default function ProvidersTab() {
           preview={dialog.preview}
           onCancel={() => setDialog({ open: false })}
           onConfirm={handleImportConfirm}
+        />
+      )}
+
+      {clearAllOpen && (
+        <ClearAllConfirmDialog
+          providerCount={providers.length}
+          routeCount={routes.length}
+          onCancel={() => setClearAllOpen(false)}
+          onConfirm={handleClearAllConfirm}
         />
       )}
     </div>
