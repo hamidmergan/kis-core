@@ -958,7 +958,7 @@
       "exportImport": {
         "exportButton": "Export",
         "importButton": "Import",
-        "exportToast": "Configuration downloaded. Important: the file contains NO API keys — these must be set manually on the target system.",
+        "exportHint": "The exported file contains NO API keys — these must be set manually on the target system.",
         "preview": {
           "title": "Import configuration",
           "source": "Source: {filename}",

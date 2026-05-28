@@ -217,11 +217,10 @@ export default function ProvidersTab() {
       a.click();
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
-      window.alert(t("exportImport.exportToast"));
     } catch (err) {
       window.alert((err as Error).message);
     }
-  }, [t]);
+  }, []);
 
   const handleImportFile = useCallback(async (file: File) => {
     try {

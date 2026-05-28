@@ -3,6 +3,7 @@
 import { useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import { ArrowsClockwise, Cube, DotsThreeVertical, DownloadSimple, NotePencil, Plus, Trash, UploadSimple } from "@phosphor-icons/react";
+import HelpTooltip from "@/components/ui/HelpTooltip";
 import type { Provider } from "./_types";
 
 const _PROBE_ERROR_CODES = new Set([
@@ -51,14 +52,17 @@ export default function ProviderListCard({
         </div>
         {providers.length > 0 && (
           <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={onExport}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-foreground border border-border-soft bg-background rounded-md hover:bg-surface transition-colors"
-            >
-              <DownloadSimple size={14} weight="bold" />
-              {t("exportImport.exportButton")}
-            </button>
+            <span className="inline-flex items-center gap-1">
+              <button
+                type="button"
+                onClick={onExport}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-foreground border border-border-soft bg-background rounded-md hover:bg-surface transition-colors"
+              >
+                <DownloadSimple size={14} weight="bold" />
+                {t("exportImport.exportButton")}
+              </button>
+              <HelpTooltip text={t("exportImport.exportHint")} />
+            </span>
             <input
               ref={fileInputRef}
               type="file"
