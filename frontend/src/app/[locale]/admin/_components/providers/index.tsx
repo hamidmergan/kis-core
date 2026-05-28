@@ -202,11 +202,19 @@ export default function ProvidersTab() {
   );
 
   const handleExportDownload = useCallback((config: unknown, filename: string) => {
+    const now = new Date();
+    const time = [now.getHours(), now.getMinutes(), now.getSeconds()]
+      .map((n) => String(n).padStart(2, "0"))
+      .join("");
+    const dot = filename.lastIndexOf(".");
+    const stamped = dot >= 0
+      ? `${filename.slice(0, dot)}-${time}${filename.slice(dot)}`
+      : `${filename}-${time}`;
     const blob = new Blob([JSON.stringify(config, null, 2)], { type: "application/json" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = filename;
+    a.download = stamped;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
