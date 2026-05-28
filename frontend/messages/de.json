@@ -463,7 +463,8 @@
         "onlyPptx": "Nur .pptx-Datei",
         "skipTranslation": "Präsentation bereits übersetzt (Übersetzung überspringen)",
         "sourceLang": "Quellsprache",
-        "targetLang": "Zielsprache"
+        "targetLang": "Zielsprache",
+        "translationProvider": "Übersetzungsanbieter"
       },
       "translating": {
         "preparing": "Präsentation wird vorbereitet...",
@@ -820,7 +821,14 @@
         "delete": "Löschen",
         "statusActive": "erreichbar",
         "statusError": "Fehler",
-        "statusUnprobed": "noch nicht geprüft"
+        "statusUnprobed": "noch nicht geprüft",
+        "statusChecking": "wird geprüft…"
+      },
+      "probeErrors": {
+        "unreachable": "Nicht erreichbar — URL und Netzwerkverbindung prüfen",
+        "auth_rejected": "Authentifizierung abgelehnt — API-Schlüssel prüfen",
+        "server_error": "Der Anbieter hat einen Server-Fehler zurückgegeben",
+        "endpoint_not_found": "Endpunkt nicht gefunden — Base-URL prüfen"
       },
       "routes": {
         "title": "Funktionen",
@@ -830,8 +838,17 @@
         "userChoiceLabel": "Nutzer kann wählen:",
         "noEligible": "Kein Anbieter unterstützt diese Funktion.",
         "test": "Auswahl testen",
-        "testOk": "Test erfolgreich",
+        "testOk": "Erreichbar",
         "testNoProvider": "Kein Anbieter ausgewählt.",
+        "testErrors": {
+          "model_name_not_set": "Kein Modellname eingetragen",
+          "tts_speech_endpoint_not_found": "Nicht erreichbar",
+          "endpoint_not_found": "Nicht erreichbar",
+          "auth_rejected": "Nicht erreichbar",
+          "server_error": "Nicht erreichbar",
+          "unreachable": "Nicht erreichbar",
+          "invalid_model": "Nicht erreichbar"
+        },
         "modelForPrimary": "Modell für {name}:",
         "modelOptional": "(optional)"
       },
@@ -880,7 +897,9 @@
         "colLang": "Sprache",
         "colDesc": "Beschreibung",
         "languageRequired": "Alle Stimmen müssen eine Sprache haben (z. B. de, en).",
-        "remove": "Stimme entfernen"
+        "remove": "Stimme entfernen",
+        "play": "Stimme abspielen",
+        "stop": "Wiedergabe stoppen"
       },
       "validation": {
         "required": "Name und Base-URL sind Pflicht."

@@ -463,7 +463,8 @@
         "onlyPptx": "Only .pptx file",
         "skipTranslation": "Presentation already translated (skip translation)",
         "sourceLang": "Source language",
-        "targetLang": "Target language"
+        "targetLang": "Target language",
+        "translationProvider": "Translation provider"
       },
       "translating": {
         "preparing": "Preparing presentation...",
@@ -820,7 +821,14 @@
         "delete": "Delete",
         "statusActive": "reachable",
         "statusError": "error",
-        "statusUnprobed": "not checked yet"
+        "statusUnprobed": "not checked yet",
+        "statusChecking": "checking…"
+      },
+      "probeErrors": {
+        "unreachable": "Not reachable — check the URL and network connection",
+        "auth_rejected": "Authentication rejected — check the API key",
+        "server_error": "The provider returned a server error",
+        "endpoint_not_found": "Endpoint not found — check the base URL"
       },
       "routes": {
         "title": "Features",
@@ -830,8 +838,17 @@
         "userChoiceLabel": "User may choose:",
         "noEligible": "No provider supports this feature.",
         "test": "Test selection",
-        "testOk": "Test succeeded",
+        "testOk": "Reachable",
         "testNoProvider": "No provider selected.",
+        "testErrors": {
+          "model_name_not_set": "No model name entered",
+          "tts_speech_endpoint_not_found": "Not reachable",
+          "endpoint_not_found": "Not reachable",
+          "auth_rejected": "Not reachable",
+          "server_error": "Not reachable",
+          "unreachable": "Not reachable",
+          "invalid_model": "Not reachable"
+        },
         "modelForPrimary": "Model for {name}:",
         "modelOptional": "(optional)"
       },
@@ -880,7 +897,9 @@
         "colLang": "Language",
         "colDesc": "Description",
         "languageRequired": "All voices must have a language set (e.g. de, en).",
-        "remove": "Remove voice"
+        "remove": "Remove voice",
+        "play": "Play voice",
+        "stop": "Stop playback"
       },
       "validation": {
         "required": "Name and base URL are required."
