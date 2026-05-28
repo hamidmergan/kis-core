@@ -52,7 +52,10 @@ async def tts_provider_preview(
     from fastapi.responses import Response as FastAPIResponse
     from src.dependencies import get_tts_client_for_provider, _voice_language_for
 
-    client = get_tts_client_for_provider(provider_id)
+    try:
+        client = get_tts_client_for_provider(provider_id)
+    except RuntimeError:
+        raise HTTPException(status_code=503, detail=t("tts.providerUnavailable", locale))
     if client is None:
         raise HTTPException(status_code=503, detail=t("tts.providerUnavailable", locale))
     if not client.is_available():
@@ -157,7 +160,10 @@ async def text_to_speech(
 
     # Validate provider
     from src.dependencies import get_tts_client_for_provider
-    client = get_tts_client_for_provider(provider_id)
+    try:
+        client = get_tts_client_for_provider(provider_id)
+    except RuntimeError:
+        raise HTTPException(status_code=400, detail=t("tts.providerNotFound", locale))
     if client is None:
         raise HTTPException(status_code=400, detail=t("tts.providerNotFound", locale))
     if not client.is_available():
