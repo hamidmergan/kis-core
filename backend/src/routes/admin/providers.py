@@ -10,7 +10,7 @@ Two resources:
 
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from loguru import logger
 
 from src import database as db
@@ -286,6 +286,7 @@ async def list_feature_routes(_admin=Depends(get_admin_user)):
 @router.post("/feature-routes/{feature}/test")
 async def test_route(
     feature: str,
+    provider_id: int | None = Query(None),
     _admin=Depends(get_admin_user),
     locale: str = Depends(get_locale),
 ):
@@ -295,22 +296,36 @@ async def test_route(
     issues a minimal real request to the feature-specific endpoint with the
     configured model so the admin can confirm "TTS @ KISSKI" actually works,
     not just "the provider responds at /v1/models".
+
+    Pass provider_id to test a specific provider using its per-provider model
+    (provider_models[provider_id]) rather than the global model_name.
     """
     if feature not in FEATURES:
         raise HTTPException(400, t("admin.providers.unknownFeature", locale, feature=feature))
     routes = db.list_routes()
     row = next((r for r in routes if r["feature"] == feature), None)
-    if row is None or row.get("provider_id") is None:
+    if row is None:
         raise HTTPException(400, t("admin.providers.testNoProvider", locale))
-    provider = db.get_provider(row["provider_id"])
-    if provider is None:
-        raise HTTPException(400, t("admin.providers.notFound", locale))
+    provider_models = row.get("provider_models") or {}
+    if provider_id is not None:
+        provider = db.get_provider(provider_id)
+        if provider is None:
+            raise HTTPException(400, t("admin.providers.notFound", locale))
+        model_name = provider_models.get(str(provider_id)) or row.get("model_name")
+    else:
+        if row.get("provider_id") is None:
+            raise HTTPException(400, t("admin.providers.testNoProvider", locale))
+        provider = db.get_provider(row["provider_id"])
+        if provider is None:
+            raise HTTPException(400, t("admin.providers.notFound", locale))
+        model_name = provider_models.get(str(row["provider_id"])) or row.get("model_name")
     result = test_feature_route(
         feature=feature,
         protocol=provider["protocol"],
         base_url=provider["base_url"],
         api_key=provider.get("api_key"),
-        model_name=row.get("model_name"),
+        model_name=model_name,
+        voices=provider.get("voices") or [],
     )
     return {"status": result.status, "error": result.error}
 
@@ -346,6 +361,7 @@ async def set_feature_route(
         provider_id=body.provider_id,
         model_name=(body.model_name or None),
         user_choices=body.user_choices,
+        provider_models=body.provider_models,
     )
 
     # Changing the embedding route makes any persisted fingerprint stale —
