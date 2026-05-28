@@ -113,10 +113,15 @@ export default function ProvidersTab() {
   const onChangeProvider = useCallback(
     async (feature: Feature, providerId: number | null) => {
       const existing = routes.find((r) => r.feature === feature);
+      const carriedModel =
+        providerId != null
+          ? existing?.provider_models?.[String(providerId)] ?? null
+          : null;
       await setFeatureRoute(feature, {
         provider_id: providerId,
-        model_name: providerId ? existing?.model_name ?? null : null,
+        model_name: carriedModel,
         user_choices: existing?.user_choices ?? null,
+        provider_models: existing?.provider_models,
       });
       await refreshAll();
     },
