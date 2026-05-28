@@ -37,6 +37,7 @@ const FEATURE_CAPABILITY: Record<Feature, Capability> = {
   image_edit: "image_edit",
   doc_translate: "translation",
   screencast_translate: "translation",
+  transcript_translate: "translation",
 };
 
 // For translation features the dropdown should also accept any chat-capable
@@ -44,6 +45,7 @@ const FEATURE_CAPABILITY: Record<Feature, Capability> = {
 const FEATURE_EXTRA_CAPABILITIES: Partial<Record<Feature, Capability[]>> = {
   doc_translate: ["chat"],
   screencast_translate: ["chat"],
+  transcript_translate: ["chat"],
 };
 
 // Display order in the routing table.
@@ -57,6 +59,7 @@ const FEATURE_ORDER: Feature[] = [
   "stt",
   "tts",
   "doc_translate",
+  "transcript_translate",
 ];
 
 export default function FeatureRoutingCard({

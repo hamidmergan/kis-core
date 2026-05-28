@@ -931,7 +931,8 @@
         "image_gen": "Bildgenerierung",
         "image_edit": "Bild-Edit",
         "doc_translate": "Dokumenten-Übersetzung",
-        "screencast_translate": "Screencast-Übersetzung"
+        "screencast_translate": "Screencast-Übersetzung",
+        "transcript_translate": "Transkript-Übersetzung"
       },
       "featureDesc": {
         "chat": "Konversation, Zusammenfassungen, Werkzeug-Aufrufe",
@@ -943,7 +944,8 @@
         "image_gen": "Text-zu-Bild",
         "image_edit": "Bilder bearbeiten via Prompt",
         "doc_translate": "PDF / DOCX in Zielsprache. Nutzer wählt im Tool, welcher Anbieter verwendet wird.",
-        "screencast_translate": "Untertitel und Audio für Videos. Nutzer wählt im Tool, welcher Anbieter verwendet wird."
+        "screencast_translate": "Untertitel und Audio für Videos. Nutzer wählt im Tool, welcher Anbieter verwendet wird.",
+        "transcript_translate": "AIA-Arbeitsbereich: DE-Transkript auf EN übersetzen. Anbieter wird vom Admin konfiguriert."
       }
     },
     "settings": {
@@ -2011,7 +2013,8 @@
         "image_gen": "Bildgenerierung",
         "image_edit": "Bild-Edit",
         "doc_translate": "Dokumenten-Übersetzung",
-        "screencast_translate": "Screencast-Übersetzung"
+        "screencast_translate": "Screencast-Übersetzung",
+        "transcript_translate": "Transkript-Übersetzung"
       }
     }
   }

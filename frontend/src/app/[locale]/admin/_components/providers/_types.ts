@@ -19,7 +19,8 @@ export type Feature =
   | "image_gen"
   | "image_edit"
   | "doc_translate"
-  | "screencast_translate";
+  | "screencast_translate"
+  | "transcript_translate";
 
 export type Protocol = string;
 
@@ -59,5 +60,6 @@ export type FeatureRoute = {
   provider_id: number | null;
   model_name: string | null;
   user_choices: number[];
+  provider_models: Record<string, string>;
   updated_at: string;
 };

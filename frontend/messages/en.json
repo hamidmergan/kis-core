@@ -931,7 +931,8 @@
         "image_gen": "Image generation",
         "image_edit": "Image edit",
         "doc_translate": "Document translation",
-        "screencast_translate": "Screencast translation"
+        "screencast_translate": "Screencast translation",
+        "transcript_translate": "Transcript translation"
       },
       "featureDesc": {
         "chat": "Chat, summaries, tool calls",
@@ -943,7 +944,8 @@
         "image_gen": "Text-to-image",
         "image_edit": "Edit images via prompt",
         "doc_translate": "PDF / DOCX into target language. The user picks a provider inside the tool.",
-        "screencast_translate": "Subtitles and audio for videos. The user picks a provider inside the tool."
+        "screencast_translate": "Subtitles and audio for videos. The user picks a provider inside the tool.",
+        "transcript_translate": "AIA workspace: translate DE transcript to EN. Provider is admin-configured."
       }
     },
     "settings": {
@@ -2011,7 +2013,8 @@
         "image_gen": "Image generation",
         "image_edit": "Image edit",
         "doc_translate": "Document translation",
-        "screencast_translate": "Screencast translation"
+        "screencast_translate": "Screencast translation",
+        "transcript_translate": "Transcript translation"
       }
     }
   }
