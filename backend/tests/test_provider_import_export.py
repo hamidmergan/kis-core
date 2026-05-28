@@ -314,3 +314,226 @@ def test_validate_rejects_duplicate_provider_names():
     with pytest.raises(HTTPException) as exc:
         validate_import_config(cfg)
     assert exc.value.status_code == 400
+
+
+# ─── Import commit ─────────────────────────────────────────────────────────
+
+
+def test_import_creates_new_provider_without_api_key(monkeypatch):
+    from src.routes.admin.providers import perform_import
+
+    monkeypatch.setattr("src.routes.admin.providers.db.list_providers",
+                        lambda: [])
+    monkeypatch.setattr("src.routes.admin.providers.db.list_routes",
+                        lambda: [])
+    create_mock = MagicMock(return_value=_make_provider(10, "KISSKI"))
+    monkeypatch.setattr("src.routes.admin.providers.db.create_provider",
+                        create_mock)
+    monkeypatch.setattr("src.routes.admin.providers.probe_provider",
+                        lambda pid, **kw: None)
+
+    cfg = _valid_config(providers=[_exported_provider("KISSKI")])
+    result = perform_import(cfg)
+
+    create_mock.assert_called_once()
+    kwargs = create_mock.call_args.kwargs
+    assert kwargs["api_key"] is None  # never carries a key in
+    assert kwargs["name"] == "KISSKI"
+    assert result["providers_created"] == 1
+    assert result["providers_updated"] == 0
+
+
+def test_import_update_preserves_existing_api_key(monkeypatch):
+    from src.routes.admin.providers import perform_import
+
+    existing = _make_provider(1, "KISSKI", api_key="sk-existing")
+    monkeypatch.setattr("src.routes.admin.providers.db.list_providers",
+                        lambda: [existing])
+    monkeypatch.setattr("src.routes.admin.providers.db.list_routes",
+                        lambda: [])
+    update_mock = MagicMock(return_value=existing)
+    monkeypatch.setattr("src.routes.admin.providers.db.update_provider",
+                        update_mock)
+    monkeypatch.setattr("src.routes.admin.providers.probe_provider",
+                        lambda pid, **kw: None)
+
+    cfg = _valid_config(providers=[_exported_provider("KISSKI")])
+    perform_import(cfg)
+
+    update_mock.assert_called_once()
+    kwargs = update_mock.call_args.kwargs
+    assert "api_key" not in kwargs  # never touches the key on update
+
+
+def test_import_creates_route_resolving_provider_names(monkeypatch):
+    from src.routes.admin.providers import perform_import
+
+    created = _make_provider(42, "KISSKI")
+    list_calls = {"n": 0}
+
+    def fake_list_providers():
+        list_calls["n"] += 1
+        return [] if list_calls["n"] == 1 else [created]
+
+    monkeypatch.setattr("src.routes.admin.providers.db.list_providers",
+                        fake_list_providers)
+    monkeypatch.setattr("src.routes.admin.providers.db.list_routes",
+                        lambda: [])
+    monkeypatch.setattr("src.routes.admin.providers.db.create_provider",
+                        lambda **kw: created)
+    monkeypatch.setattr("src.routes.admin.providers.probe_provider",
+                        lambda pid, **kw: None)
+
+    set_route_mock = MagicMock()
+    monkeypatch.setattr("src.routes.admin.providers.db.set_route",
+                        set_route_mock)
+
+    cfg = _valid_config(
+        providers=[_exported_provider("KISSKI")],
+        routes=[_exported_route("chat", provider_name="KISSKI",
+                                model_name="mistral")],
+    )
+    result = perform_import(cfg)
+
+    set_route_mock.assert_called_once()
+    kwargs = set_route_mock.call_args.kwargs
+    assert kwargs["provider_id"] == 42
+    assert kwargs["model_name"] == "mistral"
+    assert result["routes_created"] + result["routes_updated"] == 1
+
+
+def test_import_skips_route_with_unresolved_provider(monkeypatch):
+    from src.routes.admin.providers import perform_import
+
+    monkeypatch.setattr("src.routes.admin.providers.db.list_providers",
+                        lambda: [])
+    monkeypatch.setattr("src.routes.admin.providers.db.list_routes",
+                        lambda: [])
+    set_route_mock = MagicMock()
+    monkeypatch.setattr("src.routes.admin.providers.db.set_route",
+                        set_route_mock)
+
+    cfg = _valid_config(
+        routes=[_exported_route("chat", provider_name="Missing")],
+    )
+    result = perform_import(cfg)
+
+    set_route_mock.assert_not_called()
+    assert result["routes_skipped"] == 1
+
+
+def test_import_filters_unresolved_user_choices(monkeypatch):
+    """A user_choices list with a mix of resolvable and unresolvable names
+    should keep only the resolvable ones and still set the route."""
+    from src.routes.admin.providers import perform_import
+
+    p = _make_provider(7, "KISSKI")
+    monkeypatch.setattr("src.routes.admin.providers.db.list_providers",
+                        lambda: [p])
+    monkeypatch.setattr("src.routes.admin.providers.db.list_routes",
+                        lambda: [])
+    monkeypatch.setattr("src.routes.admin.providers.probe_provider",
+                        lambda pid, **kw: None)
+    monkeypatch.setattr("src.routes.admin.providers.db.update_provider",
+                        lambda *a, **kw: p)
+
+    set_route_mock = MagicMock()
+    monkeypatch.setattr("src.routes.admin.providers.db.set_route",
+                        set_route_mock)
+
+    cfg = _valid_config(
+        providers=[_exported_provider("KISSKI")],
+        routes=[
+            _exported_route(
+                "tts",
+                provider_name="KISSKI",
+                user_choices=["KISSKI", "Ghost"],
+                provider_models={"KISSKI": "m1", "Ghost": "m2"},
+            ),
+        ],
+    )
+    perform_import(cfg)
+
+    kwargs = set_route_mock.call_args.kwargs
+    assert kwargs["user_choices"] == [7]
+    assert kwargs["provider_models"] == {"7": "m1"}
+
+
+def test_import_triggers_reprobe_for_each_provider(monkeypatch):
+    from src.routes.admin.providers import perform_import
+
+    monkeypatch.setattr("src.routes.admin.providers.db.list_providers",
+                        lambda: [])
+    monkeypatch.setattr("src.routes.admin.providers.db.list_routes",
+                        lambda: [])
+    monkeypatch.setattr(
+        "src.routes.admin.providers.db.create_provider",
+        lambda **kw: _make_provider(99, kw["name"]),
+    )
+    probe_mock = MagicMock()
+    monkeypatch.setattr("src.routes.admin.providers.probe_provider",
+                        probe_mock)
+
+    cfg = _valid_config(providers=[
+        _exported_provider("A"), _exported_provider("B"),
+    ])
+    perform_import(cfg)
+
+    assert probe_mock.call_count == 2
+
+
+def test_import_invalidates_fingerprint_cache_when_embedding_route_set(monkeypatch):
+    from src.routes.admin.providers import perform_import
+
+    p = _make_provider(5, "EmbedProvider")
+    monkeypatch.setattr("src.routes.admin.providers.db.list_providers",
+                        lambda: [p])
+    monkeypatch.setattr("src.routes.admin.providers.db.list_routes",
+                        lambda: [])
+    monkeypatch.setattr("src.routes.admin.providers.db.set_route",
+                        lambda *a, **kw: None)
+    monkeypatch.setattr("src.routes.admin.providers.probe_provider",
+                        lambda pid, **kw: None)
+    monkeypatch.setattr("src.routes.admin.providers.db.update_provider",
+                        lambda *a, **kw: p)
+
+    invalidate_mock = MagicMock()
+    monkeypatch.setattr(
+        "src.routes.admin._embedding.invalidate_fingerprint_cache",
+        invalidate_mock,
+    )
+
+    cfg = _valid_config(
+        providers=[_exported_provider("EmbedProvider")],
+        routes=[_exported_route("embedding", provider_name="EmbedProvider", model_name="emb")],
+    )
+    perform_import(cfg)
+
+    invalidate_mock.assert_called_once()
+
+
+def test_import_response_lists_providers_needing_key(monkeypatch):
+    from src.routes.admin.providers import perform_import
+
+    monkeypatch.setattr("src.routes.admin.providers.db.list_providers",
+                        lambda: [])
+    monkeypatch.setattr("src.routes.admin.providers.db.list_routes",
+                        lambda: [])
+    monkeypatch.setattr(
+        "src.routes.admin.providers.db.create_provider",
+        lambda **kw: _make_provider(1, kw["name"], protocol=kw["protocol"],
+                                    base_url=kw["base_url"]),
+    )
+    monkeypatch.setattr("src.routes.admin.providers.probe_provider",
+                        lambda pid, **kw: None)
+
+    cfg = _valid_config(providers=[
+        _exported_provider("KISSKI",
+                           base_url="https://chat-ai.example.de"),
+        _exported_provider("Kokoro",
+                           base_url="http://localhost:8880/v1"),
+    ])
+    result = perform_import(cfg)
+
+    assert "KISSKI" in result["providers_needing_key"]
+    assert "Kokoro" not in result["providers_needing_key"]

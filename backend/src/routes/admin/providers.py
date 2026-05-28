@@ -597,3 +597,101 @@ async def import_preview(
 ):
     return build_import_preview(body.config.model_dump())
 
+
+def perform_import(cfg: dict) -> dict:
+    """Apply an import payload to the DB. Merge mode: never wipes
+    existing rows, never touches existing api_keys."""
+    validate_import_config(cfg)
+
+    # ── Provider merge ──
+    existing_by_name = {p["name"]: p for p in db.list_providers()}
+    providers_created = 0
+    providers_updated = 0
+    providers_needing_key: list[str] = []
+
+    for p in cfg.get("providers", []):
+        existing = existing_by_name.get(p["name"])
+        capabilities = [c for c in p.get("capabilities", []) if c in CAPABILITIES]
+        voices = list(p.get("voices") or [])
+        if existing is None:
+            row = db.create_provider(
+                name=p["name"], protocol=p["protocol"],
+                base_url=p["base_url"], api_key=None,
+                capabilities=capabilities, voices=voices,
+                enabled=bool(p.get("enabled", True)),
+            )
+            providers_created += 1
+        else:
+            row = db.update_provider(
+                existing["id"],
+                protocol=p["protocol"], base_url=p["base_url"],
+                capabilities=capabilities, voices=voices,
+                enabled=bool(p.get("enabled", True)),
+            )
+            providers_updated += 1
+        # Re-probe so probe_status reflects current reachability.
+        probe_provider(row["id"])
+        # row already carries api_key via the RETURNING clause; for create
+        # we passed None, for update we never touch the field.
+        if _needs_api_key(p["protocol"], p["base_url"]) and not row.get("api_key"):
+            providers_needing_key.append(p["name"])
+
+    # ── Route merge ──
+    # Refresh provider name → id map after the create/update pass.
+    name_to_id = {p["name"]: p["id"] for p in db.list_providers()}
+    existing_routes = {r["feature"]: r for r in db.list_routes()}
+    routes_created = 0
+    routes_updated = 0
+    routes_skipped = 0
+    embedding_changed = False
+
+    for r in cfg.get("feature_routes", []):
+        pname = r.get("provider_name")
+        if pname is None or pname not in name_to_id:
+            routes_skipped += 1
+            continue
+        pid = name_to_id[pname]
+        user_choice_ids = [
+            name_to_id[n] for n in (r.get("user_choices") or [])
+            if n in name_to_id
+        ]
+        provider_models: dict[str, str] = {}
+        for n, model in (r.get("provider_models") or {}).items():
+            if n in name_to_id:
+                provider_models[str(name_to_id[n])] = model
+
+        db.set_route(
+            r["feature"],
+            provider_id=pid,
+            model_name=r.get("model_name"),
+            user_choices=user_choice_ids,
+            provider_models=provider_models,
+        )
+        if r["feature"] in existing_routes:
+            routes_updated += 1
+        else:
+            routes_created += 1
+        if r["feature"] == "embedding":
+            embedding_changed = True
+
+    if embedding_changed:
+        from src.routes.admin._embedding import invalidate_fingerprint_cache
+        invalidate_fingerprint_cache()
+
+    return {
+        "providers_created": providers_created,
+        "providers_updated": providers_updated,
+        "routes_created": routes_created,
+        "routes_updated": routes_updated,
+        "routes_skipped": routes_skipped,
+        "providers_needing_key": providers_needing_key,
+    }
+
+
+@router.post("/providers/import")
+async def import_config(
+    body: ImportConfigRequest,
+    _admin=Depends(get_admin_user),
+):
+    return perform_import(body.config.model_dump())
+
