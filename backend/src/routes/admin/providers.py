@@ -10,7 +10,10 @@ Two resources:
 
 from __future__ import annotations
 
+from datetime import date, datetime, timezone
+
 from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi.responses import JSONResponse
 from loguru import logger
 
 from src import database as db
@@ -114,6 +117,19 @@ async def create_provider(
     probe_provider(provider["id"], seed_capabilities=seed)
     refreshed = db.get_provider(provider["id"])
     return {"provider": _mask_provider(refreshed)}
+
+
+@router.get("/providers/export")
+async def export_config(
+    _admin=Depends(get_admin_user),
+):
+    """Download the full AI config as JSON. Never includes api_keys."""
+    payload = build_export(exported_from=None)
+    filename = f"kis-ai-config-{date.today().isoformat()}.json"
+    return JSONResponse(
+        content=payload,
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
 
 
 @router.get("/providers/{provider_id}")
@@ -406,8 +422,6 @@ def build_export(*, exported_from: str | None) -> dict:
     provider_id (+ user_choices / provider_models keys) into provider names
     for portability.
     """
-    from datetime import datetime, timezone
-
     providers = db.list_providers()
     routes = db.list_routes()
 
@@ -455,17 +469,3 @@ def build_export(*, exported_from: str | None) -> dict:
     }
 
 
-@router.get("/providers/export")
-async def export_config(
-    _admin=Depends(get_admin_user),
-):
-    """Download the full AI config as JSON. Never includes api_keys."""
-    from datetime import date
-    from fastapi.responses import JSONResponse
-
-    payload = build_export(exported_from=None)
-    filename = f"kis-ai-config-{date.today().isoformat()}.json"
-    return JSONResponse(
-        content=payload,
-        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
-    )
