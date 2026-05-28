@@ -84,15 +84,16 @@ async def stream_source_file(
 async def regenerate_en_transcript(
     workspace_uuid: str,
     source_uuid: str,
-    provider: Optional[str] = None,
     current_user: dict = Depends(get_current_user),
     locale: str = Depends(get_locale),
 ):
     """Dispatch an async Celery task to translate the source-language VTT to English.
 
-    If ``provider`` is omitted, falls back to the admin-configured default
-    (``transcript_translation_provider`` setting; defaults to ``llm``).
+    The translation provider is resolved from the ``transcript_translate`` feature route
+    configured in the admin KI panel.
     """
+    from src.services import feature_router
+
     workspace = _require_own_workspace(workspace_uuid, current_user["user_id"], locale=locale)
     source = db.get_aia_source(source_uuid)
     if not source:
@@ -101,9 +102,13 @@ async def regenerate_en_transcript(
     if workspace.get("transcript_translation_mode", "manual") == "off":
         raise HTTPException(status_code=403, detail=t("ai.transcript.translationDisabled", locale))
 
-    effective_provider = provider or db.get_setting("transcript_translation_provider", "llm")
-    if effective_provider not in ("deepl", "llm"):
-        raise HTTPException(status_code=400, detail=t("ai.transcript.invalidProvider", locale))
+    try:
+        binding = feature_router.resolve("transcript_translate")
+    except feature_router.FeatureNotConfigured:
+        raise HTTPException(
+            status_code=503,
+            detail="transcript_translate not configured — set a translation provider in the admin KI panel",
+        )
 
     base_key = source["file_path"].rsplit(".", 1)[0]
     if not any(file_exists(f"{base_key}_transcript.{lang}.vtt") for lang in ("de",)):
@@ -113,12 +118,12 @@ async def regenerate_en_transcript(
         )
 
     from src.tasks.aia_tasks import run_translate_transcript_en
-    run_translate_transcript_en.delay(source_uuid, effective_provider)
+    run_translate_transcript_en.delay(source_uuid, binding["provider_id"])
     logger.info(
-        "KI Tutor: manual EN translation dispatched for {} (provider={})",
-        source_uuid, effective_provider,
+        "KI Tutor: manual EN translation dispatched for {} (provider_id={})",
+        source_uuid, binding["provider_id"],
     )
-    return {"uuid": source_uuid, "status": "dispatched", "provider": effective_provider}
+    return {"uuid": source_uuid, "status": "dispatched", "provider_id": binding["provider_id"]}
 
 
 @router.get("/ai-assistant/workspaces/{workspace_uuid}/sources/{source_uuid}/transcript")
