@@ -128,6 +128,7 @@ export async function setFeatureRoute(
 export type FeatureTestResult = {
   status: "ok" | "error";
   error: string | null;
+  warning?: string | null;
 };
 
 export async function testFeatureRoute(feature: Feature, providerId?: number): Promise<FeatureTestResult> {

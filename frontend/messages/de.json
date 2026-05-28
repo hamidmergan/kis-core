@@ -843,13 +843,15 @@
         "testNoProvider": "Kein Anbieter ausgewählt.",
         "testErrors": {
           "model_name_not_set": "Kein Modellname eingetragen",
-          "tts_speech_endpoint_not_found": "Nicht erreichbar",
-          "endpoint_not_found": "Nicht erreichbar",
-          "auth_rejected": "Nicht erreichbar",
-          "server_error": "Nicht erreichbar",
-          "unreachable": "Nicht erreichbar",
-          "invalid_model": "Nicht erreichbar",
-          "no_voices_configured": "Keine Stimmen konfiguriert — füge mindestens eine Stimme für diesen Provider hinzu"
+          "tts_speech_endpoint_not_found": "TTS-Endpoint nicht gefunden",
+          "endpoint_not_found": "Endpoint nicht gefunden (HTTP 404)",
+          "auth_rejected": "Authentifizierung abgelehnt (API-Key ungültig oder fehlt)",
+          "server_error": "Server-Fehler beim Provider (HTTP 5xx) — Endpoint erreichbar, antwortet aber fehlerhaft",
+          "unreachable": "Provider nicht erreichbar (DNS-/Netzwerk-Fehler)",
+          "invalid_model": "Modell '{model}' nicht unterstützt",
+          "no_voices_configured": "Keine Stimmen konfiguriert — füge mindestens eine Stimme für diesen Provider hinzu",
+          "stt_model_not_validated_by_provider": "Provider validiert den STT-Modellnamen nicht — beliebige Eingaben werden akzeptiert. Modellname kann nicht überprüft werden.",
+          "stt_endpoint_verified_model_unvalidated": "Endpoint verifiziert erreichbar (Auth ok, Rate-Limit aktiv, Backend antwortet). Der Provider validiert den Modellnamen nicht — STT funktioniert auch mit beliebigen Namen."
         },
         "modelForPrimary": "Modell für {name}:",
         "modelOptional": "(optional)"

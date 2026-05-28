@@ -2,7 +2,7 @@
 
 import { useCallback, useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
-import { CheckCircle, Lightning, Spinner, XCircle } from "@phosphor-icons/react";
+import { CheckCircle, Lightning, Spinner, Warning, XCircle } from "@phosphor-icons/react";
 import { testFeatureRoute } from "./_api";
 import type { Capability, Feature, FeatureRoute, Provider, ProviderMeta } from "./_types";
 
@@ -22,6 +22,7 @@ type TestState =
   | { kind: "idle" }
   | { kind: "running" }
   | { kind: "ok" }
+  | { kind: "warning"; message: string }
   | { kind: "error"; message: string };
 
 // Each feature is satisfied by one capability. Used to filter the provider
@@ -86,17 +87,18 @@ export default function FeatureRoutingCard({
     return m;
   }, [providers]);
 
+  const resultToState = (res: { status: "ok" | "error"; error: string | null; warning?: string | null }): TestState => {
+    if (res.status === "ok") {
+      return res.warning ? { kind: "warning", message: res.warning } : { kind: "ok" };
+    }
+    return { kind: "error", message: res.error || "unknown error" };
+  };
+
   const onTest = useCallback(async (feature: Feature) => {
     setTestStates((s) => ({ ...s, [feature]: { kind: "running" } }));
     try {
       const res = await testFeatureRoute(feature);
-      setTestStates((s) => ({
-        ...s,
-        [feature]:
-          res.status === "ok"
-            ? { kind: "ok" }
-            : { kind: "error", message: res.error || "unknown error" },
-      }));
+      setTestStates((s) => ({ ...s, [feature]: resultToState(res) }));
     } catch (e) {
       setTestStates((s) => ({
         ...s,
@@ -110,10 +112,7 @@ export default function FeatureRoutingCard({
     setTestStates((s) => ({ ...s, [key]: { kind: "running" } }));
     try {
       const res = await testFeatureRoute(feature, providerId);
-      setTestStates((s) => ({
-        ...s,
-        [key]: res.status === "ok" ? { kind: "ok" } : { kind: "error", message: res.error || "unknown error" },
-      }));
+      setTestStates((s) => ({ ...s, [key]: resultToState(res) }));
     } catch (e) {
       setTestStates((s) => ({
         ...s,
@@ -350,12 +349,15 @@ function TestButton({
   const running = state.kind === "running";
   const label = t("routes.test");
   const ok = state.kind === "ok";
+  const warn = state.kind === "warning";
   const err = state.kind === "error";
   const tone = ok
     ? "text-success hover:outline hover:outline-2 hover:outline-success"
-    : err
-      ? "text-error hover:outline hover:outline-2 hover:outline-error"
-      : "text-muted hover:text-kb hover:outline hover:outline-2 hover:outline-kb";
+    : warn
+      ? "text-warn hover:outline hover:outline-2 hover:outline-warn"
+      : err
+        ? "text-error hover:outline hover:outline-2 hover:outline-error"
+        : "text-muted hover:text-kb hover:outline hover:outline-2 hover:outline-kb";
   return (
     <button
       type="button"
@@ -369,6 +371,8 @@ function TestButton({
         <Spinner size={14} weight="bold" className="animate-spin" />
       ) : ok ? (
         <CheckCircle size={14} weight="bold" />
+      ) : warn ? (
+        <Warning size={14} weight="bold" />
       ) : err ? (
         <XCircle size={14} weight="bold" />
       ) : (
@@ -382,6 +386,16 @@ function TestStatusLine({ state }: { state: TestState }) {
   const t = useTranslations("admin.providers");
   if (state.kind === "ok") {
     return <p className="text-[11px] text-success mt-1">{t("routes.testOk")}</p>;
+  }
+  if (state.kind === "warning") {
+    const knownWarnings = new Set([
+      "stt_model_not_validated_by_provider",
+      "stt_endpoint_verified_model_unvalidated",
+    ]);
+    const msg = knownWarnings.has(state.message)
+      ? t(`routes.testErrors.${state.message}` as Parameters<typeof t>[0])
+      : state.message;
+    return <p className="text-[11px] text-warn mt-1">{msg}</p>;
   }
   if (state.kind === "error") {
     const knownCodes = new Set([
