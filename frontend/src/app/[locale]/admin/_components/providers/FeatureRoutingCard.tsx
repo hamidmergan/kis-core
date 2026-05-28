@@ -322,9 +322,9 @@ function FeatureRow({
           ))}
         </select>
         <input
-          key={route?.model_name ?? ""}
+          key={route?.provider_models?.[String(providerId)] ?? route?.model_name ?? ""}
           type="text"
-          defaultValue={route?.model_name ?? ""}
+          defaultValue={route?.provider_models?.[String(providerId)] ?? route?.model_name ?? ""}
           onBlur={(e) => onChangeModel(e.target.value.trim() || null)}
           disabled={!provider}
           placeholder={provider ? t("routes.modelPlaceholder") : "—"}
