@@ -810,7 +810,7 @@
       "list": {
         "title": "Providers",
         "hint": "“Re-check” verifies the endpoint is reachable. To test whether a specific feature actually works, use the row test buttons under “Features”.",
-        "add": "Add provider",
+        "add": "Add",
         "emptyTitle": "No provider configured yet",
         "emptyHint": "Add your first provider to enable AI features."
       },
@@ -822,7 +822,8 @@
         "statusActive": "reachable",
         "statusError": "error",
         "statusUnprobed": "not checked yet",
-        "statusChecking": "checking…"
+        "statusChecking": "checking…",
+        "missingKeyTooltip": "API key missing — provider is not functional"
       },
       "probeErrors": {
         "unreachable": "Not reachable — check the URL and network connection",
@@ -946,6 +947,45 @@
         "doc_translate": "The user picks a provider inside the tool. (Document Translation, Screencast Translation)",
         "screencast_translate": "Subtitles and audio for videos. The user picks a provider inside the tool.",
         "transcript_translate": "AIA workspace: translate DE transcript to EN. Provider is admin-configured."
+      },
+      "exportImport": {
+        "exportButton": "Export",
+        "importButton": "Import",
+        "exportToast": "Configuration downloaded. Important: the file contains NO API keys — these must be set manually on the target system.",
+        "preview": {
+          "title": "Import configuration",
+          "source": "Source: {filename}",
+          "createdAt": "Created {date}{from, select, none {} other {, from {from}}}",
+          "providersHeading": "Providers ({count})",
+          "routesHeading": "Feature routes ({count})",
+          "badge": {
+            "new": "NEW",
+            "merge": "MERGE",
+            "skip": "SKIPPED"
+          },
+          "apiKeyMissing": "API key missing — set after import!",
+          "apiKeyNotNeeded": "No API key needed",
+          "apiKeyPreserved": "Existing API key will be preserved",
+          "protocolChange": "Protocol will change: {from} → {to}",
+          "routeSkipped": "skipped (provider \"{provider}\" not in import)",
+          "confirm": "Confirm import",
+          "cancel": "Cancel"
+        },
+        "importSuccessToast": "Import successful. {count, plural, =0 {All providers have a key} one {# provider still needs an API key} other {# providers still need an API key}}.",
+        "errors": {
+          "invalidJson": "The file is not valid JSON.",
+          "importFailed": "Import failed: {message}"
+        }
+      },
+      "clearAll": {
+        "menuItem": "Delete everything…",
+        "title": "Delete all providers and routes?",
+        "bodyCounts": "This action IRREVERSIBLY deletes:\n  • {providers, plural, one {# provider} other {# providers}} (incl. all API keys)\n  • {routes, plural, one {# feature route assignment} other {# feature route assignments}}",
+        "warningFeaturesUnavailable": "AI features (chat, TTS, ASR, translation, embedding) will NOT be available afterwards until providers are created or imported.",
+        "warningIrreversible": "This action CANNOT be undone. Consider creating an export first.",
+        "confirm": "Yes, delete everything",
+        "cancel": "Cancel",
+        "successToast": "All providers and routes deleted."
       }
     },
     "settings": {

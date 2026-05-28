@@ -810,7 +810,7 @@
       "list": {
         "title": "Anbieter",
         "hint": "Mit „Erneut prüfen“ testest du, ob der Endpoint erreichbar ist. Welche Funktionen tatsächlich funktionieren, prüfst du pro Zeile im Bereich „Funktionen“.",
-        "add": "Anbieter hinzufügen",
+        "add": "Hinzufügen",
         "emptyTitle": "Noch kein Anbieter konfiguriert",
         "emptyHint": "Lege deinen ersten Anbieter an, um KI-Funktionen freizuschalten."
       },
@@ -822,7 +822,8 @@
         "statusActive": "erreichbar",
         "statusError": "Fehler",
         "statusUnprobed": "noch nicht geprüft",
-        "statusChecking": "wird geprüft…"
+        "statusChecking": "wird geprüft…",
+        "missingKeyTooltip": "API-Key fehlt — Provider ist nicht funktionsfähig"
       },
       "probeErrors": {
         "unreachable": "Nicht erreichbar — URL und Netzwerkverbindung prüfen",
@@ -946,6 +947,45 @@
         "doc_translate": "Nutzer wählt im Tool, welcher Anbieter verwendet wird. (Dokumenten-Übersetzung, Screencast-Übersetzung)",
         "screencast_translate": "Untertitel und Audio für Videos. Nutzer wählt im Tool, welcher Anbieter verwendet wird.",
         "transcript_translate": "AIA-Arbeitsbereich: DE-Transkript auf EN übersetzen. Anbieter wird vom Admin konfiguriert."
+      },
+      "exportImport": {
+        "exportButton": "Exportieren",
+        "importButton": "Importieren",
+        "exportToast": "Konfiguration heruntergeladen. Wichtig: Die Datei enthält KEINE API-Keys — diese müssen auf dem Zielsystem manuell neu gesetzt werden.",
+        "preview": {
+          "title": "Konfiguration importieren",
+          "source": "Quelle: {filename}",
+          "createdAt": "Erstellt am {date}{from, select, none {} other {, von {from}}}",
+          "providersHeading": "Provider ({count})",
+          "routesHeading": "Feature-Routes ({count})",
+          "badge": {
+            "new": "NEU",
+            "merge": "MERGE",
+            "skip": "ÜBERSPRUNGEN"
+          },
+          "apiKeyMissing": "API-Key fehlt — nach Import setzen!",
+          "apiKeyNotNeeded": "Kein API-Key nötig",
+          "apiKeyPreserved": "Bestehender API-Key bleibt erhalten",
+          "protocolChange": "Protocol ändert sich: {from} → {to}",
+          "routeSkipped": "übersprungen (Provider „{provider}\" nicht im Import)",
+          "confirm": "Import bestätigen",
+          "cancel": "Abbrechen"
+        },
+        "importSuccessToast": "Import erfolgreich. {count, plural, =0 {Alle Provider haben einen Key} one {# Provider benötigt noch einen API-Key} other {# Provider benötigen noch einen API-Key}}.",
+        "errors": {
+          "invalidJson": "Die Datei ist kein gültiges JSON.",
+          "importFailed": "Import fehlgeschlagen: {message}"
+        }
+      },
+      "clearAll": {
+        "menuItem": "Alles löschen…",
+        "title": "Alle Provider und Routes löschen?",
+        "bodyCounts": "Diese Aktion löscht UNWIDERRUFLICH:\n  • {providers, plural, one {# Provider} other {# Provider}} (inkl. aller API-Keys)\n  • {routes, plural, one {# Feature-Route-Zuordnung} other {# Feature-Route-Zuordnungen}}",
+        "warningFeaturesUnavailable": "KI-Funktionen (Chat, TTS, ASR, Übersetzung, Embedding) stehen danach NICHT mehr zur Verfügung, bis Provider neu angelegt oder importiert wurden.",
+        "warningIrreversible": "Diese Aktion kann NICHT rückgängig gemacht werden. Vorher ggf. Export erstellen.",
+        "confirm": "Ja, alles löschen",
+        "cancel": "Abbrechen",
+        "successToast": "Alle Provider und Routes gelöscht."
       }
     },
     "settings": {
