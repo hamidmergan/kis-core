@@ -1,9 +1,8 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useState } from "react";
 import { useTranslations } from "next-intl";
-import { ArrowsClockwise, Cube, DotsThreeVertical, DownloadSimple, NotePencil, Plus, Trash, UploadSimple } from "@phosphor-icons/react";
-import HelpTooltip from "@/components/ui/HelpTooltip";
+import { ArrowsClockwise, Cube, DotsThreeVertical, NotePencil, Plus, Trash, UploadSimple } from "@phosphor-icons/react";
 import type { Provider } from "./_types";
 
 const _PROBE_ERROR_CODES = new Set([
@@ -19,8 +18,7 @@ type Props = {
   onEdit: (p: Provider) => void;
   onProbe: (p: Provider) => Promise<void> | void;
   onDelete: (p: Provider) => void;
-  onExport: () => void | Promise<void>;
-  onImport: (file: File) => void | Promise<void>;
+  onOpenExportImport: (initialTab: "export" | "import") => void;
   onClearAll: () => void;
 };
 
@@ -30,12 +28,10 @@ export default function ProviderListCard({
   onEdit,
   onProbe,
   onDelete,
-  onExport,
-  onImport,
+  onOpenExportImport,
   onClearAll,
 }: Props) {
   const t = useTranslations("admin.providers");
-  const fileInputRef = useRef<HTMLInputElement>(null);
   const [menuOpen, setMenuOpen] = useState(false);
 
   return (
@@ -52,36 +48,6 @@ export default function ProviderListCard({
         </div>
         {providers.length > 0 && (
           <div className="flex items-center gap-2">
-            <span className="inline-flex items-center gap-1">
-              <button
-                type="button"
-                onClick={onExport}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-foreground border border-border-soft bg-background rounded-md hover:bg-surface transition-colors"
-              >
-                <DownloadSimple size={14} weight="bold" />
-                {t("exportImport.exportButton")}
-              </button>
-              <HelpTooltip text={t("exportImport.exportHint")} />
-            </span>
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept="application/json"
-              className="hidden"
-              onChange={(e) => {
-                const file = e.target.files?.[0];
-                if (file) onImport(file);
-                e.target.value = "";  // allow re-selecting the same file
-              }}
-            />
-            <button
-              type="button"
-              onClick={() => fileInputRef.current?.click()}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-foreground border border-border-soft bg-background rounded-md hover:bg-surface transition-colors"
-            >
-              <UploadSimple size={14} weight="bold" />
-              {t("exportImport.importButton")}
-            </button>
             <button
               type="button"
               onClick={onAdd}
@@ -105,7 +71,18 @@ export default function ProviderListCard({
                     className="fixed inset-0 z-40"
                     onClick={() => setMenuOpen(false)}
                   />
-                  <div className="absolute right-0 top-full mt-1 w-48 bg-background border border-border-soft rounded-md shadow-lg z-50 py-1">
+                  <div className="absolute right-0 top-full mt-1 w-56 bg-background border border-border-soft rounded-md shadow-lg z-50 py-1">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setMenuOpen(false);
+                        onOpenExportImport("export");
+                      }}
+                      className="w-full text-left px-3 py-2 text-sm text-foreground hover:bg-surface"
+                    >
+                      {t("list.exportImportMenuItem")}
+                    </button>
+                    <div className="my-1 border-t border-border-soft" />
                     <button
                       type="button"
                       onClick={() => {
@@ -125,7 +102,7 @@ export default function ProviderListCard({
       </div>
 
       {providers.length === 0 ? (
-        <EmptyState onAdd={onAdd} onImport={onImport} />
+        <EmptyState onAdd={onAdd} onOpenExportImport={onOpenExportImport} />
       ) : (
         <div className="-my-3 divide-y divide-border-soft">
           {providers.map((p) => (
@@ -143,9 +120,14 @@ export default function ProviderListCard({
   );
 }
 
-function EmptyState({ onAdd, onImport }: { onAdd: () => void; onImport: (file: File) => void | Promise<void> }) {
+function EmptyState({
+  onAdd,
+  onOpenExportImport,
+}: {
+  onAdd: () => void;
+  onOpenExportImport: (initialTab: "export" | "import") => void;
+}) {
   const t = useTranslations("admin.providers");
-  const fileInputRef = useRef<HTMLInputElement>(null);
   return (
     <div className="text-center py-10 px-6 border border-dashed border-border-soft rounded-lg">
       <Cube size={32} weight="bold" className="mx-auto text-muted mb-3" />
@@ -160,20 +142,9 @@ function EmptyState({ onAdd, onImport }: { onAdd: () => void; onImport: (file: F
           <Plus size={14} weight="bold" />
           {t("list.add")}
         </button>
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept="application/json"
-          className="hidden"
-          onChange={(e) => {
-            const file = e.target.files?.[0];
-            if (file) onImport(file);
-            e.target.value = "";
-          }}
-        />
         <button
           type="button"
-          onClick={() => fileInputRef.current?.click()}
+          onClick={() => onOpenExportImport("import")}
           className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-foreground border border-border-soft bg-background rounded-md hover:bg-surface transition-colors"
         >
           <UploadSimple size={14} weight="bold" />
