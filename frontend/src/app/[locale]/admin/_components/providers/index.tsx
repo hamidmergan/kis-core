@@ -335,6 +335,7 @@ export default function ProvidersTab() {
         <ExportImportDialog
           providers={providers}
           initialTab={dialog.initialTab}
+          apiKeyEncryptionEnabled={meta.api_key_encryption_enabled}
           onClose={() => setDialog({ open: false })}
           onExportDownload={handleExportDownload}
           onImportPreview={importPreview}

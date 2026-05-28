@@ -33,26 +33,26 @@ export default function ProviderListCard({
 
   return (
     <section className="border border-border-soft rounded-xl bg-background p-5">
-      <div className="flex items-start justify-between gap-4 mb-1">
-        <div>
+      <div className="mb-1">
+        <div className="flex items-center justify-between gap-4">
           <div className="flex items-center gap-2 text-sm font-medium text-foreground">
             {t("list.title")}
             <span className="bg-surface-dim text-muted text-[11px] font-mono px-1.5 py-0.5 rounded-full">
               {providers.length}
             </span>
           </div>
-          <p className="text-xs text-muted-soft mt-1 mb-4 max-w-2xl">{t("list.hint")}</p>
+          {providers.length > 0 && (
+            <button
+              type="button"
+              onClick={onAdd}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium bg-kb text-white rounded-md border-2 border-kb hover:bg-background hover:text-kb transition-colors"
+            >
+              <Plus size={14} weight="bold" />
+              {t("list.add")}
+            </button>
+          )}
         </div>
-        {providers.length > 0 && (
-          <button
-            type="button"
-            onClick={onAdd}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium bg-kb text-white rounded-md border-2 border-kb hover:bg-background hover:text-kb transition-colors"
-          >
-            <Plus size={14} weight="bold" />
-            {t("list.add")}
-          </button>
-        )}
+        <p className="text-xs text-muted-soft mt-1 mb-4">{t("list.hint")}</p>
       </div>
 
       {providers.length === 0 ? (
@@ -139,7 +139,7 @@ function ProviderRow({
         <Cube size={18} weight="bold" />
       </div>
       <div className="min-w-0">
-        <div className="flex items-center gap-2 text-sm font-medium text-foreground mb-0.5">
+        <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm font-medium text-foreground mb-0.5">
           <span className="truncate">{provider.name}</span>
           <StatusPill provider={provider} probing={probing} />
           {!provider.api_key_set && (

@@ -30,6 +30,12 @@ from src.routes.admin._models import (
     SetFeatureRouteRequest,
     UpdateProviderRequest,
 )
+from src.services.export_crypto import (
+    is_envelope,
+    is_export_key_configured,
+    try_unwrap_api_key,
+    wrap_api_key,
+)
 from src.services.protocols import (
     CAPABILITIES,
     fixed_capabilities,
@@ -59,6 +65,7 @@ async def get_provider_meta(_admin=Depends(get_admin_user)):
         "capabilities": list(CAPABILITIES),
         "features": list(FEATURES),
         "user_choice_features": sorted(USER_CHOICE_FEATURES),
+        "api_key_encryption_enabled": is_export_key_configured(),
     }
 
 
@@ -424,25 +431,31 @@ SCHEMA_VERSION = 1
 def build_export(*, exported_from: str | None) -> dict:
     """Build the export payload from current DB state.
 
-    Strips api_key and id from providers. Translates feature_routes'
-    provider_id (+ user_choices / provider_models keys) into provider names
-    for portability.
+    Translates feature_routes' provider_id (+ user_choices / provider_models
+    keys) into provider names for portability. When ``KIS_EXPORT_KEY`` is
+    configured, each provider's api_key is wrapped with AES-GCM and embedded
+    in the export so the same deployment can restore it on import.
     """
     providers = db.list_providers()
     routes = db.list_routes()
 
     id_to_name = {p["id"]: p["name"] for p in providers}
+    encrypt_keys = is_export_key_configured()
 
     exported_providers: list[dict] = []
     for p in providers:
-        exported_providers.append({
+        entry = {
             "name": p["name"],
             "protocol": p["protocol"],
             "base_url": p["base_url"],
             "capabilities": list(p.get("capabilities") or []),
             "voices": list(p.get("voices") or []),
             "enabled": bool(p.get("enabled", True)),
-        })
+        }
+        raw_key = p.get("api_key")
+        if encrypt_keys and raw_key:
+            entry["api_key"] = wrap_api_key(raw_key)
+        exported_providers.append(entry)
 
     exported_routes: list[dict] = []
     for r in routes:
@@ -470,6 +483,7 @@ def build_export(*, exported_from: str | None) -> dict:
         "schema_version": SCHEMA_VERSION,
         "exported_at": datetime.now(timezone.utc).isoformat(),
         "exported_from": exported_from,
+        "api_keys_encrypted": encrypt_keys,
         "providers": exported_providers,
         "feature_routes": exported_routes,
     }
@@ -552,12 +566,19 @@ def build_import_preview(cfg: dict) -> dict:
                 protocol_change = {
                     "from": existing["protocol"], "to": p["protocol"],
                 }
+        envelope = p.get("api_key")
+        encrypted_key_present = is_envelope(envelope)
+        encrypted_key_recoverable = (
+            encrypted_key_present and try_unwrap_api_key(envelope) is not None
+        )
         provider_diffs.append({
             "name": p["name"],
             "action": action,
             "needs_api_key": _needs_api_key(p["protocol"], p["base_url"]),
             "existing_has_key": existing_has_key,
             "protocol_change": protocol_change,
+            "encrypted_key_present": encrypted_key_present,
+            "encrypted_key_recoverable": encrypted_key_recoverable,
         })
 
     # Route diffs. A route's resolved_provider must exist either in the
@@ -618,26 +639,34 @@ def perform_import(cfg: dict) -> dict:
         existing = existing_by_name.get(p["name"])
         capabilities = [c for c in p.get("capabilities", []) if c in CAPABILITIES]
         voices = list(p.get("voices") or [])
+        envelope = p.get("api_key")
+        recovered_key = (
+            try_unwrap_api_key(envelope) if is_envelope(envelope) else None
+        )
         if existing is None:
             row = db.create_provider(
                 name=p["name"], protocol=p["protocol"],
-                base_url=p["base_url"], api_key=None,
+                base_url=p["base_url"], api_key=recovered_key,
                 capabilities=capabilities, voices=voices,
                 enabled=bool(p.get("enabled", True)),
             )
             providers_created += 1
         else:
-            row = db.update_provider(
-                existing["id"],
-                protocol=p["protocol"], base_url=p["base_url"],
-                capabilities=capabilities, voices=voices,
-                enabled=bool(p.get("enabled", True)),
-            )
+            # Only restore the key if the existing row has none — never
+            # clobber an admin-set key with a possibly stale envelope.
+            update_kwargs: dict = {
+                "protocol": p["protocol"], "base_url": p["base_url"],
+                "capabilities": capabilities, "voices": voices,
+                "enabled": bool(p.get("enabled", True)),
+            }
+            if recovered_key and not existing.get("api_key"):
+                update_kwargs["api_key"] = recovered_key
+            row = db.update_provider(existing["id"], **update_kwargs)
             providers_updated += 1
         # Re-probe so probe_status reflects current reachability.
         probe_provider(row["id"])
-        # row already carries api_key via the RETURNING clause; for create
-        # we passed None, for update we never touch the field.
+        # row already carries api_key via the RETURNING clause; we only set
+        # it on create or when restoring into an empty existing row.
         if _needs_api_key(p["protocol"], p["base_url"]) and not row.get("api_key"):
             providers_needing_key.append(p["name"])
 

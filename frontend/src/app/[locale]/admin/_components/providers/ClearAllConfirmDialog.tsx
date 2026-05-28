@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from "react";
 import { useTranslations } from "next-intl";
-import { Warning } from "@phosphor-icons/react";
 
 type Props = {
   providerCount: number;
@@ -40,29 +39,20 @@ export default function ClearAllConfirmDialog({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={handleBackdropClick}>
-      <div className="bg-background border border-red-300 dark:border-red-700 rounded-xl shadow-xl w-full max-w-md" onClick={(e) => e.stopPropagation()}>
-        <div className="p-5 bg-red-50 dark:bg-red-950/30 border-b border-red-200 dark:border-red-800 rounded-t-xl flex items-start gap-3">
-          <Warning size={22} weight="fill" className="text-red-600 dark:text-red-400 shrink-0" />
-          <h2 className="text-base font-semibold text-red-700 dark:text-red-300">{t("title")}</h2>
-        </div>
-
-        <div className="p-5 space-y-3 text-sm text-foreground">
-          <p className="whitespace-pre-line">
-            {t("bodyCounts", { providers: providerCount, routes: routeCount })}
-          </p>
-          <p className="text-amber-700 dark:text-amber-400 flex gap-2">
-            <Warning size={14} weight="bold" className="shrink-0 mt-0.5" />
-            <span>{t("warningFeaturesUnavailable")}</span>
-          </p>
-          <p className="text-muted text-xs">{t("warningIrreversible")}</p>
-        </div>
-
-        <div className="p-5 border-t border-border-soft flex justify-end gap-2">
+      <div className="bg-background rounded-xl shadow-xl max-w-sm w-full p-6" onClick={(e) => e.stopPropagation()}>
+        <h3 className="text-base font-semibold mb-2">{t("title")}</h3>
+        <p className="text-sm text-foreground-soft mb-1 whitespace-pre-line">
+          {t("bodyCounts", { providers: providerCount, routes: routeCount })}
+        </p>
+        <p className="text-sm text-error mb-1">{t("warningFeaturesUnavailable")}</p>
+        <p className="text-sm text-foreground-soft mb-6">{t("warningIrreversible")}</p>
+        <div className="flex gap-3 justify-end">
           <button
             type="button"
             onClick={onCancel}
             autoFocus
-            className="px-3 py-1.5 text-sm font-medium border border-border-soft rounded-md hover:bg-surface"
+            disabled={submitting}
+            className="btn-cancel px-4 py-2 text-sm btn-secondary rounded-lg disabled:opacity-50"
           >
             {t("cancel")}
           </button>
@@ -70,7 +60,7 @@ export default function ClearAllConfirmDialog({
             type="button"
             onClick={handleConfirm}
             disabled={submitting}
-            className="px-3 py-1.5 text-sm font-medium bg-red-600 text-white rounded-md hover:bg-red-700 disabled:opacity-50"
+            className="px-4 py-2 text-sm btn-danger rounded-lg disabled:opacity-50"
           >
             {t("confirm")}
           </button>

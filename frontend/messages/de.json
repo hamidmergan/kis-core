@@ -841,6 +841,7 @@
         "userChoiceLabel": "Nutzer kann wählen:",
         "noEligible": "Kein Anbieter unterstützt diese Funktion.",
         "test": "Auswahl testen",
+        "testAll": "Alle nacheinander testen",
         "testOk": "Erreichbar",
         "testNoProvider": "Kein Anbieter ausgewählt.",
         "testErrors": {
@@ -973,11 +974,15 @@
         "import": {
           "dropzoneHint": "JSON-Datei hier ablegen oder klicken zum Auswählen",
           "chooseAnotherFile": "Andere Datei wählen",
-          "confirmButton": "Import bestätigen"
+          "confirmButton": "Import bestätigen",
+          "apiKeyRestoreOk": "{count, plural, one {# verschlüsselter API-Key wird wiederhergestellt.} other {# verschlüsselte API-Keys werden wiederhergestellt.}}",
+          "apiKeyRestoreFailed": "{count, plural, one {# verschlüsselter API-Key kann nicht entschlüsselt werden (anderes KIS_EXPORT_KEY).} other {# verschlüsselte API-Keys können nicht entschlüsselt werden (anderes KIS_EXPORT_KEY).}}"
         },
         "exportButton": "Exportieren",
         "importButton": "Importieren",
-        "exportHint": "Inkl. Endpoints, Modelle, Stimmen, Capabilities und Feature-Routen. KEINE API-Keys — diese am Zielsystem manuell neu setzen.",
+        "exportHint": "Inkl. Endpoints, Modelle, Stimmen, Capabilities und Feature-Routen.",
+        "apiKeyEncryptionOn": "API-Keys werden verschlüsselt mit ins Backup geschrieben (KIS_EXPORT_KEY) und sind nur auf diesem System wiederherstellbar.",
+        "apiKeyEncryptionOff": "API-Keys werden NICHT exportiert (KIS_EXPORT_KEY nicht gesetzt). Auf dem Zielsystem manuell neu eintragen.",
         "preview": {
           "title": "Konfiguration importieren",
           "source": "Quelle: {filename}",

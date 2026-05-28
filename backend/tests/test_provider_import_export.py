@@ -42,9 +42,11 @@ def test_export_empty_db_returns_empty_arrays(monkeypatch):
     assert "exported_at" in result
 
 
-def test_export_strips_api_keys_and_ids(monkeypatch):
+def test_export_omits_api_key_when_export_key_unset(monkeypatch):
+    """No KIS_EXPORT_KEY → export drops api_key entirely (legacy behavior)."""
     from src.routes.admin.providers import build_export
 
+    monkeypatch.delenv("KIS_EXPORT_KEY", raising=False)
     monkeypatch.setattr(
         "src.routes.admin.providers.db.list_providers",
         lambda: [_make_provider(1, "KISSKI", api_key="sk-secret",
@@ -54,12 +56,48 @@ def test_export_strips_api_keys_and_ids(monkeypatch):
                         lambda: [])
 
     result = build_export(exported_from=None)
-    assert len(result["providers"]) == 1
+    assert result["api_keys_encrypted"] is False
     p = result["providers"][0]
     assert "api_key" not in p
     assert "id" not in p
     assert p["name"] == "KISSKI"
     assert p["capabilities"] == ["chat"]
+
+
+def test_export_wraps_api_key_when_export_key_set(monkeypatch):
+    """KIS_EXPORT_KEY set → api_key is included as AES-GCM envelope."""
+    from src.routes.admin.providers import build_export
+    from src.services.export_crypto import try_unwrap_api_key
+
+    monkeypatch.setenv("KIS_EXPORT_KEY", "test-secret-xyz")
+    monkeypatch.setattr(
+        "src.routes.admin.providers.db.list_providers",
+        lambda: [_make_provider(1, "KISSKI", api_key="sk-secret")],
+    )
+    monkeypatch.setattr("src.routes.admin.providers.db.list_routes",
+                        lambda: [])
+
+    result = build_export(exported_from=None)
+    assert result["api_keys_encrypted"] is True
+    p = result["providers"][0]
+    env = p["api_key"]
+    assert env["alg"] == "aesgcm-v1"
+    assert try_unwrap_api_key(env) == "sk-secret"
+
+
+def test_export_skips_envelope_for_providers_without_key(monkeypatch):
+    from src.routes.admin.providers import build_export
+
+    monkeypatch.setenv("KIS_EXPORT_KEY", "test-secret-xyz")
+    monkeypatch.setattr(
+        "src.routes.admin.providers.db.list_providers",
+        lambda: [_make_provider(1, "Kokoro", api_key=None)],
+    )
+    monkeypatch.setattr("src.routes.admin.providers.db.list_routes",
+                        lambda: [])
+
+    result = build_export(exported_from=None)
+    assert "api_key" not in result["providers"][0]
 
 
 def test_export_translates_route_ids_to_provider_names(monkeypatch):
@@ -341,6 +379,113 @@ def test_import_creates_new_provider_without_api_key(monkeypatch):
     assert kwargs["name"] == "KISSKI"
     assert result["providers_created"] == 1
     assert result["providers_updated"] == 0
+
+
+def test_import_decrypts_envelope_and_sets_key_on_create(monkeypatch):
+    """Envelope present + matching KIS_EXPORT_KEY → recovered key reaches DB."""
+    from src.routes.admin.providers import perform_import
+    from src.services.export_crypto import wrap_api_key
+
+    monkeypatch.setenv("KIS_EXPORT_KEY", "roundtrip-secret")
+    monkeypatch.setattr("src.routes.admin.providers.db.list_providers",
+                        lambda: [])
+    monkeypatch.setattr("src.routes.admin.providers.db.list_routes",
+                        lambda: [])
+    create_mock = MagicMock(return_value=_make_provider(10, "KISSKI",
+                                                       api_key="sk-real"))
+    monkeypatch.setattr("src.routes.admin.providers.db.create_provider",
+                        create_mock)
+    monkeypatch.setattr("src.routes.admin.providers.probe_provider",
+                        lambda pid, **kw: None)
+
+    provider = _exported_provider("KISSKI")
+    provider["api_key"] = wrap_api_key("sk-real")
+    cfg = _valid_config(providers=[provider])
+    perform_import(cfg)
+
+    assert create_mock.call_args.kwargs["api_key"] == "sk-real"
+
+
+def test_import_ignores_envelope_with_wrong_secret(monkeypatch):
+    """Envelope produced by a different KIS_EXPORT_KEY → no key applied,
+    provider lands in providers_needing_key."""
+    from src.routes.admin.providers import perform_import
+    from src.services.export_crypto import wrap_api_key
+
+    monkeypatch.setenv("KIS_EXPORT_KEY", "secret-A")
+    envelope = wrap_api_key("sk-real")
+    monkeypatch.setenv("KIS_EXPORT_KEY", "secret-B")
+
+    monkeypatch.setattr("src.routes.admin.providers.db.list_providers",
+                        lambda: [])
+    monkeypatch.setattr("src.routes.admin.providers.db.list_routes",
+                        lambda: [])
+    create_mock = MagicMock(return_value=_make_provider(
+        1, "KISSKI", base_url="https://api.example", api_key=None,
+    ))
+    monkeypatch.setattr("src.routes.admin.providers.db.create_provider",
+                        create_mock)
+    monkeypatch.setattr("src.routes.admin.providers.probe_provider",
+                        lambda pid, **kw: None)
+
+    provider = _exported_provider("KISSKI", base_url="https://api.example")
+    provider["api_key"] = envelope
+    cfg = _valid_config(providers=[provider])
+    result = perform_import(cfg)
+
+    assert create_mock.call_args.kwargs["api_key"] is None
+    assert "KISSKI" in result["providers_needing_key"]
+
+
+def test_import_does_not_overwrite_existing_key_with_envelope(monkeypatch):
+    """If a provider already has a key on the target, the envelope must not
+    clobber it — admin's current value wins."""
+    from src.routes.admin.providers import perform_import
+    from src.services.export_crypto import wrap_api_key
+
+    monkeypatch.setenv("KIS_EXPORT_KEY", "same-secret")
+    existing = _make_provider(1, "KISSKI", api_key="sk-existing")
+    monkeypatch.setattr("src.routes.admin.providers.db.list_providers",
+                        lambda: [existing])
+    monkeypatch.setattr("src.routes.admin.providers.db.list_routes",
+                        lambda: [])
+    update_mock = MagicMock(return_value=existing)
+    monkeypatch.setattr("src.routes.admin.providers.db.update_provider",
+                        update_mock)
+    monkeypatch.setattr("src.routes.admin.providers.probe_provider",
+                        lambda pid, **kw: None)
+
+    provider = _exported_provider("KISSKI")
+    provider["api_key"] = wrap_api_key("sk-from-backup")
+    perform_import(_valid_config(providers=[provider]))
+
+    assert "api_key" not in update_mock.call_args.kwargs
+
+
+def test_import_restores_key_into_empty_existing_row(monkeypatch):
+    """Provider exists locally without a key → envelope unwraps and fills it."""
+    from src.routes.admin.providers import perform_import
+    from src.services.export_crypto import wrap_api_key
+
+    monkeypatch.setenv("KIS_EXPORT_KEY", "same-secret")
+    existing = _make_provider(1, "KISSKI", api_key=None)
+    monkeypatch.setattr("src.routes.admin.providers.db.list_providers",
+                        lambda: [existing])
+    monkeypatch.setattr("src.routes.admin.providers.db.list_routes",
+                        lambda: [])
+    update_mock = MagicMock(return_value=_make_provider(
+        1, "KISSKI", api_key="sk-from-backup",
+    ))
+    monkeypatch.setattr("src.routes.admin.providers.db.update_provider",
+                        update_mock)
+    monkeypatch.setattr("src.routes.admin.providers.probe_provider",
+                        lambda pid, **kw: None)
+
+    provider = _exported_provider("KISSKI")
+    provider["api_key"] = wrap_api_key("sk-from-backup")
+    perform_import(_valid_config(providers=[provider]))
+
+    assert update_mock.call_args.kwargs["api_key"] == "sk-from-backup"
 
 
 def test_import_update_preserves_existing_api_key(monkeypatch):

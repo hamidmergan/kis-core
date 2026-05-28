@@ -841,6 +841,7 @@
         "userChoiceLabel": "User may choose:",
         "noEligible": "No provider supports this feature.",
         "test": "Test selection",
+        "testAll": "Test all sequentially",
         "testOk": "Reachable",
         "testNoProvider": "No provider selected.",
         "testErrors": {
@@ -973,11 +974,15 @@
         "import": {
           "dropzoneHint": "Drop a JSON file here or click to select",
           "chooseAnotherFile": "Choose another file",
-          "confirmButton": "Confirm import"
+          "confirmButton": "Confirm import",
+          "apiKeyRestoreOk": "{count, plural, one {# encrypted API key will be restored.} other {# encrypted API keys will be restored.}}",
+          "apiKeyRestoreFailed": "{count, plural, one {# encrypted API key cannot be decrypted (different KIS_EXPORT_KEY).} other {# encrypted API keys cannot be decrypted (different KIS_EXPORT_KEY).}}"
         },
         "exportButton": "Export",
         "importButton": "Import",
-        "exportHint": "Includes endpoints, models, voices, capabilities and feature routes. NO API-Keys — set them manually on the target system.",
+        "exportHint": "Includes endpoints, models, voices, capabilities and feature routes.",
+        "apiKeyEncryptionOn": "API keys are written encrypted into the backup (KIS_EXPORT_KEY) and can only be restored on this system.",
+        "apiKeyEncryptionOff": "API keys are NOT exported (KIS_EXPORT_KEY not set). Re-enter them manually on the target system.",
         "preview": {
           "title": "Import configuration",
           "source": "Source: {filename}",

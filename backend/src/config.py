@@ -36,6 +36,12 @@ class Settings(BaseSettings):
     # Disable on prod / SSO deployments.
     ldap_user_creation_enabled: bool = False
 
+    # If set, provider api_keys are encrypted with this secret when exported
+    # via the admin "KI" tab, and decrypted on import. Only the same instance
+    # (sharing this value) can restore the keys. Unset → keys are omitted
+    # from exports, same as before.
+    kis_export_key: str = ""
+
     @property
     def is_local_mode(self) -> bool:
         return not bool(self.ldap_server.strip())

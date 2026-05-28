@@ -63,6 +63,13 @@ const FEATURE_ORDER: Feature[] = [
   "transcript_translate",
 ];
 
+// Split user-choice features test each eligible provider individually
+// (per-provider model). Other features test the row's resolved provider once.
+const SPLIT_USER_CHOICE_FEATURES: ReadonlySet<Feature> = new Set([
+  "tts",
+  "doc_translate",
+]);
+
 export default function FeatureRoutingCard({
   meta,
   providers,
@@ -74,6 +81,7 @@ export default function FeatureRoutingCard({
 }: Props) {
   const t = useTranslations("admin.providers");
   const [testStates, setTestStates] = useState<Record<string, TestState>>({});
+  const [runAllBusy, setRunAllBusy] = useState(false);
 
   const routeByFeature = useMemo(() => {
     const m = new Map<Feature, FeatureRoute>();
@@ -121,9 +129,52 @@ export default function FeatureRoutingCard({
     }
   }, []);
 
+  const onRunAll = useCallback(async () => {
+    if (runAllBusy) return;
+    setRunAllBusy(true);
+    try {
+      const orderedFeatures = FEATURE_ORDER.filter((f) => meta.features.includes(f));
+      for (const feature of orderedFeatures) {
+        const route = routes.find((r) => r.feature === feature);
+        if (SPLIT_USER_CHOICE_FEATURES.has(feature)) {
+          const eligible = providers.filter((p) => {
+            const caps = new Set(p.capabilities);
+            if (caps.has(FEATURE_CAPABILITY[feature])) return true;
+            const extras = FEATURE_EXTRA_CAPABILITIES[feature] || [];
+            return extras.some((c) => caps.has(c));
+          });
+          for (const p of eligible) {
+            await onTestProvider(feature, p.id);
+          }
+        } else {
+          if (route?.provider_id == null) continue;
+          await onTest(feature);
+        }
+      }
+    } finally {
+      setRunAllBusy(false);
+    }
+  }, [runAllBusy, meta.features, routes, providers, onTest, onTestProvider]);
+
   return (
     <section className="border border-border-soft rounded-xl bg-background p-5">
-      <p className="text-sm font-medium text-foreground mb-1">{t("routes.title")}</p>
+      <div className="flex items-start justify-between gap-4 mb-1">
+        <p className="text-sm font-medium text-foreground">{t("routes.title")}</p>
+        <button
+          type="button"
+          onClick={onRunAll}
+          disabled={runAllBusy}
+          title={t("routes.testAll")}
+          aria-label={t("routes.testAll")}
+          className="shrink-0 w-8 h-8 rounded-md border border-border-soft bg-background flex items-center justify-center text-muted hover:text-kb hover:outline hover:outline-2 hover:outline-kb transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+        >
+          {runAllBusy ? (
+            <Spinner size={14} weight="bold" className="animate-spin" />
+          ) : (
+            <Lightning size={14} weight="bold" />
+          )}
+        </button>
+      </div>
       <p className="text-xs text-muted-soft mb-4 max-w-2xl">{t("routes.hint")}</p>
 
       <div className="divide-y divide-border-soft">
@@ -150,6 +201,7 @@ export default function FeatureRoutingCard({
               isUserChoice={isUserChoice}
               testState={testStates[feature] ?? { kind: "idle" }}
               providerTestStates={providerTestStates}
+              testsLocked={runAllBusy}
               onTest={() => onTest(feature)}
               onTestProvider={(pid) => onTestProvider(feature, pid)}
               onChangeProvider={(pid) => onChangeProvider(feature, pid)}
@@ -172,6 +224,7 @@ function FeatureRow({
   isUserChoice,
   testState,
   providerTestStates,
+  testsLocked,
   onTest,
   onTestProvider,
   onChangeProvider,
@@ -186,6 +239,7 @@ function FeatureRow({
   isUserChoice: boolean;
   testState: TestState;
   providerTestStates: ProviderTestStates;
+  testsLocked: boolean;
   onTest: () => void;
   onTestProvider: (providerId: number) => void;
   onChangeProvider: (id: number | null) => void;
@@ -226,7 +280,7 @@ function FeatureRow({
                       spellCheck={false}
                       className="flex-1 text-xs px-2 py-1.5 border-2 border-border rounded-md font-mono hover:border-kb focus:outline-none focus:border-kb bg-background text-left"
                     />
-                    <TestButton state={pState} disabled={false} onClick={() => onTestProvider(p.id)} />
+                    <TestButton state={pState} disabled={testsLocked} onClick={() => onTestProvider(p.id)} />
                   </div>
                   <TestStatusLine state={pState} />
                 </div>
@@ -287,12 +341,12 @@ function FeatureRow({
                     spellCheck={false}
                     className="flex-1 sm:flex-none sm:w-[180px] text-xs px-2 py-1.5 border-2 border-border rounded-md font-mono hover:border-kb focus:outline-none focus:border-kb bg-background"
                   />
-                <TestButton state={testState} disabled={!canTest} onClick={onTest} />
+                <TestButton state={testState} disabled={!canTest || testsLocked} onClick={onTest} />
               </div>
             </div>
           )}
           {!primary && (
-            <TestButton state={testState} disabled={!canTest} onClick={onTest} />
+            <TestButton state={testState} disabled={!canTest || testsLocked} onClick={onTest} />
           )}
         </div>
       </div>
@@ -330,7 +384,7 @@ function FeatureRow({
           spellCheck={false}
           className="text-xs px-2 py-1.5 border-2 border-border rounded-md font-mono hover:border-kb focus:outline-none focus:border-kb bg-background disabled:opacity-60 disabled:cursor-not-allowed"
         />
-        <TestButton state={testState} disabled={!canTest} onClick={onTest} />
+        <TestButton state={testState} disabled={!canTest || testsLocked} onClick={onTest} />
       </div>
     </div>
   );

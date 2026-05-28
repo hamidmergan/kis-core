@@ -29,6 +29,7 @@ export type ProviderMeta = {
   capabilities: Capability[];
   features: Feature[];
   user_choice_features: Feature[];
+  api_key_encryption_enabled: boolean;
 };
 
 export type Voice = {
@@ -72,6 +73,8 @@ export type ImportPreviewProvider = {
   needs_api_key: boolean;
   existing_has_key: boolean;
   protocol_change: { from: string; to: string } | null;
+  encrypted_key_present: boolean;
+  encrypted_key_recoverable: boolean;
 };
 
 export type ImportPreviewRoute =

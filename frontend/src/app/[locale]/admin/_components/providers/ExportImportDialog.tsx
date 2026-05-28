@@ -2,7 +2,6 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
-import { CheckCircle } from "@phosphor-icons/react";
 import { filterExportConfig } from "./_exportFilter";
 import { fetchExportConfig } from "./_api";
 import type { ImportPreviewResult, Provider } from "./_types";
@@ -12,6 +11,7 @@ type Tab = "export" | "import";
 type Props = {
   providers: Provider[];
   initialTab: Tab;
+  apiKeyEncryptionEnabled: boolean;
   onClose: () => void;
   onExportDownload: (filteredConfig: unknown, filename: string) => void;
   onImportPreview: (config: unknown) => Promise<ImportPreviewResult>;
@@ -21,6 +21,7 @@ type Props = {
 export default function ExportImportDialog({
   providers,
   initialTab,
+  apiKeyEncryptionEnabled,
   onClose,
   onExportDownload,
   onImportPreview,
@@ -67,6 +68,7 @@ export default function ExportImportDialog({
         {tab === "export" ? (
           <ExportTab
             providers={providers}
+            apiKeyEncryptionEnabled={apiKeyEncryptionEnabled}
             onCancel={onClose}
             onDownload={onExportDownload}
           />
@@ -105,10 +107,12 @@ function TabButton({
 
 function ExportTab({
   providers,
+  apiKeyEncryptionEnabled,
   onCancel,
   onDownload,
 }: {
   providers: Provider[];
+  apiKeyEncryptionEnabled: boolean;
   onCancel: () => void;
   onDownload: (config: unknown, filename: string) => void;
 }) {
@@ -153,6 +157,17 @@ function ExportTab({
       <div className="p-5 space-y-5">
         <p className="text-[12px] text-amber-700 dark:text-amber-400">
           {t("exportHint")}
+        </p>
+        <p
+          className={`text-[12px] ${
+            apiKeyEncryptionEnabled
+              ? "text-green-700 dark:text-green-400"
+              : "text-muted"
+          }`}
+        >
+          {apiKeyEncryptionEnabled
+            ? t("apiKeyEncryptionOn")
+            : t("apiKeyEncryptionOff")}
         </p>
 
         <section>
@@ -304,6 +319,7 @@ function ImportTab({
                 ({t("import.chooseAnotherFile")})
               </button>
             </div>
+            <ApiKeyRestoreNotice preview={state.preview} />
             <PreviewBody preview={state.preview} />
           </>
         )}
@@ -368,6 +384,25 @@ function DropZone({ onFile }: { onFile: (file: File) => void }) {
   );
 }
 
+function ApiKeyRestoreNotice({ preview }: { preview: ImportPreviewResult }) {
+  const t = useTranslations("admin.providers.exportImport.import");
+  const withEnvelope = preview.providers.filter((p) => p.encrypted_key_present);
+  if (withEnvelope.length === 0) return null;
+  const unrecoverable = withEnvelope.filter((p) => !p.encrypted_key_recoverable);
+  if (unrecoverable.length === 0) {
+    return (
+      <p className="text-[12px] text-green-700 dark:text-green-400">
+        {t("apiKeyRestoreOk", { count: withEnvelope.length })}
+      </p>
+    );
+  }
+  return (
+    <p className="text-[12px] text-amber-700 dark:text-amber-400">
+      {t("apiKeyRestoreFailed", { count: unrecoverable.length })}
+    </p>
+  );
+}
+
 function PreviewBody({ preview }: { preview: ImportPreviewResult }) {
   const t = useTranslations("admin.providers.exportImport.preview");
   return (
@@ -383,57 +418,6 @@ function PreviewBody({ preview }: { preview: ImportPreviewResult }) {
                 <span className="text-sm font-medium text-foreground truncate">{p.name}</span>
                 <PreviewBadge action={p.action} />
               </div>
-              {p.protocol_change && (
-                <p className="mt-1 text-[12px] text-amber-700 dark:text-amber-400 border-l-2 border-amber-500 pl-2">
-                  {t("protocolChange", p.protocol_change)}
-                </p>
-              )}
-              {p.needs_api_key && !p.existing_has_key && (
-                <p className="mt-1 text-[12px] text-red-600 dark:text-red-400 border-l-2 border-red-600 pl-2">
-                  {t("apiKeyMissing")}
-                </p>
-              )}
-              {p.needs_api_key && p.existing_has_key && (
-                <p className="mt-1 text-[12px] text-green-700 dark:text-green-400 border-l-2 border-green-600 pl-2 flex items-center gap-1">
-                  <CheckCircle size={12} weight="bold" />
-                  {t("apiKeyPreserved")}
-                </p>
-              )}
-              {!p.needs_api_key && (
-                <p className="mt-1 text-[12px] text-green-700 dark:text-green-400 border-l-2 border-green-600 pl-2 flex items-center gap-1">
-                  <CheckCircle size={12} weight="bold" />
-                  {t("apiKeyNotNeeded")}
-                </p>
-              )}
-            </li>
-          ))}
-        </ul>
-      </section>
-
-      <section>
-        <h3 className="text-xs font-semibold uppercase tracking-wide text-muted mb-2">
-          {t("routesHeading", { count: preview.routes.length })}
-        </h3>
-        <ul className="space-y-1.5">
-          {preview.routes.map((r, i) => (
-            <li key={`${r.feature}-${i}`} className="text-sm flex items-start gap-2">
-              {r.action === "skip_unresolved" ? (
-                <>
-                  <span className="text-foreground">
-                    <span className="font-medium">{r.feature}</span> —{" "}
-                    <span className="text-amber-700 dark:text-amber-400">
-                      {t("routeSkipped", { provider: extractProviderFromReason(r.reason) })}
-                    </span>
-                  </span>
-                </>
-              ) : (
-                <>
-                  <CheckCircle size={14} weight="bold" className="text-green-600 mt-0.5" />
-                  <span className="text-foreground">
-                    <span className="font-medium">{r.feature}</span> → {r.resolved_provider}
-                  </span>
-                </>
-              )}
             </li>
           ))}
         </ul>
@@ -454,7 +438,3 @@ function PreviewBadge({ action }: { action: "create" | "update" }) {
   );
 }
 
-function extractProviderFromReason(reason: string): string {
-  const m = /['"„]([^'"]+)['"]/.exec(reason);
-  return m ? m[1] : reason;
-}

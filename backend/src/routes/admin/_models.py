@@ -93,6 +93,9 @@ class ExportedProvider(BaseModel):
     capabilities: list[str] = []
     voices: list[VoiceEntry] = []
     enabled: bool = True
+    # AES-GCM envelope produced by export_crypto.wrap_api_key, or None when
+    # the source instance had no KIS_EXPORT_KEY configured / no key on file.
+    api_key: dict | None = None
 
 
 class ExportedFeatureRoute(BaseModel):
