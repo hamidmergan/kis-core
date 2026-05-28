@@ -857,8 +857,13 @@
         "modelOptional": "(optional)"
       },
       "delete": {
-        "confirmEmpty": "Delete provider \"{name}\"?",
-        "confirmWithRoutes": "\"{name}\" is used for {features}. Deleting will disable those features until you assign other providers. Delete anyway?"
+        "title": "Delete provider \"{name}\"?",
+        "bodyEmpty": "This will permanently delete provider \"{name}\" including the stored API key.",
+        "bodyWithRoutes": "\"{name}\" is currently used for:\n  • {features}",
+        "warningFeaturesUnavailable": "These features will NOT be available after deletion until you assign another provider.",
+        "warningIrreversible": "This action CANNOT be undone.",
+        "confirm": "Yes, delete",
+        "cancel": "Cancel"
       },
       "dialog": {
         "titleCreate": "Add provider",

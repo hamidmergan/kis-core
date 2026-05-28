@@ -857,8 +857,13 @@
         "modelOptional": "(optional)"
       },
       "delete": {
-        "confirmEmpty": "Anbieter \"{name}\" löschen?",
-        "confirmWithRoutes": "\"{name}\" wird für {features} verwendet. Wenn du löschst, sind diese Funktionen nicht mehr verfügbar bis du andere Anbieter zuweist. Trotzdem löschen?"
+        "title": "Anbieter „{name}\" löschen?",
+        "bodyEmpty": "Diese Aktion löscht den Anbieter „{name}\" inklusive des hinterlegten API-Keys.",
+        "bodyWithRoutes": "„{name}\" wird aktuell für folgende Funktionen verwendet:\n  • {features}",
+        "warningFeaturesUnavailable": "Diese Funktionen sind nach dem Löschen NICHT mehr verfügbar, bis du einen anderen Anbieter zuweist.",
+        "warningIrreversible": "Diese Aktion kann NICHT rückgängig gemacht werden.",
+        "confirm": "Ja, löschen",
+        "cancel": "Abbrechen"
       },
       "dialog": {
         "titleCreate": "Anbieter hinzufügen",

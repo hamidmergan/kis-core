@@ -24,6 +24,7 @@ import ProviderFormDialog from "./ProviderFormDialog";
 import FeatureRoutingCard from "./FeatureRoutingCard";
 import ImportPreviewDialog from "./ImportPreviewDialog";
 import ClearAllConfirmDialog from "./ClearAllConfirmDialog";
+import DeleteProviderConfirmDialog from "./DeleteProviderConfirmDialog";
 
 type DialogState =
   | { open: false }
@@ -45,6 +46,9 @@ export default function ProvidersTab() {
   const [loading, setLoading] = useState(true);
   const [dialog, setDialog] = useState<DialogState>({ open: false });
   const [clearAllOpen, setClearAllOpen] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<
+    { provider: Provider; affectedFeatures: Feature[] } | null
+  >(null);
 
   const refreshAll = useCallback(async () => {
     const [m, p, r] = await Promise.all([fetchMeta(), fetchProviders(), fetchRoutes()]);
@@ -106,22 +110,20 @@ export default function ProvidersTab() {
     [refreshAll],
   );
 
-  const handleDelete = useCallback(
-    async (p: Provider) => {
-      const affected = await fetchAffectedFeatures(p.id);
-      const confirmMsg =
-        affected.length === 0
-          ? t("delete.confirmEmpty", { name: p.name })
-          : t("delete.confirmWithRoutes", {
-              name: p.name,
-              features: affected.map((a) => t(`featureName.${a.feature}`)).join(", "),
-            });
-      if (!window.confirm(confirmMsg)) return;
-      await deleteProvider(p.id);
-      await refreshAll();
-    },
-    [refreshAll, t],
-  );
+  const handleDelete = useCallback(async (p: Provider) => {
+    const affected = await fetchAffectedFeatures(p.id);
+    setDeleteTarget({
+      provider: p,
+      affectedFeatures: affected.map((a) => a.feature),
+    });
+  }, []);
+
+  const handleDeleteConfirm = useCallback(async () => {
+    if (!deleteTarget) return;
+    await deleteProvider(deleteTarget.provider.id);
+    setDeleteTarget(null);
+    await refreshAll();
+  }, [deleteTarget, refreshAll]);
 
   // ── route mutations ─────────────────────────────────────────────────────
   const onChangeProvider = useCallback(
@@ -329,6 +331,15 @@ export default function ProvidersTab() {
           routeCount={routes.length}
           onCancel={() => setClearAllOpen(false)}
           onConfirm={handleClearAllConfirm}
+        />
+      )}
+
+      {deleteTarget && (
+        <DeleteProviderConfirmDialog
+          providerName={deleteTarget.provider.name}
+          affectedFeatures={deleteTarget.affectedFeatures}
+          onCancel={() => setDeleteTarget(null)}
+          onConfirm={handleDeleteConfirm}
         />
       )}
     </div>
