@@ -75,7 +75,7 @@ def run_translate(
     glossary_json: str,
     source_lang: str,
     target_lang: str,
-    translation_provider: str = "",
+    provider_id: int | None = None,
 ):
     try:
         db.update_job_status(job_uuid, "running")
@@ -84,14 +84,10 @@ def run_translate(
         content = get_file(input_path)
         ext = Path(filename).suffix.lower()
 
-        from src.config import Settings
         from src.services.glossary import GlossaryService
         from src.services.translation import TranslationService
+        from src.dependencies import get_translate_client_for_provider
 
-        settings = Settings()
-        effective_provider = translation_provider or "deepl"
-
-        # Parse glossary entries from JSON
         glossary_entries: dict = {}
         if glossary_json:
             try:
@@ -101,29 +97,11 @@ def run_translate(
             except (json.JSONDecodeError, TypeError):
                 pass
 
-        if effective_provider == "llm":
-            from src.services.llm_translation_client import LLMTranslationClient
-            from src.dependencies import _resolve_translation_llm_provider
-            _api_key, _base_url, _model, _provider = _resolve_translation_llm_provider()
-            # LLM gets glossary directly in the prompt for context-aware translation
-            translation_client = LLMTranslationClient(
-                api_key=_api_key,
-                base_url=_base_url,
-                model=_model,
-                provider=_provider,
-                glossary=glossary_entries or None,
-            )
-            glossary = GlossaryService()  # empty: LLM handles glossary via prompt
-        else:
-            from src.services.deepl_client import DeepLClient
-            from src.dependencies import resolve_deepl_api_key
-            api_key = resolve_deepl_api_key()
-            if not api_key:
-                raise RuntimeError("DeepL API key not configured")
-            translation_client = DeepLClient(api_key)
-            glossary = GlossaryService()
-            if glossary_entries:
-                glossary.set_entries(glossary_entries)
+        translation_client, glossary = get_translate_client_for_provider(
+            provider_id, glossary_entries=glossary_entries or None
+        )
+        if translation_client is None:
+            raise RuntimeError("No translation provider configured")
 
         service = TranslationService(deepl_client=translation_client, glossary=glossary)
         translated_filename = service.translate_filename(filename, source_lang, target_lang)

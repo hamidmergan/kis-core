@@ -1,3 +1,5 @@
+from unittest.mock import MagicMock
+
 
 def _make_provider(id, name, protocol="openai_compat", api_key=None, base_url="http://example.com"):
     return {"id": id, "name": name, "protocol": protocol, "api_key": api_key,
@@ -94,3 +96,61 @@ def test_get_translate_client_returns_none_when_no_providers_available(monkeypat
     monkeypatch.setattr("src.dependencies.db.list_providers_with_capability", lambda cap: [])
     client, glossary = get_translate_client_for_provider(None)
     assert client is None
+
+
+def test_run_translate_uses_provider_id(monkeypatch, tmp_path):
+    """run_translate resolves provider_id into the right translation client."""
+    from src.tasks import general_tasks
+
+    provider = _make_provider(5, "DeepL", protocol="deepl", api_key="key",
+                              base_url="https://api-free.deepl.com")
+    glossary_svc = MagicMock()
+    fake_client = MagicMock()
+    fake_client.translate_text.return_value = "translated"
+    fake_client.translate_batch.return_value = ["translated"]
+
+    monkeypatch.setattr("src.dependencies.db.get_provider", lambda pid: provider)
+    monkeypatch.setattr("src.dependencies.db.get_route", lambda f: {"provider_models": {}, "model_name": None})
+    monkeypatch.setattr("src.dependencies.db.list_providers_with_capability", lambda c: [provider])
+
+    captured = {}
+
+    def fake_get_translate_client(pid, *, glossary_entries=None):
+        captured["provider_id"] = pid
+        return fake_client, glossary_svc
+
+    monkeypatch.setattr("src.tasks.general_tasks.get_translate_client_for_provider",
+                        fake_get_translate_client)
+
+    # Minimal stubs so the task body can run without DB/Celery
+    monkeypatch.setattr("src.tasks.general_tasks.db.update_job_status", lambda *a, **kw: None)
+    monkeypatch.setattr("src.tasks.general_tasks.db.update_job_expiry", lambda *a, **kw: None)
+    monkeypatch.setattr("src.tasks.general_tasks._resolve_user_id", lambda uuid: 1)
+
+    txt = tmp_path / "input.txt"
+    txt.write_text("Hello world")
+
+    monkeypatch.setattr("src.tasks.general_tasks.TranslationService",
+                        lambda deepl_client, glossary: MagicMock(
+                            translate_text=lambda t, s, tgt: "translated",
+                            translate_filename=lambda f, s, tgt: "translated.txt",
+                        ))
+
+    result_path = tmp_path / "result.txt"
+    monkeypatch.setattr("src.tasks.general_tasks.get_file", lambda p: b"Hello world")
+    monkeypatch.setattr("src.tasks.general_tasks.save_result_file", lambda *a, **kw: str(result_path))
+    monkeypatch.setattr("src.tasks.general_tasks.save_result_and_evict", lambda *a, **kw: None)
+    monkeypatch.setattr("src.tasks.general_tasks.delete_file", lambda p: None)
+
+    general_tasks.run_translate(
+        None,  # self (Celery bind)
+        "job-uuid-123",
+        str(txt),
+        "test.txt",
+        "",   # glossary_json
+        "DE",
+        "EN",
+        5,    # provider_id
+    )
+
+    assert captured["provider_id"] == 5
