@@ -71,10 +71,12 @@ def resolve(feature: str, *, user_provider_id: Optional[int] = None) -> FeatureB
     if not provider.get("enabled"):
         raise FeatureNotConfigured(f"provider {chosen_id} ({provider['name']}) is disabled")
 
+    provider_models = route.get("provider_models") or {}
+    model = provider_models.get(str(chosen_id)) or route.get("model_name")
     return FeatureBinding(
         feature=feature,
         provider=provider,
-        model=route.get("model_name"),
+        model=model,
     )
 
 
@@ -124,10 +126,16 @@ def make_tts_client(binding: FeatureBinding):
     """Return an OpenAICompatTTSClient for the chosen TTS provider."""
     from src.services.openai_compat_tts import OpenAICompatTTSClient
 
+    if not binding.model:
+        raise FeatureNotConfigured(
+            f"tts provider '{binding.provider.get('name', '')}' has no model_name — "
+            "set it in the admin KI panel"
+        )
     provider = binding.provider
     return OpenAICompatTTSClient(
         base_url=provider["base_url"],
-        model=binding.model or "",
+        model=binding.model,
+        api_key=provider.get("api_key") or "not-needed",
     )
 
 
