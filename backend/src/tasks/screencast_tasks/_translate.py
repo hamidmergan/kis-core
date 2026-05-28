@@ -33,6 +33,7 @@ def run_screencast_translate(
     glossary_json: str,
     source_lang: str = "DE",
     target_lang: str = "EN-US",
+    provider_id: int | None = None,
 ):
     """Translate PPTX DE→EN, extract slide texts, save artifacts, set awaiting_user."""
     try:
@@ -47,10 +48,28 @@ def run_screencast_translate(
         # Save original DE PPTX immediately
         save_job_file(user_id, job_uuid, "original.pptx", pptx_bytes)
 
-        from src.routes.translate import translate_pptx_content
-        translated_bytes = translate_pptx_content(
-            pptx_bytes, filename, glossary_json, source_lang, target_lang
+        # Resolve translation provider
+        from src.dependencies import get_translate_client_for_provider
+        from src.services.translation import TranslationService
+        from src.translators.pptx import translate_pptx
+
+        glossary_entries: dict = {}
+        if glossary_json:
+            try:
+                entries = json.loads(glossary_json)
+                if isinstance(entries, dict):
+                    glossary_entries = entries
+            except (json.JSONDecodeError, TypeError):
+                pass
+
+        translation_client, glossary = get_translate_client_for_provider(
+            provider_id, glossary_entries=glossary_entries or None
         )
+        if translation_client is None:
+            raise RuntimeError("No translation provider configured")
+
+        service = TranslationService(deepl_client=translation_client, glossary=glossary)
+        translated_bytes = translate_pptx(pptx_bytes, source_lang, target_lang, service)
 
         (
             IMAGE_TMP_DIR,
