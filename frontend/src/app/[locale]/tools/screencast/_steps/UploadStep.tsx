@@ -26,6 +26,9 @@ interface UploadStepProps {
   onSourceLangChange: (v: string) => void;
   onTargetLangChange: (v: string) => void;
   onGlossaryIdsChange: (v: string[]) => void;
+  translationProviders: { id: number; name: string }[];
+  translationProviderId: number | null;
+  onTranslationProviderChange: (id: number | null) => void;
   onUploadNext: () => void;
 }
 
@@ -48,6 +51,9 @@ export default function UploadStep(props: UploadStepProps) {
     onSourceLangChange,
     onTargetLangChange,
     onGlossaryIdsChange,
+    translationProviders,
+    translationProviderId,
+    onTranslationProviderChange,
     onUploadNext,
   } = props;
 
@@ -183,6 +189,19 @@ export default function UploadStep(props: UploadStepProps) {
           )}
 
           <GlossarySelector values={glossaryIds} onChange={onGlossaryIdsChange} />
+
+          {translationProviders.length > 1 && (
+            <div className="mb-4">
+              <label className="block text-xs font-medium text-muted mb-1">
+                {t("upload.translationProvider")}
+              </label>
+              <Select
+                value={translationProviderId != null ? String(translationProviderId) : ""}
+                onChange={(v) => onTranslationProviderChange(v ? Number(v) : null)}
+                options={translationProviders.map((p) => ({ value: String(p.id), label: p.name }))}
+              />
+            </div>
+          )}
         </>
       )}
 
