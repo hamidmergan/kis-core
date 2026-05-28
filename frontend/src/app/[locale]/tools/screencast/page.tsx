@@ -79,6 +79,8 @@ function ScreencastPageInner() {
 
 
   const [glossaryIds, setGlossaryIds] = useState<string[]>(["", "", ""]);
+  const [translationProviders, setTranslationProviders] = useState<{ id: number; name: string }[]>([]);
+  const [translationProviderId, setTranslationProviderId] = useState<number | null>(null);
   const renderResult = useRenderResult();
   const { downloadBlob, videoUrl, audioId, audioCount, resultStem, apply: applyRenderResult, clear: clearRenderResult } = renderResult;
 
@@ -122,6 +124,19 @@ function ScreencastPageInner() {
   const showDemoLink = isToolEnabled("screencast-demo");
 
   const [hasActiveJob, setHasActiveJob] = useActiveJobCheck("screencast");
+
+  useEffect(() => {
+    fetch("/api/translate/config", { credentials: "include" })
+      .then((r) => r.json())
+      .then((data) => {
+        const provs: { id: number; name: string }[] = (data.providers ?? []).map(
+          (p: { id: number; label: string }) => ({ id: p.id, name: p.label })
+        );
+        setTranslationProviders(provs);
+        if (provs.length > 0) setTranslationProviderId(provs[0].id);
+      })
+      .catch(() => {});
+  }, []);
 
   const scriptInput = useScriptInputMode();
   const {
@@ -293,6 +308,7 @@ function ScreencastPageInner() {
     sourceLang,
     targetLang,
     glossaryIds,
+    translationProviderId,
     mergeToApiJson,
     checkBeforeSubmit,
     checkJobStillValid,
@@ -447,6 +463,9 @@ function ScreencastPageInner() {
             onSourceLangChange={setSourceLang}
             onTargetLangChange={setTargetLang}
             onGlossaryIdsChange={setGlossaryIds}
+            translationProviders={translationProviders}
+            translationProviderId={translationProviderId}
+            onTranslationProviderChange={setTranslationProviderId}
             onUploadNext={handleUploadNext}
           />
         )}
