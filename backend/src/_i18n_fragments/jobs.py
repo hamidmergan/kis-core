@@ -75,6 +75,14 @@ MESSAGES: dict[str, dict[str, str]] = {
         "de": "Bitte entweder Text eingeben oder eine Datei hochladen, nicht beides.",
         "en": "Please provide either text or a file, not both.",
     },
+    "tts.providerUnavailable": {
+        "de": "TTS-Anbieter ist nicht verfügbar.",
+        "en": "TTS provider is not available.",
+    },
+    "tts.providerNotFound": {
+        "de": "TTS-Anbieter nicht gefunden oder nicht konfiguriert.",
+        "en": "TTS provider not found or not configured.",
+    },
     # ── summary ──────────────────────────────────────────────────────────────
     "summary.unsupportedFormat": {
         "de": "Nur {formats} erlaubt",
