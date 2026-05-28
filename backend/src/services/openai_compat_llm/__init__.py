@@ -21,8 +21,8 @@ class OpenAICompatLLMClient(
     """Lightweight wrapper around any OpenAI-compatible LLM endpoint.
 
     The instance is configured with ``base_url``, ``api_key``, ``model`` and
-    optional ``provider`` tag. Used today against KISSKI/GWDG, THL myLab and
-    Ollama; any other OpenAI-compat backend works just as well.
+    an optional ``provider`` tag (used for telemetry only). All providers are
+    admin-configured in the KI panel; no provider-specific code paths here.
     """
 
 

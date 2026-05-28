@@ -105,6 +105,7 @@ export type SetRouteInput = {
   provider_id: number | null;
   model_name: string | null;
   user_choices: number[] | null;
+  provider_models?: Record<string, string>;
 };
 
 export async function setFeatureRoute(
@@ -126,11 +127,11 @@ export type FeatureTestResult = {
   error: string | null;
 };
 
-export async function testFeatureRoute(feature: Feature): Promise<FeatureTestResult> {
-  const res = await fetch(`${BASE}/feature-routes/${feature}/test`, {
-    method: "POST",
-    credentials: "include",
-  });
+export async function testFeatureRoute(feature: Feature, providerId?: number): Promise<FeatureTestResult> {
+  const url = providerId != null
+    ? `${BASE}/feature-routes/${feature}/test?provider_id=${providerId}`
+    : `${BASE}/feature-routes/${feature}/test`;
+  const res = await fetch(url, { method: "POST", credentials: "include" });
   return jsonOrThrow<FeatureTestResult>(res);
 }
 

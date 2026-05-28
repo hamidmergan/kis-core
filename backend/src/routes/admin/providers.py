@@ -294,8 +294,8 @@ async def test_route(
 
     Distinct from the provider probe (which only verifies reachability): this
     issues a minimal real request to the feature-specific endpoint with the
-    configured model so the admin can confirm "TTS @ KISSKI" actually works,
-    not just "the provider responds at /v1/models".
+    configured model so the admin can confirm the feature/provider/model combo
+    actually works, not just "the provider responds at /v1/models".
 
     Pass provider_id to test a specific provider using its per-provider model
     (provider_models[provider_id]) rather than the global model_name.

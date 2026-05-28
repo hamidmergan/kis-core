@@ -81,3 +81,4 @@ class SetFeatureRouteRequest(BaseModel):
     provider_id: int | None = None  # null clears the route
     model_name: str | None = None
     user_choices: list[int] | None = None  # multi-pill provider ids
+    provider_models: dict[str, str] | None = None  # per-provider model overrides

@@ -61,7 +61,7 @@ class _OpenAICompatBase:
         base_url: str,
         model: str,
         whisper_model: str,
-        provider: str = "kisski",
+        provider: str = "openai_compat",
     ):
         self._client = OpenAI(api_key=api_key, base_url=base_url, timeout=_LLM_HTTP_TIMEOUT)
         # Async twin for streaming endpoints that need cancel-on-disconnect.

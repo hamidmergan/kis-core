@@ -4,8 +4,8 @@ Endpoints used (OpenAI Audio spec):
     POST /v1/audio/speech   -> audio bytes (mp3)
     GET  /v1/models         -> health probe
 
-Works with any OpenAI-compatible TTS server (openedai-speech, XTTS-v2, etc.).
-Voices are managed in the providers.voices DB column, not hardcoded here.
+Works with any OpenAI-compatible TTS server. Voices are managed in the
+providers.voices DB column, not hardcoded here.
 """
 from __future__ import annotations
 
@@ -105,12 +105,13 @@ class OpenAICompatTTSClient:
             )
         voice = voice_id
         payload: dict = {
-            "model": self._model,
             "input": text,
             "voice": voice,
             "speed": speed,
             "response_format": "mp3",
         }
+        if self._model:
+            payload["model"] = self._model
         response = client.post(
             f"{self._base_url}/v1/audio/speech",
             json=payload,

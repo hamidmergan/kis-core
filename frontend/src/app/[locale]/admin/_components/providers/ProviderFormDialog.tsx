@@ -25,7 +25,7 @@ type Props = {
 const DEFAULT_BASE_URL: Record<string, string> = {
   openai_compat: "",
   deepl: "https://api.deepl.com",
-  docling: "https://chat-ai.academiccloud.de/v1/documents/convert",
+  docling: "",
 };
 
 export default function ProviderFormDialog({
@@ -149,7 +149,7 @@ export default function ProviderFormDialog({
           </button>
         </div>
 
-        <form onSubmit={submit} className="space-y-3 max-h-[80vh] overflow-y-auto pr-1" autoComplete="off">
+        <form onSubmit={submit} className="space-y-3 max-h-[80vh] overflow-y-auto px-1" autoComplete="off">
           {/* Hidden honeypot inputs trick Chromium-based password managers
               (Google Password Manager, 1Password, LastPass) into autofilling
               into these throwaway fields instead of the real Base-URL / API-Key
@@ -240,24 +240,22 @@ export default function ProviderFormDialog({
                 <label className="text-xs uppercase tracking-wide text-muted">{t("dialog.fieldCapabilities")}</label>
                 <p className="text-xs text-muted-soft mt-0.5">{t("dialog.capabilitiesHint")}</p>
               </div>
-              <div className="flex flex-wrap gap-2">
+              <div className="flex flex-wrap gap-x-5 gap-y-1.5">
                 {meta.capabilities.map((cap) => {
                   const checked = selectedCaps.has(cap);
                   return (
-                    <label key={cap} className="flex items-center gap-1.5 cursor-pointer select-none">
+                    <label key={cap} className="flex items-center gap-2.5 cursor-pointer select-none">
                       <input
                         type="checkbox"
                         checked={checked}
-                        onChange={() => {
-                          setSelectedCaps((prev) => {
-                            const next = new Set(prev);
-                            if (checked) next.delete(cap); else next.add(cap);
-                            return next;
-                          });
-                        }}
-                        className="h-3.5 w-3.5 rounded text-kb focus:ring-kb"
+                        onChange={() => setSelectedCaps((prev) => {
+                          const next = new Set(prev);
+                          if (checked) next.delete(cap); else next.add(cap);
+                          return next;
+                        })}
+                        className="w-4 h-4 rounded accent-kb cursor-pointer"
                       />
-                      <span className="text-xs text-foreground-soft">{t(`capabilityName.${cap}`)}</span>
+                      <span className="text-sm text-foreground">{t(`capabilityName.${cap}`)}</span>
                     </label>
                   );
                 })}
@@ -315,6 +313,7 @@ export default function ProviderFormDialog({
                 apiKey={apiKey || null}
                 voicesPath={voicesPath}
                 onVoicesPathChange={setVoicesPath}
+                providerId={isEdit ? initial?.id : undefined}
               />
             </div>
           )}

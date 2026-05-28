@@ -2,11 +2,11 @@
 
 Two backends are supported, both selected at runtime via the admin panel:
 
-- ``DoclingOcrProvider``: GWDG/KISSKI Docling-API. Per-image POST, dedicated
-  document-understanding model. ~7s per typical slide vs. 30-70s for the
-  vision-LLM route - 5-10x faster in practice.
+- ``DoclingOcrProvider``: Docling document-understanding API. Per-image POST
+  with a dedicated layout+OCR model. ~7s per typical slide vs. 30-70s for the
+  vision-LLM route — 5-10x faster in practice.
 - ``OpenAICompatOcrProvider``: OpenAI-compatible /v1/chat/completions with a
-  Vision-LLM (e.g. THL myLab chandra-ocr-2). Kept as alternative provider.
+  Vision-LLM. Kept as an alternative provider.
 
 Both expose the same ``ocr_image(bytes) -> str`` interface so the chunker
 doesn't care which is active.
@@ -67,8 +67,8 @@ def _call_vlm(client, model: str, image_bytes: bytes, mime_type: str) -> str:
 class OpenAICompatOcrProvider(OcrProvider):
     """OCR via any OpenAI-compatible Vision-LLM endpoint.
 
-    Multiple deployments (KISSKI, THL myLab, etc.) are different instances of
-    this same class with their own ``base_url`` / ``api_key`` / ``model``.
+    Multiple deployments are different instances of this same class with
+    their own ``base_url`` / ``api_key`` / ``model``.
     """
 
     def __init__(self, base_url: str, api_key: str, model: str) -> None:
@@ -84,7 +84,7 @@ class OpenAICompatOcrProvider(OcrProvider):
 
 
 class DoclingOcrProvider(OcrProvider):
-    """OCR via GWDG/KISSKI Docling document-understanding API.
+    """OCR via the Docling document-understanding API.
 
     Posts the image as a single-page document to ``/v1/documents/convert`` and
     returns the extracted markdown. The API runs IBM's Granite-Docling model

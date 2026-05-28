@@ -54,11 +54,6 @@ interface SystemInfo {
   database: Record<string, number>;
 }
 
-const PROVIDER_LABEL: Record<string, string> = {
-  kisski: "KISSKI",
-  ollama: "Ollama (local)",
-};
-
 function Section({
   icon,
   title,
@@ -111,14 +106,13 @@ function ModelRow({ label, info, dash }: { label: string; info: ModelInfo; dash:
   if (!info.provider) {
     return <Row label={label} value={<span className="text-muted">{dash}</span>} />;
   }
-  const provider = PROVIDER_LABEL[info.provider] ?? info.provider;
   return (
     <div className="py-2 border-b border-border-soft last:border-b-0">
       <div className="flex items-baseline justify-between gap-3">
         <p className="text-sm text-foreground-soft">{label}</p>
         <span className="text-xs font-medium text-kb bg-kb/8 px-2 py-0.5 rounded-full"
               style={{ backgroundColor: "rgba(var(--kb-rgb), 0.08)" }}>
-          {provider}
+          {info.provider}
         </span>
       </div>
       {info.model && (

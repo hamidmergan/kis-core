@@ -1,8 +1,8 @@
 """Adapter for the DeepL translation API.
 
-DeepL is a single-capability protocol: translation only. The probe is a real
-translation of a tiny placeholder string so we can verify both the auth key
-and the endpoint base URL in one request.
+DeepL is a single-capability protocol: translation only. The probe hits
+``/v2/usage`` — DeepL's free, no-quota-cost endpoint that verifies both the
+auth key and the host (Free vs Pro) in a single call.
 """
 
 from __future__ import annotations
@@ -47,7 +47,7 @@ class DeepLAdapter(ProviderAdapter):
         return self.base_url
 
     def probe(self) -> ProbeResult:
-        """Verify the configured key + URL by translating a probe string."""
+        """Verify the configured key + URL via DeepL's quota-free usage endpoint."""
         if not self.api_key:
             return ProbeResult(
                 capabilities=[],
@@ -56,17 +56,16 @@ class DeepLAdapter(ProviderAdapter):
             )
         try:
             with httpx.Client(timeout=8.0) as client:
-                response = client.post(
-                    f"{self._effective_base_url()}/v2/translate",
+                response = client.get(
+                    f"{self._effective_base_url()}/v2/usage",
                     headers=self._headers(),
-                    data={"text": "probe", "target_lang": "EN"},
                 )
         except httpx.HTTPError as e:
             logger.warning("DeepL probe failed for {}: {}", self.base_url, e)
             return ProbeResult(
                 capabilities=[],
                 status="error",
-                error=f"unreachable: {type(e).__name__}: {e}",
+                error="unreachable",
             )
 
         if response.status_code == 200:
@@ -75,12 +74,12 @@ class DeepLAdapter(ProviderAdapter):
             return ProbeResult(
                 capabilities=[],
                 status="error",
-                error=f"auth rejected (HTTP {response.status_code})",
+                error="auth_rejected",
             )
         return ProbeResult(
             capabilities=[],
             status="error",
-            error=f"unexpected HTTP {response.status_code}: {response.text[:200]}",
+            error="server_error",
         )
 
     def translate(

@@ -155,22 +155,13 @@ def get_llm_client(locale: str = Depends(get_locale)) -> OpenAICompatLLMClient:
     except RuntimeError as e:
         logger.warning("LLM provider resolution failed: {}", e)
         raise HTTPException(status_code=503, detail=t("llm.notConfigured", locale))
-    client = OpenAICompatLLMClient(
+    return OpenAICompatLLMClient(
         api_key=api_key,
         base_url=base_url,
         model=model,
         whisper_model=model,
         provider=provider,
     )
-    # Ollama defaults to a tiny num_ctx (4096) on its OpenAI-compat endpoint,
-    # which silently truncates large RAG prompts (the citation rules at the
-    # tail of the system prompt are the first things to disappear). Bump it
-    # so the model actually sees the whole prompt + context. We detect
-    # "looks-like-ollama" via the base_url since the provider name is now
-    # admin-chosen and no longer a stable hint.
-    if "11434" in base_url or "ollama" in base_url.lower():
-        client._extra_body = {"options": {"num_ctx": 16384}}
-    return client
 
 
 # ─── TTS resolvers ─────────────────────────────────────────────────────────
@@ -192,11 +183,7 @@ def get_tts_client_for_provider(provider_id: int):
         return None
     route = db.get_route("tts")
     provider_models = (route.get("provider_models") if route else None) or {}
-    model = provider_models.get(str(provider_id)) or (route.get("model_name") if route else None)
-    if not model:
-        raise feature_router.FeatureNotConfigured(
-            "tts route has no model_name — set it in the admin KI panel"
-        )
+    model = provider_models.get(str(provider_id)) or (route.get("model_name") if route else None) or ""
     api_key = provider.get("api_key") or "not-needed"
     return OpenAICompatTTSClient(provider["base_url"], model=model, api_key=api_key)
 

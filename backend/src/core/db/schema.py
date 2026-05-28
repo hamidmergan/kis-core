@@ -931,13 +931,18 @@ def init_db(admin_email: Optional[str] = None) -> None:
             # feature is unconfigured and not available.
             cur.execute("""
                 CREATE TABLE IF NOT EXISTS feature_routes (
-                    id           SERIAL PRIMARY KEY,
-                    feature      TEXT NOT NULL UNIQUE,
-                    provider_id  INTEGER REFERENCES providers(id) ON DELETE SET NULL,
-                    model_name   TEXT,
-                    user_choices JSONB NOT NULL DEFAULT '[]'::jsonb,
-                    updated_at   TIMESTAMP NOT NULL DEFAULT NOW()
+                    id              SERIAL PRIMARY KEY,
+                    feature         TEXT NOT NULL UNIQUE,
+                    provider_id     INTEGER REFERENCES providers(id) ON DELETE SET NULL,
+                    model_name      TEXT,
+                    user_choices    JSONB NOT NULL DEFAULT '[]'::jsonb,
+                    provider_models JSONB NOT NULL DEFAULT '{}'::jsonb,
+                    updated_at      TIMESTAMP NOT NULL DEFAULT NOW()
                 )
+            """)
+            cur.execute("""
+                ALTER TABLE feature_routes
+                ADD COLUMN IF NOT EXISTS provider_models JSONB NOT NULL DEFAULT '{}'::jsonb
             """)
 
             # ─── LLM Usage Log ────────────────────────────────────────────────
@@ -1004,81 +1009,6 @@ def init_db(admin_email: Optional[str] = None) -> None:
             else:
                 _log.info("search_vector: all chunks already populated.")
 
-            # Stage 5: rename provider-specific settings keys to generic slot names
-            # (kisski_* → primary_*, mylab_* → fallback_*, ollama_* → local_*).
-            # Idempotent: if the new key already exists, the legacy row is dropped.
-            # TTS keys (mylab_enabled, mylab_tts_model, kokoro_*) are intentionally
-            # NOT renamed - TTS providers are a flat list, not a primary/fallback/
-            # local hierarchy.
-            for old_key, new_key in (
-                ("kisski_llm_enabled",            "primary_llm_enabled"),
-                ("kisski_llm_model",              "primary_llm_model"),
-                ("kisski_embedding_enabled",      "primary_embedding_enabled"),
-                ("kisski_embedding_model",        "primary_embedding_model"),
-                ("kisski_whisper_enabled",        "primary_whisper_enabled"),
-                ("kisski_ocr_enabled",            "primary_ocr_enabled"),
-                ("kisski_ocr_model",              "primary_ocr_model"),
-                ("kisski_image_gen_enabled",      "primary_image_gen_enabled"),
-                ("kisski_image_analyze_enabled",  "primary_image_analyze_enabled"),
-                ("kisski_image_edit_enabled",     "primary_image_edit_enabled"),
-                ("mylab_llm_enabled",             "fallback_llm_enabled"),
-                ("mylab_llm_model",               "fallback_llm_model"),
-                ("mylab_embedding_enabled",       "fallback_embedding_enabled"),
-                ("mylab_embedding_model",         "fallback_embedding_model"),
-                ("mylab_whisper_enabled",         "fallback_whisper_enabled"),
-                ("mylab_ocr_enabled",             "fallback_ocr_enabled"),
-                ("mylab_ocr_model",               "fallback_ocr_model"),
-                ("mylab_image_gen_enabled",       "fallback_image_gen_enabled"),
-                ("mylab_image_gen_model",         "fallback_image_gen_model"),
-                ("mylab_image_edit_enabled",      "fallback_image_edit_enabled"),
-                ("mylab_image_edit_model",        "fallback_image_edit_model"),
-                ("ollama_llm_enabled",            "local_llm_enabled"),
-                ("ollama_llm_model",              "local_llm_model"),
-                ("ollama_embedding_enabled",      "local_embedding_enabled"),
-                ("ollama_embedding_model",        "local_embedding_model"),
-                # OCR: the "primary" slot used to host KISSKI's generic vision
-                # LLM. We've replaced it with the GWDG Docling document API,
-                # which is a different service entirely - the rename makes
-                # admin settings legible and drops the orphaned model setting.
-                ("primary_ocr_enabled",           "docling_ocr_enabled"),
-            ):
-                # Insert under the new key only if it does not already exist
-                # (otherwise the new key wins, keeping the most recent admin edit).
-                cur.execute(
-                    """
-                    INSERT INTO settings (key, value, updated_at)
-                    SELECT %s, value, updated_at FROM settings WHERE key = %s
-                    ON CONFLICT (key) DO NOTHING
-                    """,
-                    (new_key, old_key),
-                )
-                cur.execute("DELETE FROM settings WHERE key = %s", (old_key,))
-
-            # primary_ocr_model used to configure the KISSKI Vision-LLM. The
-            # Docling API has no model parameter, so the setting is orphaned.
-            cur.execute("DELETE FROM settings WHERE key = 'primary_ocr_model'")
-
-            # ─── Legacy provider toggles cleanup ──────────────────────────────
-            # The admin panel moved from per-feature *_enabled radio rows to the
-            # provider-centric ``providers`` + ``feature_routes`` tables. Any
-            # remaining legacy rows are inert (nothing reads them) but kept
-            # around they confuse future debugging and bloat the settings table.
-            cur.execute(
-                """
-                DELETE FROM settings WHERE key IN (
-                    'primary_llm_enabled', 'fallback_llm_enabled', 'local_llm_enabled',
-                    'primary_whisper_enabled', 'fallback_whisper_enabled',
-                    'primary_embedding_enabled', 'fallback_embedding_enabled', 'local_embedding_enabled',
-                    'primary_image_gen_enabled', 'fallback_image_gen_enabled',
-                    'primary_image_analyze_enabled', 'fallback_image_analyze_enabled',
-                    'primary_image_edit_enabled', 'fallback_image_edit_enabled',
-                    'ocr_enabled', 'docling_ocr_enabled', 'fallback_ocr_enabled',
-                    'kokoro_enabled', 'mylab_enabled',
-                    'transcript_translation_provider', 'translation_llm_provider',
-                    'deepl_api_key_override'
-                )
-                """
-            )
         conn.commit()
 
 

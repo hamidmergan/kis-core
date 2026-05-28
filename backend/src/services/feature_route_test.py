@@ -33,7 +33,7 @@ class FeatureTestResult:
 
 
 # Features whose openai_compat path runs via /v1/chat/completions.
-_CHAT_LIKE_FEATURES = frozenset({"chat", "vision", "ocr", "doc_translate", "screencast_translate"})
+_CHAT_LIKE_FEATURES = frozenset({"chat", "vision", "ocr", "doc_translate", "screencast_translate", "transcript_translate"})
 
 
 def test_feature_route(
@@ -92,8 +92,10 @@ def _test_openai_compat(
     voices: list,
 ) -> FeatureTestResult:
     if feature == "tts":
-        if not model_name:
-            return FeatureTestResult(status="error", error="model_name_not_set")
+        # model_name is optional for TTS — some providers (e.g. Kokoro) only
+        # serve one model and reject requests that carry a ``model`` field.
+        # Others (e.g. myLab/vLLM) need it. We pass through whatever was
+        # configured; _post_tts will omit the field when empty.
         if not voices:
             return FeatureTestResult(status="error", error="no_voices_configured")
         return _post_tts(base_url, api_key, model_name, voices)
@@ -135,11 +137,13 @@ def _post_embedding(
 
 
 def _post_tts(
-    base_url: str, api_key: Optional[str], model_name: str, voices: list
+    base_url: str, api_key: Optional[str], model_name: Optional[str], voices: list
 ) -> FeatureTestResult:
     url = _build_url(base_url, "/v1/audio/speech")
     voice_id = voices[0]["voice_id"]
-    payload = {"model": model_name, "input": "ping", "voice": voice_id}
+    payload: dict = {"input": "ping", "voice": voice_id}
+    if model_name:
+        payload["model"] = model_name
     try:
         with httpx.Client(timeout=_TIMEOUT) as client:
             resp = client.post(url, headers=_openai_headers(api_key), json=payload)

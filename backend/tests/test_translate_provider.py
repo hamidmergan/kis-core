@@ -143,7 +143,6 @@ def test_run_translate_uses_provider_id(monkeypatch, tmp_path):
     monkeypatch.setattr("src.tasks.general_tasks.delete_file", lambda p: None)
 
     general_tasks.run_translate(
-        None,  # self (Celery bind)
         "job-uuid-123",
         str(txt),
         "test.txt",

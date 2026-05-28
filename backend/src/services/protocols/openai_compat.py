@@ -1,17 +1,15 @@
 """Adapter for any OpenAI-compatible HTTP endpoint.
 
-The probe used to POST one minimal request per capability endpoint, but:
+Probe strategy — two-step fallback:
 
-  - It burned 7 requests per click against the admin's actual rate limit,
-  - Many real OpenAI-compat servers (KISSKI/GWDG amongst them) do
-    model-based routing that returns generic HTML 404 for unknown models
-    instead of API-level 400, so "endpoint missing" was a lie half the time.
+  1. ``GET /health`` — most OpenAI-compat servers expose a liveness probe.
+     A 2xx response means the server is alive.
 
-The probe now does **one** ``GET /v1/models`` call: if it succeeds we treat
-the server as alive and seed the full set of standard capabilities. The
-admin can then untick what the server doesn't actually serve via the
-Capabilities edit dialog. This trades probe-precision for predictable cost
-(1 request per click) and for honesty (no false negatives).
+  2. ``GET /v1/models`` — fallback for servers without ``/health``. Any
+     response except 404/5xx/401/403 confirms a live handler.
+
+This avoids burning rate-limited capability endpoints. The admin can untick
+capabilities the server doesn't serve via the Capabilities edit dialog.
 """
 
 from __future__ import annotations
@@ -50,14 +48,21 @@ class OpenAICompatAdapter(ProviderAdapter):
             h["Authorization"] = f"Bearer {self.api_key}"
         return h
 
+    def _base_host(self) -> str:
+        """Return the bare host (no /v1 suffix) for health-check calls."""
+        base = self.base_url.rstrip("/")
+        if base.endswith("/v1"):
+            return base[: -len("/v1")]
+        return base
+
     def _build_url(self, path: str) -> str:
         """Combine ``base_url`` with a probe path that starts with ``/v1/``.
 
         Admins paste base URLs in two equally valid shapes — bare host
         (``https://api.example.com``) or already-with-``/v1`` suffix
-        (``https://chat-ai.academiccloud.de/v1``). Without this helper the
-        latter produces ``…/v1/v1/models`` which the upstream proxy rejects
-        with an HTML 404.
+        (``https://api.example.com/v1``). Without this helper the latter
+        produces ``…/v1/v1/models`` which the upstream proxy rejects with
+        an HTML 404.
         """
         base = self.base_url.rstrip("/")
         if base.endswith("/v1") and path.startswith("/v1/"):
@@ -65,49 +70,59 @@ class OpenAICompatAdapter(ProviderAdapter):
         return base + path
 
     def probe(self) -> ProbeResult:
-        """Single reachability probe via ``GET /v1/models``.
+        """Two-step reachability probe: GET /health then GET /v1/models.
 
-        Success => server is alive => seed all standard capabilities and let
-        the admin untick what doesn't actually work. Failure => return an
-        ``error`` ProbeResult with the underlying HTTP / network reason.
+        Step 1 — GET /health. A 2xx response is sufficient to declare the
+        server alive.
+
+        Step 2 — GET /v1/models fallback for servers without /health. Any
+        response except 404 / 5xx / auth errors confirms a live OpenAI-compat
+        handler.
         """
-        url = self._build_url("/v1/models")
-        try:
-            with httpx.Client(timeout=_PROBE_TIMEOUT) as client:
-                response = client.get(url, headers=self._headers())
-        except httpx.HTTPError as e:
-            logger.warning("openai_compat probe: GET {} unreachable: {}", url, e)
-            return ProbeResult(
-                capabilities=[],
-                status="error",
-                error=f"unreachable: {type(e).__name__}: {e}",
-            )
+        with httpx.Client(timeout=_PROBE_TIMEOUT) as client:
+            # Step 1: /health
+            health_url = self._base_host() + "/health"
+            try:
+                r = client.get(health_url, headers=self._headers())
+                logger.info("openai_compat probe: GET {} -> {}", health_url, r.status_code)
+                if 200 <= r.status_code < 300:
+                    return ProbeResult(capabilities=list(_DEFAULT_CAPABILITIES), status="ok", error=None)
+            except httpx.HTTPError as e:
+                logger.debug("openai_compat probe: /health unreachable ({}), trying /v1/models", e)
 
-        status = response.status_code
-        logger.info("openai_compat probe: GET {} -> {}", url, status)
+            # Step 2: /v1/models
+            models_url = self._build_url("/v1/models")
+            try:
+                r = client.get(models_url, headers=self._headers())
+            except httpx.HTTPError as e:
+                logger.warning("openai_compat probe: GET {} unreachable: {}", models_url, e)
+                return ProbeResult(
+                    capabilities=[],
+                    status="error",
+                    error="unreachable",
+                )
 
-        if status >= 500:
-            return ProbeResult(
-                capabilities=[],
-                status="error",
-                error=f"server error on /v1/models: HTTP {status}",
-            )
-        if status in (401, 403):
-            return ProbeResult(
-                capabilities=[],
-                status="error",
-                error=f"auth rejected on /v1/models: HTTP {status}",
-            )
-        if status == 404:
-            return ProbeResult(
-                capabilities=[],
-                status="error",
-                error="GET /v1/models returned 404 — wrong base URL?",
-            )
+            status = r.status_code
+            logger.info("openai_compat probe: GET {} -> {}", models_url, status)
 
-        # 2xx, 400, 405, 422 etc. all confirm a live OpenAI-compat handler.
-        return ProbeResult(
-            capabilities=list(_DEFAULT_CAPABILITIES),
-            status="ok",
-            error=None,
-        )
+            if status >= 500:
+                return ProbeResult(
+                    capabilities=[],
+                    status="error",
+                    error="server_error",
+                )
+            if status in (401, 403):
+                return ProbeResult(
+                    capabilities=[],
+                    status="error",
+                    error="auth_rejected",
+                )
+            if status == 404:
+                return ProbeResult(
+                    capabilities=[],
+                    status="error",
+                    error="endpoint_not_found",
+                )
+
+            # 2xx, 400, 405, 422 etc. all confirm a live OpenAI-compat handler.
+            return ProbeResult(capabilities=list(_DEFAULT_CAPABILITIES), status="ok", error=None)

@@ -1,14 +1,22 @@
 "use client";
 
+import { useState } from "react";
 import { useTranslations } from "next-intl";
 import { ArrowsClockwise, Cube, NotePencil, Plus, Trash } from "@phosphor-icons/react";
 import type { Provider } from "./_types";
+
+const _PROBE_ERROR_CODES = new Set([
+  "unreachable",
+  "auth_rejected",
+  "server_error",
+  "endpoint_not_found",
+]);
 
 type Props = {
   providers: Provider[];
   onAdd: () => void;
   onEdit: (p: Provider) => void;
-  onProbe: (p: Provider) => void;
+  onProbe: (p: Provider) => Promise<void> | void;
   onDelete: (p: Provider) => void;
 };
 
@@ -91,10 +99,20 @@ function ProviderRow({
 }: {
   provider: Provider;
   onEdit: () => void;
-  onProbe: () => void;
+  onProbe: () => Promise<void> | void;
   onDelete: () => void;
 }) {
   const t = useTranslations("admin.providers");
+  const [probing, setProbing] = useState(false);
+
+  const handleProbe = async () => {
+    setProbing(true);
+    try {
+      await onProbe();
+    } finally {
+      setProbing(false);
+    }
+  };
 
   return (
     <div className="grid grid-cols-[auto_1fr_auto] gap-4 items-center py-4">
@@ -104,7 +122,7 @@ function ProviderRow({
       <div className="min-w-0">
         <div className="flex items-center gap-2 text-sm font-medium text-foreground mb-0.5">
           <span className="truncate">{provider.name}</span>
-          <StatusPill provider={provider} />
+          <StatusPill provider={provider} probing={probing} />
         </div>
         <div className="text-[11.5px] font-mono text-muted truncate">
           {provider.base_url}
@@ -113,12 +131,16 @@ function ProviderRow({
           )}
         </div>
         {provider.probe_status === "error" && provider.probe_error && (
-          <p className="mt-2 text-[11px] text-error">{provider.probe_error}</p>
+          <p className="mt-2 text-[11px] text-error">
+            {_PROBE_ERROR_CODES.has(provider.probe_error)
+              ? t(`probeErrors.${provider.probe_error}` as Parameters<typeof t>[0])
+              : provider.probe_error}
+          </p>
         )}
       </div>
       <div className="flex gap-1">
-        <IconButton onClick={onProbe} label={t("row.probe")}>
-          <ArrowsClockwise size={14} weight="bold" />
+        <IconButton onClick={handleProbe} label={t("row.probe")} disabled={probing}>
+          <ArrowsClockwise size={14} weight="bold" className={probing ? "animate-spin" : undefined} />
         </IconButton>
         <IconButton onClick={onEdit} label={t("row.edit")}>
           <NotePencil size={14} weight="bold" />
@@ -131,8 +153,16 @@ function ProviderRow({
   );
 }
 
-function StatusPill({ provider }: { provider: Provider }) {
+function StatusPill({ provider, probing }: { provider: Provider; probing?: boolean }) {
   const t = useTranslations("admin.providers");
+  if (probing) {
+    return (
+      <span className="inline-flex items-center gap-1 text-[11px] font-medium px-1.5 py-0.5 rounded-full bg-surface-dim text-muted">
+        <span className="w-1.5 h-1.5 rounded-full bg-muted animate-pulse" />
+        {t("row.statusChecking")}
+      </span>
+    );
+  }
   if (provider.probe_status === "error") {
     return (
       <span className="inline-flex items-center gap-1 text-[11px] font-medium px-1.5 py-0.5 rounded-full bg-error-bg text-error-strong">
@@ -161,22 +191,27 @@ function IconButton({
   onClick,
   label,
   danger,
+  disabled,
   children,
 }: {
   onClick: () => void;
   label: string;
   danger?: boolean;
+  disabled?: boolean;
   children: React.ReactNode;
 }) {
-  const stateClass = danger
-    ? "text-muted hover:text-error hover:border-transparent hover:outline hover:outline-2 hover:outline-error"
-    : "text-muted hover:text-kb hover:border-transparent hover:outline hover:outline-2 hover:outline-kb";
+  const stateClass = disabled
+    ? "text-muted opacity-50 cursor-not-allowed"
+    : danger
+      ? "text-muted hover:text-error hover:border-transparent hover:outline hover:outline-2 hover:outline-error"
+      : "text-muted hover:text-kb hover:border-transparent hover:outline hover:outline-2 hover:outline-kb";
   return (
     <button
       type="button"
       onClick={onClick}
       title={label}
       aria-label={label}
+      disabled={disabled}
       className={`w-8 h-8 rounded-md border border-border-soft bg-background flex items-center justify-center transition-colors ${stateClass}`}
     >
       {children}

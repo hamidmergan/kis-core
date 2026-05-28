@@ -1,4 +1,4 @@
-"""Summary route: generate a text summary from various file formats via KISSKI LLM."""
+"""Summary route: generate a text summary from various file formats via the admin-configured LLM."""
 
 import uuid
 from pathlib import Path
@@ -41,7 +41,7 @@ async def summarize(
     current_user: dict = Depends(get_current_user),
     locale: str = Depends(get_locale),
 ):
-    """Generate a summary of the uploaded file using KISSKI LLM."""
+    """Generate a summary of the uploaded file using the admin-configured LLM."""
     if not file.filename:
         raise HTTPException(status_code=400, detail=t("file.nameMissing", locale))
 

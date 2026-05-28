@@ -943,7 +943,7 @@
         "tts": "Voice output for screencast / read-aloud. The user picks a provider inside the tool.",
         "image_gen": "Text-to-image",
         "image_edit": "Edit images via prompt",
-        "doc_translate": "PDF / DOCX into target language. The user picks a provider inside the tool.",
+        "doc_translate": "The user picks a provider inside the tool. (Document Translation, Screencast Translation)",
         "screencast_translate": "Subtitles and audio for videos. The user picks a provider inside the tool.",
         "transcript_translate": "AIA workspace: translate DE transcript to EN. Provider is admin-configured."
       }

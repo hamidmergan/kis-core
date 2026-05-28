@@ -65,7 +65,7 @@ class LLMTranslationClient:
         api_key: str,
         base_url: str,
         model: str,
-        provider: str = "kisski",
+        provider: str = "openai_compat",
         glossary: dict[str, str] | None = None,
     ):
         self._client = OpenAI(api_key=api_key, base_url=base_url)

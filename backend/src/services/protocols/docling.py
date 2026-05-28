@@ -52,20 +52,20 @@ class DoclingAdapter(ProviderAdapter):
             return ProbeResult(
                 capabilities=[],
                 status="error",
-                error=f"unreachable: {type(e).__name__}: {e}",
+                error="unreachable",
             )
 
         if response.status_code in (404, 405):
             return ProbeResult(
                 capabilities=[],
                 status="error",
-                error=f"endpoint not found (HTTP {response.status_code})",
+                error="endpoint_not_found",
             )
         if response.status_code in (401, 403):
             return ProbeResult(
                 capabilities=[],
                 status="error",
-                error=f"auth rejected (HTTP {response.status_code})",
+                error="auth_rejected",
             )
         # 2xx / 400 / 422 all indicate the handler is reachable - probe ok.
         return ProbeResult(capabilities=list(self.FIXED_CAPABILITIES), status="ok")

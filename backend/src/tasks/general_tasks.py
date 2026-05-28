@@ -12,6 +12,8 @@ from src import database as db
 from src.i18n import t
 from src.storage import delete_file, get_file, open_input_file, save_result_file, save_result_and_evict
 from src.utils.heartbeat import job_heartbeat
+from src.dependencies import get_translate_client_for_provider
+from src.services.translation import TranslationService
 
 
 # -- Helpers ------------------------------------------------------------------
@@ -85,8 +87,6 @@ def run_translate(
         ext = Path(filename).suffix.lower()
 
         from src.services.glossary import GlossaryService
-        from src.services.translation import TranslationService
-        from src.dependencies import get_translate_client_for_provider
 
         glossary_entries: dict = {}
         if glossary_json:

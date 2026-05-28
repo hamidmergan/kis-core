@@ -2,8 +2,11 @@
 
 import { useState } from "react";
 import { useTranslations } from "next-intl";
+import { Play, Stop } from "@phosphor-icons/react";
+import Spinner from "@/components/ui/Spinner";
 import type { Voice } from "./_types";
 import { discoverVoices } from "./_api";
+import { useVoicePlayer } from "@/app/[locale]/tools/tts/voices/_hooks/useVoicePlayer";
 
 interface Props {
   voices: Voice[];
@@ -12,15 +15,17 @@ interface Props {
   apiKey?: string | null;
   voicesPath: string;
   onVoicesPathChange: (path: string) => void;
+  providerId?: number;
 }
 
 const EMPTY_VOICE: Voice = { voice_id: "", name: "", language: "", description: "" };
 
-export function VoicesEditor({ voices, onChange, baseUrl, apiKey, voicesPath, onVoicesPathChange }: Props) {
+export function VoicesEditor({ voices, onChange, baseUrl, apiKey, voicesPath, onVoicesPathChange, providerId }: Props) {
   const t = useTranslations("admin.providers");
   const [discovering, setDiscovering] = useState(false);
   const [discoverError, setDiscoverError] = useState<string | null>(null);
   const [expandedIdx, setExpandedIdx] = useState<number | null>(null);
+  const { playingId, loadingId, playFromApi } = useVoicePlayer();
   const [addingRow, setAddingRow] = useState(false);
   const [newVoice, setNewVoice] = useState<Voice>(EMPTY_VOICE);
 
@@ -125,6 +130,29 @@ export function VoicesEditor({ voices, onChange, baseUrl, apiKey, voicesPath, on
                     <span className="text-[10px] text-muted bg-surface border border-border px-1.5 py-0.5 rounded font-mono shrink-0">
                       {v.language}
                     </span>
+                  )}
+                  {providerId != null && v.voice_id && (
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        playFromApi(
+                          `${v.voice_id}-${v.language}`,
+                          `/api/tts/providers/${providerId}/preview`,
+                          v.voice_id,
+                        );
+                      }}
+                      className="w-6 h-6 rounded flex items-center justify-center shrink-0 text-muted-soft hover:text-kb hover:bg-surface transition-colors"
+                      aria-label={playingId === `${v.voice_id}-${v.language}` ? t("voices.stop") : t("voices.play")}
+                    >
+                      {loadingId === `${v.voice_id}-${v.language}` ? (
+                        <Spinner size="xs" />
+                      ) : playingId === `${v.voice_id}-${v.language}` ? (
+                        <Stop size={12} weight="fill" />
+                      ) : (
+                        <Play size={12} weight="fill" />
+                      )}
+                    </button>
                   )}
                   <button
                     type="button"

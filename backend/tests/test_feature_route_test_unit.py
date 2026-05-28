@@ -4,9 +4,24 @@ from unittest.mock import patch, MagicMock
 from src.services.feature_route_test import FeatureTestResult
 
 
-def test_tts_test_returns_error_when_no_model():
-    """test_feature_route for TTS with model_name=None must return model_name_not_set."""
+def test_tts_test_omits_model_when_not_set(monkeypatch):
+    """TTS with model_name=None must still POST — the model field is omitted.
+
+    Kokoro and other single-model TTS servers reject requests that carry a
+    ``model`` field, so an empty model_name must not block the request.
+    """
     from src.services.feature_route_test import test_feature_route
+    import httpx
+
+    captured = {}
+
+    def fake_post(self, url, **kwargs):
+        captured["payload"] = kwargs.get("json", {})
+        resp = MagicMock(spec=httpx.Response)
+        resp.status_code = 200
+        return resp
+
+    monkeypatch.setattr(httpx.Client, "post", fake_post)
 
     result = test_feature_route(
         feature="tts",
@@ -16,8 +31,9 @@ def test_tts_test_returns_error_when_no_model():
         model_name=None,
         voices=[{"voice_id": "af_bella", "name": "Bella"}],
     )
-    assert result.status == "error"
-    assert result.error == "model_name_not_set"
+    assert result.status == "ok"
+    assert "model" not in captured["payload"]
+    assert captured["payload"]["voice"] == "af_bella"
 
 
 def test_tts_test_returns_error_when_no_voices():
