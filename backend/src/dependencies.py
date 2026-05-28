@@ -14,6 +14,7 @@ from typing import Optional
 from fastapi import Depends, HTTPException, Request
 from loguru import logger
 
+from src import database as db
 from src.config import Settings
 from src.i18n import get_locale, t
 from src.services import feature_router
@@ -189,7 +190,8 @@ def get_tts_client_for_provider(provider_id: int):
     if not provider or not provider.get("enabled"):
         return None
     route = db.get_route("tts")
-    model = (route.get("model_name") if route and route.get("provider_id") == provider_id else None) or "tts-1"
+    provider_models = (route.get("provider_models") if route else None) or {}
+    model = provider_models.get(str(provider_id)) or (route.get("model_name") if route else None) or "tts-1"
     api_key = provider.get("api_key") or "not-needed"
     return OpenAICompatTTSClient(provider["base_url"], model=model, api_key=api_key)
 
@@ -207,6 +209,71 @@ def _voice_language_for(provider_id: int, voice_id: str) -> str:
         if v.get("voice_id") == voice_id:
             return v.get("language", "")
     return ""
+
+
+# ─── Translation resolvers ──────────────────────────────────────────────────
+
+def get_translation_providers() -> list[dict]:
+    """All enabled providers that can serve translation (translation or chat capability).
+
+    DeepL providers have 'translation' capability; OpenAI-compat LLM providers
+    have 'chat' and can translate via prompt. Returns a deduplicated list.
+    """
+    seen_ids: set[int] = set()
+    result: list[dict] = []
+    for cap in ("translation", "chat"):
+        for p in db.list_providers_with_capability(cap):
+            if p["id"] not in seen_ids:
+                seen_ids.add(p["id"])
+                result.append(p)
+    return result
+
+
+def get_translate_client_for_provider(provider_id: Optional[int], *, glossary_entries: dict | None = None):
+    """Return (translation_client, GlossaryService) for use with TranslationService.
+
+    When provider_id is None, falls back to the first available translation provider.
+    Returns (None, GlossaryService()) if no provider can be found.
+
+    Protocol dispatch:
+      deepl         -> DeepLClient + GlossaryService with entries
+      openai_compat -> LLMTranslationClient (glossary passed in constructor)
+    """
+    from src.services.glossary import GlossaryService
+
+    if provider_id is None:
+        providers = get_translation_providers()
+        if not providers:
+            return None, GlossaryService()
+        provider_id = providers[0]["id"]
+
+    provider = db.get_provider(provider_id)
+    if not provider or not provider.get("enabled"):
+        return None, GlossaryService()
+
+    route = db.get_route("doc_translate")
+    provider_models = (route.get("provider_models") if route else None) or {}
+    model = provider_models.get(str(provider_id)) or (route.get("model_name") if route else None) or ""
+
+    glossary = GlossaryService()
+    if provider.get("protocol") == "deepl":
+        from src.services.deepl_client import DeepLClient
+        if glossary_entries:
+            glossary.set_entries(glossary_entries)
+        return DeepLClient(provider.get("api_key") or ""), glossary
+    else:
+        from src.services.llm_translation_client import LLMTranslationClient
+        base_url = provider["base_url"].rstrip("/")
+        if not base_url.endswith("/v1"):
+            base_url = f"{base_url}/v1"
+        client = LLMTranslationClient(
+            api_key=provider.get("api_key") or "not-needed",
+            base_url=base_url,
+            model=model,
+            provider=provider["name"],
+            glossary=glossary_entries or None,
+        )
+        return client, glossary
 
 
 # ─── DeepL resolvers ───────────────────────────────────────────────────────
