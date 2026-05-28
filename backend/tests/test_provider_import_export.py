@@ -214,8 +214,8 @@ def test_preview_route_with_unknown_provider_skipped(monkeypatch):
 
     monkeypatch.setattr("src.routes.admin.providers.db.list_providers",
                         lambda: [])
-    monkeypatch.setattr("src.routes.admin.providers.db.list_routes",
-                        lambda: [])
+    monkeypatch.setattr("src.routes.admin.providers.db.get_route",
+                        lambda f: None)
     cfg = _valid_config(
         providers=[_exported_provider("KISSKI")],
         routes=[

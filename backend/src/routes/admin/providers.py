@@ -587,7 +587,7 @@ def build_import_preview(cfg: dict) -> dict:
 
 def _route_exists(feature: str) -> bool:
     """Helper: is there already a row in feature_routes for this feature?"""
-    return any(r["feature"] == feature for r in db.list_routes())
+    return db.get_route(feature) is not None
 
 
 @router.post("/providers/import/preview")
