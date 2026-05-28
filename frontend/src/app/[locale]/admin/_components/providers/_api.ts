@@ -157,3 +157,49 @@ export async function discoverVoices(
   });
   return jsonOrThrow<DiscoverVoicesResult>(res);
 }
+
+// ─── Export / Import / Clear ──────────────────────────────────────────────
+
+export async function exportConfig(): Promise<{ blob: Blob; filename: string }> {
+  const res = await fetch(`${BASE}/providers/export`, { credentials: "include" });
+  if (!res.ok) {
+    throw new Error((await res.text()) || `HTTP ${res.status}`);
+  }
+  const disposition = res.headers.get("Content-Disposition") || "";
+  const match = /filename="?([^"]+)"?/.exec(disposition);
+  const filename = match ? match[1] : `kis-ai-config-${new Date().toISOString().slice(0, 10)}.json`;
+  const blob = await res.blob();
+  return { blob, filename };
+}
+
+export async function importPreview(
+  config: unknown,
+): Promise<import("./_types").ImportPreviewResult> {
+  const res = await fetch(`${BASE}/providers/import/preview`, {
+    method: "POST",
+    credentials: "include",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ config }),
+  });
+  return jsonOrThrow<import("./_types").ImportPreviewResult>(res);
+}
+
+export async function importConfig(
+  config: unknown,
+): Promise<import("./_types").ImportResult> {
+  const res = await fetch(`${BASE}/providers/import`, {
+    method: "POST",
+    credentials: "include",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ config }),
+  });
+  return jsonOrThrow<import("./_types").ImportResult>(res);
+}
+
+export async function clearAllProviders(): Promise<import("./_types").ClearAllResult> {
+  const res = await fetch(`${BASE}/providers/all`, {
+    method: "DELETE",
+    credentials: "include",
+  });
+  return jsonOrThrow<import("./_types").ClearAllResult>(res);
+}

@@ -63,3 +63,36 @@ export type FeatureRoute = {
   provider_models: Record<string, string>;
   updated_at: string;
 };
+
+// ─── Export / Import ──────────────────────────────────────────────────────
+
+export type ImportPreviewProvider = {
+  name: string;
+  action: "create" | "update";
+  needs_api_key: boolean;
+  existing_has_key: boolean;
+  protocol_change: { from: string; to: string } | null;
+};
+
+export type ImportPreviewRoute =
+  | { feature: string; action: "create" | "update"; resolved_provider: string }
+  | { feature: string; action: "skip_unresolved"; reason: string };
+
+export type ImportPreviewResult = {
+  providers: ImportPreviewProvider[];
+  routes: ImportPreviewRoute[];
+};
+
+export type ImportResult = {
+  providers_created: number;
+  providers_updated: number;
+  routes_created: number;
+  routes_updated: number;
+  routes_skipped: number;
+  providers_needing_key: string[];
+};
+
+export type ClearAllResult = {
+  providers_deleted: number;
+  routes_deleted: number;
+};
