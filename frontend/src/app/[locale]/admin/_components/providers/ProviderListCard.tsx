@@ -2,7 +2,7 @@
 
 import { useRef, useState } from "react";
 import { useTranslations } from "next-intl";
-import { ArrowsClockwise, Cube, DotsThreeVertical, DownloadSimple, NotePencil, Plus, Trash, UploadSimple, Warning } from "@phosphor-icons/react";
+import { ArrowsClockwise, Cube, DotsThreeVertical, DownloadSimple, NotePencil, Plus, Trash, UploadSimple } from "@phosphor-icons/react";
 import type { Provider } from "./_types";
 
 const _PROBE_ERROR_CODES = new Set([
@@ -180,18 +180,6 @@ function EmptyState({ onAdd, onImport }: { onAdd: () => void; onImport: (file: F
   );
 }
 
-function providerNeedsKey(p: Provider): boolean {
-  if (p.api_key_set) return false;
-  if (p.protocol === "deepl") return true;
-  if (p.protocol === "openai_compat") {
-    const url = p.base_url.toLowerCase();
-    if (url.includes("localhost") || url.includes("127.0.0.1") || url.includes("0.0.0.0")) {
-      return false;
-    }
-    return true;
-  }
-  return false;
-}
 
 function ProviderRow({
   provider,
@@ -225,12 +213,9 @@ function ProviderRow({
         <div className="flex items-center gap-2 text-sm font-medium text-foreground mb-0.5">
           <span className="truncate">{provider.name}</span>
           <StatusPill provider={provider} probing={probing} />
-          {providerNeedsKey(provider) && (
-            <span
-              title={t("row.missingKeyTooltip")}
-              className="inline-flex items-center text-amber-500"
-            >
-              <Warning size={14} weight="fill" />
+          {!provider.api_key_set && (
+            <span className="inline-flex items-center text-[11px] font-medium px-1.5 py-0.5 rounded-full bg-surface-dim text-muted">
+              {t("row.noApiKeyChip")}
             </span>
           )}
         </div>

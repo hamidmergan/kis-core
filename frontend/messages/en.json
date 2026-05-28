@@ -823,7 +823,7 @@
         "statusError": "error",
         "statusUnprobed": "not checked yet",
         "statusChecking": "checking…",
-        "missingKeyTooltip": "API key missing — provider is not functional"
+        "noApiKeyChip": "No API key"
       },
       "probeErrors": {
         "unreachable": "Not reachable — check the URL and network connection",
