@@ -1,6 +1,9 @@
 import type {
+  ClearAllResult,
   Feature,
   FeatureRoute,
+  ImportPreviewResult,
+  ImportResult,
   Provider,
   ProviderMeta,
   Voice,
@@ -174,32 +177,32 @@ export async function exportConfig(): Promise<{ blob: Blob; filename: string }> 
 
 export async function importPreview(
   config: unknown,
-): Promise<import("./_types").ImportPreviewResult> {
+): Promise<ImportPreviewResult> {
   const res = await fetch(`${BASE}/providers/import/preview`, {
     method: "POST",
     credentials: "include",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ config }),
   });
-  return jsonOrThrow<import("./_types").ImportPreviewResult>(res);
+  return jsonOrThrow<ImportPreviewResult>(res);
 }
 
 export async function importConfig(
   config: unknown,
-): Promise<import("./_types").ImportResult> {
+): Promise<ImportResult> {
   const res = await fetch(`${BASE}/providers/import`, {
     method: "POST",
     credentials: "include",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ config }),
   });
-  return jsonOrThrow<import("./_types").ImportResult>(res);
+  return jsonOrThrow<ImportResult>(res);
 }
 
-export async function clearAllProviders(): Promise<import("./_types").ClearAllResult> {
+export async function clearAllProviders(): Promise<ClearAllResult> {
   const res = await fetch(`${BASE}/providers/all`, {
     method: "DELETE",
     credentials: "include",
   });
-  return jsonOrThrow<import("./_types").ClearAllResult>(res);
+  return jsonOrThrow<ClearAllResult>(res);
 }
