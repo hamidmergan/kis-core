@@ -127,10 +127,38 @@ export default function ProvidersTab() {
     async (feature: Feature, modelName: string | null) => {
       const existing = routes.find((r) => r.feature === feature);
       if (!existing?.provider_id) return;
+      const nextProviderModels = { ...(existing.provider_models ?? {}) };
+      const key = String(existing.provider_id);
+      if (modelName) {
+        nextProviderModels[key] = modelName;
+      } else {
+        delete nextProviderModels[key];
+      }
       await setFeatureRoute(feature, {
         provider_id: existing.provider_id,
         model_name: modelName,
         user_choices: existing.user_choices ?? null,
+        provider_models: nextProviderModels,
+      });
+      await refreshAll();
+    },
+    [routes, refreshAll],
+  );
+
+  const onChangeProviderModel = useCallback(
+    async (feature: Feature, providerId: number, modelName: string | null) => {
+      const existing = routes.find((r) => r.feature === feature);
+      const next = { ...(existing?.provider_models ?? {}) };
+      if (modelName) {
+        next[String(providerId)] = modelName;
+      } else {
+        delete next[String(providerId)];
+      }
+      await setFeatureRoute(feature, {
+        provider_id: existing?.provider_id ?? null,
+        model_name: existing?.model_name ?? null,
+        user_choices: existing?.user_choices ?? null,
+        provider_models: next,
       });
       await refreshAll();
     },
@@ -180,6 +208,7 @@ export default function ProvidersTab() {
           routes={routes}
           onChangeProvider={onChangeProvider}
           onChangeModel={onChangeModel}
+          onChangeProviderModel={onChangeProviderModel}
           onToggleUserChoice={onToggleUserChoice}
         />
       )}
