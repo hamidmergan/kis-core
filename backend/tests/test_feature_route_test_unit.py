@@ -308,12 +308,11 @@ def test_image_gen_rejects_invalid_model(monkeypatch):
     assert "Model Not Found" in (result.error or "")
 
 
-def test_image_edit_mirrors_production_transport(monkeypatch):
-    """image_edit's test probe must use the same transport as the production
-    code in general_tasks.run_image_edit: trailing-slash URL, model in the
-    ``inference-service`` header (NOT the body), only ``prompt`` in form_data.
-    Sending it any other way makes KISSKI/myLab return 500 — a real bug we
-    hit before this test was added."""
+def test_image_edit_posts_standard_openai_form(monkeypatch):
+    """image_edit uses the same transport as image_gen / chat / vision:
+    standard OpenAI-style — model in body, no trailing slash, no provider-
+    specific headers. Providers that need something else (KISSKI's
+    inference-service header) are explicitly NOT supported via this path."""
     from src.services.feature_route_test import test_feature_route
     import httpx
 
@@ -321,9 +320,9 @@ def test_image_edit_mirrors_production_transport(monkeypatch):
 
     def fake_post(self, url, **kwargs):
         captured["url"] = url
-        captured["files"] = kwargs.get("files")
         captured["data"] = kwargs.get("data")
-        captured["headers"] = kwargs.get("headers", {})
+        captured["files"] = kwargs.get("files")
+        captured["headers"] = kwargs.get("headers") or {}
         resp = MagicMock(spec=httpx.Response)
         resp.status_code = 200
         return resp
@@ -338,10 +337,17 @@ def test_image_edit_mirrors_production_transport(monkeypatch):
         model_name="flux.1-kontext",
     )
     assert result.status == "ok"
-    assert captured["url"].endswith("/v1/images/edits/")  # trailing slash matters
-    assert "model" not in captured["data"]  # body MUST NOT carry model
-    assert captured["data"] == {"prompt": "test"}
-    assert captured["headers"]["inference-service"] == "flux.1-kontext"
+    assert captured["url"].endswith("/v1/images/edits")
+    assert not captured["url"].endswith("/edits/")
+    # Probe payload must include the numeric defaults the production task
+    # also sends — without them myLab crashes server-side with a TypeError.
+    assert captured["data"]["model"] == "flux.1-kontext"
+    assert captured["data"]["prompt"] == "test"
+    assert captured["data"]["n"] == "1"
+    assert captured["data"]["size"] == "1024x1024"
+    assert captured["data"]["guidance_scale"] == "3.5"
+    assert captured["data"]["num_inference_steps"] == "25"
+    assert "inference-service" not in captured["headers"]
     assert captured["files"]["image"][1].startswith(b"\x89PNG")
 
 

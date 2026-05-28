@@ -254,30 +254,36 @@ def run_image_edit(
         ext = Path(filename).suffix.lower()
         mime = "image/png" if ext == ".png" else "image/jpeg"
 
-        # The admin-set model name is sent as the ``inference-service`` header
-        # — that's how KISSKI's image-edit gateway picks the container.
-        # Vanilla OpenAI-compat providers ignore the unknown header.
-        # We deliberately do NOT add ``model`` to the multipart body: KISSKI's
-        # endpoint rejects the request with 404 "Model Not Found" when the
-        # body carries a model field. The trailing slash on ``/images/edits/``
-        # also matters — KISSKI returns 308 redirects otherwise.
+        # Standard OpenAI-compat transport: model in body, no provider quirks.
+        # If a future provider requires a different convention, it gets its own
+        # protocol adapter — not a transport-detection if/else here.
         from src.services import feature_router
         binding = feature_router.resolve("image_edit")
         edit_model = binding.model or ""
         if not edit_model:
             raise feature_router.FeatureNotConfigured("image_edit route has no model_name")
-        base_url, _model, client = _image_http_client(
-            "image_edit",
-            extra_headers={"inference-service": edit_model},
-            timeout=120.0,
-        )
-        form_data: dict[str, str] = {"prompt": prompt}
+        base_url, _model, client = _image_http_client("image_edit", timeout=120.0)
 
+        # myLab/THL's image-edit pipeline crashes with "unsupported operand
+        # type(s) for /: 'int' and 'NoneType'" when these numerics aren't
+        # supplied — its internal defaults are absent. Vanilla OpenAI ignores
+        # unknown fields; KISSKI's image-edit isn't reached via this path
+        # anyway. Values match the "standard" quality preset documented in
+        # the myLab wiki (guidance_scale=3.5, num_inference_steps=25).
         with job_heartbeat(job_uuid), client:
             response = client.post(
-                f"{base_url}/images/edits/",
+                f"{base_url}/images/edits",
                 files={"image": (filename, content, mime)},
-                data=form_data,
+                data={
+                    "model": edit_model,
+                    "prompt": prompt,
+                    "response_format": "b64_json",
+                    "n": "1",
+                    "size": "1024x1024",
+                    "quality": "standard",
+                    "guidance_scale": "3.5",
+                    "num_inference_steps": "25",
+                },
             )
 
         if response.status_code != 200:

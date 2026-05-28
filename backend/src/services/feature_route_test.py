@@ -309,37 +309,39 @@ def _check_image_model(
 ) -> FeatureTestResult:
     """Validate an image model with a real POST — same pattern as chat/vision.
 
-    We previously fast-pathed through ``GET /v1/models`` but that returned
-    ``ok`` for any listed id, including chat models on providers (KISSKI) whose
-    listing has no modality info. Real POST is the only signal that proves
-    the model actually serves image gen/edit.
-
-    Image-edit and image-gen use different transport conventions on the
-    KISSKI/myLab stack — mirror exactly what ``general_tasks.run_image_edit``
-    and ``run_image_generate`` do, otherwise the upstream answers 500/404 to a
-    test that production code would have sent fine.
+    Image gen and image edit each go through the same code path the
+    production job uses (``general_tasks.run_image_*``) so a passing test
+    proves the live feature will also work — no transport-style divergence
+    between probe and prod.
     """
     headers = {"Accept": "application/json"}
     if api_key:
         headers["Authorization"] = f"Bearer {api_key}"
     try:
-        with httpx.Client(timeout=_IMAGE_TIMEOUT) as client:
+        with httpx.Client(timeout=_IMAGE_TIMEOUT, headers=headers) as client:
             if edit:
-                # Production protocol (general_tasks.run_image_edit):
-                # - trailing slash on /v1/images/edits/ (KISSKI redirects otherwise)
-                # - model goes in the ``inference-service`` header, NOT the body
-                #   (KISSKI returns 404 "Model Not Found" when body has ``model``)
-                # - form_data carries only ``prompt`` + the image file
-                url = _build_url(base_url, "/v1/images/edits/")
-                headers["inference-service"] = model_name
-                files = {"image": ("probe.png", _TINY_PNG, "image/png")}
-                data = {"prompt": "test"}
-                resp = client.post(url, headers=headers, files=files, data=data)
+                # Mirror the production task's payload (general_tasks.run_image_edit)
+                # — myLab returns a Python TypeError if guidance_scale / steps
+                # / n / size aren't supplied explicitly. A probe with fewer
+                # fields would falsely report "broken endpoint" when in fact
+                # the live job would work fine.
+                url = _build_url(base_url, "/v1/images/edits")
+                resp = client.post(
+                    url,
+                    files={"image": ("probe.png", _TINY_PNG, "image/png")},
+                    data={
+                        "model": model_name,
+                        "prompt": "test",
+                        "response_format": "b64_json",
+                        "n": "1",
+                        "size": "1024x1024",
+                        "quality": "standard",
+                        "guidance_scale": "3.5",
+                        "num_inference_steps": "25",
+                    },
+                )
             else:
-                # Production protocol (general_tasks.run_image_generate): JSON
-                # body with model + prompt + size + n + response_format.
                 url = _build_url(base_url, "/v1/images/generations")
-                headers["Content-Type"] = "application/json"
                 payload = {
                     "model": model_name,
                     "prompt": "test",
@@ -347,35 +349,12 @@ def _check_image_model(
                     "n": 1,
                     "response_format": "b64_json",
                 }
-                resp = client.post(url, headers=headers, json=payload)
+                resp = client.post(
+                    url, headers={"Content-Type": "application/json"}, json=payload
+                )
     except httpx.HTTPError:
         return FeatureTestResult(status="error", error="unreachable")
     return _classify_http(resp, expect_json=True)
-
-
-def _check_reachable(base_url: str, api_key: Optional[str]) -> FeatureTestResult:
-    """Reachability-only test for features we don't exercise end-to-end.
-
-    Sends a single ``GET /v1/models`` and treats any non-5xx response as alive
-    (auth-protected 401, no-such-model 404 inside the body, etc. all still
-    prove the server is answering). Network failures and 5xx surface as
-    errors. We deliberately do NOT inspect the response body — we just want
-    to know "is there something at the other end of the wire?".
-    """
-    url = _build_url(base_url, "/v1/models")
-    headers = {"Accept": "application/json"}
-    if api_key:
-        headers["Authorization"] = f"Bearer {api_key}"
-    try:
-        with httpx.Client(timeout=_TIMEOUT) as client:
-            resp = client.get(url, headers=headers)
-    except httpx.HTTPError:
-        return FeatureTestResult(status="error", error="unreachable")
-    if resp.status_code >= 500:
-        return FeatureTestResult(status="error", error="server_error")
-    if resp.status_code in (401, 403):
-        return FeatureTestResult(status="error", error="auth_rejected")
-    return FeatureTestResult(status="ok")
 
 
 def _post_json(url: str, api_key: Optional[str], payload: dict) -> FeatureTestResult:
