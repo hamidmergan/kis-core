@@ -847,7 +847,8 @@
           "auth_rejected": "Not reachable",
           "server_error": "Not reachable",
           "unreachable": "Not reachable",
-          "invalid_model": "Not reachable"
+          "invalid_model": "Not reachable",
+          "no_voices_configured": "No voices configured — add at least one voice for this provider"
         },
         "modelForPrimary": "Model for {name}:",
         "modelOptional": "(optional)"

@@ -388,6 +388,7 @@ function TestStatusLine({ state }: { state: TestState }) {
       "auth_rejected",
       "server_error",
       "unreachable",
+      "no_voices_configured",
     ]);
     let msg: string;
     if (knownCodes.has(state.message)) {

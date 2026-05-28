@@ -847,7 +847,8 @@
           "auth_rejected": "Nicht erreichbar",
           "server_error": "Nicht erreichbar",
           "unreachable": "Nicht erreichbar",
-          "invalid_model": "Nicht erreichbar"
+          "invalid_model": "Nicht erreichbar",
+          "no_voices_configured": "Keine Stimmen konfiguriert — füge mindestens eine Stimme für diesen Provider hinzu"
         },
         "modelForPrimary": "Modell für {name}:",
         "modelOptional": "(optional)"
