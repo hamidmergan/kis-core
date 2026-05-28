@@ -43,6 +43,7 @@ def test_feature_route(
     base_url: str,
     api_key: Optional[str],
     model_name: Optional[str],
+    voices: Optional[list] = None,
 ) -> FeatureTestResult:
     """Dispatch a feature-appropriate test request and report ok/error."""
     try:
@@ -52,6 +53,7 @@ def test_feature_route(
                 base_url=base_url,
                 api_key=api_key,
                 model_name=model_name,
+                voices=voices or [],
             )
         # Non-openai protocols are single-capability: probe IS the feature test.
         adapter = make_adapter(protocol=protocol, base_url=base_url, api_key=api_key)
@@ -87,16 +89,14 @@ def _test_openai_compat(
     base_url: str,
     api_key: Optional[str],
     model_name: Optional[str],
+    voices: list,
 ) -> FeatureTestResult:
-    if not model_name:
-        return FeatureTestResult(status="error", error="model name not set")
-
-    if feature in _CHAT_LIKE_FEATURES:
-        return _post_chat_completion(base_url, api_key, model_name)
-    if feature == "embedding":
-        return _post_embedding(base_url, api_key, model_name)
     if feature == "tts":
-        return _post_tts(base_url, api_key, model_name)
+        if not model_name:
+            return FeatureTestResult(status="error", error="model_name_not_set")
+        if not voices:
+            return FeatureTestResult(status="error", error="no_voices_configured")
+        return _post_tts(base_url, api_key, model_name, voices)
     if feature in ("stt", "image_gen", "image_edit"):
         # Cheap real tests for these would need multipart audio / image fixtures
         # and would actually generate output (costs time + quota). Instead, fall
@@ -104,6 +104,12 @@ def _test_openai_compat(
         # provider's reachability probe. /v1/models is not a model-existence
         # check here; many providers omit image / audio models from that list.
         return _check_reachable(base_url, api_key)
+    if not model_name:
+        return FeatureTestResult(status="error", error="model_name_not_set")
+    if feature in _CHAT_LIKE_FEATURES:
+        return _post_chat_completion(base_url, api_key, model_name)
+    if feature == "embedding":
+        return _post_embedding(base_url, api_key, model_name)
     return FeatureTestResult(status="error", error=f"unknown feature: {feature}")
 
 
@@ -129,16 +135,20 @@ def _post_embedding(
 
 
 def _post_tts(
-    base_url: str, api_key: Optional[str], model_name: str
+    base_url: str, api_key: Optional[str], model_name: str, voices: list
 ) -> FeatureTestResult:
     url = _build_url(base_url, "/v1/audio/speech")
-    payload = {"model": model_name, "input": "ping", "voice": "alloy"}
+    voice_id = voices[0]["voice_id"]
+    payload = {"model": model_name, "input": "ping", "voice": voice_id}
     try:
         with httpx.Client(timeout=_TIMEOUT) as client:
             resp = client.post(url, headers=_openai_headers(api_key), json=payload)
-    except httpx.HTTPError as e:
-        return FeatureTestResult(status="error", error=f"unreachable: {type(e).__name__}: {e}")
-    return _classify_http(resp, expect_json=False)
+    except httpx.HTTPError:
+        return FeatureTestResult(status="error", error="unreachable")
+    result = _classify_http(resp, expect_json=False)
+    if result.status == "error" and resp.status_code == 404:
+        return FeatureTestResult(status="error", error="tts_speech_endpoint_not_found")
+    return result
 
 
 def _check_reachable(base_url: str, api_key: Optional[str]) -> FeatureTestResult:
@@ -157,12 +167,12 @@ def _check_reachable(base_url: str, api_key: Optional[str]) -> FeatureTestResult
     try:
         with httpx.Client(timeout=_TIMEOUT) as client:
             resp = client.get(url, headers=headers)
-    except httpx.HTTPError as e:
-        return FeatureTestResult(status="error", error=f"unreachable: {type(e).__name__}: {e}")
+    except httpx.HTTPError:
+        return FeatureTestResult(status="error", error="unreachable")
     if resp.status_code >= 500:
-        return FeatureTestResult(status="error", error=f"server error (HTTP {resp.status_code})")
+        return FeatureTestResult(status="error", error="server_error")
     if resp.status_code in (401, 403):
-        return FeatureTestResult(status="error", error=f"auth rejected (HTTP {resp.status_code})")
+        return FeatureTestResult(status="error", error="auth_rejected")
     return FeatureTestResult(status="ok")
 
 
@@ -170,8 +180,8 @@ def _post_json(url: str, api_key: Optional[str], payload: dict) -> FeatureTestRe
     try:
         with httpx.Client(timeout=_TIMEOUT) as client:
             resp = client.post(url, headers=_openai_headers(api_key), json=payload)
-    except httpx.HTTPError as e:
-        return FeatureTestResult(status="error", error=f"unreachable: {type(e).__name__}: {e}")
+    except httpx.HTTPError:
+        return FeatureTestResult(status="error", error="unreachable")
     return _classify_http(resp, expect_json=True)
 
 
@@ -180,18 +190,34 @@ def _classify_http(resp: httpx.Response, *, expect_json: bool) -> FeatureTestRes
     if 200 <= status < 300:
         return FeatureTestResult(status="ok")
     if status in (401, 403):
-        return FeatureTestResult(status="error", error=f"auth rejected (HTTP {status})")
+        return FeatureTestResult(status="error", error="auth_rejected")
     if status == 404:
-        return FeatureTestResult(status="error", error="endpoint not found (HTTP 404)")
-    # Surface server-side reason if available; many openai-compat servers
-    # return a structured error body for unknown models / bad input.
+        return FeatureTestResult(status="error", error="endpoint_not_found")
+    if status >= 500:
+        return FeatureTestResult(status="error", error="server_error")
+    # For error responses (non-2xx) always try to extract a human-readable
+    # message from the body — even for TTS (expect_json=False) since error
+    # bodies are JSON even when the success response would be binary audio.
     detail = ""
     try:
-        if expect_json:
-            body = resp.json()
-            detail = body.get("error", {}).get("message") or body.get("detail") or ""
+        body = resp.json()
+        # OpenAI format: {"error": {"message": "..."}}
+        err = body.get("error", {})
+        if isinstance(err, dict):
+            detail = err.get("message", "")
+        # Some servers: {"detail": {"message": "..."}} or {"detail": "..."}
+        if not detail:
+            d = body.get("detail", "")
+            if isinstance(d, dict):
+                detail = d.get("message", "")
+            elif isinstance(d, str):
+                detail = d
+        if not detail:
+            detail = body.get("message", "")
     except Exception:
         pass
     if not detail:
         detail = resp.text[:200] if resp.text else ""
-    return FeatureTestResult(status="error", error=f"HTTP {status}: {detail}".strip(": "))
+    if detail:
+        return FeatureTestResult(status="error", error=detail)
+    return FeatureTestResult(status="error", error=f"http_{status}")
