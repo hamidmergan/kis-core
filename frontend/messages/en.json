@@ -817,7 +817,7 @@
         "moreActions": "More actions"
       },
       "row": {
-        "keySuffix": "· Key: ...{chars}",
+        "keySuffix": "· API-Key: ...{chars}",
         "probe": "Re-check reachability",
         "edit": "Edit",
         "delete": "Delete",
@@ -825,11 +825,11 @@
         "statusError": "error",
         "statusUnprobed": "not checked yet",
         "statusChecking": "checking…",
-        "noApiKeyChip": "No API key"
+        "noApiKeyChip": "No API-Key"
       },
       "probeErrors": {
         "unreachable": "Not reachable — check the URL and network connection",
-        "auth_rejected": "Authentication rejected — check the API key",
+        "auth_rejected": "Authentication rejected — check the API-Key",
         "server_error": "The provider returned a server error",
         "endpoint_not_found": "Endpoint not found — check the base URL"
       },
@@ -847,7 +847,7 @@
           "model_name_not_set": "No model name entered",
           "tts_speech_endpoint_not_found": "TTS endpoint not found",
           "endpoint_not_found": "Endpoint not found (HTTP 404)",
-          "auth_rejected": "Authentication rejected (API key invalid or missing)",
+          "auth_rejected": "Authentication rejected (API-Key invalid or missing)",
           "server_error": "Provider server error (HTTP 5xx) — endpoint reachable but responding with an error",
           "unreachable": "Provider unreachable (DNS or network error)",
           "invalid_model": "Model '{model}' not supported",
@@ -860,7 +860,7 @@
       },
       "delete": {
         "title": "Delete provider \"{name}\"?",
-        "bodyEmpty": "This will permanently delete provider \"{name}\" including the stored API key.",
+        "bodyEmpty": "This will permanently delete provider \"{name}\" including the stored API-Key.",
         "bodyWithRoutes": "\"{name}\" is currently used for:\n  • {features}",
         "warningFeaturesUnavailable": "These features will NOT be available after deletion until you assign another provider.",
         "warningIrreversible": "This action CANNOT be undone.",
@@ -881,7 +881,7 @@
         "fieldBaseUrl": "Base URL",
         "fieldCapabilities": "Capabilities",
         "capabilitiesHint": "Select only what this provider supports. Leave empty = auto-detected after saving.",
-        "fieldApiKey": "API key",
+        "fieldApiKey": "API-Key",
         "showKey": "Show key",
         "hideKey": "Hide key",
         "apiKeyHint": "Leave empty if the endpoint needs no key.",
@@ -977,7 +977,7 @@
         },
         "exportButton": "Export",
         "importButton": "Import",
-        "exportHint": "Includes endpoints, models, voices, capabilities and feature routes. NO API keys — set them manually on the target system.",
+        "exportHint": "Includes endpoints, models, voices, capabilities and feature routes. NO API-Keys — set them manually on the target system.",
         "preview": {
           "title": "Import configuration",
           "source": "Source: {filename}",
@@ -989,9 +989,9 @@
             "merge": "MERGE",
             "skip": "SKIPPED"
           },
-          "apiKeyMissing": "API key missing — set after import!",
-          "apiKeyNotNeeded": "No API key needed",
-          "apiKeyPreserved": "Existing API key will be preserved",
+          "apiKeyMissing": "API-Key missing — set after import!",
+          "apiKeyNotNeeded": "No API-Key needed",
+          "apiKeyPreserved": "Existing API-Key will be preserved",
           "protocolChange": "Protocol will change: {from} → {to}",
           "routeSkipped": "skipped (provider \"{provider}\" not in import)",
           "confirm": "Confirm import",
@@ -1005,7 +1005,7 @@
       "clearAll": {
         "menuItem": "Delete everything…",
         "title": "Delete all providers and routes?",
-        "bodyCounts": "This action IRREVERSIBLY deletes:\n  • {providers, plural, one {# provider} other {# providers}} (incl. all API keys)\n  • {routes, plural, one {# feature route assignment} other {# feature route assignments}}",
+        "bodyCounts": "This action IRREVERSIBLY deletes:\n  • {providers, plural, one {# provider} other {# providers}} (incl. all API-Keys)\n  • {routes, plural, one {# feature route assignment} other {# feature route assignments}}",
         "warningFeaturesUnavailable": "AI features (chat, TTS, ASR, translation, embedding) will NOT be available afterwards until providers are created or imported.",
         "warningIrreversible": "This action CANNOT be undone. Consider creating an export first.",
         "confirm": "Yes, delete everything",
@@ -1051,11 +1051,11 @@
       "providerOllama": "Ollama (local)",
       "providerElevenlabs": "ElevenLabs",
       "deeplKey": {
-        "title": "DeepL API key",
-        "hint": "Empty → backend default key.",
-        "placeholderEmpty": "Enter DeepL API key…",
+        "title": "DeepL API-Key",
+        "hint": "Empty → backend default API-Key.",
+        "placeholderEmpty": "Enter DeepL API-Key…",
         "activeEnv": "Active: ••••{last}",
-        "activeEnvNoKey": "No key set",
+        "activeEnvNoKey": "No API-Key set",
         "activeOverride": "Active: override (••••{last})",
         "save": "Save",
         "clear": "Remove override",
