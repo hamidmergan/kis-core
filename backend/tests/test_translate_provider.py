@@ -1,6 +1,3 @@
-import pytest
-from unittest.mock import patch, MagicMock
-
 
 def _make_provider(id, name, protocol="openai_compat", api_key=None, base_url="http://example.com"):
     return {"id": id, "name": name, "protocol": protocol, "api_key": api_key,
@@ -81,3 +78,19 @@ def test_get_translate_client_fallback_when_provider_id_none(monkeypatch):
     client, glossary = get_translate_client_for_provider(None)
     from src.services.deepl_client import DeepLClient
     assert isinstance(client, DeepLClient)
+
+
+def test_get_translate_client_returns_none_for_disabled_provider(monkeypatch):
+    from src.dependencies import get_translate_client_for_provider
+    provider = _make_provider(10, "DeepL", protocol="deepl", api_key="key")
+    provider["enabled"] = False
+    monkeypatch.setattr("src.dependencies.db.get_provider", lambda pid: provider)
+    client, glossary = get_translate_client_for_provider(10)
+    assert client is None
+
+
+def test_get_translate_client_returns_none_when_no_providers_available(monkeypatch):
+    from src.dependencies import get_translate_client_for_provider
+    monkeypatch.setattr("src.dependencies.db.list_providers_with_capability", lambda cap: [])
+    client, glossary = get_translate_client_for_provider(None)
+    assert client is None

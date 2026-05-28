@@ -238,6 +238,9 @@ def get_translate_client_for_provider(provider_id: Optional[int], *, glossary_en
     Protocol dispatch:
       deepl         -> DeepLClient + GlossaryService with entries
       openai_compat -> LLMTranslationClient (glossary passed in constructor)
+
+    Note: for LLM providers the returned GlossaryService is intentionally empty;
+    the glossary is embedded in the LLM system prompt instead.
     """
     from src.services.glossary import GlossaryService
 
@@ -263,9 +266,7 @@ def get_translate_client_for_provider(provider_id: Optional[int], *, glossary_en
         return DeepLClient(provider.get("api_key") or ""), glossary
     else:
         from src.services.llm_translation_client import LLMTranslationClient
-        base_url = provider["base_url"].rstrip("/")
-        if not base_url.endswith("/v1"):
-            base_url = f"{base_url}/v1"
+        base_url = _ensure_v1(provider["base_url"])
         client = LLMTranslationClient(
             api_key=provider.get("api_key") or "not-needed",
             base_url=base_url,
