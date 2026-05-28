@@ -176,6 +176,18 @@ export async function exportConfig(): Promise<{ blob: Blob; filename: string }> 
   return { blob, filename };
 }
 
+export async function fetchExportConfig(): Promise<{ config: unknown; filename: string }> {
+  const res = await fetch(`${BASE}/providers/export`, { credentials: "include" });
+  if (!res.ok) {
+    throw new Error((await res.text()) || `HTTP ${res.status}`);
+  }
+  const disposition = res.headers.get("Content-Disposition") || "";
+  const match = /filename="?([^"]+)"?/.exec(disposition);
+  const filename = match ? match[1] : `kis-ai-config-${new Date().toISOString().slice(0, 10)}.json`;
+  const config = await res.json();
+  return { config, filename };
+}
+
 export async function importPreview(
   config: unknown,
 ): Promise<ImportPreviewResult> {
