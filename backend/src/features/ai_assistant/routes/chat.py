@@ -52,6 +52,20 @@ _CITATION_RE = re.compile(
 )
 
 
+# Smaller models sometimes emit `[N] S. X` or `[N] MM:SS` (closing the bracket
+# before the position label). Repair to `[N, S. X]` / `[N, MM:SS]` so the
+# frontend chip parser can render them as clickable citations.
+_CITATION_FIX_TIME_RE = re.compile(r"\[(\d+)\]\s+(\d{1,2}:\d{2}(?::\d{2})?)")
+_CITATION_FIX_PAGE_RE = re.compile(r"\[(\d+)\]\s+(S\.\s*\d+(?:[-,–]\s*\d+)*)")
+
+
+def _sanitize_citations(text: str) -> str:
+    """Repair malformed `[N] pos` citations into the chip-renderable `[N, pos]` form."""
+    text = _CITATION_FIX_TIME_RE.sub(r"[\1, \2]", text)
+    text = _CITATION_FIX_PAGE_RE.sub(r"[\1, \2]", text)
+    return text
+
+
 # Inline position markers the doc-summary prompt asks the LLM to keep:
 #   [p.5]       single page
 #   [p.5-8]     page range
@@ -636,7 +650,7 @@ async def chat(
                     except Exception:
                         pass
 
-            answer = "".join(answer_parts).strip()
+            answer = _sanitize_citations("".join(answer_parts).strip())
 
             if aborted:
                 _log_status = "aborted"
