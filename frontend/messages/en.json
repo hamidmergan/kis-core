@@ -1,4 +1,8 @@
 {
+  "sourceChip": {
+    "page": "p. {num}",
+    "part": "Part {num}"
+  },
   "header": {
     "homeAria": "Go to homepage",
     "admin": "Admin",

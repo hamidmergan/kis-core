@@ -48,6 +48,7 @@ export function NotesStudio({
   pendingTitleIds?: Set<number>;
 }) {
   const t = useTranslations("workspace.detail.studio.notes");
+  const tChip = useTranslations("sourceChip");
   const locale = useLocale();
   const [draft, setDraft] = useState("");
   const [expandedId, setExpandedId] = useState<number | null>(null);
@@ -155,7 +156,8 @@ export function NotesStudio({
                 const isExpanded = expandedId === note.id;
                 const { msg, qmap } = noteAsMessage(note);
                 const wrapCitations = (children: React.ReactNode) =>
-                  withCitations(children, msg, activeSourceIds ?? [], getFilename, onChipClick);
+                  withCitations(children, msg, activeSourceIds ?? [], getFilename, onChipClick,
+                    (key, vals) => tChip(key, vals));
                 const isLast = idx === notes.length - 1;
                 const hasCustomTitle = !!(note.title && note.title.trim());
                 const isTitlePending = !hasCustomTitle && !!pendingTitleIds?.has(note.id);

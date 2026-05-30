@@ -60,6 +60,7 @@ function ChatMessageImpl({
   popupActions,
 }: ChatMessageProps) {
   const t = useTranslations("workspace.detail.chat");
+  const tChip = useTranslations("sourceChip");
   const [expandUserContent, setExpandUserContent] = useState(false);
   const [expandAssistantContent, setExpandAssistantContent] = useState(false);
   const [expandSources, setExpandSources] = useState(false);
@@ -91,7 +92,8 @@ function ChatMessageImpl({
   }, [msg.content, msg.role]);
   const collapseAssistant = collapseByDefault && msg.role === "assistant" && isAssistantOverflow && !expandAssistantContent;
   const wrapCitations = (children: React.ReactNode) =>
-    withCitations(children, msg, activeSourceIds, getFilename, onChipClick);
+    withCitations(children, msg, activeSourceIds, getFilename, onChipClick,
+      (key, vals) => tChip(key, vals));
 
   const isTranslatePopup = msg.popup_selection?.action_key === "translate";
   const isStreaming = loading && isLatest;

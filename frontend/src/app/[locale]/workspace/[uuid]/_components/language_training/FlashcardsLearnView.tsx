@@ -20,6 +20,7 @@ export function FlashcardsLearnView({
   chatLang?: "de" | "en";
 }) {
   const t = useTranslations("workspace.detail.languageTraining");
+  const tChip = useTranslations("sourceChip");
   // Chat prompt strings are sent to the LLM, not displayed.
   // chatLang controls the language of the LLM response, so prompts stay in chatLang.
   const promptTip = (term: string) => chatLang === "en"
@@ -288,7 +289,7 @@ export function FlashcardsLearnView({
                               onClick={() => { if (onSourceClick) onSourceClick(s.source_label, s.page_number ?? 1, s.start_time, s.highlight_text || card.front); }}
                               className="chip-cite inline-flex items-center gap-0.5 text-[10px] font-medium px-2 py-1 rounded-full border-none cursor-pointer transition-colors"
                               style={{ color: "var(--kb)", backgroundColor: "rgba(var(--kb-rgb),0.07)" }}>
-                              <ChipIcon size={10} weight="bold" /> {multiFile ? `[${fileIndex[s.source_label]}] ` : ""}{_chunkLabel(s.source_label, s.page_number ?? 1, s.start_time)}
+                              <ChipIcon size={10} weight="bold" /> {multiFile ? `[${fileIndex[s.source_label]}] ` : ""}{_chunkLabel(s.source_label, s.page_number ?? 1, s.start_time, (key, vals) => tChip(key, vals))}
                             </button>
                             );
                           })}
@@ -426,7 +427,7 @@ export function FlashcardsLearnView({
                         onClick={() => { if (onSourceClick) onSourceClick(s.source_label, s.page_number ?? 1, s.start_time, s.highlight_text || card.back.replace(/[*_#`~<>[\](){}|]/g, "")); }}
                         className="chip-cite inline-flex items-center gap-0.5 text-[10px] font-medium px-2 py-1 rounded-full border-none cursor-pointer transition-colors"
                         style={{ color: "var(--kb)", backgroundColor: "rgba(var(--kb-rgb),0.07)" }}>
-                        <ChipIcon size={10} weight="bold" /> {multiFile ? `[${fileIndex[s.source_label]}] ` : ""}{_chunkLabel(s.source_label, s.page_number ?? 1, s.start_time)}
+                        <ChipIcon size={10} weight="bold" /> {multiFile ? `[${fileIndex[s.source_label]}] ` : ""}{_chunkLabel(s.source_label, s.page_number ?? 1, s.start_time, (key, vals) => tChip(key, vals))}
                       </button>
                       );
                     })}

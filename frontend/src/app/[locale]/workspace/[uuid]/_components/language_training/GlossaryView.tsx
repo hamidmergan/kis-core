@@ -60,6 +60,7 @@ export function GlossaryView({
   onDismissFeedback?: () => void;
 }) {
   const t = useTranslations("workspace.detail.languageTraining");
+  const tChip = useTranslations("sourceChip");
   const noSources = sourceCount === 0;
   const [expandedId, setExpandedId] = useState<number | null>(null);
   const [sortMode, setSortMode] = useState<"recent" | "alpha">("recent");
@@ -196,7 +197,7 @@ export function GlossaryView({
                           className="inline-flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 rounded-full font-medium shrink-0 chip-cite cursor-pointer"
                           style={{ backgroundColor: "rgba(var(--kb-rgb),0.12)", color: "var(--kb)" }}
                         >
-                          <ChipIcon size={8} weight="bold" /> {entry.filename ? _chunkLabel(entry.filename, entry.page_number!, entry.start_time) : t("glossary.pageShort", { page: entry.page_number })}
+                          <ChipIcon size={8} weight="bold" /> {entry.filename ? _chunkLabel(entry.filename, entry.page_number!, entry.start_time, (key, vals) => tChip(key, vals)) : t("glossary.pageShort", { page: entry.page_number })}
                         </span>
                       )}
                       {isExpanded

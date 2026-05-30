@@ -1,5 +1,5 @@
 import React from "react";
-import { _chunkLabel, _getChipIcon } from "../../_utils";
+import { _chunkLabel, _getChipIcon, type ChipLabelT } from "../../_utils";
 import type { ChatMessage } from "../../_types";
 
 
@@ -60,6 +60,7 @@ export function parseCitations(
   getFilename: (uuid: string) => string,
   onChipClick: CitationChipClickHandler,
   keyPrefix: string = "c",
+  tChip?: ChipLabelT,
 ): React.ReactNode[] {
   const msgSourcePages = msg.source_pages ?? [];
   const msgQmap = msg.source_qmap ?? [];
@@ -85,7 +86,7 @@ export function parseCitations(
     const filename = qEntry?.filename ?? getFilename(sourceUuid);
     // Fallback: qnum from qmap via sourceUuid (e.g. popup actions without Q-prefix)
     const displayQNum = qNum ?? msgQmap.find(q => q.uuid === sourceUuid)?.qnum ?? null;
-    const label = timestamp || _chunkLabel(filename, pageNum);
+    const label = timestamp || _chunkLabel(filename, pageNum, undefined, tChip);
     const ck = `${keyPrefix}${chipKeyCounter++}`;
     let seconds = 0;
     if (timestamp) {
@@ -130,11 +131,12 @@ export function withCitations(
   activeSourceIds: string[],
   getFilename: (uuid: string) => string,
   onChipClick: CitationChipClickHandler,
+  tChip?: ChipLabelT,
 ): React.ReactNode {
   const arr: React.ReactNode[] = Array.isArray(children) ? children : [children];
   return arr.flatMap((child, idx) =>
     typeof child === "string"
-      ? parseCitations(child, msg, activeSourceIds, getFilename, onChipClick, `c${idx}-`)
+      ? parseCitations(child, msg, activeSourceIds, getFilename, onChipClick, `c${idx}-`, tChip)
       : [child],
   );
 }

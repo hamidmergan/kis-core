@@ -32,6 +32,7 @@ export function ScheduleEntryCard({
   onPillClick?: (sourceUuid: string, page: number, filename: string, sourceText?: string, startTime?: number, isExact?: boolean) => void;
 }) {
   const t = useTranslations("workspace.detail.studio.schedule.entry");
+  const tChip = useTranslations("sourceChip");
   const baseStyle: React.CSSProperties = {
     border: "1px solid var(--border)",
     // Dim whenever the deadline has passed — including today's entries whose
@@ -129,9 +130,9 @@ export function ScheduleEntryCard({
                 const startTime = ref.start_time ?? undefined;
                 const label =
                   startTime != null
-                    ? _chunkLabel(filename, 0, startTime)
+                    ? _chunkLabel(filename, 0, startTime, (key, vals) => tChip(key, vals))
                     : page > 0
-                    ? _chunkLabel(filename, page)
+                    ? _chunkLabel(filename, page, undefined, (key, vals) => tChip(key, vals))
                     : null;
                 const num = sourceNumByUuid.get(ref.source_uuid);
                 return (

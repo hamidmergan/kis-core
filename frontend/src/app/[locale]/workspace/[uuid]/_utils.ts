@@ -75,10 +75,22 @@ export function _sourceChipKey(
   return `p:${label}:${page ?? 0}:${highlight ?? ""}`;
 }
 
-export function _chunkLabel(filename: string, num: number, startTime?: number | null): string {
+// Localized label for a source-citation chip. The page/part wording comes from
+// the i18n "sourceChip" namespace, so it follows the UI language (S./Teil in DE,
+// p./Part in EN, and whatever a future locale file provides) — no hardcoded
+// per-language strings. `tChip` is `useTranslations("sourceChip")`; when omitted
+// (non-React callers / plain text export) it falls back to the German wording.
+export type ChipLabelT = (key: "page" | "part", values: { num: number }) => string;
+
+export function _chunkLabel(
+  filename: string,
+  num: number,
+  startTime?: number | null,
+  tChip?: ChipLabelT,
+): string {
   if (_isMediaFile(filename) && startTime != null) return _formatTime(startTime);
-  if (_isMediaFile(filename)) return `Teil ${num}`;
-  return `S. ${num}`;
+  if (_isMediaFile(filename)) return tChip ? tChip("part", { num }) : `Teil ${num}`;
+  return tChip ? tChip("page", { num }) : `S. ${num}`;
 }
 
 export function parseFlashcards(text: string): LernKarte[] {
