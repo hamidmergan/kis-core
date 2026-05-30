@@ -69,13 +69,16 @@ export function tryHighlightOnPage(
         } else { cleanText += ch; cleanToRaw.push(i); inSpace = false; }
       }
 
-      // PPTX-style bullet page detection: many short lines separated by
-      // single newlines. On such pages, a single newline IS a paragraph
-      // boundary (each bullet is its own thought) — otherwise paragraph
-      // expansion walks across the whole slide and grabs neighbor bullets.
+      // "Structured" page: short lines separated by newlines (slides, bullet
+      // lists, title/cover pages, tables of contents). On these a newline that
+      // starts a new line/item IS a boundary — otherwise sentence/paragraph
+      // expansion walks across the whole slide and grabs neighbouring items,
+      // headers and footers (the "title + footer also highlighted" problem).
+      // Threshold is low so sparse title slides (a few short lines) qualify.
+      // Language-agnostic: line count + length only, no words.
       const _rawNlCount = (rawPageText.match(/\n/g) || []).length;
       const _avgLineLen = _rawNlCount > 0 ? rawPageText.length / _rawNlCount : rawPageText.length;
-      const _isBulletPage = _rawNlCount >= 4 && _avgLineLen < 80;
+      const _isBulletPage = _rawNlCount >= 2 && _avgLineLen < 80;
 
       // cleanText collapses all raw whitespace (incl. newlines) to single spaces,
       // so we need a separate check to test whether a clean-space position
@@ -92,36 +95,43 @@ export function tryHighlightOnPage(
         return false;
       };
 
-      // On bullet pages, distinguish a newline that starts a NEW bullet from
-      // one that's a line wrap within the same bullet. Combines two signals:
-      // (1) prev-line end: wrap-indicator (conj./article/prep./comma/hyphen)
-      //     → WRAP. Sentence terminator (. ! ?) → NEW bullet.
-      // (2) next-line start: explicit bullet marker / date / "Am/Ab/..." opener
-      //     → NEW bullet. Lowercase letter → WRAP (German bullets start upper).
-      // Ambiguous case (uppercase continuation, no terminator, no wrap-tail):
-      // default to WRAP — safer to keep multi-line bullets whole than cut them.
-      const _wrapTailRe = /(?:^|\s)(?:der|die|das|den|dem|des|ein|eine|einen|einem|einer|eines|und|oder|aber|sowie|sondern|doch|denn|auch|bzw\.?|mit|von|vom|zu|zum|zur|bei|beim|am|im|in|an|auf|über|unter|für|durch|nach|vor|ohne|um|aus|gegen)$/i;
+      // Length (clean chars) of the line ending at `cleanEnd`, scanning back to
+      // the previous raw newline. A short ended line is a heading/title/list
+      // item; a near-full-width line is wrapped prose. Pure geometry of the
+      // text — language- and script-independent.
+      const _prevLineLen = (cleanEnd: number): number => {
+        let s = 0;
+        for (let i = cleanEnd; i >= 1; i--) {
+          if (_isRawNewlineAtClean(i)) { s = i + 1; break; }
+        }
+        return cleanEnd - s + 1;
+      };
+
+      // Decide whether the newline at `startClean` starts a NEW line/item (a
+      // boundary) vs a soft wrap of the same sentence. LANGUAGE-AGNOSTIC: uses
+      // punctuation, list/number/date markers, Unicode letter case and line
+      // length only — never language-specific word lists.
       const _looksLikeNewBullet = (startClean: number): boolean => {
         if (startClean <= 0) return true;
-        // Previous-line tail.
         let prevEnd = startClean - 1;
         while (prevEnd > 0 && cleanText[prevEnd] === " ") prevEnd--;
         const beforeSlice = cleanText.slice(Math.max(0, prevEnd - 40), prevEnd + 1);
-        if (beforeSlice.endsWith("-")) return false; // syllable break
-        if (/[,;]$/.test(beforeSlice)) return false; // mid-list wrap
-        if (_wrapTailRe.test(beforeSlice)) return false; // conj./article/prep.
-        // Next-line head.
+        if (beforeSlice.endsWith("-")) return false;  // hyphenated wrap
+        if (/[,;:]$/.test(beforeSlice)) return false; // clause / list continues
         let nextStart = startClean;
         while (nextStart < cleanText.length && cleanText[nextStart] === " ") nextStart++;
         const afterSlice = cleanText.slice(nextStart, Math.min(cleanText.length, nextStart + 60));
         if (!afterSlice) return true;
-        if (/^(?:[•·…–—*\-]|\.{2,}|\d+\.\s)/.test(afterSlice)) return true;
-        if (/^\d{1,2}\.\d{1,2}\.(?:\d{2,4})?/.test(afterSlice)) return true;
-        if (/^[^\s]{0,3}\s*\d{1,2}\.\d{1,2}\.\d{2,4}/.test(afterSlice)) return true;
-        if (/^(?:Ab|Am|Bis|Vom|Bis\s+zum|Ab\s+dem)\s+\d{1,2}\./i.test(afterSlice)) return true;
-        if (/^[a-zäöüß]/.test(afterSlice)) return false; // lowercase continuation
-        if (/[.!?]$/.test(beforeSlice)) return true;    // sentence terminator
-        return false; // ambiguous → prefer keeping the bullet whole
+        // List/enumeration marker or a date-like number opens a new item.
+        if (/^(?:[•·▪◦‣⁃●○…*]|\.{2,}|[-–—]\s|\(?\d{1,3}[.)]\s)/.test(afterSlice)) return true;
+        if (/^\d{1,4}[.\-/]\d{1,2}(?:[.\-/]\d{1,4})?\b/.test(afterSlice)) return true;
+        if (/[.!?]$/.test(beforeSlice)) return true;  // previous sentence ended
+        if (/^\p{Ll}/u.test(afterSlice)) return false; // lowercase start → wrap
+        // Ambiguous (Title-case line after another, no punctuation): a SHORT
+        // ended line is a heading/title/standalone item → boundary; a long line
+        // is wrapped prose → keep joined. Length, not language.
+        if (_prevLineLen(prevEnd) <= 55) return true;
+        return false;
       };
 
       let cleanInput = searchText.replace(/\s+/g, " ").trim()
@@ -163,7 +173,9 @@ export function tryHighlightOnPage(
       // Skip entirely for exactSelection: the user-popup selection IS the
       // intended highlight bounds; heuristics must not move them.
       if (matchStart >= 0 && _isBulletPage && !exactSelection) {
-        const dateRe = /\b\d{1,2}\.\d{1,2}\.(?:\d{2,4})?\b|\b\d{1,2}\.\s*(?:Jan(?:uar)?|Feb(?:ruar)?|Mär(?:z)?|Apr(?:il)?|Mai|Jun(?:i)?|Jul(?:i)?|Aug(?:ust)?|Sep(?:t(?:ember)?)?|Okt(?:ober)?|Nov(?:ember)?|Dez(?:ember)?)/i;
+        // Numeric date in any common order/separator (01.04.2026, 2026-04-01,
+        // 4/1). Language-agnostic — no localized month names.
+        const dateRe = /\b\d{1,4}[.\-/]\d{1,2}(?:[.\-/]\d{1,4})?\b/;
         const matchedSlice = cleanText.slice(matchStart, matchEnd + 1);
         const dm = dateRe.exec(matchedSlice);
         if (dm && dm.index > 0) {
@@ -249,11 +261,11 @@ export function tryHighlightOnPage(
         // abbreviation to keep footnote markers ("erprobt.11") as real sentence ends —
         // decimal numbers like "3.14" are covered by the digit-before-dot rule below.
         const next = text[dotIdx + 1];
-        if (next && /[A-Za-zÄÖÜäöüß]/.test(next)) return true;
+        if (next && /\p{L}/u.test(next)) return true;
         const before = text.slice(Math.max(0, dotIdx - 6), dotIdx);
         if (_abbrPattern.test(before)) return true;
         // Single uppercase letter + dot (e.g. "S." "A.")
-        if (dotIdx >= 1 && /^[A-ZÄÖÜ]$/.test(text[dotIdx - 1]) && (dotIdx < 2 || text[dotIdx - 2] === " ")) return true;
+        if (dotIdx >= 1 && /^\p{Lu}$/u.test(text[dotIdx - 1]) && (dotIdx < 2 || text[dotIdx - 2] === " ")) return true;
         // Number + dot (e.g. "3." "49%.")
         if (/\d$/.test(text.slice(Math.max(0, dotIdx - 1), dotIdx))) return true;
         return false;
@@ -297,10 +309,10 @@ export function tryHighlightOnPage(
       const _isHeading = (text: string): boolean => {
         const t = text.replace(/^\s+/, "");
         // Colon-terminated heading: "International Coach:", "Fachlandkarte:"
-        if (/^[A-ZÄÖÜ][\wäöüß-]+(?:\s+[A-ZÄÖÜ]?[\wäöüß-]+){0,3}\s*:/.test(t)) return true;
+        if (/^\p{Lu}[\p{L}\p{N}_-]+(?:\s+\p{Lu}?[\p{L}\p{N}_-]+){0,3}\s*:/u.test(t)) return true;
         // Numbered section heading: "1. Management Summary", "4.4 Transferpotential",
         // "2.1.3 Skizze der Ausgangslage"
-        if (/^\d+(?:\.\d+)*\.?\s+[A-ZÄÖÜ][\wäöüß-]+/.test(t)) return true;
+        if (/^\d+(?:\.\d+)*\.?\s+\p{Lu}[\p{L}\p{N}_-]+/u.test(t)) return true;
         return false;
       };
       const _isParagraphBreakBefore = (startInClean: number): boolean => {
@@ -331,8 +343,8 @@ export function tryHighlightOnPage(
       // dropped from the highlight.
       const _isFullHeading = (text: string): boolean => {
         const t = text.replace(/^\s+|\s+$/g, "");
-        if (/^[A-ZÄÖÜ][\wäöüß-]+(?:\s+[A-ZÄÖÜ]?[\wäöüß-]+){0,4}\s*:$/.test(t)) return true;
-        if (/^\d+(?:\.\d+)*\.?\s+[A-ZÄÖÜ][\wäöüß-]+(?:\s+[A-ZÄÖÜ]?[\wäöüß-]+){0,5}$/.test(t)) return true;
+        if (/^\p{Lu}[\p{L}\p{N}_-]+(?:\s+\p{Lu}?[\p{L}\p{N}_-]+){0,4}\s*:$/u.test(t)) return true;
+        if (/^\d+(?:\.\d+)*\.?\s+\p{Lu}[\p{L}\p{N}_-]+(?:\s+\p{Lu}?[\p{L}\p{N}_-]+){0,5}$/u.test(t)) return true;
         return false;
       };
       const _isHeadingLike = (text: string): boolean => {
