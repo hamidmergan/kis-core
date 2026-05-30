@@ -187,6 +187,31 @@ def aia_system_rag(target_locale: str = "de") -> str:
     )
 
 
+def aia_rag_user_message(context: str, question: str) -> str:
+    """Build the RAG answer-call user message.
+
+    The language directive SANDWICHES the retrieved context (framing before +
+    reminder after) so the answer follows the QUESTION's language even when the
+    context is in another language and the model is tempted to just reformat it
+    (notably the page-summary overview path, where German summaries otherwise
+    pull the whole answer into German). Language-agnostic: no detection, no word
+    lists — the model mirrors the question. Citation keywords stay verbatim in
+    the source language (enforced by the system prompt) so highlighting keeps
+    working.
+    """
+    return (
+        "The documents below are REFERENCE MATERIAL ONLY. Write your answer "
+        "in the language of the Question at the end — translate the documents' "
+        "facts as needed. Do NOT mirror the documents' language.\n\n"
+        f"{context}\n\nQuestion: {question}\n\n"
+        "REMINDER: Write your ENTIRE answer in the SAME language as this "
+        "Question, even though the documents above are in another language. "
+        "The ONLY exception is the citation keyword after the '|' inside each "
+        "[N, S. X | keyword] chip — keep it verbatim in the document's "
+        "original language."
+    )
+
+
 # Backward-compat constant for callers that don't have locale context (admin
 # registries, language_training source cards). Defaults to DE behavior.
 AIA_SYSTEM_RAG = aia_system_rag("de")
