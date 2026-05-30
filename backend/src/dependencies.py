@@ -184,6 +184,10 @@ def get_tts_client_for_provider(provider_id: int):
     route = db.get_route("tts")
     provider_models = (route.get("provider_models") if route else None) or {}
     model = provider_models.get(str(provider_id)) or (route.get("model_name") if route else None) or ""
+    if not model:
+        raise feature_router.FeatureNotConfigured(
+            "tts route has no model_name — set it in the admin KI panel"
+        )
     api_key = provider.get("api_key") or "not-needed"
     return OpenAICompatTTSClient(provider["base_url"], model=model, api_key=api_key)
 

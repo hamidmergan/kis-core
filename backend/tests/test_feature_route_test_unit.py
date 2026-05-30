@@ -1,7 +1,7 @@
-"""Unit tests for feature_route_test — TTS path changes and STT model validation."""
+"""Unit tests for feature_route_check — TTS path changes and STT model validation."""
 import pytest
 from unittest.mock import patch, MagicMock
-from src.services.feature_route_test import FeatureTestResult
+from src.services.feature_route_check import FeatureTestResult
 
 
 def test_tts_test_omits_model_when_not_set(monkeypatch):
@@ -10,7 +10,7 @@ def test_tts_test_omits_model_when_not_set(monkeypatch):
     Kokoro and other single-model TTS servers reject requests that carry a
     ``model`` field, so an empty model_name must not block the request.
     """
-    from src.services.feature_route_test import test_feature_route
+    from src.services.feature_route_check import run_feature_route_test
     import httpx
 
     captured = {}
@@ -23,7 +23,7 @@ def test_tts_test_omits_model_when_not_set(monkeypatch):
 
     monkeypatch.setattr(httpx.Client, "post", fake_post)
 
-    result = test_feature_route(
+    result = run_feature_route_test(
         feature="tts",
         protocol="openai_compat",
         base_url="http://tts.example.com",
@@ -37,10 +37,10 @@ def test_tts_test_omits_model_when_not_set(monkeypatch):
 
 
 def test_tts_test_returns_error_when_no_voices():
-    """test_feature_route for TTS with empty voices must return no_voices_configured."""
-    from src.services.feature_route_test import test_feature_route
+    """run_feature_route_test for TTS with empty voices must return no_voices_configured."""
+    from src.services.feature_route_check import run_feature_route_test
 
-    result = test_feature_route(
+    result = run_feature_route_test(
         feature="tts",
         protocol="openai_compat",
         base_url="http://tts.example.com",
@@ -54,7 +54,7 @@ def test_tts_test_returns_error_when_no_voices():
 
 def test_tts_test_uses_first_voice_from_db(monkeypatch):
     """_post_tts must use voices[0]['voice_id'] — not the hardcoded 'alloy'."""
-    from src.services.feature_route_test import test_feature_route
+    from src.services.feature_route_check import run_feature_route_test
     import httpx
 
     captured = {}
@@ -67,7 +67,7 @@ def test_tts_test_uses_first_voice_from_db(monkeypatch):
 
     monkeypatch.setattr(httpx.Client, "post", fake_post)
 
-    test_feature_route(
+    run_feature_route_test(
         feature="tts",
         protocol="openai_compat",
         base_url="http://tts.example.com",
@@ -83,7 +83,7 @@ def test_stt_test_posts_real_transcription_when_model_set(monkeypatch):
     """STT with model_name must POST to /v1/audio/transcriptions. A valid
     model returns 200 for the user's name and 4xx for the canary probe —
     the test then reports 'ok'."""
-    from src.services.feature_route_test import test_feature_route
+    from src.services.feature_route_check import run_feature_route_test
     import httpx
 
     calls: list = []
@@ -103,7 +103,7 @@ def test_stt_test_posts_real_transcription_when_model_set(monkeypatch):
 
     monkeypatch.setattr(httpx.Client, "post", fake_post)
 
-    result = test_feature_route(
+    result = run_feature_route_test(
         feature="stt",
         protocol="openai_compat",
         base_url="http://stt.example.com",
@@ -121,7 +121,7 @@ def test_stt_canary_passes_no_backend_evidence_returns_soft_warning(monkeypatch)
     """If the canary passes AND the response carries no rate-limit or
     gateway headers, we can't prove the request hit a real backend — use
     the cautious warning code."""
-    from src.services.feature_route_test import test_feature_route
+    from src.services.feature_route_check import run_feature_route_test
     import httpx
 
     def fake_post(self, url, **kwargs):
@@ -134,7 +134,7 @@ def test_stt_canary_passes_no_backend_evidence_returns_soft_warning(monkeypatch)
 
     monkeypatch.setattr(httpx.Client, "post", fake_post)
 
-    result = test_feature_route(
+    result = run_feature_route_test(
         feature="stt",
         protocol="openai_compat",
         base_url="http://kisski.example.com",
@@ -150,7 +150,7 @@ def test_stt_canary_passes_with_backend_evidence_upgrades_warning(monkeypatch):
     """KISSKI returns 200 with Kong + rate-limit headers proving the request
     was forwarded to the real Whisper backend (not a stub). The warning is
     upgraded to the positive 'endpoint verified' variant."""
-    from src.services.feature_route_test import test_feature_route
+    from src.services.feature_route_check import run_feature_route_test
     import httpx
 
     def fake_post(self, url, **kwargs):
@@ -169,7 +169,7 @@ def test_stt_canary_passes_with_backend_evidence_upgrades_warning(monkeypatch):
 
     monkeypatch.setattr(httpx.Client, "post", fake_post)
 
-    result = test_feature_route(
+    result = run_feature_route_test(
         feature="stt",
         protocol="openai_compat",
         base_url="https://saia.gwdg.de/v1",
@@ -184,7 +184,7 @@ def test_stt_canary_passes_with_backend_evidence_upgrades_warning(monkeypatch):
 def test_stt_test_reports_error_for_unknown_model(monkeypatch):
     """When the upstream rejects the model name with 400, the test must
     surface that — not show 'reachable'."""
-    from src.services.feature_route_test import test_feature_route
+    from src.services.feature_route_check import run_feature_route_test
     import httpx
 
     def fake_post(self, url, **kwargs):
@@ -196,7 +196,7 @@ def test_stt_test_reports_error_for_unknown_model(monkeypatch):
 
     monkeypatch.setattr(httpx.Client, "post", fake_post)
 
-    result = test_feature_route(
+    result = run_feature_route_test(
         feature="stt",
         protocol="openai_compat",
         base_url="http://stt.example.com",
@@ -210,9 +210,9 @@ def test_stt_test_reports_error_for_unknown_model(monkeypatch):
 def test_stt_test_requires_model_name():
     """A configured STT route without a model is not usable — must return
     'model_name_not_set' instead of silently reporting 'reachable'."""
-    from src.services.feature_route_test import test_feature_route
+    from src.services.feature_route_check import run_feature_route_test
 
-    result = test_feature_route(
+    result = run_feature_route_test(
         feature="stt",
         protocol="openai_compat",
         base_url="http://stt.example.com",
@@ -225,9 +225,9 @@ def test_stt_test_requires_model_name():
 
 def test_image_gen_requires_model_name():
     """A configured image_gen route without a model is not usable."""
-    from src.services.feature_route_test import test_feature_route
+    from src.services.feature_route_check import run_feature_route_test
 
-    result = test_feature_route(
+    result = run_feature_route_test(
         feature="image_gen",
         protocol="openai_compat",
         base_url="http://img.example.com",
@@ -239,9 +239,9 @@ def test_image_gen_requires_model_name():
 
 
 def test_image_edit_requires_model_name():
-    from src.services.feature_route_test import test_feature_route
+    from src.services.feature_route_check import run_feature_route_test
 
-    result = test_feature_route(
+    result = run_feature_route_test(
         feature="image_edit",
         protocol="openai_compat",
         base_url="http://img.example.com",
@@ -256,7 +256,7 @@ def test_image_gen_posts_real_generation(monkeypatch):
     """image_gen must POST to /v1/images/generations so providers (KISSKI)
     whose /v1/models listing is undifferentiated can't pass a chat model id
     off as an image model."""
-    from src.services.feature_route_test import test_feature_route
+    from src.services.feature_route_check import run_feature_route_test
     import httpx
 
     captured = {}
@@ -270,7 +270,7 @@ def test_image_gen_posts_real_generation(monkeypatch):
 
     monkeypatch.setattr(httpx.Client, "post", fake_post)
 
-    result = test_feature_route(
+    result = run_feature_route_test(
         feature="image_gen",
         protocol="openai_compat",
         base_url="http://img.example.com",
@@ -285,7 +285,7 @@ def test_image_gen_posts_real_generation(monkeypatch):
 def test_image_gen_rejects_invalid_model(monkeypatch):
     """An unknown image model must surface the provider's error, not a
     silent 'ok' from a stale /v1/models fast path."""
-    from src.services.feature_route_test import test_feature_route
+    from src.services.feature_route_check import run_feature_route_test
     import httpx
 
     def fake_post(self, url, **kwargs):
@@ -297,7 +297,7 @@ def test_image_gen_rejects_invalid_model(monkeypatch):
 
     monkeypatch.setattr(httpx.Client, "post", fake_post)
 
-    result = test_feature_route(
+    result = run_feature_route_test(
         feature="image_gen",
         protocol="openai_compat",
         base_url="http://img.example.com",
@@ -313,7 +313,7 @@ def test_image_edit_posts_standard_openai_form(monkeypatch):
     standard OpenAI-style — model in body, no trailing slash, no provider-
     specific headers. Providers that need something else (KISSKI's
     inference-service header) are explicitly NOT supported via this path."""
-    from src.services.feature_route_test import test_feature_route
+    from src.services.feature_route_check import run_feature_route_test
     import httpx
 
     captured = {}
@@ -329,7 +329,7 @@ def test_image_edit_posts_standard_openai_form(monkeypatch):
 
     monkeypatch.setattr(httpx.Client, "post", fake_post)
 
-    result = test_feature_route(
+    result = run_feature_route_test(
         feature="image_edit",
         protocol="openai_compat",
         base_url="http://img.example.com",
@@ -355,7 +355,7 @@ def test_image_gen_does_not_use_models_listing(monkeypatch):
     """Regression: a chat-only listing must NOT make image_gen pass. Earlier
     code fast-pathed on any /v1/models match — that hid chat-model misconfigs
     as 'reachable' (the original bug we removed)."""
-    from src.services.feature_route_test import test_feature_route
+    from src.services.feature_route_check import run_feature_route_test
     import httpx
 
     get_called = {"n": 0}
@@ -379,7 +379,7 @@ def test_image_gen_does_not_use_models_listing(monkeypatch):
     monkeypatch.setattr(httpx.Client, "get", fake_get)
     monkeypatch.setattr(httpx.Client, "post", fake_post)
 
-    result = test_feature_route(
+    result = run_feature_route_test(
         feature="image_gen",
         protocol="openai_compat",
         base_url="http://img.example.com",
@@ -394,7 +394,7 @@ def test_image_gen_does_not_use_models_listing(monkeypatch):
 def test_classify_http_passes_plain_text_404(monkeypatch):
     """KISSKI returns 404 with plain text body 'Model Not Found' — must not
     be swallowed as generic 'endpoint_not_found'."""
-    from src.services.feature_route_test import test_feature_route
+    from src.services.feature_route_check import run_feature_route_test
     import httpx
 
     def fake_post(self, url, **kwargs):
@@ -406,7 +406,7 @@ def test_classify_http_passes_plain_text_404(monkeypatch):
 
     monkeypatch.setattr(httpx.Client, "post", fake_post)
 
-    result = test_feature_route(
+    result = run_feature_route_test(
         feature="stt",
         protocol="openai_compat",
         base_url="http://stt.example.com",
@@ -421,7 +421,7 @@ def test_stt_test_404_with_model_detail_surfaces_body(monkeypatch):
     """vLLM/myLab returns 404 with {"detail":"Model X not found"} for an
     unknown model. The body detail must surface — not a generic
     'endpoint_not_found' which would falsely blame the endpoint."""
-    from src.services.feature_route_test import test_feature_route
+    from src.services.feature_route_check import run_feature_route_test
     import httpx
 
     def fake_post(self, url, **kwargs):
@@ -433,7 +433,7 @@ def test_stt_test_404_with_model_detail_surfaces_body(monkeypatch):
 
     monkeypatch.setattr(httpx.Client, "post", fake_post)
 
-    result = test_feature_route(
+    result = run_feature_route_test(
         feature="stt",
         protocol="openai_compat",
         base_url="http://stt.example.com",

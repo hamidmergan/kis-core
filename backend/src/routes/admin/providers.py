@@ -41,7 +41,7 @@ from src.services.protocols import (
     fixed_capabilities,
     known_protocols,
 )
-from src.services.feature_route_test import test_feature_route
+from src.services.feature_route_check import run_feature_route_test
 from src.services.provider_probe import probe_provider
 
 router = APIRouter(tags=["admin: providers"])
@@ -348,7 +348,7 @@ async def test_route(
         if provider is None:
             raise HTTPException(400, t("admin.providers.notFound", locale))
         model_name = provider_models.get(str(row["provider_id"])) or row.get("model_name")
-    result = test_feature_route(
+    result = run_feature_route_test(
         feature=feature,
         protocol=provider["protocol"],
         base_url=provider["base_url"],

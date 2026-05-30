@@ -42,7 +42,7 @@ class FeatureTestResult:
 _CHAT_LIKE_FEATURES = frozenset({"chat", "vision", "ocr", "doc_translate", "screencast_translate", "transcript_translate"})
 
 
-def test_feature_route(
+def run_feature_route_test(
     *,
     feature: str,
     protocol: str,
