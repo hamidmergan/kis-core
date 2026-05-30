@@ -584,7 +584,25 @@ async def chat(
             user_message = f"{body.question}\n\nText (aus {body.source_filename or 'Dokument'}{page_ref}):\n{body.source_text}"
     else:
         system_prompt = aia_system_rag(chat_lang)
-        user_message = f"{context}\n\nQuestion: {rewritten_question}"
+        # Language directive SANDWICHES the context (framing before + reminder
+        # after) so the answer follows the QUESTION's language even when the
+        # retrieved context is in another language and the model is tempted to
+        # just reformat it (notably the page-summary overview path, where the
+        # German summaries otherwise pull the whole answer into German).
+        # Language-agnostic: no detection, no word lists — the model mirrors the
+        # question. Citation keywords still stay verbatim in the source language
+        # (enforced by the system prompt) so highlighting keeps working.
+        user_message = (
+            "The documents below are REFERENCE MATERIAL ONLY. Write your answer "
+            "in the language of the Question at the end — translate the documents' "
+            "facts as needed. Do NOT mirror the documents' language.\n\n"
+            f"{context}\n\nQuestion: {rewritten_question}\n\n"
+            "REMINDER: Write your ENTIRE answer in the SAME language as this "
+            "Question, even though the documents above are in another language. "
+            "The ONLY exception is the citation keyword after the '|' inside each "
+            "[N, S. X | keyword] chip — keep it verbatim in the document's "
+            "original language."
+        )
 
     # Single-turn: system + user (no history in the answer call, to prevent leaks
     # from previous turns). History context was processed in the query

@@ -118,9 +118,15 @@ RAG_NO_INFO_SENTINEL: dict[str, str] = {
 
 
 def aia_system_rag(target_locale: str = "de") -> str:
-    """Build the RAG system prompt with a locale-specific 'no info' sentinel."""
-    sentinel = RAG_NO_INFO_SENTINEL.get(target_locale, RAG_NO_INFO_SENTINEL["de"])
-    sentinel_lang = "English" if target_locale == "en" else "German"
+    """Build the RAG system prompt.
+
+    Answer language follows the USER'S QUESTION (decided by the model), NOT
+    ``target_locale`` — the param is kept for backward compatibility only.
+    Citation keywords always stay verbatim in the source document's language so
+    highlighting keeps working across languages.
+    """
+    de_sentinel = RAG_NO_INFO_SENTINEL["de"]
+    en_sentinel = RAG_NO_INFO_SENTINEL["en"]
     return (
         "You are an AI tutor. Answer thoroughly based on the provided documents.\n"
         "Use ALL relevant information from ALL provided document sections.\n"
@@ -128,10 +134,12 @@ def aia_system_rag(target_locale: str = "de") -> str:
         "If the sources contain contact details for a person or organization, include them.\n"
         "NEVER invent facts, definitions, or information not derivable from the sources.\n"
         "No conversation history is provided. The question is standalone - answer it using ONLY the <documents> below.\n"
-        f"If the <documents> do not contain enough information to answer, respond with EXACTLY this {sentinel_lang} sentence (verbatim, no translation, no additions): \"{sentinel}\" Do NOT speculate, do NOT use general knowledge.\n"
+        "If the <documents> do not contain enough information to answer, respond with EXACTLY ONE short sentence stating the information is not in the provided sources, written IN THE SAME LANGUAGE AS THE USER'S QUESTION "
+        f"(German question: \"{de_sentinel}\"; English question: \"{en_sentinel}\"; any other language: translate that statement into the question's language). Do NOT speculate, do NOT use general knowledge.\n"
         "Do NOT add disclaimers, comments about missing information, or limitations.\n"
         "Do NOT use personal names from the sources, write 'according to the source' instead.\n"
-        "Answer in the same language as the user's question.\n\n"
+        "LANGUAGE — TOP PRIORITY: ALWAYS write the answer in the SAME language as the USER'S QUESTION, even when the source documents are in a different language. English question + German sources -> answer in English (translate the facts). German question -> answer in German. Match the question's language every time.\n"
+        "  - EXCEPTION: the citation keyword (the text after '|' inside each [N, S. X | keyword] chip) MUST stay VERBATIM in the SOURCE document's ORIGINAL language — NEVER translate it — because it is matched character-for-character against the source text to locate the highlight. So an English answer about a German PDF still carries German keywords, e.g. 'The mentor is Lenka Kleinau, M.Sc. [1, S. 2 | Mentorin Lenka Kleinau].'\n\n"
         "RESPONSE STRUCTURE (for readability — NEVER output one big wall of text):\n"
         "  - Break the answer into short paragraphs of 2-4 sentences each.\n"
         "  - When you list multiple items, facts, steps, options, or dates, use a Markdown bullet list ('- ') or a numbered list, ONE item per line.\n"
@@ -139,7 +147,7 @@ def aia_system_rag(target_locale: str = "de") -> str:
         "  - Bold the leading key term, name, or date of a bullet or sentence with **...** so it stands out.\n"
         "  - For a set of dates/deadlines or other tabular data, you MAY use a Markdown table.\n"
         "  - The citation rules below STILL apply: every sentence, bullet, or table cell keeps its citation(s). Place the citation at the END of that bullet/sentence/cell.\n"
-        "  - End your answer with a short closing summary under its OWN heading line: '## Zusammenfassung' (German answers) or '## Summary' (English answers). Restate the key points in 2-4 sentences. This closing summary must contain NO citations — it only recaps what was already cited above.\n"
+        "  - End your answer with a short closing summary under its OWN heading line. The heading is the word for 'Summary' IN YOUR ANSWER'S OWN LANGUAGE — e.g. '## Zusammenfassung' (German), '## Summary' (English), '## Résumé' (French), '## Resumen' (Spanish). Restate the key points in 2-4 sentences. This closing summary must contain NO citations — it only recaps what was already cited above.\n"
         "\n"
         "CITATION FORMAT (strict):\n"
         "Documents are provided as XML. Each <document index=\"N\"> block has:\n"
@@ -174,7 +182,8 @@ def aia_system_rag(target_locale: str = "de") -> str:
         "Q: Wer leitet das Seminar? | A: Lenka Kleinau, M.Sc. leitet das Seminar [2, S. 3 | Mentorin Lenka Kleinau].\n"
         "Q: Wann ist die Abgabe? | A: Die Abgabe ist am 22.04.2026 [1, S. 5 | Abgabe 22.04.2026].\n"
         "Q: Was wurde in der Einführung gesagt? | A: Die Einführung erklärt das Kursziel [4, 02:15 | Kursziel Einführung].\n"
-        "Q: Welche Themen kamen im Video vor? | A: Im Video werden Stars and Bars besprochen [5, 12:30 | Stars and Bars]."
+        "Q: Welche Themen kamen im Video vor? | A: Im Video werden Stars and Bars besprochen [5, 12:30 | Stars and Bars].\n"
+        "Q (English question, German source): Who mentors the seminar? | A: The seminar is mentored by Lenka Kleinau, M.Sc. [2, S. 3 | Mentorin Lenka Kleinau]."
     )
 
 
