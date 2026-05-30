@@ -50,6 +50,21 @@ def get_aia_chunks_by_source(source_id: int) -> list[dict]:
             )
             return [dict(row) for row in cur.fetchall()]
 
+def get_source_page_numbers(source_id: int) -> set[int]:
+    """Return the set of REAL page numbers for a source: the union of pages that
+    have a text/OCR chunk and pages that have a page-summary. Used to validate
+    citation pages against pages that actually exist (covers image/scanned pages
+    that were OCR'd or summarized, while rejecting fully hallucinated numbers)."""
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """SELECT page_number FROM aia_chunks WHERE source_id = %s
+                   UNION
+                   SELECT page_number FROM aia_page_summaries WHERE source_id = %s""",
+                (source_id, source_id),
+            )
+            return {row[0] for row in cur.fetchall() if row[0] is not None}
+
 def update_chunk_embedding(chunk_id: int, embedding: list[float]) -> None:
     with get_connection() as conn:
         with conn.cursor() as cur:

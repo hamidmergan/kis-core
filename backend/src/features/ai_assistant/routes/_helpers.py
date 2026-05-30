@@ -3,6 +3,7 @@
 import re
 import subprocess
 import tempfile
+import unicodedata
 from pathlib import Path
 from typing import Optional
 
@@ -106,6 +107,305 @@ def _parse_ts(ts: str) -> float:
     if len(parts) == 3:
         return parts[0] * 3600 + parts[1] * 60 + parts[2]
     return parts[0] * 60 + parts[1]
+
+
+# ─── Citation page/timestamp resolution ─────────────────────────────────────
+# The LLM types a page/timestamp as free text and routinely hallucinates it
+# (e.g. "S. 44" on a 10-page PDF). We never trust that number. Instead we
+# re-derive the real position from the verbatim keyword the citation carries,
+# matched against the actual chunk content the model was given. A citation that
+# cannot be grounded to a real position is dropped - better no chip than a
+# fabricated one. Image pages without a text layer survive as long as the cited
+# page actually exists in the source (keyword just can't be matched there).
+
+# Capturing variant of the frontend citation grammar:
+#   group1 = source number N (optional), group2 = page, group3 = timestamp,
+#   group4 = keyword section. Accepts CJK lenticular brackets like the frontend.
+#   The page form also tolerates a range like "S. 6-7" (any Unicode hyphen): the
+#   model occasionally mimics a section marker it saw in the content. We capture
+#   the FIRST page and swallow the rest, so the whole bracket still resolves to a
+#   clean single-page chip instead of leaking through as broken raw text.
+_CITE_RESOLVE_RE = re.compile(
+    r"[\[【]\s*(?:Q?(\d+)\s*,\s*)?"
+    r"(?:S\.\s*(\d+)(?:\s*[-‐‑‒–—−]\s*\d+)?|(\d{1,2}:\d{2}(?::\d{2})?))"
+    r"\s*(?:[|❘]\s*([^\]】]+?))?\s*[\]】]"
+)
+
+
+def _norm_for_match(s: str) -> str:
+    """Normalize text for verbatim keyword matching: NFKC, case-fold, unify the
+    various Unicode hyphens (e.g. non-breaking U+2011 in 'Peer‑Review'), collapse
+    whitespace. Makes the keyword-in-chunk check robust to cosmetic differences."""
+    s = unicodedata.normalize("NFKC", s).casefold()
+    for hy in ("‐", "‑", "‒", "–", "—", "−"):
+        s = s.replace(hy, "-")
+    return re.sub(r"\s+", " ", s).strip()
+
+
+# ─── Header/footer de-weighting for citation grounding ──────────────────────
+# A name or term in a running header/footer (page furniture, slide credits)
+# repeats across pages and can outrank the body slide that actually covers the
+# topic - e.g. "Mentorin Lenka Kleinau, M.Sc." sits in the cover slide's FOOTER,
+# so a citation grounds to the title page instead of the body page that lists the
+# mentor with contact details. We split each page into body vs boilerplate and,
+# when a keyword only matched the boilerplate, re-ground it onto the body page.
+#
+# Both boilerplate signals are LANGUAGE-AGNOSTIC by design (KIS is multi-tenant;
+# other universities ingest PDFs in other languages):
+#   1. docling region labels: ``data-label="Page-Header"`` / ``"Page-Footer"``.
+#   2. line repetition: a line on >= ~half the pages is running furniture.
+# No wordlists, no language assumptions.
+# docling emits one labelled <div> per layout region. Page-Header/Footer =
+# running furniture (boilerplate); every other label (Text, List-Group,
+# Section-Header, Title, Table, …) is body content. We key off the LABEL, not
+# the words, so it works for any language. The stored chunk ``content`` is an
+# arbitrary character window of a "plain-text + layout-HTML" rendering — chunks
+# may start mid-tag and aren't in reading order — so we only trust complete
+# labelled divs we can extract, and ignore the duplicated plain-text rendering.
+_LABELED_DIV_RE = re.compile(
+    r'<div\b[^>]*\bdata-label="([^"]+)"[^>]*>(.*?)</div>', re.IGNORECASE | re.DOTALL
+)
+_HTML_TAG_RE = re.compile(r"<[^>]+>")
+_BOILER_LABELS = {"page-footer", "page-header"}
+
+
+def _build_page_regions(raw_chunks: list) -> dict:
+    """Split each PDF page into ``{"body": str, "boiler": str}`` (normalized).
+
+    ``boiler`` = text in docling ``Page-Footer``/``Page-Header`` regions (running
+    titles, page numbers, slide credits); ``body`` = every other labelled region.
+    Lets the resolver de-weight a term that only matched page furniture. Pages
+    whose chunks carry no usable labels get empty strings (→ no re-grounding,
+    never worse). Language-agnostic: keys off region labels only, no wordlists.
+    """
+    by_page: dict = {}
+    for c in raw_chunks:
+        pn = c.get("page_number")
+        if pn is None:
+            continue
+        by_page.setdefault(pn, []).append(c.get("content") or "")
+
+    regions: dict = {}
+    for pn, contents in by_page.items():
+        full = "\n".join(contents)
+        body_parts: list = []
+        boiler_parts: list = []
+        for label, inner in _LABELED_DIV_RE.findall(full):
+            txt = _norm_for_match(_HTML_TAG_RE.sub(" ", inner))
+            if not txt:
+                continue
+            if label.strip().lower() in _BOILER_LABELS:
+                boiler_parts.append(txt)
+            else:
+                body_parts.append(txt)
+        regions[pn] = {"body": " ".join(body_parts), "boiler": " ".join(boiler_parts)}
+    return regions
+
+
+def _best_body_anchor(nkw: str, regions: dict) -> "str | None":
+    """Longest contiguous token sub-phrase of ``nkw`` (>= 2 tokens, >= 6 chars)
+    that appears in some page's body text. Lets a boilerplate match re-ground
+    onto the body page covering the term. Pure token windows - no wordlists."""
+    toks = nkw.split()
+    if len(toks) < 2:
+        return None
+    bodies = [r["body"] for r in regions.values()]
+    for size in range(len(toks), 1, -1):
+        for start in range(0, len(toks) - size + 1):
+            phrase = " ".join(toks[start:start + size])
+            if len(phrase) < 6:
+                continue
+            if any(phrase in b for b in bodies):
+                return phrase
+    return None
+
+
+def _reroute_to_body(page: int, nkw: str, regions: dict) -> int:
+    """De-weight a header/footer match: if ``nkw`` grounded to ``page`` only via
+    its running header/footer (not body) and exactly one other page carries the
+    term as body content, return that page. Otherwise keep ``page`` - so the
+    result is never worse, and header/footer stays a valid fallback when no body
+    page has the term."""
+    if not regions:
+        return page
+    r = regions.get(page)
+    if r is None or nkw in r["body"]:
+        return page  # unknown page, or a genuine body match → keep
+    anchor = _best_body_anchor(nkw, regions)
+    if not anchor or anchor in r["body"]:
+        return page
+    # Only move with positive evidence the grounded match is boilerplate here
+    # (anchor sits in THIS page's header/footer); avoids moving paraphrased body.
+    if anchor not in r["boiler"]:
+        return page
+    body_hits = [pg for pg, rr in regions.items() if anchor in rr["body"]]
+    if len(body_hits) == 1 and body_hits[0] != page:
+        return body_hits[0]
+    return page
+
+
+def _resolve_citation_pages(text: str, source_index: dict) -> str:
+    """Re-ground every citation's position against the real chunks.
+
+    ``source_index`` maps source number N -> {
+        "pages": set[int],            # REAL pages of this source (chunks ∪ page-summaries)
+        "chunks": [ {"page": int|None, "start_time": float|None,
+                     "norm_content": str}, ... ],   # the chunks shown to the model
+    }
+
+    Rules per citation ``[N, S.X | kw]`` / ``[N, MM:SS | kw]``:
+      1. Unknown N -> drop.
+      2. Keyword found verbatim in a chunk of N -> use THAT chunk's position
+         (overrides whatever the model typed). For PDF the chunk page must be a
+         REAL page; a media chunk's timestamp is always real.
+      3. Keyword absent/unfindable, but the typed PDF page is REAL -> keep it
+         (covers image pages and paraphrased keywords).
+      4. Otherwise -> drop (unverifiable / hallucinated).
+
+    ``pages`` is the source's real-page set, so a page invented by an upstream
+    step (e.g. a hallucinated ``[p.N]`` marker in a doc-summary) is rejected too.
+    """
+    if not source_index:
+        return text
+    default_qnum = min(source_index)
+
+    def _sub(m: "re.Match") -> str:
+        qnum = int(m.group(1)) if m.group(1) else default_qnum
+        page_str, time_str, kw_raw = m.group(2), m.group(3), m.group(4)
+        kw = (kw_raw or "").strip().strip("\"'").strip()
+        kw_suffix = f" | {kw}" if kw else ""
+        entry = source_index.get(qnum)
+        if entry is None:
+            return ""  # rule 1: unknown source
+        nkw = _norm_for_match(kw) if kw else ""
+        # rule 2: ground via keyword in the real chunks the model was shown
+        if nkw:
+            for c in entry["chunks"]:
+                if nkw not in c["norm_content"]:
+                    continue
+                if c.get("start_time") is not None:
+                    return f"[{qnum}, {_format_timestamp(c['start_time'])}{kw_suffix}]"
+                if c["page"] in entry["pages"]:
+                    # De-weight header/footer: a term that only matched the page
+                    # furniture (e.g. a name in the footer) re-grounds onto the
+                    # body page that actually covers it.
+                    pg = _reroute_to_body(c["page"], nkw, entry.get("page_regions"))
+                    return f"[{qnum}, S. {pg}{kw_suffix}]"
+                # matched chunk's page is not a real page (e.g. hallucinated
+                # doc-summary marker) -> keep looking, don't trust it
+        # rule 3 (PDF): keep a real PDF page even without a keyword match (image
+        # pages). A paraphrased keyword often fails rule 2 yet the model's typed
+        # page is right - so still apply the header/footer de-weighting here: a
+        # name the model cited from a footer credit re-grounds to its body page.
+        if page_str is not None and int(page_str) in entry["pages"]:
+            pg = _reroute_to_body(int(page_str), nkw, entry.get("page_regions")) if nkw else int(page_str)
+            return f"[{qnum}, S. {pg}{kw_suffix}]"
+        # rule 3 (media): keep a typed timestamp even without a keyword match. A
+        # video/audio timestamp is always a valid seek target (unlike a page, it
+        # cannot point to something that does not exist), so this is the media
+        # analog of keeping a real PDF page above. Without it, paraphrased
+        # keywords drop media citations wholesale - PDFs survive via the page
+        # check, media had no equivalent and lost ~half their citations.
+        if entry.get("is_media") and time_str is not None:
+            return f"[{qnum}, {_format_timestamp(_parse_ts(time_str))}{kw_suffix}]"
+        # rule 4: unverifiable -> drop
+        return ""
+
+    out = _CITE_RESOLVE_RE.sub(_sub, text)
+    # Tidy whitespace left where citations were dropped (never touch newlines so
+    # Markdown structure stays intact).
+    out = re.sub(r"[ \t]+([.,;:!?])", r"\1", out)
+    out = re.sub(r"[ \t]{2,}", " ", out)
+    return out
+
+
+# The closing summary section restates the answer and must carry NO citations
+# (the prompt asks the model to start it with a "## Zusammenfassung"/"## Summary"
+# heading). We only match a heading whose WHOLE line is a summary keyword, so a
+# mid-text bullet like "**Zusammenfassung von Quellen**: ..." is never caught.
+_SUMMARY_HEADING_RE = re.compile(
+    r"(?im)^[ \t]*(?:#{1,6}[ \t]*)?(?:\*\*[ \t]*)?"
+    r"(?:Zusammenfassung|Zusammengefasst|Fazit|Summary|Conclusion)"
+    r"[ \t]*(?:\*\*)?[ \t]*:?[ \t]*$"
+)
+
+
+def _strip_summary_citations(text: str) -> str:
+    """Remove citation chips from the closing summary section.
+
+    Finds the LAST standalone summary heading and strips every citation after it,
+    leaving the body (with its citations) untouched. No heading -> no-op.
+    """
+    last = None
+    for last in _SUMMARY_HEADING_RE.finditer(text):
+        pass
+    if last is None:
+        return text
+    head, tail = text[: last.end()], text[last.end():]
+    tail = _CITE_RESOLVE_RE.sub("", tail)
+    # Tidy whitespace left where citations were removed (keep newlines/markdown).
+    tail = re.sub(r"[ \t]+([.,;:!?])", r"\1", tail)
+    tail = re.sub(r"[ \t]{2,}", " ", tail)
+    tail = re.sub(r"[ \t]+(\n|$)", r"\1", tail)  # drop trailing spaces at line/text end
+    return head + tail
+
+
+# Inline source references the model occasionally writes in prose despite the
+# prompt forbidding it, e.g. "(siehe PDF 01 S. 6)" or "(VL1, 12:07)". They are
+# NOT clickable chips. We convert them to bare `[N, pos]` chips (then let
+# _resolve_citation_pages validate the position); if the source can't be mapped
+# to a real document, we drop the parenthetical so no broken inline reference
+# ever survives. We only touch parentheticals that carry a real position marker.
+# Matches a parenthetical carrying a real position marker: "S. 6", "Seite 9",
+# "Seiten 6-7" (the WORD form, but only when a number follows — so "(ca. 2 Seiten)"
+# is NOT matched), or a "MM:SS" timestamp.
+_INLINE_PAREN_RE = re.compile(
+    r"\s*\(([^)]*?(?:S\.\s*\d+|Seiten?\s*\d+|\d{1,2}:\d{2})[^)]*?)\)", re.IGNORECASE
+)
+_INLINE_SRC_RE = re.compile(r"\b(PDF|Folie|Dokument|Doc|Quelle|Video|VL)\s*0*(\d{1,2})", re.IGNORECASE)
+_INLINE_PAGE_RE = re.compile(r"(?:S\.|Seiten?)\s*(\d+)", re.IGNORECASE)
+
+
+def _qnum_for_inline_token(num: int, want_media: bool, source_qmap: list) -> "int | None":
+    """Map a token number (e.g. 1 from 'PDF 01' / 'VL1') to a document index N,
+    matching a source whose filename carries that number (and the right media kind)."""
+    for e in source_qmap:
+        if bool(e.get("is_media")) != want_media:
+            continue
+        m = re.match(r"(?:vl)?0*(\d+)", str(e.get("filename", "")).lower())
+        if m and int(m.group(1)) == num:
+            return e.get("qnum")
+    return None
+
+
+def _chipify_inline_refs(text: str, source_qmap: list) -> str:
+    """Turn prose inline source references into bare citation chips (or drop them)."""
+    if not source_qmap:
+        return text
+
+    def _sub(m: "re.Match") -> str:
+        body = m.group(1)
+        src = _INLINE_SRC_RE.search(body)
+        page = _INLINE_PAGE_RE.search(body)
+        if page:
+            # Page references are unambiguous; map the source or drop the ref.
+            qnum = None
+            if src and src.group(1).lower() not in ("video", "vl"):
+                qnum = _qnum_for_inline_token(int(src.group(2)), False, source_qmap)
+            return f" [{qnum}, S. {int(page.group(1))}]" if qnum else ""
+        # Timestamp: only treat as a video position if a Video/VL token is present
+        # (otherwise it is a clock time like 'Mittwoch 17:30' -> leave untouched).
+        if src and src.group(1).lower() in ("video", "vl"):
+            ts = re.search(r"\b(\d{1,2}:\d{2}(?::\d{2})?)\b", body)
+            if ts:
+                qnum = _qnum_for_inline_token(int(src.group(2)), True, source_qmap)
+                return f" [{qnum}, {ts.group(1)}]" if qnum else ""
+        return m.group(0)  # not a mappable source ref -> leave as-is
+
+    out = _INLINE_PAREN_RE.sub(_sub, text)
+    out = re.sub(r"[ \t]+([.,;:!?])", r"\1", out)
+    out = re.sub(r"[ \t]{2,}", " ", out)
+    return out
 
 
 def _load_transcript_segments(source: dict) -> list[dict]:

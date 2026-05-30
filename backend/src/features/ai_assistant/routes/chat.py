@@ -200,6 +200,11 @@ from src.features.ai_assistant.routes._helpers import (
     _term_appears_in_text,
     _load_transcript_segments,
     _enrich_media_content,
+    _norm_for_match,
+    _resolve_citation_pages,
+    _strip_summary_citations,
+    _chipify_inline_refs,
+    _build_page_regions,
     _ALLOWED_EXTENSIONS,
     _MEDIA_EXTENSIONS,
     _MAX_UPLOAD_BYTES,
@@ -309,19 +314,21 @@ async def chat(
                 })
                 logger.info("Generic single-source: used doc-summary (no page-summaries)")
             else:
+                # No summaries at all: hand over the FULL document. The 200k-char
+                # context cap below truncates whatever doesn't fit.
                 fallback = db.get_aia_chunks_by_source(sid)
                 if fallback:
-                    chunks.append(fallback[0])
-                logger.info("Generic single-source: used first-chunk fallback (no summaries yet)")
+                    chunks.extend(fallback)
+                logger.info("Generic single-source: used full-chunk fallback ({} chunks, no summaries yet)", len(fallback))
         else:
             # ── Multi-source overview ──
             # Each source contributes multiple anchored chunks so the LLM has
             # equal weight per source (otherwise media gets drowned out by PDFs):
-            #   - PDFs: page-summaries (real page_number), capped to 12 evenly
+            #   - PDFs: page-summaries (real page_number), capped to 30 evenly
             #     spaced pages.
             #   - Media: raw chunks (real start_time), capped to 8 evenly spaced.
             #   - Fallback: split doc-summary by inline markers, else first chunk.
-            PAGE_SUMS_PER_SOURCE = 12
+            PAGE_SUMS_PER_SOURCE = 30
             MEDIA_CHUNKS_PER_SOURCE = 8
 
             def _sample(items: list, k: int) -> list:
@@ -362,9 +369,12 @@ async def chat(
                             "start_time": seg["start_time"],
                         })
                     continue
+                # Last resort: no page-summaries, no media chunks, no doc-summary.
+                # Hand over the FULL document; the 200k-char cap below truncates
+                # whatever doesn't fit.
                 fallback = db.get_aia_chunks_by_source(sid)
                 if fallback:
-                    chunks.append(fallback[0])
+                    chunks.extend(fallback)
 
             logger.info("Generic multi-source: {} segments across {} sources", len(chunks), len(source_ids))
     else:
@@ -422,20 +432,30 @@ async def chat(
                     diverse_chunks.append(chunk)
                 else:
                     remaining.append(chunk)
-            # Fallback for sources without a hybrid-search hit: prefer the compact
-            # doc-summary (signals "this source covers X, Y, Z" without false-citation
-            # risk) and fall back to the first raw chunk for sources still missing one.
+            # Fallback for sources without a hybrid-search hit. A source can miss
+            # the GLOBAL top-20 yet still be one the user wants compared, so we
+            # first run a per-source mini-search to pull ITS OWN most-relevant
+            # chunks (real pages/timestamps, citable). Only if that yields nothing
+            # (e.g. a media source with no matchable text) do we fall back to the
+            # compact doc-summary, then the first raw chunk.
             missing = [sid for sid in source_ids if sid not in seen_sources]
             if missing:
                 all_sources_map = {s["id"]: s for s in db.get_aia_sources_by_workspace(workspace["id"])}
+                PER_SOURCE_FALLBACK_LIMIT = 3
                 for sid in missing:
+                    per_source = db.hybrid_search_chunks(
+                        workspace["id"], embed_text, query_vector,
+                        source_ids=[sid], limit=PER_SOURCE_FALLBACK_LIMIT,
+                    )
+                    if per_source:
+                        diverse_chunks.extend(per_source)
+                        seen_sources.add(sid)
+                        logger.info("Source-Diversity fallback: source {} added via per-source search ({} chunks)", sid, len(per_source))
+                        continue
                     src = all_sources_map.get(sid)
                     doc_summary = ((src or {}).get("summary") or "").strip()
                     if doc_summary:
-                        # Use the first marker-segment as the fallback. The whole
-                        # doc-summary is overkill for a "we missed this source"
-                        # hint, and the first segment usually has the strongest
-                        # topic signal anyway.
+                        # Last resort: the first marker-segment of the doc-summary.
                         seg = _split_doc_summary_by_markers(doc_summary)[0]
                         diverse_chunks.append({
                             "source_id": sid,
@@ -457,20 +477,38 @@ async def chat(
     all_sources_list = {s["id"]: s for s in db.get_aia_sources_by_workspace(workspace["id"])}
     source_id_to_qnum: dict[int, int] = {}
     source_qmap: list[dict] = []  # [{qnum, uuid, filename}, ...]
+    # Assign Q-numbers in the SAME order the source panel shows them — the
+    # workspace source list is ordered created_at DESC (see
+    # get_aia_sources_by_workspace), and this dict preserves that order. We walk
+    # it and number only the sources that actually appear in chunks. This is both
+    # STABLE (same active set -> same [N] every request, no longer dependent on
+    # chunk/selection order) and intuitive ([N] matches the visible panel order).
+    chunk_sids = {c["source_id"] for c in chunks}
     qnum_counter = 0
+    for sid in all_sources_list:
+        if sid not in chunk_sids:
+            continue
+        qnum_counter += 1
+        source_id_to_qnum[sid] = qnum_counter
+        src = all_sources_list[sid]
+        source_qmap.append({
+            "qnum": qnum_counter,
+            "uuid": src["uuid"],
+            "filename": src["filename"],
+            "is_media": Path(src["filename"]).suffix.lower() in _MEDIA_EXTENSIONS,
+        })
+    # Defensive: a cited source not in the workspace list (shouldn't happen) still
+    # needs a number so its citations aren't dropped. Append in first-seen order.
     for chunk in chunks:
         sid = chunk["source_id"]
         if sid not in source_id_to_qnum:
             qnum_counter += 1
             source_id_to_qnum[sid] = qnum_counter
-            src = all_sources_list.get(sid)
-            if src:
-                source_qmap.append({
-                    "qnum": qnum_counter,
-                    "uuid": src["uuid"],
-                    "filename": src["filename"],
-                    "is_media": Path(src["filename"]).suffix.lower() in _MEDIA_EXTENSIONS,
-                })
+
+    # Render context blocks in Q-number order so <document index="N"> runs 1,2,3…
+    # and the 200k truncation favors the lower-numbered sources. Stable sort keeps
+    # each source's chunks in their original page/timestamp order.
+    chunks.sort(key=lambda c: source_id_to_qnum.get(c["source_id"], 0))
 
     # Pre-load Whisper segments for media sources so we can inject inline
     # (MM:SS) markers into each media chunk's context - lets the LLM cite
@@ -483,9 +521,14 @@ async def chat(
             if src:
                 transcript_by_source[sid] = _load_transcript_segments(src)
 
-    # Build context (max 200000 chars) - XML tags per chunk (Anthropic best practice)
+    # Build context (max 200000 chars) - XML tags per chunk (Anthropic best practice).
+    # source_index is built from the SAME chunks (only those that fit in context) so
+    # the post-stream resolver can re-ground every citation's page/timestamp against
+    # the real content the model actually saw. See _resolve_citation_pages.
     context_parts: list[str] = []
     context_len = 0
+    source_index: dict[int, dict] = {}
+    qnum_to_source_id: dict[int, int] = {}
     for chunk in chunks:
         qn = source_id_to_qnum.get(chunk["source_id"], 1)
         src = all_sources_list.get(chunk["source_id"])
@@ -502,7 +545,30 @@ async def chat(
             break
         context_parts.append(part)
         context_len += len(part)
+        is_media_chunk = chunk.get("start_time") is not None
+        qnum_to_source_id[qn] = chunk["source_id"]
+        si = source_index.setdefault(qn, {"is_media": False, "pages": set(), "chunks": []})
+        si["chunks"].append({
+            "page": None if is_media_chunk else chunk["page_number"],
+            "start_time": chunk.get("start_time"),
+            "norm_content": _norm_for_match(content),
+        })
+        if is_media_chunk:
+            si["is_media"] = True
     context = f"<documents>\n{''.join(context_parts)}\n</documents>"
+
+    # Validity set per PDF source = its REAL pages (chunks ∪ page-summaries), so the
+    # citation resolver can reject pages no upstream step ever produced (e.g. a
+    # hallucinated doc-summary [p.N]). Media sources keep an EMPTY page set on
+    # purpose: a page number on a video/audio citation is always bogus -> dropped.
+    for qn, si in source_index.items():
+        if not si["is_media"]:
+            si["pages"] = db.get_source_page_numbers(qnum_to_source_id[qn])
+            # Per-page body vs header/footer split, so the resolver can de-weight
+            # a term that only matched running page furniture (see _reroute_to_body).
+            si["page_regions"] = _build_page_regions(
+                db.get_aia_chunks_by_source(qnum_to_source_id[qn])
+            )
 
     # Popup actions: user has selected text themselves
     if body.source_text:
@@ -650,7 +716,18 @@ async def chat(
                     except Exception:
                         pass
 
-            answer = _sanitize_citations("".join(answer_parts).strip())
+            # First repair malformed `[N] S.X` -> `[N, S.X]`, then re-ground each
+            # citation's page/timestamp against the real chunks via its keyword,
+            # dropping any citation that can't be grounded (anti-hallucination).
+            answer = _strip_summary_citations(
+                _resolve_citation_pages(
+                    _chipify_inline_refs(
+                        _sanitize_citations("".join(answer_parts).strip()),
+                        source_qmap,
+                    ),
+                    source_index,
+                )
+            )
 
             if aborted:
                 _log_status = "aborted"
