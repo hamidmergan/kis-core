@@ -68,7 +68,6 @@ export default function KiTutorWorkspacePage() {
   const {
     sources, setSources,
     selectedSourceIds, setSelectedSourceIds,
-    prevSelectedSourceIds, setPrevSelectedSourceIds,
     uploadProgress,
     uploadErrors, setUploadErrors,
     toggleSource: handleToggleSource,
@@ -259,8 +258,7 @@ export default function KiTutorWorkspacePage() {
     customQuestion: handleCustomQuestion,
     pillClick: handlePillClick,
   } = useViewerActions({
-    sources, selectedSourceIds, setSelectedSourceIds,
-    prevSelectedSourceIds, setPrevSelectedSourceIds,
+    sources,
     setViewerSource, setPanels, panels,
     isMobile, activeTab, setActiveTab,
     chatSetInputRef, chatTextareaRef, sendChatMessage,
@@ -377,8 +375,8 @@ export default function KiTutorWorkspacePage() {
           || sources.find((s) => selectedSourceIds.includes(s.uuid));
         if (!src) return;
         if (_isMediaFile(src.filename) && startTime != null) {
-          setPrevSelectedSourceIds(selectedSourceIds);
-          setSelectedSourceIds([src.uuid]);
+          // Don't narrow the selection (chat scopes to the viewer source anyway);
+          // narrowing here used to persist a stuck single source on reload.
           setViewerSource({ uuid: src.uuid, filename: src.filename, page: 0, startTime, nonce: Date.now() });
           setPanels((prev) => ({ ...prev, quellen: true }));
         } else {

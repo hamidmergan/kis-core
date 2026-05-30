@@ -6,10 +6,6 @@ import type { PanelKey, Source, ViewerState } from "../_types";
 
 interface UseViewerActionsOptions {
   sources: Source[];
-  selectedSourceIds: string[];
-  setSelectedSourceIds: (ids: string[]) => void;
-  prevSelectedSourceIds: string[];
-  setPrevSelectedSourceIds: (ids: string[]) => void;
   setViewerSource: (v: ViewerState | null) => void;
   setPanels: React.Dispatch<React.SetStateAction<Record<PanelKey, boolean>>>;
   panels: Record<PanelKey, boolean>;
@@ -23,25 +19,26 @@ interface UseViewerActionsOptions {
 
 export function useViewerActions(opts: UseViewerActionsOptions) {
   const {
-    sources, selectedSourceIds, setSelectedSourceIds,
-    prevSelectedSourceIds, setPrevSelectedSourceIds,
+    sources,
     setViewerSource, setPanels, panels,
     isMobile, activeTab, setActiveTab,
     chatSetInputRef, chatTextareaRef, sendChatMessage,
   } = opts;
 
+  // Opening a source does NOT narrow selectedSourceIds. The chat already scopes
+  // to the viewer source via `viewerSource ? [viewerSource.uuid] : selectedSourceIds`
+  // (see useChat). Narrowing here only overwrote — and persisted to sessionStorage —
+  // the user's multi-source selection, which then came back as a stuck single
+  // source after navigating away/reloading with the viewer still open.
   const openViewer = useCallback((source: Source, page = 1, highlightText?: string, exactSelection?: boolean) => {
-    setPrevSelectedSourceIds(selectedSourceIds);
-    setSelectedSourceIds([source.uuid]);
     setViewerSource({ uuid: source.uuid, filename: source.filename, page, highlightText, exactSelection, nonce: Date.now() });
     setPanels((prev) => ({ ...prev, quellen: true }));
     if (isMobile) setActiveTab("quellen");
-  }, [selectedSourceIds, setPrevSelectedSourceIds, setSelectedSourceIds, setViewerSource, setPanels, isMobile, setActiveTab]);
+  }, [setViewerSource, setPanels, isMobile, setActiveTab]);
 
   const closeViewer = useCallback(() => {
-    setSelectedSourceIds(prevSelectedSourceIds);
     setViewerSource(null);
-  }, [prevSelectedSourceIds, setSelectedSourceIds, setViewerSource]);
+  }, [setViewerSource]);
 
   const askWithSelection = useCallback((prompt: string, sourceInfo?: { uuid: string; filename: string; page: number; selectedText?: string; actionKey?: string }) => {
     if (isMobile) setActiveTab("chat");
@@ -90,12 +87,10 @@ export function useViewerActions(opts: UseViewerActionsOptions) {
       openViewer(src, page, sourceText, isExact);
       return;
     }
-    setPrevSelectedSourceIds(selectedSourceIds);
-    setSelectedSourceIds([sourceUuid]);
     setViewerSource({ uuid: sourceUuid, filename, page, highlightText: sourceText, exactSelection: isExact, nonce: Date.now() });
     setPanels((prev) => ({ ...prev, quellen: true }));
     if (isMobile) setActiveTab("quellen");
-  }, [sources, selectedSourceIds, setPrevSelectedSourceIds, setSelectedSourceIds, setViewerSource, setPanels, isMobile, setActiveTab, openViewer]);
+  }, [sources, setViewerSource, setPanels, isMobile, setActiveTab, openViewer]);
 
   return {
     openViewer,

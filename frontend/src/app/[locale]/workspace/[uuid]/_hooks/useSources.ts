@@ -13,7 +13,6 @@ export function useSources({ uuid, onModuleUpdate }: UseSourcesOptions) {
   const t = useTranslations("workspace.detail.errors");
   const [sources, setSources] = useState<Source[]>([]);
   const [selectedSourceIds, setSelectedSourceIds] = useState<string[]>([]);
-  const [prevSelectedSourceIds, setPrevSelectedSourceIds] = useState<string[]>([]);
   const [uploadProgress, setUploadProgress] = useState<{ current: number; total: number; percent: number } | null>(null);
   const [uploadErrors, setUploadErrors] = useState<{ filename: string; message: string }[]>([]);
 
@@ -139,7 +138,6 @@ export function useSources({ uuid, onModuleUpdate }: UseSourcesOptions) {
   return {
     sources, setSources,
     selectedSourceIds, setSelectedSourceIds,
-    prevSelectedSourceIds, setPrevSelectedSourceIds,
     uploadProgress,
     uploadErrors, setUploadErrors,
     toggleSource, deleteSource, retrySource, uploadFiles,
