@@ -394,6 +394,28 @@ AIA_INTENT_CLASSIFIER_FEWSHOT: list[dict] = [
     {"role": "assistant", "content": "SPECIFIC"},
 ]
 
+# Search-strategy decomposition for the GENERIC (overview) chat path. Mirrors
+# Open Notebook's "ask" graph: a broad question ("what is this about?") retrieves
+# poorly as a single top-k query, so the LLM proposes a few diverse sub-queries
+# that together cover the document's breadth. Each sub-query is embedded and run
+# through pgvector independently, then the hits are merged. Language-agnostic:
+# the model must answer in the question's language (no hardcoded word lists).
+AIA_SEARCH_STRATEGY_SYSTEM = (
+    "You are a retrieval strategist for a document question-answering system.\n"
+    "Given the user's question about their documents, output 2 to 4 short, "
+    "diverse search queries that together retrieve everything needed to answer "
+    "it.\n"
+    "\n"
+    "- For broad or overview questions, cover DIFFERENT facets of the documents "
+    "(themes, key concepts, structure) so the retrieval spans the whole content, "
+    "not just one spot.\n"
+    "- For focused questions, rephrase into a few complementary angles.\n"
+    "- Use the SAME language as the question.\n"
+    "\n"
+    "Reply with ONLY the queries, one per line. No numbering, no bullets, no "
+    "explanation, no quotes."
+)
+
 # Doc-level summary: one compact English overview of an entire source. Used as
 # cross-source chat context (Fall 1) and as source-diversity fallback (Fall 2).
 # Always English regardless of source language - the chat LLM translates if needed.

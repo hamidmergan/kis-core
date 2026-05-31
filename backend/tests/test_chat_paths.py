@@ -1,9 +1,11 @@
-"""Tests for the two RAG chat paths: GENERIC (overview, summary-based) and
-SPECIFIC (topic-focused, hybrid search).
+"""Tests for the two RAG chat paths: GENERIC (overview, multi-query retrieval)
+and SPECIFIC (topic-focused, hybrid search). Both are pgvector-only — no
+summaries are precomputed at upload.
 
-Covers the routing decision, the generic context assembly, the specific
-source-diversity reordering, and the two async LLM helpers — all the logic that
-decides WHICH context the tutor sees before it ever writes a citation.
+Covers the routing decision, the generic search-strategy decomposition +
+multi-query retrieval, the specific source-diversity reordering, and the async
+LLM helpers — all the logic that decides WHICH context the tutor sees before it
+ever writes a citation.
 
 LLM and DB are faked/monkeypatched so these are deterministic and offline.
 """
@@ -13,15 +15,16 @@ from src.features.ai_assistant.routes import chat as chat_mod
 from src.features.ai_assistant.routes.chat import (
     _should_skip_intent_classification,
     _sample,
-    _assemble_generic_context,
+    _generate_search_strategy,
+    _retrieve_generic_context,
     _diversify_by_source,
     _order_round_robin,
     _classify_intent,
     _rewrite_query,
-    _split_doc_summary_by_markers,
     _stream_usage_tokens,
     _enrich_chat_trace,
     _INTENT_MAX_WORDS,
+    _GENERIC_MAX_QUERIES,
 )
 
 
@@ -154,79 +157,74 @@ def test_sample_caps_and_spreads_evenly():
     assert len(set(out)) == 4   # no duplicates
 
 
-# ── generic context assembly (db monkeypatched) ──────────────────────────────
+# ── generic path: search-strategy decomposition (provider faked) ─────────────
 
-def _patch_db(monkeypatch, *, sources, page_sums=None, chunks=None):
-    page_sums = page_sums or {}
-    chunks = chunks or {}
-    monkeypatch.setattr(chat_mod.db, "get_aia_sources_by_workspace", lambda wsid: sources)
-    monkeypatch.setattr(chat_mod.db, "get_page_summaries_by_source", lambda sid: page_sums.get(sid, []))
-    monkeypatch.setattr(chat_mod.db, "get_aia_chunks_by_source", lambda sid: chunks.get(sid, []))
-
-
-def test_generic_single_source_prefers_page_summaries(monkeypatch):
-    _patch_db(
-        monkeypatch,
-        sources=[{"id": 1, "summary": "doc summary"}],
-        page_sums={1: [{"page_number": 2, "summary": "S2"}, {"page_number": 5, "summary": "S5"}]},
-    )
-    out = _assemble_generic_context(99, [1])
-    assert [c["page_number"] for c in out] == [2, 5]
-    assert all(c["source_id"] == 1 for c in out)
-    assert out[0]["content"] == "S2"
+@pytest.mark.asyncio
+async def test_search_strategy_parses_lines_and_anchors_question():
+    # The LLM proposes facets; the original question is always kept as anchor[0].
+    llm = FakeLLM(content="Hauptthemen\nKernkonzepte\n- Struktur")
+    terms = await _generate_search_strategy(llm, "Worum geht es?")
+    assert terms[0] == "Worum geht es?"
+    assert "Hauptthemen" in terms
+    assert "Struktur" in terms          # leading "- " stripped
+    assert len(terms) <= _GENERIC_MAX_QUERIES
 
 
-def test_generic_single_source_falls_back_to_doc_summary(monkeypatch):
-    _patch_db(monkeypatch, sources=[{"id": 1, "summary": "the whole doc"}], page_sums={1: []})
-    out = _assemble_generic_context(99, [1])
-    assert len(out) == 1
-    assert out[0]["content"] == "the whole doc"
-    assert out[0]["page_number"] == 1
+@pytest.mark.asyncio
+async def test_search_strategy_falls_back_to_question_on_error():
+    terms = await _generate_search_strategy(FakeLLM(raise_exc=True), "Worum geht es?")
+    assert terms == ["Worum geht es?"]
 
 
-def test_generic_single_source_falls_back_to_full_chunks(monkeypatch):
-    _patch_db(
-        monkeypatch,
-        sources=[{"id": 1, "summary": ""}],
-        page_sums={1: []},
-        chunks={1: [{"source_id": 1, "page_number": 3, "content": "raw"}]},
-    )
-    out = _assemble_generic_context(99, [1])
-    assert out == [{"source_id": 1, "page_number": 3, "content": "raw"}]
+# ── generic path: multi-query pgvector retrieval (db/provider monkeypatched) ──
+
+class _FakeProvider:
+    def embed_one(self, text):
+        return [0.0, 0.0]
 
 
-def test_generic_multi_source_uses_all_summaries_and_tags_seq(monkeypatch):
-    big = [{"page_number": i, "summary": f"S{i}"} for i in range(1, 60)]  # 59 each
-    _patch_db(
-        monkeypatch,
-        sources=[{"id": 1, "summary": "d1"}, {"id": 2, "summary": "d2"}],
-        page_sums={1: big, 2: big},
-    )
-    out = _assemble_generic_context(99, [1, 2])
-    per_source = {}
-    for c in out:
-        per_source[c["source_id"]] = per_source.get(c["source_id"], 0) + 1
-    # Ceiling is 900 >> 59 -> no down-sampling; every page-summary is a candidate.
-    assert per_source == {1: 59, 2: 59}
-    # Each source's segments are tagged with a contiguous per-source sequence.
-    seqs_1 = [c["_seq"] for c in out if c["source_id"] == 1]
-    assert seqs_1 == list(range(59))
+@pytest.mark.asyncio
+async def test_generic_retrieval_merges_dedups_and_diversifies(monkeypatch):
+    # Two sub-queries each return the same two chunks -> dedup to one each, and
+    # both active sources are represented.
+    llm = FakeLLM(content="thema a\nthema b")
+    monkeypatch.setattr(chat_mod.db, "hybrid_search_chunks",
+        lambda wsid, term, vec, source_ids=None, limit=None: [
+            {"source_id": 1, "page_number": 1, "content": "c1"},
+            {"source_id": 2, "page_number": 5, "content": "c2"},
+        ])
+    monkeypatch.setattr(chat_mod.db, "get_aia_chunks_by_source", lambda sid: [])
+    out = await _retrieve_generic_context(llm, _FakeProvider(), 99, [1, 2], "Worum geht es?")
+    keys = [(c["source_id"], c["page_number"]) for c in out]
+    assert keys.count((1, 1)) == 1      # deduped despite multiple queries
+    assert keys.count((2, 5)) == 1
+    assert {c["source_id"] for c in out} == {1, 2}
 
 
-def test_generic_multi_source_media_uses_raw_chunks(monkeypatch):
-    media_chunks = [{"source_id": 2, "page_number": None, "start_time": float(i), "content": f"t{i}"} for i in range(20)]
-    _patch_db(
-        monkeypatch,
-        sources=[{"id": 1, "summary": "d1"}, {"id": 2, "summary": "d2"}],
-        page_sums={1: [{"page_number": 1, "summary": "S1"}], 2: []},
-        chunks={2: media_chunks},
-    )
-    out = _assemble_generic_context(99, [1, 2])
-    media = [c for c in out if c["source_id"] == 2]
-    # No 8-cap anymore: all raw media chunks are candidates (start_time preserved).
-    assert len(media) == 20
-    assert all(c.get("start_time") is not None for c in media)
-    assert [c["_seq"] for c in media] == list(range(20))
+@pytest.mark.asyncio
+async def test_generic_retrieval_backfills_missing_source(monkeypatch):
+    # Global search only ever surfaces source 1; source 2 is backfilled by a
+    # per-source mini-search ([2] in source_ids).
+    llm = FakeLLM(content="q1")
+    def fake_search(wsid, term, vec, source_ids=None, limit=None):
+        if source_ids == [2]:
+            return [{"source_id": 2, "page_number": 9, "content": "per-source"}]
+        return [{"source_id": 1, "page_number": 1, "content": "c1"}]
+    monkeypatch.setattr(chat_mod.db, "hybrid_search_chunks", fake_search)
+    monkeypatch.setattr(chat_mod.db, "get_aia_chunks_by_source", lambda sid: [])
+    out = await _retrieve_generic_context(llm, _FakeProvider(), 99, [1, 2], "q")
+    assert {c["source_id"] for c in out} == {1, 2}
+
+
+@pytest.mark.asyncio
+async def test_generic_retrieval_raw_chunk_fallback_when_no_hits(monkeypatch):
+    # Retrieval returns nothing (e.g. media with no matchable text) -> raw chunks.
+    llm = FakeLLM(content="q1")
+    monkeypatch.setattr(chat_mod.db, "hybrid_search_chunks", lambda *a, **k: [])
+    monkeypatch.setattr(chat_mod.db, "get_aia_chunks_by_source",
+        lambda sid: [{"source_id": sid, "page_number": 1, "content": "raw"}])
+    out = await _retrieve_generic_context(llm, _FakeProvider(), 99, [1], "q")
+    assert out and out[0]["content"] == "raw"
 
 
 # ── specific path: source-diversity reordering (pure part) ───────────────────

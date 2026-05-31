@@ -191,24 +191,16 @@ def run_index_source(self, source_uuid: str, locale: str = "de"):
                     source_uuid, translation_mode,
                 )
 
-        # 11. Summary pipeline. PDFs get page-summaries first (UI panel + better
-        # doc-summary input); the page-summary task chains doc-summary at its end.
-        # Non-PDFs (audio/video/docx/pptx/txt) have no page-summary concept, so
-        # doc-summary runs directly from their chunks.
-        # Pre-set the next stage on the source itself so the UI keeps the
-        # spinner visible during the Celery queue gap. Without this, status
-        # is "ready" with progress=NULL for a few seconds before the chained
-        # task runs - the source would look fully done in the UI even though
-        # the summaries haven't started yet.
-        if source["file_type"] == "pdf":
-            from src.tasks.aia_tasks import run_generate_summaries
-            db.update_aia_source_progress(source_uuid, "page_summaries")
-            run_generate_summaries.delay(source_uuid, locale)
-            logger.info("KI Tutor: dispatched page-summaries for {}", source_uuid)
-        else:
-            db.update_aia_source_progress(source_uuid, "doc_summary")
-            run_generate_doc_summary.delay(source_uuid)
-            logger.info("KI Tutor: dispatched doc-summary for {}", source_uuid)
+        # 11. No summaries at upload (pgvector-only design). Both chat paths run
+        # on retrieval: SPECIFIC = hybrid search, GENERIC = multi-query retrieval
+        # (see routes/chat.py). Skipping page/doc summaries is what makes upload
+        # fast — the source is fully usable the moment indexing finishes.
+        # Page-summaries survive as an OPT-IN feature: the source sidebar's
+        # "generate" button (routes/sources/_pdf.py::trigger_page_summaries) still
+        # dispatches run_generate_summaries on demand. Leave summaries_status as
+        # "none" so that button is offered; clear progress so the card shows ready.
+        db.update_aia_source_summaries_status(source_uuid, "none")
+        db.clear_aia_source_progress(source_uuid)
 
     except Exception as e:
         from src.services.aia_chunker import PdfNoReadableTextError

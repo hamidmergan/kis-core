@@ -26,7 +26,6 @@ from src.limits import (
     AIA_WORKSPACE_MAX_ACCESS_LINKS,
     AIA_NOTES_MAX_PER_USER,
     AIA_CONTEXT_MAX_CHARS,
-    AIA_GENERIC_MAX_SEGMENTS_PER_SOURCE,
 )
 from src.security.rate_limit import enforce_burst
 from src.security.usage_log import log_request as _log_usage
@@ -40,12 +39,19 @@ from src.tool_prompts import (
     AIA_POPUP_ACTIONS,
     AIA_INTENT_CLASSIFIER_SYSTEM,
     AIA_INTENT_CLASSIFIER_FEWSHOT,
+    AIA_SEARCH_STRATEGY_SYSTEM,
 )
 
 # Upper bound on the question length we hand to the LLM intent classifier.
 # Longer questions are nearly always topic-specific (no need for an LLM round-trip)
 # and very long inputs blow up the cheap-pre-filter premise of the classifier call.
 _INTENT_MAX_WORDS = 30
+
+# GENERIC (overview) retrieval: how many sub-queries the strategy LLM may emit,
+# and how many chunks each sub-query pulls. Together they fan out across the
+# document; the shared char budget at the call site truncates the merged result.
+_GENERIC_MAX_QUERIES = 4
+_GENERIC_PER_QUERY_LIMIT = 8
 
 # Accept both ASCII [] and CJK lenticular 【】 - some LLMs emit the latter
 # despite the prompt, and unstripped citations in history reinforce the
@@ -67,50 +73,6 @@ def _sanitize_citations(text: str) -> str:
     text = _CITATION_FIX_TIME_RE.sub(r"[\1, \2]", text)
     text = _CITATION_FIX_PAGE_RE.sub(r"[\1, \2]", text)
     return text
-
-
-# Inline position markers the doc-summary prompt asks the LLM to keep:
-#   [p.5]       single page
-#   [p.5-8]     page range
-#   [p.3,7]     non-consecutive pages
-#   [t:120]     media timestamp in seconds
-#   [t:120-180] media range in seconds
-_DOC_SUMMARY_MARKER_RE = re.compile(r"\[(p|t)\.?:?\s*([\d,\-\s]+)\]", re.IGNORECASE)
-
-
-def _split_doc_summary_by_markers(summary: str) -> list[dict]:
-    """Split a marker-annotated doc-summary into segments.
-
-    Each segment becomes a virtual chunk with its own ``page_number`` (or
-    ``start_time`` for media) so the chat LLM can build accurate citations. If
-    the summary contains no markers (older summary or LLM ignored the format),
-    returns a single segment with ``page_number=1`` so callers can still render
-    a chip - just without precise position info.
-    """
-    matches = list(_DOC_SUMMARY_MARKER_RE.finditer(summary))
-    if not matches:
-        return [{"page_number": 1, "start_time": None, "content": summary.strip()}]
-
-    segments: list[dict] = []
-    for i, m in enumerate(matches):
-        kind = m.group(1).lower()
-        raw_value = m.group(2)
-        # Use the first integer in the marker (e.g. "5-8" -> 5, "3,7" -> 3)
-        first_int = re.search(r"\d+", raw_value)
-        if not first_int:
-            continue
-        n = int(first_int.group())
-        body_start = m.end()
-        body_end = matches[i + 1].start() if i + 1 < len(matches) else len(summary)
-        body = summary[body_start:body_end].strip().lstrip(":").strip()
-        if not body:
-            continue
-        segments.append({
-            "page_number": n if kind == "p" else 1,
-            "start_time": float(n) if kind == "t" else None,
-            "content": body,
-        })
-    return segments or [{"page_number": 1, "start_time": None, "content": summary.strip()}]
 
 
 async def _classify_intent(llm, question: str) -> str:
@@ -192,6 +154,105 @@ async def _rewrite_query(llm, history: list[dict], question: str) -> str:
     return rewritten
 
 
+async def _generate_search_strategy(llm, question: str) -> list[str]:
+    """Decompose a question into up to _GENERIC_MAX_QUERIES retrieval queries.
+
+    The GENERIC (overview) path uses this so a broad question retrieves across
+    the whole document instead of a single top-k slice (Open Notebook's "ask"
+    strategy; addresses the known top-k-misses-spread-content limitation). One
+    small LLM call, language-agnostic. Always includes the original question as a
+    query and falls back to ``[question]`` on any error/empty output. Runs in a
+    worker thread so a stalled provider cannot block the event loop.
+    """
+    import asyncio
+    def _call():
+        return llm._client.with_options(timeout=60.0, max_retries=0).chat.completions.create(
+            model=llm._model,
+            messages=[
+                {"role": "system", "content": AIA_SEARCH_STRATEGY_SYSTEM},
+                {"role": "user", "content": question},
+            ],
+            temperature=0.0,
+            max_tokens=200,
+            **(llm._extra_body and {"extra_body": llm._extra_body} or {}),
+        )
+    try:
+        response = await asyncio.to_thread(_call)
+        msg = response.choices[0].message
+        raw = (msg.content or getattr(msg, "reasoning_content", None) or "").strip()
+        raw = re.sub(r"<think>.*?</think>", "", raw, flags=re.DOTALL).strip()
+    except Exception as e:
+        logger.warning("Search-strategy generation failed, using raw question: {}", e)
+        return [question]
+    terms: list[str] = []
+    for line in raw.splitlines():
+        t = re.sub(r"^\s*[-*\d.)\]]+\s*", "", line).strip().strip('"\'')
+        if t and t.lower() not in (x.lower() for x in terms):
+            terms.append(t)
+    # Always keep the original question as an anchor query, dedup-aware.
+    if question.strip().lower() not in (t.lower() for t in terms):
+        terms.insert(0, question.strip())
+    terms = terms[:_GENERIC_MAX_QUERIES]
+    logger.info("Search strategy: {} queries for '{}'", len(terms), question[:60])
+    return terms or [question]
+
+
+async def _retrieve_generic_context(
+    llm, provider, workspace_id: int, source_ids: list[int], question: str,
+) -> list[dict]:
+    """Build the GENERIC (overview) context purely from pgvector retrieval.
+
+    Decomposes the question into a few sub-queries, runs each through hybrid
+    search, merges + dedups the hits, then guarantees every active source is
+    represented (per-source mini-search fallback, then the source's first chunk).
+    No summaries involved — chunks + embeddings are the only precomputed data.
+    """
+    import asyncio
+    terms = await _generate_search_strategy(llm, question)
+    merged: list[dict] = []
+    seen: set = set()
+    question_vector = None
+    for term in terms:
+        vec = await asyncio.to_thread(provider.embed_one, term)
+        if question_vector is None:
+            question_vector = vec  # first query is the original question (anchor)
+        hits = db.hybrid_search_chunks(
+            workspace_id, term, vec, source_ids=source_ids,
+            limit=_GENERIC_PER_QUERY_LIMIT,
+        )
+        for h in hits:
+            key = (h["source_id"], h["page_number"], (h.get("content") or "")[:80])
+            if key not in seen:
+                seen.add(key)
+                merged.append(h)
+
+    if not source_ids or len(source_ids) <= 1:
+        chunks = merged
+    else:
+        diverse, remaining, missing = _diversify_by_source(merged, source_ids)
+        for sid in missing:
+            per_source = db.hybrid_search_chunks(
+                workspace_id, question, question_vector, source_ids=[sid], limit=3,
+            )
+            if per_source:
+                diverse.extend(per_source)
+                continue
+            raw = db.get_aia_chunks_by_source(sid)
+            if raw:
+                diverse.append(raw[0])
+        chunks = diverse + remaining
+
+    # Absolute fallback: retrieval returned nothing (e.g. media with no matchable
+    # text). Hand over an even-spread sample of raw chunks so the LLM still sees
+    # the document; the char budget at the call site truncates the rest.
+    if not chunks:
+        for sid in source_ids or []:
+            chunks.extend(_sample(db.get_aia_chunks_by_source(sid), _GENERIC_PER_QUERY_LIMIT))
+    logger.info("Generic retrieval: {} chunks across {} sources ({} queries)",
+                len(chunks), len(source_ids or []), len(terms))
+    return chunks
+
+
 def _should_skip_intent_classification(source_text, source_ids, question: str) -> bool:
     """Cheap pre-filter: skip the LLM intent call when the route is obvious.
 
@@ -212,107 +273,6 @@ def _sample(items: list, k: int) -> list:
         return items
     step = len(items) / k
     return [items[int(i * step)] for i in range(k)]
-
-
-def _assemble_generic_context(workspace_id: int, source_ids: list[int]) -> list[dict]:
-    """Build the GENERIC (overview) context as summary-based virtual chunks.
-
-    Single source -> the richer page-summaries (fallback to the doc-summary,
-    then full chunks). Multiple sources -> each contributes equally-weighted
-    anchored chunks (PDF page-summaries capped to 30, media raw chunks capped to
-    8, else the marker-split doc-summary) so media isn't drowned out by PDFs.
-    """
-    all_sources_map = {s["id"]: s for s in db.get_aia_sources_by_workspace(workspace_id)}
-    chunks: list[dict] = []
-
-    if len(source_ids) == 1:
-        # ── Single source: use the richer page-summaries directly (covers the
-        # full document, no compression artifact). Falls back to the doc-summary
-        # for media/DOCX/PPTX or pre-rollout PDFs.
-        sid = source_ids[0]
-        src = all_sources_map.get(sid)
-        page_sums = db.get_page_summaries_by_source(sid) if src else []
-        if page_sums:
-            for ps in page_sums:
-                chunks.append({
-                    "source_id": sid,
-                    "page_number": ps["page_number"],
-                    "content": ps["summary"],
-                    "start_time": None,
-                })
-            logger.info("Generic single-source: used {} page-summaries", len(page_sums))
-        elif src and (src.get("summary") or "").strip():
-            chunks.append({
-                "source_id": sid,
-                "page_number": 1,
-                "content": src["summary"].strip(),
-                "start_time": None,
-            })
-            logger.info("Generic single-source: used doc-summary (no page-summaries)")
-        else:
-            # No summaries at all: hand over the FULL document. The context cap
-            # at the call site truncates whatever doesn't fit.
-            fallback = db.get_aia_chunks_by_source(sid)
-            if fallback:
-                chunks.extend(fallback)
-            logger.info("Generic single-source: used full-chunk fallback ({} chunks, no summaries yet)", len(fallback))
-    else:
-        # ── Multi-source overview ──
-        # Each source contributes anchored segments, tagged with a per-source
-        # sequence index (_seq). Downstream they are ordered round-robin and
-        # truncated at the char budget, so every source keeps its early segments
-        # instead of late sources being dropped wholesale (see _order_round_robin):
-        #   - PDFs: page-summaries (real page_number).
-        #   - Media: raw chunks (real start_time).
-        #   - Fallback: split doc-summary by inline markers, else raw chunks.
-        # The per-source ceiling is a high safety bound; the budget, not the cap,
-        # decides what survives.
-        cap = AIA_GENERIC_MAX_SEGMENTS_PER_SOURCE
-        for sid in source_ids:
-            src = all_sources_map.get(sid)
-            if not src:
-                continue
-            seq = 0
-            page_sums = db.get_page_summaries_by_source(sid)
-            if page_sums:
-                for ps in _sample(page_sums, cap):
-                    chunks.append({
-                        "source_id": sid,
-                        "page_number": ps["page_number"],
-                        "content": ps["summary"],
-                        "start_time": None,
-                        "_seq": seq,
-                    })
-                    seq += 1
-                continue
-            # Media (no page-summaries by design): raw chunks. Their start_time
-            # gives clickable timestamps; multiple chunks give the LLM enough
-            # anchor points to actually cite the video.
-            raw_chunks = db.get_aia_chunks_by_source(sid)
-            if raw_chunks and any(c.get("start_time") is not None for c in raw_chunks):
-                for c in _sample(raw_chunks, cap):
-                    chunks.append({**c, "_seq": seq})
-                    seq += 1
-                continue
-            doc_summary = (src.get("summary") or "").strip()
-            if doc_summary:
-                for segment in _split_doc_summary_by_markers(doc_summary):
-                    chunks.append({
-                        "source_id": sid,
-                        "page_number": segment["page_number"],
-                        "content": segment["content"],
-                        "start_time": segment["start_time"],
-                        "_seq": seq,
-                    })
-                    seq += 1
-                continue
-            # Last resort: no page-summaries, no media chunks, no doc-summary.
-            fallback = db.get_aia_chunks_by_source(sid)
-            for c in fallback:
-                chunks.append({**c, "_seq": seq})
-                seq += 1
-        logger.info("Generic multi-source: {} segments across {} sources", len(chunks), len(source_ids))
-    return chunks
 
 
 def _diversify_by_source(chunks: list[dict], source_ids: list[int]):
@@ -500,7 +460,12 @@ async def chat(
     rewritten_question = body.question
 
     if intent == "GENERIC":
-        chunks = _assemble_generic_context(workspace["id"], source_ids)
+        # ── Overview path: pure pgvector multi-query retrieval (no summaries) ──
+        from src.services.aia_embeddings import get_embedding_provider
+        provider = get_embedding_provider()
+        chunks = await _retrieve_generic_context(
+            llm, provider, workspace["id"], source_ids, body.question,
+        )
     else:
         # ── Normal path: hybrid search ──
         # Query rewriting (condense question): on a real follow-up, condense history into
@@ -555,7 +520,6 @@ async def chat(
             # (e.g. a media source with no matchable text) do we fall back to the
             # compact doc-summary, then the first raw chunk.
             if missing:
-                all_sources_map = {s["id"]: s for s in db.get_aia_sources_by_workspace(workspace["id"])}
                 PER_SOURCE_FALLBACK_LIMIT = 3
                 for sid in missing:
                     per_source = db.hybrid_search_chunks(
@@ -566,23 +530,12 @@ async def chat(
                         diverse_chunks.extend(per_source)
                         logger.info("Source-Diversity fallback: source {} added via per-source search ({} chunks)", sid, len(per_source))
                         continue
-                    src = all_sources_map.get(sid)
-                    doc_summary = ((src or {}).get("summary") or "").strip()
-                    if doc_summary:
-                        # Last resort: the first marker-segment of the doc-summary.
-                        seg = _split_doc_summary_by_markers(doc_summary)[0]
-                        diverse_chunks.append({
-                            "source_id": sid,
-                            "page_number": seg["page_number"],
-                            "content": seg["content"],
-                            "start_time": seg["start_time"],
-                        })
-                        logger.info("Source-Diversity fallback: source {} added via doc-summary", sid)
-                    else:
-                        raw_fallback = db.get_aia_chunks_by_source(sid)
-                        if raw_fallback:
-                            diverse_chunks.append(raw_fallback[0])
-                            logger.info("Source-Diversity fallback: source {} added via first chunk (no doc-summary)", sid)
+                    # Last resort: the source's first raw chunk (no summaries exist
+                    # in the pgvector-only design).
+                    raw_fallback = db.get_aia_chunks_by_source(sid)
+                    if raw_fallback:
+                        diverse_chunks.append(raw_fallback[0])
+                        logger.info("Source-Diversity fallback: source {} added via first chunk", sid)
             chunks = diverse_chunks + remaining
 
     # Build source-number mapping (Q1, Q2, ...) for multi-source disambiguation
