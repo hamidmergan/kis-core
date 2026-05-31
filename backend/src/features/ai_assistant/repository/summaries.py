@@ -36,6 +36,12 @@ def bulk_create_page_summaries(source_id: int, summaries: list[dict]) -> None:
             for s in summaries:
                 values.append("(%s, %s, %s)")
                 params.extend([source_id, s["page_number"], s["summary"]])
+            # KNOWN ISSUE: plain INSERT with no unique constraint on
+            # (source_id, page_number). Safe for the sequential resume path
+            # (run_generate_summaries skips already-summarized pages), but two
+            # concurrent summary runs on the same source could insert duplicate
+            # page rows. Add a unique constraint + ON CONFLICT DO NOTHING before
+            # making backfill pick up partially-summarized sources.
             cur.execute(
                 f"""INSERT INTO aia_page_summaries (source_id, page_number, summary)
                     VALUES {', '.join(values)}""",

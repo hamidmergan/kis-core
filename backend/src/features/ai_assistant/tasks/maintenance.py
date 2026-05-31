@@ -240,6 +240,13 @@ def run_backfill_page_summaries(self):
             continue
         if s.get("file_type") != "pdf":
             continue
+        # KNOWN ISSUE: this skips sources that have ANY page summaries, so a
+        # PARTIALLY summarized source (e.g. 50/117 after exhausted retries with
+        # summaries_status='rate_limited') is never picked up by backfill — only
+        # sources with zero summaries are. Picking up partials safely first needs
+        # a unique constraint on aia_page_summaries(source_id, page_number) +
+        # ON CONFLICT in bulk_create_page_summaries (currently a plain INSERT),
+        # otherwise a concurrent re-dispatch can create duplicate rows.
         if db.get_page_summaries_by_source(s["id"]):
             continue
         pending.append(s)
