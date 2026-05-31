@@ -187,6 +187,10 @@ MESSAGES: dict[str, dict[str, str]] = {
         "de": "Aufbewahrungsdauer muss zwischen {min} und {max} Tagen liegen, oder leer für 'nie löschen'.",
         "en": "Retention must be between {min} and {max} days, or empty for 'never delete'.",
     },
+    "admin.settings.contextBudgetOutOfRange": {
+        "de": "Kontext-Budget muss zwischen {min} und {max} Zeichen liegen.",
+        "en": "Context budget must be between {min} and {max} characters.",
+    },
     "admin.providers.requiredFields": {
         "de": "Name und Base-URL sind Pflicht.",
         "en": "Name and base URL are required.",

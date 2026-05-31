@@ -197,6 +197,41 @@ async def _generate_search_strategy(llm, question: str) -> list[str]:
     return terms or [question]
 
 
+def _context_budget() -> int:
+    """Character budget for the LLM context, admin-tunable per deployment.
+
+    KIS runs on very different setups — universities on large cloud models vs a
+    private user on a small local Ollama — so a fixed budget is wrong. Reads the
+    ``aia_context_max_chars`` admin setting, falling back to the tier-safe
+    constant (32k-model default). A deployment that only runs large-context
+    models can raise it so whole large documents fit (see _full_context_if_fits).
+    """
+    try:
+        return int(db.get_setting("aia_context_max_chars", str(AIA_CONTEXT_MAX_CHARS)))
+    except (ValueError, TypeError):
+        return AIA_CONTEXT_MAX_CHARS
+
+
+def _full_context_if_fits(source_ids: list[int], max_chars: int) -> Optional[list[dict]]:
+    """Return ALL chunks of the active sources iff their total fits the budget.
+
+    For an overview/summary question over source(s) small enough to fit the
+    context window, sending the full content beats retrieving a sample: the LLM
+    sees the whole document, nothing is missed, and we skip the strategy LLM call
+    entirely. Short-circuits to None as soon as the running total exceeds the
+    budget, so a 117-page doc bails cheaply and falls back to retrieval.
+    """
+    all_chunks: list[dict] = []
+    total = 0
+    for sid in source_ids:
+        for c in db.get_aia_chunks_by_source(sid):
+            total += len(c.get("content") or "")
+            if total > max_chars:
+                return None
+            all_chunks.append(c)
+    return all_chunks or None
+
+
 async def _retrieve_generic_context(
     llm, provider, workspace_id: int, source_ids: list[int], question: str,
 ) -> list[dict]:
@@ -459,13 +494,26 @@ async def chat(
     # is it potentially rewritten (condense question).
     rewritten_question = body.question
 
+    # Admin-tunable context budget (chars). Drives both the full-context-fits
+    # check below and the final truncation in the shared context builder.
+    context_budget = _context_budget()
+
     if intent == "GENERIC":
-        # ── Overview path: pure pgvector multi-query retrieval (no summaries) ──
-        from src.services.aia_embeddings import get_embedding_provider
-        provider = get_embedding_provider()
-        chunks = await _retrieve_generic_context(
-            llm, provider, workspace["id"], source_ids, body.question,
-        )
+        # ── Overview path ──
+        # If the active source(s) fit the context budget, hand over the FULL
+        # content (no retrieval, no strategy LLM call): the model sees the whole
+        # document, so a summary/overview misses nothing. Only when it does not
+        # fit do we fall back to pgvector multi-query retrieval (a sample).
+        full = _full_context_if_fits(source_ids, context_budget)
+        if full is not None:
+            chunks = full
+            logger.info("Generic full-context: {} chunks fit budget ({} chars), skipping retrieval", len(chunks), context_budget)
+        else:
+            from src.services.aia_embeddings import get_embedding_provider
+            provider = get_embedding_provider()
+            chunks = await _retrieve_generic_context(
+                llm, provider, workspace["id"], source_ids, body.question,
+            )
     else:
         # ── Normal path: hybrid search ──
         # Query rewriting (condense question): on a real follow-up, condense history into
@@ -607,7 +655,7 @@ async def chat(
             content = chunk["content"]
             loc = f"S. {chunk['page_number']}"
         part = f'<document index="{qn}">\n<source>{fname} | {loc}</source>\n<content>\n{content}\n</content>\n</document>'
-        if context_len + len(part) > AIA_CONTEXT_MAX_CHARS:
+        if context_len + len(part) > context_budget:
             break
         context_parts.append(part)
         context_len += len(part)

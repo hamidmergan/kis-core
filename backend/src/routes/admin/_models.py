@@ -27,6 +27,11 @@ class UpdateSettingsRequest(BaseModel):
     # Schedule entries older than this many days are pruned daily.
     # 0 = never delete (default). Bounded to a sane upper limit.
     aia_schedule_retention_days: int | None = None
+    # KI-tutor chat context budget in characters. Drives both the truncation in
+    # the context builder and the "full document fits -> send it whole" overview
+    # path. Sized for the smallest supported model (32k) by default; a deployment
+    # on large-context models can raise it.
+    aia_context_max_chars: int | None = None
 
 
 class ToggleToolRequest(BaseModel):

@@ -1122,6 +1122,14 @@
       "outOfRange": "Wert muss zwischen 1 und 3650 liegen, oder leer für 'nie löschen'.",
       "saveFailed": "Speichern fehlgeschlagen."
     },
+    "contextBudgetCard": {
+      "title": "KI-Tutor Kontext-Budget",
+      "hint": "Wie viel Quelltext (in Zeichen) der KI-Tutor pro Frage ins Modell gibt. Default 60000 ist für kleine Modelle (32k) sicher. Passt eine ausgewählte Quelle komplett ins Budget, wird sie bei Übersichtsfragen ganz statt nur als Auszug gesendet. Höher setzen nur, wenn ausschließlich Modelle mit großem Kontext laufen.",
+      "unit": "Zeichen",
+      "approxTokens": "≈ {n}k Token",
+      "outOfRange": "Wert muss zwischen 1000 und 2000000 liegen.",
+      "saveFailed": "Speichern fehlgeschlagen."
+    },
     "workspaceLabel": {
       "title": "Bezeichnung \"Workspace\"",
       "description": "Wie der Begriff im Frontend angezeigt wird (z. B. \"Modul\" / \"Module\" oder \"Kurs\" / \"Kurse\"). Default: Workspace / Workspaces. Pro Sprache separat einstellbar.",

@@ -12,6 +12,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from src import database as db
 from src.dependencies import get_admin_user
 from src.i18n import get_locale, t
+from src.limits import AIA_CONTEXT_MAX_CHARS
 
 from src.routes.admin._models import UpdateSettingsRequest
 
@@ -45,6 +46,10 @@ async def get_settings(_admin=Depends(get_admin_user)):
         # Schedule retention (admin-tunable). -1 = never delete (UI: empty input)
         "aia_schedule_retention_days": int(
             db.get_setting("aia_schedule_retention_days", "-1")
+        ),
+        # KI-tutor chat context budget (chars). Default sized for 32k models.
+        "aia_context_max_chars": int(
+            db.get_setting("aia_context_max_chars", str(AIA_CONTEXT_MAX_CHARS))
         ),
     }
 
@@ -110,5 +115,17 @@ async def update_settings(
                 ),
             )
         db.set_setting("aia_schedule_retention_days", str(value))
+
+    # KI-tutor context budget in characters. Bounded so a typo cannot starve the
+    # context (too low) or blow past even large model windows (too high). Lower
+    # bound ~ one small chunk; upper bound ~ 2M chars (~570k tokens).
+    if body.aia_context_max_chars is not None:
+        value = body.aia_context_max_chars
+        if value < 1000 or value > 2_000_000:
+            raise HTTPException(
+                status_code=400,
+                detail=t("admin.settings.contextBudgetOutOfRange", locale, min=1000, max=2_000_000),
+            )
+        db.set_setting("aia_context_max_chars", str(value))
 
     return {"ok": True}

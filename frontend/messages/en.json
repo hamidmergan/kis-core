@@ -1122,6 +1122,14 @@
       "outOfRange": "Value must be between 1 and 3650, or empty for 'never delete'.",
       "saveFailed": "Save failed."
     },
+    "contextBudgetCard": {
+      "title": "AI tutor context budget",
+      "hint": "How much source text (in characters) the AI tutor sends to the model per question. The default 60000 is safe for small models (32k). If a selected source fits entirely within the budget, it is sent whole for overview questions instead of a retrieved sample. Raise only if you run exclusively large-context models.",
+      "unit": "characters",
+      "approxTokens": "≈ {n}k tokens",
+      "outOfRange": "Value must be between 1000 and 2000000.",
+      "saveFailed": "Save failed."
+    },
     "workspaceLabel": {
       "title": "\"Workspace\" label",
       "description": "How the term is shown in the frontend (e.g. \"module\" / \"modules\" or \"course\" / \"courses\"). Default: workspace / workspaces. Configured per language.",

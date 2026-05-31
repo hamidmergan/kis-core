@@ -17,6 +17,8 @@ from src.features.ai_assistant.routes.chat import (
     _sample,
     _generate_search_strategy,
     _retrieve_generic_context,
+    _full_context_if_fits,
+    _context_budget,
     _diversify_by_source,
     _order_round_robin,
     _classify_intent,
@@ -155,6 +157,48 @@ def test_sample_caps_and_spreads_evenly():
     assert out[0] == 0          # always includes the start
     assert out == sorted(out)   # preserves order
     assert len(set(out)) == 4   # no duplicates
+
+
+# ── full-context-if-fits: skip retrieval when the doc fits the budget ────────
+
+def test_full_context_returns_all_chunks_when_under_budget(monkeypatch):
+    chunks = {1: [{"source_id": 1, "page_number": p, "content": "x" * 100} for p in range(5)]}
+    monkeypatch.setattr(chat_mod.db, "get_aia_chunks_by_source", lambda sid: chunks.get(sid, []))
+    out = _full_context_if_fits([1], max_chars=10_000)  # 5*100 = 500 << budget
+    assert out is not None
+    assert len(out) == 5
+    assert [c["page_number"] for c in out] == [0, 1, 2, 3, 4]
+
+
+def test_full_context_returns_none_when_over_budget(monkeypatch):
+    # A "large doc": 50 chunks * 1000 chars = 50k, well over a tiny budget.
+    chunks = {1: [{"source_id": 1, "page_number": p, "content": "x" * 1000} for p in range(50)]}
+    monkeypatch.setattr(chat_mod.db, "get_aia_chunks_by_source", lambda sid: chunks.get(sid, []))
+    assert _full_context_if_fits([1], max_chars=5_000) is None
+
+
+def test_full_context_sums_across_multiple_sources(monkeypatch):
+    # Each source fits alone, but together they exceed the budget -> retrieval.
+    chunks = {
+        1: [{"source_id": 1, "page_number": 1, "content": "x" * 3000}],
+        2: [{"source_id": 2, "page_number": 1, "content": "x" * 3000}],
+    }
+    monkeypatch.setattr(chat_mod.db, "get_aia_chunks_by_source", lambda sid: chunks.get(sid, []))
+    assert _full_context_if_fits([1], max_chars=5_000) is not None        # 3k < 5k
+    assert _full_context_if_fits([1, 2], max_chars=5_000) is None         # 6k > 5k
+
+
+def test_full_context_none_for_empty_sources(monkeypatch):
+    monkeypatch.setattr(chat_mod.db, "get_aia_chunks_by_source", lambda sid: [])
+    assert _full_context_if_fits([1], max_chars=10_000) is None
+
+
+def test_context_budget_reads_setting_with_default(monkeypatch):
+    monkeypatch.setattr(chat_mod.db, "get_setting", lambda key, default: "123456")
+    assert _context_budget() == 123456
+    # Bad value -> falls back to the tier-safe constant.
+    monkeypatch.setattr(chat_mod.db, "get_setting", lambda key, default: "not-a-number")
+    assert _context_budget() == chat_mod.AIA_CONTEXT_MAX_CHARS
 
 
 # ── generic path: search-strategy decomposition (provider faked) ─────────────
