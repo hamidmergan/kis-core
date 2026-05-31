@@ -12,6 +12,21 @@ from ._shared import (
 router = APIRouter(tags=["ki-assistent: sources"])
 
 
+def _inline_content_disposition(filename: str) -> str:
+    """Build an `inline` Content-Disposition header that is always latin-1 safe.
+
+    HTTP headers must be latin-1 encodable, but filenames can contain non-Latin-1
+    characters (umlauts, or combining marks like the NFD "ü" in "Einführung",
+    U+0308). Putting such a name raw into the header crashes StreamingResponse
+    with a UnicodeEncodeError. RFC 6266 solves this: an ASCII-only ``filename``
+    fallback plus a UTF-8 percent-encoded ``filename*`` that modern browsers
+    prefer for display.
+    """
+    from urllib.parse import quote
+    ascii_fallback = filename.encode("ascii", "ignore").decode("ascii") or "download"
+    return f"inline; filename=\"{ascii_fallback}\"; filename*=UTF-8''{quote(filename)}"
+
+
 @router.get("/ai-assistant/workspaces/{workspace_uuid}/sources/{source_uuid}/file")
 async def stream_source_file(
     workspace_uuid: str,
@@ -49,7 +64,7 @@ async def stream_source_file(
         ".webm": "video/webm",
     }
     media_type = media_type_map.get(ext, "application/octet-stream")
-    disposition = f'inline; filename="{source["filename"]}"'
+    disposition = _inline_content_disposition(source["filename"])
 
     if USE_S3:
         # Stream through the backend instead of redirecting to a presigned URL:
