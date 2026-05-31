@@ -23,12 +23,12 @@ TOOL_BURST_WINDOW_SECONDS       = 60
 TOOL_BURST_BLOCK_MINUTES        = 10
 
 # --- Source upload limits ---------------------------------------------------
-# Prevents a single user from flooding the indexing pipeline. The concurrent
-# cap counts sources still in pending/indexing across all of the user's
-# workspaces (and any other upload-driven module that joins this counter).
-# The hourly cap throttles the drip pattern: 100/hour comfortably covers a
-# lecturer setting up a course while blocking bot-style spam.
-UPLOAD_CONCURRENT_MAX           = 10
+# There is no concurrent in-flight cap: backpressure for indexing lives in the
+# Celery worker (bounded ``--concurrency`` on the ``aia`` queue), so extra
+# uploads just wait as ``pending`` instead of being rejected with a 429. The
+# hourly cap throttles the drip pattern: 100/hour comfortably covers a lecturer
+# setting up a course while blocking bot-style spam. The per-workspace ceiling
+# (AIA_WORKSPACE_MAX_SOURCES) is the other guard.
 UPLOAD_HOURLY_MAX               = 100
 UPLOAD_HOURLY_WINDOW_SECONDS    = 3600
 

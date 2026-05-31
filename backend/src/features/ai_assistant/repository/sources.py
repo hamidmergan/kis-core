@@ -59,24 +59,6 @@ def get_aia_sources_by_workspace(workspace_id: int) -> list[dict]:
     return [dict(row) for row in rows]
 
 
-def count_active_aia_sources_by_user(user_id: int) -> int:
-    """Count sources currently in the indexing pipeline for one user.
-
-    Used by the upload limiter to refuse new uploads once the user has
-    `UPLOAD_CONCURRENT_MAX` items in flight. A source counts as active until
-    its status leaves the pending/indexing pair (ready or failed).
-    """
-    with get_connection() as conn:
-        with conn.cursor() as cur:
-            cur.execute(
-                """SELECT COUNT(*) FROM aia_sources s
-                   JOIN aia_workspaces w ON w.id = s.workspace_id
-                   WHERE w.user_id = %s AND s.status IN ('pending', 'indexing')""",
-                (user_id,),
-            )
-            row = cur.fetchone()
-    return int(row[0]) if row else 0
-
 def list_aia_workspaces_with_stale_fingerprint(current_fingerprint: str) -> list[dict]:
     """Return workspaces (with owner name) whose stored fingerprint differs from current.
 

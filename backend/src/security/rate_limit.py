@@ -33,7 +33,6 @@ from src.limits import (
     TOOL_BURST_REQUESTS,
     TOOL_BURST_WINDOW_SECONDS,
     TOOL_BURST_BLOCK_MINUTES,
-    UPLOAD_CONCURRENT_MAX,
     UPLOAD_HOURLY_MAX,
     UPLOAD_HOURLY_WINDOW_SECONDS,
 )
@@ -222,33 +221,20 @@ def enforce_aia_burst(user_id: int, locale: str = "de") -> None:
     enforce_tool_burst(user_id, "aia", locale)
 
 
-def enforce_upload_limits(user_id: int, active_count: int, locale: str = "de") -> None:
-    """Reject an upload that would exceed either the concurrent or hourly cap.
+def enforce_upload_limits(user_id: int, locale: str = "de") -> None:
+    """Reject an upload only when it would exceed the hourly cap.
 
-    ``active_count`` is the number of sources already in flight (pending or
-    indexing) and is computed via SQL so this helper stays Redis-only for the
-    hourly window. The two checks are independent: a user can be blocked by
-    either limit. The hourly counter is incremented when the upload would be
-    accepted, so rejected uploads do not consume the quota.
+    There is deliberately NO concurrent in-flight limit: backpressure for the
+    indexing pipeline belongs in the worker, not at the HTTP door. Celery's
+    bounded worker concurrency (``--concurrency`` on the ``aia`` queue) already
+    caps how many sources are indexed/summarised at once; extra uploads simply
+    wait in the queue as ``pending``. The hourly cap stays as the abuse guard
+    (alongside the per-workspace ceiling enforced by the caller). The counter is
+    incremented only when the upload would be accepted, so rejected uploads do
+    not consume the quota.
     """
     if user_id <= 0:
         return
-    if active_count >= UPLOAD_CONCURRENT_MAX:
-        raise HTTPException(
-            status_code=429,
-            detail={
-                "message": t(
-                    "rateLimit.uploadConcurrent",
-                    locale,
-                    active=active_count,
-                    limit=UPLOAD_CONCURRENT_MAX,
-                ),
-                "kind": "upload_concurrent",
-                "active": active_count,
-                "limit": UPLOAD_CONCURRENT_MAX,
-            },
-            headers={"Retry-After": "30"},
-        )
 
     redis_key = f"rl:upload:hourly:{user_id}"
     try:

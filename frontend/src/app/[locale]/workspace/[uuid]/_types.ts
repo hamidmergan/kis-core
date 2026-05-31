@@ -23,11 +23,6 @@ export interface Source {
 export type TranscriptTranslationMode = "off" | "auto" | "manual";
 export type TranscriptDefaultLang = "de" | "en" | "both";
 
-export interface UploadQuota {
-  active: number;
-  limit: number;
-}
-
 export interface StaffNoteLink {
   url: string;
   label: string;
@@ -45,7 +40,6 @@ export interface WorkspaceDetail {
   staff_note_text?: string | null;
   staff_note_links?: StaffNoteLink[];
   sources: Source[];
-  upload_quota?: UploadQuota;
 }
 
 export interface SourceRef {

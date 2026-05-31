@@ -26,8 +26,9 @@ async def upload_source(
     workspace = _require_own_workspace(workspace_uuid, current_user["user_id"], locale=locale)
 
     # Reject before reading the body so spam attempts don't waste bandwidth.
-    active_count = db.count_active_aia_sources_by_user(current_user["user_id"])
-    enforce_upload_limits(current_user["user_id"], active_count, locale=locale)
+    # Only the hourly cap applies here; concurrent throughput is bounded by the
+    # Celery worker, and the per-workspace ceiling is enforced just below.
+    enforce_upload_limits(current_user["user_id"], locale=locale)
 
     existing_sources = db.get_aia_sources_by_workspace(workspace["id"])
     # Limit is admin-tunable at runtime via the settings tab; fall back to the

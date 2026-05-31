@@ -74,7 +74,11 @@ export function useSources({ uuid, onModuleUpdate }: UseSourcesOptions) {
 
   const uploadFiles = useCallback(async (files: File[]) => {
     if (files.length === 0) return;
-    const MAX_BATCH = 10;
+    // Matches the per-workspace source ceiling (AIA_WORKSPACE_MAX_SOURCES).
+    // The backend no longer rejects on concurrency — extra uploads queue as
+    // `pending` and Celery drains them — so this only chops absurdly large
+    // single drops; the per-workspace and hourly caps do the real enforcing.
+    const MAX_BATCH = 30;
     const skipped = files.length > MAX_BATCH ? files.slice(MAX_BATCH) : [];
     const toUpload = files.length > MAX_BATCH ? files.slice(0, MAX_BATCH) : files;
     const errors: { filename: string; message: string }[] = skipped.map((f) => ({
