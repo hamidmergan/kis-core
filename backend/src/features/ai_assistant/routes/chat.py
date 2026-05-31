@@ -566,10 +566,11 @@ async def chat(
             qnum_counter += 1
             source_id_to_qnum[sid] = qnum_counter
 
-    # Render context blocks in Q-number order so <document index="N"> runs 1,2,3…
-    # and the 200k truncation favors the lower-numbered sources. Stable sort keeps
-    # each source's chunks in their original page/timestamp order.
-    chunks.sort(key=lambda c: source_id_to_qnum.get(c["source_id"], 0))
+    # Order round-robin: each source's Nth segment before any (N+1)th, so the
+    # char-budget truncation below cuts late rounds and every source keeps its
+    # early segments. SPECIFIC chunks carry no _seq -> grouped by panel order as
+    # before. See _order_round_robin.
+    chunks = _order_round_robin(chunks, source_id_to_qnum)
 
     # Pre-load Whisper segments for media sources so we can inject inline
     # (MM:SS) markers into each media chunk's context - lets the LLM cite
@@ -582,7 +583,7 @@ async def chat(
             if src:
                 transcript_by_source[sid] = _load_transcript_segments(src)
 
-    # Build context (max 200000 chars) - XML tags per chunk (Anthropic best practice).
+    # Build context (capped at AIA_CONTEXT_MAX_CHARS) - XML tags per chunk (Anthropic best practice).
     # source_index is built from the SAME chunks (only those that fit in context) so
     # the post-stream resolver can re-ground every citation's page/timestamp against
     # the real content the model actually saw. See _resolve_citation_pages.
@@ -602,7 +603,7 @@ async def chat(
             content = chunk["content"]
             loc = f"S. {chunk['page_number']}"
         part = f'<document index="{qn}">\n<source>{fname} | {loc}</source>\n<content>\n{content}\n</content>\n</document>'
-        if context_len + len(part) > 200000:
+        if context_len + len(part) > AIA_CONTEXT_MAX_CHARS:
             break
         context_parts.append(part)
         context_len += len(part)
