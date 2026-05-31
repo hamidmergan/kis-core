@@ -48,7 +48,7 @@ export function ChatInputBar({
       className="flex-shrink-0 px-6 pt-2 pb-0"
       style={{ borderTop: "1px solid var(--border)" }}
     >
-      <div className="mx-auto w-full" style={{ maxWidth: 720 }}>
+      <div className="mx-auto w-full" style={{ maxWidth: 920 }}>
         <div className="flex justify-end px-1 mb-1">
           <span className="text-xs leading-none" style={{ color: "var(--muted)" }}>
             {t("sourcesActive", { n: activeSourceIds.length })}

@@ -168,7 +168,10 @@ function ChatMessageImpl({
   );
 
   return (
-    <div className={`flex flex-col gap-1.5 group ${msg.role === "user" ? "items-end" : "items-start"}`}>
+    <div
+      data-testid={msg.role === "assistant" ? "assistant-message" : "user-message"}
+      className={`flex flex-col gap-1.5 group ${msg.role === "user" ? "items-end" : "items-start"}`}
+    >
       {msg.role === "assistant" && (
         hildeEnabled ? (
           isLatest && (
