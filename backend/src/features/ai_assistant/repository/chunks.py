@@ -122,20 +122,27 @@ def hybrid_search_chunks(
 
     with get_connection() as conn:
         with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
-            # 1) Vector search (top 40)
+            # 1) Vector search (top 40). Keep the raw cosine distance: it is the
+            # stopword-immune relevance signal (embeddings capture meaning, so a
+            # conversational query like "erkläre mir bitte die X" still focuses on
+            # X). Callers use it to tell a genuinely on-topic source from one that
+            # only shares filler words.
             cur.execute(
-                f"""SELECT c.id, c.page_number, ROW_NUMBER() OVER (
-                        ORDER BY c.embedding <=> %s::vector
-                    ) AS rank
+                f"""SELECT c.id, c.page_number,
+                        c.embedding <=> %s::vector AS distance,
+                        ROW_NUMBER() OVER (
+                            ORDER BY c.embedding <=> %s::vector
+                        ) AS rank
                     FROM aia_chunks c
                     JOIN aia_sources s ON s.id = c.source_id
                     WHERE s.workspace_id = %s {source_filter}
                       AND c.embedding IS NOT NULL
                     ORDER BY c.embedding <=> %s::vector
                     LIMIT 40""",
-                [str(query_embedding), workspace_id] + source_param + [str(query_embedding)],
+                [str(query_embedding), str(query_embedding), workspace_id] + source_param + [str(query_embedding)],
             )
             vec_rows = cur.fetchall()
+            vec_distance = {row["id"]: float(row["distance"]) for row in vec_rows}
 
             # 2) Keyword search (top 40) - OR conjunction so individual search terms match
             cur.execute(
@@ -191,6 +198,10 @@ def hybrid_search_chunks(
             scores: dict[int, float] = {}
             for row in vec_rows:
                 scores[row["id"]] = scores.get(row["id"], 0) + 1.0 / (rrf_k + row["rank"])
+            # Keyword hits (BM25 + exact-substring): the actual term-overlap signal.
+            # A chunk matched by vector ONLY is merely "semantically near" and may
+            # be off-topic — callers use kw_hit to tell the two apart.
+            kw_ids = {row["id"] for row in kw_rows}
             for row in kw_rows:
                 scores[row["id"]] = scores.get(row["id"], 0) + 1.0 / (rrf_k + row["rank"])
 
@@ -212,6 +223,8 @@ def hybrid_search_chunks(
                 if cid in chunk_map:
                     chunk = chunk_map[cid]
                     chunk["hybrid_score"] = scores[cid]
+                    chunk["kw_hit"] = cid in kw_ids
+                    chunk["vec_distance"] = vec_distance.get(cid)  # cosine distance, None if kw-only
                     results.append(chunk)
 
     return results

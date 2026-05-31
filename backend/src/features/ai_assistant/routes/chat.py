@@ -621,21 +621,42 @@ async def chat(
             # compact doc-summary, then the first raw chunk.
             if missing:
                 PER_SOURCE_FALLBACK_LIMIT = 3
+                # Relevance gate (language-agnostic): a per-source vector search
+                # ALWAYS returns something — every chunk has an embedding — so
+                # without a gate every selected source gets forced in, even ones
+                # with nothing to do with the question (e.g. seminar PDFs for a
+                # pure-math query). Keyword hits are useless here: BM25 'simple'
+                # keeps stopwords, so off-topic sources still "match" filler like
+                # "die"/"mir" from the question. The stopword-IMMUNE signal is the
+                # cosine DISTANCE (embeddings capture meaning), which is exactly why
+                # the global search ranked the math sources on top. Keep a missing
+                # source only if its closest chunk is within _DIST_FACTOR of the
+                # global best distance. No word lists -> stays language agnostic. We
+                # also drop the old "first raw chunk" last resort.
+                # 1.3 cleanly separates on-topic (cosine ~0.2) from loosely-related
+                # same-corpus sources (~0.31) without cutting through that cluster;
+                # for a vaguer query (higher best distance) it scales up and stays
+                # inclusive.
+                _DIST_FACTOR = 1.3
+                _global_dists = [c["vec_distance"] for c in chunks if c.get("vec_distance") is not None]
+                _best_dist = min(_global_dists) if _global_dists else None
+                _dist_threshold = _best_dist * _DIST_FACTOR if _best_dist is not None else None
                 for sid in missing:
                     per_source = db.hybrid_search_chunks(
                         workspace["id"], embed_text, query_vector,
                         source_ids=[sid], limit=PER_SOURCE_FALLBACK_LIMIT,
                     )
-                    if per_source:
-                        diverse_chunks.extend(per_source)
-                        logger.info("Source-Diversity fallback: source {} added via per-source search ({} chunks)", sid, len(per_source))
-                        continue
-                    # Last resort: the source's first raw chunk (no summaries exist
-                    # in the pgvector-only design).
-                    raw_fallback = db.get_aia_chunks_by_source(sid)
-                    if raw_fallback:
-                        diverse_chunks.append(raw_fallback[0])
-                        logger.info("Source-Diversity fallback: source {} added via first chunk", sid)
+                    ps_dists = [c["vec_distance"] for c in per_source if c.get("vec_distance") is not None]
+                    ps_best = min(ps_dists) if ps_dists else None
+                    if _dist_threshold is not None and ps_best is not None and ps_best <= _dist_threshold:
+                        relevant = [c for c in per_source
+                                    if c.get("vec_distance") is not None and c["vec_distance"] <= _dist_threshold]
+                        diverse_chunks.extend(relevant)
+                        logger.info("Source-Diversity: source {} added ({} chunks, dist {:.3f}<={:.3f})", sid, len(relevant), ps_best, _dist_threshold)
+                    else:
+                        logger.info("Source-Diversity: source {} skipped off-topic (dist {} > {})", sid,
+                                    f"{ps_best:.3f}" if ps_best is not None else "n/a",
+                                    f"{_dist_threshold:.3f}" if _dist_threshold is not None else "n/a")
             chunks = diverse_chunks + remaining
 
     # Build source-number mapping (Q1, Q2, ...) for multi-source disambiguation
