@@ -377,6 +377,50 @@ from src.features.ai_assistant import schemas
 
 router = APIRouter(tags=["ki-assistent: chat"])
 
+
+def _stream_usage_tokens(chunk) -> tuple[Optional[int], Optional[int]]:
+    """Extract (tokens_in, tokens_out) from a streaming chunk.
+
+    With ``stream_options={"include_usage": True}`` the final chunk of an
+    OpenAI-compatible stream carries a ``usage`` object; normal content chunks
+    do not. Providers that don't support it send ``usage=None``. Returns
+    ``(None, None)`` whenever usage is absent so the caller can keep the last
+    real value.
+    """
+    usage = getattr(chunk, "usage", None)
+    if usage is None:
+        return None, None
+    return (
+        getattr(usage, "prompt_tokens", None),
+        getattr(usage, "completion_tokens", None),
+    )
+
+
+def _enrich_chat_trace(trace_id, question, answer, *, user_id, session_id) -> None:
+    """Upsert the aia-chat trace with the real question/answer + user/session.
+
+    ``@observe`` finalizes the trace when ``chat()`` returns its
+    StreamingResponse, but the answer is only produced LATER inside the
+    streaming generator — outside the observe context. So we write back by
+    trace id via the client (captured while still in context) instead of
+    ``update_current_observation``, which would target a closed context.
+    Tracing must never break the user-facing response, so failures are
+    swallowed.
+    """
+    if not trace_id:
+        return
+    try:
+        langfuse_context.client_instance.trace(
+            id=trace_id,
+            input=question,
+            output=answer,
+            user_id=user_id,
+            session_id=session_id,
+        )
+    except Exception:
+        pass
+
+
 @router.post("/ai-assistant/workspaces/{workspace_uuid}/chat")
 @observe(name="aia-chat")
 async def chat(
@@ -391,6 +435,13 @@ async def chat(
     _trace_llm(llm, "aia-chat")
     user_id = current_user["user_id"]
     logger.info("Chat: request received user={} workspace={}", user_id, workspace_uuid[:8])
+    # Captured here while still inside the @observe context; the streaming
+    # generator runs after this function returns, so it can no longer reach
+    # the trace via context — only by id.
+    try:
+        _trace_id = langfuse_context.get_current_trace_id()
+    except Exception:
+        _trace_id = None
 
     # Burst block: at >50 chat requests in 60s the user is blocked for 10 min.
     # Raises 429 if currently blocked or the limit is being exceeded right now.
@@ -723,6 +774,8 @@ async def chat(
         stream = None
         answer_parts: list[str] = []
         assistant_saved = False
+        tokens_in: Optional[int] = None
+        tokens_out: Optional[int] = None
         try:
             # Send qmap upfront so the frontend can resolve [Q1], [Q2] chips
             # during streaming instead of falling back to activeSourceIds[0].
@@ -737,6 +790,10 @@ async def chat(
                     messages=messages,
                     temperature=0.2,
                     stream=True,
+                    # Ask for a final usage chunk so chat token counts land in
+                    # usage_log + Langfuse. Providers that ignore it send no
+                    # usage and _stream_usage_tokens just returns (None, None).
+                    stream_options={"include_usage": True},
                     **(llm._extra_body and {"extra_body": llm._extra_body} or {}),
                 )
                 # Inter-chunk inactivity guard: once streaming starts, the SDK's
@@ -762,6 +819,11 @@ async def chat(
                     if await request.is_disconnected():
                         aborted = True
                         break
+                    _ti, _to = _stream_usage_tokens(chunk_resp)
+                    if _ti is not None:
+                        tokens_in = _ti
+                    if _to is not None:
+                        tokens_out = _to
                     delta = chunk_resp.choices[0].delta if chunk_resp.choices else None
                     if delta and delta.content:
                         answer_parts.append(delta.content)
@@ -789,6 +851,13 @@ async def chat(
                     ),
                     source_index,
                 )
+            )
+
+            # Push the real question + answer onto the aia-chat trace; the
+            # @observe decorator otherwise only captured the StreamingResponse.
+            _enrich_chat_trace(
+                _trace_id, body.question, answer,
+                user_id=str(user_id), session_id=workspace_uuid,
             )
 
             if aborted:
@@ -856,6 +925,8 @@ async def chat(
                 endpoint="chat",
                 provider=getattr(llm, "_provider", None),
                 model=getattr(llm, "_model", None),
+                tokens_in=tokens_in,
+                tokens_out=tokens_out,
                 duration_ms=int((_time.monotonic() - _started_at) * 1000),
                 status=_log_status,
             )

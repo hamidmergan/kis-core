@@ -19,6 +19,8 @@ from src.features.ai_assistant.routes.chat import (
     _classify_intent,
     _rewrite_query,
     _split_doc_summary_by_markers,
+    _stream_usage_tokens,
+    _enrich_chat_trace,
     _INTENT_MAX_WORDS,
 )
 
@@ -291,3 +293,84 @@ def test_order_round_robin_untagged_groups_by_qnum():
         {"source_id": 1, "page_number": 3},
         {"source_id": 2, "page_number": 1},
     ]
+
+
+# ── streaming usage extraction (include_usage final chunk) ───────────────────
+
+class _Usage:
+    def __init__(self, prompt_tokens, completion_tokens):
+        self.prompt_tokens = prompt_tokens
+        self.completion_tokens = completion_tokens
+
+
+class _Chunk:
+    def __init__(self, usage=None):
+        if usage is not None:
+            self.usage = usage
+
+
+def test_stream_usage_tokens_reads_final_usage_chunk():
+    chunk = _Chunk(usage=_Usage(prompt_tokens=1234, completion_tokens=56))
+    assert _stream_usage_tokens(chunk) == (1234, 56)
+
+
+def test_stream_usage_tokens_none_when_no_usage_attr():
+    # Normal content chunks carry no usage -> nothing to record.
+    assert _stream_usage_tokens(_Chunk()) == (None, None)
+
+
+def test_stream_usage_tokens_none_when_usage_is_none():
+    # Provider that doesn't support include_usage sends usage=None.
+    assert _stream_usage_tokens(_Chunk(usage=None)) == (None, None)
+
+
+# ── langfuse trace enrichment for the streamed chat answer ───────────────────
+#
+# @observe finalizes the aia-chat trace when chat() returns its
+# StreamingResponse; the real answer is produced LATER inside the streaming
+# generator, outside the observe context. So enrichment must upsert the trace
+# by id via the client, not via update_current_observation (which would target
+# an already-closed context).
+
+class _SpyClient:
+    def __init__(self, raise_exc=False):
+        self.traces = []
+        self._raise = raise_exc
+
+    def trace(self, **kwargs):
+        self.traces.append(kwargs)
+        if self._raise:
+            raise RuntimeError("langfuse down")
+
+
+class _SpyCtx:
+    def __init__(self, client):
+        self.client_instance = client
+
+
+def test_enrich_chat_trace_upserts_trace_by_id(monkeypatch):
+    client = _SpyClient()
+    monkeypatch.setattr(chat_mod, "langfuse_context", _SpyCtx(client))
+    _enrich_chat_trace("trace-abc", "Worum geht es?", "Es geht um X.", user_id="u-1", session_id="ws-9")
+    assert client.traces == [{
+        "id": "trace-abc",
+        "input": "Worum geht es?",
+        "output": "Es geht um X.",
+        "user_id": "u-1",
+        "session_id": "ws-9",
+    }]
+
+
+def test_enrich_chat_trace_noop_without_trace_id(monkeypatch):
+    # No trace id captured (tracing disabled) -> nothing to update.
+    client = _SpyClient()
+    monkeypatch.setattr(chat_mod, "langfuse_context", _SpyCtx(client))
+    _enrich_chat_trace(None, "q", "a", user_id="u", session_id="s")
+    assert client.traces == []
+
+
+def test_enrich_chat_trace_swallows_langfuse_errors(monkeypatch):
+    # Tracing must never break the user-facing chat response.
+    client = _SpyClient(raise_exc=True)
+    monkeypatch.setattr(chat_mod, "langfuse_context", _SpyCtx(client))
+    _enrich_chat_trace("t", "q", "a", user_id="u", session_id="s")  # must not raise
