@@ -325,6 +325,23 @@ def _diversify_by_source(chunks: list[dict], source_ids: list[int]):
     return diverse_chunks, remaining, missing
 
 
+def _order_round_robin(chunks: list[dict], source_id_to_qnum: dict[int, int]) -> list[dict]:
+    """Interleave chunks so each source's Nth segment precedes any (N+1)th.
+
+    Sorts stably by ``(_seq, panel_order)``: generic segments carry a per-source
+    sequence index (``_seq`` 0,1,2…) so round 0 of every source comes first, then
+    round 1, and so on — when the downstream char budget truncates, it cuts the
+    late rounds and every source keeps its early (most representative) segments.
+
+    Chunks without ``_seq`` (the SPECIFIC path) all sort as round 0, so the
+    secondary panel-order key simply groups them by source as before.
+    """
+    return sorted(
+        chunks,
+        key=lambda c: (c.get("_seq", 0), source_id_to_qnum.get(c["source_id"], 0)),
+    )
+
+
 from src.features.ai_assistant.routes._helpers import (
     _trace_llm,
     _convert_office_to_pdf,
