@@ -118,6 +118,11 @@ AIA_WORKSPACE_MAX_SOURCES              = 30      # max sources per workspace
 # SPECIFIC path too (same context builder), so a topic answer also fits 32k.
 # Raise this if a deployment only runs large models.
 AIA_CONTEXT_MAX_CHARS                  = 60000
+# Hard ceiling for the admin-tunable budget (~140k tokens). Even a deployment on
+# the largest cloud models cannot exceed this — guards against an admin typo
+# (1M+) that would stall/overflow the model and waste a giant DB read. Enforced
+# both on write (admin PATCH validation) and on read (_context_budget clamp).
+AIA_CONTEXT_HARD_CAP                    = 500000
 # Safety ceiling on how many summary/chunk segments ONE source contributes to a
 # generic overview before round-robin + the char budget take over. Set well
 # above AIA_SOURCE_MAX_PAGES (500) so PDFs are never down-sampled — every

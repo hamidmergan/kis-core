@@ -26,6 +26,7 @@ from src.limits import (
     AIA_WORKSPACE_MAX_ACCESS_LINKS,
     AIA_NOTES_MAX_PER_USER,
     AIA_CONTEXT_MAX_CHARS,
+    AIA_CONTEXT_HARD_CAP,
 )
 from src.security.rate_limit import enforce_burst
 from src.security.usage_log import log_request as _log_usage
@@ -207,9 +208,12 @@ def _context_budget() -> int:
     models can raise it so whole large documents fit (see _full_context_if_fits).
     """
     try:
-        return int(db.get_setting("aia_context_max_chars", str(AIA_CONTEXT_MAX_CHARS)))
+        value = int(db.get_setting("aia_context_max_chars", str(AIA_CONTEXT_MAX_CHARS)))
     except (ValueError, TypeError):
         return AIA_CONTEXT_MAX_CHARS
+    # Clamp on read too: a stale/oversized value in the DB (set before the cap,
+    # or written directly) must never push a context the model can't take.
+    return max(1000, min(value, AIA_CONTEXT_HARD_CAP))
 
 
 def _full_context_if_fits(source_ids: list[int], max_chars: int) -> Optional[list[dict]]:
@@ -234,6 +238,7 @@ def _full_context_if_fits(source_ids: list[int], max_chars: int) -> Optional[lis
 
 async def _retrieve_generic_context(
     llm, provider, workspace_id: int, source_ids: list[int], question: str,
+    budget: int = 0,
 ) -> list[dict]:
     """Build the GENERIC (overview) context purely from pgvector retrieval.
 
@@ -283,8 +288,52 @@ async def _retrieve_generic_context(
     if not chunks:
         for sid in source_ids or []:
             chunks.extend(_sample(db.get_aia_chunks_by_source(sid), _GENERIC_PER_QUERY_LIMIT))
-    logger.info("Generic retrieval: {} chunks across {} sources ({} queries)",
-                len(chunks), len(source_ids or []), len(terms))
+    # Budget top-up: relevance retrieval (max ~32 chunks) typically leaves the
+    # overview context budget half-empty, so the summary only sees a fraction of
+    # the material and a source can end up with a single chunk. Fill the rest of
+    # the budget ROUND-ROBIN across sources (document order) — relevance chunks
+    # stay first, then each source contributes more in turn until the budget is
+    # (approximately) full. The call-site assembly loop is the exact char guard.
+    if budget and (source_ids or []):
+        _OVERHEAD = 150  # ~chars for the <document>/<source>/<content> wrapper
+        seen_keys = {(c["source_id"], c.get("page_number"), (c.get("content") or "")[:80]) for c in chunks}
+        approx = sum(len(c.get("content") or "") + _OVERHEAD for c in chunks)
+        pools: list[list[dict]] = []
+        for sid in source_ids:
+            rem = [c for c in db.get_aia_chunks_by_source(sid)
+                   if (c["source_id"], c.get("page_number"), (c.get("content") or "")[:80]) not in seen_keys]
+            pools.append(rem)
+        progressing = True
+        while approx < budget and progressing:
+            progressing = False
+            for pool in pools:
+                if not pool:
+                    continue
+                cand = pool.pop(0)
+                cost = len(cand.get("content") or "") + _OVERHEAD
+                if approx + cost > budget:
+                    pool.clear()  # this source's next chunk overflows -> stop pulling from it
+                    continue
+                chunks.append(cand)
+                approx += cost
+                progressing = True
+
+    # Tag each chunk with its per-source round index (_seq) so the downstream
+    # _order_round_robin interleaves sources fairly: round 0 of every source
+    # first, then round 1, ... When the char budget truncates it drops the late
+    # rounds, so every source keeps its early (most representative) chunks instead
+    # of one whole source being cut off the end. _seq 0 = the source's first
+    # (most relevant) chunk, since relevance hits precede the doc-order fill.
+    seq_by_source: dict[int, int] = {}
+    for c in chunks:
+        sid = c["source_id"]
+        c["_seq"] = seq_by_source.get(sid, 0)
+        seq_by_source[sid] = c["_seq"] + 1
+
+    from collections import Counter
+    per_source = Counter(c["source_id"] for c in chunks)
+    logger.info("Generic retrieval: {} chunks across {} sources ({} queries) | per-source: {}",
+                len(chunks), len(source_ids or []), len(terms), dict(per_source))
     return chunks
 
 
@@ -507,12 +556,15 @@ async def chat(
         full = _full_context_if_fits(source_ids, context_budget)
         if full is not None:
             chunks = full
-            logger.info("Generic full-context: {} chunks fit budget ({} chars), skipping retrieval", len(chunks), context_budget)
+            from collections import Counter
+            _ps = Counter(c["source_id"] for c in chunks)
+            logger.info("Generic full-context: {} chunks fit budget ({} chars), skipping retrieval | per-source: {}", len(chunks), context_budget, dict(_ps))
         else:
             from src.services.aia_embeddings import get_embedding_provider
             provider = get_embedding_provider()
             chunks = await _retrieve_generic_context(
                 llm, provider, workspace["id"], source_ids, body.question,
+                budget=context_budget,
             )
     else:
         # ── Normal path: hybrid search ──
@@ -643,6 +695,8 @@ async def chat(
     context_len = 0
     source_index: dict[int, dict] = {}
     qnum_to_source_id: dict[int, int] = {}
+    from collections import Counter
+    sent_per_source: Counter = Counter()
     for chunk in chunks:
         qn = source_id_to_qnum.get(chunk["source_id"], 1)
         src = all_sources_list.get(chunk["source_id"])
@@ -656,9 +710,10 @@ async def chat(
             loc = f"S. {chunk['page_number']}"
         part = f'<document index="{qn}">\n<source>{fname} | {loc}</source>\n<content>\n{content}\n</content>\n</document>'
         if context_len + len(part) > context_budget:
-            break
+            continue  # skip this oversized chunk, keep packing smaller later ones (don't drop the whole tail)
         context_parts.append(part)
         context_len += len(part)
+        sent_per_source[chunk["source_id"]] += 1
         is_media_chunk = chunk.get("start_time") is not None
         qnum_to_source_id[qn] = chunk["source_id"]
         si = source_index.setdefault(qn, {"is_media": False, "pages": set(), "chunks": []})
@@ -670,6 +725,12 @@ async def chat(
         if is_media_chunk:
             si["is_media"] = True
     context = f"<documents>\n{''.join(context_parts)}\n</documents>"
+    logger.info(
+        "Context sent: {} chars (~{} tokens) of {} budget ({:.0f}%) | {}/{} chunks included | sent per-source: {}",
+        len(context), round(len(context) / 3.5), context_budget,
+        100 * len(context) / context_budget if context_budget else 0,
+        len(context_parts), len(chunks), dict(sent_per_source),
+    )
 
     # Validity set per PDF source = its REAL pages (chunks ∪ page-summaries), so the
     # citation resolver can reject pages no upstream step ever produced (e.g. a

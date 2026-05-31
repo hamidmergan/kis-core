@@ -1127,7 +1127,7 @@
       "hint": "How much source text (in characters) the AI tutor sends to the model per question. The default 60000 is safe for small models (32k). If a selected source fits entirely within the budget, it is sent whole for overview questions instead of a retrieved sample. Raise only if you run exclusively large-context models.",
       "unit": "characters",
       "approxTokens": "≈ {n}k tokens",
-      "outOfRange": "Value must be between 1000 and 2000000.",
+      "outOfRange": "Value must be between 1000 and 500000.",
       "saveFailed": "Save failed."
     },
     "workspaceLabel": {

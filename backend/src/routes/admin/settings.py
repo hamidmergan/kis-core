@@ -118,13 +118,14 @@ async def update_settings(
 
     # KI-tutor context budget in characters. Bounded so a typo cannot starve the
     # context (too low) or blow past even large model windows (too high). Lower
-    # bound ~ one small chunk; upper bound ~ 2M chars (~570k tokens).
+    # bound ~ one small chunk; hard upper bound 500k chars (~140k tokens) so an
+    # admin typo (1M+) can't force a context that stalls/overflows the model.
     if body.aia_context_max_chars is not None:
         value = body.aia_context_max_chars
-        if value < 1000 or value > 2_000_000:
+        if value < 1000 or value > 500_000:
             raise HTTPException(
                 status_code=400,
-                detail=t("admin.settings.contextBudgetOutOfRange", locale, min=1000, max=2_000_000),
+                detail=t("admin.settings.contextBudgetOutOfRange", locale, min=1000, max=500_000),
             )
         db.set_setting("aia_context_max_chars", str(value))
 

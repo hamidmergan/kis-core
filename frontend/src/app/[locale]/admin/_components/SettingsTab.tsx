@@ -648,7 +648,7 @@ function ContextBudgetCard() {
   const commit = async () => {
     if (value === null) return;
     const parsed = Number.parseInt(draft, 10);
-    if (!Number.isFinite(parsed) || parsed < 1000 || parsed > 2000000) {
+    if (!Number.isFinite(parsed) || parsed < 1000 || parsed > 500000) {
       setError(t("outOfRange"));
       setDraft(String(value));
       return;
@@ -693,7 +693,7 @@ function ContextBudgetCard() {
         <input
           type="number"
           min={1000}
-          max={2000000}
+          max={500000}
           step={1000}
           value={draft}
           onChange={(e) => { setDraft(e.target.value); setError(null); }}

@@ -201,6 +201,19 @@ def test_context_budget_reads_setting_with_default(monkeypatch):
     assert _context_budget() == chat_mod.AIA_CONTEXT_MAX_CHARS
 
 
+def test_context_budget_clamps_oversized_setting(monkeypatch):
+    # An admin typo / stale DB value above the hard cap is clamped on read so it
+    # can never push a context the model cannot take.
+    monkeypatch.setattr(chat_mod.db, "get_setting", lambda key, default: "1000000")
+    assert _context_budget() == chat_mod.AIA_CONTEXT_HARD_CAP
+    # Absurd 10M likewise clamps to the cap, never returned verbatim.
+    monkeypatch.setattr(chat_mod.db, "get_setting", lambda key, default: "10000000")
+    assert _context_budget() == chat_mod.AIA_CONTEXT_HARD_CAP
+    # A sane value below the cap passes through untouched.
+    monkeypatch.setattr(chat_mod.db, "get_setting", lambda key, default: "120000")
+    assert _context_budget() == 120000
+
+
 # ── generic path: search-strategy decomposition (provider faked) ─────────────
 
 @pytest.mark.asyncio

@@ -1127,7 +1127,7 @@
       "hint": "Wie viel Quelltext (in Zeichen) der KI-Tutor pro Frage ins Modell gibt. Default 60000 ist für kleine Modelle (32k) sicher. Passt eine ausgewählte Quelle komplett ins Budget, wird sie bei Übersichtsfragen ganz statt nur als Auszug gesendet. Höher setzen nur, wenn ausschließlich Modelle mit großem Kontext laufen.",
       "unit": "Zeichen",
       "approxTokens": "≈ {n}k Token",
-      "outOfRange": "Wert muss zwischen 1000 und 2000000 liegen.",
+      "outOfRange": "Wert muss zwischen 1000 und 500000 liegen.",
       "saveFailed": "Speichern fehlgeschlagen."
     },
     "workspaceLabel": {
