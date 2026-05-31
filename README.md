@@ -83,6 +83,22 @@ API docs: http://localhost:8000/docs
 
 ---
 
+## Local models (Ollama)
+
+KIS works with any OpenAI-compatible LLM endpoint, including a locally hosted
+[Ollama](https://ollama.com). Ollama always runs **outside** the KIS stack — it
+is never shipped as a container; you host it yourself and point KIS at it via
+**Admin → AI Settings** (`openai_compat` protocol, no API key for local
+endpoints).
+
+> **One gotcha:** when KIS runs in Docker and Ollama runs natively on the same
+> machine, start Ollama with `OLLAMA_HOST=0.0.0.0:11434` so the container can
+> reach it, and use the base URL `http://host.docker.internal:11434/v1`.
+
+Full walkthrough: [docs/ollama-setup.md](docs/ollama-setup.md).
+
+---
+
 ## License
 
 Apache License 2.0, Copyright 2026 Technische Hochschule Lübeck.
