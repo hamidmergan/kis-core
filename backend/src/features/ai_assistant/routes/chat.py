@@ -189,6 +189,140 @@ async def _rewrite_query(llm, history: list[dict], question: str) -> str:
         return question
     return rewritten
 
+
+def _should_skip_intent_classification(source_text, source_ids, question: str) -> bool:
+    """Cheap pre-filter: skip the LLM intent call when the route is obvious.
+
+    Popup actions carry ``source_text`` and are always topic-focused; no
+    sources means hybrid search is the only option; very long questions are
+    nearly always specific and blow up the classifier premise. All -> SPECIFIC.
+    """
+    return (
+        bool(source_text)
+        or not source_ids
+        or len(question.strip().split()) > _INTENT_MAX_WORDS
+    )
+
+
+def _sample(items: list, k: int) -> list:
+    """Evenly-spaced down-sample to at most ``k`` items, preserving order."""
+    if len(items) <= k:
+        return items
+    step = len(items) / k
+    return [items[int(i * step)] for i in range(k)]
+
+
+def _assemble_generic_context(workspace_id: int, source_ids: list[int]) -> list[dict]:
+    """Build the GENERIC (overview) context as summary-based virtual chunks.
+
+    Single source -> the richer page-summaries (fallback to the doc-summary,
+    then full chunks). Multiple sources -> each contributes equally-weighted
+    anchored chunks (PDF page-summaries capped to 30, media raw chunks capped to
+    8, else the marker-split doc-summary) so media isn't drowned out by PDFs.
+    """
+    all_sources_map = {s["id"]: s for s in db.get_aia_sources_by_workspace(workspace_id)}
+    chunks: list[dict] = []
+
+    if len(source_ids) == 1:
+        # ── Single source: use the richer page-summaries directly (covers the
+        # full document, no compression artifact). Falls back to the doc-summary
+        # for media/DOCX/PPTX or pre-rollout PDFs.
+        sid = source_ids[0]
+        src = all_sources_map.get(sid)
+        page_sums = db.get_page_summaries_by_source(sid) if src else []
+        if page_sums:
+            for ps in page_sums:
+                chunks.append({
+                    "source_id": sid,
+                    "page_number": ps["page_number"],
+                    "content": ps["summary"],
+                    "start_time": None,
+                })
+            logger.info("Generic single-source: used {} page-summaries", len(page_sums))
+        elif src and (src.get("summary") or "").strip():
+            chunks.append({
+                "source_id": sid,
+                "page_number": 1,
+                "content": src["summary"].strip(),
+                "start_time": None,
+            })
+            logger.info("Generic single-source: used doc-summary (no page-summaries)")
+        else:
+            # No summaries at all: hand over the FULL document. The context cap
+            # at the call site truncates whatever doesn't fit.
+            fallback = db.get_aia_chunks_by_source(sid)
+            if fallback:
+                chunks.extend(fallback)
+            logger.info("Generic single-source: used full-chunk fallback ({} chunks, no summaries yet)", len(fallback))
+    else:
+        # ── Multi-source overview ──
+        # Each source contributes multiple anchored chunks so the LLM has equal
+        # weight per source (otherwise media gets drowned out by PDFs):
+        #   - PDFs: page-summaries (real page_number), capped to 30 evenly spaced.
+        #   - Media: raw chunks (real start_time), capped to 8 evenly spaced.
+        #   - Fallback: split doc-summary by inline markers, else first chunk.
+        PAGE_SUMS_PER_SOURCE = 30
+        MEDIA_CHUNKS_PER_SOURCE = 8
+        for sid in source_ids:
+            src = all_sources_map.get(sid)
+            if not src:
+                continue
+            page_sums = db.get_page_summaries_by_source(sid)
+            if page_sums:
+                for ps in _sample(page_sums, PAGE_SUMS_PER_SOURCE):
+                    chunks.append({
+                        "source_id": sid,
+                        "page_number": ps["page_number"],
+                        "content": ps["summary"],
+                        "start_time": None,
+                    })
+                continue
+            # Media (no page-summaries by design): sample raw chunks. Their
+            # start_time gives clickable timestamps; multiple chunks give the
+            # LLM enough anchor points to actually cite the video.
+            raw_chunks = db.get_aia_chunks_by_source(sid)
+            if raw_chunks and any(c.get("start_time") is not None for c in raw_chunks):
+                for c in _sample(raw_chunks, MEDIA_CHUNKS_PER_SOURCE):
+                    chunks.append(c)
+                continue
+            doc_summary = (src.get("summary") or "").strip()
+            if doc_summary:
+                for seg in _split_doc_summary_by_markers(doc_summary):
+                    chunks.append({
+                        "source_id": sid,
+                        "page_number": seg["page_number"],
+                        "content": seg["content"],
+                        "start_time": seg["start_time"],
+                    })
+                continue
+            # Last resort: no page-summaries, no media chunks, no doc-summary.
+            fallback = db.get_aia_chunks_by_source(sid)
+            if fallback:
+                chunks.extend(fallback)
+        logger.info("Generic multi-source: {} segments across {} sources", len(chunks), len(source_ids))
+    return chunks
+
+
+def _diversify_by_source(chunks: list[dict], source_ids: list[int]):
+    """Reorder hybrid-search hits so each source gets a representative first.
+
+    Returns ``(diverse, remaining, missing)``: one chunk per seen source up
+    front, the rest deferred, and the ``source_ids`` that produced no hit at all
+    (the caller backfills those via per-source search / doc-summary).
+    """
+    seen_sources: set[int] = set()
+    diverse_chunks: list[dict] = []
+    remaining: list[dict] = []
+    for chunk in chunks:
+        if chunk["source_id"] not in seen_sources:
+            seen_sources.add(chunk["source_id"])
+            diverse_chunks.append(chunk)
+        else:
+            remaining.append(chunk)
+    missing = [sid for sid in source_ids if sid not in seen_sources]
+    return diverse_chunks, remaining, missing
+
+
 from src.features.ai_assistant.routes._helpers import (
     _trace_llm,
     _convert_office_to_pdf,
@@ -272,8 +406,7 @@ async def chat(
     # Routing: GENERIC (cross-source overview, uses compact doc-summaries) vs
     # SPECIFIC (topic-focused, uses hybrid search). Cheap pre-filter avoids an
     # LLM round-trip when the answer is obvious (popup, no sources, long question).
-    _q_words = len(body.question.strip().split())
-    if body.source_text or not source_ids or _q_words > _INTENT_MAX_WORDS:
+    if _should_skip_intent_classification(body.source_text, source_ids, body.question):
         intent = "SPECIFIC"
     else:
         logger.info("Chat: calling intent classifier...")
@@ -287,97 +420,7 @@ async def chat(
     rewritten_question = body.question
 
     if intent == "GENERIC":
-        all_sources_map = {s["id"]: s for s in db.get_aia_sources_by_workspace(workspace["id"])}
-        chunks: list[dict] = []
-
-        if len(source_ids) == 1:
-            # ── Single source: use the richer page-summaries directly (covers
-            # the full document, no compression artifact). Falls back to the
-            # doc-summary for media/DOCX/PPTX or pre-rollout PDFs.
-            sid = source_ids[0]
-            src = all_sources_map.get(sid)
-            page_sums = db.get_page_summaries_by_source(sid) if src else []
-            if page_sums:
-                for ps in page_sums:
-                    chunks.append({
-                        "source_id": sid,
-                        "page_number": ps["page_number"],
-                        "content": ps["summary"],
-                        "start_time": None,
-                    })
-                logger.info("Generic single-source: used {} page-summaries", len(page_sums))
-            elif src and (src.get("summary") or "").strip():
-                chunks.append({
-                    "source_id": sid,
-                    "page_number": 1,
-                    "content": src["summary"].strip(),
-                    "start_time": None,
-                })
-                logger.info("Generic single-source: used doc-summary (no page-summaries)")
-            else:
-                # No summaries at all: hand over the FULL document. The 200k-char
-                # context cap below truncates whatever doesn't fit.
-                fallback = db.get_aia_chunks_by_source(sid)
-                if fallback:
-                    chunks.extend(fallback)
-                logger.info("Generic single-source: used full-chunk fallback ({} chunks, no summaries yet)", len(fallback))
-        else:
-            # ── Multi-source overview ──
-            # Each source contributes multiple anchored chunks so the LLM has
-            # equal weight per source (otherwise media gets drowned out by PDFs):
-            #   - PDFs: page-summaries (real page_number), capped to 30 evenly
-            #     spaced pages.
-            #   - Media: raw chunks (real start_time), capped to 8 evenly spaced.
-            #   - Fallback: split doc-summary by inline markers, else first chunk.
-            PAGE_SUMS_PER_SOURCE = 30
-            MEDIA_CHUNKS_PER_SOURCE = 8
-
-            def _sample(items: list, k: int) -> list:
-                if len(items) <= k:
-                    return items
-                step = len(items) / k
-                return [items[int(i * step)] for i in range(k)]
-
-            for sid in source_ids:
-                src = all_sources_map.get(sid)
-                if not src:
-                    continue
-                page_sums = db.get_page_summaries_by_source(sid)
-                if page_sums:
-                    for ps in _sample(page_sums, PAGE_SUMS_PER_SOURCE):
-                        chunks.append({
-                            "source_id": sid,
-                            "page_number": ps["page_number"],
-                            "content": ps["summary"],
-                            "start_time": None,
-                        })
-                    continue
-                # Media (no page-summaries by design): sample raw chunks. Their
-                # start_time gives clickable timestamps; multiple chunks give
-                # the LLM enough anchor points to actually cite the video.
-                raw_chunks = db.get_aia_chunks_by_source(sid)
-                if raw_chunks and any(c.get("start_time") is not None for c in raw_chunks):
-                    for c in _sample(raw_chunks, MEDIA_CHUNKS_PER_SOURCE):
-                        chunks.append(c)
-                    continue
-                doc_summary = (src.get("summary") or "").strip()
-                if doc_summary:
-                    for seg in _split_doc_summary_by_markers(doc_summary):
-                        chunks.append({
-                            "source_id": sid,
-                            "page_number": seg["page_number"],
-                            "content": seg["content"],
-                            "start_time": seg["start_time"],
-                        })
-                    continue
-                # Last resort: no page-summaries, no media chunks, no doc-summary.
-                # Hand over the FULL document; the 200k-char cap below truncates
-                # whatever doesn't fit.
-                fallback = db.get_aia_chunks_by_source(sid)
-                if fallback:
-                    chunks.extend(fallback)
-
-            logger.info("Generic multi-source: {} segments across {} sources", len(chunks), len(source_ids))
+        chunks = _assemble_generic_context(workspace["id"], source_ids)
     else:
         # ── Normal path: hybrid search ──
         # Query rewriting (condense question): on a real follow-up, condense history into
@@ -424,22 +467,13 @@ async def chat(
 
         # Source diversity: with multiple active sources at least 1 entry per source
         if source_ids and len(source_ids) > 1:
-            seen_sources: set[int] = set()
-            diverse_chunks: list[dict] = []
-            remaining: list[dict] = []
-            for chunk in chunks:
-                if chunk["source_id"] not in seen_sources:
-                    seen_sources.add(chunk["source_id"])
-                    diverse_chunks.append(chunk)
-                else:
-                    remaining.append(chunk)
+            diverse_chunks, remaining, missing = _diversify_by_source(chunks, source_ids)
             # Fallback for sources without a hybrid-search hit. A source can miss
             # the GLOBAL top-20 yet still be one the user wants compared, so we
             # first run a per-source mini-search to pull ITS OWN most-relevant
             # chunks (real pages/timestamps, citable). Only if that yields nothing
             # (e.g. a media source with no matchable text) do we fall back to the
             # compact doc-summary, then the first raw chunk.
-            missing = [sid for sid in source_ids if sid not in seen_sources]
             if missing:
                 all_sources_map = {s["id"]: s for s in db.get_aia_sources_by_workspace(workspace["id"])}
                 PER_SOURCE_FALLBACK_LIMIT = 3
@@ -450,7 +484,6 @@ async def chat(
                     )
                     if per_source:
                         diverse_chunks.extend(per_source)
-                        seen_sources.add(sid)
                         logger.info("Source-Diversity fallback: source {} added via per-source search ({} chunks)", sid, len(per_source))
                         continue
                     src = all_sources_map.get(sid)
@@ -464,13 +497,11 @@ async def chat(
                             "content": seg["content"],
                             "start_time": seg["start_time"],
                         })
-                        seen_sources.add(sid)
                         logger.info("Source-Diversity fallback: source {} added via doc-summary", sid)
                     else:
                         raw_fallback = db.get_aia_chunks_by_source(sid)
                         if raw_fallback:
                             diverse_chunks.append(raw_fallback[0])
-                            seen_sources.add(sid)
                             logger.info("Source-Diversity fallback: source {} added via first chunk (no doc-summary)", sid)
             chunks = diverse_chunks + remaining
 
