@@ -103,8 +103,8 @@ AIA_SUMMARY_MAX_TOKENS_SMALL        = 2048   # ollama, single page (incl. think 
 AIA_SUMMARY_MAX_TOKENS_LARGE        = 2048   # cloud, single page
 AIA_SUMMARY_MAX_TOKENS_BATCH        = 16384  # cloud, batch: up to 100 pages x ~400 chars + JSON overhead
 AIA_SUMMARY_CONTENT_MAX_CHARS       = 3000   # max chars per page to LLM (25x3000 + 25x400 output = 85k per batch, well within context)
-AIA_SUMMARY_PARALLEL_WORKERS_SMALL  = 5      # ollama: parallel single requests
-AIA_SUMMARY_PARALLEL_WORKERS_LARGE  = 5      # cloud: parallel batch requests
+AIA_SUMMARY_PARALLEL_WORKERS_SMALL  = 2      # ollama: parallel single requests (lowered 5->2 to stay under provider rate limits)
+AIA_SUMMARY_PARALLEL_WORKERS_LARGE  = 2      # cloud: parallel batch requests (lowered 5->2; 5 concurrent 16k-token batches tripped myLab 429)
 AIA_SUMMARY_BATCH_SIZE              = 25     # pages per batch request (300 pages = 12 requests)
 AIA_SOURCE_MAX_PAGES                = 300     # max pages per PDF/DOCX/PPTX upload
 AIA_WORKSPACE_MAX_SOURCES              = 30      # max sources per workspace

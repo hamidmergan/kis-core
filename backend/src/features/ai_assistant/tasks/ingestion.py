@@ -220,7 +220,7 @@ def run_index_source(self, source_uuid: str, locale: str = "de"):
         msg = str(e).lower()
         is_rate_limit = "429" in msg or "rate limit" in msg
         if is_rate_limit and self.request.retries < 5:
-            countdown = 60 * (2 ** self.request.retries)  # 60s, 2m, 4m, 8m, 16m
+            countdown = min(30 * (2 ** self.request.retries), 120)  # 30s, 1m, 2m, 2m, 2m (capped)
             logger.warning(
                 "KI Tutor: source {} hit rate limit (attempt {}/{}), retrying in {}s",
                 source_uuid, self.request.retries + 1, 5, countdown,
@@ -249,7 +249,7 @@ def run_generate_doc_summary(self, source_uuid: str):
         msg = str(e).lower()
         if "429" in msg or "rate limit" in msg:
             if self.request.retries < 3:
-                countdown = 60 * (2 ** self.request.retries)  # 1m, 2m, 4m
+                countdown = min(30 * (2 ** self.request.retries), 120)  # 30s, 1m, 2m (capped)
                 logger.warning(
                     "KI Tutor doc-summary: {} rate limited (attempt {}/3), retry in {}s",
                     source_uuid, self.request.retries + 1, countdown,
@@ -271,7 +271,7 @@ def run_translate_transcript_en(self, source_uuid: str, provider_id: int | None 
         msg = str(e).lower()
         is_rate_limit = "429" in msg or "rate limit" in msg
         if is_rate_limit and self.request.retries < 5:
-            countdown = 60 * (2 ** self.request.retries)
+            countdown = min(30 * (2 ** self.request.retries), 120)  # 30s..2m capped
             logger.warning(
                 "KI Tutor EN-translate: source {} hit rate limit (attempt {}/{}), retrying in {}s",
                 source_uuid, self.request.retries + 1, 5, countdown,
@@ -469,7 +469,7 @@ def run_generate_summaries(self, source_uuid: str, locale: str = "de"):
         # 6. Set status based on results
         if rate_limited:
             if self.request.retries < 5:
-                countdown = 60 * (2 ** self.request.retries)  # 1m, 2m, 4m, 8m, 16m
+                countdown = min(30 * (2 ** self.request.retries), 120)  # 30s, 1m, 2m, 2m, 2m (capped)
                 logger.warning(
                     "KI Tutor: summary rate limited for {} - saved partial results, retrying in {}s (attempt {}/{})",
                     source_uuid, countdown, self.request.retries + 1, 5,
@@ -501,7 +501,7 @@ def run_generate_summaries(self, source_uuid: str, locale: str = "de"):
         err_str = str(e)
         is_rate_limit = "429" in err_str or "rate" in err_str.lower()
         if is_rate_limit and self.request.retries < 5:
-            countdown = 60 * (2 ** self.request.retries)
+            countdown = min(30 * (2 ** self.request.retries), 120)  # 30s..2m capped
             logger.warning(
                 "KI Tutor: summary task hit rate limit before batch loop for {} (attempt {}/{}), retrying in {}s",
                 source_uuid, self.request.retries + 1, 5, countdown,
