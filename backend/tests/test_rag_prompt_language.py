@@ -34,7 +34,7 @@ def test_system_prompt_keeps_citation_keywords_verbatim_in_source_language():
     assert "verbatim" in sp.lower()
     assert "source" in sp.lower()
     # The few-shot demonstrates EN question -> EN answer with a DE keyword.
-    assert "Mentorin Lenka Kleinau" in sp
+    assert "Mentorin Erika Mustermann" in sp
     assert "English question" in sp
 
 
@@ -91,6 +91,15 @@ def test_user_message_preserves_verbatim_keyword_exception():
     # The one carve-out: citation keywords stay in the document's language.
     assert "verbatim" in msg.lower()
     assert "keyword" in msg.lower()
+
+
+def test_user_message_enforces_table_discipline():
+    # Small models habitually add an empty 'Hinweis'/'Note' column and cite a
+    # table only once. The recency reminder must forbid both.
+    msg = aia_rag_user_message("CTX", "Q").lower()
+    assert "table reminder" in msg
+    assert "hinweis" in msg or "note" in msg  # names the forbidden empty column
+    assert "every row" in msg                  # citation per row, not once
 
 
 def test_user_message_has_no_language_specific_wordlist():

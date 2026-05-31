@@ -189,7 +189,7 @@ def _parse_citations_to_chips(answer: str, qmap: list[dict]) -> list[dict]:
         keyword = (keywords or "").strip().strip("\"'") if keywords else ""
         # Match the Lernkarten/Vokabeltest pattern: highlight_text must be a
         # single verbatim token so exactSelection=true matching succeeds. LLM
-        # multi-word keyword phrases ("Mentorin Lenka Kleinau") often don't
+        # multi-word keyword phrases ("Mentorin Erika Mustermann") often don't
         # appear contiguously on the page and break exact match.
         keyword = keyword.split()[0] if keyword else ""
         # Same chunk-resolution as the glossary task: the LLM cites pages

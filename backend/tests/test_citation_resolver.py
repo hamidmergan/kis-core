@@ -29,7 +29,7 @@ def _pdf_index():
             "pages": {2, 3, 7},
             "chunks": [
                 {"page": 2, "start_time": None,
-                 "norm_content": _norm_for_match("Das Seminar wird von Lenka Kleinau geleitet.")},
+                 "norm_content": _norm_for_match("Das Seminar wird von Erika Mustermann geleitet.")},
                 {"page": 3, "start_time": None,
                  "norm_content": _norm_for_match("Formate sind Keynotes, Workshops und ein Konferenz-Dinner.")},
                 {"page": 7, "start_time": None,
@@ -154,14 +154,14 @@ def test_citation_without_keyword_keeps_real_page():
 
 def test_multiple_citations_mixed():
     text = (
-        "Lenka leitet. [1, S. 1 | Lenka Kleinau] "
+        "Erika leitet. [1, S. 1 | Erika Mustermann] "
         "Formate gibt es. [1, S. 99 | Konferenz-Dinner] "
         "Quatsch. [1, S. 50 | erfunden xyz]"
     )
     out = _resolve_citation_pages(text, _pdf_index())
     # 1st -> relocated to page 2 (keyword match), 2nd -> page 3, 3rd -> dropped.
     assert out == (
-        "Lenka leitet. [1, S. 2 | Lenka Kleinau] "
+        "Erika leitet. [1, S. 2 | Erika Mustermann] "
         "Formate gibt es. [1, S. 3 | Konferenz-Dinner] "
         "Quatsch. "
     )
@@ -315,10 +315,10 @@ def test_no_summary_heading_is_noop():
 # Mirrors the REAL stored chunk format: docling layout HTML with one labelled
 # <div> per region (Page-Footer/Header = furniture, everything else = body),
 # preceded by a duplicated plain-text rendering that must be IGNORED. The footer
-# "Mentorin Lenka Kleinau, M.Sc." sits on the COVER (page 1); page 2 is the body
+# "Mentorin Erika Mustermann, M.Sc." sits on the COVER (page 1); page 2 is the body
 # slide that actually introduces the mentor.
 
-_FOOTER = "Wissenschaftliches Seminar - Einführung - Lenka Kleinau, M.Sc."
+_FOOTER = "Wissenschaftliches Seminar - Einführung - Erika Mustermann, M.Sc."
 
 
 def _foot(txt):
@@ -329,17 +329,17 @@ def _mentor_chunks():
     return [
         # Cover: title + a footer credit naming the mentor (NOT body content).
         {"page_number": 1, "content":
-            "Wissenschaftliches Seminar\nEinführung\nMentorin Lenka Kleinau, M.Sc.\n1\n"
+            "Wissenschaftliches Seminar\nEinführung\nMentorin Erika Mustermann, M.Sc.\n1\n"
             '<div data-label="Title"><h1>Wissenschaftliches Seminar</h1></div>'
             '<div data-label="Section-Header"><h2>Einführung</h2></div>'
-            + _foot("Mentorin Lenka Kleinau, M.Sc.")
-            + _foot("Folieninhalte nach Sophie Jent")},
+            + _foot("Mentorin Erika Mustermann, M.Sc.")
+            + _foot("Folieninhalte nach Max Beispiel")},
         # Body slide: the mentor introduced as real content + the running footer.
         {"page_number": 2, "content":
-            "Lenka Kleinau\nKontakt\n2\n"
+            "Erika Mustermann\nKontakt\n2\n"
             '<div data-label="Section-Header"><h2>MENTORIN UND TUTORIN DES MODULS</h2></div>'
-            '<div data-label="Text"><p>Lenka Kleinau</p></div>'
-            '<div data-label="List-Group"><ul><li>Kontakt: lenka.kleinau@th-luebeck.de</li></ul></div>'
+            '<div data-label="Text"><p>Erika Mustermann</p></div>'
+            '<div data-label="List-Group"><ul><li>Kontakt: erika.mustermann@example.com</li></ul></div>'
             + _foot(_FOOTER)},
         {"page_number": 3, "content":
             "Kurskonzept\nPrüfungsleistung\n3\n"
@@ -355,21 +355,21 @@ def _mentor_chunks():
 def test_build_page_regions_splits_body_and_boiler():
     reg = _build_page_regions(_mentor_chunks())
     # Cover footer credit is boilerplate on page 1, not body.
-    assert "lenka kleinau" not in reg[1]["body"]
-    assert "lenka kleinau" in reg[1]["boiler"]
+    assert "erika mustermann" not in reg[1]["body"]
+    assert "erika mustermann" in reg[1]["boiler"]
     # Page 2 introduces the mentor in the BODY.
-    assert "lenka kleinau" in reg[2]["body"]
+    assert "erika mustermann" in reg[2]["body"]
     # The running footer is boilerplate on every content page.
-    assert "lenka kleinau" not in reg[3]["body"]
+    assert "erika mustermann" not in reg[3]["body"]
     assert _norm_for_match(_FOOTER) in reg[3]["boiler"]
     # The duplicated plain-text rendering must NOT leak into body.
     assert "prüfungsleistung" in reg[3]["body"]
 
 
 def _mentor_index():
-    # Summaries the model saw: page 1 says "Mentor: Lenka Kleinau" (from the cover
+    # Summaries the model saw: page 1 says "Mentor: Erika Mustermann" (from the cover
     # footer), page 2 is the real mentor slide. The model cites S.1 with keyword
-    # "Mentor Lenka Kleinau"; the colon makes it miss rule-2 -> rule-3 keeps S.1
+    # "Mentor Erika Mustermann"; the colon makes it miss rule-2 -> rule-3 keeps S.1
     # unless the footer de-weighting re-grounds it.
     return {
         4: {
@@ -377,9 +377,9 @@ def _mentor_index():
             "pages": {1, 2, 3, 4},
             "chunks": [
                 {"page": 1, "start_time": None,
-                 "norm_content": _norm_for_match("Einführung. Mentor: Lenka Kleinau, M.Sc.")},
+                 "norm_content": _norm_for_match("Einführung. Mentor: Erika Mustermann, M.Sc.")},
                 {"page": 2, "start_time": None,
-                 "norm_content": _norm_for_match("Mentorin und Tutorinnen: Lenka Kleinau. Kontakt.")},
+                 "norm_content": _norm_for_match("Mentorin und Tutorinnen: Erika Mustermann. Kontakt.")},
                 {"page": 3, "start_time": None,
                  "norm_content": _norm_for_match("Inhalte: Kurskonzept, Prüfungsleistung.")},
             ],
@@ -390,8 +390,8 @@ def _mentor_index():
 
 def test_reroutes_footer_credit_to_body_page():
     # Cover footer match (S.1) re-grounds to the body slide (S.2).
-    out = _resolve_citation_pages("Mentorin ist Lenka Kleinau. [4, S. 1 | Mentor Lenka Kleinau]", _mentor_index())
-    assert out == "Mentorin ist Lenka Kleinau. [4, S. 2 | Mentor Lenka Kleinau]"
+    out = _resolve_citation_pages("Mentorin ist Erika Mustermann. [4, S. 1 | Mentor Erika Mustermann]", _mentor_index())
+    assert out == "Mentorin ist Erika Mustermann. [4, S. 2 | Mentor Erika Mustermann]"
 
 
 def test_genuine_body_match_is_not_rerouted():
@@ -404,8 +404,8 @@ def test_no_reroute_without_page_regions():
     # Same data but no page_regions attached -> behaves as before (keeps S.1).
     idx = _mentor_index()
     del idx[4]["page_regions"]
-    out = _resolve_citation_pages("X. [4, S. 1 | Mentor Lenka Kleinau]", idx)
-    assert out == "X. [4, S. 1 | Mentor Lenka Kleinau]"
+    out = _resolve_citation_pages("X. [4, S. 1 | Mentor Erika Mustermann]", idx)
+    assert out == "X. [4, S. 1 | Mentor Erika Mustermann]"
 
 
 def test_no_reroute_when_term_ambiguous_across_body_pages():
@@ -413,19 +413,19 @@ def test_no_reroute_when_term_ambiguous_across_body_pages():
     chunks = _mentor_chunks()
     chunks.append({"page_number": 5, "content":
         "noch\n5\n"
-        '<div data-label="Text"><p>Nochmal Lenka Kleinau im Body</p></div>' + _foot(_FOOTER)})
+        '<div data-label="Text"><p>Nochmal Erika Mustermann im Body</p></div>' + _foot(_FOOTER)})
     idx = _mentor_index()
     idx[4]["pages"] = {1, 2, 3, 4, 5}
     idx[4]["page_regions"] = _build_page_regions(chunks)
-    out = _resolve_citation_pages("X. [4, S. 1 | Mentor Lenka Kleinau]", idx)
-    assert out == "X. [4, S. 1 | Mentor Lenka Kleinau]"
+    out = _resolve_citation_pages("X. [4, S. 1 | Mentor Erika Mustermann]", idx)
+    assert out == "X. [4, S. 1 | Mentor Erika Mustermann]"
 
 
 def test_boilerplate_only_term_stays_on_model_page():
-    # "Folieninhalte nach Sophie" exists ONLY in the page-1 footer (no body page)
+    # "Folieninhalte nach Max" exists ONLY in the page-1 footer (no body page)
     # -> no single body target -> keep the model's page (footer stays a fallback).
-    out = _resolve_citation_pages("X. [4, S. 3 | Folieninhalte nach Sophie]", _mentor_index())
-    assert out == "X. [4, S. 3 | Folieninhalte nach Sophie]"
+    out = _resolve_citation_pages("X. [4, S. 3 | Folieninhalte nach Max]", _mentor_index())
+    assert out == "X. [4, S. 3 | Folieninhalte nach Max]"
 
 
 def test_footer_deweighting_is_language_agnostic():
@@ -466,7 +466,7 @@ def test_footer_deweighting_is_language_agnostic():
 
 def test_best_body_anchor_picks_longest_grounded_subphrase():
     reg = _build_page_regions(_mentor_chunks())
-    # "mentor lenka kleinau" isn't contiguous in any body; "lenka kleinau" is.
-    assert _best_body_anchor("mentor lenka kleinau", reg) == "lenka kleinau"
+    # "mentor erika mustermann" isn't contiguous in any body; "erika mustermann" is.
+    assert _best_body_anchor("mentor erika mustermann", reg) == "erika mustermann"
     # A single-token keyword yields no anchor (needs >= 2 tokens).
-    assert _best_body_anchor("kleinau", reg) is None
+    assert _best_body_anchor("mustermann", reg) is None

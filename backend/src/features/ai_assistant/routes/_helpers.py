@@ -145,7 +145,7 @@ def _norm_for_match(s: str) -> str:
 # ─── Header/footer de-weighting for citation grounding ──────────────────────
 # A name or term in a running header/footer (page furniture, slide credits)
 # repeats across pages and can outrank the body slide that actually covers the
-# topic - e.g. "Mentorin Lenka Kleinau, M.Sc." sits in the cover slide's FOOTER,
+# topic - e.g. "Mentorin Erika Mustermann, M.Sc." sits in the cover slide's FOOTER,
 # so a citation grounds to the title page instead of the body page that lists the
 # mentor with contact details. We split each page into body vs boilerplate and,
 # when a keyword only matched the boilerplate, re-ground it onto the body page.
