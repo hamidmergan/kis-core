@@ -106,7 +106,7 @@ AIA_SUMMARY_CONTENT_MAX_CHARS       = 3000   # max chars per page to LLM (25x300
 AIA_SUMMARY_PARALLEL_WORKERS_SMALL  = 2      # ollama: parallel single requests (lowered 5->2 to stay under provider rate limits)
 AIA_SUMMARY_PARALLEL_WORKERS_LARGE  = 2      # cloud: parallel batch requests (lowered 5->2; 5 concurrent 16k-token batches tripped myLab 429)
 AIA_SUMMARY_BATCH_SIZE              = 25     # pages per batch request (300 pages = 12 requests)
-AIA_SOURCE_MAX_PAGES                = 300     # max pages per PDF/DOCX/PPTX upload
+AIA_SOURCE_MAX_PAGES                = 500     # max pages per PDF/DOCX/PPTX upload
 AIA_WORKSPACE_MAX_SOURCES              = 30      # max sources per workspace
 
 # --- AI tutor GENERIC context budget ----------------------------------------
@@ -120,7 +120,7 @@ AIA_WORKSPACE_MAX_SOURCES              = 30      # max sources per workspace
 AIA_CONTEXT_MAX_CHARS                  = 60000
 # Safety ceiling on how many summary/chunk segments ONE source contributes to a
 # generic overview before round-robin + the char budget take over. Set well
-# above AIA_SOURCE_MAX_PAGES (300) so PDFs are never down-sampled — every
+# above AIA_SOURCE_MAX_PAGES (500) so PDFs are never down-sampled — every
 # page-summary becomes a candidate and the budget, not this cap, decides what
 # survives.
 AIA_GENERIC_MAX_SEGMENTS_PER_SOURCE    = 900
