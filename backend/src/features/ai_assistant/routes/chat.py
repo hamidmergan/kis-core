@@ -25,6 +25,8 @@ from src.limits import (
     AIA_WORKSPACE_MAX_SOURCES,
     AIA_WORKSPACE_MAX_ACCESS_LINKS,
     AIA_NOTES_MAX_PER_USER,
+    AIA_CONTEXT_MAX_CHARS,
+    AIA_GENERIC_MAX_SEGMENTS_PER_SOURCE,
 )
 from src.security.rate_limit import enforce_burst
 from src.security.usage_log import log_request as _log_usage

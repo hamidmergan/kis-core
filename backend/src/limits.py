@@ -108,6 +108,22 @@ AIA_SUMMARY_PARALLEL_WORKERS_LARGE  = 5      # cloud: parallel batch requests
 AIA_SUMMARY_BATCH_SIZE              = 25     # pages per batch request (300 pages = 12 requests)
 AIA_SOURCE_MAX_PAGES                = 300     # max pages per PDF/DOCX/PPTX upload
 AIA_WORKSPACE_MAX_SOURCES              = 30      # max sources per workspace
+
+# --- AI tutor GENERIC context budget ----------------------------------------
+# The overview path fills context round-robin across the active sources and
+# truncates at this CHARACTER budget — sized for the smallest supported tier
+# (Small, 8B / 32k context). Math: 32k tokens minus reserve for system prompt +
+# question + history + answer ≈ ~24k tokens of context; at a conservative
+# ~3.5 chars/token (mixed DE / non-Latin scripts) ≈ ~60k chars. Shared by the
+# SPECIFIC path too (same context builder), so a topic answer also fits 32k.
+# Raise this if a deployment only runs large models.
+AIA_CONTEXT_MAX_CHARS                  = 60000
+# Safety ceiling on how many summary/chunk segments ONE source contributes to a
+# generic overview before round-robin + the char budget take over. Set well
+# above AIA_SOURCE_MAX_PAGES (300) so PDFs are never down-sampled — every
+# page-summary becomes a candidate and the budget, not this cap, decides what
+# survives.
+AIA_GENERIC_MAX_SEGMENTS_PER_SOURCE    = 900
 AIA_WORKSPACE_MAX_ACCESS_LINKS         = 10      # max enrollment links per workspace
 AIA_NOTES_MAX_PER_USER              = 100     # max notes per user per workspace
 GLOSSARY_LIMIT                        = 150     # max glossary entries per workspace
