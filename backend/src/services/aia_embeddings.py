@@ -96,10 +96,17 @@ def get_embedding_provider() -> EmbeddingProvider:
 
 
 def compute_fingerprint(provider: EmbeddingProvider) -> str:
-    """Embed a fixed sentinel string and return the vector as a JSON string.
+    """Return a stable identity of the embedding space: model name + dimension.
 
-    The fingerprint is stored alongside indexed sources so we can detect
-    model drift (different model -> different fingerprint).
+    Stored alongside indexed sources/workspaces so we can detect model drift
+    (a different model -> a different fingerprint -> "needs reindex").
+
+    We embed a fixed sentinel ONLY to learn the provider's true output
+    dimension; we deliberately do NOT hash the raw floats. Real providers
+    (vLLM/KISSKI e.g. e5-mistral) return slightly different vectors on every
+    call (non-deterministic), so a float-based fingerprint never matches itself
+    and the reindex warning would be permanently stuck — even right after a
+    successful reindex.
     """
-    vector = provider.embed_one("KIS Tutor Embedding Fingerprint v1")
-    return json.dumps(vector)
+    dim = len(provider.embed_one("KIS Tutor Embedding Fingerprint v1"))
+    return json.dumps({"model": provider.model_name, "dim": dim}, sort_keys=True)
