@@ -342,6 +342,13 @@ def _strip_summary_citations(text: str) -> str:
     if last is None:
         return text
     head, tail = text[: last.end()], text[last.end():]
+    # Only strip when a CITED body precedes the heading — that is what makes it a
+    # genuine closing recap. If nothing cited comes before it, the heading is the
+    # TITLE of a summary-style answer (the model loves to open "fasse zusammen"
+    # output with a "Zusammenfassung" heading); stripping would then wipe every
+    # chip in the whole answer.
+    if not _CITE_RESOLVE_RE.search(head):
+        return text
     tail = _CITE_RESOLVE_RE.sub("", tail)
     # Tidy whitespace left where citations were removed (keep newlines/markdown).
     tail = re.sub(r"[ \t]+([.,;:!?])", r"\1", tail)

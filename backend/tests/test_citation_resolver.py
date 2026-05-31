@@ -311,6 +311,36 @@ def test_no_summary_heading_is_noop():
     assert _strip_summary_citations(text) == text
 
 
+def test_summary_heading_as_title_keeps_body_citations():
+    # "fasse zusammen" answers often OPEN with a "Zusammenfassung" heading and put
+    # the whole cited answer under it. Nothing cited precedes the heading, so it is
+    # a title, NOT a closing recap -> every chip must survive.
+    text = (
+        "## Zusammenfassung\n\n"
+        "Brüche werden behandelt. [1, S. 4 | Brüche]\n\n"
+        "Potenzen folgen. [1, S. 9 | Potenzen]"
+    )
+    assert _strip_summary_citations(text) == text
+
+
+def test_title_plus_closing_recap_strips_only_recap():
+    # Title heading at the top AND a real closing recap at the end: the body
+    # carries citations, so the LAST heading's recap is stripped, body kept.
+    text = (
+        "## Zusammenfassung\n\n"
+        "Brüche werden behandelt. [1, S. 4 | Brüche]\n\n"
+        "## Fazit\n\n"
+        "Insgesamt solide. [1, S. 9 | solide]"
+    )
+    out = _strip_summary_citations(text)
+    assert out == (
+        "## Zusammenfassung\n\n"
+        "Brüche werden behandelt. [1, S. 4 | Brüche]\n\n"
+        "## Fazit\n\n"
+        "Insgesamt solide."
+    )
+
+
 # ─── Header/footer de-weighting (_build_page_regions / _reroute_to_body) ─────
 # Mirrors the REAL stored chunk format: docling layout HTML with one labelled
 # <div> per region (Page-Footer/Header = furniture, everything else = body),
