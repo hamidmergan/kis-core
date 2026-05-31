@@ -84,7 +84,6 @@
       "creating": "Creating…",
       "generatingScripts": "Generating scripts…",
       "resumeScreencast": "Resume screencast →",
-      "resumeDemo": "Resume demo →",
       "downloadAllZip": "Download all (ZIP)",
       "fallbackFile": "File"
     },
@@ -221,9 +220,8 @@
     "translate": {
       "title": "Translation",
       "intro": "Translate documents into other languages. Layout and formatting are preserved.",
-      "sourceLang": "Source language",
       "targetLang": "Target language",
-      "autoDetect": "Auto-detect",
+      "autoDetectHint": "The source language is detected automatically.",
       "engine": "Translation engine",
       "submit": "Translate",
       "longRunning": "Still running - large documents may take a few minutes…",
@@ -435,7 +433,6 @@
     "screencast": {
       "title": "Screencast",
       "intro": "Turn PowerPoint slides into a narrated video, optionally in another language.",
-      "demoBadge": "View demo →",
       "resetStart": "Start over",
       "cancelScreencast": "Cancel screencast",
       "resuming": "Restoring screencast…",
@@ -466,8 +463,8 @@
         "replaceHint": "Click or drag another file here",
         "onlyPptx": "Only .pptx file",
         "skipTranslation": "Presentation already translated (skip translation)",
-        "sourceLang": "Source language",
         "targetLang": "Target language",
+        "autoDetectHint": "The source language is detected automatically.",
         "translationProvider": "Translation provider"
       },
       "translating": {
@@ -609,20 +606,6 @@
       "selectJsonFirst": "Please select a JSON file first.",
       "jobUnavailable": "Job data no longer available - please start a new screencast.",
       "jobDeleted": "The job was deleted or cancelled. Please start a new screencast."
-    },
-    "screencastDemo": {
-      "backToScreencast": "Back",
-      "demoBadge": "Demo",
-      "title": "Screencast",
-      "intro": "Turn PowerPoint slides into a narrated video, optionally in another language.",
-      "startDemo": "Start demo",
-      "loadingDemo": "Loading demo...",
-      "loadingDemoSubtle": "This may take a few seconds depending on file size.",
-      "loadDemoError": "Could not load demo",
-      "loadScriptsError": "Could not load scripts",
-      "notAvailableInDemo": "Not available in the demo",
-      "selectJsonFile": "Select JSON file",
-      "errorWithCode": "Error: {code}"
     }
   },
   "admin": {
@@ -1455,7 +1438,14 @@
   },
   "langLabels": {
     "DE": "German",
-    "EN-US": "English"
+    "EN-US": "English",
+    "FR": "French",
+    "ES": "Spanish",
+    "IT": "Italian",
+    "UK": "Ukrainian",
+    "TR": "Turkish",
+    "AR": "Arabic",
+    "RU": "Russian"
   },
   "workspace": {
     "detail": {

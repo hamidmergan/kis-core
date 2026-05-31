@@ -37,7 +37,6 @@ import { useVoices } from "@/hooks/useVoices";
 import { useScriptEditing, useScriptAutosave } from "@/hooks/useScriptEditing";
 import { useScreencastResume, useSlideImageBackfill, useActiveJobCheck } from "@/hooks/useScreencastResume";
 import { useLanguageConfig } from "@/hooks/useLanguageConfig";
-import { useEnabledTools } from "@/hooks/useEnabledTools";
 import { useRenderResult } from "@/hooks/useRenderResult";
 import { useFailedRender } from "@/hooks/useFailedRender";
 import { useScriptInputMode } from "@/hooks/useScriptInputMode";
@@ -119,10 +118,8 @@ function ScreencastPageInner() {
   useEffect(() => {
     if (defaultVoiceId && !voiceId) setVoiceId(defaultVoiceId);
   }, [defaultVoiceId, voiceId]);
-  const { languages, sourceLang, setSourceLang, targetLang, setTargetLang } = useLanguageConfig();
-  const { isToolEnabled } = useEnabledTools();
-  const showDemoLink = isToolEnabled("screencast-demo");
-
+  const { languages, targetLang, setTargetLang } = useLanguageConfig();
+  const [skipTranslation, setSkipTranslation] = useState(false);
   const [hasActiveJob, setHasActiveJob] = useActiveJobCheck("screencast");
 
   useEffect(() => {
@@ -203,7 +200,7 @@ function ScreencastPageInner() {
     resetScriptEditing();
     failedRender.clear();
     sessionStorage.removeItem(RENDER_SESSION_KEY);
-    setSourceLang("DE");
+    setSkipTranslation(false);
     setTargetLang("EN-US");
     scriptInput.reset();
     if (fileRef.current) fileRef.current.value = "";
@@ -305,7 +302,7 @@ function ScreencastPageInner() {
     slides,
     dispatch,
     file,
-    sourceLang,
+    skipTranslation,
     targetLang,
     glossaryIds,
     translationProviderId,
@@ -409,7 +406,7 @@ function ScreencastPageInner() {
             <ScreencastStepper
               step={step}
               maxReachedIdx={maxReachedIdx}
-              sourceLang={sourceLang}
+              skipTranslation={skipTranslation}
               onStepClick={handleStepClick}
             />
             <div className="flex justify-between mb-6">
@@ -446,12 +443,11 @@ function ScreencastPageInner() {
         {/* ── Step: Upload ── */}
         {!resumeLoading && step === "upload" && (
           <UploadStep
-            showDemoLink={showDemoLink}
             hasActiveJob={hasActiveJob}
             file={file}
             fileError={fileError}
             dragOver={dragOver}
-            sourceLang={sourceLang}
+            skipTranslation={skipTranslation}
             targetLang={targetLang}
             languages={languages}
             glossaryIds={glossaryIds}
@@ -460,7 +456,7 @@ function ScreencastPageInner() {
             onDragLeave={handleDragLeave}
             onDrop={handleDrop}
             onFileSelect={handleFileSelect}
-            onSourceLangChange={setSourceLang}
+            onSkipTranslationChange={setSkipTranslation}
             onTargetLangChange={setTargetLang}
             onGlossaryIdsChange={setGlossaryIds}
             translationProviders={translationProviders}
@@ -473,8 +469,7 @@ function ScreencastPageInner() {
         {/* ── Step: Translating (loading) ── */}
         {!resumeLoading && step === "translating" && (
           <TranslatingStep
-            sourceLang={sourceLang}
-            targetLang={targetLang}
+            skipTranslation={skipTranslation}
             onCancel={() => {
               const uuid = currentJobUuidRef.current;
               currentJobUuidRef.current = null;

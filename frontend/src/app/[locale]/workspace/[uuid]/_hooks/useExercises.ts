@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useState } from "react";
+import { api } from "@/lib/api";
 import { _chunkLabel } from "../_utils";
 import type { ExerciseSet } from "../_types";
 
@@ -47,8 +48,10 @@ export function useExercises({ uuid }: UseExercisesOptions) {
 
   const createExerciseSet = useCallback(async (tool: string, mode: string, count: number, sourceUuid?: string) => {
     try {
-      const res = await fetch(`/api/ai-assistant/workspaces/${uuid}/exercise-sets`, {
-        method: "POST", credentials: "include",
+      // api.fetch attaches Accept-Language from the NEXT_LOCALE cookie so the
+      // backend generates the set in the UI language (raw fetch defaulted to de).
+      const res = await api.fetch(`/api/ai-assistant/workspaces/${uuid}/exercise-sets`, {
+        method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ tool, mode, count, source_uuid: sourceUuid }),
       });

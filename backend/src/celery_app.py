@@ -35,7 +35,6 @@ celery_app.conf.update(
         "screencast.translate": {"queue": "screencast"},
         "screencast.render": {"queue": "screencast"},
         "screencast.auto": {"queue": "screencast"},
-        "screencast.demo_render": {"queue": "screencast"},
         "watchdog.check": {"queue": "general"},
         # AI tutor: dedicated queue for learning tools and language training
         "aia.index_source": {"queue": "aia"},

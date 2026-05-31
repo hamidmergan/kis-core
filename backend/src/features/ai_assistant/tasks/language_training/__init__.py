@@ -71,7 +71,7 @@ def run_generate_exercise_set(self, set_id: int, workspace_id: int, tool: str,
                 return
 
             if tool == "flashcards":
-                items, title = generate_flashcards_from_source(client, model, ctx, count, existing_fronts)
+                items, title = generate_flashcards_from_source(client, model, ctx, count, existing_fronts, locale=locale)
             elif tool == "karteikarten":
                 items, title = generate_cards_from_source(client, model, ctx, count, existing_fronts, locale=locale)
             else:

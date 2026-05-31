@@ -149,7 +149,8 @@ def aia_system_rag(target_locale: str = "de") -> str:
         "  - Only add table columns you can actually fill from the sources. NEVER invent a placeholder column (e.g. a 'Note'/'Hinweis' column) whose cells end up empty or '–'. If most cells of a column would be empty, drop that column entirely.\n"
         "  - In a table, EVERY row carries its OWN citation(s) at the end of its last cell — even when several rows share the same source/page, repeat the citation on each row. NEVER place one citation under or after the table to cover multiple rows.\n"
         "  - The citation rules below STILL apply: every sentence, bullet, or table cell keeps its citation(s). Place the citation at the END of that bullet/sentence/cell.\n"
-        "  - End your answer with a short closing summary under its OWN heading line. The heading is the word for 'Summary' IN YOUR ANSWER'S OWN LANGUAGE — e.g. '## Zusammenfassung' (German), '## Summary' (English), '## Résumé' (French), '## Resumen' (Spanish). Restate the key points in 2-4 sentences. This closing summary must contain NO citations — it only recaps what was already cited above.\n"
+        "  - Add a closing summary ONLY when the answer is genuinely long — several paragraphs OR multiple distinct topics/headings. For a short answer (a single fact, a few sentences, or one topic) do NOT add any summary: it just repeats what was already said. When in doubt, leave it out.\n"
+        "  - WHEN you do add it: put it under its OWN heading line whose text is the word for 'Summary' IN YOUR ANSWER'S OWN LANGUAGE — e.g. '## Zusammenfassung' (German), '## Summary' (English), '## Résumé' (French), '## Resumen' (Spanish). Restate the key points in 2-4 sentences. This closing summary must contain NO citations — it only recaps what was already cited above.\n"
         "\n"
         "CITATION FORMAT (strict):\n"
         "Documents are provided as XML. Each <document index=\"N\"> block has:\n"
@@ -168,7 +169,7 @@ def aia_system_rag(target_locale: str = "de") -> str:
         "Hard rules — do NOT break these:\n"
         "  - NEVER invent a position label. The text 'Teil 1', 'Folie 2', 'Kapitel 3' etc. inside <content> is part of the spoken text, NOT a citation position. Ignore it.\n"
         "  - NEVER write a citation as just '[N]' without page or timestamp.\n"
-        "  - EVERY bullet and line gets its own citation — INCLUDING aggregating, grouping, or summarizing lines that restate or categorize facts you already cited on earlier lines (e.g. a 'methods per video' or 'overview per source' list). Carry the relevant citation(s) onto that line too. If a line's claim cannot be grounded with a citation, OMIT the claim. The ONLY citation-free part of the entire answer is the closing '## Zusammenfassung' / '## Summary'.\n"
+        "  - EVERY bullet and line gets its own citation — INCLUDING aggregating, grouping, or summarizing lines that restate or categorize facts you already cited on earlier lines (e.g. a 'methods per video' or 'overview per source' list). Carry the relevant citation(s) onto that line too. If a line's claim cannot be grounded with a citation, OMIT the claim. The ONLY citation-free part of the entire answer is the closing '## Zusammenfassung' / '## Summary' — IF you added one.\n"
         "  - NEVER close the bracket before the position. WRONG: '[1] S. 5'. WRONG: '[2] 03:42'. RIGHT: '[1, S. 5 | keyword]'. RIGHT: '[2, 03:42 | keyword]'.\n"
         "  - NEVER mix S. and MM:SS in the same citation.\n"
         "  - Cite exactly ONE page. NEVER a page range. WRONG: '[1, S. 6-7 | ...]', WRONG: '[2, S. 15-20 | ...]'. Pick the single most relevant page: RIGHT: '[1, S. 6 | ...]'.\n"
@@ -430,7 +431,7 @@ AIA_DOC_SUMMARY_USER = "Document content:\n\n{content}"
 
 AIA_MINDMAP_PROMPT = (
     "You are an expert in knowledge structuring. Create a hierarchical mind map from the given text.\n\n"
-    "Respond ONLY with a JSON object in exactly this format (4 levels). Topic, keyword, and labels MUST be in the source-text language:\n"
+    "Respond ONLY with a JSON object in exactly this format (4 levels). Topic and labels MUST be in {language}; the 'keyword' field MUST stay VERBATIM in the source-text language (see keyword rule below):\n"
     "{\n"
     '  "topic": "Central topic",\n'
     '  "children": [\n'
@@ -465,7 +466,7 @@ AIA_MINDMAP_PROMPT = (
     "- Only use information from the given text\n"
     "- When sources cover different topics: pick a connecting umbrella as the root, split main topics by subject area\n"
     "- For a single source: root = core topic of the document\n"
-    "- Output language: write topic, keyword, and labels in the SAME language as the source text (German source -> German labels). Field names stay English.\n"
+    "- Output language: write topic and node labels in {language}, regardless of the source-text language (translate the facts if needed). Field names stay English. EXCEPTION: the 'keyword' field MUST stay VERBATIM in the source-text language for PDF highlighting (see keyword rule).\n"
     "- IMPORTANT: every node (except root) MUST include source_label and page_number. "
     "source_label is the exact filename from the source citations [Filename, S. X] or [Filename, M:SS]. "
     "page_number is the page number (e.g. 3) or for audio/video sources the timestamp as a string (e.g. \"1:30\" or \"1:05:30\"), "
@@ -479,12 +480,18 @@ AIA_MINDMAP_PROMPT = (
 )
 
 AIA_LERNKARTEN_PROMPT = (
-    "You are a language teacher for international students at German level B1. "
+    "You are a language teacher for international students at CEFR level B1. "
     "Create flashcards for technical terms from the given text.\n\n"
-    "IMPORTANT: All German content MUST be understandable at B1 level: simple words, short sentences, no nested clauses.\n\n"
-    "Respond ONLY with a JSON object in exactly this format. The German fields (begriff, definition, word_parts, word_parts_explained, example_sentence, title) MUST be in German:\n"
+    "IMPORTANT: All explanations MUST be understandable at B1 level: simple words, short sentences, no nested clauses.\n\n"
+    "CRITICAL LANGUAGE RULE (overrides everything else): Write the explanatory fields "
+    "(title, definition, word_parts_explained, example_sentence) ENTIRELY in {language}. "
+    "Some examples further down are written in German for illustration only - IGNORE their language and always write in {language}. "
+    "The 'begriff' (the technical term itself) and 'word_parts' (its morphological split) stay VERBATIM in the source-text language "
+    "- they are the term being studied and are matched against the source for highlighting. "
+    "So an English card about a German term reads e.g. begriff='Literaturrecherche', definition='Searching for books and articles to gather information.'\n\n"
+    "Respond ONLY with a JSON object in exactly this format:\n"
     "{\n"
-    '  "title": "Short title summarizing the topic (in German)",\n'
+    '  "title": "Short title summarizing the topic (in {language})",\n'
     '  "cards": [\n'
     "    {\n"
     '      "begriff": "Fachbegriff",\n'
@@ -502,7 +509,7 @@ AIA_LERNKARTEN_PROMPT = (
     "- Create exactly {count} flashcards\n"
     "- Cards MUST cover ALL sources, not just one. Distribute evenly.\n"
     "- begriff: a central German technical term from the text\n"
-    "- definition: simple definition in German. Write it so a student with B1 German understands it immediately. "
+    "- definition: simple definition in {language}. Write it so a B1-level student understands it immediately. "
     "No technical jargon in the explanation. Explain technical terms with simple language.\n"
     "- word_parts: split into MEANINGFUL word parts (e.g. 'Studien + Abbruch + Quote'). "
     "ONLY for compound German words made of 2+ meaning-carrying parts. "
@@ -518,16 +525,18 @@ AIA_LERNKARTEN_PROMPT = (
     "- source_label and page_number: the primary source from the [SourceName, S. X] tags\n"
     "- Only use terms from the given text\n"
     "- Focus on central technical terms, NO comprehension questions\n"
+    "- REMINDER: title, definition, word_parts_explained and example_sentence MUST be written in {language} "
+    "(only begriff and word_parts keep the source language).\n"
     "- Respond ONLY with the JSON object, no other text."
 )
 
 AIA_KARTEIKARTEN_QUESTIONS_PROMPT = (
     "You are an expert in learning materials. Generate {count} comprehension questions from the given documents. "
     "Each question must be answerable using ONLY the documents (no general knowledge). "
-    "Write the questions in the SAME language as the source text.\n\n"
+    "Write the questions in {language}, regardless of the source-text language. Translate source content into {language} if needed.\n\n"
     "Respond ONLY with a JSON object in exactly this format:\n"
     "{\n"
-    '  "title": "Short title summarizing the overall topic (in source language)",\n'
+    '  "title": "Short title summarizing the overall topic (in {language})",\n'
     '  "questions": ["Question 1?", "Question 2?", "Question 3?"]\n'
     "}\n\n"
     "Rules:\n"
@@ -548,10 +557,10 @@ AIA_KARTEIKARTEN_QUESTIONS_PROMPT = (
 AIA_DATENTABELLE_PROMPT = (
     "You are an expert in data extraction and structuring. "
     "Analyze the given text and create a structured data table. "
-    "Write title, column headers, and cell values in the SAME language as the source text (German source -> German values).\n\n"
+    "Write title, column headers, and cell values in {language}, regardless of the source-text language (translate the content if needed). EXCEPTION: the 'highlight' field MUST stay VERBATIM in the source-text language for PDF highlighting (see highlight rule).\n\n"
     "Respond ONLY with a JSON object in exactly this format:\n"
     "{\n"
-    '  "title": "Descriptive table title (in source language)",\n'
+    '  "title": "Descriptive table title (in {language})",\n'
     '  "columns": ["Column1", "Column2", "Column3"],\n'
     '  "rows": [\n'
     '    { "cells": ["Value1", "Value2", "Value3"], "sources": [{"source_label": "Filename.pdf", "page": 3, "highlight": "TechTerm"}] },\n'

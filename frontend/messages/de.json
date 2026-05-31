@@ -84,7 +84,6 @@
       "creating": "Wird erstellt…",
       "generatingScripts": "Skripte werden generiert…",
       "resumeScreencast": "Screencast fortsetzen →",
-      "resumeDemo": "Demo fortsetzen →",
       "downloadAllZip": "Alles herunterladen (ZIP)",
       "fallbackFile": "Datei"
     },
@@ -221,9 +220,8 @@
     "translate": {
       "title": "Übersetzung",
       "intro": "Dokumente in andere Sprachen übersetzen. Layout und Formatierung bleiben erhalten.",
-      "sourceLang": "Quellsprache",
       "targetLang": "Zielsprache",
-      "autoDetect": "Automatisch erkennen",
+      "autoDetectHint": "Die Quellsprache wird automatisch erkannt.",
       "engine": "Übersetzungs-Engine",
       "submit": "Übersetzen",
       "longRunning": "Läuft noch - große Dokumente können einige Minuten dauern…",
@@ -435,7 +433,6 @@
     "screencast": {
       "title": "Screencast",
       "intro": "Aus PowerPoint-Folien ein vertontes Video erzeugen, wahlweise in einer anderen Sprache.",
-      "demoBadge": "Demo ansehen →",
       "resetStart": "Neu starten",
       "cancelScreencast": "Screencast abbrechen",
       "resuming": "Screencast wird wiederhergestellt…",
@@ -466,8 +463,8 @@
         "replaceHint": "Klicken oder ziehen Sie eine andere Datei hierher",
         "onlyPptx": "Nur .pptx-Datei",
         "skipTranslation": "Präsentation bereits übersetzt (Übersetzung überspringen)",
-        "sourceLang": "Quellsprache",
         "targetLang": "Zielsprache",
+        "autoDetectHint": "Die Quellsprache wird automatisch erkannt.",
         "translationProvider": "Übersetzungsanbieter"
       },
       "translating": {
@@ -609,20 +606,6 @@
       "selectJsonFirst": "Bitte zuerst eine JSON-Datei auswählen.",
       "jobUnavailable": "Job-Daten nicht mehr verfügbar - bitte neuen Screencast starten",
       "jobDeleted": "Der Job wurde gelöscht oder abgebrochen. Bitte starte einen neuen Screencast."
-    },
-    "screencastDemo": {
-      "backToScreencast": "Zurück",
-      "demoBadge": "Demo",
-      "title": "Screencast",
-      "intro": "Aus PowerPoint-Folien ein vertontes Video erzeugen, wahlweise in einer anderen Sprache.",
-      "startDemo": "Demo starten",
-      "loadingDemo": "Demo wird geladen...",
-      "loadingDemoSubtle": "Das kann je nach Dateigröße einige Sekunden dauern.",
-      "loadDemoError": "Fehler beim Laden der Demo",
-      "loadScriptsError": "Fehler beim Laden der Skripte",
-      "notAvailableInDemo": "Nicht in der Demo verfügbar",
-      "selectJsonFile": "JSON-Datei auswählen",
-      "errorWithCode": "Fehler: {code}"
     }
   },
   "admin": {
@@ -1455,7 +1438,14 @@
   },
   "langLabels": {
     "DE": "Deutsch",
-    "EN-US": "Englisch"
+    "EN-US": "Englisch",
+    "FR": "Französisch",
+    "ES": "Spanisch",
+    "IT": "Italienisch",
+    "UK": "Ukrainisch",
+    "TR": "Türkisch",
+    "AR": "Arabisch",
+    "RU": "Russisch"
   },
   "workspace": {
     "detail": {

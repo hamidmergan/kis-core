@@ -87,7 +87,7 @@ async def generate_data_table(
     from src.tasks.aia_tasks import run_generate_data_table
     # Convert int keys to str for JSON serialization
     source_map_str = {str(k): v for k, v in source_map.items()}
-    run_generate_data_table.delay(data_table_id, source_ids, body.active_source_ids, source_map_str)
+    run_generate_data_table.delay(data_table_id, source_ids, body.active_source_ids, source_map_str, locale=locale)
     return {"data_table_id": data_table_id, "status": "pending"}
 
 @router.get("/ai-assistant/workspaces/{workspace_uuid}/data_table/{data_table_id}")

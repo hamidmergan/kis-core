@@ -19,7 +19,9 @@ SUPPORTED_LOCALES = ("de", "en")
 DEFAULT_LOCALE = "de"
 
 # Translate-tool language codes (DeepL format).
-TRANSLATE_LANGUAGES: tuple[str, ...] = ("DE", "EN-US")
+TRANSLATE_LANGUAGES: tuple[str, ...] = (
+    "DE", "EN-US", "FR", "ES", "IT", "UK", "TR", "AR", "RU",
+)
 DEFAULT_TRANSLATE_SOURCE = "DE"
 DEFAULT_TRANSLATE_TARGET = "EN-US"
 
@@ -265,7 +267,6 @@ MESSAGES: dict[str, dict[str, str]] = {
         "en": "Maintenance in progress - please try again later.",
     },
     # Tool labels (shown in job listing)
-    "tool.screencast_demo_render": {"de": "Demo-Screencast", "en": "Demo screencast"},
     "tool.screencast_render": {"de": "Screencast", "en": "Screencast"},
     "tool.screencast_translate": {
         "de": "Screencast-Übersetzung",
@@ -284,6 +285,13 @@ MESSAGES: dict[str, dict[str, str]] = {
     # Translate language labels (DeepL codes)
     "lang.DE": {"de": "Deutsch", "en": "German"},
     "lang.EN-US": {"de": "Englisch", "en": "English"},
+    "lang.FR": {"de": "Französisch", "en": "French"},
+    "lang.ES": {"de": "Spanisch", "en": "Spanish"},
+    "lang.IT": {"de": "Italienisch", "en": "Italian"},
+    "lang.UK": {"de": "Ukrainisch", "en": "Ukrainian"},
+    "lang.TR": {"de": "Türkisch", "en": "Turkish"},
+    "lang.AR": {"de": "Arabisch", "en": "Arabic"},
+    "lang.RU": {"de": "Russisch", "en": "Russian"},
 }
 
 

@@ -1,6 +1,6 @@
 import React, { useContext, useEffect, useRef, useState } from "react";
 import { CaretLeft, CaretRight, Chat, Check, Lightbulb, Question, SidebarSimple, XIcon } from "@phosphor-icons/react";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import Spinner from "@/components/ui/Spinner";
 import type { ExerciseItem, ExerciseItemSource, ExerciseSet, Source } from "../../_types";
 import { _chunkLabel, _getChipIcon, _md, _sourceChipKey } from "../../_utils";
@@ -21,15 +21,19 @@ export function FlashcardsLearnView({
 }) {
   const t = useTranslations("workspace.detail.languageTraining");
   const tChip = useTranslations("sourceChip");
-  // Chat prompt strings are sent to the LLM, not displayed.
-  // chatLang controls the language of the LLM response, so prompts stay in chatLang.
-  const promptTip = (term: string) => chatLang === "en"
+  // Chat prompt strings are sent to the LLM, not displayed. They follow the UI
+  // locale (the language picked in the header) so a hint/learn-more for an
+  // English card is asked — and answered — in English. chatLang stays in the
+  // prop signature for callers but no longer drives these prompts.
+  void chatLang;
+  const locale = useLocale();
+  const promptTip = (term: string) => locale === "en"
     ? `Give me a brief hint for the following question, WITHOUT revealing the answer: "${term}"`
     : `Gib mir einen kurzen Tipp zur folgenden Frage, OHNE die Antwort zu verraten.: „${term}"`;
-  const promptTermDeep = (term: string) => chatLang === "en"
+  const promptTermDeep = (term: string) => locale === "en"
     ? `Explain the term "${term}" in detail. What does it mean, in which contexts is it used, and what are the important relationships?`
     : `Erkläre mir den Begriff „${term}" genauer. Was bedeutet er, in welchem Kontext wird er verwendet und welche Zusammenhänge sind wichtig?`;
-  const promptTopicDeep = (term: string) => chatLang === "en"
+  const promptTopicDeep = (term: string) => locale === "en"
     ? `Explain the following topic in more detail: "${term}". What are important details, examples, and connections?`
     : `Erkläre mir folgendes Thema genauer: „${term}". Was sind wichtige Details, Beispiele und Zusammenhänge?`;
   const minimize = useContext(MinimizeContext);

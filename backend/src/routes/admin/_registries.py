@@ -100,7 +100,6 @@ PROMPT_REGISTRY = [
 
 TOOLS_CONFIG = [
     {"key": "screencast",      "label": "Screencast"},
-    {"key": "screencast-demo", "label": "Screencast-Demo"},
     {"key": "translation",   "label": "Dokumentenübersetzung"},
     {"key": "tts",           "label": "Text in Sprache"},
     {"key": "transcription", "label": "Transkription"},
@@ -111,7 +110,6 @@ TOOLS_CONFIG = [
 
 
 TOOL_LABELS = {
-    "screencast_demo_render": "Demo-Screencast",
     "screencast_render": "Screencast",
     "screencast_translate": "Screencast-Übersetzung",
     "tts": "Text in Sprache",

@@ -47,10 +47,17 @@ from src.features.ai_assistant.tasks._helpers import (
                  soft_time_limit=120, time_limit=180)
 @observe(name="aia-data_table")
 def run_generate_data_table(self, data_table_id: int, source_ids: list[int],
-                              source_uuids: list[str], source_map: dict):
-    """Generate a data table from source chunks as a background job."""
+                              source_uuids: list[str], source_map: dict,
+                              locale: str = "de"):
+    """Generate a data table from source chunks as a background job.
+
+    `locale` controls the output language (title/headers/values); 'highlight'
+    stays verbatim in the source language. Defaults to 'de' for older queued tasks.
+    """
     import json as _json
     from src.tool_prompts import AIA_DATENTABELLE_PROMPT
+
+    language = "English" if (locale or "").lower().startswith("en") else "German"
 
     try:
         db.update_aia_data_table(data_table_id, "running")
@@ -86,19 +93,30 @@ def run_generate_data_table(self, data_table_id: int, source_ids: list[int],
 
         client, model, _ = _get_llm_client()
         messages = [
-            {"role": "system", "content": AIA_DATENTABELLE_PROMPT},
+            {"role": "system", "content": AIA_DATENTABELLE_PROMPT.replace("{language}", language)},
             {"role": "user", "content": (
-                f"Create a structured data table from the following text (respond in the source-text language):\n\n{context}"
+                f"Create a structured data table from the following text (write it in {language}):\n\n{context}"
             )},
         ]
 
-        response = client.chat.completions.create(model=model, messages=messages, temperature=0.2)
-        raw = response.choices[0].message.content
-        if not raw:
-            db.update_aia_data_table(data_table_id, "failed", error="LLM returned empty content")
-            return
+        # The LLM occasionally emits malformed JSON (e.g. a missing delimiter).
+        # Retry once with a fresh sample before giving up - a re-roll almost
+        # always parses, so a single flaky generation no longer fails the table.
+        table_data = None
+        for attempt in range(2):
+            response = client.chat.completions.create(model=model, messages=messages, temperature=0.2)
+            raw = response.choices[0].message.content
+            if not raw:
+                continue
+            try:
+                table_data = _json.loads(_clean_llm_json(raw))
+                break
+            except _json.JSONDecodeError as e:
+                logger.warning("data_table {} JSON parse failed (attempt {}/2): {}", data_table_id, attempt + 1, e)
 
-        table_data = _json.loads(_clean_llm_json(raw))
+        if table_data is None:
+            db.update_aia_data_table(data_table_id, "failed", error="LLM returned unparseable JSON")
+            return
         if not isinstance(table_data, dict) or "columns" not in table_data or "rows" not in table_data:
             db.update_aia_data_table(data_table_id, "failed", error="Invalid table format")
             return

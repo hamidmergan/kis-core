@@ -1,7 +1,7 @@
 """i18n message fragments for tool/job routes.
 
 Auto-loaded by `src.i18n._load_fragments()`. Keys group by the route area
-(`translate`, `tts`, `image`, `summary`, `screencast`, `screencastDemo`,
+(`translate`, `tts`, `image`, `summary`, `screencast`,
 `job`, `auth`).
 """
 
@@ -245,19 +245,5 @@ MESSAGES: dict[str, dict[str, str]] = {
     "screencast.slideNotFound": {
         "de": "Folie {slide} nicht gefunden",
         "en": "Slide {slide} not found",
-    },
-
-    # ── screencastDemo ───────────────────────────────────────────────────────
-    "screencastDemo.scriptsMissing": {
-        "de": "Keine Skripte in demo/ gefunden (accepted_scripts.json fehlt)",
-        "en": "No scripts found in demo/ (accepted_scripts.json missing)",
-    },
-    "screencastDemo.videoMissing": {
-        "de": "Kein Demo-Video gefunden (output.mp4 fehlt in demo/)",
-        "en": "No demo video found (output.mp4 missing in demo/)",
-    },
-    "screencastDemo.videoReadFailed": {
-        "de": "Demo-Video konnte nicht aus S3 gelesen werden",
-        "en": "Demo video could not be read from S3",
     },
 }

@@ -10,12 +10,10 @@ const cancelIcon = (
 );
 
 export function TranslatingStep({
-  sourceLang,
-  targetLang,
+  skipTranslation,
   onCancel,
 }: {
-  sourceLang: string;
-  targetLang: string;
+  skipTranslation: boolean;
   onCancel: () => void;
 }) {
   const t = useTranslations("tools.screencast");
@@ -23,7 +21,7 @@ export function TranslatingStep({
     <section className="animate-[fadeIn_0.3s_ease-out] text-center py-16" role="status" aria-live="polite">
       <Spinner size="lg" className="justify-center mb-4" />
       <p className="text-sm text-foreground-soft animate-pulse">
-        {sourceLang === targetLang ? t("translating.preparing") : t("translating.translating")}
+        {skipTranslation ? t("translating.preparing") : t("translating.translating")}
       </p>
       <p className="text-xs text-muted-soft mt-2">{t("translating.subtle")}</p>
       <button

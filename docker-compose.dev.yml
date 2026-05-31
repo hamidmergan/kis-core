@@ -26,10 +26,10 @@ services:
 
   # ── Dev-Only Services ──────────────────────────────────────────────────
   adminer:
-    image: adminer:latest
+    image: adminer:4.8.1
     container_name: kis-adminer
     ports:
-      - "8080:8080"
+      - "8081:8080"
     depends_on:
       - postgres
     restart: unless-stopped

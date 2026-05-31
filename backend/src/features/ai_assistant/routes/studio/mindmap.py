@@ -88,7 +88,7 @@ async def generate_mindmap(
 
     # Queue Celery task
     from src.tasks.aia_tasks import run_generate_mindmap
-    run_generate_mindmap.delay(mindmap_id, source_ids, source_uuids)
+    run_generate_mindmap.delay(mindmap_id, source_ids, source_uuids, locale=locale)
 
     return {"mindmap_id": mindmap_id, "status": "pending"}
 

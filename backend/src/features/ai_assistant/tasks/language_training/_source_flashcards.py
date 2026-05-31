@@ -15,13 +15,18 @@ def generate_flashcards_from_source(
     ctx: QuelleContext,
     count: int,
     existing_fronts: list[str],
+    locale: str = "de",
 ) -> tuple[list[dict], str]:
-    prompt = AIA_LERNKARTEN_PROMPT.replace("{count}", str(count))
+    # Explanations follow the UI language; the term itself (begriff) stays in the
+    # source language for study and highlighting (see prompt LANGUAGE rule).
+    language = "English" if (locale or "").lower().startswith("en") else "German"
+    prompt = AIA_LERNKARTEN_PROMPT.replace("{count}", str(count)).replace("{language}", language)
     messages = [
         {"role": "system", "content": prompt},
         {"role": "user", "content": with_avoid(
             existing_fronts,
-            f"Create flashcards from {ctx.source_hint} (respond in the source-text language):\n\n{ctx.context}",
+            f"Create flashcards from {ctx.source_hint}. Write the explanations in {language}, "
+            f"keep the term itself in the source-text language:\n\n{ctx.context}",
         )},
     ]
     response = client.chat.completions.create(model=model, messages=messages, temperature=0.3)

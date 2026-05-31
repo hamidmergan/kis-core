@@ -28,6 +28,10 @@ _CITATION_RE = re.compile(
 _MEDIA_EXTS = {".mp3", ".mp4", ".m4a", ".wav", ".webm", ".mov", ".mkv"}
 
 
+def _language_label(locale: str) -> str:
+    return "English" if (locale or "").lower().startswith("en") else "German"
+
+
 def generate_cards_from_source(
     client, model,
     ctx: QuelleContext,
@@ -36,7 +40,7 @@ def generate_cards_from_source(
     locale: str = "de",
 ) -> tuple[list[dict], str]:
     # Pass 1: generate the questions
-    title, questions = _generate_questions(client, model, ctx, count, existing_fronts)
+    title, questions = _generate_questions(client, model, ctx, count, existing_fronts, locale)
     if not questions:
         return [], title or ctx.multi_label
 
@@ -71,14 +75,20 @@ def generate_cards_from_source(
 
 def _generate_questions(
     client, model, ctx: QuelleContext, count: int, existing_fronts: list[str],
+    locale: str = "de",
 ) -> tuple[str, list[str]]:
-    prompt = AIA_KARTEIKARTEN_QUESTIONS_PROMPT.replace("{count}", str(count))
+    language = _language_label(locale)
+    prompt = (
+        AIA_KARTEIKARTEN_QUESTIONS_PROMPT
+        .replace("{count}", str(count))
+        .replace("{language}", language)
+    )
     messages = [
         {"role": "system", "content": prompt},
         {"role": "user", "content": with_avoid(
             existing_fronts,
             f"Generate {count} questions from {ctx.source_hint} "
-            f"(respond in the source-text language):\n\n{ctx.context}",
+            f"(write them in {language}, regardless of the source-text language):\n\n{ctx.context}",
         )},
     ]
     response = client.chat.completions.create(model=model, messages=messages, temperature=0.3)
@@ -143,7 +153,12 @@ def _answer_via_chat(client, model, question: str, chat_ctx: str, locale: str = 
     # Flashcard length constraint: chat answers full paragraphs, but a Karteikarte
     # back side needs to fit on a card. Add the constraint to the user message so
     # the RAG prompt (and its citation rules) stays byte-identical to chat.
+    # Pin the answer language explicitly: aia_system_rag only says "follow the
+    # question's language", which weaker models ignore and mirror the (German)
+    # source instead — so state the target language outright, like the MC path.
+    language = _language_label(locale)
     flashcard_hint = (
+        f"Write the answer in {language}, regardless of the source-text language. "
         "Answer in MAX 2-3 short sentences. NO bullet points, NO markdown formatting "
         "(no **bold**, no lists). Plain flowing text. Keep citations [N, S. X | keywords] inline as instructed."
     )

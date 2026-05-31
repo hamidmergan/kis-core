@@ -119,7 +119,7 @@ export function parseQuiz(text: string): QuizQuestion[] {
       current = { question: qMatch[1], options: [], correct: 0 };
     } else if (optMatch && current) {
       const isCorrect = line.includes("✓") || line.includes("(richtig)");
-      const optText = optMatch[1].replace(/[✓(richtig)]/g, "").trim();
+      const optText = optMatch[1].replace(/✓|\(richtig\)/g, "").trim();
       if (isCorrect) current.correct = current.options.length;
       current.options.push(optText);
     }

@@ -25,7 +25,7 @@ export function JobListItem({
   const t = useTranslations("myJobs.actions");
   const expired = isExpired(job);
   const canRetry =
-    (job.tool === "tts" || job.tool === "screencast_translate" || job.tool === "screencast_render" || job.tool === "screencast_demo_render")
+    (job.tool === "tts" || job.tool === "screencast_translate" || job.tool === "screencast_render")
     && job.status === "failed";
 
   return (

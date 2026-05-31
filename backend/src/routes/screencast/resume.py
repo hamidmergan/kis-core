@@ -76,11 +76,6 @@ async def get_resume_data(
             slide_texts = json.loads(get_job_file(user_id, translate_job_uuid, "scripts.txt"))
         except Exception:
             raise HTTPException(status_code=404, detail=t("job.dataUnavailable", locale))
-    elif tool == "screencast_demo_render":
-        try:
-            slide_texts = json.loads(get_job_file(user_id, translate_job_uuid, "scripts.txt"))
-        except Exception:
-            pass
 
     slide_images = _load_slide_images(job.get("result_path"))
     scripts, resolved_step = _load_scripts_from_job(user_id, translate_job_uuid)

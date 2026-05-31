@@ -46,9 +46,16 @@ from src.features.ai_assistant.tasks._helpers import (
 @celery_app.task(bind=True, name="aia.generate_mindmap", queue="aia",
                  soft_time_limit=300, time_limit=360)
 @observe(name="aia-mindmap")
-def run_generate_mindmap(self, mindmap_id: int, source_ids: list[int], source_uuids: list[str]):
-    """Generate a mindmap from source summaries as a background job."""
+def run_generate_mindmap(self, mindmap_id: int, source_ids: list[int], source_uuids: list[str],
+                          locale: str = "de"):
+    """Generate a mindmap from source summaries as a background job.
+
+    `locale` controls the label language (topic/labels); 'keyword' stays verbatim
+    in the source language for highlighting. Defaults to 'de' for older queued tasks.
+    """
     import json as _json
+
+    language = "English" if (locale or "").lower().startswith("en") else "German"
 
     try:
         db.update_aia_mindmap(mindmap_id, "running")
@@ -125,33 +132,43 @@ def run_generate_mindmap(self, mindmap_id: int, source_ids: list[int], source_uu
         )
 
         messages = [
-            {"role": "system", "content": AIA_MINDMAP_PROMPT},
-            {"role": "user", "content": f"/no_think\nErstelle eine Mindmap aus folgenden Sources:\n\n{context}"},
+            {"role": "system", "content": AIA_MINDMAP_PROMPT.replace("{language}", language)},
+            {"role": "user", "content": f"/no_think\nCreate a mind map from the following sources. Write topic and labels in {language}:\n\n{context}"},
         ]
 
-        response = client.chat.completions.create(
-            model=model,
-            messages=messages,
-            temperature=0.2,
-        )
+        # Retry once on malformed JSON - a re-roll almost always parses, so a
+        # single flaky generation no longer fails the whole mind map.
+        mindmap = None
+        for attempt in range(2):
+            response = client.chat.completions.create(
+                model=model,
+                messages=messages,
+                temperature=0.2,
+            )
+            msg = response.choices[0].message
+            raw = msg.content or getattr(msg, "reasoning_content", None)
+            if not raw:
+                continue
 
-        msg = response.choices[0].message
-        raw = msg.content or getattr(msg, "reasoning_content", None)
-        if not raw:
-            db.update_aia_mindmap(mindmap_id, "failed", error="LLM returned empty content")
+            answer = raw.strip()
+            if answer.startswith("```"):
+                answer = answer.split("\n", 1)[1].rsplit("```", 1)[0].strip()
+
+            # Strip leading thinking tags if model wrapped output
+            if answer.startswith("<think>"):
+                think_end = answer.find("</think>")
+                if think_end != -1:
+                    answer = answer[think_end + 8:].strip()
+
+            try:
+                mindmap = _json.loads(answer)
+                break
+            except _json.JSONDecodeError as e:
+                logger.warning("mindmap {} JSON parse failed (attempt {}/2): {}", mindmap_id, attempt + 1, e)
+
+        if mindmap is None:
+            db.update_aia_mindmap(mindmap_id, "failed", error="LLM returned unparseable JSON")
             return
-
-        answer = raw.strip()
-        if answer.startswith("```"):
-            answer = answer.split("\n", 1)[1].rsplit("```", 1)[0].strip()
-
-        # Strip leading thinking tags if model wrapped output
-        if answer.startswith("<think>"):
-            think_end = answer.find("</think>")
-            if think_end != -1:
-                answer = answer[think_end + 8:].strip()
-
-        mindmap = _json.loads(answer)
         if not isinstance(mindmap, dict) or "topic" not in mindmap:
             db.update_aia_mindmap(mindmap_id, "failed", error="Invalid mindmap format")
             return

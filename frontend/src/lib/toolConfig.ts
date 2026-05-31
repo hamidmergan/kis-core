@@ -10,11 +10,6 @@ export const TOOL_CONFIG: Record<string, { color: string; image: string | null; 
     image: "/tools/screencast-img.png",
     jobTools: ["screencast_translate", "screencast_render", "screencast_auto"],
   },
-  "screencast-demo": {
-    color: "#7C3AED",
-    image: null,
-    jobTools: ["screencast_demo_render"],
-  },
   translation: {
     color: "#0D9488",   // Teal
     image: "/tools/translate-img.png",
