@@ -258,49 +258,59 @@ def _assemble_generic_context(workspace_id: int, source_ids: list[int]) -> list[
             logger.info("Generic single-source: used full-chunk fallback ({} chunks, no summaries yet)", len(fallback))
     else:
         # ── Multi-source overview ──
-        # Each source contributes multiple anchored chunks so the LLM has equal
-        # weight per source (otherwise media gets drowned out by PDFs):
-        #   - PDFs: page-summaries (real page_number), capped to 30 evenly spaced.
-        #   - Media: raw chunks (real start_time), capped to 8 evenly spaced.
-        #   - Fallback: split doc-summary by inline markers, else first chunk.
-        PAGE_SUMS_PER_SOURCE = 30
-        MEDIA_CHUNKS_PER_SOURCE = 8
+        # Each source contributes anchored segments, tagged with a per-source
+        # sequence index (_seq). Downstream they are ordered round-robin and
+        # truncated at the char budget, so every source keeps its early segments
+        # instead of late sources being dropped wholesale (see _order_round_robin):
+        #   - PDFs: page-summaries (real page_number).
+        #   - Media: raw chunks (real start_time).
+        #   - Fallback: split doc-summary by inline markers, else raw chunks.
+        # The per-source ceiling is a high safety bound; the budget, not the cap,
+        # decides what survives.
+        cap = AIA_GENERIC_MAX_SEGMENTS_PER_SOURCE
         for sid in source_ids:
             src = all_sources_map.get(sid)
             if not src:
                 continue
+            seq = 0
             page_sums = db.get_page_summaries_by_source(sid)
             if page_sums:
-                for ps in _sample(page_sums, PAGE_SUMS_PER_SOURCE):
+                for ps in _sample(page_sums, cap):
                     chunks.append({
                         "source_id": sid,
                         "page_number": ps["page_number"],
                         "content": ps["summary"],
                         "start_time": None,
+                        "_seq": seq,
                     })
+                    seq += 1
                 continue
-            # Media (no page-summaries by design): sample raw chunks. Their
-            # start_time gives clickable timestamps; multiple chunks give the
-            # LLM enough anchor points to actually cite the video.
+            # Media (no page-summaries by design): raw chunks. Their start_time
+            # gives clickable timestamps; multiple chunks give the LLM enough
+            # anchor points to actually cite the video.
             raw_chunks = db.get_aia_chunks_by_source(sid)
             if raw_chunks and any(c.get("start_time") is not None for c in raw_chunks):
-                for c in _sample(raw_chunks, MEDIA_CHUNKS_PER_SOURCE):
-                    chunks.append(c)
+                for c in _sample(raw_chunks, cap):
+                    chunks.append({**c, "_seq": seq})
+                    seq += 1
                 continue
             doc_summary = (src.get("summary") or "").strip()
             if doc_summary:
-                for seg in _split_doc_summary_by_markers(doc_summary):
+                for segment in _split_doc_summary_by_markers(doc_summary):
                     chunks.append({
                         "source_id": sid,
-                        "page_number": seg["page_number"],
-                        "content": seg["content"],
-                        "start_time": seg["start_time"],
+                        "page_number": segment["page_number"],
+                        "content": segment["content"],
+                        "start_time": segment["start_time"],
+                        "_seq": seq,
                     })
+                    seq += 1
                 continue
             # Last resort: no page-summaries, no media chunks, no doc-summary.
             fallback = db.get_aia_chunks_by_source(sid)
-            if fallback:
-                chunks.extend(fallback)
+            for c in fallback:
+                chunks.append({**c, "_seq": seq})
+                seq += 1
         logger.info("Generic multi-source: {} segments across {} sources", len(chunks), len(source_ids))
     return chunks
 

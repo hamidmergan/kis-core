@@ -193,8 +193,8 @@ def test_generic_single_source_falls_back_to_full_chunks(monkeypatch):
     assert out == [{"source_id": 1, "page_number": 3, "content": "raw"}]
 
 
-def test_generic_multi_source_caps_page_summaries_per_source(monkeypatch):
-    big = [{"page_number": i, "summary": f"S{i}"} for i in range(1, 60)]
+def test_generic_multi_source_uses_all_summaries_and_tags_seq(monkeypatch):
+    big = [{"page_number": i, "summary": f"S{i}"} for i in range(1, 60)]  # 59 each
     _patch_db(
         monkeypatch,
         sources=[{"id": 1, "summary": "d1"}, {"id": 2, "summary": "d2"}],
@@ -204,8 +204,11 @@ def test_generic_multi_source_caps_page_summaries_per_source(monkeypatch):
     per_source = {}
     for c in out:
         per_source[c["source_id"]] = per_source.get(c["source_id"], 0) + 1
-    # Each source capped to 30 page-summaries; both sources represented.
-    assert per_source == {1: 30, 2: 30}
+    # Ceiling is 900 >> 59 -> no down-sampling; every page-summary is a candidate.
+    assert per_source == {1: 59, 2: 59}
+    # Each source's segments are tagged with a contiguous per-source sequence.
+    seqs_1 = [c["_seq"] for c in out if c["source_id"] == 1]
+    assert seqs_1 == list(range(59))
 
 
 def test_generic_multi_source_media_uses_raw_chunks(monkeypatch):
@@ -218,9 +221,10 @@ def test_generic_multi_source_media_uses_raw_chunks(monkeypatch):
     )
     out = _assemble_generic_context(99, [1, 2])
     media = [c for c in out if c["source_id"] == 2]
-    # Media (no page-summaries) sampled from raw chunks, capped to 8.
-    assert len(media) == 8
+    # No 8-cap anymore: all raw media chunks are candidates (start_time preserved).
+    assert len(media) == 20
     assert all(c.get("start_time") is not None for c in media)
+    assert [c["_seq"] for c in media] == list(range(20))
 
 
 # ── specific path: source-diversity reordering (pure part) ───────────────────
