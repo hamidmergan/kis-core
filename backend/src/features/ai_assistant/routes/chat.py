@@ -193,7 +193,7 @@ async def _generate_search_strategy(llm, question: str) -> list[str]:
     if question.strip().lower() not in (t.lower() for t in terms):
         terms.insert(0, question.strip())
     terms = terms[:_GENERIC_MAX_QUERIES]
-    logger.info("Search strategy: {} queries for '{}'", len(terms), question[:60])
+    logger.info("Search strategy: {} queries for '{}' -> {}", len(terms), question[:60], terms)
     return terms or [question]
 
 
