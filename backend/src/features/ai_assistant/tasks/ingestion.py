@@ -487,12 +487,15 @@ def run_generate_summaries(self, source_uuid: str, locale: str = "de"):
             )
         else:
             db.update_aia_source_summaries_status(source_uuid, "ready")
-            db.update_aia_source_progress(source_uuid, "doc_summary")
+            # PDFs are done once page-summaries exist: chat/retrieval always
+            # prefer page-summaries over the doc-summary (see _assemble_generic_context
+            # and the source-diversity fallback in routes/chat.py), so generating a
+            # doc-summary for a PDF is a wasted LLM call. The doc-summary stays the
+            # ONLY summary for non-PDFs (media/docx/pptx/txt), which chain it directly
+            # in run_index_source. Clearing progress here finalizes the source (the
+            # doc-summary task used to be what cleared it).
+            db.clear_aia_source_progress(source_uuid)
             logger.info("KI Tutor: page summaries ready for source {} ({} pages)", source_uuid, len(pages))
-            # Chain doc-summary now that page-summaries are available - it'll use
-            # them as compact input (instead of falling back to truncated chunks).
-            run_generate_doc_summary.delay(source_uuid)
-            logger.info("KI Tutor: dispatched doc-summary for {} (from page-summaries)", source_uuid)
 
     except Exception as e:
         from celery.exceptions import Retry

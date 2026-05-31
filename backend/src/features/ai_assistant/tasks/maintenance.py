@@ -200,7 +200,16 @@ def run_backfill_doc_summaries(self, limit: int | None = None):
     processed in one run; useful for dry-runs and rate-limit-aware batching.
     """
     sources = db.get_all_aia_sources()
-    pending = [s for s in sources if s.get("status") == "ready" and not s.get("summary")]
+    # Skip PDFs that already have page-summaries: chat/retrieval always prefer
+    # page-summaries, so a doc-summary for them is a wasted LLM call (see the
+    # page-summary success path in tasks/ingestion.py). Non-PDFs and PDFs that
+    # never got page-summaries still get a doc-summary as their only summary.
+    pending = [
+        s for s in sources
+        if s.get("status") == "ready"
+        and not s.get("summary")
+        and not (s.get("file_type") == "pdf" and db.get_page_summaries_by_source(s["id"]))
+    ]
     if limit is not None:
         pending = pending[:limit]
 
