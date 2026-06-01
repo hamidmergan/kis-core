@@ -231,3 +231,15 @@ Resolved during self-validation:
   transport is needed.
 - **`get_aia_chunks_by_source` returns `content`** (`chunks.py:45`), so the PDF all-pages
   search is feasible.
+- **Transcript artifact format matches the parser** — ingestion writes `[MM:SS - MM:SS] text`
+  (`ingestion.py:90`) and `_TRANSCRIPT_LINE` (`_helpers.py:100`) parses exactly that, so
+  `_load_transcript_segments` returns non-empty for media sources (degrades to chunk-level if
+  the artifact is missing).
+
+### Still NOT proven (cannot be closed by reading code)
+
+- **Per-chip causal attribution** of the 4 wrong / 4 imprecise chips was *inferred* from the
+  code, not confirmed by instrumenting the actual run (raw model output vs. resolved). The fix
+  is robust to either path, but pinning it would need temporary logging + one re-run.
+- **That fuzzy matching reaches "green"** — purely empirical; only the matcher prototype run
+  against the 15 audited cases settles it.
