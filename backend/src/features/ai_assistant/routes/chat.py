@@ -415,6 +415,7 @@ from src.features.ai_assistant.routes._helpers import (
     _build_page_regions,
     SourceUnitLoader,
     fill_uncited_lines,
+    resolve_citation_positions,
     _ALLOWED_EXTENSIONS,
     _MEDIA_EXTENSIONS,
     _MAX_UPLOAD_BYTES,
@@ -935,15 +936,18 @@ async def chat(
                      "is_media": source_index[qn]["is_media"]}
                 for qn in source_index if qnum_to_source_id.get(qn) in all_sources_list
             }
-            _resolved = _resolve_citation_pages(
-                _chipify_inline_refs(
-                    _sanitize_citations("".join(answer_parts).strip()),
-                    source_qmap,
-                ),
-                source_index,
+            _unit_loader = SourceUnitLoader()
+            _chipified = _chipify_inline_refs(
+                _sanitize_citations("".join(answer_parts).strip()),
+                source_qmap,
             )
             try:
-                _resolved = fill_uncited_lines(_resolved, coverage_sources, SourceUnitLoader())
+                _resolved = resolve_citation_positions(_chipified, coverage_sources, _unit_loader)
+            except Exception as e:
+                logger.warning("precise citation re-grounding failed, using base resolver: {}", e)
+                _resolved = _resolve_citation_pages(_chipified, source_index)
+            try:
+                _resolved = fill_uncited_lines(_resolved, coverage_sources, _unit_loader)
             except Exception as e:
                 logger.warning("coverage fill failed, using ungrounded answer: {}", e)
             answer = _strip_summary_citations(_resolved)

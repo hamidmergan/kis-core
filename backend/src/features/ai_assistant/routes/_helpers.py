@@ -564,6 +564,44 @@ class SourceUnitLoader:
         return units
 
 
+def resolve_citation_positions(text: str, sources: dict, loader) -> str:
+    """Re-anchor each [N, pos | kw] to the precise unit located by the matcher.
+
+    sources: {qnum: {"source": row, "is_media": bool}} (same shape as coverage).
+    Source-N prior: a model citation is only ever matched within source N's own
+    units, never silently re-attributed to a different source."""
+    from ._citation_match import match_query  # local: _citation_match imports from this module
+
+    def _sub(m: "re.Match") -> str:
+        qnum = int(m.group(1)) if m.group(1) else (min(sources) if sources else None)
+        page_str, time_str, kw_raw = m.group(2), m.group(3), m.group(4)
+        kw = (kw_raw or "").strip().strip("\"'").strip()
+        meta = sources.get(qnum)
+        if meta is None:
+            return ""  # unknown source -> drop
+        units = loader.units(meta["source"], is_media=meta["is_media"])
+        kw_suffix = f" | {kw}" if kw else ""
+        typed = _parse_ts(time_str) if time_str else (int(page_str) if page_str else None)
+        r = match_query(kw, units, typed_pos=typed) if kw else None
+        if r and r.unit:
+            if meta["is_media"]:
+                return f"[{qnum}, {_format_timestamp(r.unit.start_time)}{kw_suffix}]"
+            return f"[{qnum}, S. {r.unit.page}{kw_suffix}]"
+        # no keyword hit -> keep a valid model-typed position
+        if meta["is_media"] and time_str is not None:
+            t = _parse_ts(time_str)
+            for u in units:
+                if u.start_time is not None and u.start_time <= t <= (u.end_time or u.start_time):
+                    return f"[{qnum}, {time_str}{kw_suffix}]"
+            return f"[{qnum}, {_format_timestamp(units[0].start_time)}{kw_suffix}]" if units else ""
+        if (not meta["is_media"]) and page_str is not None and \
+                any(u.page == int(page_str) for u in units):
+            return f"[{qnum}, S. {page_str}{kw_suffix}]"
+        return ""  # unverifiable -> drop
+
+    return _CITE_RESOLVE_RE.sub(_sub, text)
+
+
 import re as _re
 
 _HEADING = _re.compile(r"^\s{0,3}#{1,6}\s")
