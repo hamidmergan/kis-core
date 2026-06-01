@@ -555,11 +555,15 @@ class SourceUnitLoader:
             ]
         else:
             from src.features.ai_assistant.repository import chunks as chunk_repo
-            units = [
-                Unit(page=c["page_number"], start_time=None, end_time=None, raw_text=c["content"])
-                for c in chunk_repo.get_aia_chunks_by_source(sid)
-                if c.get("content")
-            ]
+            raw = chunk_repo.get_aia_chunks_by_source(sid)
+            furniture = _running_furniture(raw)
+            units = []
+            for c in raw:
+                if not c.get("content"):
+                    continue
+                body = _strip_furniture(c["content"], furniture)
+                units.append(Unit(page=c["page_number"], start_time=None,
+                                  end_time=None, raw_text=body or c["content"]))
         self._cache[sid] = units
         return units
 
@@ -645,6 +649,66 @@ def _kw_from_unit(unit, n_words: int = 4) -> str:
     return " ".join(unit.raw_text.split()[:n_words])
 
 
+_DIGITS_ONLY = re.compile(r"^\W*\d{1,4}\W*$")  # a standalone page-number line
+
+
+def _running_furniture(chunks: list) -> set:
+    """Normalized text of running header/footer lines, detected language-agnostically
+    by cross-page repetition: a line that appears on >= half the pages (min 2) is
+    running furniture (page title, date, slide credit). No wordlists. Returns a set
+    of normalized line strings."""
+    from collections import Counter
+    pages: dict = {}
+    for c in chunks:
+        pn = c.get("page_number")
+        if pn is None:
+            continue
+        seen = pages.setdefault(pn, set())
+        for raw in re.split(r"[\r\n]+", c.get("content") or ""):
+            n = _norm_for_match(raw)
+            if n:
+                seen.add(n)  # dedupe within a page
+    if len(pages) < 2:
+        return set()
+    counts: Counter = Counter()
+    for lines in pages.values():
+        for n in lines:
+            counts[n] += 1
+    threshold = max(2, (len(pages) + 1) // 2)
+    return {n for n, c in counts.items() if c >= threshold}
+
+
+def _strip_furniture(content: str, furniture: set) -> str:
+    """Drop running-furniture lines and standalone page-number lines from a page's
+    text, preserving the original case of the remaining body lines."""
+    out = []
+    for raw in re.split(r"[\r\n]+", content or ""):
+        raw = raw.strip()
+        if not raw:
+            continue
+        n = _norm_for_match(raw)
+        if not n or n in furniture or _DIGITS_ONLY.match(raw):
+            continue
+        out.append(raw)
+    return " ".join(out)
+
+
+def _overlap_keyword(line: str, unit, n_words: int = 5) -> str:
+    """A short VERBATIM phrase from the unit's body that also occurs in the cited
+    line, so the highlight anchors on the actually-matched content (not the unit's
+    first line / boilerplate). Falls back to the unit's first words."""
+    body_words = (unit.raw_text or "").split()
+    if not body_words:
+        return ""
+    nline = _norm_for_match(line)
+    for size in range(min(n_words, len(body_words)), 1, -1):
+        for i in range(len(body_words) - size + 1):
+            phrase = " ".join(body_words[i:i + size])
+            if _norm_for_match(phrase) in nline:
+                return phrase
+    return " ".join(body_words[:n_words])
+
+
 def fill_uncited_lines(text: str, sources: dict, loader) -> str:
     """Append a citation to each groundable line that lacks one.
 
@@ -670,7 +734,7 @@ def fill_uncited_lines(text: str, sources: dict, loader) -> str:
             out_lines.append(line)          # below threshold -> deliberately no chip
             continue
         _, qnum, unit, is_media = best
-        kw = _kw_from_unit(unit)
+        kw = _overlap_keyword(line, unit)
         pos = _format_timestamp(unit.start_time) if is_media else f"S. {unit.page}"
         out_lines.append(f"{line.rstrip()} [{qnum}, {pos} | {kw}]")  # plain in M1; ~ marker comes later
     return "\n".join(out_lines)
