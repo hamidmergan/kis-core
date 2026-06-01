@@ -204,6 +204,15 @@ bounded by `lines × units`, which is small for chat answers.
 - **Token-grammar change for `match_type` (§6.3)** touches three places at once (backend emit,
   frontend regex, history-strip). Backward-compatible by design, but needs a test that old
   `[N, pos | kw]` tokens still render.
+- **The source-N prior cannot fix a wrong-*source* model citation.** It only re-anchors within
+  the source the model named, so if the model cites `[1]` for a claim that is actually in
+  source 2, the prior keeps it in source 1 (re-anchored or dropped) — it never re-attributes.
+  In the audit all 4 wrong chips had the *right* source (only the position was off), so this is
+  acceptable; but it is a real limitation, not a guarantee of correctness.
+- **Whether fuzzy matching actually reaches "green" is empirical, not proven by this design.**
+  The design lowers risk and makes the outcome *measurable* (§7); it does not guarantee it.
+  Recommended first build step: prototype the matcher and run it against the 15 audited cases
+  *before* wiring the full pipeline, to confirm token-overlap can disambiguate this corpus.
 
 ### Validation notes (2026-06-01, checked against code)
 
@@ -216,3 +225,9 @@ Resolved during self-validation:
   highlight anchor is consistent (no DE/EN mismatch). Downgraded from a risk.
 - **No per-citation metadata channel** for `match_type`; addressed via the in-token marker
   (§6.3).
+- **Delivery path confirmed** — the resolver runs on the full assembled answer
+  (`chat.py:929`), and the corrected `answer` is re-sent to the client in the final `done`
+  event (`chat.py:986`). So post-stream coverage-fill chips reach the UI and re-render; no new
+  transport is needed.
+- **`get_aia_chunks_by_source` returns `content`** (`chunks.py:45`), so the PDF all-pages
+  search is feasible.
