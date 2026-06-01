@@ -67,14 +67,23 @@ All work happens post-stream, at the existing call site of `_resolve_citation_pa
 
 ### 5.1 Matching units (where positions come from)
 
-- **PDF / docx / pptx:** the existing chunks. They already carry `page_number` + content and
-  are **per page** (`aia_chunker._extract_pdf` appends one `page_number` per chunk), so the
-  page is exact once the right chunk is hit.
-- **Media (audio/video):** additionally parse the persisted source VTT
-  (`<base>_transcript.<lang>.vtt`) into segments `{start_time, end_time, text}`. This is the
-  sub-chunk resolution that makes "green" possible. The VTT for the **displayed** language
-  layer is used so the keyword anchors against what the viewer renders
-  (see `citation-highlight-plain-anchor`).
+**Use the FULL unit set of a source, not `source_index["chunks"]`.** `source_index` only holds
+the chunks that fit the context budget — the chunks *shown to the model* (`chat.py:712`). A
+wrong-page fix (S.13 → 15) needs the page the claim actually lives on, which may not be among
+the shown chunks. So the locator loads the complete set per source, via helpers that **already
+exist**:
+
+- **PDF / docx / pptx:** `get_aia_chunks_by_source(source_id)`
+  (`repository/chunks.py:40`) — all chunks, each with `page_number` + content, and chunks are
+  **per page** (`aia_chunker._extract_pdf` appends one `page_number` per chunk), so the page is
+  exact once the right chunk is hit. Real-page validity still comes from
+  `get_source_page_numbers` (already used at `chat.py:762`).
+- **Media (audio/video):** `_load_transcript_segments(source)` (`routes/_helpers.py:418`) —
+  the full timestamped transcript as `{start, end, text}` in the **source language**. Since
+  the citation keyword is also kept in the source language (prompt rule) and the viewer's
+  transcript panel renders that layer, the keyword anchors correctly
+  (see `citation-highlight-plain-anchor`). This is the sub-chunk resolution that makes
+  "green" possible. Loaded once per source and cached for the request.
 
 ### 5.2 Shared matcher (new deterministic helper)
 
@@ -103,9 +112,12 @@ For each model-emitted `[N, pos | kw]`:
 
 - **Source-N prior:** match the keyword **only within source N's units** (never silently
   re-attribute a model citation to a different source).
-- **Media:** if the keyword matches, drill into source N's **VTT segments** and use the
-  matching *segment's* `start_time` instead of the chunk's. Fixes 00:01 fallbacks and
-  section-opener anchors.
+- **Media:** if the keyword matches, drill into source N's **transcript segments** and use the
+  matching *segment's* `start` instead of the chunk's. Fixes 00:01 fallbacks and section-opener
+  anchors. The model also already sees inline `(MM:SS)` markers in the chunk content
+  (`_enrich_media_content`, `chat.py:727`) and may type a precise mid-chunk time; **do not
+  discard it** — if the keyword does not locate a segment but the model's typed time falls
+  inside the matched chunk's `[start, end]`, keep the model's time.
 - **PDF:** fuzzy-match across source N's page-chunks so paraphrased keywords still find the
   real page. **Demote the model-typed page:** if any unit matches, that page wins; the typed
   page is only a last-resort fallback (image/blank pages with no extractable text).
@@ -127,8 +139,9 @@ Run after re-grounding, fill only the gaps:
    global best.
    - Score ≥ threshold (with the §5.2 uniqueness margin) → append `[N, pos | kw]`; position is
      the matched unit's; `kw` is a short verbatim snippet from that unit; `match_type = filled`.
-     (PDF page is already exact; media reaches segment precision once §6.1's VTT drill-down
-     ships in Phase 2 — until then a filled media chip is anchored at chunk granularity.)
+     (PDF page is already exact; media reaches segment precision once §6.1's transcript
+     drill-down ships in Phase 2 — until then a filled media chip is anchored at chunk
+     granularity.)
    - Below threshold → **leave the line uncited.** Forcing a weak source is worse than a
      missing chip; in practice only genuine model self-synthesis (which the prompt already
      asks to omit) ends up uncited.
@@ -139,6 +152,16 @@ Run after re-grounding, fill only the gaps:
 - `fuzzy` / `filled` → **same colour and size**, but a **dotted underline + tooltip
   "ungefähre Stelle"**. No `~` prefix, no extra colour/icon. Subtle, but visible on a skim —
   resolves the audit's "everything looks equally confident" trust problem without clutter.
+
+**Delivery channel (the chip has no metadata side-channel today).** Citations are inline
+tokens `[N, pos | kw]` parsed by a single frontend regex (`_components/chat/_citations.tsx`),
+keyed only by source number — there is no per-citation field to carry `match_type`. So encode
+it **in the token**, backward-compatibly: an optional leading marker the resolver emits for
+non-exact chips, e.g. `[~N, pos | kw]` (`~` = approximate). The frontend regex gains an
+optional capture group that defaults to `exact` when the marker is absent, so older
+messages/history keep rendering. The marker is the ONLY grammar change; backend emit, the
+regex, and the history-strip path (`chat.py:58`) must stay in sync. (`~` here is an internal
+token flag, not the visible chip text — the chip still shows `[N] pos`.)
 
 ### 6.4 Post-stream pipeline order
 
@@ -152,9 +175,9 @@ ship, the post-stream steps run in this order:
 
 ### 6.5 Performance
 
-A source is cited many times per answer. Parse VTT / load a source's units **once per
-request** (small cache keyed by source id). Matching is lexical and bounded by
-`lines × units`, which is small for chat answers.
+A source is cited many times per answer. Load a source's units (transcript segments /
+page-chunks) **once per request** (small cache keyed by source id). Matching is lexical and
+bounded by `lines × units`, which is small for chat answers.
 
 ## 7. Testing
 
@@ -178,5 +201,18 @@ request** (small cache keyed by source id). Matching is lexical and bounded by
   PDFs) is the make-or-break. Mitigated by the source-N prior (§6.1) and the uniqueness margin
   (§5.2); validated by the eval harness (§7).
 - **Threshold sensitivity** to bullet/segment length — calibrated, not constant-set.
-- **Keyword language layer** must match the displayed transcript layer (DE vs. EN) or the
-  plain-text highlight anchor misses (§5.1).
+- **Token-grammar change for `match_type` (§6.3)** touches three places at once (backend emit,
+  frontend regex, history-strip). Backward-compatible by design, but needs a test that old
+  `[N, pos | kw]` tokens still render.
+
+### Validation notes (2026-06-01, checked against code)
+
+Resolved during self-validation:
+- **Helpers already exist** — `_load_transcript_segments` (`_helpers.py:418`),
+  `get_aia_chunks_by_source` (`chunks.py:40`), `get_source_page_numbers` — lowers build risk.
+- **`source_index` is shown-chunks only** (`chat.py:712`); the locator must use the FULL set
+  (§5.1). Was a latent hole in the first draft; now specified.
+- **Keyword/transcript language** are both source-language by existing convention, so the
+  highlight anchor is consistent (no DE/EN mismatch). Downgraded from a risk.
+- **No per-citation metadata channel** for `match_type`; addressed via the in-token marker
+  (§6.3).
