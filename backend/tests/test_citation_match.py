@@ -60,3 +60,13 @@ def test_typed_pos_disambiguates_page_units():
     units = [_pg("zotero citavi", 13), _pg("zotero citavi", 15)]
     r = match_query("zotero citavi", units, typed_pos=15)
     assert r.unit.page == 15
+
+
+def test_tokenizer_splits_punctuation_and_hyphens():
+    # Fuzzy must match across hyphen/punctuation differences: query "review prozess
+    # teilnehmen" vs unit text "Review-Prozess teilzunehmen." — review+prozess match.
+    units = [_seg("gerade an diesem review-prozess, dringend.", 100.0),
+             _seg("etwas ganz anderes ohne bezug hier", 900.0)]
+    r = match_query("review prozess dringend", units)
+    assert r.unit.start_time == 100.0
+    assert r.match_type in ("exact", "fuzzy")

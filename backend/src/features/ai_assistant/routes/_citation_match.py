@@ -4,6 +4,7 @@ position-bearing units (transcript segments or page-chunks). Language-agnostic,
 no embeddings, identical on every model tier. See the citation-grounding design spec."""
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 
 from ._helpers import _norm_for_match  # existing normalizer used by the resolver
@@ -41,7 +42,10 @@ UNIQUENESS_MARGIN = 0.15  # best must beat 2nd-best by this much
 
 
 def _tokens(norm: str) -> set[str]:
-    return set(norm.split())
+    """Word tokens of already-normalised text. Splits on punctuation AND hyphens
+    (so 'review-prozess' -> {'review','prozess'} and 'tabellenverzeichnis.' ->
+    {'tabellenverzeichnis'}); keeps Unicode letters/digits incl. umlauts."""
+    return set(re.findall(r"\w+", norm, flags=re.UNICODE))
 
 
 def _containment(query_tokens: set[str], unit_tokens: set[str]) -> float:

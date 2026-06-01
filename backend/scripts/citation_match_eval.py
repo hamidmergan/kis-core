@@ -9,6 +9,15 @@ import json
 import sys
 from pathlib import Path
 
+# Ensure the backend root (parent of 'scripts/') is on sys.path so 'src.*' is importable
+# whether the script is run as  python scripts/citation_match_eval.py  (from /app)
+# or as  docker exec ... python scripts/citation_match_eval.py  (cwd may not be /app).
+_BACKEND_ROOT = Path(__file__).resolve().parent.parent
+if str(_BACKEND_ROOT) not in sys.path:
+    sys.path.insert(0, str(_BACKEND_ROOT))
+
+from src.core.db.pool import get_connection
+import psycopg2.extras
 from src.features.ai_assistant.repository import chunks as chunk_repo
 from src.features.ai_assistant.repository import sources as source_repo
 from src.features.ai_assistant.routes._helpers import (
@@ -20,6 +29,21 @@ from src.features.ai_assistant.routes._citation_match import Unit, match_query
 
 CASES = json.loads((Path(__file__).parent / "citation_audit_cases.json").read_text())
 TOLERANCE_S = 45.0
+
+# The audited workspace UUID — sources are resolved ONLY within this workspace
+# to avoid false matches from other workspaces that share the same filenames.
+WORKSPACE_UUID = "1ea7b2fa-b237-4bbd-801b-c9793d388984"
+
+
+def _resolve_workspace_id(uuid: str) -> int:
+    """Resolve the integer workspace_id from the workspace UUID."""
+    with get_connection() as conn:
+        with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
+            cur.execute("SELECT id FROM aia_workspaces WHERE uuid = %s", (uuid,))
+            row = cur.fetchone()
+    if row is None:
+        raise RuntimeError(f"Workspace not found for UUID {uuid!r}")
+    return row["id"]
 
 
 def _time_ok(resolved_s, correct_str):
@@ -37,7 +61,19 @@ def _pdf_units(source_id):
 
 
 def main() -> int:
-    by_name = {s["filename"]: s for s in source_repo.list_all_sources_for_eval()}
+    workspace_id = _resolve_workspace_id(WORKSPACE_UUID)
+    print(f"Resolved workspace: uuid={WORKSPACE_UUID}  id={workspace_id}")
+    all_sources = source_repo.list_all_sources_for_eval()
+    workspace_sources = [s for s in all_sources if s["workspace_id"] == workspace_id]
+    print(f"Sources in audited workspace: {len(workspace_sources)} (total in DB: {len(all_sources)})")
+    by_name = {s["filename"]: s for s in workspace_sources}
+    # Sanity-check: confirm VL1 transcript has ~137 segments (not 774 from wrong workspace)
+    vl1_src = by_name.get("VL1_25-03-2026.webm")
+    if vl1_src:
+        vl1_units = _media_units(vl1_src)
+        print(f"VL1 segment count in audited workspace: {len(vl1_units)} (expected ~137)")
+    else:
+        print("WARNING: VL1_25-03-2026.webm not found in audited workspace!")
     rows, regressions, fixes = [], 0, 0
     for case in CASES:
         src = by_name.get(case["filename"])
