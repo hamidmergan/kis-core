@@ -935,20 +935,18 @@ async def chat(
                      "is_media": source_index[qn]["is_media"]}
                 for qn in source_index if qnum_to_source_id.get(qn) in all_sources_list
             }
-            _unit_loader = SourceUnitLoader()
-            answer = _strip_summary_citations(
-                fill_uncited_lines(
-                    _resolve_citation_pages(
-                        _chipify_inline_refs(
-                            _sanitize_citations("".join(answer_parts).strip()),
-                            source_qmap,
-                        ),
-                        source_index,
-                    ),
-                    coverage_sources,
-                    _unit_loader,
-                )
+            _resolved = _resolve_citation_pages(
+                _chipify_inline_refs(
+                    _sanitize_citations("".join(answer_parts).strip()),
+                    source_qmap,
+                ),
+                source_index,
             )
+            try:
+                _resolved = fill_uncited_lines(_resolved, coverage_sources, SourceUnitLoader())
+            except Exception as e:
+                logger.warning("coverage fill failed, using ungrounded answer: {}", e)
+            answer = _strip_summary_citations(_resolved)
 
             # Push the real question + answer onto the aia-chat trace; the
             # @observe decorator otherwise only captured the StreamingResponse.

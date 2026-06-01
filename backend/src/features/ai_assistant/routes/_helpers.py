@@ -587,18 +587,18 @@ def is_citable_line(line: str, *, in_summary: bool) -> bool:
     return bool(_LIST_OR_TEXT.match(line))
 
 
-from ._citation_match import match_query
-
 # A line "already has a citation" if it ends with a chip token.
 _HAS_CITE = _re.compile(r"\[(?:Q?\d+,\s*)?(?:S\.\s*\d+|\d{1,2}:\d{2}(?::\d{2})?)[^\]]*\]\s*$")
-_SUMMARY = _re.compile(
-    r"(?im)^[ \t]*(?:#{1,6}[ \t]*)?(?:\*\*[ \t]*)?"
-    r"(?:Zusammenfassung|Zusammengefasst|Fazit|Summary|Conclusion)[ \t]*(?:\*\*)?[ \t]*:?[ \t]*$"
-)
 
 
 def _kw_from_unit(unit, n_words: int = 4) -> str:
-    """A short verbatim snippet from the matched unit for the highlight anchor."""
+    """A short verbatim snippet from the matched unit for the highlight anchor.
+
+    NOTE: the snippet is taken from the START of the unit, so for chunks that
+    begin with page-number/header artefacts the highlight keyword may anchor at
+    the wrong spot; acceptable for now, to be refined when the highlight is made
+    precise.
+    """
     return " ".join(unit.raw_text.split()[:n_words])
 
 
@@ -607,9 +607,12 @@ def fill_uncited_lines(text: str, sources: dict, loader) -> str:
 
     sources: {qnum: {"source": <row dict>, "is_media": bool}}
     loader:  SourceUnitLoader (or any object with .units(source, is_media=...))."""
+    # Local import: _citation_match imports from _helpers, so a module-level
+    # import would create a circular dependency.
+    from ._citation_match import match_query  # noqa: PLC0415
     out_lines, in_summary = [], False
     for line in text.split("\n"):
-        if _SUMMARY.match(line):
+        if _SUMMARY_HEADING_RE.match(line):
             in_summary = True
         if not is_citable_line(line, in_summary=in_summary) or _HAS_CITE.search(line.rstrip()):
             out_lines.append(line)
