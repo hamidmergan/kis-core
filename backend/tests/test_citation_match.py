@@ -38,3 +38,25 @@ def test_typed_pos_disambiguates_exact_duplicates():
     units = [_seg("peer review", 476.0), _seg("peer review", 1650.0)]
     r = match_query("peer review", units, typed_pos=1600.0)
     assert r.unit.start_time == 1650.0
+
+
+def _pg(text, page):
+    return Unit(page=page, start_time=None, end_time=None, norm_text=None, raw_text=text)
+
+
+def test_fuzzy_near_tie_typed_pos_picks_nearest_with_its_own_score():
+    # query has 7 tokens; A matches 6/7≈0.857, B matches 5/7≈0.714 -> within the 0.15 margin.
+    # Not an exact substring (last token "golf" is absent), so the fuzzy near-tie branch runs.
+    units = [_seg("alpha bravo charlie delta echo foxtrot", 100.0),
+             _seg("alpha bravo charlie delta echo", 1600.0)]
+    r = match_query("alpha bravo charlie delta echo foxtrot golf", units, typed_pos=1500.0)
+    assert r.match_type == "fuzzy"
+    assert r.unit.start_time == 1600.0          # nearest to typed_pos
+    assert abs(r.score - 5 / 7) < 1e-9          # score is the CHOSEN unit's, not the best (6/7)
+
+
+def test_typed_pos_disambiguates_page_units():
+    # exercises the page branch of _nearest (start_time is None -> uses page)
+    units = [_pg("zotero citavi", 13), _pg("zotero citavi", 15)]
+    r = match_query("zotero citavi", units, typed_pos=15)
+    assert r.unit.page == 15

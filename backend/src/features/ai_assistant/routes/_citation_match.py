@@ -52,10 +52,12 @@ def _containment(query_tokens: set[str], unit_tokens: set[str]) -> float:
 
 
 def _nearest(units: list[Unit], typed_pos: float | None) -> Unit:
-    """Pick the unit whose position is closest to the model's typed position."""
+    """Pick the unit whose position is closest to the model's typed position.
+    Returns units[0] when typed_pos is None."""
     if typed_pos is None:
         return units[0]
 
+    # Assumes a homogeneous position type: all units use start_time OR all use page.
     def dist(u: Unit) -> float:
         pos = u.start_time if u.start_time is not None else (u.page or 0)
         return abs(pos - typed_pos)
@@ -98,7 +100,9 @@ def match_query(
         # near-tie among different units -> not confident enough
         ties = [u for s, u in scored if best_score - s < margin]
         if typed_pos is not None:
-            return MatchResult(_nearest(ties, typed_pos), best_score, "fuzzy")
+            chosen = _nearest(ties, typed_pos)
+            chosen_score = next(s for s, u in scored if u is chosen)
+            return MatchResult(chosen, chosen_score, "fuzzy")
         return MatchResult(None, best_score, "none")
 
     return MatchResult(scored[0][1], best_score, "fuzzy")
