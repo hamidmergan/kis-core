@@ -86,6 +86,14 @@ def get_all_aia_sources() -> list[dict]:
             rows = cur.fetchall()
     return [dict(row) for row in rows]
 
+
+def list_all_sources_for_eval() -> list[dict]:
+    """Eval/diagnostics only: every source row (id, filename, file_path)."""
+    with get_connection() as conn:
+        with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
+            cur.execute("SELECT id, filename, file_path, workspace_id FROM aia_sources")
+            return [dict(r) for r in cur.fetchall()]
+
 def update_aia_source_status(
     uuid: str,
     status: str,
