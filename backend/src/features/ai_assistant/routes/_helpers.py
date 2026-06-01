@@ -586,3 +586,46 @@ def is_citable_line(line: str, *, in_summary: bool) -> bool:
         return True
     return bool(_LIST_OR_TEXT.match(line))
 
+
+from ._citation_match import match_query
+
+# A line "already has a citation" if it ends with a chip token.
+_HAS_CITE = _re.compile(r"\[(?:Q?\d+,\s*)?(?:S\.\s*\d+|\d{1,2}:\d{2}(?::\d{2})?)[^\]]*\]\s*$")
+_SUMMARY = _re.compile(
+    r"(?im)^[ \t]*(?:#{1,6}[ \t]*)?(?:\*\*[ \t]*)?"
+    r"(?:Zusammenfassung|Zusammengefasst|Fazit|Summary|Conclusion)[ \t]*(?:\*\*)?[ \t]*:?[ \t]*$"
+)
+
+
+def _kw_from_unit(unit, n_words: int = 4) -> str:
+    """A short verbatim snippet from the matched unit for the highlight anchor."""
+    return " ".join(unit.raw_text.split()[:n_words])
+
+
+def fill_uncited_lines(text: str, sources: dict, loader) -> str:
+    """Append a citation to each groundable line that lacks one.
+
+    sources: {qnum: {"source": <row dict>, "is_media": bool}}
+    loader:  SourceUnitLoader (or any object with .units(source, is_media=...))."""
+    out_lines, in_summary = [], False
+    for line in text.split("\n"):
+        if _SUMMARY.match(line):
+            in_summary = True
+        if not is_citable_line(line, in_summary=in_summary) or _HAS_CITE.search(line.rstrip()):
+            out_lines.append(line)
+            continue
+        best = None  # (score, qnum, unit, is_media)
+        for qnum, meta in sources.items():
+            units = loader.units(meta["source"], is_media=meta["is_media"])
+            r = match_query(line, units)
+            if r.unit and (best is None or r.score > best[0]):
+                best = (r.score, qnum, r.unit, meta["is_media"])
+        if best is None:
+            out_lines.append(line)          # below threshold -> deliberately no chip
+            continue
+        _, qnum, unit, is_media = best
+        kw = _kw_from_unit(unit)
+        pos = _format_timestamp(unit.start_time) if is_media else f"S. {unit.page}"
+        out_lines.append(f"{line.rstrip()} [{qnum}, {pos} | {kw}]")  # plain in M1; ~ marker comes later
+    return "\n".join(out_lines)
+

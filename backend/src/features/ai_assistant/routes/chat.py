@@ -413,6 +413,8 @@ from src.features.ai_assistant.routes._helpers import (
     _strip_summary_citations,
     _chipify_inline_refs,
     _build_page_regions,
+    SourceUnitLoader,
+    fill_uncited_lines,
     _ALLOWED_EXTENSIONS,
     _MEDIA_EXTENSIONS,
     _MAX_UPLOAD_BYTES,
@@ -926,13 +928,25 @@ async def chat(
             # First repair malformed `[N] S.X` -> `[N, S.X]`, then re-ground each
             # citation's page/timestamp against the real chunks via its keyword,
             # dropping any citation that can't be grounded (anti-hallucination).
+            # After resolving, fill groundable lines that the model left uncited,
+            # then strip citations from the closing summary section.
+            coverage_sources = {
+                qn: {"source": all_sources_list[qnum_to_source_id[qn]],
+                     "is_media": source_index[qn]["is_media"]}
+                for qn in source_index if qnum_to_source_id.get(qn) in all_sources_list
+            }
+            _unit_loader = SourceUnitLoader()
             answer = _strip_summary_citations(
-                _resolve_citation_pages(
-                    _chipify_inline_refs(
-                        _sanitize_citations("".join(answer_parts).strip()),
-                        source_qmap,
+                fill_uncited_lines(
+                    _resolve_citation_pages(
+                        _chipify_inline_refs(
+                            _sanitize_citations("".join(answer_parts).strip()),
+                            source_qmap,
+                        ),
+                        source_index,
                     ),
-                    source_index,
+                    coverage_sources,
+                    _unit_loader,
                 )
             )
 
