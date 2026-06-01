@@ -532,3 +532,57 @@ def _term_appears_in_text(term: str, text_lower: str) -> bool:
     stem = t[:stem_len]
     return bool(re.search(r"\b" + re.escape(stem), text_lower))
 
+
+class SourceUnitLoader:
+    """Loads a source's FULL set of position-bearing units once per request.
+
+    PDF/doc/pptx -> page-chunks via get_aia_chunks_by_source (each chunk is one page).
+    Media -> transcript segments via _load_transcript_segments.
+    NOTE: deliberately NOT source_index (which holds only context-budgeted chunks)."""
+
+    def __init__(self) -> None:
+        self._cache: dict[int, list] = {}
+
+    def units(self, source: dict, *, is_media: bool) -> list:
+        from ._citation_match import Unit
+        sid = source["id"]
+        if sid in self._cache:
+            return self._cache[sid]
+        if is_media:
+            units = [
+                Unit(page=None, start_time=s["start"], end_time=s["end"], raw_text=s["text"])
+                for s in _load_transcript_segments(source)
+            ]
+        else:
+            from src.features.ai_assistant.repository import chunks as chunk_repo
+            units = [
+                Unit(page=c["page_number"], start_time=None, end_time=None, raw_text=c["content"])
+                for c in chunk_repo.get_aia_chunks_by_source(sid)
+                if c.get("content")
+            ]
+        self._cache[sid] = units
+        return units
+
+
+import re as _re
+
+_HEADING = _re.compile(r"^\s{0,3}#{1,6}\s")
+_TABLE_SEP = _re.compile(r"^\s*\|?\s*:?-{2,}")
+_LIST_OR_TEXT = _re.compile(r"^\s*(?:[-*+]\s+|\d+[.)]\s+|\S)")
+
+
+def is_citable_line(line: str, *, in_summary: bool) -> bool:
+    """True if a filled citation may be appended to this line."""
+    s = line.strip()
+    if not s or in_summary:
+        return False
+    if _HEADING.match(line):
+        return False
+    if s.startswith("|") and _TABLE_SEP.match(s):
+        return False
+    if s.endswith(":"):           # intro/parent line, e.g. "... besteht aus:"
+        return False
+    if s.startswith("|"):          # table data row -> citable
+        return True
+    return bool(_LIST_OR_TEXT.match(line))
+
