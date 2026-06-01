@@ -236,6 +236,30 @@ Resolved during self-validation:
   `_load_transcript_segments` returns non-empty for media sources (degrades to chunk-level if
   the artifact is missing).
 
+### Prototype gate result (2026-06-01)
+
+Ran the Milestone-0 matcher against the 15 audited chips on the REAL audited workspace
+(`1ea7b2fa-…`, VL1 = 137 segments). **PASSED: fixes=7, regressions=0, 15/15 correct.**
+
+- First run FAILED (fixes=1, regressions=3) — but was confounded by (a) a duplicate-filename
+  collision matching the WRONG workspace's data, and (b) a tokenizer bug (`_tokens` split only
+  on whitespace, so `_norm_for_match`'s retained punctuation/unified-hyphens broke token
+  overlap). Both are now fixed (`re.findall(r"\w+", …)`).
+- All 15 resolved via the FUZZY path (token containment), incl. disambiguating roter-Faden to
+  02:21 (not the also-plausible 12:34) and Zotero/Citavi to PDF S.15 (not the cited S.13).
+  `got` equals the CORRECT spot, not the typed/cited one — so it grounds on content, not the
+  model's hint.
+
+**Honest caveats (do not over-read the green):**
+- 14/15 keywords are verbatim-derived from the correct location — realistic (the prompt
+  mandates verbatim keywords) but *favorable*. Only case 15 stress-tests a genuine paraphrase.
+- Single-point ground-truth labels with a ±45 s tolerance; some claims have several valid
+  spots.
+- This validates the matcher CORE only — not coverage-fill, the resolver integration, or the
+  frontend. Those remain to be built and end-to-end tested.
+
+→ Gate is a GO for Approach A. Proceed to Milestone 1.
+
 ### Still NOT proven (cannot be closed by reading code)
 
 - **Per-chip causal attribution** of the 4 wrong / 4 imprecise chips was *inferred* from the
