@@ -584,8 +584,9 @@ def resolve_citation_positions(text: str, sources: dict, loader) -> str:
     Source-N prior: a model citation is only ever matched within source N's own
     units, never silently re-attributed to a different source."""
     from ._citation_match import match_query  # local: _citation_match imports from this module
+    _get_furniture = getattr(loader, "furniture", None)
 
-    def _sub(m: "re.Match") -> str:
+    def _sub(m: "re.Match", line_text: str) -> str:
         qnum = int(m.group(1)) if m.group(1) else (min(sources) if sources else None)
         page_str, time_str, kw_raw = m.group(2), m.group(3), m.group(4)
         kw = (kw_raw or "").strip().strip("\"'").strip()
@@ -593,12 +594,12 @@ def resolve_citation_positions(text: str, sources: dict, loader) -> str:
         if meta is None:
             return ""  # unknown source -> drop
         units = loader.units(meta["source"], is_media=meta["is_media"])
+        furniture = _get_furniture(meta["source"]) if (_get_furniture and not meta["is_media"]) else set()
         # Drop a running header/footer keyword so the highlight can't land on furniture.
         # The model sometimes copies a footer line as the citation keyword because the
-        # chunk text starts footer-first. We keep the model-typed page (rule 3 below).
-        _get_furniture = getattr(loader, "furniture", None)
-        if kw and not meta["is_media"] and _get_furniture and _kw_is_furniture(kw, _get_furniture(meta["source"])):
-            kw = ""   # running header/footer keyword -> position-only chip
+        # chunk text starts footer-first.
+        if kw and furniture and _kw_is_furniture(kw, furniture):
+            kw = ""   # running header/footer keyword -> re-ground below / position-only
         kw_suffix = f" | {kw}" if kw else ""
         typed = _parse_ts(time_str) if time_str else (int(page_str) if page_str else None)
         r = match_query(kw, units, typed_pos=typed) if kw else None
@@ -606,11 +607,19 @@ def resolve_citation_positions(text: str, sources: dict, loader) -> str:
             if meta["is_media"]:
                 return f"[{qnum}, {_format_timestamp(r.unit.start_time)}{kw_suffix}]"
             return f"[{qnum}, S. {r.unit.page}{kw_suffix}]"
-        # no keyword hit -> keep a valid model-typed position.
-        # Media: a timestamp is always a valid seek target, so keep it as the model
-        # typed it (never fabricate one from the first segment).
+        # No keyword hit. Media: a timestamp is always a valid seek target, so keep
+        # it as the model typed it (never fabricate one from the first segment).
         if meta["is_media"] and time_str is not None:
             return f"[{qnum}, {time_str}{kw_suffix}]"
+        # PDF without a usable keyword: re-ground from the cited line's own text. The
+        # model often gives a page-only chip (or a footer keyword we just dropped) and
+        # frequently types the wrong page, so trust the line content over the typed page.
+        if not meta["is_media"]:
+            rg = _reground_by_line(line_text, units, furniture=furniture)
+            if rg is not None:
+                page_n, anchor = rg
+                suf = f" | {anchor}" if anchor else ""
+                return f"[{qnum}, S. {page_n}{suf}]"
         # PDF: keep the typed page only if it is a REAL page of the source. Validate
         # against the source's full page set (text chunks UNION page-summaries) so an
         # image/scanned page that has a summary but no text chunk is not wrongly dropped.
@@ -620,7 +629,13 @@ def resolve_citation_positions(text: str, sources: dict, loader) -> str:
                 return f"[{qnum}, S. {page_str}{kw_suffix}]"
         return ""  # unverifiable -> drop
 
-    out = _CITE_RESOLVE_RE.sub(_sub, text)
+    # Process line by line so the keyword-less re-grounding can use the cited line's
+    # own text (with its citation tokens stripped) as the matching query.
+    out_lines = []
+    for line in text.split("\n"):
+        line_text = _CITE_RESOLVE_RE.sub("", line)
+        out_lines.append(_CITE_RESOLVE_RE.sub(lambda m, _lt=line_text: _sub(m, _lt), line))
+    out = "\n".join(out_lines)
     out = re.sub(r"[ \t]+([.,;:!?])", r"\1", out)
     out = re.sub(r"[ \t]{2,}", " ", out)
     return out
@@ -721,11 +736,11 @@ def _strip_furniture(content: str, furniture: set) -> str:
     return " ".join(out)
 
 
-def _overlap_keyword(line: str, unit, n_words: int = 5) -> str:
-    """A short VERBATIM phrase from the unit's body that also occurs in the cited
-    line, so the highlight anchors on the actually-matched content (not the unit's
-    first line / boilerplate). Falls back to the unit's first words."""
-    body_words = (unit.raw_text or "").split()
+def _overlap_phrase(line: str, text: str, n_words: int = 5) -> str:
+    """A short VERBATIM phrase from ``text`` that also occurs in the cited ``line``,
+    so the highlight anchors on the actually-matched content (not the start of a
+    coarse chunk). Falls back to the first words of ``text``."""
+    body_words = (text or "").split()
     if not body_words:
         return ""
     nline = _norm_for_match(line)
@@ -735,6 +750,65 @@ def _overlap_keyword(line: str, unit, n_words: int = 5) -> str:
             if _norm_for_match(phrase) in nline:
                 return phrase
     return " ".join(body_words[:n_words])
+
+
+def _overlap_keyword(line: str, unit, n_words: int = 5) -> str:
+    """``_overlap_phrase`` against a unit's body text."""
+    return _overlap_phrase(line, unit.raw_text or "", n_words)
+
+
+# Split a coarse page-chunk into sentence/bullet pieces so the highlight anchor can
+# land on the matched sentence, not just somewhere on the right page. Splits on
+# bullets and sentence punctuation; language-agnostic (no wordlists).
+_SUBSEG_SPLIT = re.compile(r"(?:[•·•]|[.!?])\s+")
+
+
+def _tokenset(s: str) -> set:
+    """Word tokens of a raw string (normalize first). Mirrors _citation_match._tokens
+    but kept local to avoid the circular import."""
+    return set(re.findall(r"\w+", _norm_for_match(s), flags=re.UNICODE))
+
+
+def _best_subsegment(line: str, unit_text: str) -> str:
+    """Narrow a coarse page-chunk to the sentence/bullet whose tokens best overlap
+    the cited line, so a keyword-less re-grounding anchors on the right sentence
+    instead of the first bullet of the page."""
+    qtok = _tokenset(line)
+    if not qtok:
+        return unit_text
+    best, best_score = unit_text, -1.0
+    for piece in _SUBSEG_SPLIT.split(unit_text):
+        p = piece.strip()
+        if not p:
+            continue
+        ptok = _tokenset(p)
+        if not ptok:
+            continue
+        score = len(qtok & ptok) / len(qtok)
+        if score > best_score:
+            best, best_score = p, score
+    return best
+
+
+def _reground_by_line(line_text: str, units: list, *, furniture: set):
+    """Re-locate a keyword-less PDF citation from the cited LINE's own text.
+
+    Used when the model emitted a page-only chip (or its keyword was dropped as
+    furniture) so there is no keyword to ground on. Returns (page, anchor) when the
+    line confidently matches a unit, else None. ``anchor`` is a furniture-free
+    verbatim phrase for the highlight (or "" if none survives)."""
+    from ._citation_match import match_query  # local: avoids circular import
+    q = (line_text or "").strip()
+    if len(_tokenset(q)) < 2:        # too thin to ground safely
+        return None
+    r = match_query(q, units)
+    if not r.unit or r.unit.page is None:
+        return None
+    sub = _best_subsegment(q, r.unit.raw_text or "")
+    anchor = _overlap_phrase(q, sub)
+    if anchor and _kw_is_furniture(anchor, furniture):
+        anchor = ""
+    return (r.unit.page, anchor)
 
 
 def fill_uncited_lines(text: str, sources: dict, loader) -> str:

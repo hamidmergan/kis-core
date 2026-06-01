@@ -75,3 +75,35 @@ def test_pdf_unverifiable_page_dropped():
     out = resolve_citation_positions(text, src, _Loader(units))
     assert "[4" not in out
     assert "Foo bar." in out
+
+
+def test_pdf_keywordless_regrounds_from_line_to_correct_page():
+    # The model cited page 7 with NO keyword; the line's own text actually lives on
+    # page 8. Without a keyword the old resolver blindly kept the (wrong) typed page.
+    text = "Passt die Frage zum Thema? [5, S. 7]"
+    # unit bodies carry sentence punctuation, exactly as real page-chunks do, so the
+    # anchor can be narrowed to the matched sentence.
+    units = {5: [
+        Unit(7, None, None, "Ist die Fragestellung zu einfach? Laesst die Frage sich "
+                            "wissenschaftlich beantworten? Kann ich diese Fragestellung beantworten?"),
+        Unit(8, None, None, "Ist die Frage so formuliert, dass sie eine gute Antwort "
+                            "ermoeglicht? Passt die Fragestellung zum Thema? Manchmal passiert es."),
+    ]}
+    src = {5: {"source": {"id": 5}, "is_media": False, "pages": {7, 8}}}
+    out = resolve_citation_positions(text, src, _Loader(units))
+    assert "[5, S. 8" in out          # re-grounded from the wrong page 7 to page 8
+    assert "[5, S. 7" not in out
+    # anchor lands on the matched sentence, not the first bullet of the page
+    anchor = out.split("[5, S. 8")[1]
+    assert "Passt die" in anchor
+
+
+def test_pdf_keywordless_kept_when_line_has_no_match():
+    # No keyword AND the line does not match any unit -> keep the valid typed page,
+    # do not invent an anchor.
+    text = "Voellig anderes thema hier. [5, S. 7]"
+    units = {5: [Unit(7, None, None, "ganz etwas anderes ohne bezug"),
+                 Unit(8, None, None, "noch etwas vollkommen unverwandtes")]}
+    src = {5: {"source": {"id": 5}, "is_media": False, "pages": {7, 8}}}
+    out = resolve_citation_positions(text, src, _Loader(units))
+    assert "[5, S. 7]" in out         # typed page kept, still keyword-less
