@@ -542,6 +542,7 @@ class SourceUnitLoader:
 
     def __init__(self) -> None:
         self._cache: dict[int, list] = {}
+        self._furniture: dict[int, set] = {}
 
     def units(self, source: dict, *, is_media: bool) -> list:
         from ._citation_match import Unit
@@ -549,6 +550,7 @@ class SourceUnitLoader:
         if sid in self._cache:
             return self._cache[sid]
         if is_media:
+            self._furniture[sid] = set()
             units = [
                 Unit(page=None, start_time=s["start"], end_time=s["end"], raw_text=s["text"])
                 for s in _load_transcript_segments(source)
@@ -557,6 +559,7 @@ class SourceUnitLoader:
             from src.features.ai_assistant.repository import chunks as chunk_repo
             raw = chunk_repo.get_aia_chunks_by_source(sid)
             furniture = _running_furniture(raw)
+            self._furniture[sid] = furniture
             units = []
             for c in raw:
                 if not c.get("content"):
@@ -566,6 +569,12 @@ class SourceUnitLoader:
                                   end_time=None, raw_text=body or c["content"]))
         self._cache[sid] = units
         return units
+
+    def furniture(self, source: dict) -> set:
+        sid = source["id"]
+        if sid not in self._furniture:
+            self.units(source, is_media=False)  # populate (PDF path computes it)
+        return self._furniture.get(sid, set())
 
 
 def resolve_citation_positions(text: str, sources: dict, loader) -> str:
@@ -584,6 +593,12 @@ def resolve_citation_positions(text: str, sources: dict, loader) -> str:
         if meta is None:
             return ""  # unknown source -> drop
         units = loader.units(meta["source"], is_media=meta["is_media"])
+        # Drop a running header/footer keyword so the highlight can't land on furniture.
+        # The model sometimes copies a footer line as the citation keyword because the
+        # chunk text starts footer-first. We keep the model-typed page (rule 3 below).
+        _get_furniture = getattr(loader, "furniture", None)
+        if kw and not meta["is_media"] and _get_furniture and _kw_is_furniture(kw, _get_furniture(meta["source"])):
+            kw = ""   # running header/footer keyword -> position-only chip
         kw_suffix = f" | {kw}" if kw else ""
         typed = _parse_ts(time_str) if time_str else (int(page_str) if page_str else None)
         r = match_query(kw, units, typed_pos=typed) if kw else None
@@ -676,6 +691,19 @@ def _running_furniture(chunks: list) -> set:
             counts[n] += 1
     threshold = max(2, (len(pages) + 1) // 2)
     return {n for n, c in counts.items() if c >= threshold}
+
+
+def _kw_is_furniture(kw: str, furniture: set) -> bool:
+    """True if the citation keyword is (part of) a running header/footer line, so it
+    must not anchor a highlight. Matches either direction so a keyword that is a
+    fragment of a furniture line, or that contains a whole furniture line, both count."""
+    nkw = _norm_for_match(kw)
+    if not nkw:
+        return False
+    for f in furniture:
+        if len(f) >= 4 and (nkw in f or f in nkw):
+            return True
+    return False
 
 
 def _strip_furniture(content: str, furniture: set) -> str:
