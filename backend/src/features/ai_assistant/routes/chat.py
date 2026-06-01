@@ -933,7 +933,8 @@ async def chat(
             # then strip citations from the closing summary section.
             coverage_sources = {
                 qn: {"source": all_sources_list[qnum_to_source_id[qn]],
-                     "is_media": source_index[qn]["is_media"]}
+                     "is_media": source_index[qn]["is_media"],
+                     "pages": source_index[qn].get("pages", set())}
                 for qn in source_index if qnum_to_source_id.get(qn) in all_sources_list
             }
             _unit_loader = SourceUnitLoader()

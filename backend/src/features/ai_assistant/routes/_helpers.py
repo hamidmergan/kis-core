@@ -587,19 +587,24 @@ def resolve_citation_positions(text: str, sources: dict, loader) -> str:
             if meta["is_media"]:
                 return f"[{qnum}, {_format_timestamp(r.unit.start_time)}{kw_suffix}]"
             return f"[{qnum}, S. {r.unit.page}{kw_suffix}]"
-        # no keyword hit -> keep a valid model-typed position
+        # no keyword hit -> keep a valid model-typed position.
+        # Media: a timestamp is always a valid seek target, so keep it as the model
+        # typed it (never fabricate one from the first segment).
         if meta["is_media"] and time_str is not None:
-            t = _parse_ts(time_str)
-            for u in units:
-                if u.start_time is not None and u.start_time <= t <= (u.end_time or u.start_time):
-                    return f"[{qnum}, {time_str}{kw_suffix}]"
-            return f"[{qnum}, {_format_timestamp(units[0].start_time)}{kw_suffix}]" if units else ""
-        if (not meta["is_media"]) and page_str is not None and \
-                any(u.page == int(page_str) for u in units):
-            return f"[{qnum}, S. {page_str}{kw_suffix}]"
+            return f"[{qnum}, {time_str}{kw_suffix}]"
+        # PDF: keep the typed page only if it is a REAL page of the source. Validate
+        # against the source's full page set (text chunks UNION page-summaries) so an
+        # image/scanned page that has a summary but no text chunk is not wrongly dropped.
+        if (not meta["is_media"]) and page_str is not None:
+            valid_pages = meta.get("pages") or {u.page for u in units if u.page is not None}
+            if int(page_str) in valid_pages:
+                return f"[{qnum}, S. {page_str}{kw_suffix}]"
         return ""  # unverifiable -> drop
 
-    return _CITE_RESOLVE_RE.sub(_sub, text)
+    out = _CITE_RESOLVE_RE.sub(_sub, text)
+    out = re.sub(r"[ \t]+([.,;:!?])", r"\1", out)
+    out = re.sub(r"[ \t]{2,}", " ", out)
+    return out
 
 
 import re as _re
