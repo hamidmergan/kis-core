@@ -39,6 +39,9 @@ class CitationGrounder:
     def feed_line(self, line: str) -> str:
         line = _sanitize_citations(line)
         line = _chipify_inline_refs(line, self._qmap)
+        # NOTE: triggers on the FIRST summary heading; the batch path
+        # (_strip_summary_citations) uses the LAST. Divergence only matters with
+        # multiple summary headings — reconciled by the final `done` event (see spec).
         if _SUMMARY_HEADING_RE.match(line):
             self._in_summary = True
         resolved = resolve_citation_positions(line, self._sources, self._loader)

@@ -1,13 +1,11 @@
+from src.features.ai_assistant.routes._citation_match import Unit
+from src.features.ai_assistant.routes._grounding import CitationGrounder
 from src.features.ai_assistant.routes._helpers import _sanitize_citations
 
 
 def test_sanitize_repairs_page_and_time():
     assert _sanitize_citations("Foo [1] S. 3 bar") == "Foo [1, S. 3] bar"
     assert _sanitize_citations("Clip [2] 05:32 end") == "Clip [2, 05:32] end"
-
-
-from src.features.ai_assistant.routes._grounding import CitationGrounder
-from src.features.ai_assistant.routes._citation_match import Unit
 
 
 class _Loader:
@@ -65,6 +63,32 @@ def test_feed_sequence_matches_full_pipeline_for_prose():
     canon = fill_uncited_lines(canon, src, loader)
 
     # incremental
+    g = CitationGrounder(src, loader, qmap)
+    inc = "\n".join(g.feed_line(line) for line in answer.split("\n"))
+    assert inc == canon
+
+
+def test_feed_sequence_matches_full_pipeline_with_summary():
+    # Single closing "Zusammenfassung" after cited body: the incremental grounder
+    # must match the FULL canonical pipeline incl. _strip_summary_citations.
+    from src.features.ai_assistant.routes._helpers import (
+        resolve_citation_positions, fill_uncited_lines, _strip_summary_citations,
+        _sanitize_citations, _chipify_inline_refs,
+    )
+    units = {1: [Unit(2, None, None, "Die Methode nutzt einen Test zur Pruefung")]}
+    src, loader = _sources(units), _Loader(units)
+    qmap = [{"qnum": 1, "uuid": "u1", "filename": "f.pdf"}]
+    answer = (
+        "Die Methode nutzt einen Test. [1, S. 2 | Test]\n"
+        "Zusammenfassung\n"
+        "Die Methode nutzt einen Test zur Pruefung. [1, S. 2 | Test]"
+    )
+
+    canon = _chipify_inline_refs(_sanitize_citations(answer), qmap)
+    canon = resolve_citation_positions(canon, src, loader)
+    canon = fill_uncited_lines(canon, src, loader)
+    canon = _strip_summary_citations(canon)
+
     g = CitationGrounder(src, loader, qmap)
     inc = "\n".join(g.feed_line(line) for line in answer.split("\n"))
     assert inc == canon
