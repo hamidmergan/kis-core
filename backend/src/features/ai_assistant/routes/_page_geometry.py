@@ -117,26 +117,78 @@ def _is_abbrev_dot(text: str, i: int) -> bool:
     return False
 
 
+# A line break that opens one of these is a genuine NEW item, not a wrap.
+_LIST_MARKER = re.compile(r"^(?:[•·▪◦‣⁃●○…*]|\.{2,}|[-–—]\s|\(?\d{1,3}[.)]\s)")
+_DATE_LIKE = re.compile(r"^\d{1,4}[.\-/]\d{1,2}(?:[.\-/]\d{1,4})?\b")
+
+
+def _line_is_boundary(text: str, j: int) -> bool:
+    """True if the '\\n' at index ``j`` is a real sentence/line boundary; False if it
+    is only a soft wrap or an inline-formula fragment break that should be bridged.
+
+    pdfium emits superscripts/exponents/primes (x², f′, e^x, ℝ) as their OWN short
+    "line" between \\r\\n, so naively stopping at every '\\n' cuts maths symbols off the
+    highlight. This mirrors the frontend ``_looksLikeNewBullet`` heuristic — purely
+    punctuation / list-marker / Unicode-case / line-length, no wordlists, so it stays
+    language-agnostic for every tenant."""
+    n = len(text)
+    p = j - 1
+    while p >= 0 and text[p] in " \t\r":
+        p -= 1
+    if p < 0:
+        return False
+    prev_char = text[p]
+    ls = p
+    while ls > 0 and text[ls - 1] != "\n":
+        ls -= 1
+    prev_line_len = p - ls + 1
+    k = j + 1
+    while k < n and text[k] in " \t\r\n":
+        k += 1
+    if k >= n:
+        return False
+    after = text[k:k + 60]
+    nxt = text[k]
+    if prev_char == "-":
+        return False                       # hyphenated wrap
+    if prev_char in ",;:":
+        return False                       # clause / list continues
+    if _LIST_MARKER.match(after) or _DATE_LIKE.match(after):
+        return True                        # new list/enumeration/date item
+    if prev_char in ".!?":
+        return True                        # previous sentence ended
+    if not nxt.isupper():
+        return False                       # lowercase/digit/operator/prime/paren → continuation (wrap or formula)
+    # Ambiguous Title-case line after another: a SHORT ended line is a heading /
+    # standalone item (boundary); a near-full-width line is wrapped prose (bridge).
+    return prev_line_len <= 55
+
+
 def _expand_sentence(text: str, a: int, b: int) -> tuple[int, int]:
     """Expand the inclusive core [a, b] to its sentence/line bounds within ``text``.
-    Stops at '\\n', '!', '?', or a non-abbreviation '.'. Whitespace at the edges is
-    trimmed back to the core."""
+    Stops at '!', '?', a non-abbreviation '.', or a '\\n' that is a real line boundary
+    (``_line_is_boundary``) — a '\\n' that only separates an inline maths fragment is
+    bridged so superscripts/primes stay in the highlight. Edge whitespace is trimmed."""
     n = len(text)
     s = 0
     for i in range(a - 1, -1, -1):
         ch = text[i]
-        if ch == "\n" or ch in "!?":
-            s = i + 1
-            break
-        if ch == "." and not _is_abbrev_dot(text, i):
+        if ch == "\n":
+            if _line_is_boundary(text, i):
+                s = i + 1
+                break
+            continue
+        if ch in "!?" or (ch == "." and not _is_abbrev_dot(text, i)):
             s = i + 1
             break
     e = n - 1
     for j in range(b + 1, n):
         ch = text[j]
         if ch == "\n":
-            e = j - 1
-            break
+            if _line_is_boundary(text, j):
+                e = j - 1
+                break
+            continue
         if ch in "!?" or (ch == "." and not _is_abbrev_dot(text, j)):
             e = j
             break

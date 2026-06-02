@@ -49,6 +49,37 @@ def test_locate_span_is_diacritic_insensitive():
     assert span is not None
 
 
+def test_locate_span_includes_superscript_on_own_line():
+    # pdfium emits the exponent of cos(x²) as a "2" on its own line between \r\n.
+    # The span must bridge those line breaks so the maths symbol is highlighted.
+    page = "Gesucht ist die Ableitung von F(x) = cos(x\r\n2\r\n). Hier ist die aeussere Funktion."
+    span = locate_claim_span(page, "Ableitung von F(x) = cos(x2)")
+    assert span is not None
+    start, end = span
+    covered = page[start:end + 1]
+    assert "2" in covered and ")" in covered     # exponent + closing paren kept (was cut before)
+    assert "Hier" not in covered                  # but does not run into the next sentence
+
+
+def test_locate_span_includes_prime_on_own_line():
+    # Derivative primes f′ are emitted on their own line; keep them in the span.
+    page = "(f(x) + g(x))\r\n'\r\n= f'(x) + g'(x) ist die Summenregel. Danach folgt mehr."
+    span = locate_claim_span(page, "f(x) + g(x) ist die Summenregel")
+    assert span is not None
+    start, end = span
+    assert "Summenregel" in page[start:end + 1]
+
+
+def test_line_break_still_bounds_a_real_new_item():
+    # A short Title-case line followed by another Title-case line (slide/heading
+    # layout) must STILL break — bridging only applies to maths-fragment lines.
+    page = "Titelzeile\r\nGesuchter Satz steht hier und ist lang genug. Ende."
+    span = locate_claim_span(page, "Gesuchter Satz steht hier")
+    assert span is not None
+    start, end = span
+    assert "Titelzeile" not in page[start:end + 1]   # title not swallowed
+
+
 def test_locate_span_caps_runaway_sentence():
     page = "Anfang " + "wort " * 200 + "ende der langen passage."
     span = locate_claim_span(page, "wort wort wort")
