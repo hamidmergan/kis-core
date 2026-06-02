@@ -65,6 +65,31 @@ def test_html_markup_stripped_from_filled_keyword():
     assert "Peer-Review" in kw                       # clean cell text anchors
 
 
+def test_table_row_citation_inserted_inside_last_cell():
+    # A markdown table data row must get its chip INSIDE the last cell (with the
+    # non-pipe ❘ separator) so the table renders the chip; appended after the row
+    # the markdown parser drops it.
+    text = "| Abgabe Hausarbeit | 03.07.2026 |\n"
+    units = [Unit(page=6, start_time=None, end_time=None,
+                  raw_text="Zeitplan Abgabe Hausarbeit 03.07.2026 Praesentationen")]
+    sources = {4: {"source": {"id": 4}, "is_media": False}}
+    out = fill_uncited_lines(text, sources, _FakeLoader(units)).splitlines()[0]
+    assert out.endswith("|")                 # row still closes with a pipe -> table intact
+    assert "[4, S. 6 ❘" in out               # chip uses the non-pipe separator
+    assert " | " not in out[out.index("[4, S. 6 ❘"):]  # no stray pipe after the chip opens
+    assert out.index("[4, S. 6 ❘") < out.rindex("|")    # chip sits before the closing pipe
+
+
+def test_table_row_already_cited_in_cell_not_double_filled():
+    # A table row whose last cell already carries a chip must not be filled again.
+    text = "| Abgabe Hausarbeit | 03.07.2026 [4, S. 6 ❘ Abgabe Hausarbeit] |\n"
+    units = [Unit(page=6, start_time=None, end_time=None,
+                  raw_text="Zeitplan Abgabe Hausarbeit 03.07.2026")]
+    sources = {4: {"source": {"id": 4}, "is_media": False}}
+    out = fill_uncited_lines(text, sources, _FakeLoader(units))
+    assert out.count("[4, S. 6") == 1        # not doubled
+
+
 def test_main_clause_fallback_fills_bullet_with_parenthetical_gloss():
     # The full bullet carries an author gloss in parentheses that is NOT in the
     # source, dragging containment below threshold. The main clause (before the

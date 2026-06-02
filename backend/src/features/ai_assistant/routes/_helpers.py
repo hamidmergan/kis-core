@@ -701,7 +701,9 @@ def is_citable_line(line: str, *, in_summary: bool) -> bool:
 
 
 # A line "already has a citation" if it ends with a chip token.
-_HAS_CITE = _re.compile(r"\[(?:Q?\d+,\s*)?(?:S\.\s*\d+|\d{1,2}:\d{2}(?::\d{2})?)[^\]]*\]\s*$")
+# A line "already has a citation" if it ends with a chip token — optionally followed
+# by a markdown table cell's closing pipe (the chip can sit inside the last cell).
+_HAS_CITE = _re.compile(r"\[(?:Q?\d+,\s*)?(?:S\.\s*\d+|\d{1,2}:\d{2}(?::\d{2})?)[^\]]*\]\s*\|?\s*$")
 
 
 def _kw_from_unit(unit, n_words: int = 4) -> str:
@@ -901,6 +903,13 @@ def fill_uncited_lines(text: str, sources: dict, loader) -> str:
         # lands on the right sentence (not the first overlapping word on the page).
         kw = _overlap_phrase(match_text, _best_subsegment(match_text, unit.raw_text or ""))
         pos = _format_timestamp(unit.start_time) if is_media else f"S. {unit.page}"
-        out_lines.append(f"{line.rstrip()} [{qnum}, {pos} | {kw}]")  # plain in M1; ~ marker comes later
+        stripped = line.rstrip()
+        if stripped.startswith("|") and stripped.endswith("|"):
+            # Markdown table row: put the chip INSIDE the last cell (before the closing
+            # pipe) so it renders, and use the non-pipe separator ❘ so the keyword's
+            # own text can never split the cell.
+            out_lines.append(f"{stripped[:-1].rstrip()} [{qnum}, {pos} ❘ {kw}] |")
+        else:
+            out_lines.append(f"{stripped} [{qnum}, {pos} | {kw}]")  # plain in M1; ~ marker comes later
     return "\n".join(out_lines)
 
