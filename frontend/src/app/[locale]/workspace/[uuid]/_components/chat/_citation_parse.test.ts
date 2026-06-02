@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { parseCitationFields, citationsAreAdjacentSameTarget, sanitizeCitationsForMarkdown, stripCitations } from "./_citation_parse";
+import { parseCitationFields, citationsAreAdjacentSameTarget, sanitizeCitationsForMarkdown, stripCitations, buildDisplayContent } from "./_citation_parse";
 import { _collapseFold, _allIndexOf } from "../viewer/_highlight";
 
 describe("parseCitationFields", () => {
@@ -114,8 +114,20 @@ describe("citationsAreAdjacentSameTarget", () => {
     expect(citationsAreAdjacentSameTarget(src, a, b, key, key)).toBe(true);
   });
 
+  it("merges across only-punctuation between them (real '[7] S. 8. [7] S. 8' case)", () => {
+    const src = "Passt die Fragestellung zum Thema? [7, S. 8 @1-34 | Passt die Fragestellung zum Thema?]. [7, S. 8 @120-260 | Es ist also gar nicht selten]";
+    const [a, b] = parseCitationFields(src);
+    expect(citationsAreAdjacentSameTarget(src, a, b, key, key)).toBe(true);
+  });
+
   it("does NOT merge when real text sits between them", () => {
     const src = "[1, S. 15 | a] etwas Text dazwischen [1, S. 15 | b]";
+    const [a, b] = parseCitationFields(src);
+    expect(citationsAreAdjacentSameTarget(src, a, b, key, key)).toBe(false);
+  });
+
+  it("does NOT merge when a word ends in a dot between them", () => {
+    const src = "[1, S. 15 | a] etc. [1, S. 15 | b]";
     const [a, b] = parseCitationFields(src);
     expect(citationsAreAdjacentSameTarget(src, a, b, key, key)).toBe(false);
   });
@@ -162,5 +174,23 @@ describe("_allIndexOf", () => {
     expect(_allIndexOf("a-a-a", "a")).toEqual([0, 2, 4]);
     expect(_allIndexOf("xxxx", "x", 2)).toEqual([0, 1]);
     expect(_allIndexOf("abc", "z")).toEqual([]);
+  });
+});
+
+describe("buildDisplayContent", () => {
+  it("returns content unchanged when not streaming", () => {
+    const c = "A [1, S. 2 | k]\nB";
+    expect(buildDisplayContent(c, undefined, false)).toBe(c);
+  });
+
+  it("strips raw chips from ungrounded lines while streaming", () => {
+    const c = "A [1, S. 2 | k]\nB [1, S. 3 | k]";
+    expect(buildDisplayContent(c, undefined, true)).toBe("A \nB ");
+  });
+
+  it("uses the grounded text for grounded lines, strips the rest", () => {
+    const c = "A [1, S. 9 | k]\nB [1, S. 9 | k]";
+    const grounded = ["A [1, S. 2 @10-20 | k]"]; // only line 0 grounded
+    expect(buildDisplayContent(c, grounded, true)).toBe("A [1, S. 2 @10-20 | k]\nB ");
   });
 });

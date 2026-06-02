@@ -42,11 +42,16 @@ export function parseCitationFields(text: string): CitationFields[] {
 }
 
 // Two citations collapse into ONE chip when they point at the same PDF page of the
-// same source and sit directly next to each other (only whitespace between them in
-// the answer text, e.g. "… [1] S. 15 [1] S. 15"). Media timestamps and bare-page
-// citations never merge. `sourceKeyA/B` are the caller-resolved source identities
-// (uuid via qmap), so two adjacent "[1] S. 15" tokens that resolve to the same
-// source merge even though the raw token has no uuid. Pure for unit testing.
+// same source and sit directly next to each other in the answer text, e.g.
+// "… [1] S. 15 [1] S. 15" or "Passt die Fragestellung zum Thema? [7] S. 8. [7] S. 8".
+// "Next to each other" means the gap between them is only whitespace and/or sentence
+// punctuation — the model often ends a clause with one citation and immediately opens
+// the next ("…?]. […"), which is still the same redundant target, not a new claim. Any
+// letters/digits in the gap (real claim text, or a word that happens to end in a dot
+// like "etc.") block the merge. Media timestamps and bare-page citations never merge.
+// `sourceKeyA/B` are the caller-resolved source identities (uuid via qmap), so two
+// adjacent "[1] S. 15" tokens that resolve to the same source merge even though the
+// raw token has no uuid. Language-agnostic (no wordlist). Pure for unit testing.
 export function citationsAreAdjacentSameTarget(
   text: string,
   a: CitationFields,
@@ -59,7 +64,7 @@ export function citationsAreAdjacentSameTarget(
   if (a.page !== b.page) return false;               // different page → different chip
   if (sourceKeyA !== sourceKeyB) return false;       // different source → different chip
   const gap = text.slice(a.index + a.length, b.index);
-  return /^\s*$/.test(gap);                           // only whitespace may separate them
+  return /^[\s.,;:!?…]*$/u.test(gap);                 // only whitespace / sentence punctuation between them
 }
 
 
@@ -99,4 +104,21 @@ export function stripCitations(text: string): string {
     /[[【](?:Q?\d+(?::[a-f0-9]{6,64})?,\s*)?(?:S\.\s*\d+(?:\s*@\d+-\d+)?|\d{1,2}:\d{2}(?::\d{2})?)(?:\s*[|❘][^\]】]+)?[\]】]/g,
     "",
   );
+}
+
+// Compose the text shown for an assistant message. While streaming, grounded lines
+// (filled by `line_done`) are shown verbatim (their chips are already correct); every
+// other line has its raw LLM chips stripped, so an unverified chip is never visible.
+// Once streaming is done the canonical `content` is rendered unchanged.
+export function buildDisplayContent(
+  content: string,
+  groundedLines: (string | undefined)[] | undefined,
+  streaming: boolean,
+): string {
+  if (!streaming) return content;
+  const g = groundedLines ?? [];
+  return content
+    .split("\n")
+    .map((raw, i) => g[i] ?? stripCitations(raw))
+    .join("\n");
 }
