@@ -139,6 +139,20 @@ def test_pdf_ambiguous_heading_keyword_disambiguated_by_line():
     assert "[5, S. 7" not in out
 
 
+def test_pdf_line_overrides_confident_but_wrong_keyword_page():
+    # The model attached a page-7 keyword to a page-8 claim. The keyword matches
+    # page 7 EXACTLY, but the claim's own text belongs to page 8 -> the line wins.
+    text = "Passt die Frage zum Thema? [5, S. 7 | Ist die Fragestellung zu einfach]"
+    units = {5: [
+        Unit(7, None, None, "Ist die Fragestellung zu einfach Laesst die Frage beantworten"),
+        Unit(8, None, None, "Passt die Fragestellung zum Thema Manchmal driftet man ab"),
+    ]}
+    src = {5: {"source": {"id": 5}, "is_media": False, "pages": {7, 8}}}
+    out = resolve_citation_positions(text, src, _Loader(units))
+    assert "[5, S. 8" in out
+    assert "[5, S. 7" not in out
+
+
 def test_pdf_unique_keyword_page_not_overridden_by_line():
     # A keyword that uniquely identifies ONE page must be trusted even if the line
     # is generic -> no ambiguity, no override.

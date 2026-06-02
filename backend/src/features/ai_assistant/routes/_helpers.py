@@ -631,16 +631,17 @@ def resolve_citation_positions(text: str, sources: dict, loader) -> str:
         if r and r.unit:
             if meta["is_media"]:
                 return f"[{qnum}, {_format_timestamp(r.unit.start_time)}{kw_suffix}]"
-            # The keyword may be a section HEADING that repeats across pages (e.g.
-            # "Forschungsfrage Checkliste" on pages 7 AND 8). Then the typed page breaks
-            # the tie and is often wrong. When the keyword is page-ambiguous, let the
-            # cited line's own (more specific) text pick the page instead.
-            if _kw_ambiguous_pages(kw, units):
-                rg = _reground_by_line(line_text, units, furniture=furniture)
-                if rg is not None and rg[0] != r.unit.page:
-                    page_n, anchor = rg
-                    suf = f" | {anchor}" if anchor else ""
-                    return f"[{qnum}, S. {page_n}{suf}]"
+            # Cross-check the keyword's page against the cited line's own text. The
+            # model sometimes attaches a keyword that resolves to the WRONG page — a
+            # section heading repeated across pages, or simply a mis-picked phrase
+            # from a neighbouring page. When the line confidently and UNIQUELY matches
+            # a different page (that is the bar _reground_by_line enforces), trust the
+            # line — it is the actual claim — over the keyword's page.
+            rg = _reground_by_line(line_text, units, furniture=furniture)
+            if rg is not None and rg[0] != r.unit.page:
+                page_n, anchor = rg
+                suf = f" | {anchor}" if anchor else ""
+                return f"[{qnum}, S. {page_n}{suf}]"
             return f"[{qnum}, S. {r.unit.page}{kw_suffix}]"
         # No keyword hit. Media: a timestamp is always a valid seek target, so keep
         # it as the model typed it (never fabricate one from the first segment).
@@ -845,33 +846,6 @@ def _reground_by_line(line_text: str, units: list, *, furniture: set):
     if anchor and _kw_is_furniture(anchor, furniture):
         anchor = ""
     return (r.unit.page, anchor)
-
-
-def _kw_ambiguous_pages(kw: str, units: list) -> bool:
-    """True when ``kw`` matches strongly on TWO OR MORE distinct pages, so the page
-    is ambiguous and the model-typed page (used as the tie-breaker) cannot be
-    trusted. A keyword that uniquely identifies one page returns False, so its page
-    is never second-guessed."""
-    from ._citation_match import FUZZY_THRESHOLD, UNIQUENESS_MARGIN  # local: avoids cycle
-    nkw = _norm_for_match(kw)
-    if not nkw:
-        return False
-    exact_pages = {u.page for u in units
-                   if u.page is not None and nkw in u.normalized()}
-    if len(exact_pages) >= 2:
-        return True
-    qtok = _tokenset(nkw)
-    if not qtok:
-        return False
-    scored = [(len(qtok & _tokenset(u.normalized())) / len(qtok), u.page)
-              for u in units if u.page is not None]
-    if not scored:
-        return False
-    best = max(s for s, _ in scored)
-    if best < FUZZY_THRESHOLD:
-        return False
-    near_pages = {p for s, p in scored if best - s < UNIQUENESS_MARGIN}
-    return len(near_pages) >= 2
 
 
 _PARENTHETICAL = re.compile(r"\s*\([^)]*\)")
