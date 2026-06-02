@@ -53,19 +53,6 @@ _INTENT_MAX_WORDS = 30
 _GENERIC_MAX_QUERIES = 4
 _GENERIC_PER_QUERY_LIMIT = 8
 
-# Smaller models sometimes emit `[N] S. X` or `[N] MM:SS` (closing the bracket
-# before the position label). Repair to `[N, S. X]` / `[N, MM:SS]` so the
-# frontend chip parser can render them as clickable citations.
-_CITATION_FIX_TIME_RE = re.compile(r"\[(\d+)\]\s+(\d{1,2}:\d{2}(?::\d{2})?)")
-_CITATION_FIX_PAGE_RE = re.compile(r"\[(\d+)\]\s+(S\.\s*\d+(?:[-,–]\s*\d+)*)")
-
-
-def _sanitize_citations(text: str) -> str:
-    """Repair malformed `[N] pos` citations into the chip-renderable `[N, pos]` form."""
-    text = _CITATION_FIX_TIME_RE.sub(r"[\1, \2]", text)
-    text = _CITATION_FIX_PAGE_RE.sub(r"[\1, \2]", text)
-    return text
-
 
 async def _classify_intent(llm, question: str) -> str:
     """Decide GENERIC (cross-source overview) vs SPECIFIC (topic-focused) for routing.
@@ -372,6 +359,7 @@ from src.features.ai_assistant.routes._helpers import (
     _ALLOWED_EXTENSIONS,
     _MEDIA_EXTENSIONS,
     _MAX_UPLOAD_BYTES,
+    _sanitize_citations,
 )
 from src.features.ai_assistant import schemas
 

@@ -16,6 +16,20 @@ from src import database as db
 from src.i18n import DEFAULT_LOCALE, t
 from src.storage import USE_S3
 
+# Smaller models sometimes emit `[N] S. X` or `[N] MM:SS` (closing the bracket
+# before the position label). Repair to `[N, S. X]` / `[N, MM:SS]` so the chip
+# parser renders them as clickable citations.
+_CITATION_FIX_TIME_RE = re.compile(r"\[(\d+)\]\s+(\d{1,2}:\d{2}(?::\d{2})?)")
+_CITATION_FIX_PAGE_RE = re.compile(r"\[(\d+)\]\s+(S\.\s*\d+(?:[-,–]\s*\d+)*)")
+
+
+def _sanitize_citations(text: str) -> str:
+    """Repair malformed `[N] pos` citations into the chip-renderable `[N, pos]` form."""
+    text = _CITATION_FIX_TIME_RE.sub(r"[\1, \2]", text)
+    text = _CITATION_FIX_PAGE_RE.sub(r"[\1, \2]", text)
+    return text
+
+
 def _trace_llm(llm, name: str) -> None:
     """Update current Langfuse observation with provider metadata."""
     langfuse_context.update_current_observation(
