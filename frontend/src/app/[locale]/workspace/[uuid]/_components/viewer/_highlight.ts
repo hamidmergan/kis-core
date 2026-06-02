@@ -389,7 +389,12 @@ export function tryHighlightOnPage(
         if (/^(?:[•·▪◦‣⁃●○…*]|\.{2,}|[-–—]\s|\(?\d{1,3}[.)]\s)/.test(afterSlice)) return true;
         if (/^\d{1,4}[.\-/]\d{1,2}(?:[.\-/]\d{1,4})?\b/.test(afterSlice)) return true;
         if (/[.!?]$/.test(beforeSlice)) return true;  // previous sentence ended
-        if (/^\p{Ll}/u.test(afterSlice)) return false; // lowercase start → wrap
+        // Anything that does NOT start with an uppercase LETTER continues the line:
+        // lowercase prose wraps, but ALSO maths fragments that pdfium puts on their
+        // own line — primes (′″), exponents (², ⁿ), operators (− + · = /), digits,
+        // parentheses. Without this, "Die Ableitung lautet also F" + "′(x) = −sin(x²)"
+        // is cut before the prime. Mirrors the backend _line_is_boundary.
+        if (!/^\p{Lu}/u.test(afterSlice)) return false;
         // Ambiguous (Title-case line after another, no punctuation): a SHORT
         // ended line is a heading/title/standalone item → boundary; a long line
         // is wrapped prose → keep joined. Length, not language.
