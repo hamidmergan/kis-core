@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import { createPortal } from "react-dom";
-import { CaretLeft, SidebarSimple } from "@phosphor-icons/react";
+import { CaretLeft, SidebarSimple, X } from "@phosphor-icons/react";
 import { PDFViewer, type PDFViewerRef } from "@embedpdf/react-pdf-viewer";
 import { LockModeType } from "@embedpdf/plugin-annotation";
 import type { ViewerState } from "../../_types";
@@ -9,7 +9,7 @@ import { FileIcon } from "../sources/FileIcon";
 
 import { EMBEDPDF_ICON_MAP } from "./_icons";
 import { wrapEngineGeometry } from "./_geometry";
-import { doHighlightSearch, type HighlightRefs } from "./_highlight";
+import { doHighlightSearch, clearCitationHighlight, type HighlightRefs } from "./_highlight";
 import { SummaryPanel } from "./_summary_panel";
 import { copyTextFromPromise } from "@/lib/clipboard";
 import { useTheme } from "@/hooks/useTheme";
@@ -149,7 +149,10 @@ export function PdfViewer({
   // Scroll to page + highlight text when nonce changes (pill click on same document)
   const pendingHighlightRef = useRef<{ page: number; text: string; exact?: boolean; offsets?: [number, number] } | null>(null);
   const prevHighlightRef = useRef<{ pageIndex: number; ids: string[] } | null>(null);
-  const highlightRefs: HighlightRefs = { prevHighlightRef };
+  const citationHighlightRef = useRef<{ pageIndex: number; id: string } | null>(null);
+  // Controls the "Markierung aufheben" button shown while a citation highlight is active.
+  const [citationActive, setCitationActive] = useState(false);
+  const highlightRefs: HighlightRefs = { prevHighlightRef, citationHighlightRef, onHighlightActive: setCitationActive };
 
   // When the document changes, the inner PDFViewer remounts (keyed by uuid) but this
   // outer component does not — so registryRef still points at the previous document's
@@ -188,6 +191,13 @@ export function PdfViewer({
     }
 
   }, [source.nonce, source.page, source.highlightText, source.exactSelection, source.highlightOffsets]);
+
+  // A new document remounts EmbedPDF (keyed by uuid), discarding the ephemeral
+  // citation highlight — reset its tracking + dismiss button.
+  useEffect(() => {
+    citationHighlightRef.current = null;
+    setCitationActive(false);
+  }, [source.uuid]);
 
   const handleReady = useCallback((registry: unknown) => {
     registryRef.current = registry;
@@ -667,6 +677,19 @@ export function PdfViewer({
           style={{ width: "100%", height: "100%" }}
           onReady={handleReady}
         />
+        {/* Dismiss control for the passive yellow citation highlight. */}
+        {citationActive && (
+          <button
+            type="button"
+            onClick={() => clearCitationHighlight(highlightRefs, registryRef.current)}
+            className="absolute left-1/2 -translate-x-1/2 bottom-4 z-10 flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium shadow-md btn-icon"
+            style={{ backgroundColor: "var(--surface)", color: "var(--foreground)", border: "1px solid var(--border)" }}
+            title={tViewer("dismissHighlight")}
+          >
+            <X size={12} weight="bold" />
+            {tViewer("dismissHighlight")}
+          </button>
+        )}
       </div>
       {/* Summary content portaled into EmbedPDF's sidebar (shadow DOM) */}
       {sidebarTarget && createPortal(

@@ -1794,6 +1794,7 @@
       },
       "viewer": {
         "back": "Zurück",
+        "dismissHighlight": "Markierung aufheben",
         "transcriptLabel": "Transkript",
         "transcriptLoading": "Transkript wird geladen...",
         "jumpToCurrent": "Zum aktuellen Transkript springen",

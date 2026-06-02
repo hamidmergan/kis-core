@@ -1,17 +1,32 @@
-// Text search + highlight orchestration for the PDF viewer.
-// Extracted from PdfViewer.tsx. Uses the EmbedPDF registry/engine/selection
-// plugins plus heuristics (bullet detection, sentence/paragraph expansion)
-// to turn a raw search string + page number into an EmbedPDF instant selection.
+// Citation highlight orchestration for the PDF viewer (chip click → highlight).
+// Turns a span offset (Architecture B) or a raw search string + page number into a
+// passive YELLOW marker, drawn as an ephemeral Highlight annotation (created but
+// NEVER committed, so the PDF file is untouched). It is NOT a text selection, so a
+// chip click never triggers the selection action-popup. The user's own manual text
+// selection still uses EmbedPDF's native blue selection + popup (untouched here).
 //
 // EmbedPDF-internal APIs in use (NOT in public docs — re-verify on @embedpdf bump):
-//   selection.applyInstantSelection, selection.enableForMode, selCap.getState,
-//   engine.getPageGeometry, engine.getTextSlices.
+//   annotation.createAnnotation / purgeAnnotation / deselectAnnotation,
+//   engine.getPageGeometry, engine.getTextSlices, selection.getState (geometry cache).
 // Public Search plugin can't replace this: it only highlights exact matches,
 // not the surrounding sentence/paragraph that _findParaBounds expands to.
 
 export type HighlightRefs = {
   prevHighlightRef: { current: { pageIndex: number; ids: string[] } | null };
+  // Tracks the current ephemeral citation highlight (a Highlight annotation that is
+  // NEVER committed, so it never touches the PDF file) so it can be purged on the
+  // next chip click or when the user dismisses it.
+  citationHighlightRef: { current: { pageIndex: number; id: string } | null };
+  // Toggles the "dismiss highlight" control in the viewer.
+  onHighlightActive?: (active: boolean) => void;
 };
+
+// Citation highlight = passive yellow marker (NOT a text selection), so a chip
+// click never triggers the selection action-popup. Single colour constant — swap
+// for a tenant brand colour here if desired.
+const CITATION_HL_COLOR = "#FFE14D";   // highlighter yellow
+const CITATION_HL_OPACITY = 0.4;
+const HIGHLIGHT_SUBTYPE = 9;           // PdfAnnotationSubtype.HIGHLIGHT
 
 // Position-preserving diacritic fold + lowercase: every character maps to exactly
 // ONE character (its NFKD base letter), so the result has the SAME length and the
@@ -95,52 +110,96 @@ export function _allIndexOf(hay: string, needle: string, cap = 24): number[] {
 }
 
 
-// Apply an instant selection over a geometry char-range, handling the two
-// Selection-plugin pitfalls (panMode rects + virtualized-page geometry not yet
-// mounted), then scroll the range into view. Shared by both highlight paths.
-function applyRangeSelection(
+// Build per-line page-coordinate rects for the geometry char range [a, b] from the
+// page glyph geometry. Same coordinate space the Selection plugin uses to build its
+// highlight rects (min/max of glyph boxes, top-left origin, no y-flip), which is
+// exactly what the annotation layer consumes — verified against @embedpdf internals.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function buildSegmentRects(g: any, a: number, b: number): { segmentRects: any[]; bbox: any } {
+  const segs: { origin: { x: number; y: number }; size: { width: number; height: number } }[] = [];
+  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+  for (const run of (g.runs || [])) {
+    const runStart = run.charStart;
+    const runEnd = runStart + run.glyphs.length - 1;
+    if (runEnd < a || runStart > b) continue;
+    let lx = Infinity, ly = Infinity, hx = -Infinity, hy = -Infinity;
+    for (let i = 0; i < run.glyphs.length; i++) {
+      const idx = runStart + i;
+      if (idx < a || idx > b) continue;
+      const gl = run.glyphs[i];
+      if (gl.flags === 2) continue; // empty glyph
+      const x0 = gl.x, y0 = gl.y, x1 = gl.x + gl.width, y1 = gl.y + gl.height;
+      if (x0 < lx) lx = x0; if (y0 < ly) ly = y0; if (x1 > hx) hx = x1; if (y1 > hy) hy = y1;
+    }
+    if (lx === Infinity) continue;
+    segs.push({ origin: { x: lx, y: ly }, size: { width: hx - lx, height: hy - ly } });
+    if (lx < minX) minX = lx; if (ly < minY) minY = ly; if (hx > maxX) maxX = hx; if (hy > maxY) maxY = hy;
+  }
+  if (!segs.length) return { segmentRects: [], bbox: null };
+  return { segmentRects: segs, bbox: { origin: { x: minX, y: minY }, size: { width: maxX - minX, height: maxY - minY } } };
+}
+
+
+// Remove the current ephemeral citation highlight (purgeAnnotation does NOT modify
+// the PDF — we never commit). Safe to call when none is active.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export function clearCitationHighlight(refs: HighlightRefs, reg: unknown) {
+  const cur = refs.citationHighlightRef?.current;
+  if (!cur) return;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  r: any, docId2: string, scroll: any, g: any, refs: HighlightRefs,
-  targetPageIndex: number, geoStart: number, geoEnd: number,
-): Promise<boolean> {
+  const anno = (reg as any)?.getPlugin?.("annotation")?.provides?.();
+  try { anno?.purgeAnnotation?.(cur.pageIndex, cur.id); } catch { /* ignore */ }
+  refs.citationHighlightRef.current = null;
+  refs.onHighlightActive?.(false);
+}
+
+
+// Draw the citation highlight as a passive yellow Highlight annotation (ephemeral:
+// created but never committed). No text selection is made, so the selection
+// action-popup never appears for a chip click. Purges any previous one first
+// (one citation highlight at a time), deselects so no edit handles show, and
+// scrolls the range into view.
+function drawCitationHighlight(
+  refs: HighlightRefs,
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const selInstance = r.getPlugin?.("selection") as any;
-  const selCapability = selInstance?.provides?.();
-  if (!selInstance?.applyInstantSelection || docId2 == null) return Promise.resolve(false);
-  // 1. Pan plugin defaults to "panMode" on touch; the Selection plugin only ships
-  //    rect config for "pointerMode", so without this rects never render.
-  //    Idempotent per doc; enabling panMode rects does NOT enable drag-to-select.
+  r: any, docMgr: any, scroll: any, targetPageIndex: number, geoStart: number, geoEnd: number, g: any,
+): boolean {
+  const { segmentRects, bbox } = buildSegmentRects(g, geoStart, geoEnd);
+  if (!segmentRects.length || !bbox) return false;
+  const anno = r.getPlugin?.("annotation")?.provides?.();
+  const docId = docMgr.getActiveDocumentId?.();
+  if (!anno?.createAnnotation || !docId) return false;
+  clearCitationHighlight(refs, r);   // one at a time
+  const id = `kis-cite-${Date.now()}`;
   try {
-    selCapability?.enableForMode?.("panMode", { enableSelection: false, showSelectionRects: true }, docId2);
-    selCapability?.enableForMode?.("pointerMode", { enableSelection: true, showSelectionRects: true }, docId2);
-  } catch { /* ignore */ }
-  // 2. On virtualized layouts the page's SelectionLayer may not be mounted yet
-  //    (state.geometry[p] empty → zero rects). Poll getState() until geometry lands.
-  const applyWhenReady = (attempt = 0): Promise<boolean> => {
-    const selGeo = selCapability?.getState?.(docId2)?.geometry?.[targetPageIndex];
-    if (selGeo || attempt >= 40) {
-      selInstance.applyInstantSelection(docId2, targetPageIndex, geoStart, geoEnd, "default");
-      refs.prevHighlightRef.current = { pageIndex: targetPageIndex, ids: [] };
-      return Promise.resolve(true);
-    }
-    return new Promise((res) => setTimeout(res, 25)).then(() => applyWhenReady(attempt + 1));
-  };
-  return applyWhenReady().then(() => {
-    let targetRun = g.runs[0];
-    for (const run of g.runs) {
-      if (run.charStart > geoStart) break;
-      targetRun = run;
-    }
-    if (targetRun?.rect && scroll) {
-      scroll.scrollToPage({
-        pageNumber: targetPageIndex + 1,
-        pageCoordinates: { x: 0, y: targetRun.rect.y },
-        behavior: "instant",
-        alignY: 50,
-      });
-    }
-    return true;
-  });
+    anno.createAnnotation(targetPageIndex, {
+      type: HIGHLIGHT_SUBTYPE,
+      pageIndex: targetPageIndex,
+      id,
+      rect: bbox,
+      segmentRects,
+      strokeColor: CITATION_HL_COLOR,
+      color: CITATION_HL_COLOR,
+      opacity: CITATION_HL_OPACITY,
+      // readOnly + locked so the user can't accidentally select/drag/edit our marker.
+      flags: ["readOnly", "locked"],
+      created: new Date(),
+    });
+    anno.deselectAnnotation?.();      // no selection handles on the fresh annotation
+    refs.citationHighlightRef.current = { pageIndex: targetPageIndex, id };
+    refs.onHighlightActive?.(true);
+  } catch {
+    return false;
+  }
+  if (scroll) {
+    scroll.scrollToPage({
+      pageNumber: targetPageIndex + 1,
+      pageCoordinates: { x: 0, y: bbox.origin.y },
+      behavior: "instant",
+      alignY: 50,
+    });
+  }
+  return true;
 }
 
 
@@ -207,14 +266,11 @@ function tryHighlightByOffsets(
       const rawEnd = cMap[cEndIdx];
       if (rawStart == null || rawEnd == null || rawEnd < rawStart) return false;
 
-      const docId2 = docMgr.getActiveDocumentId?.();
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const selInstance = r.getPlugin?.("selection") as any;
-      if (!selInstance?.applyInstantSelection || !docId2) return false;
+      if (!docMgr.getActiveDocumentId?.()) return false;
 
       const findGeo = makeFindGeo(engine, doc, targetPageIndex, totalChars, R.length);
       return Promise.all([findGeo(rawStart), findGeo(rawEnd)]).then(([geoStart, geoEnd]) =>
-        applyRangeSelection(r, docId2, scroll, g, refs, targetPageIndex, geoStart, geoEnd),
+        drawCitationHighlight(refs, r, docMgr, scroll, targetPageIndex, geoStart, geoEnd, g),
       );
     });
   }).catch(() => false);
@@ -700,9 +756,7 @@ export function tryHighlightOnPage(
       const findGeo = makeFindGeo(engine, doc, targetPageIndex, totalChars, rawPageText.length);
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const selInstance = (r.getPlugin?.("selection") as any);
-      const docId2 = docMgr.getActiveDocumentId?.();
-      if (!selInstance?.applyInstantSelection || !docId2) return false;
+      if (!docMgr.getActiveDocumentId?.()) return false;
 
       return Promise.all([findGeo(rawStart), findGeo(rawEnd)]).then(([geoStart, geoEnd]) => {
         // For exact selections (popup actions, schedule chips): constrain the
@@ -750,7 +804,7 @@ export function tryHighlightOnPage(
             geoEnd = Math.min(geoEnd, maxEnd);
           }
         }
-        return applyRangeSelection(r, docId2, scroll, g, refs, targetPageIndex, geoStart, geoEnd);
+        return drawCitationHighlight(refs, r, docMgr, scroll, targetPageIndex, geoStart, geoEnd, g);
       });
     });
   }).catch(() => false);
@@ -772,8 +826,9 @@ export function doHighlightSearch(
   const doc = docMgr.getActiveDocument?.();
   if (!doc) return;
 
-  // Clear previous highlight (selection) before applying a new one — otherwise
-  // successive chip clicks accumulate marks across pages.
+  // Clear the previous citation highlight (and any stray selection) before a new
+  // chip click — only one citation marker at a time.
+  clearCitationHighlight(refs, r);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const selCap = r.getPlugin?.("selection")?.provides?.() as any;
   const activeDocId = docMgr.getActiveDocumentId?.();

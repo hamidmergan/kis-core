@@ -1794,6 +1794,7 @@
       },
       "viewer": {
         "back": "Back",
+        "dismissHighlight": "Clear highlight",
         "transcriptLabel": "Transcript",
         "transcriptLoading": "Loading transcript...",
         "jumpToCurrent": "Jump to current transcript",
