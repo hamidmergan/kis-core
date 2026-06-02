@@ -868,11 +868,11 @@ async def chat(
                         pass
 
             # Flush the last line (no trailing newline) so its chip grounds too.
-            if _line_buf.strip():
+            # Skip on abort: the client is gone, so don't ground/yield to a dead stream.
+            if not aborted and _line_buf.strip():
                 _grounded = await asyncio.to_thread(_grounder.feed_line, _line_buf)
                 yield f"data: {json.dumps({'line_done': {'index': _line_idx, 'text': _grounded}})}\n\n"
                 _line_idx += 1
-            _line_buf = ""
 
             # First repair malformed `[N] S.X` -> `[N, S.X]`, then re-ground each
             # citation's page/timestamp against the real chunks via its keyword,
