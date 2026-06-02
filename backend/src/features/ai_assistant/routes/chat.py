@@ -361,6 +361,7 @@ from src.features.ai_assistant.routes._helpers import (
     _MAX_UPLOAD_BYTES,
     _sanitize_citations,
 )
+from src.features.ai_assistant.routes._grounding import CitationGrounder
 from src.features.ai_assistant import schemas
 
 router = APIRouter(tags=["ki-assistent: chat"])
@@ -788,6 +789,18 @@ async def chat(
             # Send qmap upfront so the frontend can resolve [Q1], [Q2] chips
             # during streaming instead of falling back to activeSourceIds[0].
             yield f"data: {json.dumps({'qmap': source_qmap, 'source_pages': source_pages})}\n\n"
+            # Built once here (was previously built after the loop) so each line can
+            # be grounded live. Reused by the canonical finalize block below.
+            coverage_sources = {
+                qn: {"source": all_sources_list[qnum_to_source_id[qn]],
+                     "is_media": source_index[qn]["is_media"],
+                     "pages": source_index[qn].get("pages", set())}
+                for qn in source_index if qnum_to_source_id.get(qn) in all_sources_list
+            }
+            _unit_loader = SourceUnitLoader()
+            _grounder = CitationGrounder(coverage_sources, _unit_loader, source_qmap)
+            _line_buf = ""
+            _line_idx = 0
             aborted = False
             try:
                 # 90s connect/first-token timeout so an Ollama cold-start model
@@ -836,6 +849,12 @@ async def chat(
                     if delta and delta.content:
                         answer_parts.append(delta.content)
                         yield f"data: {json.dumps({'token': delta.content})}\n\n"
+                        _line_buf += delta.content
+                        while "\n" in _line_buf:
+                            _completed, _line_buf = _line_buf.split("\n", 1)
+                            _grounded = await asyncio.to_thread(_grounder.feed_line, _completed)
+                            yield f"data: {json.dumps({'line_done': {'index': _line_idx, 'text': _grounded}})}\n\n"
+                            _line_idx += 1
             except Exception as e:
                 _log_status = "error"
                 logger.error("LLM stream error: {}", e)
@@ -848,18 +867,18 @@ async def chat(
                     except Exception:
                         pass
 
+            # Flush the last line (no trailing newline) so its chip grounds too.
+            if _line_buf.strip():
+                _grounded = await asyncio.to_thread(_grounder.feed_line, _line_buf)
+                yield f"data: {json.dumps({'line_done': {'index': _line_idx, 'text': _grounded}})}\n\n"
+                _line_idx += 1
+            _line_buf = ""
+
             # First repair malformed `[N] S.X` -> `[N, S.X]`, then re-ground each
             # citation's page/timestamp against the real chunks via its keyword,
             # dropping any citation that can't be grounded (anti-hallucination).
             # After resolving, fill groundable lines that the model left uncited,
             # then strip citations from the closing summary section.
-            coverage_sources = {
-                qn: {"source": all_sources_list[qnum_to_source_id[qn]],
-                     "is_media": source_index[qn]["is_media"],
-                     "pages": source_index[qn].get("pages", set())}
-                for qn in source_index if qnum_to_source_id.get(qn) in all_sources_list
-            }
-            _unit_loader = SourceUnitLoader()
             _chipified = _chipify_inline_refs(
                 _sanitize_citations("".join(answer_parts).strip()),
                 source_qmap,
