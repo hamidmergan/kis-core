@@ -70,6 +70,30 @@ def test_locate_span_includes_prime_on_own_line():
     assert "Summenregel" in page[start:end + 1]
 
 
+def test_locate_span_keeps_multiplication_dot_tail():
+    # Real layout from the Vorkurs script p.45: pdfium puts the closing paren and
+    # the "· 2x." factor on their OWN lines. The middle dot '·' is MULTIPLICATION,
+    # not a list bullet — the span must run through "· 2x." to the sentence period.
+    page = ("Die Ableitung lautet also F\r\n'\r\n(x) = - sin (\r\nx\r\n2\r\n)\r\n"
+            "· 2x.\r\nBeispiel 5.2 Gesucht ist die naechste Ableitung.")
+    span = locate_claim_span(page, "Die Ableitung lautet also F(x) = -sin(x2)*2x")
+    assert span is not None
+    start, end = span
+    covered = page[start:end + 1]
+    assert "· 2x." in covered          # multiplication factor kept (was cut at ')')
+    assert "Beispiel" not in covered         # but stops before the next sentence
+
+
+def test_real_bullet_glyph_still_bounds():
+    # A genuine bullet '•' (the glyph the documents actually use for lists)
+    # must STILL act as a new-item boundary — only the math middle dot changed.
+    page = "erste Aussage steht hier.\r\n• zweiter Listenpunkt folgt danach."
+    span = locate_claim_span(page, "erste Aussage steht hier")
+    assert span is not None
+    start, end = span
+    assert "Listenpunkt" not in page[start:end + 1]
+
+
 def test_line_break_still_bounds_a_real_new_item():
     # A short Title-case line followed by another Title-case line (slide/heading
     # layout) must STILL break — bridging only applies to maths-fragment lines.

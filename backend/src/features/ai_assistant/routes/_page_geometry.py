@@ -118,7 +118,10 @@ def _is_abbrev_dot(text: str, i: int) -> bool:
 
 
 # A line break that opens one of these is a genuine NEW item, not a wrap.
-_LIST_MARKER = re.compile(r"^(?:[•·▪◦‣⁃●○…*]|\.{2,}|[-–—]\s|\(?\d{1,3}[.)]\s)")
+# NB: the middle dot '·' (U+00B7) is deliberately NOT here — in maths PDFs it is
+# the multiplication operator ("· 2x"), so treating it as a bullet would cut the
+# formula tail off the highlight. Real list bullets use '•' (U+2022) et al.
+_LIST_MARKER = re.compile(r"^(?:[•▪◦‣⁃●○…*]|\.{2,}|[-–—]\s|\(?\d{1,3}[.)]\s)")
 _DATE_LIKE = re.compile(r"^\d{1,4}[.\-/]\d{1,2}(?:[.\-/]\d{1,4})?\b")
 
 

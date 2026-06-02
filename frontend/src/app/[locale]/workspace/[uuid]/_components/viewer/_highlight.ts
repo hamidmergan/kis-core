@@ -386,7 +386,9 @@ export function tryHighlightOnPage(
         const afterSlice = cleanText.slice(nextStart, Math.min(cleanText.length, nextStart + 60));
         if (!afterSlice) return true;
         // List/enumeration marker or a date-like number opens a new item.
-        if (/^(?:[•·▪◦‣⁃●○…*]|\.{2,}|[-–—]\s|\(?\d{1,3}[.)]\s)/.test(afterSlice)) return true;
+        // NB: the middle dot '·' (U+00B7) is deliberately excluded — in maths it is
+        // the multiplication operator ("· 2x"), handled below as a continuation.
+        if (/^(?:[•▪◦‣⁃●○…*]|\.{2,}|[-–—]\s|\(?\d{1,3}[.)]\s)/.test(afterSlice)) return true;
         if (/^\d{1,4}[.\-/]\d{1,2}(?:[.\-/]\d{1,4})?\b/.test(afterSlice)) return true;
         if (/[.!?]$/.test(beforeSlice)) return true;  // previous sentence ended
         // Anything that does NOT start with an uppercase LETTER continues the line:
