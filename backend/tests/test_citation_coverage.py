@@ -49,6 +49,38 @@ def test_media_emits_timestamp_format():
     assert "[1, 07:56 |" in out  # 476s -> 07:56 (MM:SS), not S.
 
 
+def test_html_markup_stripped_from_filled_keyword():
+    # Page-chunk text from a docling table is full of HTML; the appended keyword
+    # must be clean visible text, never tag markup.
+    text = "- Online-Praesenz Peer-Review am 29.05.2026.\n"
+    units = [Unit(page=6, start_time=None, end_time=None,
+                  raw_text='<div data-label="Table"> <td><b>Online-Praesenz: Peer-Review</b></td> '
+                           '<td><b>29.05.2026, 14:30-19:00 Uhr</b></td> </div>')]
+    sources = {4: {"source": {"id": 4}, "is_media": False}}
+    out = fill_uncited_lines(text, sources, _FakeLoader(units))
+    assert "[4, S. 6 |" in out
+    kw = out.split("[4, S. 6 |")[1].split("]")[0]
+    assert "<" not in kw and ">" not in kw          # no tag brackets
+    assert "td" not in kw.split() and "b" not in kw.split()  # no tag-name tokens
+    assert "Peer-Review" in kw                       # clean cell text anchors
+
+
+def test_main_clause_fallback_fills_bullet_with_parenthetical_gloss():
+    # The full bullet carries an author gloss in parentheses that is NOT in the
+    # source, dragging containment below threshold. The main clause (before the
+    # parenthesis) still grounds confidently.
+    text = "- Passt die Frage zum Thema? (Kein Abdriften waehrend der Recherche.)\n"
+    units = [
+        Unit(page=7, start_time=None, end_time=None,
+             raw_text="Ist die Fragestellung zu einfach Laesst die Frage beantworten"),
+        Unit(page=8, start_time=None, end_time=None,
+             raw_text="Passt die Fragestellung zum Thema Manchmal driftet man ab"),
+    ]
+    sources = {5: {"source": {"id": 5}, "is_media": False}}
+    out = fill_uncited_lines(text, sources, _FakeLoader(units))
+    assert "[5, S. 8 |" in out      # filled via the main clause, on the right page
+
+
 def test_multi_source_picks_best():
     text = "- Zotero und Citavi Literaturverwaltung.\n"
     weak = [Unit(page=3, start_time=None, end_time=None, raw_text="ganz anderes thema ohne bezug")]

@@ -1,5 +1,6 @@
 """Shared helpers for KI-Assistent routes."""
 
+import html as _html
 import re
 import subprocess
 import tempfile
@@ -139,6 +140,24 @@ def _norm_for_match(s: str) -> str:
     s = unicodedata.normalize("NFKC", s).casefold()
     for hy in ("‐", "‑", "‒", "–", "—", "−"):
         s = s.replace(hy, "-")
+    return re.sub(r"\s+", " ", s).strip()
+
+
+_HTML_TAG = re.compile(r"<[^>]+>")
+
+
+def _strip_html(s: str) -> str:
+    """Drop HTML tags and decode entities, keeping only the visible text.
+
+    docling renders structured pages (tables, headers) as HTML inside the chunk
+    text — ``<div data-label="Table">…<td><b>29.05.2026</b></td>…``. Left in, that
+    markup leaks into citation keywords and the highlight anchors on tag soup. We
+    keep the tags' TEXT content (the real cell values) and discard the tags. The
+    tag regex itself is language-agnostic."""
+    if not s or "<" not in s:
+        return s
+    s = _HTML_TAG.sub(" ", s)
+    s = _html.unescape(s)
     return re.sub(r"\s+", " ", s).strip()
 
 
@@ -565,8 +584,11 @@ class SourceUnitLoader:
                 if not c.get("content"):
                     continue
                 body = _strip_furniture(c["content"], furniture)
+                # Drop docling table/markup so matching + highlight anchors run on
+                # clean visible text, never on HTML tag soup.
+                body = _strip_html(body)
                 units.append(Unit(page=c["page_number"], start_time=None,
-                                  end_time=None, raw_text=body or c["content"]))
+                                  end_time=None, raw_text=body or _strip_html(c["content"])))
         self._cache[sid] = units
         return units
 
@@ -590,6 +612,9 @@ def resolve_citation_positions(text: str, sources: dict, loader) -> str:
         qnum = int(m.group(1)) if m.group(1) else (min(sources) if sources else None)
         page_str, time_str, kw_raw = m.group(2), m.group(3), m.group(4)
         kw = (kw_raw or "").strip().strip("\"'").strip()
+        # Strip docling HTML the model may have copied into the keyword (table chunks)
+        # so neither the match nor the displayed keyword carries tag soup.
+        kw = _strip_html(kw)
         meta = sources.get(qnum)
         if meta is None:
             return ""  # unknown source -> drop
@@ -606,6 +631,16 @@ def resolve_citation_positions(text: str, sources: dict, loader) -> str:
         if r and r.unit:
             if meta["is_media"]:
                 return f"[{qnum}, {_format_timestamp(r.unit.start_time)}{kw_suffix}]"
+            # The keyword may be a section HEADING that repeats across pages (e.g.
+            # "Forschungsfrage Checkliste" on pages 7 AND 8). Then the typed page breaks
+            # the tie and is often wrong. When the keyword is page-ambiguous, let the
+            # cited line's own (more specific) text pick the page instead.
+            if _kw_ambiguous_pages(kw, units):
+                rg = _reground_by_line(line_text, units, furniture=furniture)
+                if rg is not None and rg[0] != r.unit.page:
+                    page_n, anchor = rg
+                    suf = f" | {anchor}" if anchor else ""
+                    return f"[{qnum}, S. {page_n}{suf}]"
             return f"[{qnum}, S. {r.unit.page}{kw_suffix}]"
         # No keyword hit. Media: a timestamp is always a valid seek target, so keep
         # it as the model typed it (never fabricate one from the first segment).
@@ -740,7 +775,7 @@ def _overlap_phrase(line: str, text: str, n_words: int = 5) -> str:
     """A short VERBATIM phrase from ``text`` that also occurs in the cited ``line``,
     so the highlight anchors on the actually-matched content (not the start of a
     coarse chunk). Falls back to the first words of ``text``."""
-    body_words = (text or "").split()
+    body_words = _strip_html(text or "").split()
     if not body_words:
         return ""
     nline = _norm_for_match(line)
@@ -776,6 +811,7 @@ def _best_subsegment(line: str, unit_text: str) -> str:
     qtok = _tokenset(line)
     if not qtok:
         return unit_text
+    unit_text = _strip_html(unit_text)
     best, best_score = unit_text, -1.0
     for piece in _SUBSEG_SPLIT.split(unit_text):
         p = piece.strip()
@@ -811,6 +847,44 @@ def _reground_by_line(line_text: str, units: list, *, furniture: set):
     return (r.unit.page, anchor)
 
 
+def _kw_ambiguous_pages(kw: str, units: list) -> bool:
+    """True when ``kw`` matches strongly on TWO OR MORE distinct pages, so the page
+    is ambiguous and the model-typed page (used as the tie-breaker) cannot be
+    trusted. A keyword that uniquely identifies one page returns False, so its page
+    is never second-guessed."""
+    from ._citation_match import FUZZY_THRESHOLD, UNIQUENESS_MARGIN  # local: avoids cycle
+    nkw = _norm_for_match(kw)
+    if not nkw:
+        return False
+    exact_pages = {u.page for u in units
+                   if u.page is not None and nkw in u.normalized()}
+    if len(exact_pages) >= 2:
+        return True
+    qtok = _tokenset(nkw)
+    if not qtok:
+        return False
+    scored = [(len(qtok & _tokenset(u.normalized())) / len(qtok), u.page)
+              for u in units if u.page is not None]
+    if not scored:
+        return False
+    best = max(s for s, _ in scored)
+    if best < FUZZY_THRESHOLD:
+        return False
+    near_pages = {p for s, p in scored if best - s < UNIQUENESS_MARGIN}
+    return len(near_pages) >= 2
+
+
+_PARENTHETICAL = re.compile(r"\s*\([^)]*\)")
+
+
+def _main_clause(line: str) -> str:
+    """A bullet's core claim with any parenthetical gloss removed. Hilde often adds
+    an explanatory aside in parentheses that is NOT in the source ("… (Kein Abdriften
+    während der Recherche.)"); those extra words drag token-containment below the
+    match threshold even though the main clause grounds cleanly."""
+    return _PARENTHETICAL.sub(" ", line).strip()
+
+
 def fill_uncited_lines(text: str, sources: dict, loader) -> str:
     """Append a citation to each groundable line that lacks one.
 
@@ -819,6 +893,16 @@ def fill_uncited_lines(text: str, sources: dict, loader) -> str:
     # Local import: _citation_match imports from _helpers, so a module-level
     # import would create a circular dependency.
     from ._citation_match import match_query  # noqa: PLC0415
+
+    def _best_match(query: str):
+        best = None  # (score, qnum, unit, is_media)
+        for qnum, meta in sources.items():
+            units = loader.units(meta["source"], is_media=meta["is_media"])
+            r = match_query(query, units)
+            if r.unit and (best is None or r.score > best[0]):
+                best = (r.score, qnum, r.unit, meta["is_media"])
+        return best
+
     out_lines, in_summary = [], False
     for line in text.split("\n"):
         if _SUMMARY_HEADING_RE.match(line):
@@ -826,17 +910,22 @@ def fill_uncited_lines(text: str, sources: dict, loader) -> str:
         if not is_citable_line(line, in_summary=in_summary) or _HAS_CITE.search(line.rstrip()):
             out_lines.append(line)
             continue
-        best = None  # (score, qnum, unit, is_media)
-        for qnum, meta in sources.items():
-            units = loader.units(meta["source"], is_media=meta["is_media"])
-            r = match_query(line, units)
-            if r.unit and (best is None or r.score > best[0]):
-                best = (r.score, qnum, r.unit, meta["is_media"])
+        match_text = line
+        best = _best_match(line)
+        if best is None:
+            # Retry on the main clause: a parenthetical gloss that is not in the
+            # source can push the full line below threshold.
+            mc = _main_clause(line)
+            if mc != line and len(_tokenset(mc)) >= 2:
+                best = _best_match(mc)
+                match_text = mc
         if best is None:
             out_lines.append(line)          # below threshold -> deliberately no chip
             continue
         _, qnum, unit, is_media = best
-        kw = _overlap_keyword(line, unit)
+        # Narrow a coarse page-chunk to the matched sentence first, so the anchor
+        # lands on the right sentence (not the first overlapping word on the page).
+        kw = _overlap_phrase(match_text, _best_subsegment(match_text, unit.raw_text or ""))
         pos = _format_timestamp(unit.start_time) if is_media else f"S. {unit.page}"
         out_lines.append(f"{line.rstrip()} [{qnum}, {pos} | {kw}]")  # plain in M1; ~ marker comes later
     return "\n".join(out_lines)

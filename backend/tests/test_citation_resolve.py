@@ -107,3 +107,46 @@ def test_pdf_keywordless_kept_when_line_has_no_match():
     src = {5: {"source": {"id": 5}, "is_media": False, "pages": {7, 8}}}
     out = resolve_citation_positions(text, src, _Loader(units))
     assert "[5, S. 7]" in out         # typed page kept, still keyword-less
+
+
+def test_resolve_strips_html_markup_from_model_keyword():
+    # Docling table chunks carry HTML; the model sometimes copies it into the keyword.
+    text = "Peer-Review-Termin. [4, S. 6 | Peer-Review</b></td>]"
+    units = {4: [Unit(6, None, None, "Zeitplan Online-Praesenz Peer-Review 29.05.2026 Uhr")]}
+    src = {4: {"source": {"id": 4}, "is_media": False, "pages": {6}}}
+    out = resolve_citation_positions(text, src, _Loader(units))
+    assert "<" not in out and ">" not in out      # no raw HTML survives
+    assert "</b>" not in out and "td]" not in out
+    assert "[4, S. 6 | Peer-Review]" in out       # cleaned keyword
+
+
+def test_pdf_ambiguous_heading_keyword_disambiguated_by_line():
+    # keyword "Forschungsfrage Checkliste" is a heading present on BOTH page 7 and 8
+    # -> ambiguous. The cited line's own text belongs to page 8, so page 8 wins
+    # (not the model-typed 7).
+    text = ("Ist die Frage so formuliert, keine Ja Nein Frage, keine schulische "
+            "Eroerterung. [5, S. 7 | Forschungsfrage Checkliste]")
+    units = {5: [
+        Unit(7, None, None, "Forschungsfrage Checkliste Ist die Fragestellung zu einfach "
+                            "Laesst die Frage wissenschaftlich beantworten Zugang Daten"),
+        Unit(8, None, None, "Forschungsfrage Checkliste Ist die Frage so formuliert dass sie "
+                            "eine gute Antwort ermoeglicht keine Ja Nein Frage keine schulische "
+                            "Eroerterung Passt die Fragestellung zum Thema"),
+    ]}
+    src = {5: {"source": {"id": 5}, "is_media": False, "pages": {7, 8}}}
+    out = resolve_citation_positions(text, src, _Loader(units))
+    assert "[5, S. 8" in out
+    assert "[5, S. 7" not in out
+
+
+def test_pdf_unique_keyword_page_not_overridden_by_line():
+    # A keyword that uniquely identifies ONE page must be trusted even if the line
+    # is generic -> no ambiguity, no override.
+    text = "Zu den Zeitschriften. [5, S. 21 | ACM Transactions Computer Human Interaction]"
+    units = {5: [
+        Unit(20, None, None, "Rahmenprogramm Keynotes Workshops Poster Sessions"),
+        Unit(21, None, None, "i-com ACM Transactions Computer Human Interaction Behaviour"),
+    ]}
+    src = {5: {"source": {"id": 5}, "is_media": False, "pages": {20, 21}}}
+    out = resolve_citation_positions(text, src, _Loader(units))
+    assert "[5, S. 21" in out
