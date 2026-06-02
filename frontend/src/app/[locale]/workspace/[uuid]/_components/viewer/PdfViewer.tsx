@@ -147,7 +147,7 @@ export function PdfViewer({
   }, [summariesLoaded, workspaceUuid, source.uuid]);
 
   // Scroll to page + highlight text when nonce changes (pill click on same document)
-  const pendingHighlightRef = useRef<{ page: number; text: string; exact?: boolean } | null>(null);
+  const pendingHighlightRef = useRef<{ page: number; text: string; exact?: boolean; offsets?: [number, number] } | null>(null);
   const prevHighlightRef = useRef<{ pageIndex: number; ids: string[] } | null>(null);
   const highlightRefs: HighlightRefs = { prevHighlightRef };
 
@@ -174,20 +174,20 @@ export function PdfViewer({
     if (!reg) {
       // Viewer not ready yet — save for later
       if (source.highlightText) {
-        pendingHighlightRef.current = { page: source.page, text: source.highlightText, exact: !!source.exactSelection };
+        pendingHighlightRef.current = { page: source.page, text: source.highlightText, exact: !!source.exactSelection, offsets: source.highlightOffsets };
       }
       return;
     }
 
     if (source.highlightText) {
-      doHighlightSearch(highlightRefs, reg, source.page, source.highlightText, !!source.exactSelection);
+      doHighlightSearch(highlightRefs, reg, source.page, source.highlightText, !!source.exactSelection, source.highlightOffsets);
     } else {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const scroll = (reg as any).getPlugin?.("scroll")?.provides?.();
       scroll?.scrollToPage?.({ pageNumber: source.page, behavior: "instant", alignY: 50 });
     }
 
-  }, [source.nonce, source.page, source.highlightText, source.exactSelection]);
+  }, [source.nonce, source.page, source.highlightText, source.exactSelection, source.highlightOffsets]);
 
   const handleReady = useCallback((registry: unknown) => {
     registryRef.current = registry;
@@ -286,7 +286,7 @@ export function PdfViewer({
         const pending = pendingHighlightRef.current;
         if (pending) {
           pendingHighlightRef.current = null;
-          doHighlightSearch(highlightRefs, registry, pending.page, pending.text, !!pending.exact);
+          doHighlightSearch(highlightRefs, registry, pending.page, pending.text, !!pending.exact, pending.offsets);
         }
         unsub?.();
       });

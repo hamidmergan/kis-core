@@ -30,8 +30,8 @@ export function useViewerActions(opts: UseViewerActionsOptions) {
   // (see useChat). Narrowing here only overwrote — and persisted to sessionStorage —
   // the user's multi-source selection, which then came back as a stuck single
   // source after navigating away/reloading with the viewer still open.
-  const openViewer = useCallback((source: Source, page = 1, highlightText?: string, exactSelection?: boolean) => {
-    setViewerSource({ uuid: source.uuid, filename: source.filename, page, highlightText, exactSelection, nonce: Date.now() });
+  const openViewer = useCallback((source: Source, page = 1, highlightText?: string, exactSelection?: boolean, highlightOffsets?: [number, number]) => {
+    setViewerSource({ uuid: source.uuid, filename: source.filename, page, highlightText, exactSelection, highlightOffsets, nonce: Date.now() });
     setPanels((prev) => ({ ...prev, quellen: true }));
     if (isMobile) setActiveTab("quellen");
   }, [setViewerSource, setPanels, isMobile, setActiveTab]);
@@ -74,7 +74,7 @@ export function useViewerActions(opts: UseViewerActionsOptions) {
     fillChatInput(`"${selectedText}"\n\n`, chatWasOpen, false);
   }, [isMobile, activeTab, panels.chat, fillChatInput]);
 
-  const pillClick = useCallback((sourceUuid: string, page: number, filename: string, sourceText?: string, startTime?: number, isExact?: boolean) => {
+  const pillClick = useCallback((sourceUuid: string, page: number, filename: string, sourceText?: string, startTime?: number, isExact?: boolean, offsets?: [number, number]) => {
     const src = sources.find((s) => s.uuid === sourceUuid);
     const isMedia = _isMediaFile(filename);
     if (isMedia) {
@@ -84,10 +84,10 @@ export function useViewerActions(opts: UseViewerActionsOptions) {
       return;
     }
     if (src) {
-      openViewer(src, page, sourceText, isExact);
+      openViewer(src, page, sourceText, isExact, offsets);
       return;
     }
-    setViewerSource({ uuid: sourceUuid, filename, page, highlightText: sourceText, exactSelection: isExact, nonce: Date.now() });
+    setViewerSource({ uuid: sourceUuid, filename, page, highlightText: sourceText, exactSelection: isExact, highlightOffsets: offsets, nonce: Date.now() });
     setPanels((prev) => ({ ...prev, quellen: true }));
     if (isMobile) setActiveTab("quellen");
   }, [sources, setViewerSource, setPanels, isMobile, setActiveTab, openViewer]);

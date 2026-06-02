@@ -29,6 +29,198 @@ function _foldDiacritics(s: string): string {
 }
 
 
+// Map a raw text-layer index to the geometry/glyph index space that
+// applyInstantSelection expects. Some pages carry "phantom" glyphs (no visible
+// text), so the geometry index can run ahead of the raw text index; binary-search
+// to realign. Shared by the offset path and the legacy keyword path.
+function makeFindGeo(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  engine: any, doc: any, targetPageIndex: number, totalChars: number, rawLen: number,
+): (rawIdx: number) => Promise<number> {
+  const phantoms = totalChars - rawLen;
+  return (rawIdx: number): Promise<number> => {
+    if (phantoms === 0) return Promise.resolve(rawIdx);
+    let lo = rawIdx + 1, hi = Math.min(rawIdx + 1 + phantoms, totalChars);
+    const step = (): Promise<number> => {
+      if (lo >= hi) return Promise.resolve(lo - 1);
+      const mid = (lo + hi) >> 1;
+      const t = engine.getTextSlices?.(doc, [{ pageIndex: targetPageIndex, charIndex: 0, charCount: mid }]);
+      return (t?.toPromise?.() ?? Promise.resolve(null)).then((res: unknown) => {
+        const len = (res as string[])?.[0]?.length ?? 0;
+        if (len < rawIdx + 1) lo = mid + 1; else hi = mid;
+        return step();
+      });
+    };
+    return step();
+  };
+}
+
+
+// Whitespace-collapsed, diacritic-folded view of a page string plus a map from
+// each clean index back to the original raw index. MUST mirror the backend
+// _collapse_fold so server-computed offsets and the client text fold identically.
+// Exported for unit tests (parity with the backend folding contract).
+export function _collapseFold(s: string): { clean: string; map: number[] } {
+  let clean = "";
+  const map: number[] = [];
+  let inSpace = false;
+  for (let i = 0; i < s.length; i++) {
+    const ch = s[i];
+    if (/\s/.test(ch)) {
+      if (!inSpace) { clean += " "; map.push(i); inSpace = true; }
+    } else {
+      clean += (ch.normalize("NFKD")[0] || ch).toLowerCase();
+      map.push(i);
+      inSpace = false;
+    }
+  }
+  return { clean, map };
+}
+
+
+// All start indices of `needle` in `hay` (capped), for occurrence disambiguation.
+// Exported for unit tests.
+export function _allIndexOf(hay: string, needle: string, cap = 24): number[] {
+  const out: number[] = [];
+  if (!needle) return out;
+  let from = 0;
+  let idx = hay.indexOf(needle, from);
+  while (idx >= 0) {
+    out.push(idx);
+    from = idx + 1;
+    if (out.length >= cap) break;
+    idx = hay.indexOf(needle, from);
+  }
+  return out;
+}
+
+
+// Apply an instant selection over a geometry char-range, handling the two
+// Selection-plugin pitfalls (panMode rects + virtualized-page geometry not yet
+// mounted), then scroll the range into view. Shared by both highlight paths.
+function applyRangeSelection(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  r: any, docId2: string, scroll: any, g: any, refs: HighlightRefs,
+  targetPageIndex: number, geoStart: number, geoEnd: number,
+): Promise<boolean> {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const selInstance = r.getPlugin?.("selection") as any;
+  const selCapability = selInstance?.provides?.();
+  if (!selInstance?.applyInstantSelection || docId2 == null) return Promise.resolve(false);
+  // 1. Pan plugin defaults to "panMode" on touch; the Selection plugin only ships
+  //    rect config for "pointerMode", so without this rects never render.
+  //    Idempotent per doc; enabling panMode rects does NOT enable drag-to-select.
+  try {
+    selCapability?.enableForMode?.("panMode", { enableSelection: false, showSelectionRects: true }, docId2);
+    selCapability?.enableForMode?.("pointerMode", { enableSelection: true, showSelectionRects: true }, docId2);
+  } catch { /* ignore */ }
+  // 2. On virtualized layouts the page's SelectionLayer may not be mounted yet
+  //    (state.geometry[p] empty → zero rects). Poll getState() until geometry lands.
+  const applyWhenReady = (attempt = 0): Promise<boolean> => {
+    const selGeo = selCapability?.getState?.(docId2)?.geometry?.[targetPageIndex];
+    if (selGeo || attempt >= 40) {
+      selInstance.applyInstantSelection(docId2, targetPageIndex, geoStart, geoEnd, "default");
+      refs.prevHighlightRef.current = { pageIndex: targetPageIndex, ids: [] };
+      return Promise.resolve(true);
+    }
+    return new Promise((res) => setTimeout(res, 25)).then(() => applyWhenReady(attempt + 1));
+  };
+  return applyWhenReady().then(() => {
+    let targetRun = g.runs[0];
+    for (const run of g.runs) {
+      if (run.charStart > geoStart) break;
+      targetRun = run;
+    }
+    if (targetRun?.rect && scroll) {
+      scroll.scrollToPage({
+        pageNumber: targetPageIndex + 1,
+        pageCoordinates: { x: 0, y: targetRun.rect.y },
+        behavior: "instant",
+        alignY: 50,
+      });
+    }
+    return true;
+  });
+}
+
+
+// Architecture B: draw the exact server-computed span. The chip carries
+// `offsets` = [start, end] (inclusive) into the page's pdfium text plus `anchor`
+// = the verbatim span. We re-find the anchor on the live page (collapsed+folded,
+// so it survives whitespace/diacritic drift), disambiguate the occurrence by the
+// server offset, then draw it directly — NO sentence/paragraph expansion. Returns
+// false (→ caller falls back to keyword search) when the anchor isn't on the page.
+function tryHighlightByOffsets(
+  refs: HighlightRefs,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  r: any, doc: any, engine: any, docMgr: any, scroll: any,
+  targetPageIndex: number, offsets: [number, number], anchor: string,
+): Promise<boolean> {
+  const bStart = offsets[0];
+  const pageObj = doc.pages?.[targetPageIndex];
+  if (!pageObj) return Promise.resolve(false);
+  const selection = r.getPlugin?.("selection")?.provides?.();
+  const cachedGeo = selection?.getState?.()?.geometry?.[targetPageIndex];
+  const geoPromise: Promise<unknown> = cachedGeo
+    ? Promise.resolve(cachedGeo)
+    : (engine.getPageGeometry?.(doc, pageObj)?.toPromise?.() ?? Promise.resolve(null));
+
+  return geoPromise.then((geo: unknown) => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const g = geo as any;
+    if (!g?.runs?.length) return false;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const lastRun = g.runs[g.runs.length - 1] as any;
+    const totalChars = lastRun.charStart + lastRun.glyphs.length;
+    if (totalChars < 1) return false;
+
+    const sliceTask = engine.getTextSlices?.(doc, [{ pageIndex: targetPageIndex, charIndex: 0, charCount: totalChars }]);
+    const slicePromise: Promise<unknown> = sliceTask?.toPromise?.() ?? Promise.resolve(null);
+    return slicePromise.then((slices: unknown) => {
+      const arr = slices as string[] | null;
+      if (!arr?.[0]) return false;
+      const R = arr[0];
+
+      const cAnchor0 = _collapseFold((anchor || "").trim()).clean.trim();
+      if (cAnchor0.length < 3) return false;
+      const { clean: cR, map: cMap } = _collapseFold(R);
+
+      // Find the span verbatim; on drift fall back to a leading prefix so a
+      // partial still anchors. No hit at all → let the caller search by keyword.
+      let used = cAnchor0;
+      let occ = _allIndexOf(cR, used);
+      if (!occ.length && cAnchor0.length > 16) {
+        used = cAnchor0.slice(0, Math.max(16, Math.floor(cAnchor0.length * 0.6)));
+        occ = _allIndexOf(cR, used);
+      }
+      if (!occ.length) return false;
+
+      // Disambiguate duplicates by proximity to the server offset.
+      let bestC = occ[0];
+      let bestD = Infinity;
+      for (const o of occ) {
+        const d = Math.abs((cMap[o] ?? 0) - bStart);
+        if (d < bestD) { bestD = d; bestC = o; }
+      }
+      const cEndIdx = Math.min(bestC + used.length - 1, cR.length - 1);
+      const rawStart = cMap[bestC];
+      const rawEnd = cMap[cEndIdx];
+      if (rawStart == null || rawEnd == null || rawEnd < rawStart) return false;
+
+      const docId2 = docMgr.getActiveDocumentId?.();
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const selInstance = r.getPlugin?.("selection") as any;
+      if (!selInstance?.applyInstantSelection || !docId2) return false;
+
+      const findGeo = makeFindGeo(engine, doc, targetPageIndex, totalChars, R.length);
+      return Promise.all([findGeo(rawStart), findGeo(rawEnd)]).then(([geoStart, geoEnd]) =>
+        applyRangeSelection(r, docId2, scroll, g, refs, targetPageIndex, geoStart, geoEnd),
+      );
+    });
+  }).catch(() => false);
+}
+
+
 export function tryHighlightOnPage(
   refs: HighlightRefs,
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -505,22 +697,7 @@ export function tryHighlightOnPage(
       const rawStart = cleanToRaw[sentStart];
       const rawEnd = cleanToRaw[sentEnd];
 
-      const phantoms = totalChars - rawPageText.length;
-      const findGeo = (rawIdx: number): Promise<number> => {
-        if (phantoms === 0) return Promise.resolve(rawIdx);
-        let lo = rawIdx + 1, hi = Math.min(rawIdx + 1 + phantoms, totalChars);
-        const step = (): Promise<number> => {
-          if (lo >= hi) return Promise.resolve(lo - 1);
-          const mid = (lo + hi) >> 1;
-          const t = engine.getTextSlices?.(doc, [{ pageIndex: targetPageIndex, charIndex: 0, charCount: mid }]);
-          return (t?.toPromise?.() ?? Promise.resolve(null)).then((res: unknown) => {
-            const len = (res as string[])?.[0]?.length ?? 0;
-            if (len < rawIdx + 1) lo = mid + 1; else hi = mid;
-            return step();
-          });
-        };
-        return step();
-      };
+      const findGeo = makeFindGeo(engine, doc, targetPageIndex, totalChars, rawPageText.length);
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const selInstance = (r.getPlugin?.("selection") as any);
@@ -573,61 +750,16 @@ export function tryHighlightOnPage(
             geoEnd = Math.min(geoEnd, maxEnd);
           }
         }
-        // Two mobile/touch pitfalls the Selection plugin exposes:
-        //
-        // 1. Pan plugin activates "panMode" as default on touch devices,
-        //    but the Selection plugin only ships rect-rendering config
-        //    for "pointerMode". With no config for the active mode, the
-        //    plugin short-circuits the rect callback (shouldShowRects =
-        //    false) and SelectionLayer renders nothing even though the
-        //    selection range is set. Fix: enableForMode("panMode", {
-        //    showSelectionRects: true }) so rects display without
-        //    enabling drag-to-select. Idempotent per doc; retry here in
-        //    case handleReady fired before the doc state was initialized.
-        //
-        // 2. On virtualized layouts the target page's SelectionLayer may
-        //    not have mounted yet — its state.geometry[p] is empty, so
-        //    updateRectsAndSlices emits zero rects and the highlight is
-        //    invisible. Poll the capability's getState() (which lives on
-        //    .provides(), not on the plugin instance) until geometry
-        //    lands, then apply.
-        const selCapability = r.getPlugin?.("selection")?.provides?.();
-        try {
-          selCapability?.enableForMode?.("panMode", { enableSelection: false, showSelectionRects: true }, docId2);
-          selCapability?.enableForMode?.("pointerMode", { enableSelection: true, showSelectionRects: true }, docId2);
-        } catch { /* ignore */ }
-        const applyWhenReady = (attempt = 0): Promise<boolean> => {
-          const selGeo = selCapability?.getState?.(docId2)?.geometry?.[targetPageIndex];
-          if (selGeo || attempt >= 40) {
-            selInstance.applyInstantSelection(docId2, targetPageIndex, geoStart, geoEnd, "default");
-            refs.prevHighlightRef.current = { pageIndex: targetPageIndex, ids: [] };
-            return Promise.resolve(true);
-          }
-          return new Promise((res) => setTimeout(res, 25)).then(() => applyWhenReady(attempt + 1));
-        };
-        return applyWhenReady().then(() => {
-          // Scroll to center the highlighted text
-          let targetRun = g.runs[0];
-          for (const run of g.runs) {
-            if (run.charStart > geoStart) break;
-            targetRun = run;
-          }
-          if (targetRun?.rect && scroll) {
-            scroll.scrollToPage({
-              pageNumber: targetPageIndex + 1,
-              pageCoordinates: { x: 0, y: targetRun.rect.y },
-              behavior: "instant",
-              alignY: 50,
-            });
-          }
-          return true;
-        });
+        return applyRangeSelection(r, docId2, scroll, g, refs, targetPageIndex, geoStart, geoEnd);
       });
     });
   }).catch(() => false);
 }
 
-export function doHighlightSearch(refs: HighlightRefs, reg: unknown, page: number, text: string, exactSelection: boolean = false) {
+export function doHighlightSearch(
+  refs: HighlightRefs, reg: unknown, page: number, text: string,
+  exactSelection: boolean = false, offsets?: [number, number],
+) {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const r = reg as any;
   const scroll = r.getPlugin?.("scroll")?.provides?.();
@@ -656,5 +788,21 @@ export function doHighlightSearch(refs: HighlightRefs, reg: unknown, page: numbe
   // a "[1] S. 4" chip could silently highlight something on S. 3 or S. 5 when
   // the target is an OCR/image page whose PDF text layer doesn't contain the
   // cited text. Better: scroll to the right page and highlight nothing.
+  //
+  // Architecture B: when the chip carries an exact span offset, draw it directly
+  // (no re-finding / no expansion). On any failure (span not on the page, geometry
+  // unavailable, pdfium drift) fall back to the legacy keyword search so a chip is
+  // never worse than before.
+  if (offsets && !exactSelection) {
+    tryHighlightByOffsets(refs, r, doc, engine, docMgr, scroll, pageIndex, offsets, text)
+      .then((ok) => {
+        if (!ok) tryHighlightOnPage(refs, r, doc, engine, docMgr, scroll, pageIndex, text, exactSelection);
+      })
+      .catch(() => {
+        tryHighlightOnPage(refs, r, doc, engine, docMgr, scroll, pageIndex, text, exactSelection);
+      });
+    return;
+  }
+
   tryHighlightOnPage(refs, r, doc, engine, docMgr, scroll, pageIndex, text, exactSelection);
 }

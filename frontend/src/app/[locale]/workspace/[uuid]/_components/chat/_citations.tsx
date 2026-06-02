@@ -1,6 +1,7 @@
 import React from "react";
 import { _chunkLabel, _getChipIcon, type ChipLabelT } from "../../_utils";
 import type { ChatMessage } from "../../_types";
+import { citationPattern, stripCitations } from "./_citation_parse";
 
 
 export type CitationChipClickHandler = (
@@ -10,12 +11,13 @@ export type CitationChipClickHandler = (
   sourceText?: string,
   startTime?: number,
   isExact?: boolean,
+  offsets?: [number, number],
 ) => void;
 
 
 // Renders a single citation chip that links back to the source viewer.
 function CitationChip({
-  filename, displayQNum, label, clickUuid, clickPage, clickSeconds, clickHighlight, isExactSelection, onChipClick,
+  filename, displayQNum, label, clickUuid, clickPage, clickSeconds, clickHighlight, isExactSelection, clickOffsets, onChipClick,
 }: {
   filename: string;
   displayQNum: number | null;
@@ -25,6 +27,7 @@ function CitationChip({
   clickSeconds: number | undefined;
   clickHighlight: string | undefined;
   isExactSelection: boolean;
+  clickOffsets: [number, number] | undefined;
   onChipClick: CitationChipClickHandler;
 }) {
   const ChipIcon = _getChipIcon(filename);
@@ -38,6 +41,7 @@ function CitationChip({
     clickSeconds ? undefined : clickHighlight,
     clickSeconds,
     isExactSelection,
+    clickSeconds ? undefined : clickOffsets,
   );
   return (
     <span role="button" tabIndex={0}
@@ -67,9 +71,11 @@ export function parseCitations(
   // Matches [1, S. 2 | kw], [Q1, S. 2 | kw], [S. 2], [1, 05:32 | kw] (Q prefix optional for backwards compat).
   // Optional :uuid suffix on Q-prefix lets notes embed source UUIDs verbatim, so they survive even when
   // the active source selection changes after the note was saved.
+  // Optional @start-end after the page = Architecture-B exact character span into the page's pdfium text.
   // Also accept CJK lenticular brackets 【】 (U+3010/U+3011): some LLMs emit those instead of [] despite
   // the prompt — render them as chips rather than raw text.
-  const pattern = /[[【](?:Q?(\d+)(?::([a-f0-9]{6,64}))?,\s*)?(?:S\.\s*(\d+)|(\d{1,2}:\d{2}(?::\d{2})?))(?:\s*[|❘]\s*([^\]】]+))?\s*[\]】]/g;
+  // Groups: 1=qnum 2=uuid 3=page 4=offStart 5=offEnd 6=timestamp 7=keyword/span (see _citation_parse).
+  const pattern = citationPattern();
   const nodes: React.ReactNode[] = [];
   let last = 0;
   let m: RegExpExecArray | null;
@@ -79,8 +85,10 @@ export function parseCitations(
     const qNum = m[1] ? parseInt(m[1]) : null;
     const embeddedUuid = m[2] || null;
     const pageNum = m[3] ? parseInt(m[3]) : 0;
-    const timestamp = m[4] || null;
-    const keywords = m[5]?.trim().replace(/^["']+|["']+$/g, "").trim() || null;
+    const offsets: [number, number] | undefined =
+      m[4] && m[5] ? [parseInt(m[4]), parseInt(m[5])] : undefined;
+    const timestamp = m[6] || null;
+    const keywords = m[7]?.trim().replace(/^["']+|["']+$/g, "").trim() || null;
     const qEntry = qNum ? msgQmap.find(q => q.qnum === qNum) : null;
     const sourceUuid = embeddedUuid ?? qEntry?.uuid ?? msgSourcePages[0]?.source_uuid ?? activeSourceIds[0] ?? "";
     const filename = qEntry?.filename ?? getFilename(sourceUuid);
@@ -103,6 +111,9 @@ export function parseCitations(
         ? popupSel!.text
         : (keywords || undefined);
     const isExactSelection = !!(popupEntry?.source_text || matchesPopupSel);
+    // A popup selection carries its own verbatim bounds, so server offsets (if any)
+    // are ignored there; otherwise pass the exact span offsets through to the viewer.
+    const clickOffsets = isExactSelection ? undefined : offsets;
     const clickSeconds = timestamp ? seconds : undefined;
     nodes.push(
       <CitationChip
@@ -115,6 +126,7 @@ export function parseCitations(
         clickSeconds={clickSeconds}
         clickHighlight={clickHighlight}
         isExactSelection={isExactSelection}
+        clickOffsets={clickOffsets}
         onChipClick={onChipClick}
       />,
     );
@@ -145,7 +157,7 @@ export function withCitations(
 // Strips citation markers and copies the cleaned text to the clipboard.
 // Falls back to a hidden textarea for non-secure contexts.
 export async function copyMessageText(content: string): Promise<void> {
-  const text = content.replace(/[[【](?:Q?\d+(?::[a-f0-9]{6,64})?,\s*)?(?:S\.\s*\d+|\d{1,2}:\d{2}(?::\d{2})?)(?:\s*\|[^\]】]+)?[\]】]/g, "").trim();
+  const text = stripCitations(content).trim();
   if (navigator.clipboard?.writeText && window.isSecureContext) {
     await navigator.clipboard.writeText(text);
     return;

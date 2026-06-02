@@ -92,6 +92,11 @@ export interface ViewerState {
   // exactly, no line/sentence expansion). False/omitted for LLM-suggested
   // citations (expand to bullet/line for readable context).
   exactSelection?: boolean;
+  // Architecture B: exact character span [start, end] (inclusive) into the
+  // page's pdfium text, computed server-side. When present the viewer draws
+  // this span directly (no re-finding / no expansion); highlightText is the
+  // verbatim span used to verify/relocate on drift. Falls back to text search.
+  highlightOffsets?: [number, number];
   nonce?: number;
   startTime?: number;
 }
