@@ -80,6 +80,21 @@ def test_table_row_citation_inserted_inside_last_cell():
     assert out.index("[4, S. 6 ❘") < out.rindex("|")    # chip sits before the closing pipe
 
 
+def test_table_header_row_not_cited():
+    # The header row (directly above the |---| delimiter) is a column title, not a
+    # claim, and must never get a chip.
+    text = ("| Aktivität | Termin |\n"
+            "|-----------|--------|\n"
+            "| Abgabe Hausarbeit | 03.07.2026 |\n")
+    units = [Unit(page=6, start_time=None, end_time=None,
+                  raw_text="Aktivität Termin Abgabe Hausarbeit 03.07.2026")]
+    sources = {4: {"source": {"id": 4}, "is_media": False}}
+    out = fill_uncited_lines(text, sources, _FakeLoader(units)).splitlines()
+    assert out[0] == "| Aktivität | Termin |"      # header untouched
+    assert "[4" not in out[0]
+    assert "[4, S. 6 ❘" in out[2]                  # data row still cited
+
+
 def test_table_row_already_cited_in_cell_not_double_filled():
     # A table row whose last cell already carries a chip must not be filled again.
     text = "| Abgabe Hausarbeit | 03.07.2026 [4, S. 6 ❘ Abgabe Hausarbeit] |\n"

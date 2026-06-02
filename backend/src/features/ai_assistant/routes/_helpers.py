@@ -880,10 +880,16 @@ def fill_uncited_lines(text: str, sources: dict, loader) -> str:
         return best
 
     out_lines, in_summary = [], False
-    for line in text.split("\n"):
+    lines = text.split("\n")
+    for i, line in enumerate(lines):
         if _SUMMARY_HEADING_RE.match(line):
             in_summary = True
-        if not is_citable_line(line, in_summary=in_summary) or _HAS_CITE.search(line.rstrip()):
+        # A table header row (the one directly above the |---|---| delimiter) is a
+        # column title, not a claim -> never cite it.
+        is_table_header = (line.lstrip().startswith("|")
+                           and i + 1 < len(lines) and _TABLE_SEP.match(lines[i + 1].strip()))
+        if (not is_citable_line(line, in_summary=in_summary)
+                or is_table_header or _HAS_CITE.search(line.rstrip())):
             out_lines.append(line)
             continue
         match_text = line
