@@ -662,7 +662,12 @@ def resolve_citation_positions(text: str, sources: dict, loader) -> str:
         if (not meta["is_media"]) and page_str is not None:
             valid_pages = meta.get("pages") or {u.page for u in units if u.page is not None}
             if int(page_str) in valid_pages:
-                return f"[{qnum}, S. {page_str}{kw_suffix}]"
+                # The keyword did NOT match any unit and the line did not re-ground,
+                # so it is unverified — it may not be on the page at all (e.g. an
+                # invented "Übersicht"). Keep the valid page but DROP the keyword: a
+                # position-only chip navigates to the page rather than carrying a
+                # keyword that can only highlight nothing or the wrong text.
+                return f"[{qnum}, S. {page_str}]"
         return ""  # unverifiable -> drop
 
     # Process line by line so the keyword-less re-grounding can use the cited line's

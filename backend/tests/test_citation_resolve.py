@@ -65,7 +65,19 @@ def test_pdf_summary_only_page_kept_via_pages_set():
     units = {4: [Unit(13, None, None, "anderer seiteninhalt")]}
     src = {4: {"source": {"id": 4}, "is_media": False, "pages": {7, 13}}}
     out = resolve_citation_positions(text, src, _Loader(units))
-    assert "[4, S. 7 |" in out    # kept because 7 is a real page
+    assert "[4, S. 7]" in out      # page kept (real page); unverified keyword dropped
+    assert "unauffindbar" not in out
+
+
+def test_pdf_unmatched_keyword_dropped_to_position_only():
+    # An invented keyword that is on NO page (e.g. "Übersicht") must not be kept on
+    # the chip — it can only mis-anchor. Keep the valid page, drop the keyword.
+    text = "Wahrscheinlichkeitskapitel. [1, S. 91 | Übersicht]"
+    units = {1: [Unit(91, None, None, "Kapitel 10 Wahrscheinlichkeitsrechnung Zufall Varianz")]}
+    src = {1: {"source": {"id": 1}, "is_media": False, "pages": {91}}}
+    out = resolve_citation_positions(text, src, _Loader(units))
+    assert "[1, S. 91]" in out
+    assert "Übersicht" not in out
 
 
 def test_pdf_unverifiable_page_dropped():
