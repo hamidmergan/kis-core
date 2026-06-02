@@ -9,7 +9,7 @@ import { _embedQmapIntoCitations, _getChipIcon } from "../../_utils";
 import type { ChatMessage as ChatMessageType } from "../../_types";
 import type { AddNoteExtras } from "../../_hooks/useNotes";
 import { copyMessageText, withCitations, type CitationChipClickHandler } from "./_citations";
-import { sanitizeCitationsForMarkdown } from "./_citation_parse";
+import { sanitizeCitationsForMarkdown, buildDisplayContent } from "./_citation_parse";
 
 
 const POPUP_ACTION_ICONS: Record<string, PhosphorIconType> = {
@@ -245,7 +245,7 @@ function ChatMessageImpl({
                     td: ({ children }) => <td className="px-2 py-1 border-t border-current/10">{wrapCitations(children)}</td>,
                   }}
                 >
-                  {sanitizeCitationsForMarkdown(msg.content)}
+                  {sanitizeCitationsForMarkdown(buildDisplayContent(msg.content, msg.groundedLines, isStreaming))}
                 </ReactMarkdown>
               </div>
               {collapseByDefault && isAssistantOverflow && (
