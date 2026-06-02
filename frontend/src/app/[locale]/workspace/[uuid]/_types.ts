@@ -70,6 +70,9 @@ export interface ChatMessage {
   sourceCount?: number;
   popup_selection?: { uuid: string; page: number; text: string; action_key?: string; action_icon?: string };
   aborted?: boolean;
+  // Overlay filled by `line_done` stream events: index i holds the grounded text of
+  // answer line i. Undefined entries fall back to the raw (chip-stripped) line.
+  groundedLines?: (string | undefined)[];
 }
 
 export interface LernKarte {
