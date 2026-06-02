@@ -1,5 +1,5 @@
 import React from "react";
-import { _chunkLabel, _getChipIcon, type ChipLabelT } from "../../_utils";
+import { _chunkLabel, type ChipLabelT } from "../../_utils";
 import type { ChatMessage, CitationHighlightSpan } from "../../_types";
 import { citationPattern, citationsAreAdjacentSameTarget, stripCitations, type CitationFields } from "./_citation_parse";
 
@@ -34,7 +34,6 @@ function CitationChip({
   clickSpans: CitationHighlightSpan[] | undefined;
   onChipClick: CitationChipClickHandler;
 }) {
-  const ChipIcon = _getChipIcon(filename);
   // onPointerDown (not onClick) so chips remain clickable during active token stream:
   // with onClick, react-markdown often unmounts the chip between down and up, so the
   // native click lands on an ancestor. Pointer (not Mouse) so touch devices trigger it.
@@ -52,10 +51,10 @@ function CitationChip({
     <span role="button" tabIndex={0}
       onPointerDown={(e) => { if (e.button === 0) activate(); }}
       onKeyDown={(e) => { if (e.key === "Enter") activate(); }}
-      className="inline-flex items-center gap-0.5 whitespace-nowrap text-xs px-1.5 py-0.5 rounded-full font-medium chip-cite align-middle mx-0.5 cursor-pointer"
+      className="inline-flex items-center whitespace-nowrap text-xs px-1.5 py-0.5 rounded-full font-medium chip-cite align-middle mx-0.5 cursor-pointer"
       style={{ backgroundColor: "rgba(var(--kb-rgb),0.12)", color: "var(--kb)" }}
       title={`${filename}, ${label}`}
-    ><ChipIcon size={8} weight="bold" />{displayQNum ? `[${displayQNum}] ` : ""}{label}</span>
+    >{displayQNum ? `[${displayQNum}] ` : ""}{label}</span>
   );
 }
 
