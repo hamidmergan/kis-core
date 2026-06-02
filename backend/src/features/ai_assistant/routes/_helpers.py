@@ -128,7 +128,7 @@ def _parse_ts(ts: str) -> float:
 #   clean single-page chip instead of leaking through as broken raw text.
 _CITE_RESOLVE_RE = re.compile(
     r"[\[【]\s*(?:Q?(\d+)\s*,\s*)?"
-    r"(?:S\.\s*(\d+)(?:\s*[-‐‑‒–—−]\s*\d+)?|(\d{1,2}:\d{2}(?::\d{2})?))"
+    r"(?:S\.\s*(\d+)(?:\s*[-‐‑‒–—−]\s*\d+)?(?:\s*@\d+-\d+)?|(\d{1,2}:\d{2}(?::\d{2})?))"
     r"\s*(?:[|❘]\s*([^\]】]+?))?\s*[\]】]"
 )
 
@@ -562,6 +562,14 @@ class SourceUnitLoader:
     def __init__(self) -> None:
         self._cache: dict[int, list] = {}
         self._furniture: dict[int, set] = {}
+        self._page_text_cache: dict = {}
+
+    def offset_suffix(self, source: dict, page_number: int, claim: str) -> "str | None":
+        """Architecture B: exact ``@start-end | span`` for a PDF citation, computed
+        from the page's pdfium text (the same text the viewer loads). None when no
+        confident span exists — caller then keeps its keyword/position-only chip."""
+        from ._page_geometry import offset_suffix as _os
+        return _os(source, page_number, claim, self._page_text_cache)
 
     def units(self, source: dict, *, is_media: bool) -> list:
         from ._citation_match import Unit
@@ -607,6 +615,7 @@ def resolve_citation_positions(text: str, sources: dict, loader) -> str:
     units, never silently re-attributed to a different source."""
     from ._citation_match import match_query  # local: _citation_match imports from this module
     _get_furniture = getattr(loader, "furniture", None)
+    _offset_suffix = getattr(loader, "offset_suffix", None)
 
     def _sub(m: "re.Match", line_text: str) -> str:
         qnum = int(m.group(1)) if m.group(1) else (min(sources) if sources else None)
@@ -627,6 +636,20 @@ def resolve_citation_positions(text: str, sources: dict, loader) -> str:
             kw = ""   # running header/footer keyword -> re-ground below / position-only
         kw_suffix = f" | {kw}" if kw else ""
         typed = _parse_ts(time_str) if time_str else (int(page_str) if page_str else None)
+
+        def _pdf_chip(page_n: int, fallback_suffix: str) -> str:
+            """Build a PDF chip, preferring an exact ``@start-end | span`` offset
+            anchor (Architecture B) computed from the cited line, and falling back
+            to ``fallback_suffix`` (keyword / position-only) when none is found."""
+            if _offset_suffix is not None and page_n is not None:
+                try:
+                    os_suf = _offset_suffix(meta["source"], page_n, line_text)
+                except Exception:
+                    os_suf = None
+                if os_suf:
+                    return f"[{qnum}, S. {page_n}{os_suf}]"
+            return f"[{qnum}, S. {page_n}{fallback_suffix}]"
+
         r = match_query(kw, units, typed_pos=typed) if kw else None
         if r and r.unit:
             if meta["is_media"]:
@@ -640,9 +663,8 @@ def resolve_citation_positions(text: str, sources: dict, loader) -> str:
             rg = _reground_by_line(line_text, units, furniture=furniture)
             if rg is not None and rg[0] != r.unit.page:
                 page_n, anchor = rg
-                suf = f" | {anchor}" if anchor else ""
-                return f"[{qnum}, S. {page_n}{suf}]"
-            return f"[{qnum}, S. {r.unit.page}{kw_suffix}]"
+                return _pdf_chip(page_n, f" | {anchor}" if anchor else "")
+            return _pdf_chip(r.unit.page, kw_suffix)
         # No keyword hit. Media: a timestamp is always a valid seek target, so keep
         # it as the model typed it (never fabricate one from the first segment).
         if meta["is_media"] and time_str is not None:
@@ -654,8 +676,7 @@ def resolve_citation_positions(text: str, sources: dict, loader) -> str:
             rg = _reground_by_line(line_text, units, furniture=furniture)
             if rg is not None:
                 page_n, anchor = rg
-                suf = f" | {anchor}" if anchor else ""
-                return f"[{qnum}, S. {page_n}{suf}]"
+                return _pdf_chip(page_n, f" | {anchor}" if anchor else "")
         # PDF: keep the typed page only if it is a REAL page of the source. Validate
         # against the source's full page set (text chunks UNION page-summaries) so an
         # image/scanned page that has a summary but no text chunk is not wrongly dropped.
@@ -663,11 +684,11 @@ def resolve_citation_positions(text: str, sources: dict, loader) -> str:
             valid_pages = meta.get("pages") or {u.page for u in units if u.page is not None}
             if int(page_str) in valid_pages:
                 # The keyword did NOT match any unit and the line did not re-ground,
-                # so it is unverified — it may not be on the page at all (e.g. an
-                # invented "Übersicht"). Keep the valid page but DROP the keyword: a
-                # position-only chip navigates to the page rather than carrying a
-                # keyword that can only highlight nothing or the wrong text.
-                return f"[{qnum}, S. {page_str}]"
+                # so it is unverified. Try an offset anchor from the line on this real
+                # page anyway (the line may still locate even if the keyword was
+                # bogus); otherwise fall back to a position-only chip that just
+                # navigates to the page.
+                return _pdf_chip(int(page_str), "")
         return ""  # unverifiable -> drop
 
     # Process line by line so the keyword-less re-grounding can use the cited line's
@@ -874,6 +895,7 @@ def fill_uncited_lines(text: str, sources: dict, loader) -> str:
     # Local import: _citation_match imports from _helpers, so a module-level
     # import would create a circular dependency.
     from ._citation_match import match_query  # noqa: PLC0415
+    _offset_suffix = getattr(loader, "offset_suffix", None)
 
     def _best_match(query: str):
         best = None  # (score, qnum, unit, is_media)
@@ -914,13 +936,22 @@ def fill_uncited_lines(text: str, sources: dict, loader) -> str:
         # lands on the right sentence (not the first overlapping word on the page).
         kw = _overlap_phrase(match_text, _best_subsegment(match_text, unit.raw_text or ""))
         pos = _format_timestamp(unit.start_time) if is_media else f"S. {unit.page}"
+        # Architecture B: exact ``@start-end | span`` offset anchor for PDF citations.
+        off = None
+        if not is_media and _offset_suffix is not None and unit.page is not None:
+            try:
+                off = _offset_suffix(sources[qnum]["source"], unit.page, match_text)
+            except Exception:
+                off = None
         stripped = line.rstrip()
         if stripped.startswith("|") and stripped.endswith("|"):
             # Markdown table row: put the chip INSIDE the last cell (before the closing
-            # pipe) so it renders, and use the non-pipe separator ❘ so the keyword's
-            # own text can never split the cell.
-            out_lines.append(f"{stripped[:-1].rstrip()} [{qnum}, {pos} ❘ {kw}] |")
+            # pipe) so it renders, and use the non-pipe separator ❘ so the span/keyword
+            # text can never split the cell.
+            body = off.replace(" | ", " ❘ ", 1) if off else f" ❘ {kw}"
+            out_lines.append(f"{stripped[:-1].rstrip()} [{qnum}, {pos}{body}] |")
         else:
-            out_lines.append(f"{stripped} [{qnum}, {pos} | {kw}]")  # plain in M1; ~ marker comes later
+            body = off if off else f" | {kw}"
+            out_lines.append(f"{stripped} [{qnum}, {pos}{body}]")
     return "\n".join(out_lines)
 
