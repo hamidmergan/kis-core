@@ -73,10 +73,9 @@ export function SourcesPanel({
     return () => ro.disconnect();
   }, []);
 
-  // A source is only chat-ready once indexing AND background summaries are
-  // done (progress field cleared). Selecting before that would feed the chat
-  // a source with empty page-summaries, which makes the model answer "not in
-  // sources" for every question.
+  // A source is chat-ready once indexing is done (status "ready" with the
+  // progress field cleared). Selecting an in-progress source would feed the
+  // chat empty context.
   const isFullyReady = (s: Source) => s.status === "ready" && !s.progress;
   const readySources = sources.filter(isFullyReady);
   const allSelected = readySources.length > 0 && readySources.every((s) => selectedSourceIds.includes(s.uuid));

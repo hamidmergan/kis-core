@@ -17,7 +17,6 @@ from src.features.ai_assistant.repository.sources import *  # noqa: F401,F403
 from src.features.ai_assistant.repository.chunks import *  # noqa: F401,F403
 from src.features.ai_assistant.repository.chat import *  # noqa: F401,F403
 from src.features.ai_assistant.repository.notes import *  # noqa: F401,F403
-from src.features.ai_assistant.repository.summaries import *  # noqa: F401,F403
 from src.features.ai_assistant.repository.mindmaps import *  # noqa: F401,F403
 from src.features.ai_assistant.repository.data_tables import *  # noqa: F401,F403
 from src.features.ai_assistant.repository.schedule import *  # noqa: F401,F403

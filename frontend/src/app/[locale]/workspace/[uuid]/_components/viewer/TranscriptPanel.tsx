@@ -84,6 +84,7 @@ export function TranscriptPanel({
   const [regenError, setRegenError] = useState<string | null>(null);
   const listRef = useRef<HTMLDivElement>(null);
   const itemRefs = useRef<Record<number, HTMLDivElement | null>>({});
+  const lastScrolledIdx = useRef<number>(-1);
 
   // Persist a "translation dispatched at" marker so the running state survives
   // reloads / source switches. Backend Celery task is idempotent, so re-mounting
@@ -172,7 +173,12 @@ export function TranscriptPanel({
     if (!followCurrent) return;
     const el = itemRefs.current[currentIdx];
     if (el && listRef.current) {
-      el.scrollIntoView({ block: "center", behavior: "smooth" });
+      // A large index jump means the user seeked (e.g. clicked a citation chip) —
+      // jump there directly. Sequential playback advances by ~1 cue → smooth follow.
+      const prev = lastScrolledIdx.current;
+      const isJump = prev < 0 || Math.abs(currentIdx - prev) > 1;
+      el.scrollIntoView({ block: "center", behavior: isJump ? "instant" : "smooth" });
+      lastScrolledIdx.current = currentIdx;
     }
   }, [currentIdx, followCurrent]);
 

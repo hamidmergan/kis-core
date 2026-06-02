@@ -74,6 +74,18 @@ describe("sanitizeCitationsForMarkdown", () => {
     expect(fields[0].keyword).toContain("Mensch und Computer");
   });
 
+  it("strips a bare email from the keyword so gfm can't autolink/split it (real th-luebeck case)", () => {
+    const raw = "E-Mail: lenka.kleinau@th-luebeck.de [4, S. 2 @40-76 | • E-Mail: lenka.kleinau@th-luebeck.de].";
+    const out = sanitizeCitationsForMarkdown(raw);
+    const fields = parseCitationFields(out);
+    expect(fields.length).toBe(1);             // the chip still parses
+    expect(fields[0].page).toBe(2);
+    expect(fields[0].offsets).toEqual([40, 76]);
+    // the @start-end offset must survive; only the keyword email is removed
+    const token = out.slice(fields[0].index, fields[0].index + fields[0].length);
+    expect(token).not.toMatch(/@th-luebeck/);  // no autolinkable email left inside the token
+  });
+
   it("collapses an exact-duplicate citation emitted back-to-back", () => {
     const raw = "X [5, S. 22 @1-9 | Mensch und Computer]. [5, S. 22 @1-9 | Mensch und Computer]";
     expect((sanitizeCitationsForMarkdown(raw).match(/S\. 22/g) || []).length).toBe(1);

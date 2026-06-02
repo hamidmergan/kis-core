@@ -1083,22 +1083,6 @@
       "lastRunFailed": ", {n} Fehler",
       "activateMaintenance": "Wartungsmodus aktivieren (Tab \"System\"), bevor du startest."
     },
-    "backfillDocSummaryCard": {
-      "title": "Doc-Summaries nachgenerieren",
-      "description": "Erzeugt für alle Quellen ohne Doc-Summary die kompakte englische Übersicht, die der Chat für „fasse zusammen“-Fragen über mehrere Quellen nutzt. Läuft als Hintergrund-Job.",
-      "pendingCount": "{pending} von {total} Quellen ohne Doc-Summary.",
-      "start": "Nachgenerieren",
-      "started": "Läuft im Hintergrund, Status siehe Worker-Logs.",
-      "failed": "Konnte nicht gestartet werden."
-    },
-    "backfillPageSummaryCard": {
-      "title": "Page-Summaries nachgenerieren",
-      "description": "Erzeugt für alle PDFs ohne Page-Summaries die seitenweisen Zusammenfassungen. Wichtig für klickbare Seitenzahlen in Mehrquellen-Chats. Läuft pro PDF als eigener Job; Doc-Summary wird danach automatisch aktualisiert.",
-      "pendingCount": "{pending} von {total} PDFs ohne Page-Summaries.",
-      "start": "Nachgenerieren",
-      "started": "Läuft im Hintergrund, Status siehe Worker-Logs.",
-      "failed": "Konnte nicht gestartet werden."
-    },
     "mascotCard": {
       "title": "Hilde-Maskottchen",
       "active": "Aktiv - die Eulen-Begleiterin wird systemweit angezeigt; jeder Nutzer kann sie für sich abschalten.",
@@ -1156,7 +1140,6 @@
       "extrasLabel": "Zusätzlich exportieren:",
       "extra_all": "Alle",
       "extra_glossary": "Glossar",
-      "extra_summaries": "Page-Summaries",
       "extra_notes": "Notizen",
       "extra_schedule": "Zeitplan",
       "extra_studio": "Mindmaps + Tabellen + Übungen"
@@ -1219,21 +1202,6 @@
       "ragFinalChunksHint": "Werden ans LLM gegeben",
       "ragEmbedBatch": "Embedding Batch-Größe",
       "ragEmbedBatchHint": "Beim Indexieren",
-      "summariesTitle": "Seiten-Zusammenfassungen (Pipeline)",
-      "summariesSubtitle": "Werden beim Hochladen einer Quelle erstellt.",
-      "sumMaxRetries": "Max Retries",
-      "sumTimeoutSmall": "Timeout pro Seite (Ollama)",
-      "sumTimeoutLarge": "Timeout pro Seite (Cloud)",
-      "sumMaxTokensSmall": "Max Tokens (Ollama, einzeln)",
-      "sumMaxTokensLarge": "Max Tokens (Cloud, einzeln)",
-      "sumMaxTokensBatch": "Max Tokens (Cloud, Batch)",
-      "sumMaxCharsPerPage": "Max Zeichen pro Seite an LLM",
-      "sumParallelSmall": "Parallele Worker (Ollama)",
-      "sumParallelSmallHint": "Mehrere Seiten parallel",
-      "sumParallelLarge": "Parallele Worker (Cloud)",
-      "sumParallelLargeHint": "Mehrere Batches parallel",
-      "sumBatchSize": "Seiten pro Batch",
-      "sumBatchSizeHint": "Cloud, mehrere Seiten in einer Anfrage",
       "jobsTitle": "Job-Verwaltung",
       "jobsSubtitle": "Ergebnisdateien & Watchdog für Tool-Jobs.",
       "jobsMaxFiles": "Max Ergebnis-Dateien pro Nutzer",
@@ -1678,6 +1646,8 @@
         "title": "Einstellungen",
         "hildeTitle": "Hilde-Maskottchen",
         "hildeDescription": "Eulen-Begleiterin im Chat anzeigen.",
+        "pdfHighlightTitle": "Stellen im PDF hervorheben",
+        "pdfHighlightDescription": "Markiert die zitierte Stelle beim Klick auf eine Quelle gelb. Aus: Es wird nur zur Stelle gesprungen, ohne Markierung.",
         "studioTitle": "Studio",
         "studioDescription": "Studio-Panel mit Mindmaps, Notizen und Tools einblenden.",
         "languageTrainingTitle": "Fachsprachentraining",
@@ -1750,9 +1720,7 @@
           "parsing": "Lesen",
           "ocr": "OCR Seite",
           "chunking": "Zerlegen",
-          "embedding": "Embedding",
-          "page_summaries": "Seiten-Zusammenfassungen",
-          "doc_summary": "Doc-Zusammenfassung"
+          "embedding": "Embedding"
         },
         "retry": "Erneut versuchen",
         "options": "Optionen",
@@ -1795,6 +1763,7 @@
       "viewer": {
         "back": "Zurück",
         "dismissHighlight": "Markierung aufheben",
+        "jumpToHighlightPage": "Zur Markierung springen (S. {page})",
         "transcriptLabel": "Transkript",
         "transcriptLoading": "Transkript wird geladen...",
         "jumpToCurrent": "Zum aktuellen Transkript springen",
@@ -1831,7 +1800,6 @@
         "addToNote": "In Notiz",
         "addToNoteDescription": "Auswahl als neue Notiz speichern",
         "addToNoteTitle": "In Notiz speichern",
-        "summaries": "Zusammenfassungen",
         "tracksDe": "Deutsch",
         "tracksEn": "English"
       },

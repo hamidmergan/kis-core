@@ -304,7 +304,7 @@ def _diversify_by_source(chunks: list[dict], source_ids: list[int]):
 
     Returns ``(diverse, remaining, missing)``: one chunk per seen source up
     front, the rest deferred, and the ``source_ids`` that produced no hit at all
-    (the caller backfills those via per-source search / doc-summary).
+    (the caller backfills those via per-source search / raw chunks).
     """
     seen_sources: set[int] = set()
     diverse_chunks: list[dict] = []
@@ -472,7 +472,7 @@ async def chat(
                 resolved.append(source["id"])
         source_ids = resolved if resolved else None
 
-    # Routing: GENERIC (cross-source overview, uses compact doc-summaries) vs
+    # Routing: GENERIC (cross-source overview, multi-query retrieval) vs
     # SPECIFIC (topic-focused, uses hybrid search). Cheap pre-filter avoids an
     # LLM round-trip when the answer is obvious (popup, no sources, long question).
     if _should_skip_intent_classification(body.source_text, source_ids, body.question):
@@ -545,7 +545,7 @@ async def chat(
             # first run a per-source mini-search to pull ITS OWN most-relevant
             # chunks (real pages/timestamps, citable). Only if that yields nothing
             # (e.g. a media source with no matchable text) do we fall back to the
-            # compact doc-summary, then the first raw chunk.
+            # first raw chunk.
             if missing:
                 PER_SOURCE_FALLBACK_LIMIT = 3
                 # Relevance gate (language-agnostic): a per-source vector search
@@ -680,9 +680,9 @@ async def chat(
         len(context_parts), len(chunks), dict(sent_per_source),
     )
 
-    # Validity set per PDF source = its REAL pages (chunks ∪ page-summaries), so the
+    # Validity set per PDF source = its REAL pages (text/OCR chunks), so the
     # citation resolver can reject pages no upstream step ever produced (e.g. a
-    # hallucinated doc-summary [p.N]). Media sources keep an EMPTY page set on
+    # hallucinated [p.N]). Media sources keep an EMPTY page set on
     # purpose: a page number on a video/audio citation is always bogus -> dropped.
     for qn, si in source_index.items():
         if not si["is_media"]:

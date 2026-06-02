@@ -13,7 +13,6 @@ Bundle layout (ZIP):
 
 Optional, opt-in via query flags on export, permissively read on import:
     glossary.json   — aia_glossary_entries (workspace-shared pool) + the importer's picks for each entry
-    summaries.json  — aia_page_summaries (per source)
     notes.json      — aia_notes (per workspace + user; user_id reassigned to importer)
     schedule.json   — aia_schedule_entries (per workspace + user; user_id reassigned)
     studio.json     — aia_mindmaps + aia_data_tables + aia_exercise_sets/items
@@ -214,25 +213,6 @@ def _fetch_glossary(source_id_to_uuid: dict[int, str]) -> list[dict]:
     ]
 
 
-def _fetch_page_summaries(source_id_to_uuid: dict[int, str]) -> list[dict]:
-    if not source_id_to_uuid:
-        return []
-    with get_connection() as conn:
-        with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
-            cur.execute(
-                """SELECT source_id, page_number, summary
-                   FROM aia_page_summaries WHERE source_id = ANY(%s)
-                   ORDER BY id""",
-                (list(source_id_to_uuid.keys()),),
-            )
-            rows = cur.fetchall()
-    return [
-        {**{k: v for k, v in dict(r).items() if k != "source_id"},
-         "source_uuid": source_id_to_uuid.get(r["source_id"])}
-        for r in rows if source_id_to_uuid.get(r["source_id"])
-    ]
-
-
 def _fetch_notes(workspace_id: int) -> list[dict]:
     with get_connection() as conn:
         with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
@@ -384,26 +364,6 @@ def _insert_glossary(rows: list[dict], uuid_to_source_id: dict[str, int], fallba
     return n
 
 
-def _insert_summaries(rows: list[dict], uuid_to_source_id: dict[str, int]) -> int:
-    if not rows:
-        return 0
-    n = 0
-    with get_connection() as conn:
-        with conn.cursor() as cur:
-            for s in rows:
-                sid = uuid_to_source_id.get(s.get("source_uuid"))
-                if not sid:
-                    continue
-                cur.execute(
-                    """INSERT INTO aia_page_summaries (source_id, page_number, summary)
-                       VALUES (%s, %s, %s)""",
-                    (sid, s.get("page_number"), s.get("summary") or ""),
-                )
-                n += 1
-        conn.commit()
-    return n
-
-
 def _insert_notes(workspace_id: int, user_id: int, rows: list[dict]) -> int:
     if not rows:
         return 0
@@ -549,7 +509,6 @@ async def export_workspace(
     glossary: bool = False,
     notes: bool = False,
     schedule: bool = False,
-    summaries: bool = False,
     studio: bool = False,
     _admin=Depends(get_admin_user),
 ):
@@ -560,7 +519,7 @@ async def export_workspace(
     sources — those are token-expensive (Whisper + DeepL/LLM translation).
 
     Optional via query flags (each maps to one extra JSON entry in the bundle):
-        glossary, notes, schedule, summaries, studio
+        glossary, notes, schedule, studio
     """
     workspace = db.get_aia_workspace(workspace_uuid)
     if workspace is None:
@@ -584,7 +543,6 @@ async def export_workspace(
             "chunk_count": s.get("chunk_count") or 0,
             "embedding_model": s.get("embedding_model") or "",
             "toc": s.get("toc"),
-            "summaries_status": s.get("summaries_status") or "none",
             "duration": s.get("duration"),
             "language": s.get("language"),
             "chunks": chunks,
@@ -595,9 +553,6 @@ async def export_workspace(
     if glossary:
         extras_data["glossary"] = _fetch_glossary(source_id_to_uuid)
         extras_meta.append("glossary")
-    if summaries:
-        extras_data["summaries"] = _fetch_page_summaries(source_id_to_uuid)
-        extras_meta.append("summaries")
     if notes:
         extras_data["notes"] = _fetch_notes(workspace["id"])
         extras_meta.append("notes")
@@ -818,8 +773,8 @@ async def import_workspace(
                             """INSERT INTO aia_sources
                                (workspace_id, uuid, filename, file_path, file_type,
                                 status, chunk_count, embedding_model, toc,
-                                summaries_status, duration, language)
-                               VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                                duration, language)
+                               VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                                RETURNING id""",
                             (
                                 workspace_id, source_uuid, s.get("filename") or "",
@@ -827,7 +782,6 @@ async def import_workspace(
                                 s.get("status") or "ready",
                                 s.get("chunk_count") or 0, s.get("embedding_model") or "",
                                 json.dumps(s["toc"]) if s.get("toc") is not None else None,
-                                s.get("summaries_status") or "none",
                                 s.get("duration"), s.get("language"),
                             ),
                         )
@@ -853,9 +807,6 @@ async def import_workspace(
             glossary_rows = _try_load("glossary")
             if glossary_rows is not None:
                 extras_imported["glossary"] = _insert_glossary(glossary_rows, uuid_to_source_id, admin_user_id)
-            summaries_rows = _try_load("summaries")
-            if summaries_rows is not None:
-                extras_imported["summaries"] = _insert_summaries(summaries_rows, uuid_to_source_id)
             notes_rows = _try_load("notes")
             if notes_rows is not None:
                 extras_imported["notes"] = _insert_notes(workspace_id, admin_user_id, notes_rows)

@@ -1083,22 +1083,6 @@
       "lastRunFailed": ", {n} errors",
       "activateMaintenance": "Activate maintenance mode (System tab) before starting."
     },
-    "backfillDocSummaryCard": {
-      "title": "Backfill doc-summaries",
-      "description": "Generates the compact English overview the chat uses for cross-source \"summarize\" questions, for every source still missing one. Runs as a background job.",
-      "pendingCount": "{pending} of {total} sources without doc-summary.",
-      "start": "Run backfill",
-      "started": "Running in the background, see worker logs for status.",
-      "failed": "Could not start."
-    },
-    "backfillPageSummaryCard": {
-      "title": "Backfill page-summaries",
-      "description": "Generates per-page summaries for every PDF still missing them. Required for clickable page numbers in multi-source chats. Each PDF runs as its own job; doc-summary is refreshed automatically after.",
-      "pendingCount": "{pending} of {total} PDFs without page-summaries.",
-      "start": "Run backfill",
-      "started": "Running in the background, see worker logs for status.",
-      "failed": "Could not start."
-    },
     "mascotCard": {
       "title": "Hilde mascot",
       "active": "Active - the owl companion is shown system-wide; each user can hide her individually.",
@@ -1156,7 +1140,6 @@
       "extrasLabel": "Also export:",
       "extra_all": "All",
       "extra_glossary": "Glossary",
-      "extra_summaries": "Page summaries",
       "extra_notes": "Notes",
       "extra_schedule": "Schedule",
       "extra_studio": "Mind maps + tables + exercises"
@@ -1219,21 +1202,6 @@
       "ragFinalChunksHint": "Passed to the LLM",
       "ragEmbedBatch": "Embedding batch size",
       "ragEmbedBatchHint": "During indexing",
-      "summariesTitle": "Page summaries (pipeline)",
-      "summariesSubtitle": "Created when uploading a source.",
-      "sumMaxRetries": "Max retries",
-      "sumTimeoutSmall": "Timeout per page (Ollama)",
-      "sumTimeoutLarge": "Timeout per page (cloud)",
-      "sumMaxTokensSmall": "Max tokens (Ollama, single)",
-      "sumMaxTokensLarge": "Max tokens (cloud, single)",
-      "sumMaxTokensBatch": "Max tokens (cloud, batch)",
-      "sumMaxCharsPerPage": "Max chars per page to LLM",
-      "sumParallelSmall": "Parallel workers (Ollama)",
-      "sumParallelSmallHint": "Multiple pages in parallel",
-      "sumParallelLarge": "Parallel workers (cloud)",
-      "sumParallelLargeHint": "Multiple batches in parallel",
-      "sumBatchSize": "Pages per batch",
-      "sumBatchSizeHint": "Cloud, multiple pages per request",
       "jobsTitle": "Job management",
       "jobsSubtitle": "Result files & watchdog for tool jobs.",
       "jobsMaxFiles": "Max result files per user",
@@ -1678,6 +1646,8 @@
         "title": "Settings",
         "hildeTitle": "Hilde mascot",
         "hildeDescription": "Show the owl companion in chat.",
+        "pdfHighlightTitle": "Highlight passages in PDFs",
+        "pdfHighlightDescription": "Highlights the cited passage in yellow when you click a source. Off: it just jumps to the spot without a marker.",
         "studioTitle": "Studio",
         "studioDescription": "Show the studio panel with mind maps, notes and tools.",
         "languageTrainingTitle": "Language training",
@@ -1750,9 +1720,7 @@
           "parsing": "Parsing",
           "ocr": "OCR page",
           "chunking": "Chunking",
-          "embedding": "Embedding",
-          "page_summaries": "Page summaries",
-          "doc_summary": "Doc summary"
+          "embedding": "Embedding"
         },
         "retry": "Retry",
         "options": "Options",
@@ -1795,6 +1763,7 @@
       "viewer": {
         "back": "Back",
         "dismissHighlight": "Clear highlight",
+        "jumpToHighlightPage": "Jump to highlight (p. {page})",
         "transcriptLabel": "Transcript",
         "transcriptLoading": "Loading transcript...",
         "jumpToCurrent": "Jump to current transcript",
@@ -1831,7 +1800,6 @@
         "addToNote": "To note",
         "addToNoteDescription": "Save selection as a new note",
         "addToNoteTitle": "Save as note",
-        "summaries": "Summaries",
         "tracksDe": "German",
         "tracksEn": "English"
       },

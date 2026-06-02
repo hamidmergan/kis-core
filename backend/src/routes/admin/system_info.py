@@ -112,20 +112,6 @@ async def get_system_info(_admin=Depends(get_admin_user)):
         "embed_batch_size": 20,
     }
 
-    # ── KI-Tutor page-summary pipeline ─────────────────────────────────
-    summaries = {
-        "max_retries": L.AIA_SUMMARY_MAX_RETRIES,
-        "timeout_small_seconds": L.AIA_SUMMARY_TIMEOUT_SMALL,
-        "timeout_large_seconds": L.AIA_SUMMARY_TIMEOUT_LARGE,
-        "max_tokens_small": L.AIA_SUMMARY_MAX_TOKENS_SMALL,
-        "max_tokens_large": L.AIA_SUMMARY_MAX_TOKENS_LARGE,
-        "max_tokens_batch": L.AIA_SUMMARY_MAX_TOKENS_BATCH,
-        "content_max_chars_per_page": L.AIA_SUMMARY_CONTENT_MAX_CHARS,
-        "parallel_workers_small": L.AIA_SUMMARY_PARALLEL_WORKERS_SMALL,
-        "parallel_workers_large": L.AIA_SUMMARY_PARALLEL_WORKERS_LARGE,
-        "batch_size_pages": L.AIA_SUMMARY_BATCH_SIZE,
-    }
-
     # ── Job/result management ──────────────────────────────────────────
     jobs = {
         "max_result_files_per_user": L.MAX_RESULT_FILES,
@@ -158,7 +144,6 @@ async def get_system_info(_admin=Depends(get_admin_user)):
         "char_limits": char_limits,
         "workspace_limits": workspace_limits,
         "rag": rag,
-        "summaries": summaries,
         "jobs": jobs,
         "celery_timeouts": celery_timeouts,
         "parallelism": parallelism,

@@ -197,8 +197,8 @@ def aia_rag_user_message(context: str, question: str) -> str:
     The language directive SANDWICHES the retrieved context (framing before +
     reminder after) so the answer follows the QUESTION's language even when the
     context is in another language and the model is tempted to just reformat it
-    (notably the page-summary overview path, where German summaries otherwise
-    pull the whole answer into German). Language-agnostic: no detection, no word
+    (e.g. German source chunks otherwise pull the whole answer into German).
+    Language-agnostic: no detection, no word
     lists — the model mirrors the question. Citation keywords stay verbatim in
     the source language (enforced by the system prompt) so highlighting keeps
     working.
@@ -250,63 +250,6 @@ AIA_NOTE_TITLE = (
 # Each action has a key, a UI label and the prompt.
 # The selected text is appended at runtime by the frontend.
 
-# -- AI tutor: page summaries -------------------------------------------------
-SUMMARY_META_SENTINEL: dict[str, str] = {
-    "de": "Keine Zusammenfassung vorhanden",
-    "en": "No summary available",
-}
-
-
-def aia_summary_page_system(target_locale: str = "de") -> str:
-    """Build the page-summary system prompt with a locale-specific meta-page sentinel."""
-    sentinel = SUMMARY_META_SENTINEL.get(target_locale, SUMMARY_META_SENTINEL["de"])
-    return (
-        "You are a precision summarizer.\n\n"
-        "RULES:\n"
-        "- Target length: ~25 % of the source text length.\n"
-        "- Hard limit: never exceed 400 characters.\n"
-        "- Use ONLY words, facts, and concepts that LITERALLY appear in the provided text.\n"
-        "- NEVER add details, examples, or specifics that are not explicitly written in the text.\n"
-        "- If the text only lists category NAMES without details, only mention the names - do NOT fill in what those categories might contain.\n"
-        "- Start directly - never with 'The text...', 'This page...', 'Der Text...'.\n"
-        "- Do NOT prepend artificial labels like 'Ziel:', 'Ergebnis:', 'Kontakt:' unless the page text itself literally uses them.\n"
-        f"- Meta pages (cover / title page, table of contents, bibliography / references) have no substantive content: return EXACTLY the literal string `{sentinel}` and nothing else, regardless of {{lang}}.\n"
-        "- Pack specific information: numbers, percentages, names, findings.\n"
-        "- Every word must earn its place - no filler.\n"
-        "- No bibliographic metadata: no ISBN, DOI, URLs, email addresses.\n"
-        "- No markdown formatting.\n"
-        "- Write in {lang}.\n\n"
-        "GOOD:\n"
-        "Abbruchquote int. Studierender liegt bei 49 % vs. 27 % dt. (Bachelor). "
-        "65 % wollen nach Studium in DE bleiben, unter 50 % schaffen es. "
-        "Hauptursachen: Finanzen, Sprache, fehlende Netzwerke.\n\n"
-        "BAD:\n"
-        "Herausforderungen internationaler Studierender werden beschrieben."
-    )
-
-
-# Backward-compat constant. Callers without locale context (admin registries,
-# pre-existing celery tasks) fall back to DE behavior.
-AIA_SUMMARY_PAGE_SYSTEM = aia_summary_page_system("de")
-
-AIA_SUMMARY_PAGE_USER_SMALL = (
-    "/no_think\n"
-    "Summarize this page in 2-3 sentences in {lang}. "
-    "Only use information from the text, do not add anything. "
-    "Start directly, not with 'The text...' or 'This page...'. "
-    "No ISBN, DOI, URLs or email addresses.\n\n"
-    "{content}"
-)
-
-AIA_SUMMARY_PAGE_USER_LARGE = "Summarize this page in {lang}:\n\n{content}"
-
-AIA_SUMMARY_PAGE_BATCH_USER = (
-    "Summarize each page separately in {lang}. Max 400 characters per summary.\n"
-    "Return ONLY a JSON object mapping each page number to its summary.\n"
-    "Example for 2 pages:\n"
-    '{{"5": "Summary of page 5", "6": "Summary of page 6"}}\n\n'
-    "Pages:\n{pages}"
-)
 
 # Intent classifier: route chat questions to either the cross-source overview path
 # (compact doc-summaries, cheap) or the topic-specific path (hybrid search). English
@@ -386,40 +329,6 @@ AIA_SEARCH_STRATEGY_SYSTEM = (
     "Reply with ONLY the queries, one per line. No numbering, no bullets, no "
     "explanation, no quotes."
 )
-
-# Doc-level summary: one compact English overview of an entire source. Used as
-# cross-source chat context (Fall 1) and as source-diversity fallback (Fall 2).
-# Always English regardless of source language - the chat LLM translates if needed.
-# Output keeps the input's position markers ([p.X] for PDF pages, [t:SECS] for
-# media timestamps) inline so the chat layer can build clickable citations.
-AIA_DOC_SUMMARY_SYSTEM = (
-    "You produce a compact English index of a document for downstream retrieval.\n"
-    "\n"
-    "OUTPUT FORMAT - STRICT:\n"
-    "- Output 4-7 lines.\n"
-    "- Each line is ONE sentence.\n"
-    "- Each line MUST start with a position marker, then a space, then the sentence.\n"
-    "- Markers: [p.N] for a PDF page, [p.N-M] for a page range, [p.N,M] for "
-    "non-consecutive pages, [t:SECS] for a media timestamp in seconds, [t:S-E] "
-    "for a media segment.\n"
-    "- The input is pre-annotated with these markers. Re-use the markers from "
-    "the input - do NOT invent positions.\n"
-    "- No prose paragraphs. No intro. No conclusion. No 'This document'.\n"
-    "- English only. No URLs, DOIs, ISBNs, contact info.\n"
-    "\n"
-    "EXAMPLE (PDF):\n"
-    "[p.1-3] Introduces the methodology of scientific writing and target audience.\n"
-    "[p.5-8] Explains how to build an outline and maintain a coherent thread.\n"
-    "[p.12] Lists citation styles such as APA, IEEE, and MLA with examples.\n"
-    "[p.15-18] Gives tips on style, abbreviations, figures, and proofreading.\n"
-    "\n"
-    "EXAMPLE (media transcript):\n"
-    "[t:0-300] Course logistics, deadlines, and how the assessment works.\n"
-    "[t:300-900] Derives the stars-and-bars formula for unordered draws.\n"
-    "[t:900-1500] Worked examples with multisets and Pascal symmetry.\n"
-    "[t:1500-1800] Q&A and reminder of next submission deadline.\n"
-)
-AIA_DOC_SUMMARY_USER = "Document content:\n\n{content}"
 
 
 AIA_MINDMAP_PROMPT = (

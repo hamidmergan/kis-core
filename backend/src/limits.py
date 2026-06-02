@@ -95,17 +95,7 @@ TTS_TIME_LIMIT                  = 5520   # 92 min, SIGKILL fallback
 SCREENCAST_SOFT_TIME_LIMIT      = 3600   # 60 min
 SCREENCAST_TIME_LIMIT           = 3720   # 62 min
 
-# --- AI tutor page summaries ------------------------------------------------
-AIA_SUMMARY_MAX_RETRIES             = 3
-AIA_SUMMARY_TIMEOUT_SMALL           = 120    # ollama, seconds per request
-AIA_SUMMARY_TIMEOUT_LARGE           = 180    # cloud/kisski, seconds per request (100 pages take longer)
-AIA_SUMMARY_MAX_TOKENS_SMALL        = 2048   # ollama, single page (incl. think overhead)
-AIA_SUMMARY_MAX_TOKENS_LARGE        = 2048   # cloud, single page
-AIA_SUMMARY_MAX_TOKENS_BATCH        = 16384  # cloud, batch: up to 100 pages x ~400 chars + JSON overhead
-AIA_SUMMARY_CONTENT_MAX_CHARS       = 3000   # max chars per page to LLM (25x3000 + 25x400 output = 85k per batch, well within context)
-AIA_SUMMARY_PARALLEL_WORKERS_SMALL  = 2      # ollama: parallel single requests (lowered 5->2 to stay under provider rate limits)
-AIA_SUMMARY_PARALLEL_WORKERS_LARGE  = 2      # cloud: parallel batch requests (lowered 5->2; 5 concurrent 16k-token batches tripped myLab 429)
-AIA_SUMMARY_BATCH_SIZE              = 25     # pages per batch request (300 pages = 12 requests)
+# --- AI tutor source limits -------------------------------------------------
 AIA_SOURCE_MAX_PAGES                = 500     # max pages per PDF/DOCX/PPTX upload
 AIA_WORKSPACE_MAX_SOURCES              = 30      # max sources per workspace
 
@@ -123,11 +113,10 @@ AIA_CONTEXT_MAX_CHARS                  = 60000
 # (1M+) that would stall/overflow the model and waste a giant DB read. Enforced
 # both on write (admin PATCH validation) and on read (_context_budget clamp).
 AIA_CONTEXT_HARD_CAP                    = 500000
-# Safety ceiling on how many summary/chunk segments ONE source contributes to a
-# generic overview before round-robin + the char budget take over. Set well
-# above AIA_SOURCE_MAX_PAGES (500) so PDFs are never down-sampled — every
-# page-summary becomes a candidate and the budget, not this cap, decides what
-# survives.
+# Safety ceiling on how many chunk segments ONE source contributes to a generic
+# overview before round-robin + the char budget take over. Set well above
+# AIA_SOURCE_MAX_PAGES (500) so PDFs are never down-sampled — every chunk becomes
+# a candidate and the budget, not this cap, decides what survives.
 AIA_GENERIC_MAX_SEGMENTS_PER_SOURCE    = 900
 AIA_WORKSPACE_MAX_ACCESS_LINKS         = 10      # max enrollment links per workspace
 AIA_NOTES_MAX_PER_USER              = 100     # max notes per user per workspace

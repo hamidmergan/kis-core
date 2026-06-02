@@ -16,8 +16,10 @@ export type HighlightRefs = {
   // Tracks the current ephemeral citation highlight(s) — Highlight annotations that
   // are NEVER committed, so they never touch the PDF file — so they can be purged on
   // the next chip click or when the user dismisses it. A merged chip draws several
-  // annotations (one per cited region), hence a list of ids.
-  citationHighlightRef: { current: { pageIndex: number; ids: string[] } | null };
+  // annotations (one per cited region), hence a list of ids. `scrollY` is the
+  // topmost region's page-coordinate y, so the jump chip can re-center the exact
+  // spot instead of the page top.
+  citationHighlightRef: { current: { pageIndex: number; ids: string[]; scrollY?: number } | null };
   // Toggles the "dismiss highlight" control in the viewer.
   onHighlightActive?: (active: boolean) => void;
 };
@@ -30,7 +32,9 @@ export type CitationSpan = { offsets?: [number, number]; keyword?: string };
 //   append=false (default): purge previous markers, start a new set, scroll into view.
 //   append=true: add to the current set (no purge) — used for extra regions of a
 //   merged chip. scroll defaults to !append; pass explicitly to override.
-type DrawOpts = { append?: boolean; scroll?: boolean };
+//   highlightEnabled=false (default true): user turned the yellow citation marker
+//   off in settings — still scroll to the exact spot, but draw no annotation.
+type DrawOpts = { append?: boolean; scroll?: boolean; highlightEnabled?: boolean };
 
 // Citation highlight = passive yellow marker (NOT a text selection), so a chip
 // click never triggers the selection action-popup. Single colour constant — swap
@@ -167,12 +171,32 @@ export function clearCitationHighlight(refs: HighlightRefs, reg: unknown) {
 }
 
 
+// Smoothly scroll the active citation highlight back into view. Re-centres the
+// exact highlight position (page + the topmost region's y), not just the page top,
+// mirroring the initial chip-click scroll. The annotation persists in EmbedPDF's
+// model across page virtualization, so no re-draw is needed. Keeps the scroll
+// plugin the only EmbedPDF surface the jump UI touches.
+export function scrollToCitationPage(refs: HighlightRefs, reg: unknown) {
+  const cur = refs.citationHighlightRef.current;
+  if (!cur) return;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const scroll = (reg as any)?.getPlugin?.("scroll")?.provides?.();
+  scroll?.scrollToPage?.({
+    pageNumber: cur.pageIndex + 1,
+    ...(cur.scrollY != null ? { pageCoordinates: { x: 0, y: cur.scrollY } } : {}),
+    behavior: "smooth",
+    alignY: 50,
+  });
+}
+
+
 // Draw the citation highlight as a passive yellow Highlight annotation (ephemeral:
 // created but never committed). No text selection is made, so the selection
 // action-popup never appears for a chip click. Purges any previous one first
 // (one citation highlight at a time), deselects so no edit handles show, and
 // scrolls the range into view.
-function drawCitationHighlight(
+// Exported for unit tests (the highlightEnabled gating contract).
+export function drawCitationHighlight(
   refs: HighlightRefs,
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   r: any, docMgr: any, scroll: any, targetPageIndex: number, geoStart: number, geoEnd: number, g: any,
@@ -180,37 +204,43 @@ function drawCitationHighlight(
 ): boolean {
   const append = opts.append ?? false;
   const doScroll = opts.scroll ?? !append;
+  // User turned the marker off (settings): skip drawing the annotation entirely
+  // but still compute the bbox below and scroll to the exact spot — "jump only".
+  const highlightEnabled = opts.highlightEnabled ?? true;
   const { segmentRects, bbox } = buildSegmentRects(g, geoStart, geoEnd);
   if (!segmentRects.length || !bbox) return false;
-  const anno = r.getPlugin?.("annotation")?.provides?.();
-  const docId = docMgr.getActiveDocumentId?.();
-  if (!anno?.createAnnotation || !docId) return false;
-  if (!append) clearCitationHighlight(refs, r);   // fresh chip → one set at a time
-  const id = `kis-cite-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
-  try {
-    anno.createAnnotation(targetPageIndex, {
-      type: HIGHLIGHT_SUBTYPE,
-      pageIndex: targetPageIndex,
-      id,
-      rect: bbox,
-      segmentRects,
-      strokeColor: CITATION_HL_COLOR,
-      color: CITATION_HL_COLOR,
-      opacity: CITATION_HL_OPACITY,
-      // readOnly + locked so the user can't accidentally select/drag/edit our marker.
-      flags: ["readOnly", "locked"],
-      created: new Date(),
-    });
-    anno.deselectAnnotation?.();      // no selection handles on the fresh annotation
-    const cur = refs.citationHighlightRef.current;
-    if (append && cur && cur.pageIndex === targetPageIndex) {
-      cur.ids.push(id);
-    } else {
-      refs.citationHighlightRef.current = { pageIndex: targetPageIndex, ids: [id] };
+  if (highlightEnabled) {
+    const anno = r.getPlugin?.("annotation")?.provides?.();
+    const docId = docMgr.getActiveDocumentId?.();
+    if (!anno?.createAnnotation || !docId) return false;
+    if (!append) clearCitationHighlight(refs, r);   // fresh chip → one set at a time
+    const id = `kis-cite-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+    try {
+      anno.createAnnotation(targetPageIndex, {
+        type: HIGHLIGHT_SUBTYPE,
+        pageIndex: targetPageIndex,
+        id,
+        rect: bbox,
+        segmentRects,
+        strokeColor: CITATION_HL_COLOR,
+        color: CITATION_HL_COLOR,
+        opacity: CITATION_HL_OPACITY,
+        // readOnly + locked so the user can't accidentally select/drag/edit our marker.
+        flags: ["readOnly", "locked"],
+        created: new Date(),
+      });
+      anno.deselectAnnotation?.();      // no selection handles on the fresh annotation
+      const cur = refs.citationHighlightRef.current;
+      if (append && cur && cur.pageIndex === targetPageIndex) {
+        cur.ids.push(id);
+        if (bbox.origin.y < (cur.scrollY ?? Infinity)) cur.scrollY = bbox.origin.y;
+      } else {
+        refs.citationHighlightRef.current = { pageIndex: targetPageIndex, ids: [id], scrollY: bbox.origin.y };
+      }
+      refs.onHighlightActive?.(true);
+    } catch {
+      return false;
     }
-    refs.onHighlightActive?.(true);
-  } catch {
-    return false;
   }
   if (scroll && doScroll) {
     scroll.scrollToPage({
@@ -851,9 +881,11 @@ export function tryHighlightOnPage(
 export function doHighlightSearch(
   refs: HighlightRefs, reg: unknown, page: number, text: string,
   exactSelection: boolean = false, offsets?: [number, number],
+  highlightEnabled: boolean = true,
 ) {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const r = reg as any;
+  const opts: DrawOpts = { highlightEnabled };
   const scroll = r.getPlugin?.("scroll")?.provides?.();
   scroll?.scrollToPage?.({ pageNumber: page, behavior: "instant" });
 
@@ -887,17 +919,17 @@ export function doHighlightSearch(
   // unavailable, pdfium drift) fall back to the legacy keyword search so a chip is
   // never worse than before.
   if (offsets && !exactSelection) {
-    tryHighlightByOffsets(refs, r, doc, engine, docMgr, scroll, pageIndex, offsets, text)
+    tryHighlightByOffsets(refs, r, doc, engine, docMgr, scroll, pageIndex, offsets, text, opts)
       .then((ok) => {
-        if (!ok) tryHighlightOnPage(refs, r, doc, engine, docMgr, scroll, pageIndex, text, exactSelection);
+        if (!ok) tryHighlightOnPage(refs, r, doc, engine, docMgr, scroll, pageIndex, text, exactSelection, opts);
       })
       .catch(() => {
-        tryHighlightOnPage(refs, r, doc, engine, docMgr, scroll, pageIndex, text, exactSelection);
+        tryHighlightOnPage(refs, r, doc, engine, docMgr, scroll, pageIndex, text, exactSelection, opts);
       });
     return;
   }
 
-  tryHighlightOnPage(refs, r, doc, engine, docMgr, scroll, pageIndex, text, exactSelection);
+  tryHighlightOnPage(refs, r, doc, engine, docMgr, scroll, pageIndex, text, exactSelection, opts);
 }
 
 
@@ -909,6 +941,7 @@ export function doHighlightSearch(
 // located by offset still tries its keyword (and is simply skipped if neither hits).
 export function doMultiHighlightSearch(
   refs: HighlightRefs, reg: unknown, page: number, spans: CitationSpan[],
+  highlightEnabled: boolean = true,
 ) {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const r = reg as any;
@@ -936,7 +969,7 @@ export function doMultiHighlightSearch(
   // Sequential: the first drawn region scrolls into view, later ones don't.
   let chain: Promise<unknown> = Promise.resolve();
   targets.forEach((span, idx) => {
-    const opts: DrawOpts = { append: true, scroll: idx === 0 };
+    const opts: DrawOpts = { append: true, scroll: idx === 0, highlightEnabled };
     const text = (span.keyword || "").trim();
     chain = chain
       .then(() => {

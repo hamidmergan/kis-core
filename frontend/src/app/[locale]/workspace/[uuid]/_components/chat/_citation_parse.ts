@@ -68,11 +68,15 @@ export function citationsAreAdjacentSameTarget(
 }
 
 
-// A URL inside a citation keyword (it can be verbatim source text, e.g. a slide
-// listing "Mensch und Computer, https://muc2026…/") must be removed BEFORE the text
-// reaches react-markdown: gfm autolinks the URL, which splits the [..|..] token into
-// separate nodes so the chip never forms and the raw brackets leak as plain text.
-const _URL_IN_CITE = /https?:\/\/[^\s\]】|❘]+|www\.[^\s\]】|❘]+/gi;
+// A URL or bare email inside a citation keyword (it can be verbatim source text, e.g.
+// a slide listing "Mensch und Computer, https://muc2026…/" or "E-Mail: x@th-luebeck.de")
+// must be removed BEFORE the text reaches react-markdown: gfm autolinks both URLs AND
+// bare email addresses, which splits the [..|..] token into separate nodes so the chip
+// never forms and the raw brackets leak as plain text. The email alternation needs at
+// least one local-part char immediately before '@' (a space there means it's the
+// '@start-end' offset token, not an email) and a dotted domain.
+const _URL_IN_CITE =
+  /https?:\/\/[^\s\]】|❘]+|www\.[^\s\]】|❘]+|[^\s\]】|❘@]+@[\w.-]+\.[A-Za-z]{2,}/gi;
 
 // Make citation tokens safe to hand to react-markdown. For every "[ … | … ]"-shaped
 // token: strip URLs from the keyword, swap '|' → '❘' (a bare '|' is a table-column

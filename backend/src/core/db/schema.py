@@ -31,7 +31,6 @@ def init_db(admin_email: Optional[str] = None) -> None:
                 ("ki_tutor_enrollments", "aia_enrollments"),
                 ("ki_tutor_sources", "aia_sources"),
                 ("ki_tutor_chunks", "aia_chunks"),
-                ("ki_tutor_paragraph_summaries", "aia_paragraph_summaries"),
                 ("ki_tutor_mindmaps", "aia_mindmaps"),
                 ("ki_tutor_data_tables", "aia_data_tables"),
                 ("ki_tutor_messages", "aia_messages"),
@@ -48,7 +47,6 @@ def init_db(admin_email: Optional[str] = None) -> None:
                 ("kia_enrollments", "aia_enrollments"),
                 ("kia_sources", "aia_sources"),
                 ("kia_chunks", "aia_chunks"),
-                ("kia_paragraph_summaries", "aia_paragraph_summaries"),
                 ("kia_mindmaps", "aia_mindmaps"),
                 ("kia_data_tables", "aia_data_tables"),
                 ("kia_messages", "aia_messages"),
@@ -69,8 +67,6 @@ def init_db(admin_email: Optional[str] = None) -> None:
                 ("kia_zeitplan_processed_sources", "aia_schedule_processed_sources"),
                 # Stage 4: rename aia_module* tables to aia_workspace* (consistency with frontend /workspace route).
                 ("aia_modules", "aia_workspaces"),
-                # Stage 5: rename aia_paragraph_summaries → aia_page_summaries (per-page summaries, never per-paragraph in practice).
-                ("aia_paragraph_summaries", "aia_page_summaries"),
             ]:
                 cur.execute(
                     "SELECT to_regclass(%s) IS NOT NULL AND to_regclass(%s) IS NULL",
@@ -332,10 +328,8 @@ def init_db(admin_email: Optional[str] = None) -> None:
             cur.execute(
                 "ALTER TABLE aia_workspaces ADD COLUMN IF NOT EXISTS staff_note_links JSONB NOT NULL DEFAULT '[]'::jsonb"
             )
-            # Legacy per-workspace toggle removed: page-summary is now always
-            # generated at ingest (provides UI panel + doc-summary input). The
-            # off/auto/manual modes added no real value once doc-summary became
-            # a mandatory chat-context input.
+            # Legacy per-workspace summary toggle: summaries were removed entirely
+            # (pgvector-only retrieval), so drop the now-meaningless column.
             cur.execute("ALTER TABLE aia_workspaces DROP COLUMN IF EXISTS summary_mode")
             cur.execute("""
                 CREATE TABLE IF NOT EXISTS aia_access_links (
@@ -429,10 +423,6 @@ def init_db(admin_email: Optional[str] = None) -> None:
             cur.execute("""
                 ALTER TABLE aia_sources ADD COLUMN IF NOT EXISTS toc JSONB
             """)
-            # Migration: add summaries_status column if missing
-            cur.execute("""
-                ALTER TABLE aia_sources ADD COLUMN IF NOT EXISTS summaries_status TEXT NOT NULL DEFAULT 'none'
-            """)
             # Migration: add duration column for audio/video sources
             cur.execute("""
                 ALTER TABLE aia_sources ADD COLUMN IF NOT EXISTS duration REAL
@@ -444,11 +434,6 @@ def init_db(admin_email: Optional[str] = None) -> None:
             # Migration: add language column (Whisper-detected source language, e.g. 'de', 'en')
             cur.execute("""
                 ALTER TABLE aia_sources ADD COLUMN IF NOT EXISTS language TEXT
-            """)
-            # Migration: add doc-level summary column (always English, used as compact
-            # context for cross-source chat questions and as source-diversity fallback).
-            cur.execute("""
-                ALTER TABLE aia_sources ADD COLUMN IF NOT EXISTS summary TEXT
             """)
             # Migration: fine-grained progress info during indexing. NULL when the
             # source is at rest (ready/failed/pending). JSON shape is
@@ -490,19 +475,13 @@ def init_db(admin_email: Optional[str] = None) -> None:
                 CREATE INDEX IF NOT EXISTS idx_chunks_search
                 ON aia_chunks USING gin(search_vector)
             """)
-            cur.execute("""
-                CREATE TABLE IF NOT EXISTS aia_page_summaries (
-                    id          SERIAL PRIMARY KEY,
-                    source_id   INTEGER NOT NULL
-                                  REFERENCES aia_sources(id) ON DELETE CASCADE,
-                    page_number INTEGER NOT NULL,
-                    summary     TEXT NOT NULL,
-                    created_at  TIMESTAMP NOT NULL DEFAULT NOW()
-                )
-            """)
-            # Drop legacy columns from the per-paragraph design (never used in practice — page-level only).
-            for col in ("block_index", "bbox_x0", "bbox_y0", "bbox_x1", "bbox_y1", "content"):
-                cur.execute(f"ALTER TABLE aia_page_summaries DROP COLUMN IF EXISTS {col}")
+            # Migration: page + doc summaries were removed (pgvector-only retrieval —
+            # chat answers from chunks, studio tools build from chunks). Drop the
+            # table and the now-unused aia_sources columns. Idempotent.
+            cur.execute("DROP TABLE IF EXISTS aia_page_summaries")
+            cur.execute("DROP TABLE IF EXISTS aia_paragraph_summaries")
+            cur.execute("ALTER TABLE aia_sources DROP COLUMN IF EXISTS summaries_status")
+            cur.execute("ALTER TABLE aia_sources DROP COLUMN IF EXISTS summary")
             cur.execute("""
                 CREATE TABLE IF NOT EXISTS aia_mindmaps (
                     id           SERIAL PRIMARY KEY,

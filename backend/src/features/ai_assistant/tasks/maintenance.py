@@ -1,48 +1,9 @@
-"""KI-Assistent Celery tasks - reindex all sources."""
+"""KI-Assistent Celery tasks - reindex sources after embedding-model changes."""
 
-import concurrent.futures
-import os
-import re
-
-from langfuse.decorators import langfuse_context, observe
 from loguru import logger
 
 from src.celery_app import celery_app
 from src import database as db
-from src.storage import open_input_file
-from src.limits import (
-    AIA_SUMMARY_MAX_RETRIES,
-    AIA_SUMMARY_TIMEOUT_SMALL,
-    AIA_SUMMARY_TIMEOUT_LARGE,
-    AIA_SUMMARY_MAX_TOKENS_SMALL,
-    AIA_SUMMARY_MAX_TOKENS_LARGE,
-    AIA_SUMMARY_MAX_TOKENS_BATCH,
-    AIA_SUMMARY_CONTENT_MAX_CHARS,
-    AIA_SUMMARY_PARALLEL_WORKERS_SMALL,
-    AIA_SUMMARY_PARALLEL_WORKERS_LARGE,
-    AIA_SUMMARY_BATCH_SIZE,
-)
-from src.tool_prompts import (
-    AIA_SUMMARY_PAGE_SYSTEM as _SUMMARY_SYSTEM,
-    AIA_SUMMARY_PAGE_USER_SMALL as _SUMMARY_USER_SMALL,
-    AIA_SUMMARY_PAGE_USER_LARGE as _SUMMARY_USER_LARGE,
-    AIA_SUMMARY_PAGE_BATCH_USER as _SUMMARY_BATCH_USER,
-    AIA_MINDMAP_PROMPT,
-)
-
-from src.features.ai_assistant.tasks._helpers import (
-    _format_ts,
-    _save_aia_output,
-    _detect_language,
-    _parse_numbered_summaries,
-    _clean_summary,
-    _call_llm_with_retry,
-    _summarize_page,
-    _summarize_batch,
-    _get_llm_client,
-    _clean_llm_json,
-    generate_doc_summary,
-)
 
 @celery_app.task(bind=True, name="aia.reindex_all_sources", queue="aia")
 def run_reindex_all_sources(self):
@@ -50,8 +11,7 @@ def run_reindex_all_sources(self):
 
     Triggered by admin after an embedding-model change. Preserves source UUIDs,
     file paths, chunk IDs and page numbers - so chips/notes/tools stay intact.
-    Only the embedding vectors are replaced. Paragraph summaries are untouched
-    (LLM-generated, not embedding-dependent).
+    Only the embedding vectors are replaced.
     """
     import json as _json
     from src.services.aia_embeddings import get_embedding_provider, compute_fingerprint
@@ -189,81 +149,3 @@ def run_reindex_workspace(self, workspace_uuid: str):
     }))
     logger.info("KI Tutor reindex-workspace {}: done ({} ok, {} failed)",
                 workspace_uuid, done - failed, failed)
-
-
-@celery_app.task(bind=True, name="aia.backfill_doc_summaries", queue="aia")
-def run_backfill_doc_summaries(self, limit: int | None = None):
-    """One-shot: generate doc-summaries for every source that doesn't have one yet.
-
-    Triggered manually after rollout (admin endpoint or shell). Soft-failure on
-    individual sources - logs and moves on. ``limit`` caps the number of sources
-    processed in one run; useful for dry-runs and rate-limit-aware batching.
-    """
-    sources = db.get_all_aia_sources()
-    # Skip PDFs that already have page-summaries: chat/retrieval always prefer
-    # page-summaries, so a doc-summary for them is a wasted LLM call (see the
-    # page-summary success path in tasks/ingestion.py). Non-PDFs and PDFs that
-    # never got page-summaries still get a doc-summary as their only summary.
-    pending = [
-        s for s in sources
-        if s.get("status") == "ready"
-        and not s.get("summary")
-        and not (s.get("file_type") == "pdf" and db.get_page_summaries_by_source(s["id"]))
-    ]
-    if limit is not None:
-        pending = pending[:limit]
-
-    total = len(pending)
-    logger.info("KI Tutor doc-summary backfill: {} sources pending", total)
-
-    done = 0
-    failed = 0
-    for s in pending:
-        try:
-            generate_doc_summary(s["uuid"])
-            done += 1
-        except Exception as e:
-            failed += 1
-            logger.warning("KI Tutor doc-summary backfill: {} failed: {}", s["uuid"], e)
-
-    logger.info("KI Tutor doc-summary backfill: done ({} ok, {} failed of {})",
-                done, failed, total)
-    return {"total": total, "ok": done, "failed": failed}
-
-
-@celery_app.task(bind=True, name="aia.backfill_page_summaries", queue="aia")
-def run_backfill_page_summaries(self):
-    """One-shot: generate page-summaries for every PDF source that has none.
-
-    Only PDFs are eligible - media has no page concept. Dispatches the regular
-    ``run_generate_summaries`` task per source; that task is resume-safe and
-    will chain a fresh doc-summary at the end (so citations get accurate page
-    numbers in the multi-source GENERIC chat path).
-    """
-    from src.features.ai_assistant.tasks.ingestion import run_generate_summaries
-
-    sources = db.get_all_aia_sources()
-    pending = []
-    for s in sources:
-        if s.get("status") != "ready":
-            continue
-        if s.get("file_type") != "pdf":
-            continue
-        # KNOWN ISSUE: this skips sources that have ANY page summaries, so a
-        # PARTIALLY summarized source (e.g. 50/117 after exhausted retries with
-        # summaries_status='rate_limited') is never picked up by backfill — only
-        # sources with zero summaries are. Picking up partials safely first needs
-        # a unique constraint on aia_page_summaries(source_id, page_number) +
-        # ON CONFLICT in bulk_create_page_summaries (currently a plain INSERT),
-        # otherwise a concurrent re-dispatch can create duplicate rows.
-        if db.get_page_summaries_by_source(s["id"]):
-            continue
-        pending.append(s)
-
-    total = len(pending)
-    logger.info("KI Tutor page-summary backfill: {} PDFs pending", total)
-
-    for s in pending:
-        run_generate_summaries.delay(s["uuid"])
-
-    return {"total": total, "queued": total}

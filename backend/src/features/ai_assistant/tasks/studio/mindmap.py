@@ -1,54 +1,18 @@
 """AI assistant Celery tasks: mindmap generation."""
 
-import concurrent.futures
-import os
-import re
-
 from langfuse.decorators import langfuse_context, observe
 from loguru import logger
 
 from src.celery_app import celery_app
 from src import database as db
-from src.storage import open_input_file
-from src.limits import (
-    AIA_SUMMARY_MAX_RETRIES,
-    AIA_SUMMARY_TIMEOUT_SMALL,
-    AIA_SUMMARY_TIMEOUT_LARGE,
-    AIA_SUMMARY_MAX_TOKENS_SMALL,
-    AIA_SUMMARY_MAX_TOKENS_LARGE,
-    AIA_SUMMARY_MAX_TOKENS_BATCH,
-    AIA_SUMMARY_CONTENT_MAX_CHARS,
-    AIA_SUMMARY_PARALLEL_WORKERS_SMALL,
-    AIA_SUMMARY_PARALLEL_WORKERS_LARGE,
-    AIA_SUMMARY_BATCH_SIZE,
-)
-from src.tool_prompts import (
-    AIA_SUMMARY_PAGE_SYSTEM as _SUMMARY_SYSTEM,
-    AIA_SUMMARY_PAGE_USER_SMALL as _SUMMARY_USER_SMALL,
-    AIA_SUMMARY_PAGE_USER_LARGE as _SUMMARY_USER_LARGE,
-    AIA_SUMMARY_PAGE_BATCH_USER as _SUMMARY_BATCH_USER,
-    AIA_MINDMAP_PROMPT,
-)
-
-from src.features.ai_assistant.tasks._helpers import (
-    _format_ts,
-    _save_aia_output,
-    _detect_language,
-    _parse_numbered_summaries,
-    _clean_summary,
-    _call_llm_with_retry,
-    _summarize_page,
-    _summarize_batch,
-    _get_llm_client,
-    _clean_llm_json,
-)
+from src.tool_prompts import AIA_MINDMAP_PROMPT
 
 @celery_app.task(bind=True, name="aia.generate_mindmap", queue="aia",
                  soft_time_limit=300, time_limit=360)
 @observe(name="aia-mindmap")
 def run_generate_mindmap(self, mindmap_id: int, source_ids: list[int], source_uuids: list[str],
                           locale: str = "de"):
-    """Generate a mindmap from source summaries as a background job.
+    """Generate a mindmap from source chunks as a background job.
 
     `locale` controls the label language (topic/labels); 'keyword' stays verbatim
     in the source language for highlighting. Defaults to 'de' for older queued tasks.
@@ -61,7 +25,7 @@ def run_generate_mindmap(self, mindmap_id: int, source_ids: list[int], source_uu
         db.update_aia_mindmap(mindmap_id, "running")
         logger.info("KI Tutor: generating mindmap {}", mindmap_id)
 
-        # 1. Build context from page summaries (with fallback to chunks)
+        # 1. Build context from chunks
         from pathlib import Path as _Path
         _MEDIA_EXTS = {".mp3", ".mp4", ".m4a", ".wav", ".ogg", ".webm", ".flac", ".aac"}
 
@@ -88,24 +52,16 @@ def run_generate_mindmap(self, mindmap_id: int, source_ids: list[int], source_uu
                         parts.append(f"[{source_label}, {time_label}] {c['content']}")
                     context_parts.append(f"--- {source_label} ---\n" + "\n".join(parts))
             else:
-                summaries = db.get_page_summaries_by_source(sid)
-                if summaries:
-                    pages: dict[int, list[str]] = {}
-                    for s in summaries:
-                        pages.setdefault(s["page_number"], []).append(s["summary"])
-                    parts = [f"[{source_label}, S. {p}] {' '.join(texts)}" for p, texts in sorted(pages.items())]
+                chunks = db.get_chunks_by_source(sid)
+                if chunks:
+                    parts = [f"[{source_label}, S. {c['page_number']}] {c['content']}" for c in chunks[:20]]
                     context_parts.append(f"--- {source_label} ---\n" + "\n".join(parts))
-                else:
-                    chunks = db.get_chunks_by_source(sid)
-                    if chunks:
-                        parts = [f"[{source_label}, S. {c['page_number']}] {c['content']}" for c in chunks[:20]]
-                        context_parts.append(f"--- {source_label} ---\n" + "\n".join(parts))
 
         if not context_parts:
             db.update_aia_mindmap(mindmap_id, "failed", error="Keine Inhalte vorhanden")
             return
 
-        # Fair budget split per source (200k total, whole summaries only)
+        # Fair budget split per source (200k total, whole chunk lines only)
         budget_per_source = 200000 // len(source_ids)
         trimmed_parts: list[str] = []
         for part in context_parts:

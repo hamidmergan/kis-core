@@ -12,10 +12,8 @@ export function SourceStatus({
   progress?: IndexingProgress | null;
 }) {
   const t = useTranslations("workspace.detail.sources");
-  // Even after status=ready, page-summary and doc-summary tasks may still be
-  // running in the background. The chat needs those summaries for context,
-  // so we keep the spinner visible until the source is fully done
-  // (progress field cleared).
+  // Keep the spinner visible until the source is fully done: status "ready"
+  // with the progress field cleared.
   const isProcessing =
     status === "pending" || status === "indexing" || (status === "ready" && !!progress);
   if (isProcessing) {

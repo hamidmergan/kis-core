@@ -1,30 +1,14 @@
-"""KI-Assistent Celery tasks - source indexing + paragraph summaries."""
+"""KI-Assistent Celery tasks - source indexing + media transcription."""
 
-import concurrent.futures
 import os
-import re
 
-from langfuse.decorators import langfuse_context, observe
 from loguru import logger
 
 from src.celery_app import celery_app
 from src import database as db
 from src.storage import open_input_file
-from src.limits import (
-    AIA_SUMMARY_PARALLEL_WORKERS_LARGE,
-    AIA_SUMMARY_BATCH_SIZE,
-)
-from src.tool_prompts import AIA_MINDMAP_PROMPT
 
-from src.features.ai_assistant.tasks._helpers import (
-    _format_ts,
-    _save_aia_output,
-    _detect_language,
-    _summarize_batch,
-    _get_llm_client,
-    _clean_llm_json,
-    generate_doc_summary,
-)
+from src.features.ai_assistant.tasks._helpers import _format_ts
 
 
 def _save_transcript_artifact(key: str, text: str) -> None:
@@ -191,15 +175,10 @@ def run_index_source(self, source_uuid: str, locale: str = "de"):
                     source_uuid, translation_mode,
                 )
 
-        # 11. No summaries at upload (pgvector-only design). Both chat paths run
-        # on retrieval: SPECIFIC = hybrid search, GENERIC = multi-query retrieval
-        # (see routes/chat.py). Skipping page/doc summaries is what makes upload
-        # fast — the source is fully usable the moment indexing finishes.
-        # Page-summaries survive as an OPT-IN feature: the source sidebar's
-        # "generate" button (routes/sources/_pdf.py::trigger_page_summaries) still
-        # dispatches run_generate_summaries on demand. Leave summaries_status as
-        # "none" so that button is offered; clear progress so the card shows ready.
-        db.update_aia_source_summaries_status(source_uuid, "none")
+        # 11. No summaries (pgvector-only design). Both chat paths run on
+        # retrieval: SPECIFIC = hybrid search, GENERIC = multi-query retrieval
+        # (see routes/chat.py). The source is fully usable the moment indexing
+        # finishes; clear the progress field so the card shows ready.
         db.clear_aia_source_progress(source_uuid)
 
     except Exception as e:
@@ -226,28 +205,6 @@ def run_index_source(self, source_uuid: str, locale: str = "de"):
             error_message = str(e)
         db.update_aia_source_status(source_uuid, "failed", error_message=error_message)
         raise
-
-@celery_app.task(bind=True, name="aia.generate_doc_summary", queue="aia")
-def run_generate_doc_summary(self, source_uuid: str):
-    """Generate the English doc-level summary for a source.
-
-    Soft-failure: any error is logged but never marks the source itself as
-    failed - the doc-summary is an optional retrieval aid, chat and reader
-    still work without it.
-    """
-    try:
-        generate_doc_summary(source_uuid)
-    except Exception as e:
-        msg = str(e).lower()
-        if "429" in msg or "rate limit" in msg:
-            if self.request.retries < 3:
-                countdown = min(30 * (2 ** self.request.retries), 120)  # 30s, 1m, 2m (capped)
-                logger.warning(
-                    "KI Tutor doc-summary: {} rate limited (attempt {}/3), retry in {}s",
-                    source_uuid, self.request.retries + 1, countdown,
-                )
-                raise self.retry(exc=e, countdown=countdown, max_retries=3)
-        logger.warning("KI Tutor doc-summary: {} failed, will retry on next reindex: {}", source_uuid, e)
 
 
 @celery_app.task(bind=True, name="aia.translate_transcript_en", queue="aia")
@@ -344,166 +301,3 @@ def _run_translate_transcript_en_inner(source_uuid: str, provider_id: int | None
         "KI Tutor EN-translate: saved {} ({} segments via provider_id={})",
         en_key, len(en_segments), provider_id,
     )
-
-
-@celery_app.task(bind=True, name="aia.generate_summaries", queue="aia")
-@observe(name="aia-summaries")
-def run_generate_summaries(self, source_uuid: str, locale: str = "de"):
-    """Generate AI page-level summaries for a PDF source.
-
-    `locale` is the workspace owner's UI locale, used to pick the meta-page
-    sentinel ("Keine Zusammenfassung vorhanden" / "No summary available").
-    Defaults to 'de' so older callsites (and pre-i18n queued jobs) keep working.
-    """
-    try:
-        source = db.get_aia_source(source_uuid)
-        if source is None:
-            raise RuntimeError(f"Source not found: {source_uuid}")
-
-        if source["file_type"] != "pdf":
-            return
-
-        db.update_aia_source_summaries_status(source_uuid, "generating")
-        db.update_aia_source_progress(source_uuid, "page_summaries")
-        logger.info("KI Tutor: generating page summaries for source {}", source_uuid)
-
-        # 1. Build page texts from existing chunks in DB (no need to re-read PDF)
-        chunks = db.get_aia_chunks_by_source(source["id"])
-        if not chunks:
-            db.update_aia_source_summaries_status(source_uuid, "ready")
-            logger.info("KI Tutor: no chunks found for {}", source_uuid)
-            return
-
-        page_map: dict[int, list[str]] = {}
-        for c in chunks:
-            pn = c["page_number"]
-            if pn not in page_map:
-                page_map[pn] = []
-            page_map[pn].append(c["content"])
-
-        pages = [
-            {"page_number": pn, "content": "\n".join(texts)}
-            for pn, texts in sorted(page_map.items())
-        ]
-
-        # 2. Detect language
-        sample = " ".join(p["content"][:200] for p in pages[:3])
-        lang = _detect_language(sample)
-
-        # 3. Build LLM client
-        from langfuse.openai import OpenAI
-        from src.dependencies import _resolve_llm_provider
-        _api_key, _base_url, _model, _provider = _resolve_llm_provider()
-        client = OpenAI(api_key=_api_key, base_url=_base_url, max_retries=0, timeout=90)
-        model = _model
-        extra_body = {}
-        langfuse_context.update_current_observation(
-            metadata={"provider": _provider, "base_url": _base_url, "model": model},
-        )
-
-        # 4. Skip pages that already have summaries (resume after partial failure)
-        existing = db.get_page_summaries_by_source(source["id"])
-        existing_pages = {s["page_number"] for s in existing}
-        remaining_pages = [p for p in pages if p["page_number"] not in existing_pages]
-
-        if not remaining_pages:
-            db.update_aia_source_summaries_status(source_uuid, "ready")
-            db.clear_aia_source_progress(source_uuid)
-            logger.info("KI Tutor: all pages already summarized for {}", source_uuid)
-            return
-
-        logger.info(
-            "KI Tutor: {} of {} pages need summaries for {}",
-            len(remaining_pages), len(pages), source_uuid,
-        )
-
-        # 5. Generate summaries in batches, save each batch immediately to DB
-        def _save_page_summaries(page_batch: list[dict], summary_batch: list[str]):
-            db.bulk_create_page_summaries(
-                source_id=source["id"],
-                summaries=[
-                    {"page_number": p["page_number"], "summary": s}
-                    for p, s in zip(page_batch, summary_batch)
-                    if s.strip()
-                ],
-            )
-
-        batches = [remaining_pages[i:i + AIA_SUMMARY_BATCH_SIZE] for i in range(0, len(remaining_pages), AIA_SUMMARY_BATCH_SIZE)]
-        failed_batches = 0
-        rate_limited = False
-
-        with concurrent.futures.ThreadPoolExecutor(max_workers=AIA_SUMMARY_PARALLEL_WORKERS_LARGE) as executor:
-            futures = {
-                executor.submit(_summarize_batch, client, model, batch, lang, locale): i
-                for i, batch in enumerate(batches)
-            }
-            for future in concurrent.futures.as_completed(futures):
-                bidx = futures[future]
-                batch = batches[bidx]
-                try:
-                    summaries = future.result()
-                    _save_page_summaries(batch, summaries)
-                    start = batch[0]["page_number"]
-                    end = batch[-1]["page_number"]
-                    logger.info(
-                        "KI Tutor: summarized pages {}-{} for source {} (saved)",
-                        start, end, source_uuid,
-                    )
-                except Exception as exc:
-                    if "429" in str(exc):
-                        rate_limited = True
-                        logger.warning("KI Tutor: rate limited for {} - aborting remaining batches", source_uuid)
-                        executor.shutdown(wait=False, cancel_futures=True)
-                        break
-                    failed_batches += 1
-                    logger.warning("KI Tutor: batch {} failed for {}: {}", bidx + 1, source_uuid, exc)
-
-        # 6. Set status based on results
-        if rate_limited:
-            if self.request.retries < 5:
-                countdown = min(30 * (2 ** self.request.retries), 120)  # 30s, 1m, 2m, 2m, 2m (capped)
-                logger.warning(
-                    "KI Tutor: summary rate limited for {} - saved partial results, retrying in {}s (attempt {}/{})",
-                    source_uuid, countdown, self.request.retries + 1, 5,
-                )
-                raise self.retry(countdown=countdown, max_retries=5)
-            db.update_aia_source_summaries_status(source_uuid, "rate_limited")
-            db.clear_aia_source_progress(source_uuid)
-            logger.warning("KI Tutor: rate limited for {} - max retries exhausted, manual retry available", source_uuid)
-        elif failed_batches > 0:
-            db.update_aia_source_summaries_status(source_uuid, "failed")
-            db.clear_aia_source_progress(source_uuid)
-            logger.warning(
-                "KI Tutor: {} batch(es) failed for {} - saved partial results, retry will resume",
-                failed_batches, source_uuid,
-            )
-        else:
-            db.update_aia_source_summaries_status(source_uuid, "ready")
-            # PDFs are done once page-summaries exist: chat/retrieval always
-            # prefer page-summaries over the doc-summary (see _assemble_generic_context
-            # and the source-diversity fallback in routes/chat.py), so generating a
-            # doc-summary for a PDF is a wasted LLM call. The doc-summary stays the
-            # ONLY summary for non-PDFs (media/docx/pptx/txt), which chain it directly
-            # in run_index_source. Clearing progress here finalizes the source (the
-            # doc-summary task used to be what cleared it).
-            db.clear_aia_source_progress(source_uuid)
-            logger.info("KI Tutor: page summaries ready for source {} ({} pages)", source_uuid, len(pages))
-
-    except Exception as e:
-        from celery.exceptions import Retry
-        if isinstance(e, Retry):
-            raise  # let Celery process the retry; do not overwrite status
-        err_str = str(e)
-        is_rate_limit = "429" in err_str or "rate" in err_str.lower()
-        if is_rate_limit and self.request.retries < 5:
-            countdown = min(30 * (2 ** self.request.retries), 120)  # 30s..2m capped
-            logger.warning(
-                "KI Tutor: summary task hit rate limit before batch loop for {} (attempt {}/{}), retrying in {}s",
-                source_uuid, self.request.retries + 1, 5, countdown,
-            )
-            raise self.retry(exc=e, countdown=countdown, max_retries=5)
-        status = "rate_limited" if is_rate_limit else "failed"
-        logger.error("KI Tutor: summary generation {} for {}: {}", status, source_uuid, e)
-        db.update_aia_source_summaries_status(source_uuid, status)
-        db.clear_aia_source_progress(source_uuid)
-

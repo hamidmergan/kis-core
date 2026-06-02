@@ -1,44 +1,12 @@
 """KI-Assistent Celery tasks - data_table generation."""
 
-import concurrent.futures
-import os
-import re
-
-from langfuse.decorators import langfuse_context, observe
+from langfuse.decorators import observe
 from loguru import logger
 
 from src.celery_app import celery_app
 from src import database as db
-from src.storage import open_input_file
-from src.limits import (
-    AIA_SUMMARY_MAX_RETRIES,
-    AIA_SUMMARY_TIMEOUT_SMALL,
-    AIA_SUMMARY_TIMEOUT_LARGE,
-    AIA_SUMMARY_MAX_TOKENS_SMALL,
-    AIA_SUMMARY_MAX_TOKENS_LARGE,
-    AIA_SUMMARY_MAX_TOKENS_BATCH,
-    AIA_SUMMARY_CONTENT_MAX_CHARS,
-    AIA_SUMMARY_PARALLEL_WORKERS_SMALL,
-    AIA_SUMMARY_PARALLEL_WORKERS_LARGE,
-    AIA_SUMMARY_BATCH_SIZE,
-)
-from src.tool_prompts import (
-    AIA_SUMMARY_PAGE_SYSTEM as _SUMMARY_SYSTEM,
-    AIA_SUMMARY_PAGE_USER_SMALL as _SUMMARY_USER_SMALL,
-    AIA_SUMMARY_PAGE_USER_LARGE as _SUMMARY_USER_LARGE,
-    AIA_SUMMARY_PAGE_BATCH_USER as _SUMMARY_BATCH_USER,
-    AIA_MINDMAP_PROMPT,
-)
 
 from src.features.ai_assistant.tasks._helpers import (
-    _format_ts,
-    _save_aia_output,
-    _detect_language,
-    _parse_numbered_summaries,
-    _clean_summary,
-    _call_llm_with_retry,
-    _summarize_page,
-    _summarize_batch,
     _get_llm_client,
     _clean_llm_json,
 )

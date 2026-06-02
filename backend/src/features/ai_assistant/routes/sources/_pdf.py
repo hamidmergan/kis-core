@@ -1,12 +1,9 @@
-"""PDF-specific operations: TOC, paragraph summaries, text search."""
+"""PDF-specific operations: TOC, text search."""
 from ._shared import (
     Path, APIRouter, Depends, HTTPException, logger, db,
     get_current_user, get_locale, t,
     get_file,
 )
-from src.dependencies import is_admin_user
-from src.quotas import enforce_quota
-from src.security.rate_limit import enforce_aia_burst
 
 router = APIRouter(tags=["ki-assistent: sources"])
 
@@ -34,73 +31,6 @@ async def get_pdf_toc(
         raise HTTPException(status_code=404, detail=t("source.notFound", locale))
 
     return {"toc": source.get("toc") or []}
-
-
-@router.get("/ai-assistant/workspaces/{workspace_uuid}/sources/{source_uuid}/summaries")
-async def get_page_summaries(
-    workspace_uuid: str,
-    source_uuid: str,
-    current_user: dict = Depends(get_current_user),
-    locale: str = Depends(get_locale),
-):
-    """Return page-level summaries for the sidebar."""
-    user_id = current_user["user_id"]
-    workspace = db.get_aia_workspace(workspace_uuid)
-    if not workspace:
-        raise HTTPException(status_code=404, detail=t("workspace.notFound", locale))
-
-    is_owner = workspace["user_id"] == user_id
-    is_enrolled = db.is_student_enrolled(workspace["id"], user_id)
-    if not is_owner and not is_enrolled:
-        raise HTTPException(status_code=403, detail=t("workspace.accessDenied", locale))
-
-    source = db.get_aia_source(source_uuid)
-    if not source:
-        raise HTTPException(status_code=404, detail=t("source.notFound", locale))
-
-    status = source.get("summaries_status", "none")
-    summaries = db.get_page_summaries_by_source(source["id"])
-    by_page: dict[int, str] = {}
-    for s in summaries:
-        by_page[s["page_number"]] = s["summary"]
-
-    return {"status": status, "pages": by_page}
-
-
-@router.post("/ai-assistant/workspaces/{workspace_uuid}/sources/{source_uuid}/summaries/generate")
-async def trigger_page_summaries(
-    workspace_uuid: str,
-    source_uuid: str,
-    current_user: dict = Depends(get_current_user),
-    locale: str = Depends(get_locale),
-):
-    """Manually trigger page summary generation for a source."""
-    user_id = current_user["user_id"]
-    workspace = db.get_aia_workspace(workspace_uuid)
-    if not workspace:
-        raise HTTPException(status_code=404, detail=t("workspace.notFound", locale))
-    if workspace["user_id"] != user_id:
-        raise HTTPException(status_code=403, detail=t("workspace.accessDenied", locale))
-
-    source = db.get_aia_source(source_uuid)
-    if not source:
-        raise HTTPException(status_code=404, detail=t("source.notFound", locale))
-    if source["file_type"] != "pdf":
-        raise HTTPException(status_code=400, detail=t("ai.source.pdfOnly", locale))
-
-    status = source.get("summaries_status", "none")
-    if status == "generating":
-        return {"status": "generating"}
-
-    enforce_aia_burst(user_id, locale)
-    enforce_quota(user_id, "aia_generate", is_admin_user(current_user), locale)
-
-    # Keep existing summaries - task resumes where it left off
-    db.update_aia_source_summaries_status(source_uuid, "generating")
-
-    from src.tasks.aia_tasks import run_generate_summaries
-    run_generate_summaries.delay(source_uuid, locale)
-    return {"status": "generating"}
 
 
 @router.get("/ai-assistant/workspaces/{workspace_uuid}/sources/{source_uuid}/search")

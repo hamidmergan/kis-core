@@ -281,7 +281,7 @@ def _resolve_citation_pages(text: str, source_index: dict) -> str:
     """Re-ground every citation's position against the real chunks.
 
     ``source_index`` maps source number N -> {
-        "pages": set[int],            # REAL pages of this source (chunks ∪ page-summaries)
+        "pages": set[int],            # REAL pages of this source (text/OCR chunks)
         "chunks": [ {"page": int|None, "start_time": float|None,
                      "norm_content": str}, ... ],   # the chunks shown to the model
     }
@@ -296,7 +296,7 @@ def _resolve_citation_pages(text: str, source_index: dict) -> str:
       4. Otherwise -> drop (unverifiable / hallucinated).
 
     ``pages`` is the source's real-page set, so a page invented by an upstream
-    step (e.g. a hallucinated ``[p.N]`` marker in a doc-summary) is rejected too.
+    step (e.g. a ``[p.N]`` marker the model made up) is rejected too.
     """
     if not source_index:
         return text
@@ -324,8 +324,8 @@ def _resolve_citation_pages(text: str, source_index: dict) -> str:
                     # body page that actually covers it.
                     pg = _reroute_to_body(c["page"], nkw, entry.get("page_regions"))
                     return f"[{qnum}, S. {pg}{kw_suffix}]"
-                # matched chunk's page is not a real page (e.g. hallucinated
-                # doc-summary marker) -> keep looking, don't trust it
+                # matched chunk's page is not a real page (e.g. a hallucinated
+                # page marker) -> keep looking, don't trust it
         # rule 3 (PDF): keep a real PDF page even without a keyword match (image
         # pages). A paraphrased keyword often fails rule 2 yet the model's typed
         # page is right - so still apply the header/footer de-weighting here: a
@@ -700,8 +700,8 @@ def resolve_citation_positions(text: str, sources: dict, loader) -> str:
                 page_n, anchor = rg
                 return _pdf_chip(page_n, f" | {anchor}" if anchor else "")
         # PDF: keep the typed page only if it is a REAL page of the source. Validate
-        # against the source's full page set (text chunks UNION page-summaries) so an
-        # image/scanned page that has a summary but no text chunk is not wrongly dropped.
+        # against the source's page set (text/OCR chunks) so a page number the model
+        # invented for a page that produced no chunk is dropped.
         if (not meta["is_media"]) and page_str is not None:
             valid_pages = meta.get("pages") or {u.page for u in units if u.page is not None}
             if int(page_str) in valid_pages:

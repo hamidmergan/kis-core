@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
-import { createPortal } from "react-dom";
-import { CaretLeft, SidebarSimple, X } from "@phosphor-icons/react";
+import { ArrowDown, ArrowUp, CaretLeft, SidebarSimple, X } from "@phosphor-icons/react";
 import { PDFViewer, type PDFViewerRef } from "@embedpdf/react-pdf-viewer";
 import { LockModeType } from "@embedpdf/plugin-annotation";
 import type { ViewerState, CitationHighlightSpan } from "../../_types";
@@ -9,10 +8,10 @@ import { FileIcon } from "../sources/FileIcon";
 
 import { EMBEDPDF_ICON_MAP } from "./_icons";
 import { wrapEngineGeometry } from "./_geometry";
-import { doHighlightSearch, doMultiHighlightSearch, clearCitationHighlight, type HighlightRefs } from "./_highlight";
-import { SummaryPanel } from "./_summary_panel";
+import { doHighlightSearch, doMultiHighlightSearch, clearCitationHighlight, scrollToCitationPage, type HighlightRefs } from "./_highlight";
 import { copyTextFromPromise } from "@/lib/clipboard";
 import { useTheme } from "@/hooks/useTheme";
+import { useCitationHighlightPref } from "@/hooks/useCitationHighlightPref";
 
 
 export function PdfViewer({
@@ -33,11 +32,6 @@ export function PdfViewer({
   const tViewer = useTranslations("workspace.detail.viewer");
   const tPanels = useTranslations("workspace.detail.panels");
   const [page, setPage] = useState(source.page);
-  const [showAnnotations, setShowAnnotations] = useState(false);
-  const [pageSummaries, setPageSummaries] = useState<Record<number, string>>({});
-  const [summariesStatus, setSummariesStatus] = useState<string>("none");
-  const [summariesLoaded, setSummariesLoaded] = useState(false);
-  const [sidebarTarget, setSidebarTarget] = useState<Element | null>(null);
   const [registryReady, setRegistryReady] = useState(false);
   const viewerRef = useRef<PDFViewerRef>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -63,6 +57,12 @@ export function PdfViewer({
   onAddToNoteRef.current = onAddToNote;
   const popupActionsRef = useRef(popupActions);
   popupActionsRef.current = popupActions;
+  // Per-user setting: when off, citation clicks jump to the exact spot without
+  // drawing the yellow marker. Mirrored into a ref so the onLayoutReady callback
+  // (a stable closure) reads the current value instead of a stale one.
+  const { enabled: highlightEnabled } = useCitationHighlightPref();
+  const highlightEnabledRef = useRef(highlightEnabled);
+  highlightEnabledRef.current = highlightEnabled;
 
   // Block EmbedPDF's document-level Ctrl+C handler when focus is outside the viewer
   // so native copy works in chat / tools panels
@@ -84,72 +84,10 @@ export function PdfViewer({
     return () => document.removeEventListener("keydown", handler, true);
   }, []);
 
-  // Watch for EmbedPDF summary sidebar DOM (shadow root) to sync React state + portal target.
-  // NOTE: querying embedpdf-container.shadowRoot directly is NOT a public API — re-verify on @embedpdf bump.
-  useEffect(() => {
-    if (!registryReady) return;
-    const embedEl = containerRef.current?.querySelector("embedpdf-container");
-    const shadow = embedEl?.shadowRoot;
-    if (!shadow) return;
-    const check = () => {
-      const el = shadow.querySelector('[data-sidebar-id="summary-panel"]');
-      setSidebarTarget(prev => (el === prev ? prev : (el as Element | null)));
-      setShowAnnotations(!!el);
-    };
-    check();
-    const obs = new MutationObserver(check);
-    obs.observe(shadow, { childList: true, subtree: true });
-    return () => obs.disconnect();
-  }, [registryReady]);
-
-  // Hide the summary toolbar button for non-owners when no summaries exist.
-  // Owner always sees the icon (it carries the manual generate button).
-  useEffect(() => {
-    if (!registryReady) return;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const ui = (registryRef.current as any)?.getPlugin?.("ui")?.provides?.();
-    if (!ui) return;
-    const hasSummaries = Object.keys(pageSummaries).length > 0;
-    const shouldShow = isOwner || hasSummaries;
-    if (shouldShow) ui.enableCategory?.("panel-summaries");
-    else ui.disableCategory?.("panel-summaries");
-  }, [registryReady, isOwner, pageSummaries]);
-
-  // Eager-fetch summaries on mount (not gated on sidebar) so we know if any
-  // exist — required to decide whether to show the toolbar icon for non-owners.
-  useEffect(() => {
-    let cancelled = false;
-    let timer: ReturnType<typeof setTimeout> | null = null;
-    const fetchSummaries = async () => {
-      try {
-        const res = await fetch(
-          `/api/ai-assistant/workspaces/${workspaceUuid}/sources/${source.uuid}/summaries`,
-          { credentials: "include" },
-        );
-        if (res.ok && !cancelled) {
-          const data = await res.json();
-          setSummariesStatus(data.status);
-          const pages: Record<number, string> = {};
-          if (data.pages) {
-            for (const [k, v] of Object.entries(data.pages)) pages[Number(k)] = v as string;
-            setPageSummaries(pages);
-          }
-          if (data.status === "generating") {
-            timer = setTimeout(fetchSummaries, 10000);
-          } else {
-            setSummariesLoaded(true);
-          }
-        }
-      } catch { /* ignore */ }
-    };
-    if (!summariesLoaded) fetchSummaries();
-    return () => { cancelled = true; if (timer) clearTimeout(timer); };
-  }, [summariesLoaded, workspaceUuid, source.uuid]);
-
   // Scroll to page + highlight text when nonce changes (pill click on same document)
   const pendingHighlightRef = useRef<{ page: number; text: string; exact?: boolean; offsets?: [number, number]; spans?: CitationHighlightSpan[] } | null>(null);
   const prevHighlightRef = useRef<{ pageIndex: number; ids: string[] } | null>(null);
-  const citationHighlightRef = useRef<{ pageIndex: number; ids: string[] } | null>(null);
+  const citationHighlightRef = useRef<{ pageIndex: number; ids: string[]; scrollY?: number } | null>(null);
   // Controls the "Markierung aufheben" button shown while a citation highlight is active.
   const [citationActive, setCitationActive] = useState(false);
   const highlightRefs: HighlightRefs = { prevHighlightRef, citationHighlightRef, onHighlightActive: setCitationActive };
@@ -164,10 +102,6 @@ export function PdfViewer({
       loadedUuidRef.current = source.uuid;
       registryRef.current = null;
       setRegistryReady(false);
-      // Drop summary state from previous document so eager-fetch re-runs for the new one
-      setPageSummaries({});
-      setSummariesStatus("none");
-      setSummariesLoaded(false);
     }
   }, [source.uuid]);
 
@@ -184,9 +118,9 @@ export function PdfViewer({
     }
 
     if (multi) {
-      doMultiHighlightSearch(highlightRefs, reg, source.page, multi);
+      doMultiHighlightSearch(highlightRefs, reg, source.page, multi, highlightEnabled);
     } else if (source.highlightText) {
-      doHighlightSearch(highlightRefs, reg, source.page, source.highlightText, !!source.exactSelection, source.highlightOffsets);
+      doHighlightSearch(highlightRefs, reg, source.page, source.highlightText, !!source.exactSelection, source.highlightOffsets, highlightEnabled);
     } else {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const scroll = (reg as any).getPlugin?.("scroll")?.provides?.();
@@ -300,9 +234,9 @@ export function PdfViewer({
         if (pending) {
           pendingHighlightRef.current = null;
           if (pending.spans && pending.spans.length > 1) {
-            doMultiHighlightSearch(highlightRefs, registry, pending.page, pending.spans);
+            doMultiHighlightSearch(highlightRefs, registry, pending.page, pending.spans, highlightEnabledRef.current);
           } else if (pending.text) {
-            doHighlightSearch(highlightRefs, registry, pending.page, pending.text, !!pending.exact, pending.offsets);
+            doHighlightSearch(highlightRefs, registry, pending.page, pending.text, !!pending.exact, pending.offsets, highlightEnabledRef.current);
           }
         }
         unsub?.();
@@ -485,26 +419,7 @@ export function PdfViewer({
       },
     });
 
-    // Register summary toggle command (opens EmbedPDF sidebar like comments)
-    commands.registerCommand({
-      id: "kis.toggle-summaries",
-      label: t("summaries"),
-      description: t("summaries"),
-      icon: "ph-funnel-simple",
-      categories: ["panel", "panel-summaries"],
-      action: ({ registry: r, documentId }: { registry: unknown; documentId: string }) => {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const uiCap = (r as any).getPlugin?.("ui")?.provides?.();
-        uiCap?.forDocument?.(documentId)?.toggleSidebar?.("right", "main", "summary-panel");
-      },
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      active: ({ state, documentId }: any) => {
-        const sidebar = state?.plugins?.ui?.documents?.[documentId]?.activeSidebars?.["right-main"];
-        return sidebar?.isOpen && sidebar?.sidebarId === "summary-panel";
-      },
-    });
-
-    // Merge: add KI actions to selection menu + summary button to main toolbar.
+    // Merge: add KI actions to the selection menu.
     // Drop EmbedPDF defaults except copy-selection: we want neither
     // highlight/underline/strikeout/squiggly/link/redact nor their dividers.
     const existingSchema = ui.getSchema?.();
@@ -521,13 +436,6 @@ export function PdfViewer({
         const prev = arr[idx - 1];
         return prev?.type === "command-button" && next?.type === "command-button";
       });
-    const mainToolbar = existingSchema?.toolbars?.["main-toolbar"];
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const newToolbarItems = mainToolbar?.items?.map((item: any) =>
-      item.id === "right-group"
-        ? { ...item, items: [...(item.items ?? []), { type: "command-button", id: "summaries-button", commandId: "kis.toggle-summaries", variant: "icon", categories: ["panel", "panel-summaries"] }] }
-        : item,
-    );
     ui.mergeSchema?.({
       selectionMenus: {
         selection: {
@@ -547,17 +455,6 @@ export function PdfViewer({
               categories: ["kis-actions"],
             })) : []),
           ],
-        },
-      },
-      ...(newToolbarItems ? { toolbars: { "main-toolbar": { ...mainToolbar, items: newToolbarItems } } } : {}),
-      sidebars: {
-        "summary-panel": {
-          id: "summary-panel",
-          position: { placement: "right", slot: "main", order: 1 },
-          content: { type: "tabs", tabs: [] },
-          width: "250px",
-          collapsible: true,
-          defaultOpen: false,
         },
       },
     });
@@ -684,43 +581,40 @@ export function PdfViewer({
           style={{ width: "100%", height: "100%" }}
           onReady={handleReady}
         />
-        {/* Dismiss control for the passive yellow citation highlight. */}
+        {/* Citation highlight controls — bottom-right corner, clear of EmbedPDF's
+            centered page-nav. Icon-only to stay out of the way; full text lives in
+            title/aria for hover + screen readers. */}
         {citationActive && (
-          <button
-            type="button"
-            onClick={() => clearCitationHighlight(highlightRefs, registryRef.current)}
-            className="absolute left-1/2 -translate-x-1/2 bottom-4 z-10 flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium shadow-md btn-icon"
-            style={{ backgroundColor: "var(--surface)", color: "var(--foreground)", border: "1px solid var(--border)" }}
-            title={tViewer("dismissHighlight")}
-          >
-            <X size={12} weight="bold" />
-            {tViewer("dismissHighlight")}
-          </button>
+          <div className="absolute bottom-4 right-4 z-10 flex items-center gap-1.5">
+            {/* Jump-to-highlight: shown only after the user has paged away. Arrow
+                points toward the highlight (down = further into the document),
+                number = its page. */}
+            {page !== source.page && (
+              <button
+                type="button"
+                onClick={() => scrollToCitationPage(highlightRefs, registryRef.current)}
+                className="flex items-center gap-1 pl-2 pr-2.5 py-1.5 rounded-full text-xs font-medium shadow-md btn-icon"
+                style={{ backgroundColor: "var(--surface)", color: "var(--kb)", border: "1px solid var(--kb)" }}
+                title={tViewer("jumpToHighlightPage", { page: source.page })}
+                aria-label={tViewer("jumpToHighlightPage", { page: source.page })}
+              >
+                {page < source.page ? <ArrowDown size={13} weight="bold" /> : <ArrowUp size={13} weight="bold" />}
+                <span className="tabular-nums">{source.page}</span>
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={() => clearCitationHighlight(highlightRefs, registryRef.current)}
+              className="flex items-center justify-center w-7 h-7 rounded-full shadow-md btn-icon"
+              style={{ backgroundColor: "var(--surface)", color: "var(--foreground)", border: "1px solid var(--border)" }}
+              title={tViewer("dismissHighlight")}
+              aria-label={tViewer("dismissHighlight")}
+            >
+              <X size={13} weight="bold" />
+            </button>
+          </div>
         )}
       </div>
-      {/* Summary content portaled into EmbedPDF's sidebar (shadow DOM) */}
-      {sidebarTarget && createPortal(
-        <SummaryPanel
-          page={page}
-          summaryText={pageSummaries[page]}
-          summariesStatus={summariesStatus}
-          onGenerate={async () => {
-            setSummariesStatus("generating");
-            setSummariesLoaded(false);
-            try {
-              await fetch(`/api/ai-assistant/workspaces/${workspaceUuid}/sources/${source.uuid}/summaries/generate`, { method: "POST", credentials: "include" });
-            } catch { /* ignore */ }
-          }}
-          onScrollPdf={(deltaY) => {
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            const viewport = (registryRef.current as any)?.getPlugin?.("viewport")?.provides?.();
-            const m = viewport?.getMetrics?.();
-            if (!viewport || !m) return;
-            viewport.scrollTo({ x: m.scrollLeft, y: m.scrollTop + deltaY, behavior: "instant" });
-          }}
-        />,
-        sidebarTarget,
-      )}
     </div>
   );
 }

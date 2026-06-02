@@ -5,6 +5,7 @@ import { useTranslations } from "next-intl";
 import Modal from "@/components/ui/Modal";
 import Select from "@/components/ui/Select";
 import { useHildePref } from "@/hooks/useHildePref";
+import { useCitationHighlightPref } from "@/hooks/useCitationHighlightPref";
 import type { TranscriptTranslationMode, TranscriptDefaultLang } from "../../_types";
 
 interface SettingsMenuProps {
@@ -79,6 +80,7 @@ export function SettingsMenu({
   const t = useTranslations("workspace.detail.settings");
   const tDiag = useTranslations("workspace.detail.languageTraining.diagnosis");
   const { enabled: hildeEnabled, toggle: toggleHilde, globalEnabled: mascotGlobalEnabled } = useHildePref();
+  const { enabled: pdfHighlightEnabled, toggle: togglePdfHighlight } = useCitationHighlightPref();
 
   const handleResetLanguageLevel = () => {
     if (!onResetLanguageLevel) return;
@@ -103,6 +105,12 @@ export function SettingsMenu({
             onToggle={toggleHilde}
           />
         )}
+        <ToggleRow
+          title={t("pdfHighlightTitle")}
+          description={t("pdfHighlightDescription")}
+          checked={pdfHighlightEnabled}
+          onToggle={togglePdfHighlight}
+        />
         <ToggleRow
           title={t("studioTitle")}
           description={t("studioDescription")}

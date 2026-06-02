@@ -30,8 +30,8 @@ def build_source_context(uuids: list[str], tool: str) -> QuelleContext | None:
     source_by_name: dict[str, dict] = {}
     segments_by_label: dict[str, list[dict]] = {}
 
-    # karteikarten needs raw chunks (LLM quotes verbatim for evidence validation)
-    # all other tools use page summaries (faster, denser)
+    # karteikarten needs the full set of raw chunks (LLM quotes verbatim for
+    # evidence validation); all other tools use a capped slice of chunks.
     use_chunks = tool == "karteikarten"
 
     for suuid in uuids:
@@ -44,7 +44,6 @@ def build_source_context(uuids: list[str], tool: str) -> QuelleContext | None:
             first_label = source_label
 
         chunks_all = db.get_chunks_by_source(source["id"]) if use_chunks else None
-        summaries = None if use_chunks else db.get_page_summaries_by_source(source["id"])
 
         if use_chunks and chunks_all:
             for c in chunks_all:
@@ -55,12 +54,6 @@ def build_source_context(uuids: list[str], tool: str) -> QuelleContext | None:
                 from src.features.ai_assistant.routes._helpers import _load_transcript_segments
                 segments_by_label[source_label] = _load_transcript_segments(source)
             parts = [f"[{source_label}, S. {c['page_number']}] {c['content']}" for c in chunks_all]
-            context_parts.append(f"--- {source_label} ---\n" + "\n".join(parts))
-        elif summaries:
-            pages_map: dict[int, list[str]] = {}
-            for s in summaries:
-                pages_map.setdefault(s["page_number"], []).append(s["summary"])
-            parts = [f"[{source_label}, S. {p}] {' '.join(texts)}" for p, texts in sorted(pages_map.items())]
             context_parts.append(f"--- {source_label} ---\n" + "\n".join(parts))
         else:
             chunks = db.get_chunks_by_source(source["id"])

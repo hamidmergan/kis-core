@@ -23,9 +23,9 @@ export function useSources({ uuid, onModuleUpdate }: UseSourcesOptions) {
     }
   }, [selectedSourceIds, uuid]);
 
-  // Poll while any source is still processing. "Processing" now includes the
-  // summary stages after status=ready (progress field set), so we keep
-  // polling until both indexing AND summaries are done.
+  // Poll while any source is still processing (status pending/indexing, or
+  // "ready" with a progress field still set), so we keep polling until
+  // indexing is fully done.
   useEffect(() => {
     const isProcessing = (s: Source) =>
       s.status === "pending" || s.status === "indexing" || (s.status === "ready" && !!s.progress);
