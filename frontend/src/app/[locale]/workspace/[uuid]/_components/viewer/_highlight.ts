@@ -13,6 +13,21 @@ export type HighlightRefs = {
   prevHighlightRef: { current: { pageIndex: number; ids: string[] } | null };
 };
 
+// Position-preserving diacritic fold + lowercase: every character maps to exactly
+// ONE character (its NFKD base letter), so the result has the SAME length and the
+// match index still aligns with cleanToRaw for the highlight geometry. Makes the
+// keyword search diacritic-insensitive, so a citation keyword with umlauts
+// ("Dezimalbrüche") still matches a PDF text layer whose font lost or mangled them
+// ("Dezimalbruche…") — common in LaTeX/maths PDFs. Language-agnostic.
+function _foldDiacritics(s: string): string {
+  let out = "";
+  for (let i = 0; i < s.length; i++) {
+    const d = s[i].normalize("NFKD");
+    out += d[0] || s[i];
+  }
+  return out.toLowerCase();
+}
+
 
 export function tryHighlightOnPage(
   refs: HighlightRefs,
@@ -144,8 +159,10 @@ export function tryHighlightOnPage(
         const mid = Math.floor(cleanInput.length / 2);
         cleanInput = cleanInput.slice(Math.max(0, mid - 60), Math.min(cleanInput.length, mid + 60)).trim();
       }
-      const ptLower = cleanText.toLowerCase();
-      const inputWords = cleanInput.toLowerCase().split(" ").filter(w => w.length > 0);
+      // Diacritic-folded (still 1:1 length) so the search tolerates a PDF text layer
+      // that lost/mangled umlauts; matchStart/End stay aligned with cleanToRaw.
+      const ptLower = _foldDiacritics(cleanText);
+      const inputWords = _foldDiacritics(cleanInput).split(" ").filter(w => w.length > 0);
 
       // Find keywords on the page — try as phrase first, then individual keywords
       let matchStart = -1;
