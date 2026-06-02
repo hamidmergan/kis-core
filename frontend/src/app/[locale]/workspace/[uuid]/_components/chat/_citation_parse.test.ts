@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { parseCitationFields, stripCitations } from "./_citation_parse";
+import { parseCitationFields, citationsAreAdjacentSameTarget, sanitizeCitationsForMarkdown, stripCitations } from "./_citation_parse";
 import { _collapseFold, _allIndexOf } from "../viewer/_highlight";
 
 describe("parseCitationFields", () => {
@@ -57,6 +57,85 @@ describe("stripCitations", () => {
 
   it("removes timestamp and plain chips too", () => {
     expect(stripCitations("a [1, 05:32 | k] b [2, S. 3] c")).toBe("a  b  c");
+  });
+});
+
+describe("sanitizeCitationsForMarkdown", () => {
+  it("strips a URL from the keyword so the chip still parses (real muc2026 case)", () => {
+    const raw =
+      "Tagungen: *ACM CHI* [5, S. 22 @181-245 | • Mensch und Computer, https://muc2026.mensch-und-computer.de/de/]. " +
+      "[5, S. 22 @181-245 | • Mensch und Computer, https://muc2026.mensch-und-computer.de/de/]";
+    const out = sanitizeCitationsForMarkdown(raw);
+    expect(out).not.toContain("http");        // URL gone → markdown can't autolink/split it
+    const fields = parseCitationFields(out);
+    expect(fields.length).toBe(1);            // duplicate collapsed → one chip
+    expect(fields[0].page).toBe(22);
+    expect(fields[0].offsets).toEqual([181, 245]);
+    expect(fields[0].keyword).toContain("Mensch und Computer");
+  });
+
+  it("collapses an exact-duplicate citation emitted back-to-back", () => {
+    const raw = "X [5, S. 22 @1-9 | Mensch und Computer]. [5, S. 22 @1-9 | Mensch und Computer]";
+    expect((sanitizeCitationsForMarkdown(raw).match(/S\. 22/g) || []).length).toBe(1);
+  });
+
+  it("converts the pipe separator to the table-safe glyph", () => {
+    const out = sanitizeCitationsForMarkdown("[1, S. 2 | keyword]");
+    expect(out).toContain("❘");
+    expect(out).not.toContain("|");
+  });
+
+  it("strips a citation wrongly appended to a thematic break (---)", () => {
+    const out = sanitizeCitationsForMarkdown("--- [5, S. 4 | ORGANISATORISCHES Ab dem 22.04.2026 offene]");
+    expect(out.trim()).toBe("---");          // clean separator, no chip
+    expect(out).not.toContain("S. 4");
+  });
+
+  it("keeps a normal list item with a dash bullet intact", () => {
+    const out = sanitizeCitationsForMarkdown("- Punkt A [1, S. 2 | keyword]");
+    expect(out).toContain("S. 2");           // real bullet citation survives
+  });
+
+  it("leaves a URL-only keyword as a bare offset chip (no dangling separator)", () => {
+    const out = sanitizeCitationsForMarkdown("[5, S. 22 @1-5 | https://x.example/y]");
+    expect(out).not.toContain("http");
+    const [c] = parseCitationFields(out);
+    expect(c.page).toBe(22);
+    expect(c.offsets).toEqual([1, 5]);
+  });
+});
+
+describe("citationsAreAdjacentSameTarget", () => {
+  const key = "src-uuid-1";
+
+  it("merges two back-to-back citations of the same source+page", () => {
+    const src = "… BibTex [1, S. 15 @1-9 | a] [1, S. 15 @20-30 | b]";
+    const [a, b] = parseCitationFields(src);
+    expect(citationsAreAdjacentSameTarget(src, a, b, key, key)).toBe(true);
+  });
+
+  it("does NOT merge when real text sits between them", () => {
+    const src = "[1, S. 15 | a] etwas Text dazwischen [1, S. 15 | b]";
+    const [a, b] = parseCitationFields(src);
+    expect(citationsAreAdjacentSameTarget(src, a, b, key, key)).toBe(false);
+  });
+
+  it("does NOT merge different pages", () => {
+    const src = "[1, S. 15 | a] [1, S. 16 | b]";
+    const [a, b] = parseCitationFields(src);
+    expect(citationsAreAdjacentSameTarget(src, a, b, key, key)).toBe(false);
+  });
+
+  it("does NOT merge different sources even if adjacent on the same page number", () => {
+    const src = "[1, S. 15 | a] [2, S. 15 | b]";
+    const [a, b] = parseCitationFields(src);
+    expect(citationsAreAdjacentSameTarget(src, a, b, "uuid-1", "uuid-2")).toBe(false);
+  });
+
+  it("never merges media timestamp chips", () => {
+    const src = "[1, 05:32 | a] [1, 05:32 | b]";
+    const [a, b] = parseCitationFields(src);
+    expect(citationsAreAdjacentSameTarget(src, a, b, key, key)).toBe(false);
   });
 });
 

@@ -83,6 +83,15 @@ export interface QuizQuestion {
   correct: number;
 }
 
+// One highlight target on a page: an Architecture-B offset span and/or a
+// verbatim keyword to relocate. A merged citation chip (several adjacent
+// citations of the SAME source+page) carries one of these per region, so a
+// single click marks every cited spot on that page.
+export interface CitationHighlightSpan {
+  offsets?: [number, number];
+  keyword?: string;
+}
+
 export interface ViewerState {
   uuid: string;
   filename: string;
@@ -97,6 +106,10 @@ export interface ViewerState {
   // this span directly (no re-finding / no expansion); highlightText is the
   // verbatim span used to verify/relocate on drift. Falls back to text search.
   highlightOffsets?: [number, number];
+  // Multiple regions for ONE merged chip. When set (length > 1) the viewer marks
+  // each region separately in a single ephemeral annotation. highlightText/
+  // highlightOffsets above stay set to the first region as a single-span fallback.
+  highlightSpans?: CitationHighlightSpan[];
   nonce?: number;
   startTime?: number;
 }

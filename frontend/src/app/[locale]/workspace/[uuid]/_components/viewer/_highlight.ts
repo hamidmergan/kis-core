@@ -13,13 +13,24 @@
 
 export type HighlightRefs = {
   prevHighlightRef: { current: { pageIndex: number; ids: string[] } | null };
-  // Tracks the current ephemeral citation highlight (a Highlight annotation that is
-  // NEVER committed, so it never touches the PDF file) so it can be purged on the
-  // next chip click or when the user dismisses it.
-  citationHighlightRef: { current: { pageIndex: number; id: string } | null };
+  // Tracks the current ephemeral citation highlight(s) — Highlight annotations that
+  // are NEVER committed, so they never touch the PDF file — so they can be purged on
+  // the next chip click or when the user dismisses it. A merged chip draws several
+  // annotations (one per cited region), hence a list of ids.
+  citationHighlightRef: { current: { pageIndex: number; ids: string[] } | null };
   // Toggles the "dismiss highlight" control in the viewer.
   onHighlightActive?: (active: boolean) => void;
 };
+
+// One highlight target for a (possibly merged) citation chip: a server-computed
+// offset span and/or a verbatim keyword to relocate it on the live page.
+export type CitationSpan = { offsets?: [number, number]; keyword?: string };
+
+// Controls how drawCitationHighlight integrates with the current marker set:
+//   append=false (default): purge previous markers, start a new set, scroll into view.
+//   append=true: add to the current set (no purge) — used for extra regions of a
+//   merged chip. scroll defaults to !append; pass explicitly to override.
+type DrawOpts = { append?: boolean; scroll?: boolean };
 
 // Citation highlight = passive yellow marker (NOT a text selection), so a chip
 // click never triggers the selection action-popup. Single colour constant — swap
@@ -148,7 +159,9 @@ export function clearCitationHighlight(refs: HighlightRefs, reg: unknown) {
   if (!cur) return;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const anno = (reg as any)?.getPlugin?.("annotation")?.provides?.();
-  try { anno?.purgeAnnotation?.(cur.pageIndex, cur.id); } catch { /* ignore */ }
+  for (const id of cur.ids) {
+    try { anno?.purgeAnnotation?.(cur.pageIndex, id); } catch { /* ignore */ }
+  }
   refs.citationHighlightRef.current = null;
   refs.onHighlightActive?.(false);
 }
@@ -163,14 +176,17 @@ function drawCitationHighlight(
   refs: HighlightRefs,
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   r: any, docMgr: any, scroll: any, targetPageIndex: number, geoStart: number, geoEnd: number, g: any,
+  opts: DrawOpts = {},
 ): boolean {
+  const append = opts.append ?? false;
+  const doScroll = opts.scroll ?? !append;
   const { segmentRects, bbox } = buildSegmentRects(g, geoStart, geoEnd);
   if (!segmentRects.length || !bbox) return false;
   const anno = r.getPlugin?.("annotation")?.provides?.();
   const docId = docMgr.getActiveDocumentId?.();
   if (!anno?.createAnnotation || !docId) return false;
-  clearCitationHighlight(refs, r);   // one at a time
-  const id = `kis-cite-${Date.now()}`;
+  if (!append) clearCitationHighlight(refs, r);   // fresh chip → one set at a time
+  const id = `kis-cite-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
   try {
     anno.createAnnotation(targetPageIndex, {
       type: HIGHLIGHT_SUBTYPE,
@@ -186,12 +202,17 @@ function drawCitationHighlight(
       created: new Date(),
     });
     anno.deselectAnnotation?.();      // no selection handles on the fresh annotation
-    refs.citationHighlightRef.current = { pageIndex: targetPageIndex, id };
+    const cur = refs.citationHighlightRef.current;
+    if (append && cur && cur.pageIndex === targetPageIndex) {
+      cur.ids.push(id);
+    } else {
+      refs.citationHighlightRef.current = { pageIndex: targetPageIndex, ids: [id] };
+    }
     refs.onHighlightActive?.(true);
   } catch {
     return false;
   }
-  if (scroll) {
+  if (scroll && doScroll) {
     scroll.scrollToPage({
       pageNumber: targetPageIndex + 1,
       pageCoordinates: { x: 0, y: bbox.origin.y },
@@ -214,6 +235,7 @@ function tryHighlightByOffsets(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   r: any, doc: any, engine: any, docMgr: any, scroll: any,
   targetPageIndex: number, offsets: [number, number], anchor: string,
+  opts: DrawOpts = {},
 ): Promise<boolean> {
   const bStart = offsets[0];
   const pageObj = doc.pages?.[targetPageIndex];
@@ -270,7 +292,7 @@ function tryHighlightByOffsets(
 
       const findGeo = makeFindGeo(engine, doc, targetPageIndex, totalChars, R.length);
       return Promise.all([findGeo(rawStart), findGeo(rawEnd)]).then(([geoStart, geoEnd]) =>
-        drawCitationHighlight(refs, r, docMgr, scroll, targetPageIndex, geoStart, geoEnd, g),
+        drawCitationHighlight(refs, r, docMgr, scroll, targetPageIndex, geoStart, geoEnd, g, opts),
       );
     });
   }).catch(() => false);
@@ -282,7 +304,9 @@ export function tryHighlightOnPage(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   r: any, doc: any, engine: any, docMgr: any, scroll: any,
   targetPageIndex: number, searchText: string, exactSelection: boolean = false,
+  opts: DrawOpts = {},
 ): Promise<boolean> {
+  const doScroll = opts.scroll ?? !opts.append;
   const pageObj = doc.pages?.[targetPageIndex];
   if (!pageObj) return Promise.resolve(false);
 
@@ -303,7 +327,7 @@ export function tryHighlightOnPage(
     const lastRun = !noRuns ? (g.runs[g.runs.length - 1] as any) : null;
     const totalChars = lastRun ? lastRun.charStart + lastRun.glyphs.length : 0;
     if (noRuns || totalChars < 50) {
-      if (scroll) {
+      if (scroll && doScroll) {
         scroll.scrollToPage({
           pageNumber: targetPageIndex + 1,
           behavior: "instant",
@@ -481,7 +505,7 @@ export function tryHighlightOnPage(
       // would highlight something unrelated (e.g. a random date in the
       // footer of a PPTX slide). Just scroll and bail out.
       if (exactSelection && matchStart < 0) {
-        if (scroll) {
+        if (scroll && doScroll) {
           scroll.scrollToPage({
             pageNumber: targetPageIndex + 1,
             behavior: "instant",
@@ -523,23 +547,30 @@ export function tryHighlightOnPage(
 
       if (matchStart < 0 || matchEnd < 0) return false;
 
-      // Expand to sentence boundaries (period, newline, or start/end of text)
-      // Skip abbreviation dots: bzw. z.B. u.a. etc. ca. vs. Dr. Nr. Prof. d.h. o.ä. ggf. S. Abs.
-      const _abbrPattern = /(?:bzw|z\.B|u\.a|etc|ca|vs|Dr|Nr|Prof|d\.h|o\.ä|ggf|Abs|Abb|vgl|inkl|sog|evtl|S)\s*$/i;
+      // Expand to sentence boundaries (period, newline, or start/end of text),
+      // skipping abbreviation/number dots. LANGUAGE-AGNOSTIC: no wordlist — a real
+      // sentence end is continued by an uppercase start, so a dot followed (after a
+      // space) by a digit or lowercase letter is an abbreviation/number continuation.
       const _isAbbrevDot = (text: string, dotIdx: number) => {
         if (dotIdx < 1) return false;
         // Dot directly followed by a letter (no space) is inside an abbreviation
-        // (e.g. "z.B.", "d.h.", "U.S.A."). Digits after a dot are NOT treated as
+        // (e.g. "z.B.", "d.h.", "U.S.A."). Digits glued to the dot are NOT treated as
         // abbreviation to keep footnote markers ("erprobt.11") as real sentence ends —
         // decimal numbers like "3.14" are covered by the digit-before-dot rule below.
         const next = text[dotIdx + 1];
         if (next && /\p{L}/u.test(next)) return true;
-        const before = text.slice(Math.max(0, dotIdx - 6), dotIdx);
-        if (_abbrPattern.test(before)) return true;
         // Single uppercase letter + dot (e.g. "S." "A.")
         if (dotIdx >= 1 && /^\p{Lu}$/u.test(text[dotIdx - 1]) && (dotIdx < 2 || text[dotIdx - 2] === " ")) return true;
         // Number + dot (e.g. "3." "49%.")
         if (/\d$/.test(text.slice(Math.max(0, dotIdx - 1), dotIdx))) return true;
+        // SPACE then a digit / lowercase letter → abbreviation or number continuation
+        // ("ca. 6-7", "ca. 2 Seiten", "z.B. das"). The space requirement keeps glued
+        // footnote markers ("erprobt.11") as real sentence ends. Mirrors the backend.
+        if (next && /\s/.test(next)) {
+          let k = dotIdx + 1;
+          while (k < text.length && /\s/.test(text[k])) k++;
+          if (k < text.length && /[\d\p{Ll}]/u.test(text[k])) return true;
+        }
         return false;
       };
       // Helper: find sentence boundaries around a position
@@ -811,7 +842,7 @@ export function tryHighlightOnPage(
             geoEnd = Math.min(geoEnd, maxEnd);
           }
         }
-        return drawCitationHighlight(refs, r, docMgr, scroll, targetPageIndex, geoStart, geoEnd, g);
+        return drawCitationHighlight(refs, r, docMgr, scroll, targetPageIndex, geoStart, geoEnd, g, opts);
       });
     });
   }).catch(() => false);
@@ -867,4 +898,55 @@ export function doHighlightSearch(
   }
 
   tryHighlightOnPage(refs, r, doc, engine, docMgr, scroll, pageIndex, text, exactSelection);
+}
+
+
+// Merged citation chip: mark EVERY cited region on one page in a single ephemeral
+// annotation set. Spans are drawn sequentially — the first purges the previous
+// chip's markers and scrolls into view; the rest append (no purge, no scroll), so
+// the page ends up with one yellow mark per region. Each span uses the same
+// offset→keyword fallback as the single-chip path, so a region that can't be
+// located by offset still tries its keyword (and is simply skipped if neither hits).
+export function doMultiHighlightSearch(
+  refs: HighlightRefs, reg: unknown, page: number, spans: CitationSpan[],
+) {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const r = reg as any;
+  const scroll = r.getPlugin?.("scroll")?.provides?.();
+  scroll?.scrollToPage?.({ pageNumber: page, behavior: "instant" });
+
+  const engine = r.getEngine?.();
+  const docMgr = r.getPlugin?.("document-manager")?.provides?.();
+  if (!engine || !docMgr) return;
+  const doc = docMgr.getActiveDocument?.();
+  if (!doc) return;
+
+  // Clear previous markers + any stray selection once, up front. Every span then
+  // appends, so a span that fails to draw can never leave a stale marker behind.
+  clearCitationHighlight(refs, r);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const selCap = r.getPlugin?.("selection")?.provides?.() as any;
+  try { selCap?.clear?.(docMgr.getActiveDocumentId?.()); } catch { /* ignore */ }
+  refs.prevHighlightRef.current = null;
+
+  const pageIndex = page - 1;
+  const targets = spans.filter((s) => (s.keyword && s.keyword.trim()) || s.offsets);
+  if (!targets.length) return;
+
+  // Sequential: the first drawn region scrolls into view, later ones don't.
+  let chain: Promise<unknown> = Promise.resolve();
+  targets.forEach((span, idx) => {
+    const opts: DrawOpts = { append: true, scroll: idx === 0 };
+    const text = (span.keyword || "").trim();
+    chain = chain
+      .then(() => {
+        if (span.offsets && text) {
+          return tryHighlightByOffsets(refs, r, doc, engine, docMgr, scroll, pageIndex, span.offsets, text, opts)
+            .then((ok) => (ok ? true : (text ? tryHighlightOnPage(refs, r, doc, engine, docMgr, scroll, pageIndex, text, false, opts) : false)));
+        }
+        if (text) return tryHighlightOnPage(refs, r, doc, engine, docMgr, scroll, pageIndex, text, false, opts);
+        return false;
+      })
+      .catch(() => false);
+  });
 }

@@ -4,12 +4,12 @@ import { createPortal } from "react-dom";
 import { CaretLeft, SidebarSimple, X } from "@phosphor-icons/react";
 import { PDFViewer, type PDFViewerRef } from "@embedpdf/react-pdf-viewer";
 import { LockModeType } from "@embedpdf/plugin-annotation";
-import type { ViewerState } from "../../_types";
+import type { ViewerState, CitationHighlightSpan } from "../../_types";
 import { FileIcon } from "../sources/FileIcon";
 
 import { EMBEDPDF_ICON_MAP } from "./_icons";
 import { wrapEngineGeometry } from "./_geometry";
-import { doHighlightSearch, clearCitationHighlight, type HighlightRefs } from "./_highlight";
+import { doHighlightSearch, doMultiHighlightSearch, clearCitationHighlight, type HighlightRefs } from "./_highlight";
 import { SummaryPanel } from "./_summary_panel";
 import { copyTextFromPromise } from "@/lib/clipboard";
 import { useTheme } from "@/hooks/useTheme";
@@ -147,9 +147,9 @@ export function PdfViewer({
   }, [summariesLoaded, workspaceUuid, source.uuid]);
 
   // Scroll to page + highlight text when nonce changes (pill click on same document)
-  const pendingHighlightRef = useRef<{ page: number; text: string; exact?: boolean; offsets?: [number, number] } | null>(null);
+  const pendingHighlightRef = useRef<{ page: number; text: string; exact?: boolean; offsets?: [number, number]; spans?: CitationHighlightSpan[] } | null>(null);
   const prevHighlightRef = useRef<{ pageIndex: number; ids: string[] } | null>(null);
-  const citationHighlightRef = useRef<{ pageIndex: number; id: string } | null>(null);
+  const citationHighlightRef = useRef<{ pageIndex: number; ids: string[] } | null>(null);
   // Controls the "Markierung aufheben" button shown while a citation highlight is active.
   const [citationActive, setCitationActive] = useState(false);
   const highlightRefs: HighlightRefs = { prevHighlightRef, citationHighlightRef, onHighlightActive: setCitationActive };
@@ -174,15 +174,18 @@ export function PdfViewer({
   useEffect(() => {
     if (source.nonce == null) return;
     const reg = registryRef.current;
+    const multi = source.highlightSpans && source.highlightSpans.length > 1 ? source.highlightSpans : null;
     if (!reg) {
       // Viewer not ready yet — save for later
-      if (source.highlightText) {
-        pendingHighlightRef.current = { page: source.page, text: source.highlightText, exact: !!source.exactSelection, offsets: source.highlightOffsets };
+      if (source.highlightText || multi) {
+        pendingHighlightRef.current = { page: source.page, text: source.highlightText ?? "", exact: !!source.exactSelection, offsets: source.highlightOffsets, spans: multi ?? undefined };
       }
       return;
     }
 
-    if (source.highlightText) {
+    if (multi) {
+      doMultiHighlightSearch(highlightRefs, reg, source.page, multi);
+    } else if (source.highlightText) {
       doHighlightSearch(highlightRefs, reg, source.page, source.highlightText, !!source.exactSelection, source.highlightOffsets);
     } else {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -190,7 +193,7 @@ export function PdfViewer({
       scroll?.scrollToPage?.({ pageNumber: source.page, behavior: "instant", alignY: 50 });
     }
 
-  }, [source.nonce, source.page, source.highlightText, source.exactSelection, source.highlightOffsets]);
+  }, [source.nonce, source.page, source.highlightText, source.exactSelection, source.highlightOffsets, source.highlightSpans]);
 
   // A new document remounts EmbedPDF (keyed by uuid), discarding the ephemeral
   // citation highlight — reset its tracking + dismiss button.
@@ -296,7 +299,11 @@ export function PdfViewer({
         const pending = pendingHighlightRef.current;
         if (pending) {
           pendingHighlightRef.current = null;
-          doHighlightSearch(highlightRefs, registry, pending.page, pending.text, !!pending.exact, pending.offsets);
+          if (pending.spans && pending.spans.length > 1) {
+            doMultiHighlightSearch(highlightRefs, registry, pending.page, pending.spans);
+          } else if (pending.text) {
+            doHighlightSearch(highlightRefs, registry, pending.page, pending.text, !!pending.exact, pending.offsets);
+          }
         }
         unsub?.();
       });

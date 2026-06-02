@@ -140,6 +140,7 @@ def aia_system_rag(target_locale: str = "de") -> str:
         "Do NOT use personal names from the sources, write 'according to the source' instead.\n"
         "LANGUAGE — TOP PRIORITY: ALWAYS write the answer in the SAME language as the USER'S QUESTION, even when the source documents are in a different language. English question + German sources -> answer in English (translate the facts). German question -> answer in German. Match the question's language every time.\n"
         "  - EXCEPTION: the citation keyword (the text after '|' inside each [N, S. X | keyword] chip) MUST stay VERBATIM in the SOURCE document's ORIGINAL language — NEVER translate it — because it is matched character-for-character against the source text to locate the highlight. So an English answer about a German PDF still carries German keywords, e.g. 'The mentor is Erika Mustermann, M.Sc. [1, S. 2 | Mentorin Erika Mustermann].'\n\n"
+        "TERMINOLOGY — STAY ON THE SOURCE'S WORDS: When a source uses a specific technical term, method name, or named concept, REUSE THAT EXACT TERM in your prose instead of a synonym or your own paraphrase (e.g. if the source writes 'Schneeballsystem', write 'Schneeballsystem' — NOT a synonym like 'Schneeballprinzip'; if it writes 'Quellenkritik', keep 'Quellenkritik'). You MAY add a short plain-language explanation right after the term, but the term itself stays spelled exactly as in the source. Keep such named terms in the source's wording even when you translate the rest of the answer into the question's language. This keeps the answer faithful AND lets the highlight land on the term.\n\n"
         "RESPONSE STRUCTURE (for readability — NEVER output one big wall of text):\n"
         "  - Break the answer into short paragraphs of 2-4 sentences each.\n"
         "  - When you list multiple items, facts, steps, options, or dates, use a Markdown bullet list ('- ') or a numbered list, ONE item per line.\n"
@@ -223,36 +224,6 @@ def aia_rag_user_message(context: str, question: str) -> str:
 # Backward-compat constant for callers that don't have locale context (admin
 # registries, language_training source cards). Defaults to DE behavior.
 AIA_SYSTEM_RAG = aia_system_rag("de")
-
-
-# -- AI tutor: query rewriter (condense question) ----------------------------
-# Rewrites a follow-up question into a standalone question using conversation
-# history, so the answering LLM can be called single-turn without history and
-# cannot leak content from previous turns.
-AIA_QUERY_REWRITE = (
-    "You rewrite the user's latest question in a conversational Q&A system so it can be answered standalone, without conversation history.\n\n"
-    "RULES:\n"
-    "- If the latest question depends on previous turns (pronouns like 'this/that/it', references like 'and X?', 'more details', 'simpler'), rewrite it as a full standalone question that includes the missing context from the history.\n"
-    "- If the latest question is already standalone OR clearly changes topic, return it COMPLETELY UNCHANGED.\n"
-    "- Preserve meta-instructions (e.g. 'explain simpler', 'in bullet points', 'shorter') by folding them into the rewritten question.\n"
-    "- Output ONLY the rewritten (or unchanged) question. No preamble, no explanation, no quotes.\n"
-    "- Keep the output in the same language as the user's latest question.\n\n"
-    "EXAMPLES:\n"
-    "History:\n"
-    "user: Was sagt Source 1 zum Arbeitsmarkt?\n"
-    "assistant: Die Source beschreibt Fachkräftemangel im MINT-Bereich.\n"
-    "Latest: Und Kontakt?\n"
-    "Output: Welche Kontaktdaten werden in Source 1 zum Thema Arbeitsmarkt genannt?\n\n"
-    "History:\n"
-    "user: Erkläre die Einwanderungsregeln.\n"
-    "assistant: Die Regeln umfassen ...\n"
-    "Latest: Einfacher bitte\n"
-    "Output: Erkläre die Einwanderungsregeln in einfacher Sprache.\n\n"
-    "History:\n"
-    "user: Erkläre die Einwanderungsregeln.\n"
-    "Latest: Was ist die Hauptstadt von Frankreich?\n"
-    "Output: Was ist die Hauptstadt von Frankreich?"
-)
 
 
 # -- AI tutor: note title -----------------------------------------------------

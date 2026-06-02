@@ -3,8 +3,10 @@ import pytest
 
 from src.features.ai_assistant.routes._page_geometry import (
     locate_claim_span,
+    locate_claim_spans,
     span_text,
     offset_suffix,
+    offset_suffixes,
 )
 from src.features.ai_assistant.routes._helpers import (
     resolve_citation_positions,
@@ -104,6 +106,32 @@ def test_line_break_still_bounds_a_real_new_item():
     assert "Titelzeile" not in page[start:end + 1]   # title not swallowed
 
 
+def test_locate_span_keeps_abbreviation_before_number_no_wordlist():
+    # "ca." must NOT end the sentence — it is followed by a space + digit. Purely
+    # case/space based (no abbreviation wordlist), so it works for any language.
+    page = ("Vorwort hier. Die finale Hausarbeit soll ca. 6-7 Seiten betragen, "
+            "inklusive Tabellen. Schluss folgt.")
+    span = locate_claim_span(page, "Hausarbeit 6-7 Seiten inklusive Tabellen")
+    assert span is not None
+    start, end = span
+    covered = page[start:end + 1]
+    assert "ca. 6-7 Seiten" in covered        # 'ca.' kept, not split off
+    assert covered.startswith("Die finale")   # expands back to the real sentence start
+    assert "Vorwort" not in covered           # previous sentence not swallowed
+
+
+def test_locate_span_glued_footnote_marker_still_ends_sentence():
+    # A footnote digit glued to the dot ("erprobt.11") is a real sentence end — the
+    # space requirement keeps it that way (only "dot + SPACE + digit" continues).
+    page = "Das Verfahren wurde erprobt.11 Danach folgte die Auswertung der Daten."
+    span = locate_claim_span(page, "Das Verfahren wurde erprobt")
+    assert span is not None
+    start, end = span
+    covered = page[start:end + 1]
+    assert "erprobt" in covered
+    assert "Danach" not in covered            # the .11 footnote still ends the sentence
+
+
 def test_locate_span_caps_runaway_sentence():
     page = "Anfang " + "wort " * 200 + "ende der langen passage."
     span = locate_claim_span(page, "wort wort wort")
@@ -112,7 +140,69 @@ def test_locate_span_caps_runaway_sentence():
     assert end - start + 1 <= 220
 
 
+# ── locate_claim_spans (multi-region) ─────────────────────────────────────────
+
+def test_spans_anchor_every_region_a_line_draws_from():
+    # The answer line synthesises two bullets on one slide; '–' vs '-' and
+    # "inkl." vs "inklusive" paraphrase the second one. Both regions must anchor.
+    page = ("Anfertigung einer wissenschaftlichen Hausarbeit samt Praesentation. "
+            "Zwischenschritte sind optional. "
+            "Die finale Hausarbeit soll ca. 6-7 Seiten betragen, inklusive "
+            "Abbildungen und Tabellen, zuzueglich Literaturverzeichnis.")
+    claim = ("Anfertigung einer wissenschaftlichen Hausarbeit (ca. 6–7 Seiten "
+             "inkl. Abbildungen/Tabellen, zuzueglich Literaturverzeichnis)")
+    spans = locate_claim_spans(page, claim)
+    assert len(spans) == 2
+    covered = [page[s:e + 1] for s, e in spans]
+    # one region is the top bullet, the other the "6-7 Seiten" bullet
+    assert any("wissenschaftlichen Hausarbeit samt" in c for c in covered)
+    assert any("6-7 Seiten" in c and "Literaturverzeichnis" in c for c in covered)
+
+
+def test_spans_returns_single_region_when_claim_is_local():
+    page = ("Vorwort hier. Passt die Fragestellung zum Thema? "
+            "Voellig anderer Absatz ueber Varianz und Erwartungswert.")
+    spans = locate_claim_spans(page, "Passt die Frage zum Thema?")
+    assert len(spans) == 1
+    s, e = spans[0]
+    assert page[s:e + 1] == "Passt die Fragestellung zum Thema?"
+
+
+def test_spans_ignores_weakly_overlapping_sentences():
+    # The second sentence shares only ONE content word ("Hausarbeit") — below the
+    # _MIN_SECONDARY_TOKENS bar — so it must NOT become a second region.
+    page = ("Die Hausarbeit umfasst Recherche, Gliederung und Auswertung der Quellen. "
+            "Eine Hausarbeit ist gut.")
+    spans = locate_claim_spans(page, "Recherche, Gliederung und Auswertung der Quellen")
+    assert len(spans) == 1
+    assert "gut" not in page[spans[0][0]:spans[0][1] + 1]
+
+
+def test_offset_suffixes_emits_one_suffix_per_region(monkeypatch):
+    import src.features.ai_assistant.routes._page_geometry as g
+    page = ("Anfertigung einer wissenschaftlichen Hausarbeit samt Praesentation. "
+            "Die finale Hausarbeit soll ca. 6-7 Seiten betragen, inklusive "
+            "Abbildungen und Tabellen, zuzueglich Literaturverzeichnis.")
+    monkeypatch.setattr(g, "get_page_text", lambda *a, **k: page)
+    claim = ("Anfertigung einer wissenschaftlichen Hausarbeit ca. 6–7 Seiten "
+             "inkl. Abbildungen Tabellen zuzueglich Literaturverzeichnis")
+    sufs = offset_suffixes({"id": 1, "file_type": "pdf"}, 7, claim)
+    assert len(sufs) == 2
+    assert all(s.startswith(" @") and " | " in s for s in sufs)
+
+
 # ── span_text ─────────────────────────────────────────────────────────────────
+
+def test_span_text_strips_url_from_keyword():
+    # A URL in the span would break the client's markdown chip rendering (it gets
+    # autolinked and splits the token), so span_text drops it. Highlight uses the
+    # offsets, not this text, so nothing is lost.
+    page = "Tagung • Mensch und Computer, https://muc2026.mensch-und-computer.de/de/ Ende."
+    txt = span_text(page, 0, len(page) - 1)
+    assert "http" not in txt
+    assert "muc2026" not in txt
+    assert "Mensch und Computer" in txt
+
 
 def test_span_text_collapses_whitespace_and_strips_chip_chars():
     page = "Erste   Zeile\nmit [Klammern] und | Pipe darin."
@@ -174,6 +264,12 @@ class _OffLoader:
         s, e = span
         return f" @{s}-{e} | {span_text(T, s, e)}"
 
+    def offset_suffixes(self, source, page_number, claim):
+        T = self._pages.get((source["id"], page_number))
+        if not T:
+            return []
+        return [f" @{s}-{e} | {span_text(T, s, e)}" for s, e in locate_claim_spans(T, claim)]
+
 
 def test_resolve_emits_offset_anchor_for_pdf():
     text = "Passt die Frage zum Thema? [5, S. 8 | Passt die Fragestellung]"
@@ -194,6 +290,21 @@ def test_resolve_keeps_keyword_chip_when_no_page_text():
     assert "[5, S. 8 | Passt die Fragestellung]" in out
 
 
+def test_resolve_emits_multiple_region_chips_for_synthesised_line():
+    page = ("Anfertigung einer wissenschaftlichen Hausarbeit samt Praesentation. "
+            "Die finale Hausarbeit soll ca. 6-7 Seiten betragen, inklusive "
+            "Abbildungen und Tabellen, zuzueglich Literaturverzeichnis.")
+    text = ("Anfertigung einer wissenschaftlichen Hausarbeit ca. 6-7 Seiten inklusive "
+            "Abbildungen und Tabellen zuzueglich Literaturverzeichnis [5, S. 7 | Hausarbeit]")
+    units = {5: [Unit(7, None, None, page)]}
+    pages = {(5, 7): page}
+    src = {5: {"source": {"id": 5, "file_type": "pdf"}, "is_media": False, "pages": {7}}}
+    out = resolve_citation_positions(text, src, _OffLoader(units, pages))
+    # Two adjacent same-source+page chips, each with its own offset anchor → the
+    # client merges them into one chip that marks both regions.
+    assert out.count("[5, S. 7 @") == 2
+
+
 def test_fill_emits_offset_anchor_for_pdf():
     text = "- Passt die Frage zum Thema?\n"
     units = [Unit(page=8, start_time=None, end_time=None,
@@ -203,6 +314,20 @@ def test_fill_emits_offset_anchor_for_pdf():
     out = fill_uncited_lines(text, sources, _OffLoader({2: units}, pages))
     assert "[2, S. 8 @" in out
     assert "Passt die Fragestellung zum Thema?" in out
+
+
+def test_fill_does_not_cite_a_thematic_break():
+    # A Markdown horizontal rule ("---") is a separator, not a claim — it must NOT
+    # get a citation appended (was wrongly matched to the first chunk of a page).
+    text = "Erste Aussage zum Thema.\n---\nZweite Aussage zum Thema.\n"
+    units = [Unit(page=4, start_time=None, end_time=None,
+                  raw_text="ORGANISATORISCHES Ab dem 22.04.2026 offene Sprechstunden")]
+    pages = {(5, 4): "ORGANISATORISCHES Ab dem 22.04.2026 offene Sprechstunden."}
+    sources = {5: {"source": {"id": 5, "file_type": "pdf"}, "is_media": False}}
+    out = fill_uncited_lines(text, sources, _OffLoader({5: units}, pages))
+    hr_line = [ln for ln in out.splitlines() if ln.strip().startswith("---")][0]
+    assert hr_line.strip() == "---"          # the rule stays bare, no chip
+    assert "S. 4" not in hr_line
 
 
 def test_fill_table_row_uses_non_pipe_separator_with_offsets():

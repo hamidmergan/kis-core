@@ -22,7 +22,6 @@ from src.features.ai_assistant.routes.chat import (
     _diversify_by_source,
     _order_round_robin,
     _classify_intent,
-    _rewrite_query,
     _stream_usage_tokens,
     _enrich_chat_trace,
     _INTENT_MAX_WORDS,
@@ -122,27 +121,6 @@ async def test_classify_intent_falls_back_to_reasoning_content():
 @pytest.mark.asyncio
 async def test_classify_intent_defaults_specific_on_error():
     assert await _classify_intent(FakeLLM(raise_exc=True), "x") == "SPECIFIC"
-
-
-# ── query rewrite (condense follow-up) ───────────────────────────────────────
-
-@pytest.mark.asyncio
-async def test_rewrite_query_returns_rewritten():
-    hist = [{"role": "user", "content": "Wer leitet das Seminar?"}]
-    out = await _rewrite_query(FakeLLM(content="Wer leitet das wissenschaftliche Seminar?"), hist, "Und wer noch?")
-    assert out == "Wer leitet das wissenschaftliche Seminar?"
-
-
-@pytest.mark.asyncio
-async def test_rewrite_query_keeps_original_on_error():
-    out = await _rewrite_query(FakeLLM(raise_exc=True), [], "Original?")
-    assert out == "Original?"
-
-
-@pytest.mark.asyncio
-async def test_rewrite_query_rejects_overlong_output():
-    out = await _rewrite_query(FakeLLM(content="x" * 1001), [], "Original?")
-    assert out == "Original?"
 
 
 # ── _sample: even-spaced cap used in multi-source generic ────────────────────

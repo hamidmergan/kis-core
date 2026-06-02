@@ -17,9 +17,25 @@ import unicodedata
 
 _WS_RE = re.compile(r"\s+")
 _BRACKETS_RE = re.compile(r"[\[\]【】|❘]")
+# A URL inside the chip keyword breaks the client's markdown render (gfm autolinks
+# it and splits the citation token), so drop it from the displayed span text. The
+# highlight itself is driven by the @start-end offsets, not this text, so removing
+# the URL costs nothing.
+_URL_RE = re.compile(r"https?://\S+|www\.\S+")
+_TOKEN_RE = re.compile(r"[^\W_]+", re.UNICODE)   # Unicode letter/digit runs (no '_')
 _MAX_SPAN_CHARS = 220          # never highlight more than ~one long sentence
 _MIN_CORE_CHARS = 6            # shorter verbatim overlaps are too weak to anchor on
 _MEDIA_EXTS = {"mp3", "mp4", "wav", "flac", "m4a", "webm"}
+
+# Multi-region anchoring: besides the primary (longest verbatim) span, also anchor
+# OTHER sentences on the SAME page that share enough CONTENT words with the claim, so
+# a synthesised answer line ("… ca. 6–7 Seiten inkl. Abbildungen/Tabellen …") marks
+# every spot it draws from — not only the strongest verbatim match. Overlap survives
+# paraphrase and punctuation drift ('–' vs '-') that breaks the contiguous matcher.
+# Pure length/overlap heuristics, no wordlists → language-agnostic for every tenant.
+_MIN_TOKEN_LEN = 4          # a "content word"; shorter function words are ignored
+_MIN_SECONDARY_TOKENS = 3   # an extra sentence needs >= this many shared content words
+_MAX_SPANS = 3              # primary + up to two extra regions per citation
 
 
 def _fold_char(ch: str) -> str:
@@ -114,6 +130,19 @@ def _is_abbrev_dot(text: str, i: int) -> bool:
         return True                            # single-letter initial / multi-dot abbrev: "S." "z.B." "U.S.A."
     if i >= 1 and text[i - 1].isdigit():       # decimal / numbered: "3." "49."
         return True
+    # A real sentence end is continued by an UPPERCASE start. If a SPACE follows the
+    # dot and the next non-space char is a digit or a lowercase letter, the dot is an
+    # abbreviation / number continuation ("ca. 6-7", "ca. 2 Seiten", "z.B. das"), NOT
+    # a sentence boundary. The space requirement keeps glued footnote markers
+    # ("erprobt.11") as real ends. Case-based, no wordlist — works for any language.
+    if nxt.isspace():
+        k = i + 1
+        while k < len(text) and text[k].isspace():
+            k += 1
+        if k < len(text):
+            nc = text[k]
+            if nc.isdigit() or (nc.isalpha() and nc.islower()):
+                return True
     return False
 
 
@@ -202,6 +231,15 @@ def _expand_sentence(text: str, a: int, b: int) -> tuple[int, int]:
     return s, e
 
 
+def _content_tokens(text: str) -> set[str]:
+    """Folded content words of ``text`` (length >= _MIN_TOKEN_LEN). Diacritic-folded
+    and lowercased so they compare equal across umlaut/case drift; no wordlist, so it
+    is language-agnostic. Short function words are dropped to keep the overlap signal
+    about substance, not glue words."""
+    folded = "".join(_fold_char(c) for c in text)
+    return {t for t in _TOKEN_RE.findall(folded) if len(t) >= _MIN_TOKEN_LEN}
+
+
 def locate_claim_span(page_text: str, claim: str) -> tuple[int, int] | None:
     """Locate the claim on the page and return its inclusive sentence span as
     ``(start, end)`` offsets into ``page_text`` — or None when no confident anchor
@@ -248,11 +286,78 @@ def locate_claim_span(page_text: str, claim: str) -> tuple[int, int] | None:
     return (start, end)
 
 
+def locate_claim_spans(page_text: str, claim: str, max_spans: int = _MAX_SPANS) -> list[tuple[int, int]]:
+    """Locate EVERY region of ``page_text`` the claim draws from, not just the best one.
+
+    Returns inclusive ``(start, end)`` spans, sorted by position:
+      1. the primary span (longest verbatim run, via ``locate_claim_span``), if any;
+      2. up to ``max_spans - 1`` other sentences that share >= _MIN_SECONDARY_TOKENS
+         distinct content words with the claim and don't overlap a kept span.
+
+    So a synthesised line whose pieces live in different bullets on one page gets a
+    mark on each. Overlap (not verbatim run) drives 2., so it survives paraphrase and
+    '–'/'-' punctuation drift. Language-agnostic: only folding, length and set
+    overlap — no wordlists."""
+    spans: list[tuple[int, int]] = []
+    primary = locate_claim_span(page_text, claim)
+    if primary:
+        spans.append(primary)
+    if not page_text or not claim:
+        return spans
+    claim_toks = _content_tokens(claim)
+    if len(claim_toks) < _MIN_SECONDARY_TOKENS:
+        return spans
+
+    clean_t, c2t = _collapse_fold(page_text)
+    # Group page content-word hits by the sentence that contains them; track the
+    # distinct claim tokens matched and the raw extent of those tokens per sentence.
+    hits: dict[tuple[int, int], dict] = {}
+    for m in _TOKEN_RE.finditer(clean_t):
+        tok = m.group()
+        if tok not in claim_toks:
+            continue
+        ta, tb = c2t[m.start()], c2t[m.end() - 1]
+        s, e = _expand_sentence(page_text, ta, tb)
+        h = hits.get((s, e))
+        if h is None:
+            hits[(s, e)] = {"toks": {tok}, "lo": ta, "hi": tb}
+        else:
+            h["toks"].add(tok)
+            h["lo"] = min(h["lo"], ta)
+            h["hi"] = max(h["hi"], tb)
+
+    cands: list[tuple[int, int, int]] = []   # (token_count, start, end)
+    for (s, e), h in hits.items():
+        if len(h["toks"]) < _MIN_SECONDARY_TOKENS:
+            continue
+        if any(not (e < ps or pe < s) for ps, pe in spans):   # overlaps a kept span
+            continue
+        cs, ce = s, e
+        if ce - cs + 1 > _MAX_SPAN_CHARS:
+            # Wall-of-text sentence: window around the matched tokens (as primary does).
+            center = (h["lo"] + h["hi"]) // 2
+            half = _MAX_SPAN_CHARS // 2
+            cs = max(s, center - half)
+            ce = min(e, center + half)
+            while cs < h["lo"] and page_text[cs].isspace():
+                cs += 1
+            while ce > h["hi"] and page_text[ce].isspace():
+                ce -= 1
+        cands.append((len(h["toks"]), cs, ce))
+
+    cands.sort(key=lambda x: (-x[0], x[1]))   # strongest overlap first, then position
+    for _, cs, ce in cands[: max(0, max_spans - len(spans))]:
+        spans.append((cs, ce))
+    spans.sort(key=lambda sp: sp[0])
+    return spans
+
+
 def span_text(page_text: str, start: int, end: int) -> str:
     """The verbatim span as a single-line, chip-safe string: whitespace collapsed,
     bracket/pipe chars (which would break the chip syntax) replaced by spaces."""
     raw = page_text[start:end + 1]
     s = _BRACKETS_RE.sub(" ", raw)
+    s = _URL_RE.sub(" ", s)
     return _WS_RE.sub(" ", s).strip()
 
 
@@ -270,3 +375,21 @@ def offset_suffix(source: dict, page_number: int, claim: str, cache: dict | None
     if len(txt) < _MIN_CORE_CHARS:
         return None
     return f" @{start}-{end} | {txt}"
+
+
+def offset_suffixes(source: dict, page_number: int, claim: str, cache: dict | None = None) -> list[str]:
+    """Like ``offset_suffix`` but returns one ``' @start-end | <span>'`` per region the
+    claim draws from on the page (see ``locate_claim_spans``) — primary first. Empty
+    list when no confident span exists, so the caller keeps its keyword/position chip.
+    The caller emits one ``[N, S. p @…|…]`` chip per suffix; adjacent same-page chips
+    are then merged into a single multi-region highlight on the client."""
+    page = get_page_text(source, page_number, cache)
+    if not page:
+        return []
+    out: list[str] = []
+    for start, end in locate_claim_spans(page, claim):
+        txt = span_text(page, start, end)
+        if len(txt) < _MIN_CORE_CHARS:
+            continue
+        out.append(f" @{start}-{end} | {txt}")
+    return out

@@ -36,7 +36,6 @@ from src.tool_prompts import (
     AIA_SYSTEM_DIRECT_WITH_CONTEXT,
     aia_system_rag,
     aia_rag_user_message,
-    AIA_QUERY_REWRITE,
     AIA_POPUP_ACTIONS,
     AIA_INTENT_CLASSIFIER_SYSTEM,
     AIA_INTENT_CLASSIFIER_FEWSHOT,
@@ -53,14 +52,6 @@ _INTENT_MAX_WORDS = 30
 # document; the shared char budget at the call site truncates the merged result.
 _GENERIC_MAX_QUERIES = 4
 _GENERIC_PER_QUERY_LIMIT = 8
-
-# Accept both ASCII [] and CJK lenticular 【】 - some LLMs emit the latter
-# despite the prompt, and unstripped citations in history reinforce the
-# wrong format on the next turn.
-_CITATION_RE = re.compile(
-    r"\s*[\[【](?:Q?\d+,\s*)?(?:S\.\s*\d+|\d{1,2}:\d{2}(?::\d{2})?)(?:\s*\|[^\]】]+)?[\]】]"
-)
-
 
 # Smaller models sometimes emit `[N] S. X` or `[N] MM:SS` (closing the bracket
 # before the position label). Repair to `[N, S. X]` / `[N, MM:SS]` so the
@@ -115,44 +106,6 @@ async def _classify_intent(llm, question: str) -> str:
     verdict = "GENERIC" if "GENERIC" in cleaned.split() else "SPECIFIC"
     logger.info("Intent classifier raw='{}' → {}", raw[:50], verdict)
     return verdict
-
-
-async def _rewrite_query(llm, history: list[dict], question: str) -> str:
-    """Condense follow-up question to standalone using conversation history.
-
-    Returns original question if rewrite fails, output is empty, or result is
-    suspiciously long (defensive against LLM over-elaboration). Runs in a
-    worker thread so a stalled provider cannot block the event loop.
-    """
-    import asyncio
-    hist_text = "\n".join(
-        f"{m['role']}: {_CITATION_RE.sub('', m['content'])}" for m in history
-    )
-    messages = [
-        {"role": "system", "content": AIA_QUERY_REWRITE},
-        {
-            "role": "user",
-            "content": f"History:\n{hist_text}\n\nLatest: {question}\nOutput:",
-        },
-    ]
-    def _call():
-        # 60s covers Ollama cold-start model load (see _classify_intent).
-        return llm._client.with_options(timeout=60.0, max_retries=0).chat.completions.create(
-            model=llm._model,
-            messages=messages,
-            temperature=0.0,
-            max_tokens=300,
-            **(llm._extra_body and {"extra_body": llm._extra_body} or {}),
-        )
-    try:
-        response = await asyncio.to_thread(_call)
-        rewritten = (response.choices[0].message.content or "").strip()
-    except Exception as e:
-        logger.warning("Query rewrite failed, using original: {}", e)
-        return question
-    if not rewritten or len(rewritten) > 1000:
-        return question
-    return rewritten
 
 
 async def _generate_search_strategy(llm, question: str) -> list[str]:
@@ -542,8 +495,8 @@ async def chat(
         logger.info("Chat: intent classifier returned after {:.1f}s", _time.monotonic() - _t0)
     logger.info("Chat intent: {} ('{}' across {} sources)", intent, body.question[:60], len(source_ids or []))
 
-    # Default: question is used as-is. Only on the hybrid-search path with history
-    # is it potentially rewritten (condense question).
+    # The question is always used as-is: no conversation history is sent to the
+    # LLM. Each turn is fully standalone (no follow-up condensing, no leaks).
     rewritten_question = body.question
 
     # Admin-tunable context budget (chars). Drives both the full-context-fits
@@ -571,24 +524,6 @@ async def chat(
             )
     else:
         # ── Normal path: hybrid search ──
-        # Query rewriting (condense question): on a real follow-up, condense history into
-        # a standalone question so the answer call stays history-free.
-        # Skip for popup (source_text) and first question (no history).
-        if not body.source_text:
-            history_for_rewrite = db.get_aia_messages(
-                workspace["id"], user_id, limit=4, enrollment_id=enrollment_id,
-                include_aborted=False,
-            )
-            if history_for_rewrite:
-                rewritten_question = await _rewrite_query(
-                    llm, history_for_rewrite, body.question
-                )
-                if rewritten_question != body.question:
-                    logger.info(
-                        "Query rewritten: '{}' -> '{}'",
-                        body.question[:80], rewritten_question[:80],
-                    )
-
         from src.services.aia_embeddings import get_embedding_provider
         provider = get_embedding_provider()
 
@@ -785,9 +720,8 @@ async def chat(
         system_prompt = aia_system_rag(chat_lang)
         user_message = aia_rag_user_message(context, rewritten_question)
 
-    # Single-turn: system + user (no history in the answer call, to prevent leaks
-    # from previous turns). History context was processed in the query
-    # rewriter if needed and flowed into rewritten_question.
+    # Single-turn: system + user. No conversation history is ever sent, so a
+    # previous turn cannot leak into this answer; each question stands alone.
     messages: list[dict] = [
         {"role": "system", "content": system_prompt},
         {"role": "user", "content": user_message},

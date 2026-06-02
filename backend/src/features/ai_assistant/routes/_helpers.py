@@ -571,6 +571,13 @@ class SourceUnitLoader:
         from ._page_geometry import offset_suffix as _os
         return _os(source, page_number, claim, self._page_text_cache)
 
+    def offset_suffixes(self, source: dict, page_number: int, claim: str) -> list[str]:
+        """One ``@start-end | span`` per region the claim draws from on the page
+        (primary first). Empty list when no confident span exists. The caller emits a
+        chip per suffix; adjacent same-page chips merge into one multi-region highlight."""
+        from ._page_geometry import offset_suffixes as _oss
+        return _oss(source, page_number, claim, self._page_text_cache)
+
     def units(self, source: dict, *, is_media: bool) -> list:
         from ._citation_match import Unit
         sid = source["id"]
@@ -615,7 +622,7 @@ def resolve_citation_positions(text: str, sources: dict, loader) -> str:
     units, never silently re-attributed to a different source."""
     from ._citation_match import match_query  # local: _citation_match imports from this module
     _get_furniture = getattr(loader, "furniture", None)
-    _offset_suffix = getattr(loader, "offset_suffix", None)
+    _offset_suffixes = getattr(loader, "offset_suffixes", None)
 
     def _sub(m: "re.Match", line_text: str) -> str:
         qnum = int(m.group(1)) if m.group(1) else (min(sources) if sources else None)
@@ -638,16 +645,17 @@ def resolve_citation_positions(text: str, sources: dict, loader) -> str:
         typed = _parse_ts(time_str) if time_str else (int(page_str) if page_str else None)
 
         def _pdf_chip(page_n: int, fallback_suffix: str) -> str:
-            """Build a PDF chip, preferring an exact ``@start-end | span`` offset
-            anchor (Architecture B) computed from the cited line, and falling back
-            to ``fallback_suffix`` (keyword / position-only) when none is found."""
-            if _offset_suffix is not None and page_n is not None:
+            """Build PDF chip(s), preferring exact ``@start-end | span`` offset anchors
+            (Architecture B) computed from the cited line. A line that draws from several
+            spots on the page yields one chip per region (adjacent, same source+page →
+            merged client-side). Falls back to ``fallback_suffix`` when none is found."""
+            if _offset_suffixes is not None and page_n is not None:
                 try:
-                    os_suf = _offset_suffix(meta["source"], page_n, line_text)
+                    sufs = _offset_suffixes(meta["source"], page_n, line_text)
                 except Exception:
-                    os_suf = None
-                if os_suf:
-                    return f"[{qnum}, S. {page_n}{os_suf}]"
+                    sufs = None
+                if sufs:
+                    return " ".join(f"[{qnum}, S. {page_n}{s}]" for s in sufs)
             return f"[{qnum}, S. {page_n}{fallback_suffix}]"
 
         r = match_query(kw, units, typed_pos=typed) if kw else None
@@ -708,6 +716,10 @@ import re as _re
 _HEADING = _re.compile(r"^\s{0,3}#{1,6}\s")
 _TABLE_SEP = _re.compile(r"^\s*\|?\s*:?-{2,}")
 _LIST_OR_TEXT = _re.compile(r"^\s*(?:[-*+]\s+|\d+[.)]\s+|\S)")
+# A Markdown thematic break / horizontal rule: 3+ of the same '-', '*' or '_'
+# (optionally space-separated), nothing else. It is a separator, NOT a claim, so it
+# must never receive a citation.
+_THEMATIC_BREAK = _re.compile(r"^\s{0,3}([-*_])(?:\s*\1){2,}\s*$")
 
 
 def is_citable_line(line: str, *, in_summary: bool) -> bool:
@@ -716,6 +728,8 @@ def is_citable_line(line: str, *, in_summary: bool) -> bool:
     if not s or in_summary:
         return False
     if _HEADING.match(line):
+        return False
+    if _THEMATIC_BREAK.match(s):
         return False
     if s.startswith("|") and _TABLE_SEP.match(s):
         return False
@@ -895,7 +909,7 @@ def fill_uncited_lines(text: str, sources: dict, loader) -> str:
     # Local import: _citation_match imports from _helpers, so a module-level
     # import would create a circular dependency.
     from ._citation_match import match_query  # noqa: PLC0415
-    _offset_suffix = getattr(loader, "offset_suffix", None)
+    _offset_suffixes = getattr(loader, "offset_suffixes", None)
 
     def _best_match(query: str):
         best = None  # (score, qnum, unit, is_media)
@@ -936,22 +950,26 @@ def fill_uncited_lines(text: str, sources: dict, loader) -> str:
         # lands on the right sentence (not the first overlapping word on the page).
         kw = _overlap_phrase(match_text, _best_subsegment(match_text, unit.raw_text or ""))
         pos = _format_timestamp(unit.start_time) if is_media else f"S. {unit.page}"
-        # Architecture B: exact ``@start-end | span`` offset anchor for PDF citations.
-        off = None
-        if not is_media and _offset_suffix is not None and unit.page is not None:
+        # Architecture B: exact ``@start-end | span`` offset anchor(s) for PDF citations.
+        # A line that draws from several spots on the page yields several suffixes.
+        offs: list[str] = []
+        if not is_media and _offset_suffixes is not None and unit.page is not None:
             try:
-                off = _offset_suffix(sources[qnum]["source"], unit.page, match_text)
+                offs = _offset_suffixes(sources[qnum]["source"], unit.page, match_text) or []
             except Exception:
-                off = None
+                offs = []
         stripped = line.rstrip()
         if stripped.startswith("|") and stripped.endswith("|"):
             # Markdown table row: put the chip INSIDE the last cell (before the closing
             # pipe) so it renders, and use the non-pipe separator ❘ so the span/keyword
-            # text can never split the cell.
-            body = off.replace(" | ", " ❘ ", 1) if off else f" ❘ {kw}"
+            # text can never split the cell. One chip only — a cell can't hold several.
+            off0 = offs[0] if offs else None
+            body = off0.replace(" | ", " ❘ ", 1) if off0 else f" ❘ {kw}"
             out_lines.append(f"{stripped[:-1].rstrip()} [{qnum}, {pos}{body}] |")
+        elif offs:
+            # One chip per region; adjacent same-source+page chips merge client-side.
+            out_lines.append(stripped + "".join(f" [{qnum}, {pos}{s}]" for s in offs))
         else:
-            body = off if off else f" | {kw}"
-            out_lines.append(f"{stripped} [{qnum}, {pos}{body}]")
+            out_lines.append(f"{stripped} [{qnum}, {pos} | {kw}]")
     return "\n".join(out_lines)
 
