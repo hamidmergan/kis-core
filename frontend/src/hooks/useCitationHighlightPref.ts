@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 const STORAGE_KEY = "ki-assistent-pdf-highlight-enabled";
 const CHANGE_EVENT = "ki-assistent-pdf-highlight-pref:change";
@@ -28,6 +28,8 @@ function readPref(): boolean {
 // event + cross-tab storage event pattern so all open viewers stay in sync.
 export function useCitationHighlightPref(): { enabled: boolean; toggle: () => void } {
   const [enabled, setEnabled] = useState(true);
+  const enabledRef = useRef(enabled);
+  enabledRef.current = enabled;
 
   useEffect(() => {
     setEnabled(readPref());
@@ -48,13 +50,16 @@ export function useCitationHighlightPref(): { enabled: boolean; toggle: () => vo
     };
   }, []);
 
+  // Side effects (storage write + event dispatch) run here in the event handler,
+  // NOT inside the setEnabled updater. An updater runs during React's render
+  // phase, and dispatching there would synchronously trigger setState in other
+  // listeners (e.g. PdfViewer) mid-render — the "Cannot update a component while
+  // rendering a different component" warning.
   const toggle = useCallback(() => {
-    setEnabled((prev) => {
-      const next = !prev;
-      try { localStorage.setItem(STORAGE_KEY, next ? "1" : "0"); } catch { /* ignore */ }
-      try { window.dispatchEvent(new CustomEvent(CHANGE_EVENT, { detail: next })); } catch { /* ignore */ }
-      return next;
-    });
+    const next = !enabledRef.current;
+    setEnabled(next);
+    try { localStorage.setItem(STORAGE_KEY, next ? "1" : "0"); } catch { /* ignore */ }
+    try { window.dispatchEvent(new CustomEvent(CHANGE_EVENT, { detail: next })); } catch { /* ignore */ }
   }, []);
 
   return { enabled, toggle };
