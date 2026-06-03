@@ -89,6 +89,16 @@ def test_feed_line_unverified_chunk_dropped_then_filler_grounds():
     assert "[1, S. 2" in out                     # filler grounded to the real page
 
 
+def test_feed_line_dedups_chips_resolving_to_same_position():
+    # Two chips on one line ground to the SAME page -> the live grounder shows one.
+    units = {1: [Unit(5, None, None, "Der Algorithmus sortiert schnell in n log n")]}
+    g = CitationGrounder(_sources(units), _Loader(units),
+                         [{"qnum": 1, "uuid": "u1", "filename": "f.pdf"}])
+    out = g.feed_line("Der Algorithmus sortiert schnell. [1, S. 9 | Algorithmus] [1, S. 9 | sortiert]")
+    assert out.count("[1, S. 5") == 1
+    assert "S. 9" not in out
+
+
 def test_feed_sequence_matches_full_pipeline_for_prose():
     # The line-by-line result joined equals the canonical batch grounding for a
     # plain prose answer (the common, must-be-flicker-free case).

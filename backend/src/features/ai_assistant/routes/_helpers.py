@@ -737,6 +737,41 @@ def resolve_citation_positions(text: str, sources: dict, loader) -> str:
     return out
 
 
+def _dedup_line_chips(line: str) -> str:
+    """Drop chips on a line that point to the SAME source + position as an earlier chip
+    on that line (keep the first). The model — and the uncited-line filler — sometimes
+    emit two chips for one claim that resolve to the identical spot, e.g.
+    '... Fragen [1, 37:24 | a]. [1, 37:24 | b]'. The dedup key is the chip WITHOUT its
+    keyword, so distinct highlight regions on the same page (different ``@start-end``
+    offsets) are preserved while a truly identical position collapses. Per line only —
+    the same position may legitimately recur on a different line/sentence."""
+    seen: set = set()
+
+    def _key(chip: str) -> str:
+        # Everything up to the keyword separator: source + position (+ @offset), so two
+        # chips differing only in their keyword (same visible '[N] pos') are duplicates.
+        sep = max(chip.rfind("|"), chip.rfind("❘"))
+        head = chip[:sep] if sep != -1 else chip.rstrip("]】")
+        return re.sub(r"\s+", " ", head).strip().lower()
+
+    def _sub(m: "re.Match") -> str:
+        k = _key(m.group(0))
+        if k in seen:
+            return ""           # duplicate source+position -> drop this chip
+        seen.add(k)
+        return m.group(0)
+
+    out = _CITE_RESOLVE_RE.sub(_sub, line)
+    out = re.sub(r"[ \t]+([.,;:!?])", r"\1", out)
+    out = re.sub(r"[ \t]{2,}", " ", out)
+    return out.rstrip()
+
+
+def _dedup_chips(text: str) -> str:
+    """Apply :func:`_dedup_line_chips` per line (chip de-duplication is line-scoped)."""
+    return "\n".join(_dedup_line_chips(line) for line in text.split("\n"))
+
+
 import re as _re
 
 _HEADING = _re.compile(r"^\s{0,3}#{1,6}\s")

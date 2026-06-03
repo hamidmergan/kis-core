@@ -15,6 +15,7 @@ from ._helpers import (
     _CITE_RESOLVE_RE,
     _SUMMARY_HEADING_RE,
     _chipify_inline_refs,
+    _dedup_line_chips,
     _sanitize_citations,
     fill_uncited_lines,
     resolve_citation_positions,
@@ -62,8 +63,11 @@ class CitationGrounder:
                 resolved = _CITE_RESOLVE_RE.sub("", resolved)
                 resolved = re.sub(r"[ \t]+([.,;:!?])", r"\1", resolved)
                 resolved = re.sub(r"[ \t]{2,}", " ", resolved).rstrip()
-            return resolved
+            return _dedup_line_chips(resolved)
         resolved = fill_uncited_lines(resolved, self._sources, self._loader)
+        # Drop a chip that points to the same source+position as another on this line
+        # (model/filler can both land on the identical spot) -> never show it twice.
+        resolved = _dedup_line_chips(resolved)
         if _CITE_RESOLVE_RE.search(resolved):
             self._seen_cited_body = True
         return resolved

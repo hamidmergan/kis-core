@@ -351,6 +351,7 @@ from src.features.ai_assistant.routes._helpers import (
     _norm_for_match,
     _resolve_citation_pages,
     _strip_summary_citations,
+    _dedup_chips,
     _chipify_inline_refs,
     _build_page_regions,
     SourceUnitLoader,
@@ -934,6 +935,9 @@ async def chat(
                 _resolved = fill_uncited_lines(_resolved, coverage_sources, _unit_loader)
             except Exception as e:
                 logger.warning("coverage fill failed, using ungrounded answer: {}", e)
+            # Collapse duplicate chips that point to the same source+position on a line
+            # (keeps distinct @offset highlight regions; matches the live grounder).
+            _resolved = _dedup_chips(_resolved)
             answer = _strip_summary_citations(_resolved)
 
             # Push the real question + answer onto the aia-chat trace; the
