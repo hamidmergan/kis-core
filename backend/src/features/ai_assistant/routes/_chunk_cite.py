@@ -14,7 +14,7 @@ from __future__ import annotations
 import re
 
 from ._citation_match import Unit, match_query
-from ._helpers import _CITE_RESOLVE_RE, _format_timestamp, _strip_html
+from ._helpers import _CITE_RESOLVE_RE, _format_timestamp, _strip_html, _strip_toc_lines
 
 # A chunk-id citation as the model emits it: the position is `#C`, not a page/timestamp.
 # `_CITE_RESOLVE_RE` (page/time form) deliberately does NOT match this, so the legacy
@@ -29,6 +29,12 @@ def _verify(claim: str, content: str, *, is_media: bool) -> bool:
     is a pure 'is this claim in THIS chunk?' check."""
     if not claim.strip() or not content.strip():
         return False
+    # Drop table-of-contents/index lines first: a claim must not "verify" against a chunk
+    # merely because the topic word sits in that chunk's index entry (media has none).
+    if not is_media:
+        content = _strip_toc_lines(content)
+        if not content.strip():
+            return False
     unit = Unit(page=None, start_time=None, end_time=None, raw_text=content)
     return match_query(claim, [unit], stem_match=is_media).unit is not None
 

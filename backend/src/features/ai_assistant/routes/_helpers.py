@@ -175,6 +175,25 @@ def _strip_html(s: str) -> str:
     return re.sub(r"\s+", " ", s).strip()
 
 
+# A table-of-contents / index / list-of-figures entry: a dotted leader run (4+ dots,
+# so a normal 3-dot ellipsis is NOT caught) followed by a page-reference number. Such
+# a line carries the topic keyword verbatim ("Vektorgrafik ........ 4"), so a claim
+# about that topic would wrongly ground to the index page instead of the real content
+# section. Structure-only -> language-agnostic (KIS is multi-tenant). Limitation:
+# leaders that aren't solid ASCII dots (spaced dots, whitespace alignment) aren't caught.
+_TOC_LEADER_RE = re.compile(r"\.{4,}\s*\d{1,4}")
+
+
+def _strip_toc_lines(text: str) -> str:
+    """Drop lines that are table-of-contents / index entries (dotted leader + page
+    number). Works per line, so genuine prose on the same chunk is preserved; a chunk
+    that is ENTIRELY such entries collapses to '' and then matches nothing (intended —
+    the index page is never the right citation target)."""
+    if not text or "." not in text:
+        return text
+    return "\n".join(ln for ln in text.split("\n") if not _TOC_LEADER_RE.search(ln))
+
+
 # ─── Header/footer de-weighting for citation grounding ──────────────────────
 # A name or term in a running header/footer (page furniture, slide credits)
 # repeats across pages and can outrank the body slide that actually covers the
@@ -622,8 +641,12 @@ class SourceUnitLoader:
                 # Drop docling table/markup so matching + highlight anchors run on
                 # clean visible text, never on HTML tag soup.
                 body = _strip_html(body)
+                body = body or _strip_html(c["content"])
+                # Drop table-of-contents/index entries (dotted leader + page number) so a
+                # claim never grounds to the index page instead of the real content section.
+                body = _strip_toc_lines(body)
                 units.append(Unit(page=c["page_number"], start_time=None,
-                                  end_time=None, raw_text=body or _strip_html(c["content"])))
+                                  end_time=None, raw_text=body))
             # Restrict to the pages the model actually saw (when known), so a claim is
             # only ever grounded to a page it could have come from. Furniture is still
             # detected across ALL pages above; only the candidate set shrinks here.
