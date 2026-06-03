@@ -37,7 +37,7 @@ class MatchResult:
 
 
 # Calibrated later against the audit eval; these are starting values.
-FUZZY_THRESHOLD = 0.6   # min token-containment for a fuzzy hit
+FUZZY_THRESHOLD = 0.5   # min token-containment for a fuzzy hit
 UNIQUENESS_MARGIN = 0.15  # best must beat 2nd-best by this much
 
 
