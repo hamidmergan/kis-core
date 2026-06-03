@@ -46,6 +46,49 @@ def test_feed_line_keeps_summary_chip_free_after_cited_body():
     assert "[1" not in out  # stripped inside summary
 
 
+def _reg(entries):
+    # cid -> registry entry; entries: {cid: (qnum, page, content)}
+    return {cid: {"qnum": qn, "source": {"id": qn}, "is_media": False,
+                  "page": page, "start_time": None, "end_time": None, "content": content}
+            for cid, (qn, page, content) in entries.items()}
+
+
+def test_feed_line_grounds_chunk_id_citation():
+    # The model cites the CHUNK it used (`#7`); we resolve it to the chunk's real page.
+    units = {1: [Unit(5, None, None, "Der Algorithmus sortiert schnell in n log n")]}
+    reg = _reg({7: (1, 5, "Der Algorithmus sortiert schnell in n log n")})
+    g = CitationGrounder(_sources(units), _Loader(units),
+                         [{"qnum": 1, "uuid": "u1", "filename": "f.pdf"}], reg)
+    out = g.feed_line("Der Algorithmus sortiert schnell. [1, #7 | Algorithmus sortiert]")
+    assert "[1, S. 5" in out
+    assert "#" not in out                       # no raw chunk marker leaks
+
+
+def test_feed_line_chunk_id_page_is_authoritative_over_keyword_reground():
+    # The same keyword text also lives on page 3, which the legacy keyword resolver
+    # would pick. The chunk id pins the real page (5) and must win.
+    units = {1: [Unit(3, None, None, "Der Algorithmus sortiert schnell"),
+                 Unit(5, None, None, "Der Algorithmus sortiert schnell")]}
+    reg = _reg({7: (1, 5, "Der Algorithmus sortiert schnell")})
+    g = CitationGrounder(_sources(units), _Loader(units),
+                         [{"qnum": 1, "uuid": "u1", "filename": "f.pdf"}], reg)
+    out = g.feed_line("Der Algorithmus sortiert schnell. [1, #7 | Algorithmus sortiert]")
+    assert "[1, S. 5" in out and "S. 3" not in out
+
+
+def test_feed_line_unverified_chunk_dropped_then_filler_grounds():
+    # The named chunk does NOT contain the claim -> chip dropped; the uncited-line
+    # filler then grounds the line against the real units (page 2). Safety net intact.
+    units = {1: [Unit(2, None, None, "die methode nutzt einen test zur pruefung")]}
+    reg = _reg({7: (1, 9, "voellig anderes thema ohne jeden bezug")})
+    g = CitationGrounder(_sources(units), _Loader(units),
+                         [{"qnum": 1, "uuid": "u1", "filename": "f.pdf"}], reg)
+    out = g.feed_line("Die Methode nutzt einen Test. [1, #7 | Methode Test]")
+    assert "#" not in out
+    assert "S. 9" not in out                     # the bogus chunk page never appears
+    assert "[1, S. 2" in out                     # filler grounded to the real page
+
+
 def test_feed_sequence_matches_full_pipeline_for_prose():
     # The line-by-line result joined equals the canonical batch grounding for a
     # plain prose answer (the common, must-be-flicker-free case).

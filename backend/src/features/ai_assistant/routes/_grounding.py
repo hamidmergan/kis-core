@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import re
 
+from ._chunk_cite import resolve_chunk_refs
 from ._helpers import (
     _CITE_RESOLVE_RE,
     _SUMMARY_HEADING_RE,
@@ -27,12 +28,14 @@ class CitationGrounder:
     loader:  SourceUnitLoader (or a stub exposing .units / optional .offset_suffixes /
              .furniture).
     source_qmap: the [{qnum, uuid, filename, is_media}] list (for _chipify_inline_refs).
+    registry: {chunk_id: {...}} for the model's CHUNK-id citations (see _chunk_cite).
     """
 
-    def __init__(self, sources: dict, loader, source_qmap: list) -> None:
+    def __init__(self, sources: dict, loader, source_qmap: list, registry: dict | None = None) -> None:
         self._sources = sources
         self._loader = loader
         self._qmap = source_qmap
+        self._registry = registry or {}
         self._in_summary = False
         self._seen_cited_body = False
 
@@ -44,7 +47,12 @@ class CitationGrounder:
         # multiple summary headings — reconciled by the final `done` event (see spec).
         if _SUMMARY_HEADING_RE.match(line):
             self._in_summary = True
-        resolved = resolve_citation_positions(line, self._sources, self._loader)
+        # The model cites the CHUNK it used (`[N, #C | kw]`); resolve those to verified
+        # real page/timestamp chips FIRST. When this line carried a chunk-id citation we
+        # trust it (authoritative) and skip the legacy keyword resolver; otherwise fall
+        # back to it for old-format / uncited lines.
+        had_chunk_ref, line = resolve_chunk_refs(line, self._registry, self._loader)
+        resolved = line if had_chunk_ref else resolve_citation_positions(line, self._sources, self._loader)
         if self._in_summary:
             # Mirror _strip_summary_citations: only strip once a cited body has
             # preceded the heading; otherwise this is a summary-style TITLE and we

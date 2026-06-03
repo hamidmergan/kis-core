@@ -362,6 +362,7 @@ from src.features.ai_assistant.routes._helpers import (
     _sanitize_citations,
 )
 from src.features.ai_assistant.routes._grounding import CitationGrounder
+from src.features.ai_assistant.routes._chunk_cite import resolve_chunk_refs
 from src.features.ai_assistant import schemas
 
 router = APIRouter(tags=["ki-assistent: chat"])
@@ -643,6 +644,12 @@ async def chat(
     context_len = 0
     source_index: dict[int, dict] = {}
     qnum_to_source_id: dict[int, int] = {}
+    # Per-chunk citation registry: the model cites a chunk by its `id` (the `id`
+    # attribute on its <document> block), and we map that id back to the chunk's REAL
+    # page/timestamp + content for verified grounding (see _chunk_cite.resolve_chunk_refs).
+    # cid runs 1..K over the chunks that ACTUALLY fit in context (the ones the model saw).
+    chunk_registry: dict[int, dict] = {}
+    cid_counter = 0
     from collections import Counter
     sent_per_source: Counter = Counter()
     for chunk in chunks:
@@ -656,16 +663,31 @@ async def chat(
         else:
             content = chunk["content"]
             loc = f"S. {chunk['page_number']}"
-        part = f'<document index="{qn}">\n<source>{fname} | {loc}</source>\n<content>\n{content}\n</content>\n</document>'
+        # Provisional id for THIS chunk; only consumed if the chunk fits the budget,
+        # so ids stay gap-free and match exactly what the model sees in the context.
+        cid = cid_counter + 1
+        part = (f'<document index="{qn}" id="{cid}">\n<source>{fname} | {loc}</source>\n'
+                f'<content>\n{content}\n</content>\n</document>')
         if context_len + len(part) > context_budget:
             continue  # skip this oversized chunk, keep packing smaller later ones (don't drop the whole tail)
+        cid_counter = cid
         context_parts.append(part)
         context_len += len(part)
         sent_per_source[chunk["source_id"]] += 1
         is_media_chunk = chunk.get("start_time") is not None
         qnum_to_source_id[qn] = chunk["source_id"]
+        chunk_registry[cid] = {
+            "qnum": qn,
+            "source": src,                 # source row (id/uuid/filename) for loader + offsets
+            "is_media": is_media_chunk,
+            "page": None if is_media_chunk else chunk["page_number"],
+            "start_time": chunk.get("start_time"),
+            "end_time": chunk.get("end_time"),
+            "content": content,            # exact text the model saw (media-enriched if media)
+        }
         si = source_index.setdefault(qn, {"is_media": False, "pages": set(), "chunks": []})
         si["chunks"].append({
+            "cid": cid,
             "page": None if is_media_chunk else chunk["page_number"],
             "start_time": chunk.get("start_time"),
             "norm_content": _norm_for_match(content),
@@ -812,7 +834,7 @@ async def chat(
                 for qn in source_index if qnum_to_source_id.get(qn) in all_sources_list
             }
             _unit_loader = SourceUnitLoader(seen_pages_by_source=seen_pages_by_source)
-            _grounder = CitationGrounder(coverage_sources, _unit_loader, source_qmap)
+            _grounder = CitationGrounder(coverage_sources, _unit_loader, source_qmap, chunk_registry)
             _line_buf = ""
             _line_idx = 0
             aborted = False
@@ -888,17 +910,23 @@ async def chat(
                 yield f"data: {json.dumps({'line_done': {'index': _line_idx, 'text': _grounded}})}\n\n"
                 _line_idx += 1
 
-            # First repair malformed `[N] S.X` -> `[N, S.X]`, then re-ground each
-            # citation's page/timestamp against the real chunks via its keyword,
-            # dropping any citation that can't be grounded (anti-hallucination).
-            # After resolving, fill groundable lines that the model left uncited,
-            # then strip citations from the closing summary section.
+            # First repair malformed `[N] S.X` -> `[N, S.X]`. Then resolve the model's
+            # CHUNK-id citations (`[N, #C | kw]`) into verified, real page/timestamp chips
+            # — authoritative, so we skip the legacy keyword resolver where they ran.
+            # Lines the model cited the OLD way (or not at all) fall through to the
+            # keyword resolver + the uncited-line filler (the safety net). Finally strip
+            # citations from the closing summary section.
             _chipified = _chipify_inline_refs(
                 _sanitize_citations("".join(answer_parts).strip()),
                 source_qmap,
             )
             try:
-                _resolved = resolve_citation_positions(_chipified, coverage_sources, _unit_loader)
+                _had_chunk_ref, _chipified = resolve_chunk_refs(_chipified, chunk_registry, _unit_loader)
+            except Exception as e:
+                logger.warning("chunk-id citation resolve failed, falling back to keyword resolver: {}", e)
+                _had_chunk_ref = False
+            try:
+                _resolved = _chipified if _had_chunk_ref else resolve_citation_positions(_chipified, coverage_sources, _unit_loader)
             except Exception as e:
                 logger.warning("precise citation re-grounding failed, using base resolver: {}", e)
                 _resolved = _resolve_citation_pages(_chipified, source_index)
