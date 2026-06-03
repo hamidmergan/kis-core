@@ -791,13 +791,27 @@ async def chat(
             yield f"data: {json.dumps({'qmap': source_qmap, 'source_pages': source_pages})}\n\n"
             # Built once here (was previously built after the loop) so each line can
             # be grounded live. Reused by the canonical finalize block below.
+            # Pages the model ACTUALLY saw per source (context-budgeted chunks). Used
+            # to restrict citation grounding to seen pages, so a claim is only grounded
+            # to a page it could have come from — never to another page of the document
+            # that merely shares the same words (the cross-page tie problem).
+            seen_pages_by_qn = {
+                qn: {c["page"] for c in si["chunks"] if c.get("page") is not None}
+                for qn, si in source_index.items() if not si["is_media"]
+            }
+            seen_pages_by_source = {
+                qnum_to_source_id[qn]: pages
+                for qn, pages in seen_pages_by_qn.items() if qn in qnum_to_source_id
+            }
             coverage_sources = {
                 qn: {"source": all_sources_list[qnum_to_source_id[qn]],
                      "is_media": source_index[qn]["is_media"],
-                     "pages": source_index[qn].get("pages", set())}
+                     # Validity set = the seen pages (fall back to all real pages for
+                     # media / when no seen pages were recorded).
+                     "pages": seen_pages_by_qn.get(qn) or source_index[qn].get("pages", set())}
                 for qn in source_index if qnum_to_source_id.get(qn) in all_sources_list
             }
-            _unit_loader = SourceUnitLoader()
+            _unit_loader = SourceUnitLoader(seen_pages_by_source=seen_pages_by_source)
             _grounder = CitationGrounder(coverage_sources, _unit_loader, source_qmap)
             _line_buf = ""
             _line_idx = 0

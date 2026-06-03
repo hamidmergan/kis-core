@@ -567,16 +567,22 @@ def _term_appears_in_text(term: str, text_lower: str) -> bool:
 
 
 class SourceUnitLoader:
-    """Loads a source's FULL set of position-bearing units once per request.
+    """Loads a source's position-bearing units once per request.
 
-    PDF/doc/pptx -> page-chunks via get_aia_chunks_by_source (each chunk is one page).
-    Media -> transcript segments via _load_transcript_segments.
-    NOTE: deliberately NOT source_index (which holds only context-budgeted chunks)."""
+    PDF/doc/pptx -> page-chunks via get_aia_chunks_by_source. Media -> transcript
+    segments via _load_transcript_segments.
 
-    def __init__(self) -> None:
+    ``seen_pages_by_source`` (optional) maps source id -> the set of PDF pages the
+    model actually saw in context. When given (and non-empty) for a source, PDF units
+    are restricted to those pages, so a citation can only ever be grounded to a page
+    the model could have used — not to some other page of the document that merely
+    happens to contain the same words. Absent / empty set -> no restriction."""
+
+    def __init__(self, seen_pages_by_source: "dict[int, set] | None" = None) -> None:
         self._cache: dict[int, list] = {}
         self._furniture: dict[int, set] = {}
         self._page_text_cache: dict = {}
+        self._seen_pages = seen_pages_by_source or {}
 
     def offset_suffix(self, source: dict, page_number: int, claim: str) -> "str | None":
         """Architecture B: exact ``@start-end | span`` for a PDF citation, computed
@@ -618,6 +624,12 @@ class SourceUnitLoader:
                 body = _strip_html(body)
                 units.append(Unit(page=c["page_number"], start_time=None,
                                   end_time=None, raw_text=body or _strip_html(c["content"])))
+            # Restrict to the pages the model actually saw (when known), so a claim is
+            # only ever grounded to a page it could have come from. Furniture is still
+            # detected across ALL pages above; only the candidate set shrinks here.
+            seen = self._seen_pages.get(sid)
+            if seen:
+                units = [u for u in units if u.page in seen]
         self._cache[sid] = units
         return units
 
@@ -672,7 +684,7 @@ def resolve_citation_positions(text: str, sources: dict, loader) -> str:
                     return " ".join(f"[{qnum}, S. {page_n}{s}]" for s in sufs)
             return f"[{qnum}, S. {page_n}{fallback_suffix}]"
 
-        r = match_query(kw, units, typed_pos=typed) if kw else None
+        r = match_query(kw, units, typed_pos=typed, stem_match=meta["is_media"]) if kw else None
         if r and r.unit:
             if meta["is_media"]:
                 return f"[{qnum}, {_format_timestamp(r.unit.start_time)}{kw_suffix}]"
@@ -897,6 +909,15 @@ def _reground_by_line(line_text: str, units: list, *, furniture: set):
     r = match_query(q, units)
     if not r.unit or r.unit.page is None:
         return None
+    # UNIQUENESS: only override the keyword's page when the line points at ONE page.
+    # match_query's exact-substring branch has no uniqueness gate (and the fuzzy
+    # branch's margin is bypassed here as we pass no typed_pos), so a line whose text
+    # appears verbatim on several pages would otherwise resolve to the earliest unit.
+    # When that happens the line is ambiguous -> keep the keyword's page.
+    if r.match_type == "exact":
+        nq = _norm_for_match(q)
+        if len({u.page for u in units if nq in u.normalized() and u.page is not None}) > 1:
+            return None
     sub = _best_subsegment(q, r.unit.raw_text or "")
     anchor = _overlap_phrase(q, sub)
     if anchor and _kw_is_furniture(anchor, furniture):
@@ -922,16 +943,20 @@ def fill_uncited_lines(text: str, sources: dict, loader) -> str:
     loader:  SourceUnitLoader (or any object with .units(source, is_media=...))."""
     # Local import: _citation_match imports from _helpers, so a module-level
     # import would create a circular dependency.
-    from ._citation_match import match_query  # noqa: PLC0415
+    from ._citation_match import match_query_multi  # noqa: PLC0415
     _offset_suffixes = getattr(loader, "offset_suffixes", None)
 
     def _best_match(query: str):
-        best = None  # (score, qnum, unit, is_media)
+        # Best source by its top score; carry that source's near-tie units so an
+        # ambiguous claim (equal on several pages) yields a chip per page, not none.
+        best = None  # (top_score, qnum, [units], is_media)
         for qnum, meta in sources.items():
             units = loader.units(meta["source"], is_media=meta["is_media"])
-            r = match_query(query, units)
-            if r.unit and (best is None or r.score > best[0]):
-                best = (r.score, qnum, r.unit, meta["is_media"])
+            # Media: stem-aware matching so a paraphrased spoken-language line still
+            # grounds ("Schneeballprinzip" ↔ "Schneeballsystem"). PDF stays exact.
+            rs = match_query_multi(query, units, stem_match=meta["is_media"])
+            if rs and (best is None or rs[0].score > best[0]):
+                best = (rs[0].score, qnum, [r.unit for r in rs], meta["is_media"])
         return best
 
     out_lines, in_summary = [], False
@@ -959,31 +984,52 @@ def fill_uncited_lines(text: str, sources: dict, loader) -> str:
         if best is None:
             out_lines.append(line)          # below threshold -> deliberately no chip
             continue
-        _, qnum, unit, is_media = best
-        # Narrow a coarse page-chunk to the matched sentence first, so the anchor
-        # lands on the right sentence (not the first overlapping word on the page).
-        kw = _overlap_phrase(match_text, _best_subsegment(match_text, unit.raw_text or ""))
-        pos = _format_timestamp(unit.start_time) if is_media else f"S. {unit.page}"
-        # Architecture B: exact ``@start-end | span`` offset anchor(s) for PDF citations.
-        # A line that draws from several spots on the page yields several suffixes.
-        offs: list[str] = []
-        if not is_media and _offset_suffixes is not None and unit.page is not None:
-            try:
-                offs = _offset_suffixes(sources[qnum]["source"], unit.page, match_text) or []
-            except Exception:
-                offs = []
+        _, qnum, units_hit, is_media = best
+        source = sources[qnum]["source"]
+
+        def _anchor(unit):
+            # Narrow a coarse page-chunk to the matched sentence first, so the anchor
+            # lands on the right sentence (not the first overlapping word on the page).
+            kw = _overlap_phrase(match_text, _best_subsegment(match_text, unit.raw_text or ""))
+            pos = _format_timestamp(unit.start_time) if is_media else f"S. {unit.page}"
+            # Architecture B: exact ``@start-end | span`` offset anchor(s) for PDF citations.
+            offs: list[str] = []
+            if not is_media and _offset_suffixes is not None and unit.page is not None:
+                try:
+                    offs = _offset_suffixes(source, unit.page, match_text) or []
+                except Exception:
+                    offs = []
+            return pos, kw, offs
+
         stripped = line.rstrip()
-        if stripped.startswith("|") and stripped.endswith("|"):
-            # Markdown table row: put the chip INSIDE the last cell (before the closing
-            # pipe) so it renders, and use the non-pipe separator ❘ so the span/keyword
-            # text can never split the cell. One chip only — a cell can't hold several.
-            off0 = offs[0] if offs else None
-            body = off0.replace(" | ", " ❘ ", 1) if off0 else f" ❘ {kw}"
-            out_lines.append(f"{stripped[:-1].rstrip()} [{qnum}, {pos}{body}] |")
-        elif offs:
-            # One chip per region; adjacent same-source+page chips merge client-side.
-            out_lines.append(stripped + "".join(f" [{qnum}, {pos}{s}]" for s in offs))
+        is_table = stripped.startswith("|") and stripped.endswith("|")
+        if len(units_hit) == 1:
+            pos, kw, offs = _anchor(units_hit[0])
+            if is_table:
+                # Markdown table row: put the chip INSIDE the last cell (before the closing
+                # pipe) so it renders, and use the non-pipe separator ❘ so the span/keyword
+                # text can never split the cell.
+                off0 = offs[0] if offs else None
+                body = off0.replace(" | ", " ❘ ", 1) if off0 else f" ❘ {kw}"
+                out_lines.append(f"{stripped[:-1].rstrip()} [{qnum}, {pos}{body}] |")
+            elif offs:
+                # One chip per region; adjacent same-source+page chips merge client-side.
+                out_lines.append(stripped + "".join(f" [{qnum}, {pos}{s}]" for s in offs))
+            else:
+                out_lines.append(f"{stripped} [{qnum}, {pos} | {kw}]")
         else:
-            out_lines.append(f"{stripped} [{qnum}, {pos} | {kw}]")
+            # Ambiguous: the claim grounds equally on several pages the model saw -> one
+            # chip per page (its primary offset region or keyword). Better to show every
+            # candidate source than to drop the chip or gamble on the wrong page.
+            chips = []
+            for unit in units_hit:
+                pos, kw, offs = _anchor(unit)
+                body = offs[0] if offs else f" | {kw}"
+                chips.append(f"[{qnum}, {pos}{body}]")
+            if is_table:
+                cell = " ".join(c.replace(" | ", " ❘ ", 1) for c in chips)
+                out_lines.append(f"{stripped[:-1].rstrip()} {cell} |")
+            else:
+                out_lines.append(stripped + " " + " ".join(chips))
     return "\n".join(out_lines)
 

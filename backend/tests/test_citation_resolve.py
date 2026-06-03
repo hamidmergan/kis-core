@@ -176,3 +176,20 @@ def test_pdf_unique_keyword_page_not_overridden_by_line():
     src = {5: {"source": {"id": 5}, "is_media": False, "pages": {20, 21}}}
     out = resolve_citation_positions(text, src, _Loader(units))
     assert "[5, S. 21" in out
+
+
+def test_pdf_keyword_page_not_overridden_when_line_matches_many_pages():
+    # The keyword uniquely resolves to page 441. The cited line's own text, however,
+    # appears VERBATIM on both page 42 and page 441 (same wording in an early
+    # overview and again in the body). The line is therefore ambiguous and must NOT
+    # override the keyword's page -> the chip must stay on 441, not jump to the
+    # earliest page (42).
+    text = "Die Methode wird angewendet [5, S. 441 | Methode wird angewendet beim Verfahren]"
+    units = {5: [
+        Unit(42, None, None, "Die Methode wird angewendet Einleitung Ueberblick"),
+        Unit(441, None, None, "Die Methode wird angewendet beim Verfahren im Detail"),
+    ]}
+    src = {5: {"source": {"id": 5}, "is_media": False, "pages": {42, 441}}}
+    out = resolve_citation_positions(text, src, _Loader(units))
+    assert "[5, S. 441" in out
+    assert "[5, S. 42 " not in out and "[5, S. 42]" not in out

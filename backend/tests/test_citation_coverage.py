@@ -121,6 +121,38 @@ def test_main_clause_fallback_fills_bullet_with_parenthetical_gloss():
     assert "[5, S. 8 |" in out      # filled via the main clause, on the right page
 
 
+def test_ambiguous_line_gets_one_chip_per_near_tie_page():
+    # The claim's text appears equally well on two pages of the SAME source (e.g. a
+    # glossary term spanning the Abkuerzungsverzeichnis pages). Instead of dropping the
+    # chip the filler emits one chip per near-tie page -> the user sees both, never none.
+    text = "- Audio Engineering Society.\n"
+    units = [
+        Unit(page=440, start_time=None, end_time=None,
+             raw_text="Audio Engineering Society AES Abkuerzungsverzeichnis"),
+        Unit(page=441, start_time=None, end_time=None,
+             raw_text="Audio Engineering Society Standardisierung Norm"),
+    ]
+    sources = {1: {"source": {"id": 1}, "is_media": False}}
+    out = fill_uncited_lines(text, sources, _FakeLoader(units))
+    assert "[1, S. 440" in out
+    assert "[1, S. 441" in out
+
+
+def test_clear_winner_still_gets_single_chip():
+    # A line that grounds confidently on ONE page must still get exactly one chip.
+    text = "- Zotero und Citavi zur Literaturverwaltung.\n"
+    units = [
+        Unit(page=3, start_time=None, end_time=None, raw_text="ganz anderes thema ohne bezug"),
+        Unit(page=15, start_time=None, end_time=None,
+             raw_text="literaturverwaltung tools zotero citavi mendeley"),
+    ]
+    sources = {1: {"source": {"id": 1}, "is_media": False}}
+    out = fill_uncited_lines(text, sources, _FakeLoader(units))
+    assert "[1, S. 15 |" in out
+    assert "[1, S. 3" not in out
+    assert out.count("[1, S.") == 1
+
+
 def test_multi_source_picks_best():
     text = "- Zotero und Citavi Literaturverwaltung.\n"
     weak = [Unit(page=3, start_time=None, end_time=None, raw_text="ganz anderes thema ohne bezug")]
@@ -135,3 +167,15 @@ def test_multi_source_picks_best():
 
     out = fill_uncited_lines(text, sources, _Multi())
     assert "[2, S. 15 |" in out  # the strong source wins
+
+
+def test_media_stem_match_grounds_paraphrased_bullet():
+    # Media bullet paraphrases the transcript ("Schneeballsystem" vs spoken
+    # "Schneeballprinzip"); stem matching still grounds it to the segment. (PDF
+    # stays exact — see test_citation_match stem tests.)
+    text = "- Schneeballsystem und Literatur.\n"
+    units = [Unit(page=None, start_time=1040.0, end_time=1060.0,
+                  raw_text="von einer quelle ausgehend schneeballprinzip weitere literatur finden")]
+    sources = {1: {"source": {"id": 1}, "is_media": True}}
+    out = fill_uncited_lines(text, sources, _FakeLoader(units))
+    assert "[1, 17:20" in out   # 1040s -> 17:20, grounded via stem match
