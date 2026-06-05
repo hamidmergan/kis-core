@@ -110,7 +110,7 @@ def run_index_source(self, source_uuid: str, locale: str = "de"):
 
             # 7. Embed chunks in batches of 20
             db.update_aia_source_progress(source_uuid, "embedding")
-            _EMBED_BATCH = 20
+            _EMBED_BATCH = 100
             for i in range(0, len(chunks), _EMBED_BATCH):
                 batch_chunks = chunks[i: i + _EMBED_BATCH]
                 batch_ids = chunk_ids[i: i + _EMBED_BATCH]
