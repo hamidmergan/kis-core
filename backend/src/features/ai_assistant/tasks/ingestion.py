@@ -182,25 +182,31 @@ def run_index_source(self, source_uuid: str, locale: str = "de"):
         db.clear_aia_source_progress(source_uuid)
 
     except Exception as e:
-        from src.services.aia_chunker import PdfNoReadableTextError
+        from src.services.aia_chunker import PdfNoReadableTextError, OcrFailedError
         from src.i18n import t
 
-        # Rate-limit / transient upstream → keep status, requeue task with backoff.
-        # Already-transcribed chunks are cached per source_uuid in Redis, so the
-        # retry skips them and only re-tries the chunk that failed.
-        msg = str(e).lower()
-        is_rate_limit = "429" in msg or "rate limit" in msg
-        if is_rate_limit and self.request.retries < 5:
-            countdown = min(30 * (2 ** self.request.retries), 120)  # 30s, 1m, 2m, 2m, 2m (capped)
-            logger.warning(
-                "KI Tutor: source {} hit rate limit (attempt {}/{}), retrying in {}s",
-                source_uuid, self.request.retries + 1, 5, countdown,
-            )
-            raise self.retry(exc=e, countdown=countdown, max_retries=5)
+        # OcrFailedError has already exhausted its own per-page 429/backoff
+        # retries. Do NOT re-run the whole document - mark it failed so the user
+        # can re-trigger later via the existing retry button (nothing is lost).
+        if not isinstance(e, OcrFailedError):
+            # Rate-limit / transient upstream → keep status, requeue task with backoff.
+            # Already-transcribed chunks are cached per source_uuid in Redis, so the
+            # retry skips them and only re-tries the chunk that failed.
+            msg = str(e).lower()
+            is_rate_limit = "429" in msg or "rate limit" in msg
+            if is_rate_limit and self.request.retries < 5:
+                countdown = min(30 * (2 ** self.request.retries), 120)  # 30s, 1m, 2m, 2m, 2m (capped)
+                logger.warning(
+                    "KI Tutor: source {} hit rate limit (attempt {}/{}), retrying in {}s",
+                    source_uuid, self.request.retries + 1, 5, countdown,
+                )
+                raise self.retry(exc=e, countdown=countdown, max_retries=5)
 
         logger.error("KI Tutor: indexing source {} failed: {}", source_uuid, e)
         if isinstance(e, PdfNoReadableTextError):
             error_message = t("ai.source.pdfNoReadableText", locale)
+        elif isinstance(e, OcrFailedError):
+            error_message = t("ai.source.ocrFailed", locale, page=e.page_number)
         else:
             error_message = str(e)
         db.update_aia_source_status(source_uuid, "failed", error_message=error_message)

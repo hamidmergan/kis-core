@@ -103,6 +103,10 @@ MESSAGES: dict[str, dict[str, str]] = {
         "de": "Das PDF enthält keinen lesbaren Text. Gescannte PDFs werden aktuell nicht unterstützt. Bitte konvertiere das PDF zuerst mit einem OCR-Tool (z.B. Adobe Acrobat oder online unter smallpdf.com).",
         "en": "The PDF does not contain readable text. Scanned PDFs are not supported. Please convert the PDF with an OCR tool first (e.g. Adobe Acrobat or online via smallpdf.com).",
     },
+    "ai.source.ocrFailed": {
+        "de": "OCR fehlgeschlagen auf Seite {page} - der Texterkennungs-Dienst war nach mehreren Versuchen nicht erreichbar (evtl. überlastet). Es ging nichts verloren: Bitte später erneut indexieren.",
+        "en": "OCR failed on page {page} - the text-recognition service stayed unreachable after several attempts (possibly overloaded). Nothing was lost: please re-index later.",
+    },
     "file.contentMismatch": {
         "de": "Dateiinhalt passt nicht zur Endung. Möglicherweise wurde die Datei umbenannt oder ist beschädigt.",
         "en": "File content does not match the extension. The file may have been renamed or is corrupted.",

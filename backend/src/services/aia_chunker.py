@@ -1,6 +1,7 @@
 """Document chunker for KI Tutor - extracts text chunks from PDF, DOCX, PPTX, TXT, and MD files."""
 
 import re
+import time
 
 from loguru import logger
 
@@ -12,6 +13,71 @@ class PdfNoReadableTextError(ValueError):
     using the source's creator locale. Carries no message body - the route /
     task is the only place that knows which locale to render in.
     """
+
+
+class OcrFailedError(RuntimeError):
+    """Raised when OCR for a page fails after all retries (incl. transient 429s).
+
+    The page-level retry below has already waited and re-OCR'd the same page up
+    to ``OCR_MAX_ATTEMPTS`` times. When it still fails we raise this instead of
+    silently dropping the page, so the indexing task marks the source 'failed'
+    with a localized message and the user can re-trigger later via the existing
+    retry button. The message deliberately carries no "429" so the task does NOT
+    re-run the whole document (the page-level retries already covered that).
+    """
+
+    def __init__(self, page_number: int):
+        self.page_number = page_number
+        super().__init__(f"OCR failed for page {page_number} after retries")
+
+
+# Per-page OCR retry budget. Transient upstream errors (rate limits, timeouts,
+# 5xx) are retried with exponential backoff before the page - and the whole
+# source - is failed loudly. Kept small: the OCR endpoint is shared, so a long
+# per-page retry storm would only deepen the contention it is reacting to.
+OCR_MAX_ATTEMPTS = 5
+
+_TRANSIENT_OCR_MARKERS = (
+    "429", "rate limit", "too many requests",
+    "timeout", "timed out",
+    "502", "503", "504", "bad gateway", "service unavailable", "gateway timeout",
+)
+
+
+def _is_transient_ocr_error(e: Exception) -> bool:
+    """True for upstream errors worth re-trying the SAME page (429/5xx/timeout).
+
+    String-based on purpose: OCR providers raise heterogeneous exception types
+    (httpx.HTTPStatusError, openai errors, RuntimeError) but all surface the
+    status/cause in their message. Mirrors the task-level rate-limit check.
+    """
+    msg = str(e).lower()
+    return any(m in msg for m in _TRANSIENT_OCR_MARKERS)
+
+
+def _ocr_image_with_retry(provider, png_bytes, page_number, *, attempts=OCR_MAX_ATTEMPTS, sleep=time.sleep):
+    """OCR one page image, retrying transient failures with exponential backoff.
+
+    Non-transient errors fail fast (retrying a deterministic error is pointless).
+    Either way, exhausting the budget raises ``OcrFailedError`` so nothing is
+    silently lost from the index. ``sleep`` is injectable for tests.
+    """
+    last_exc: Exception | None = None
+    for attempt in range(attempts):
+        try:
+            return provider.ocr_image(png_bytes, "image/png")
+        except Exception as e:
+            last_exc = e
+            if _is_transient_ocr_error(e) and attempt < attempts - 1:
+                wait = min(2 ** attempt, 30)  # 1s, 2s, 4s, 8s, capped 30s
+                logger.warning(
+                    "OCR page {} transient error (attempt {}/{}), retrying in {}s: {}",
+                    page_number, attempt + 1, attempts, wait, e,
+                )
+                sleep(wait)
+                continue
+            break
+    raise OcrFailedError(page_number) from last_exc
 
 # 1000 chars ≈ 250-333 tokens (German); 200 char overlap = 20% (LangChain default).
 # All supported embedding models (nomic-embed-text 2048 ctx, e5-mistral 4096 ctx) handle this comfortably.
@@ -172,6 +238,9 @@ def _extract_pdf(
             if ocr_provider is not None:
                 if progress_cb:
                     progress_cb("ocr", page_num + 1, total_pages)
+                # Render is local and deterministic - a failure here can't be
+                # fixed by retrying, so log and skip (no OCR for this page).
+                png_bytes = None
                 try:
                     # 200 DPI = scale factor 200/72 since pdfium native resolution is 72 DPI
                     bitmap = page.render(scale=200 / 72)
@@ -179,7 +248,17 @@ def _extract_pdf(
                     buf = io.BytesIO()
                     pil.save(buf, format="PNG")
                     png_bytes = buf.getvalue()
-                    ocr_text = _clean(ocr_provider.ocr_image(png_bytes, "image/png")).strip()
+                except Exception as e:
+                    logger.warning("OCR page {}: render failed, skipping: {}", page_num + 1, e)
+
+                if png_bytes is not None:
+                    # The OCR call itself retries transient 429/5xx/timeouts and,
+                    # if still failing, raises OcrFailedError - which propagates
+                    # out so the task fails the source loudly (retry button)
+                    # instead of silently dropping the page from the index.
+                    ocr_text = _clean(
+                        _ocr_image_with_retry(ocr_provider, png_bytes, page_num + 1)
+                    ).strip()
                     if ocr_text:
                         logger.info(
                             "PDF page {}: OCR extracted {} chars (text-layer had {})",
@@ -187,8 +266,6 @@ def _extract_pdf(
                         )
                         # Merge text-layer remnants + OCR output; OCR wins if empty layer
                         text = (text + "\n" + ocr_text).strip() if text else ocr_text
-                except Exception as e:
-                    logger.warning("OCR failed on page {}: {}", page_num + 1, e)
 
         for sub in _split_text(text, chunk_size, overlap):
             chunks.append({"page_number": page_num + 1, "content": sub})
