@@ -1089,6 +1089,13 @@
       "disabled": "Disabled - Hilde is not shown anywhere, the user toggle in the AI assistant settings is hidden.",
       "toggleAria": "Toggle mascot"
     },
+    "ocrCard": {
+      "title": "OCR for scans & image pages",
+      "active": "Active - image/scan-heavy pages are captured via OCR during indexing (slower, costs one vision call per page).",
+      "disabled": "Disabled - OCR is skipped system-wide. Indexing is faster and cheaper, but pure scan/image pages stay empty for search.",
+      "hint": "Applies to all workspaces and new indexing. Existing documents are only affected after re-indexing.",
+      "toggleAria": "Toggle OCR"
+    },
     "workspaceLimitsCard": {
       "title": "Max sources per {label}",
       "hint": "How many documents users may upload per {label}. Takes effect immediately for new uploads.",

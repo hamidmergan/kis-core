@@ -127,7 +127,15 @@ def get_ocr_provider() -> Optional[OcrProvider]:
         ``ocr_image`` method that matches the ``OcrProvider`` interface).
       - ``openai_compat``: returns an ``OpenAICompatOcrProvider`` driving a
         Vision-LLM via ``/v1/chat/completions``.
+
+    Returns None early when the global ``ocr_enabled`` switch (admin "System"
+    tab) is off, so OCR is skipped for ALL workspaces/modules regardless of the
+    configured feature route. Default is on, preserving prior behaviour.
     """
+    from src import database as db
+    if db.get_setting("ocr_enabled", "true").lower() != "true":
+        logger.info("OCR resolver: globally disabled via admin setting, skipping OCR")
+        return None
     from src.services import feature_router
     try:
         binding = feature_router.resolve("ocr")

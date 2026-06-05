@@ -39,6 +39,8 @@ async def get_settings(_admin=Depends(get_admin_user)):
         "workspace_label_plural_en": db.get_setting("workspace_label_plural_en", "Workspaces"),
         # Hilde mascot (system-wide)
         "mascot_enabled": _enabled("mascot_enabled"),
+        # OCR on image-heavy pages during indexing (system-wide, default on)
+        "ocr_enabled": _enabled("ocr_enabled"),
         # Workspace limits (admin-tunable)
         "aia_workspace_max_sources": int(
             db.get_setting("aia_workspace_max_sources", "30")
@@ -65,6 +67,9 @@ async def update_settings(
 
     if body.mascot_enabled is not None:
         db.set_setting("mascot_enabled", "true" if body.mascot_enabled else "false")
+
+    if body.ocr_enabled is not None:
+        db.set_setting("ocr_enabled", "true" if body.ocr_enabled else "false")
 
     # UI label overrides for "Workspace" (per UI locale)
     for label_key in (

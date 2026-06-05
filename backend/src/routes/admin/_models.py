@@ -22,6 +22,9 @@ class UpdateSettingsRequest(BaseModel):
     workspace_label_plural_en: str | None = None
     # Hide the Hilde mascot system-wide. Default true (mascot shown).
     mascot_enabled: bool | None = None
+    # Run OCR on image-heavy PDF/slide pages during indexing. Default true.
+    # Off = skip all OCR (faster + cheaper, but scanned pages stay un-indexed).
+    ocr_enabled: bool | None = None
     # Per-workspace source upload cap (admin-tunable, default 30).
     aia_workspace_max_sources: int | None = None
     # Schedule entries older than this many days are pruned daily.

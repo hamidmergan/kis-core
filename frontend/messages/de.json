@@ -1089,6 +1089,13 @@
       "disabled": "Deaktiviert - Hilde wird nirgendwo angezeigt, der Nutzer-Toggle in den KI-Assistent-Einstellungen ist ausgeblendet.",
       "toggleAria": "Maskottchen umschalten"
     },
+    "ocrCard": {
+      "title": "OCR für Scans & Bild-Seiten",
+      "active": "Aktiv - bild-/scanlastige Seiten werden beim Indexieren per OCR erfasst (langsamer, kostet pro Seite einen Vision-Aufruf).",
+      "disabled": "Deaktiviert - OCR wird systemweit übersprungen. Indexierung ist schneller und günstiger, aber reine Scan-/Bild-Seiten bleiben durchsuchbar leer.",
+      "hint": "Gilt für alle Workspaces und neue Indexierungen. Bestehende Dokumente erst nach erneutem Indexieren betroffen.",
+      "toggleAria": "OCR umschalten"
+    },
     "workspaceLimitsCard": {
       "title": "Maximale Quellen pro {label}",
       "hint": "Wie viele Dokumente Nutzer pro {label} hochladen dürfen. Greift sofort für neue Uploads.",

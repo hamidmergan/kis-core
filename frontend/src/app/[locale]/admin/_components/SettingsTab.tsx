@@ -330,6 +330,65 @@ function MascotCard() {
   );
 }
 
+function OcrCard() {
+  const t = useTranslations("admin.ocrCard");
+  const [enabled, setEnabled] = useState<boolean | null>(null);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    fetch("/api/admin/settings", { credentials: "include" })
+      .then((r) => r.json())
+      .then((d) => setEnabled(d.ocr_enabled ?? true));
+  }, []);
+
+  const toggle = async () => {
+    if (enabled === null) return;
+    const next = !enabled;
+    setEnabled(next);
+    setSaving(true);
+    try {
+      await fetch("/api/admin/settings", {
+        method: "PATCH",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ocr_enabled: next }),
+      });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  if (enabled === null) return null;
+
+  return (
+    <div className="border border-border-soft rounded-xl bg-background p-5">
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <p className="text-sm font-medium text-foreground">{t("title")}</p>
+          <p className="text-xs text-muted mt-1">
+            {enabled ? t("active") : t("disabled")}
+          </p>
+        </div>
+        <button
+          onClick={toggle}
+          disabled={saving}
+          className={`relative inline-flex shrink-0 w-11 h-6 rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none enabled:hover:border-kb ${
+            enabled ? "bg-kb" : "bg-border"
+          } disabled:opacity-50`}
+          aria-label={t("toggleAria")}
+        >
+          <span
+            className={`pointer-events-none inline-block w-5 h-5 bg-white rounded-full shadow transition-transform duration-200 ${
+              enabled ? "translate-x-5" : "translate-x-0"
+            }`}
+          />
+        </button>
+      </div>
+      <p className="mt-3 text-xs text-muted-soft">{t("hint")}</p>
+    </div>
+  );
+}
+
 function WorkspaceLimitsCard() {
   const t = useTranslations("admin.workspaceLimitsCard");
   const labels = useWorkspaceLabel();
@@ -604,6 +663,7 @@ function SystemPane() {
       <WorkspaceLimitsCard />
       <ScheduleRetentionCard />
       <ContextBudgetCard />
+      <OcrCard />
       <MascotCard />
       <WorkspaceExportImportCard />
     </div>
