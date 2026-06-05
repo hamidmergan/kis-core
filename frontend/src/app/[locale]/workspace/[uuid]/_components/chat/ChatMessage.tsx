@@ -106,7 +106,9 @@ function ChatMessageImpl({
 
   let avatarState: HildeState = "idle";
   if (msg.role === "assistant") {
-    if (!msg.content && loading) {
+    // Stay "thinking" for the whole stream — qmap arrives before the stream ends,
+    // so switching to "found" on qmap made Hilde look done while still writing.
+    if (isStreaming) {
       avatarState = "thinking";
     } else if (translateFailed || SORRY_PATTERN.test(msg.content)) {
       avatarState = "confused";
@@ -114,6 +116,18 @@ function ChatMessageImpl({
       avatarState = "found";
     }
   }
+
+  const streamingDots = (
+    <span className="inline-flex gap-1 align-middle">
+      {[0, 1, 2].map((n) => (
+        <span
+          key={n}
+          className="inline-block w-1.5 h-1.5 rounded-full animate-bounce"
+          style={{ backgroundColor: "var(--muted)", animationDelay: `${n * 0.15}s` }}
+        />
+      ))}
+    </span>
+  );
 
   async function handleCopy() {
     try {
@@ -203,17 +217,7 @@ function ChatMessageImpl({
           }
         >
           {msg.role === "assistant" && !msg.content && !msg.aborted ? (
-            <span className="inline-flex items-center gap-2">
-              <span className="inline-flex gap-1">
-                {[0, 1, 2].map((n) => (
-                  <span
-                    key={n}
-                    className="inline-block w-1.5 h-1.5 rounded-full animate-bounce"
-                    style={{ backgroundColor: "var(--muted)", animationDelay: `${n * 0.15}s` }}
-                  />
-                ))}
-              </span>
-            </span>
+            <span className="inline-flex items-center gap-2">{streamingDots}</span>
           ) : msg.role === "assistant" && !msg.content && msg.aborted ? (
             <span className="text-xs italic" style={{ color: "var(--muted)" }}>
               {t("noAnswer")}
@@ -248,6 +252,7 @@ function ChatMessageImpl({
                   {sanitizeCitationsForMarkdown(buildDisplayContent(msg.content, msg.groundedLines, isStreaming))}
                 </ReactMarkdown>
               </div>
+              {isStreaming && <span className="inline-flex mt-1">{streamingDots}</span>}
               {collapseByDefault && isAssistantOverflow && (
                 <button
                   type="button"
