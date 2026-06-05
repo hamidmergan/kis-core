@@ -38,12 +38,12 @@ def test_system_prompt_keeps_citation_keywords_verbatim_in_source_language():
     assert "English question" in sp
 
 
-def test_system_prompt_localizes_closing_summary_heading():
+def test_system_prompt_defaults_to_bullets_no_prose_summary():
     sp = aia_system_rag("de")
-    # Heading must be in the answer's own language, with examples beyond DE/EN
-    # so a non-DE/EN deployment is covered.
-    for heading in ("Zusammenfassung", "Summary", "Résumé", "Resumen"):
-        assert heading in sp, heading
+    # Option B: bullets are the default; no separate prose summary block is added
+    # (it only repeats the bullets). Prose is reserved for explicit user requests.
+    assert "DEFAULT TO BULLET POINTS" in sp
+    assert "Do NOT add a separate prose summary paragraph" in sp
 
 
 def test_system_prompt_is_locale_independent_for_answer_language():

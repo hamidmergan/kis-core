@@ -382,6 +382,40 @@ _SUMMARY_HEADING_RE = re.compile(
 )
 
 
+# A stray '#<digit>' in the FINAL answer leaks the internal chunk/source id
+# mechanism into prose (e.g. "... stammen aus den Dokumenten mit den IDs #1 und
+# #2."). By this stage real citations are resolved to '[N, S. X | kw]' chips, which
+# never contain '#', so any '#<digit>' is leakage. We strip the trailing clause that
+# carries it. Anchored at the end (the leak is a closing remark) and stops at the
+# previous sentence terminator / newline, so earlier prose is untouched. Structural
+# -> language-agnostic.
+_CHUNK_ID_LEAK_RE = re.compile(r"[^.!?\n]*#\s*\d[^.!?\n]*[.!?]?\s*\Z")
+
+
+def _strip_chunk_id_leak(text: str) -> str:
+    """Drop a trailing meta-clause that leaks a chunk/source id ('#<digit>') into
+    prose. No leak, or nothing before it -> returned unchanged. See _CHUNK_ID_LEAK_RE."""
+    stripped = (text or "").rstrip()
+    m = _CHUNK_ID_LEAK_RE.search(stripped)
+    if not m:
+        return text
+    head = stripped[: m.start()].rstrip()
+    return head if head else text
+
+
+def _nav_only_chips(text: str) -> str:
+    """Reduce every resolved chip to its page/timestamp only — drop the @offset span
+    and the '| keyword'. Used for multi-page/-chunk scoped summaries: such an answer
+    is a synthesis with no single source location, so a span highlight lights up many
+    blocks across pages ("wild"). A keyword/offset-less chip ('[1, S. 12]') makes the
+    frontend merely scroll to the page on click — no highlight. See _CITE_RESOLVE_RE."""
+    def _sub(m: "re.Match") -> str:
+        qnum, page, ts = m.group(1), m.group(2), m.group(3)
+        pos = f"S. {page}" if page else ts
+        return f"[{qnum}, {pos}]" if qnum else f"[{pos}]"
+    return _CITE_RESOLVE_RE.sub(_sub, text)
+
+
 def _strip_summary_citations(text: str) -> str:
     """Remove citation chips from the closing summary section.
 
@@ -790,9 +824,26 @@ def _dedup_line_chips(line: str) -> str:
     return out.rstrip()
 
 
+def _strip_title_line_chips(line: str) -> str:
+    """Drop citation chips from a bold-only title line.
+
+    A section heading like '**Kurskonzept ...**' is a label, not a claim, so a chip
+    on it is noise. Catches BOTH a model-emitted chip and a filler-appended one: if
+    the line is just a bold title once the chips are removed, return it chip-free;
+    otherwise (the bold span is a lead-in with real prose/chips after it) leave it."""
+    bare = _CITE_RESOLVE_RE.sub("", line).rstrip()
+    return bare if _BOLD_TITLE.match(bare) else line
+
+
 def _dedup_chips(text: str) -> str:
     """Apply :func:`_dedup_line_chips` per line (chip de-duplication is line-scoped)."""
     return "\n".join(_dedup_line_chips(line) for line in text.split("\n"))
+
+
+def _strip_title_chips(text: str) -> str:
+    """Apply :func:`_strip_title_line_chips` per line (the batch-path counterpart to
+    the live grounder's per-line title-chip stripping)."""
+    return "\n".join(_strip_title_line_chips(line) for line in text.split("\n"))
 
 
 import re as _re
@@ -804,6 +855,14 @@ _LIST_OR_TEXT = _re.compile(r"^\s*(?:[-*+]\s+|\d+[.)]\s+|\S)")
 # (optionally space-separated), nothing else. It is a separator, NOT a claim, so it
 # must never receive a citation.
 _THEMATIC_BREAK = _re.compile(r"^\s{0,3}([-*_])(?:\s*\1){2,}\s*$")
+# A bold-only title line: the whole line is a single bold span ('**Title**' or
+# '__Title__'), optionally a trailing colon. The model emits these as section
+# headings in a page summary; like a '#' heading it is a label, not a claim, so it
+# must never carry a citation chip. A bold LEAD-IN with prose after it
+# ('**Wichtig:** der Kurs ...') does NOT match — it ends in text, not the closing
+# '**' — and stays citable. No list marker allowed, so '- **Begriff**: ...' (a
+# definition claim) is unaffected. Structure-only -> language-agnostic.
+_BOLD_TITLE = _re.compile(r"^\s*(\*\*|__).+?\1\s*:?\s*$")
 
 
 def is_citable_line(line: str, *, in_summary: bool) -> bool:
@@ -812,6 +871,8 @@ def is_citable_line(line: str, *, in_summary: bool) -> bool:
     if not s or in_summary:
         return False
     if _HEADING.match(line):
+        return False
+    if _BOLD_TITLE.match(s):       # bold-only section title -> heading, not a claim
         return False
     if _THEMATIC_BREAK.match(s):
         return False

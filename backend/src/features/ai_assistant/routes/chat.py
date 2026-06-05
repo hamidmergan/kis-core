@@ -40,6 +40,7 @@ from src.tool_prompts import (
     AIA_INTENT_CLASSIFIER_SYSTEM,
     AIA_INTENT_CLASSIFIER_FEWSHOT,
     AIA_SEARCH_STRATEGY_SYSTEM,
+    AIA_SCOPE_EXTRACTOR_SYSTEM,
 )
 
 # Upper bound on the question length we hand to the LLM intent classifier.
@@ -52,6 +53,227 @@ _INTENT_MAX_WORDS = 30
 # document; the shared char budget at the call site truncates the merged result.
 _GENERIC_MAX_QUERIES = 4
 _GENERIC_PER_QUERY_LIMIT = 8
+
+# Page-scoped retrieval: when a question names an explicit page ("fasse Seite 5
+# zusammen", "summarize page 12") we skip semantic search and hand the model
+# exactly that page's chunks. The number alone is a poor search token (it rarely
+# appears in the page's text), so hybrid search would miss the actual page.
+#
+# Anchor on a page keyword so a bare number ("die 5 wichtigsten Punkte") never
+# triggers scoping. The keyword set is deliberately small and abbreviation-heavy
+# (de "Seite"/"S.", en "page"/"p./pp.") — the universal forms cover the KIS
+# languages; an unknown form simply falls through to normal retrieval. Ranges
+# ("Seite 5-7", "Seiten 5 bis 7") expand; an absurd span collapses to the start
+# so "page 1-9999" can't drag in the whole document.
+_PAGE_REF_RE = re.compile(
+    r"\b(?:S\.\s*|Seiten?\s*|pp?\.\s*|pages?\s*)"
+    r"(\d{1,4})"
+    # Range connector: any mix of hyphens and/or the word bis/to (typos and glued
+    # tokens like "12-14", "12 -bis 14", "12 bis-14", "12 — 14"). At least one such
+    # token is required, so a bare space ("12 14") is NOT read as a range.
+    r"(?:\s*(?:[-–—]+\s*(?:bis|to)?|bis|to)\s*[-–—]*\s*(\d{1,4}))?",
+    re.IGNORECASE,
+)
+_MAX_PAGE_SPAN = 50
+
+
+def _parse_page_refs(question: str) -> list[int]:
+    """Extract explicit page numbers from a question. Returns them sorted and
+    de-duplicated (ranges expanded); empty when no page is named, so the caller
+    falls back to normal retrieval. See _PAGE_REF_RE for the recognised forms."""
+    pages: set[int] = set()
+    for m in _PAGE_REF_RE.finditer(question or ""):
+        start = int(m.group(1))
+        end = int(m.group(2)) if m.group(2) else start
+        if end < start:
+            start, end = end, start
+        if end - start > _MAX_PAGE_SPAN:
+            end = start
+        pages.update(range(start, end + 1))
+    return sorted(pages)
+
+
+def _first_source_kind(source_ids: Optional[list[int]], sources_by_id: dict[int, dict]) -> Optional[str]:
+    """Classify the FIRST selected source as ``"pdf"`` / ``"media"`` / None.
+
+    Scope ("Seite 5", "Minute 10") applies to the lead source — with several
+    sources it is ambiguous which one, so we take the first and ignore the rest.
+    PDFs carry pages, media carries timestamps; anything else has neither → None."""
+    if not source_ids:
+        return None
+    src = sources_by_id.get(source_ids[0])
+    if not src:
+        return None
+    suffix = Path(src["filename"]).suffix.lower()
+    if suffix == ".pdf":
+        return "pdf"
+    if suffix in _MEDIA_EXTENSIONS:
+        return "media"
+    return None
+
+
+def _parse_scope_response(content: str) -> dict:
+    """Parse the scope extractor's reply into ``{"unit", "intervals"}``.
+
+    Tolerant: strips <think> blocks and code fences, finds the first JSON object,
+    coerces ``unit`` to page/time/unknown/None and keeps only well-formed
+    ``[from, to]`` intervals (``to`` may be null for an open end). Any garbage →
+    empty scope, so the caller falls back to the regex / normal retrieval."""
+    raw = re.sub(r"<think>.*?</think>", "", content or "", flags=re.DOTALL)
+    raw = raw.replace("```json", "").replace("```", "")
+    m = re.search(r"\{.*\}", raw, re.DOTALL)
+    if not m:
+        return {"unit": None, "intervals": []}
+    try:
+        data = json.loads(m.group(0))
+    except Exception:
+        return {"unit": None, "intervals": []}
+    unit = data.get("unit")
+    if unit not in ("page", "time", "unknown"):
+        unit = None
+    intervals: list[list] = []
+    for it in data.get("intervals") or []:
+        if not isinstance(it, (list, tuple)) or len(it) != 2:
+            continue
+        a, b = it
+        if not isinstance(a, int) or isinstance(a, bool):
+            continue
+        if b is not None and (not isinstance(b, int) or isinstance(b, bool)):
+            continue
+        intervals.append([a, b])
+    return {"unit": unit, "intervals": intervals}
+
+
+async def _extract_query_scope(llm, question: str) -> dict:
+    """Self-Query pre-call: extract an explicit page/time scope from the question.
+
+    Runs in a worker thread (sync client) so it can sit in an ``asyncio.gather``
+    next to the intent classifier — both pre-calls overlap, so wall-clock latency
+    is ~that of one call. Any failure → empty scope (regex fallback covers pages)."""
+    def _call():
+        return llm._client.with_options(timeout=60.0, max_retries=0).chat.completions.create(
+            model=llm._model,
+            messages=[
+                {"role": "system", "content": AIA_SCOPE_EXTRACTOR_SYSTEM},
+                {"role": "user", "content": question},
+            ],
+            temperature=0.0,
+            max_tokens=200,
+            **(llm._extra_body and {"extra_body": llm._extra_body} or {}),
+        )
+    try:
+        response = await asyncio.to_thread(_call)
+        msg = response.choices[0].message
+        raw = msg.content or getattr(msg, "reasoning_content", None) or ""
+    except Exception as e:
+        logger.warning("Scope extractor failed, no scope: {}", e)
+        return {"unit": None, "intervals": []}
+    scope = _parse_scope_response(raw)
+    logger.info("Scope extractor: '{}' → {}", question[:50], scope)
+    return scope
+
+
+_MAX_TIME_SPAN_SEC = 6 * 3600  # safety cap so an open/absurd time range can't pull everything
+
+
+def _expand_page_intervals(intervals: list[list], max_page: Optional[int]) -> list[int]:
+    """Expand ``[[from, to], ...]`` page intervals to a sorted page list. An open end
+    (``to is None``) runs to ``max_page``; an absurd span collapses to the start
+    (a typo'd "1-9999" must not drag in the whole document)."""
+    pages: set[int] = set()
+    for a, b in intervals:
+        if b is None:
+            b = max_page if max_page is not None else a
+        lo, hi = (a, b) if a <= b else (b, a)
+        if hi - lo > _MAX_PAGE_SPAN:
+            hi = lo
+        pages.update(range(lo, hi + 1))
+    return sorted(p for p in pages if p >= 1)
+
+
+def _page_scope_too_large(intervals: list[list], max_page: Optional[int], limit: int) -> bool:
+    """True when the requested page scope spans more than ``limit`` pages — i.e. it
+    covers (most of) the document. That is an overview request, not a precise scope:
+    the small candidate set is what makes scoping accurate, and a huge range won't fit
+    the context budget anyway. The caller routes such asks to GENERIC instead of
+    scoping. Cheap span count (no list build); overlaps over-count, which is safe."""
+    total = 0
+    for a, b in intervals:
+        if b is None:
+            b = max_page if max_page is not None else a
+        lo, hi = (a, b) if a <= b else (b, a)
+        total += hi - lo + 1
+        if total > limit:
+            return True
+    return False
+
+
+def _time_intervals_to_seconds(intervals: list[list], max_seconds: Optional[float]) -> list[tuple]:
+    """Convert MINUTE intervals to inclusive second windows. A point ``[10,10]`` →
+    the whole 10th minute ``(600, 660)``; a range ``[10,12]`` → ``(600, 780)``; an
+    open end → up to ``max_seconds``. Span-capped so an open/absurd range stays sane."""
+    out: list[tuple] = []
+    for a, b in intervals:
+        if b is None:
+            lo = max(0, a)
+            lo_sec = lo * 60
+            hi_sec = max_seconds if max_seconds is not None else (lo + 1) * 60
+        else:
+            lo, hi = (a, b) if a <= b else (b, a)
+            lo_sec, hi_sec = max(0, lo) * 60, (hi + 1) * 60
+        if hi_sec - lo_sec > _MAX_TIME_SPAN_SEC:
+            hi_sec = lo_sec + 60
+        out.append((lo_sec, hi_sec))
+    return out
+
+
+def _retrieve_page_scoped_context(source_ids: list[int], pages: list[int]) -> list[dict]:
+    """Load the given sources' chunks and keep only those on the requested pages.
+    Document order is preserved (get_aia_chunks_by_source orders by page/time)."""
+    wanted = set(pages)
+    chunks: list[dict] = []
+    for sid in source_ids:
+        chunks.extend(
+            c for c in db.get_aia_chunks_by_source(sid) if c.get("page_number") in wanted
+        )
+    return chunks
+
+
+def _retrieve_time_scoped_context(source_id: int, ranges_seconds: list[tuple]) -> list[dict]:
+    """Load a media source's chunks and keep those whose ``[start_time, end_time]``
+    overlaps any requested second window. Non-media chunks (no start_time) are skipped."""
+    chunks: list[dict] = []
+    for c in db.get_aia_chunks_by_source(source_id):
+        st = c.get("start_time")
+        if st is None:
+            continue
+        en = c.get("end_time")
+        if en is None:
+            en = st
+        if any(st < r_end and en > r_start for r_start, r_end in ranges_seconds):
+            chunks.append(c)
+    return chunks
+
+
+# Generic can't-help message for an explicit page/time request we cannot serve
+# (page/minute absent, or the lead source is the wrong kind). DELIBERATELY distinct
+# from the "no info in the sources" content sentinel: that one signals a real topic
+# gap (valuable — the material genuinely lacks the answer) and must stay. This one
+# says only "I can't do this particular scope request", so a structural ask never
+# masquerades as a content verdict. Localised by the user's chat language (de default).
+_SCOPE_UNFULFILLABLE_MSG = {
+    "de": "Dabei kann ich dir leider nicht weiterhelfen. Bitte formuliere deine Frage anders oder wähle die passende Quelle aus.",
+    "en": "I'm afraid I can't help with that. Please rephrase your question or select the relevant source.",
+}
+
+
+def _scope_unfulfillable_message(scope_requested: bool, scope_chunks, chat_lang: str) -> Optional[str]:
+    """Return a generic can't-help message when a page/time scope was explicitly
+    requested but could not be served (``scope_chunks`` empty/None), else None.
+    Kept separate from the 'no info in sources' sentinel — see _SCOPE_UNFULFILLABLE_MSG."""
+    if scope_requested and not scope_chunks:
+        return _SCOPE_UNFULFILLABLE_MSG.get(chat_lang, _SCOPE_UNFULFILLABLE_MSG["de"])
+    return None
 
 
 async def _classify_intent(llm, question: str) -> str:
@@ -351,7 +573,10 @@ from src.features.ai_assistant.routes._helpers import (
     _norm_for_match,
     _resolve_citation_pages,
     _strip_summary_citations,
+    _strip_chunk_id_leak,
     _dedup_chips,
+    _strip_title_chips,
+    _nav_only_chips,
     _chipify_inline_refs,
     _build_page_regions,
     SourceUnitLoader,
@@ -464,26 +689,36 @@ async def chat(
         if all(s["status"] == "ready" for s in sources_check):
             db.update_aia_workspace_status(workspace_uuid, "ready")
 
-    # Resolve active_source_ids (UUIDs → DB int ids)
+    # Resolve active_source_ids (UUIDs → DB int ids). Keep the resolved source
+    # dicts so the page-scope gate can check single-source-and-PDF without a refetch.
     source_ids: list[int] | None = None
+    resolved_sources: dict[int, dict] = {}
     if body.active_source_ids is not None:
         resolved = []
         for suuid in body.active_source_ids:
             source = db.get_aia_source(suuid)
             if source and source["workspace_id"] == workspace["id"]:
                 resolved.append(source["id"])
+                resolved_sources[source["id"]] = source
         source_ids = resolved if resolved else None
 
-    # Routing: GENERIC (cross-source overview, multi-query retrieval) vs
-    # SPECIFIC (topic-focused, uses hybrid search). Cheap pre-filter avoids an
-    # LLM round-trip when the answer is obvious (popup, no sources, long question).
+    # Routing + scope extraction — two query-understanding pre-calls. Routing picks
+    # GENERIC (cross-source overview) vs SPECIFIC (topic-focused hybrid search); the
+    # scope extractor (Self-Query) turns any phrasing of an explicit page/timestamp
+    # into a structured scope. When the round-trip runs we fire BOTH with
+    # asyncio.gather so they overlap (~no added latency). The cheap pre-filter still
+    # skips both when the route is obvious (popup, no sources, long question).
+    scope_raw: Optional[dict] = None
     if _should_skip_intent_classification(body.source_text, source_ids, body.question):
         intent = "SPECIFIC"
     else:
-        logger.info("Chat: calling intent classifier...")
+        logger.info("Chat: calling intent classifier + scope extractor...")
         _t0 = _time.monotonic()
-        intent = await _classify_intent(llm, body.question)
-        logger.info("Chat: intent classifier returned after {:.1f}s", _time.monotonic() - _t0)
+        intent, scope_raw = await asyncio.gather(
+            _classify_intent(llm, body.question),
+            _extract_query_scope(llm, body.question),
+        )
+        logger.info("Chat: intent+scope returned after {:.1f}s", _time.monotonic() - _t0)
     logger.info("Chat intent: {} ('{}' across {} sources)", intent, body.question[:60], len(source_ids or []))
 
     # The question is always used as-is: no conversation history is sent to the
@@ -494,7 +729,106 @@ async def chat(
     # check below and the final truncation in the shared context builder.
     context_budget = _context_budget()
 
-    if intent == "GENERIC":
+    # ── Scoped path (Self-Query Retrieval) ──
+    # An explicit page ("fasse Seite 5 zusammen") or media timestamp ("was wird bei
+    # Minute 10 erzählt") is served from EXACTLY those chunks — not semantic search,
+    # where the number is a poor token. The scope comes from the LLM extractor (any
+    # phrasing/language); _parse_page_refs is a regex fallback for the skipped-pre-call
+    # case (pages only). Scope applies to the FIRST selected source (others ignored —
+    # it is ambiguous which document's "page 5"). Popups (source_text) keep their flow.
+    scope_chunks: Optional[list[dict]] = None
+    scope_requested = False
+    if not body.source_text:
+        unit = scope_raw["unit"] if scope_raw else None
+        intervals = scope_raw["intervals"] if scope_raw else []
+        if not intervals:
+            rx = _parse_page_refs(body.question)
+            if rx:
+                unit, intervals = "page", [[p, p] for p in rx]
+        if intervals:
+            kind = _first_source_kind(source_ids, resolved_sources)  # "pdf"|"media"|None
+            # Explicit page/time ask -> may short-circuit to can't-help when unservable.
+            # "unknown" (bare numbers) only scopes opportunistically; if it can't, we
+            # fall through to normal retrieval (the numbers might be content, not scope).
+            explicit = unit in ("page", "time")
+            scope_requested = explicit
+            eff_unit = unit if explicit else (
+                "page" if kind == "pdf" else "time" if kind == "media" else None)
+            first_id = source_ids[0] if source_ids else None
+            if first_id and eff_unit == "page" and kind == "pdf":
+                max_page = max(db.get_source_page_numbers(first_id), default=None)
+                if _page_scope_too_large(intervals, max_page, _MAX_PAGE_SPAN):
+                    # Whole-/most-of-document range == an overview, not a precise scope.
+                    # Route to GENERIC (multi-query overview) instead of scoping: the
+                    # accuracy edge of scoping comes from a SMALL candidate set, and a
+                    # huge range won't fit the context budget anyway. NOT unfulfillable.
+                    intent = "GENERIC"
+                    scope_requested = False
+                    logger.info("Page scope too large (> {} pages) → routing to GENERIC overview", _MAX_PAGE_SPAN)
+                else:
+                    pages = _expand_page_intervals(intervals, max_page)
+                    scope_chunks = _retrieve_page_scoped_context([first_id], pages)
+                    logger.info("Page-scoped retrieval: pages {} → {} chunks (source={})",
+                                pages, len(scope_chunks or []), first_id)
+            elif first_id and eff_unit == "time" and kind == "media":
+                media = db.get_aia_chunks_by_source(first_id)
+                max_sec = max((c.get("end_time") or c.get("start_time") or 0 for c in media), default=None)
+                ranges = _time_intervals_to_seconds(intervals, max_sec)
+                scope_chunks = _retrieve_time_scoped_context(first_id, ranges)
+                logger.info("Time-scoped retrieval: {} → {} chunks (source={})",
+                            ranges, len(scope_chunks or []), first_id)
+            else:
+                logger.info("Scope requested (unit={}, kind={}) — not servable", unit, kind)
+
+    # An explicit page/time scope was requested but cannot be served (wrong source
+    # kind, or the page/minute does not exist). Falling back to semantic search yields
+    # a misleading "topic not in sources" answer + wrong chips, so short-circuit with a
+    # clear generic can't-help message — no LLM call, no retrieval. The genuine "no
+    # info in sources" sentinel is reserved for real topic questions and stays.
+    _cant_help = _scope_unfulfillable_message(scope_requested, scope_chunks, chat_lang)
+    if _cant_help:
+        logger.info("Scope request unfulfillable: generic can't-help message")
+
+        async def _canned_stream() -> AsyncGenerator[str, None]:
+            await asyncio.to_thread(
+                db.save_aia_message, workspace["id"], user_id, "user", body.question,
+                enrollment_id=enrollment_id,
+            )
+            yield f"data: {json.dumps({'qmap': [], 'source_pages': []})}\n\n"
+            yield f"data: {json.dumps({'token': _cant_help})}\n\n"
+            yield f"data: {json.dumps({'line_done': {'index': 0, 'text': _cant_help}})}\n\n"
+            await asyncio.to_thread(
+                db.save_aia_message, workspace["id"], user_id, "assistant", _cant_help,
+                enrollment_id=enrollment_id,
+            )
+            yield f"data: {json.dumps({'done': True, 'answer': _cant_help, 'source_pages': [], 'source_qmap': []})}\n\n"
+
+        return StreamingResponse(
+            _canned_stream(),
+            media_type="text/event-stream",
+            headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+        )
+
+    # Scoped answers disable the uncited-line filler: the whole answer is one named
+    # page/timestamp, so auto-filling per line grounds against the WHOLE document and
+    # scatters chips across unrelated pages (worst case: a table-of-contents page).
+    is_scoped = bool(scope_chunks)
+    # A MULTI-page/-chunk scoped summary is a synthesis with no single location, so a
+    # span highlight lights up many blocks across pages ("wild"). Reduce its chips to
+    # page/timestamp-only (scroll, no highlight). A single-page scope keeps the precise
+    # highlight (it reads as intentional, and the user likes it).
+    _scope_pages = {c.get("page_number") for c in (scope_chunks or []) if c.get("page_number") is not None}
+    scope_nav_only = is_scoped and (len(_scope_pages) > 1 or (not _scope_pages and len(scope_chunks or []) > 1))
+    # Auto-filler policy:
+    #  - normal answers: ON (every claim gets a chip).
+    #  - single-page scope: OFF — keep the model's own (sparse) precise-highlight chips.
+    #  - multi-page scope: ON again, because it is now safe: the filler only grounds to
+    #    the scoped pages (SourceUnitLoader restricts candidates to seen pages) and the
+    #    chips are nav-only, so every line gets a clean page chip without wild highlights.
+    do_fill = (not is_scoped) or scope_nav_only
+    if scope_chunks:
+        chunks = scope_chunks
+    elif intent == "GENERIC":
         # ── Overview path ──
         # If the active source(s) fit the context budget, hand over the FULL
         # content (no retrieval, no strategy LLM call): the model sees the whole
@@ -835,7 +1169,8 @@ async def chat(
                 for qn in source_index if qnum_to_source_id.get(qn) in all_sources_list
             }
             _unit_loader = SourceUnitLoader(seen_pages_by_source=seen_pages_by_source)
-            _grounder = CitationGrounder(coverage_sources, _unit_loader, source_qmap, chunk_registry)
+            _grounder = CitationGrounder(coverage_sources, _unit_loader, source_qmap, chunk_registry,
+                                         fill=do_fill, nav_only=scope_nav_only)
             _line_buf = ""
             _line_idx = 0
             aborted = False
@@ -931,14 +1266,24 @@ async def chat(
             except Exception as e:
                 logger.warning("precise citation re-grounding failed, using base resolver: {}", e)
                 _resolved = _resolve_citation_pages(_chipified, source_index)
-            try:
-                _resolved = fill_uncited_lines(_resolved, coverage_sources, _unit_loader)
-            except Exception as e:
-                logger.warning("coverage fill failed, using ungrounded answer: {}", e)
+            if do_fill:
+                try:
+                    _resolved = fill_uncited_lines(_resolved, coverage_sources, _unit_loader)
+                except Exception as e:
+                    logger.warning("coverage fill failed, using ungrounded answer: {}", e)
             # Collapse duplicate chips that point to the same source+position on a line
             # (keeps distinct @offset highlight regions; matches the live grounder).
             _resolved = _dedup_chips(_resolved)
+            # A bold-only section title is a heading, not a claim -> never cite it.
+            _resolved = _strip_title_chips(_resolved)
             answer = _strip_summary_citations(_resolved)
+            # Drop any trailing meta-clause leaking an internal chunk/source id
+            # ("... stammen aus den Dokumenten mit den IDs #1 und #2.").
+            answer = _strip_chunk_id_leak(answer)
+            # Multi-page/-chunk scoped summary: chips → page/timestamp-only (nav, no
+            # highlight) so a synthesis doesn't paint scattered spans across pages.
+            if scope_nav_only:
+                answer = _nav_only_chips(answer)
 
             # Push the real question + answer onto the aia-chat trace; the
             # @observe decorator otherwise only captured the StreamingResponse.

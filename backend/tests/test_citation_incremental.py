@@ -99,6 +99,42 @@ def test_feed_line_dedups_chips_resolving_to_same_position():
     assert "S. 9" not in out
 
 
+def test_feed_line_fill_disabled_adds_no_chip():
+    # Page-scoped summaries disable the uncited-line filler: the whole answer is the
+    # named page, so per-line chips ground against the WHOLE document and point to
+    # scattered pages (a TOC page is the worst case). With fill off, an uncited line
+    # stays chip-free.
+    units = {1: [Unit(47, None, None, "CRT-Monitor Aufbau und Funktion")]}
+    g = CitationGrounder(_sources(units), _Loader(units),
+                         [{"qnum": 1, "uuid": "u1", "filename": "f.pdf"}], fill=False)
+    out = g.feed_line("3.7.1 CRT-Monitor")
+    assert out == "3.7.1 CRT-Monitor"
+    assert "[1" not in out
+
+
+def test_feed_line_fill_disabled_keeps_model_citation():
+    # fill=off must NOT suppress a real model citation: it only skips the auto-filler.
+    units = {1: [Unit(5, None, None, "Inhalt der Seite fuenf zum Kursthema")]}
+    g = CitationGrounder(_sources(units), _Loader(units),
+                         [{"qnum": 1, "uuid": "u1", "filename": "f.pdf"}], fill=False)
+    out = g.feed_line("Es geht um das Kursthema. [1, S. 9 | Kursthema]")
+    assert "[1, S. 5" in out          # still re-grounded to the real page
+    assert "S. 9" not in out
+
+
+def test_feed_line_fill_with_nav_only_grounds_to_nav_chip():
+    # Multi-page scoped summary: filler is ON (so every line gets a source) and
+    # nav_only is ON, so the filler-added chip is reduced to a page-only nav chip —
+    # no keyword/highlight. An uncited line grounds to its scoped page.
+    units = {1: [Unit(12, None, None, "Schneeballprinzip zur Literaturrecherche anwenden")]}
+    g = CitationGrounder(_sources(units), _Loader(units),
+                         [{"qnum": 1, "uuid": "u1", "filename": "f.pdf"}],
+                         fill=True, nav_only=True)
+    out = g.feed_line("Das Schneeballprinzip anwenden")
+    assert "[1, S. 12]" in out          # filler grounded to the scoped page
+    assert "|" not in out               # nav-only: no keyword/highlight survives
+
+
 def test_feed_sequence_matches_full_pipeline_for_prose():
     # The line-by-line result joined equals the canonical batch grounding for a
     # plain prose answer (the common, must-be-flicker-free case).

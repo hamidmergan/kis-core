@@ -142,16 +142,16 @@ def aia_system_rag(target_locale: str = "de") -> str:
         "  - EXCEPTION: the citation keyword (the text after '|' inside each [N, #C | keyword] chip) MUST stay VERBATIM in the SOURCE document's ORIGINAL language — NEVER translate it — because it is matched character-for-character against the source text to locate the highlight. So an English answer about a German PDF still carries German keywords, e.g. 'The mentor is Erika Mustermann, M.Sc. [1, #2 | Mentorin Erika Mustermann].'\n\n"
         "TERMINOLOGY — STAY ON THE SOURCE'S WORDS: When a source uses a specific technical term, method name, or named concept, REUSE THAT EXACT TERM in your prose instead of a synonym or your own paraphrase (e.g. if the source writes 'Schneeballsystem', write 'Schneeballsystem' — NOT a synonym like 'Schneeballprinzip'; if it writes 'Quellenkritik', keep 'Quellenkritik'). You MAY add a short plain-language explanation right after the term, but the term itself stays spelled exactly as in the source. Keep such named terms in the source's wording even when you translate the rest of the answer into the question's language. This keeps the answer faithful AND lets the highlight land on the term.\n\n"
         "RESPONSE STRUCTURE (for readability — NEVER output one big wall of text):\n"
-        "  - Break the answer into short paragraphs of 2-4 sentences each.\n"
-        "  - When you list multiple items, facts, steps, options, or dates, use a Markdown bullet list ('- ') or a numbered list, ONE item per line.\n"
+        "  - DEFAULT TO BULLET POINTS: present the answer as a concise Markdown bullet list ('- '), ONE fact/step/item per line. This is the default for summaries, overviews, lists, and most questions.\n"
+        "  - Use flowing prose (paragraphs) ONLY when the user EXPLICITLY asks for it (e.g. 'als Fließtext', 'ausformuliert', 'in prose', 'als Text'). Otherwise always prefer bullets.\n"
+        "  - NEVER output BOTH a flowing-prose summary paragraph AND bullets for the same content — that is redundant. The bullets ARE the summary.\n"
         "  - When the answer covers several distinct topics, separate them with Markdown headings ('## Heading').\n"
         "  - Bold the leading key term, name, or date of a bullet or sentence with **...** so it stands out.\n"
         "  - For a set of dates/deadlines or other tabular data, you MAY use a Markdown table.\n"
         "  - Only add table columns you can actually fill from the sources. NEVER invent a placeholder column (e.g. a 'Note'/'Hinweis' column) whose cells end up empty or '–'. If most cells of a column would be empty, drop that column entirely.\n"
         "  - In a table, EVERY row carries its OWN citation(s) at the end of its last cell — even when several rows share the same source/page, repeat the citation on each row. NEVER place one citation under or after the table to cover multiple rows.\n"
         "  - The citation rules below STILL apply: every sentence, bullet, or table cell keeps its citation(s). Place the citation at the END of that bullet/sentence/cell.\n"
-        "  - Add a closing summary ONLY when the answer is genuinely long — several paragraphs OR multiple distinct topics/headings. For a short answer (a single fact, a few sentences, or one topic) do NOT add any summary: it just repeats what was already said. When in doubt, leave it out.\n"
-        "  - WHEN you do add it: put it under its OWN heading line whose text is the word for 'Summary' IN YOUR ANSWER'S OWN LANGUAGE — e.g. '## Zusammenfassung' (German), '## Summary' (English), '## Résumé' (French), '## Resumen' (Spanish). Restate the key points in 2-4 sentences. This closing summary must contain NO citations — it only recaps what was already cited above.\n"
+        "  - Do NOT add a separate prose summary paragraph — neither an opening overview nor a closing '## Zusammenfassung' / '## Summary' block. With a bullet-point answer it only repeats the bullets. The bullets themselves ARE the summary.\n"
         "\n"
         "CITATION FORMAT (strict):\n"
         "Documents are provided as XML. Each block is <document index=\"N\" id=\"C\"> with:\n"
@@ -174,12 +174,12 @@ def aia_system_rag(target_locale: str = "de") -> str:
         "  - Only cite a chunk id that ACTUALLY appears as id=\"C\" in the provided documents. NEVER invent an id, NEVER guess.\n"
         "  - 'Teil 1', 'Folie 2', 'Kapitel 3' etc. inside <content> is part of the text, NOT a citation — ignore it.\n"
         "  - NEVER write a citation as just '[N]' or '[N, #C]' without the keyword. NEVER omit the keyword after the '|'.\n"
-        "  - EVERY bullet and line gets its own chunk citation(s) — INCLUDING aggregating, grouping, or summarizing lines that restate or categorize facts you already cited on earlier lines (e.g. a 'methods per video' or 'overview per source' list). Carry the relevant chunk citation(s) onto that line too. If a line's claim cannot be grounded in a chunk, OMIT the claim. The ONLY citation-free part of the entire answer is the closing '## Zusammenfassung' / '## Summary' — IF you added one.\n"
+        "  - EVERY bullet and line gets its own chunk citation(s) — INCLUDING aggregating, grouping, or summarizing lines that restate or categorize facts you already cited on earlier lines (e.g. a 'methods per video' or 'overview per source' list). Carry the relevant chunk citation(s) onto that line too. If a line's claim cannot be grounded in a chunk, OMIT the claim.\n"
         "  - NEVER close the bracket before the '#C'. WRONG: '[1] #7'. RIGHT: '[1, #7 | keyword]'.\n"
         "  - Use ONLY the '|' character before the keyword. NEVER use '❘', '/', '-', or any other separator.\n"
         "  - The keyword is verbatim words from the cited chunk's content — NOT an uppercase section heading or chapter title (e.g. WRONG keyword: 'ZITATARTEN').\n"
         "  - NEVER mention chunk ids, positions, timestamps, page numbers, or filenames inline in your prose, and NEVER in parentheses. WRONG: 'im Video (VL1, 12:07) wird ...', WRONG: '... am 15.04. (siehe PDF 01 S. 6).'. The source goes ONLY into the chip '[N, #C | keyword]' at the END of the sentence — like: '... am 15.04. [1, #6 | Webkonferenz].'\n"
-        "  - EXCEPTION: the closing summary section (under the '## Zusammenfassung' / '## Summary' heading) carries NO citations at all.\n"
+        "  - NEVER add a closing remark about WHICH documents, sources, ids, or '#' numbers you used (e.g. 'Alle Informationen stammen aus den Dokumenten mit den IDs #1 und #2.'). End with the content itself. NEVER write a literal '#' followed by a number anywhere except inside a '[N, #C | keyword]' chip.\n"
         "\n"
         "Few-shot examples (assume the cited text sits in the shown chunk id; the output column is what you produce):\n"
         "Q: Wer leitet das Seminar? | A: Erika Mustermann, M.Sc. leitet das Seminar [2, #5 | Mentorin Erika Mustermann].\n"
@@ -306,6 +306,46 @@ AIA_INTENT_CLASSIFIER_FEWSHOT: list[dict] = [
     {"role": "user", "content": "explain neural networks"},
     {"role": "assistant", "content": "SPECIFIC"},
 ]
+
+# Scope extractor (Self-Query Retrieval): turns ANY phrasing of an explicit page
+# or time reference into a structured scope, so retrieval no longer depends on a
+# hand-written regex. Runs in parallel with the intent classifier (one extra pre-
+# call, ~0 added latency). Language-agnostic by design — the model understands the
+# request in any language and ignores typos / glued tokens.
+AIA_SCOPE_EXTRACTOR_SYSTEM = (
+    "You extract an explicit PAGE or TIME scope from a question a user asks about "
+    "their documents. Output ONLY a compact JSON object and nothing else:\n"
+    '{"unit":"page"|"time"|"unknown"|null,"intervals":[[from,to]]}\n'
+    "\n"
+    "Rules:\n"
+    "- unit \"page\": the question explicitly refers to PAGES (Seite, page, S., p., "
+    "página, sayfa, pagina, ...).\n"
+    "- unit \"time\": the question explicitly refers to a TIME in audio/video "
+    "(Minute, min, timestamp, 'ab Minute', 'at minute', ...). Numbers are MINUTES.\n"
+    "- unit \"unknown\": numbers are given but no page/time word at all "
+    "(e.g. 'alles zwischen 12 und 13'). Still fill intervals.\n"
+    "- unit null with intervals []: the question names no page or time.\n"
+    "- intervals: a list of [from,to] inclusive. A single point is [x,x]. An OPEN "
+    "end ('ab Seite 10', 'from minute 10 onwards') is [x,null].\n"
+    "- A CONTINUOUS range ('zwischen 12 und 13', '12 bis 14', 'pages 12-14', "
+    "'between 10 and 12') is ONE interval, e.g. [12,13] / [12,14] / [10,12].\n"
+    "- SEPARATE items ('Seite 5 und 10', 'page 5 and 9') are several points: "
+    "[[5,5],[10,10]].\n"
+    "- Understand ANY language and ANY phrasing; ignore typos and glued tokens "
+    "('-bis', 'Seite12'). NEVER invent numbers that are not in the question.\n"
+    "\n"
+    "Examples (Input -> Output):\n"
+    'fasse Seite 12 zusammen -> {"unit":"page","intervals":[[12,12]]}\n'
+    'fasse Seite 12 bis 14 zusammen -> {"unit":"page","intervals":[[12,14]]}\n'
+    'alles zwischen 12 und 13 -> {"unit":"unknown","intervals":[[12,13]]}\n'
+    'ab Seite 10 -> {"unit":"page","intervals":[[10,null]]}\n'
+    'Seite 5 und 10 -> {"unit":"page","intervals":[[5,5],[10,10]]}\n'
+    'was wird bei Minute 10 erzählt -> {"unit":"time","intervals":[[10,10]]}\n'
+    'fasse alles ab 10 min zusammen -> {"unit":"time","intervals":[[10,null]]}\n'
+    'zwischen 10 und 12 minuten -> {"unit":"time","intervals":[[10,12]]}\n'
+    'was ist ein neuronales Netz -> {"unit":null,"intervals":[]}\n'
+    'fasse zusammen -> {"unit":null,"intervals":[]}\n'
+)
 
 # Search-strategy decomposition for the GENERIC (overview) chat path. Mirrors
 # Open Notebook's "ask" graph: a broad question ("what is this about?") retrieves
