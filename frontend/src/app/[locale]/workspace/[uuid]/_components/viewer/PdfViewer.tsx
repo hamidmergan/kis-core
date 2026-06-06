@@ -8,7 +8,7 @@ import { FileIcon } from "../sources/FileIcon";
 
 import { EMBEDPDF_ICON_MAP } from "./_icons";
 import { wrapEngineGeometry } from "./_geometry";
-import { doHighlightSearch, doMultiHighlightSearch, clearCitationHighlight, scrollToCitationPage, type HighlightRefs } from "./_highlight";
+import { doHighlightSearch, doMultiHighlightSearch, doPageEdgeBar, clearCitationHighlight, scrollToCitationPage, type HighlightRefs } from "./_highlight";
 import { copyTextFromPromise } from "@/lib/clipboard";
 import { useTheme } from "@/hooks/useTheme";
 import { useCitationHighlightPref } from "@/hooks/useCitationHighlightPref";
@@ -85,7 +85,7 @@ export function PdfViewer({
   }, []);
 
   // Scroll to page + highlight text when nonce changes (pill click on same document)
-  const pendingHighlightRef = useRef<{ page: number; text: string; exact?: boolean; offsets?: [number, number]; spans?: CitationHighlightSpan[] } | null>(null);
+  const pendingHighlightRef = useRef<{ page: number; text: string; exact?: boolean; offsets?: [number, number]; spans?: CitationHighlightSpan[]; barOnly?: boolean } | null>(null);
   const prevHighlightRef = useRef<{ pageIndex: number; ids: string[] } | null>(null);
   const citationHighlightRef = useRef<{ pageIndex: number; ids: string[]; scrollY?: number } | null>(null);
   // Controls the "Markierung aufheben" button shown while a citation highlight is active.
@@ -110,10 +110,9 @@ export function PdfViewer({
     const reg = registryRef.current;
     const multi = source.highlightSpans && source.highlightSpans.length > 1 ? source.highlightSpans : null;
     if (!reg) {
-      // Viewer not ready yet — save for later
-      if (source.highlightText || multi) {
-        pendingHighlightRef.current = { page: source.page, text: source.highlightText ?? "", exact: !!source.exactSelection, offsets: source.highlightOffsets, spans: multi ?? undefined };
-      }
+      // Viewer not ready yet — save for later. A nav-only chip (no span to highlight)
+      // still gets the page-edge bar cue, flagged here and drawn on layout-ready.
+      pendingHighlightRef.current = { page: source.page, text: source.highlightText ?? "", exact: !!source.exactSelection, offsets: source.highlightOffsets, spans: multi ?? undefined, barOnly: !source.highlightText && !multi };
       return;
     }
 
@@ -122,9 +121,9 @@ export function PdfViewer({
     } else if (source.highlightText) {
       doHighlightSearch(highlightRefs, reg, source.page, source.highlightText, !!source.exactSelection, source.highlightOffsets, highlightEnabled);
     } else {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const scroll = (reg as any).getPlugin?.("scroll")?.provides?.();
-      scroll?.scrollToPage?.({ pageNumber: source.page, behavior: "instant", alignY: 50 });
+      // Nav-only chip (page/timestamp, no span): mark the cited page with the
+      // persistent left-edge bar — honest page-level cue, no false-precision span.
+      doPageEdgeBar(highlightRefs, reg, source.page);
     }
 
   }, [source.nonce, source.page, source.highlightText, source.exactSelection, source.highlightOffsets, source.highlightSpans]);
@@ -237,6 +236,8 @@ export function PdfViewer({
             doMultiHighlightSearch(highlightRefs, registry, pending.page, pending.spans, highlightEnabledRef.current);
           } else if (pending.text) {
             doHighlightSearch(highlightRefs, registry, pending.page, pending.text, !!pending.exact, pending.offsets, highlightEnabledRef.current);
+          } else if (pending.barOnly) {
+            doPageEdgeBar(highlightRefs, registry, pending.page);
           }
         }
         unsub?.();

@@ -1,5 +1,27 @@
 import { describe, it, expect, vi } from "vitest";
-import { drawCitationHighlight, doHighlightSearch, type HighlightRefs } from "./_highlight";
+import { drawCitationHighlight, doHighlightSearch, doPageEdgeBar, _collapseFold, type HighlightRefs } from "./_highlight";
+
+describe("_collapseFold drops OCR join artifacts (mirrors backend _collapse_fold)", () => {
+  it("strips a U+FFFE join artifact so a hyphen-broken word matches", () => {
+    const { clean, map } = _collapseFold("Bachelor￾Studiengangs");
+    expect(clean).toBe("bachelorstudiengangs");
+    expect(map.length).toBe(clean.length);
+    expect(map[0]).toBe(0);
+    expect(map[8]).toBe(9); // 'S' of Studiengangs keeps raw index 9, past the skipped artifact
+  });
+
+  it("strips a soft hyphen", () => {
+    expect(_collapseFold("Kla­ren").clean).toBe("klaren");
+  });
+
+  it("strips zero-width chars and BOM", () => {
+    expect(_collapseFold("a​﻿‍b").clean).toBe("ab");
+  });
+
+  it("leaves clean text unchanged", () => {
+    expect(_collapseFold("Hallo Welt").clean).toBe("hallo welt");
+  });
+});
 
 // Minimal page geometry: one run with two visible glyphs, so buildSegmentRects
 // yields a non-empty bbox for the [0,1] glyph range.
@@ -136,5 +158,45 @@ describe("drawCitationHighlight highlightEnabled gating", () => {
     expect(scroll.scrollToPage).toHaveBeenCalledTimes(1);
     const arg = scroll.scrollToPage.mock.calls[0][0];
     expect(arg.pageCoordinates.y).toBe(20);
+  });
+});
+
+describe("doPageEdgeBar draws the nav-only left-margin cue", () => {
+  it("draws a full-height left-edge bar on the cited page and scrolls to it", () => {
+    const { r, createAnnotation, scrollToPage } = fakeSearchRegistry("irrelevant page text");
+    const refs = fakeRefs();
+
+    doPageEdgeBar(refs, r, 1); // page 1 → pageIndex 0 (the mock's only page, height 800)
+
+    expect(createAnnotation).toHaveBeenCalledTimes(1);
+    const [pageIndex, anno] = createAnnotation.mock.calls[0];
+    expect(pageIndex).toBe(0);
+    // Left margin: starts at x=0, narrow, spans the WHOLE page height (800 in the mock).
+    expect(anno.rect.origin.x).toBe(0);
+    expect(anno.rect.origin.y).toBe(0);
+    expect(anno.rect.size.width).toBeLessThan(12);
+    expect(anno.rect.size.height).toBe(800);
+    // Nav-only: page-level scroll (alignY 50), no span pageCoordinates.
+    const arg = scrollToPage.mock.calls.at(-1)?.[0];
+    expect(arg.pageNumber).toBe(1);
+    expect(arg.alignY).toBe(50);
+    // Reuses the citation ref so the dismiss button + clear-on-next-chip work.
+    expect(refs.citationHighlightRef.current?.pageIndex).toBe(0);
+    expect(refs.onHighlightActive).toHaveBeenCalledWith(true);
+  });
+
+  it("falls back to a plain page scroll when the document manager is missing", () => {
+    const scrollToPage = vi.fn();
+    const r = {
+      getPlugin: (name: string) =>
+        name === "scroll" ? { provides: () => ({ scrollToPage }) } : undefined,
+    };
+    const refs = fakeRefs();
+
+    doPageEdgeBar(refs, r, 5);
+
+    expect(scrollToPage).toHaveBeenCalledTimes(1);
+    expect(scrollToPage.mock.calls[0][0].pageNumber).toBe(5);
+    expect(refs.citationHighlightRef.current).toBeNull();
   });
 });

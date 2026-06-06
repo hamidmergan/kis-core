@@ -43,6 +43,15 @@ const CITATION_HL_COLOR = "#FFE14D";   // highlighter yellow
 const CITATION_HL_OPACITY = 0.4;
 const HIGHLIGHT_SUBTYPE = 9;           // PdfAnnotationSubtype.HIGHLIGHT
 
+// Page-edge citation marker (nav-only cue). A persistent vertical bar in the left
+// margin of the cited page — drawn when no span highlight is made (highlights off,
+// or a chip carrying only a page/timestamp). It marks the WHOLE page, which is the
+// honest granularity: an answer synthesises across the page, so a single span is
+// false precision. Amber so it reads as a margin rule, not a text highlighter.
+const PAGE_BAR_COLOR = "#FFB300";      // amber margin rule
+const PAGE_BAR_OPACITY = 0.85;
+const PAGE_BAR_WIDTH = 7;              // pt, left-edge vertical bar
+
 // Position-preserving diacritic fold + lowercase: every character maps to exactly
 // ONE character (its NFKD base letter), so the result has the SAME length and the
 // match index still aligns with cleanToRaw for the highlight geometry. Makes the
@@ -86,6 +95,11 @@ function makeFindGeo(
 }
 
 
+// Invisible join / OCR line-break artifacts dropped by the fold so a word split across
+// a hyphenated line break matches the live pdfium text. MUST mirror the backend
+// _FOLD_SKIP: soft hyphen, zero-width chars, word joiner, BOM/ZWNBSP, U+FFFE/U+FFFF.
+const _FOLD_SKIP = new Set("­​‌‍⁠﻿￾￿");
+
 // Whitespace-collapsed, diacritic-folded view of a page string plus a map from
 // each clean index back to the original raw index. MUST mirror the backend
 // _collapse_fold so server-computed offsets and the client text fold identically.
@@ -96,6 +110,7 @@ export function _collapseFold(s: string): { clean: string; map: number[] } {
   let inSpace = false;
   for (let i = 0; i < s.length; i++) {
     const ch = s[i];
+    if (_FOLD_SKIP.has(ch)) continue;
     if (/\s/.test(ch)) {
       if (!inSpace) { clean += " "; map.push(i); inSpace = true; }
     } else {
@@ -251,6 +266,74 @@ export function drawCitationHighlight(
     });
   }
   return true;
+}
+
+
+// Draw the persistent left-edge marker bar on the cited page — the nav-only cue used
+// when no span is highlighted. Reuses the proven HIGHLIGHT-annotation path (same
+// subtype as the span marker, so it renders identically and survives page
+// virtualization), just with synthetic full-height left-margin geometry. Stored in
+// citationHighlightRef so the existing dismiss button + clear-on-next-chip + jump-back
+// re-center all work unchanged. Returns false when the annotation plugin is missing.
+export function drawPageEdgeBar(
+  refs: HighlightRefs,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  r: any, docMgr: any, scroll: any, targetPageIndex: number, pageHeight: number,
+  opts: { scroll?: boolean } = {},
+): boolean {
+  const doScroll = opts.scroll ?? true;
+  const h = pageHeight > 0 ? pageHeight : 1000;
+  const bar = { origin: { x: 0, y: 0 }, size: { width: PAGE_BAR_WIDTH, height: h } };
+  const anno = r.getPlugin?.("annotation")?.provides?.();
+  const docId = docMgr.getActiveDocumentId?.();
+  if (anno?.createAnnotation && docId) {
+    clearCitationHighlight(refs, r);   // one cue at a time (mirrors the span marker)
+    const id = `kis-pagebar-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+    try {
+      anno.createAnnotation(targetPageIndex, {
+        type: HIGHLIGHT_SUBTYPE,
+        pageIndex: targetPageIndex,
+        id,
+        rect: bar,
+        segmentRects: [bar],
+        strokeColor: PAGE_BAR_COLOR,
+        color: PAGE_BAR_COLOR,
+        opacity: PAGE_BAR_OPACITY,
+        // readOnly + locked so the user can't accidentally select/drag/edit the cue.
+        flags: ["readOnly", "locked"],
+        created: new Date(),
+      });
+      anno.deselectAnnotation?.();
+      // No scrollY → the jump-back button re-centers the page (alignY 50), not a span.
+      refs.citationHighlightRef.current = { pageIndex: targetPageIndex, ids: [id] };
+      refs.onHighlightActive?.(true);
+    } catch {
+      return false;
+    }
+  }
+  if (scroll && doScroll) {
+    scroll.scrollToPage({ pageNumber: targetPageIndex + 1, behavior: "instant", alignY: 50 });
+  }
+  return true;
+}
+
+
+// Orchestration for the page-edge bar (mirrors doHighlightSearch): pulls the doc +
+// page height off the registry, then draws the left-margin cue on `page`. Used for
+// nav-only chips — those carrying only a page/timestamp, no span to highlight.
+export function doPageEdgeBar(refs: HighlightRefs, reg: unknown, page: number): void {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const r = reg as any;
+  const scroll = r.getPlugin?.("scroll")?.provides?.();
+  const docMgr = r.getPlugin?.("document-manager")?.provides?.();
+  if (!docMgr) {
+    scroll?.scrollToPage?.({ pageNumber: page, behavior: "instant", alignY: 50 });
+    return;
+  }
+  const doc = docMgr.getActiveDocument?.();
+  const pageObj = doc?.pages?.[page - 1];
+  const pageHeight = pageObj?.size?.height ?? 0;
+  drawPageEdgeBar(refs, r, docMgr, scroll, page - 1, pageHeight);
 }
 
 

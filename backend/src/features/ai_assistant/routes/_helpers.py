@@ -177,12 +177,14 @@ def _strip_html(s: str) -> str:
 
 
 # A table-of-contents / index / list-of-figures entry: a dotted leader run (4+ dots,
-# so a normal 3-dot ellipsis is NOT caught) followed by a page-reference number. Such
-# a line carries the topic keyword verbatim ("Vektorgrafik ........ 4"), so a claim
-# about that topic would wrongly ground to the index page instead of the real content
-# section. Structure-only -> language-agnostic (KIS is multi-tenant). Limitation:
-# leaders that aren't solid ASCII dots (spaced dots, whitespace alignment) aren't caught.
-_TOC_LEADER_RE = re.compile(r"\.{4,}\s*\d{1,4}")
+# solid OR spaced — "........ 4" and ". . . . 4" — so a normal 3-dot ellipsis is NOT
+# caught) followed by a page-reference number. Such a line carries the topic keyword
+# verbatim ("Vektorgrafik ........ 4"), so a claim about that topic would wrongly ground
+# to the index page instead of the real content section. A letter or digit between the
+# dots breaks the run, so abbreviations ("z.B.") and decimals ("3.14") are safe.
+# Structure-only -> language-agnostic (KIS is multi-tenant). Limitation: pure whitespace
+# alignment with no dots isn't caught (too ambiguous vs. a sentence ending in a number).
+_TOC_LEADER_RE = re.compile(r"(?:\.\s*){4,}\d{1,4}")
 
 
 def _strip_toc_lines(text: str) -> str:
@@ -193,6 +195,18 @@ def _strip_toc_lines(text: str) -> str:
     if not text or "." not in text:
         return text
     return "\n".join(ln for ln in text.split("\n") if not _TOC_LEADER_RE.search(ln))
+
+
+def _is_toc_chunk(content: str, *, min_chars: int = 20, max_kept_ratio: float = 0.4) -> bool:
+    """True if a chunk is (almost) entirely table-of-contents / index entries — so it is
+    NOT a valid citation target. Measured structurally: if stripping the TOC leader lines
+    removes most of the chunk's characters, the chunk WAS a TOC. Prose loses ~nothing.
+    Tiny chunks are never flagged (too little signal)."""
+    raw = (content or "").replace(" ", "").replace("\n", "")
+    if len(raw) < min_chars:
+        return False
+    kept = _strip_toc_lines(content).replace(" ", "").replace("\n", "")
+    return len(kept) <= len(raw) * max_kept_ratio
 
 
 # ─── Header/footer de-weighting for citation grounding ──────────────────────
@@ -466,8 +480,12 @@ _GENERIC_ATTRIB_MAX_DIST = 0.6
 
 def _pick_attribution(hits: list[dict], max_distance: float) -> Optional[dict]:
     """Return the closest hit (min cosine ``vec_distance``) iff within the gate, else
-    None. None == the line is not clearly in the sources -> no chip is attached."""
-    cand = [h for h in hits if h.get("vec_distance") is not None]
+    None. None == the line is not clearly in the sources -> no chip is attached.
+
+    A table-of-contents / index chunk is never a target: it carries every topic keyword
+    verbatim, so it can rank close, but citing the index page is always wrong."""
+    cand = [h for h in hits
+            if h.get("vec_distance") is not None and not _is_toc_chunk(h.get("content") or "")]
     if not cand:
         return None
     best = min(cand, key=lambda h: h["vec_distance"])
@@ -540,14 +558,16 @@ def _scope_is_nav_only(scope_pages: set, scope_chunks: list) -> bool:
 
 
 def _highlights_enabled() -> bool:
-    """Master switch for yellow span highlights. Default ON.
+    """Master switch for yellow span highlights. Default OFF.
 
-    Highlights re-anchor a stored char-offset span in the live PDF text. That is
-    precise on clean text but can break on OCR'd documents (artifacts -> the keyword
-    paragraph fallback over-marks). Set AIA_HIGHLIGHTS=0 to turn highlights off for
-    ALL modes: every chip is then reduced to nav-only (page/timestamp, click scrolls,
-    no highlight). The kill-switch stays available for OCR-heavy tenants."""
-    return os.getenv("AIA_HIGHLIGHTS", "1").strip().lower() in ("1", "true", "yes", "on")
+    Highlights re-anchor a stored char-offset span in the live PDF text. In practice
+    this is unreliable EVEN on clean PDFs: an answer synthesises across the whole page,
+    so a single span is false precision — too tight misses part of the claim, too loose
+    paints the whole page. On OCR'd docs the keyword fallback additionally over-marks.
+    So the default is nav-only: every chip is reduced to page/timestamp (click scrolls,
+    no highlight). Set AIA_HIGHLIGHTS=1 to re-enable span highlights for a tenant whose
+    corpus is clean enough to benefit."""
+    return os.getenv("AIA_HIGHLIGHTS", "0").strip().lower() in ("1", "true", "yes", "on")
 
 
 def _nav_only_chips(text: str) -> str:

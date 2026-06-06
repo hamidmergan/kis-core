@@ -45,15 +45,26 @@ def _fold_char(ch: str) -> str:
     return (d[0] if d else ch).lower()
 
 
+# Invisible join / OCR line-break artifacts: dropped entirely by the fold so a word
+# split across a hyphenated line break ("Bachelor<artifact>Studiengangs", "Kla<shy>ren")
+# matches the live pdfium text (which joins it or uses a different separator). Soft
+# hyphen, zero-width chars, word joiner, BOM/ZWNBSP, and the U+FFFE/U+FFFF noncharacters
+# Docling emits. MUST mirror the frontend _FOLD_SKIP.
+_FOLD_SKIP = frozenset("­​‌‍⁠﻿￾￿")
+
+
 def _collapse_fold(text: str) -> tuple[str, list[int]]:
     """Return a whitespace-collapsed, diacritic-folded view of ``text`` plus a map
     from each clean-index back to the original ``text`` index. A run of whitespace
-    becomes a single space mapped to the run's first char. Mirrors the frontend
-    collapseFold so both sides match the same way."""
+    becomes a single space mapped to the run's first char. Invisible join/OCR artifacts
+    (see _FOLD_SKIP) are dropped so a span survives a hyphenated line break. Mirrors the
+    frontend collapseFold so both sides match the same way."""
     clean: list[str] = []
     c2t: list[int] = []
     in_space = False
     for i, ch in enumerate(text):
+        if ch in _FOLD_SKIP:
+            continue
         if ch.isspace():
             if not in_space:
                 clean.append(" ")
