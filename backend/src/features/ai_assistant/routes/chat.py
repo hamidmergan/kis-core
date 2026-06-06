@@ -36,6 +36,7 @@ from src.tool_prompts import (
     AIA_SYSTEM_DIRECT_WITH_CONTEXT,
     aia_system_rag,
     aia_rag_user_message,
+    aia_reduce_user_message,
     AIA_POPUP_ACTIONS,
     AIA_INTENT_CLASSIFIER_SYSTEM,
     AIA_INTENT_CLASSIFIER_FEWSHOT,
@@ -76,12 +77,22 @@ _PAGE_REF_RE = re.compile(
 )
 _MAX_PAGE_SPAN = 50
 
-# SPECIFIC retrieval: how many ranked chunks to pull as candidates. The hybrid search
-# fuses vector(top-80)+keyword(top-80) via RRF, so ~160 is the practical ceiling; we
-# pass them ALL and let the context CHAR budget (see the context-build loop) be the real
-# cap — a big document otherwise loses a relevant chunk that ranks below a small top-K
-# (e.g. an author name buried at rank ~58 of 80). Budget has ample headroom in practice.
+# SPECIFIC retrieval: how many ranked chunks to pull PER SOURCE as candidates. The
+# hybrid search fuses vector(top-80)+keyword(top-80) via RRF, so ~160 is the practical
+# ceiling. These are only candidates — the relevance-weighted budget split below
+# (_allocate_specific_budget) decides how many of each source's top chunks actually go
+# to the model, so a big on-topic document still surfaces a deep hit (e.g. an author
+# name buried at rank ~58) without every source dumping all ~160 chunks (mostly noise).
 _SPECIFIC_RETRIEVE_LIMIT = 200
+# Source-distance gate: drop a source whose CLOSEST chunk is farther than this multiple
+# of the best source's closest chunk (off-topic). Cosine distance is stopword-immune →
+# language-agnostic, no word lists.
+_DIST_FACTOR = 1.3
+# Floor of the per-source CHAR allotment in the SPECIFIC budget split: every on-topic
+# source (one that passed the gate) is guaranteed at least this many chars of its top
+# chunks, so a question whose answer is spread across many docs (e.g. each doc names
+# one author) keeps every doc represented. ~4-5 chunks.
+_SPECIFIC_FLOOR_CHARS = 4000
 
 
 def _parse_page_refs(question: str) -> list[int]:
@@ -371,10 +382,12 @@ def _context_budget() -> int:
     """Character budget for the LLM context, admin-tunable per deployment.
 
     KIS runs on very different setups — universities on large cloud models vs a
-    private user on a small local Ollama — so a fixed budget is wrong. Reads the
-    ``aia_context_max_chars`` admin setting, falling back to the tier-safe
-    constant (32k-model default). A deployment that only runs large-context
-    models can raise it so whole large documents fit (see _full_context_if_fits).
+    private user on a local Ollama — so a fixed budget is wrong. Reads the
+    ``aia_context_max_chars`` admin setting, falling back to AIA_CONTEXT_MAX_CHARS
+    (250k chars ≈ 71k tokens, sized for the Mid minimum tier). A deployment can
+    raise it toward AIA_CONTEXT_HARD_CAP so whole large documents fit (see
+    _full_context_if_fits) and SPECIFIC needs fewer map-reduce calls; an admin
+    value already in the DB overrides this default.
     """
     try:
         value = int(db.get_setting("aia_context_max_chars", str(AIA_CONTEXT_MAX_CHARS)))
@@ -565,6 +578,156 @@ def _order_round_robin(chunks: list[dict], source_id_to_qnum: dict[int, int]) ->
     )
 
 
+def _take_chunks_within(hits: list[dict], char_share: int) -> list[dict]:
+    """Take a source's TOP chunks (hits are RRF-ranked, most relevant first) until
+    their content fills ``char_share``. Always takes at least one chunk so a source
+    is never represented by nothing. Tags each with ``_seq`` = its per-source
+    relevance rank, so _order_round_robin can interleave sources fairly."""
+    taken: list[dict] = []
+    used = 0
+    for i, c in enumerate(hits):
+        clen = len(c.get("content") or "")
+        if taken and used + clen > char_share:
+            break
+        c["_seq"] = i
+        taken.append(c)
+        used += clen
+    return taken
+
+
+def _allocate_specific_budget(
+    kept: list[tuple[list[dict], Optional[float]]],
+    char_budget: int,
+) -> list[dict]:
+    """Relevance-weighted per-source chunk budget for SPECIFIC (Option 2).
+
+    ``kept`` = the on-topic sources (those that passed the distance gate) as
+    ``(hits, src_best_distance)`` pairs, hits RRF-ranked. Instead of dumping ALL
+    of every source's ~160 hits (mostly noise — only a handful actually bear on a
+    fact/name question), we split ONE total char budget across the sources:
+
+    - **More on-topic → more chars.** Weight = how far inside the gate the source
+      sits (``threshold - src_best``); a borderline source gets little, a strongly
+      on-topic one gets the bulk. Falls back to equal weights without distances.
+    - **Floor per source** (``_SPECIFIC_FLOOR_CHARS``, capped so floors never
+      exceed the budget) so every on-topic doc is represented — the "each doc
+      names one author" case keeps all docs. The remainder is distributed by
+      weight on top of the floors, so total CONTENT ≈ char_budget (≈ one context
+      window). With the per-chunk XML wrapper added at pack time the wrapped
+      context is usually one batch, occasionally two when a small tail spills —
+      answered as parallel map + reduce, far below the old "all hits" cost.
+    - **Single source** gets the whole budget → a deep hit (rank ~58) still fits.
+
+    Total stays ≤ char_budget, so nothing is silently dropped *below* the budget;
+    what is dropped is each source's long low-relevance tail (the noise), which is
+    the whole point.
+    """
+    if not kept:
+        return []
+    if len(kept) == 1:
+        return _take_chunks_within(kept[0][0], char_budget)
+
+    dists = [d for _, d in kept if d is not None]
+    threshold = (min(dists) * _DIST_FACTOR) if dists else None
+    weights: list[float] = []
+    for _hits, d in kept:
+        if threshold is not None and d is not None:
+            weights.append(max(threshold - d, 0.0))
+        else:
+            weights.append(1.0)
+    wsum = sum(weights)
+    if wsum <= 0:
+        weights = [1.0] * len(kept)
+        wsum = float(len(kept))
+
+    # Floor first (capped so floors fit the budget), distribute the rest by weight.
+    floor = min(_SPECIFIC_FLOOR_CHARS, char_budget // len(kept))
+    remaining = max(0, char_budget - floor * len(kept))
+    out: list[dict] = []
+    for (hits, _d), w in zip(kept, weights):
+        share = floor + int(remaining * w / wsum)
+        out.extend(_take_chunks_within(hits, share))
+    return out
+
+
+def _pack_context_batches(
+    chunks: list[dict],
+    budget: int,
+    source_id_to_qnum: dict[int, int],
+    all_sources_list: dict[int, dict],
+    transcript_by_source: dict[int, list[dict]],
+    *,
+    multi: bool,
+) -> tuple[list[str], dict[int, set]]:
+    """Pack chunks into ``<documents>`` context strings, each ≤ ``budget`` chars.
+
+    ``multi=False`` (GENERIC / SCOPE / popup): produces a SINGLE batch; a chunk
+    that would overflow the budget is skipped (an overview need not see
+    everything, and later smaller chunks may still fit).
+
+    ``multi=True`` (SPECIFIC): NEVER drops a retrieved hit. When the current
+    batch is full it opens another one, so every per-source hybrid hit is shown
+    to the model across calls. The caller answers each batch and merges the
+    results (map-reduce), which is why a deep fact (e.g. an author on fused rank
+    ~59) can no longer be silently truncated out of the context.
+
+    Each batch is its own LLM context window, so chunk ids (``id="N"``) restart at
+    1 within every batch. Returns ``(batches, seen_pages_by_source)`` where
+    ``seen_pages_by_source`` is the UNION of the pages the model saw across ALL
+    batches (media sources map to an EMPTY set → the attribution cross-check
+    reads that as "source retrieved, accept", since a timestamp chip has no page
+    to validate). An empty ``chunks`` yields ``([], {})``.
+    """
+    batches: list[str] = []
+    cur_parts: list[str] = []
+    cur_len = 0
+    cid = 0
+    seen_pages: dict[int, set] = {}
+    media_sources: set[int] = set()
+
+    def _build_part(chunk: dict, qn: int, _cid: int) -> str:
+        src = all_sources_list.get(chunk["source_id"])
+        fname = src["filename"] if src else f"source-{qn}"
+        if chunk.get("start_time") is not None:
+            segments = transcript_by_source.get(chunk["source_id"], [])
+            content = _enrich_media_content(chunk, segments) if segments else chunk["content"]
+            loc = _format_timestamp(chunk["start_time"])
+        else:
+            content = chunk["content"]
+            loc = f"S. {chunk['page_number']}"
+        return (f'<document index="{qn}" id="{_cid}">\n<source>{fname} | {loc}</source>\n'
+                f'<content>\n{content}\n</content>\n</document>')
+
+    def _flush() -> None:
+        nonlocal cur_parts, cur_len, cid
+        if cur_parts:
+            batches.append(f"<documents>\n{''.join(cur_parts)}\n</documents>")
+        cur_parts, cur_len, cid = [], 0, 0
+
+    for chunk in chunks:
+        qn = source_id_to_qnum.get(chunk["source_id"], 1)
+        part = _build_part(chunk, qn, cid + 1)
+        if cur_parts and cur_len + len(part) > budget:
+            if not multi:
+                continue  # single batch: skip oversized, keep packing later smaller chunks
+            _flush()
+            part = _build_part(chunk, qn, cid + 1)  # cid reset → id restarts at 1
+        cid += 1
+        cur_parts.append(part)
+        cur_len += len(part)
+        if chunk.get("start_time") is not None:
+            media_sources.add(chunk["source_id"])
+        elif chunk.get("page_number") is not None:
+            seen_pages.setdefault(chunk["source_id"], set()).add(chunk["page_number"])
+    _flush()
+
+    seen_pages_by_source: dict[int, set] = {sid: set() for sid in media_sources}
+    for sid, pages in seen_pages.items():
+        if sid not in media_sources:
+            seen_pages_by_source[sid] = pages
+    return batches, seen_pages_by_source
+
+
 from src.features.ai_assistant.routes._helpers import (
     _trace_llm,
     _convert_office_to_pdf,
@@ -577,7 +740,6 @@ from src.features.ai_assistant.routes._helpers import (
     _term_appears_in_text,
     _load_transcript_segments,
     _enrich_media_content,
-    _norm_for_match,
     _RepetitionGuard,
     _dedup_repeated_lines,
     _strip_inline_citation_chips,
@@ -807,6 +969,10 @@ async def chat(
             headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
         )
 
+    # SPECIFIC (topic-focused) retrieval is the only path allowed to multi-call:
+    # its per-source hybrid hits must never be truncated (a deep fact would be
+    # lost). GENERIC/SCOPE/popup stay single-call (overview / exact-scope).
+    _specific_path = False
     if scope_chunks:
         chunks = scope_chunks
     elif intent == "GENERIC":
@@ -829,7 +995,8 @@ async def chat(
                 budget=context_budget,
             )
     else:
-        # ── Normal path: hybrid search ──
+        # ── Normal path: hybrid search (SPECIFIC) ──
+        _specific_path = True
         from src.services.aia_embeddings import get_embedding_provider
         provider = get_embedding_provider()
 
@@ -849,18 +1016,12 @@ async def chat(
         # Per-source relevance retrieval. Instead of ONE global top-K (which a deep
         # fact in a big document can fall below — the author name sat at fused rank
         # ~59, so a global top-20 missed it), search EACH selected source on its own
-        # (reusing the one query vector) and keep ALL of that source's hits. Every
-        # source then brings its own most-relevant chunks; a per-source rank (_seq)
-        # lets _order_round_robin interleave fairly so the context CHAR budget
-        # (assembly loop below) drops late rounds, never a whole source. The budget
-        # is the real cap — nothing relevant is silently truncated below it.
+        # (reusing the one query vector) for its most-relevant candidates.
         #
         # SOURCE-level distance gate (not chunk-level!): drop a source only when its
-        # CLOSEST chunk is off-topic (cosine > _DIST_FACTOR x global best). Within a
-        # kept source we keep every hit — gating individual chunks here would risk
-        # cutting the very chunk we need (the name chunk's distance is worse than the
-        # source's best). Cosine is stopword-immune -> language-agnostic, no wordlist.
-        _DIST_FACTOR = 1.3
+        # CLOSEST chunk is off-topic (cosine > _DIST_FACTOR x global best). The gate
+        # decides WHICH sources are on-topic; it cannot tell which CHUNK holds the
+        # answer (a name embeds far from "who are the authors", hence rank ~59).
         per_source_hits: list[list[dict]] = []
         for sid in search_source_ids:
             hits = db.hybrid_search_chunks(
@@ -872,7 +1033,7 @@ async def chat(
         _all_dists = [c["vec_distance"] for hits in per_source_hits for c in hits if c.get("vec_distance") is not None]
         _best_dist = min(_all_dists) if _all_dists else None
         _dist_threshold = _best_dist * _DIST_FACTOR if _best_dist is not None else None
-        chunks = []
+        kept: list[tuple[list[dict], Optional[float]]] = []
         for hits in per_source_hits:
             _src_dists = [c["vec_distance"] for c in hits if c.get("vec_distance") is not None]
             _src_best = min(_src_dists) if _src_dists else None
@@ -883,13 +1044,22 @@ async def chat(
                 logger.info("Per-source: source {} skipped off-topic (dist {:.3f} > {:.3f})",
                             hits[0]["source_id"], _src_best, _dist_threshold)
                 continue
-            for i, c in enumerate(hits):
-                c["_seq"] = i  # per-source relevance rank -> fair round-robin interleave
-            chunks.extend(hits)
-        found_pages = sorted({c["page_number"] for c in chunks if c.get("page_number") is not None})
-        found_source_ids = sorted({c["source_id"] for c in chunks})
-        logger.info("Per-source hybrid: {} chunks from {} sources, Seiten: {}, Query: '{}'",
-                    len(chunks), len(found_source_ids), found_pages, embed_text[:80])
+            kept.append((hits, _src_best))
+        # Relevance-weighted budget split (Option 2): instead of dumping ALL ~160
+        # hits of every kept source (mostly noise — only a handful bear on the
+        # answer), give one total char budget to the on-topic sources, more to the
+        # more-relevant ones, each contributing its TOP chunks. Caps cost to ≈ one
+        # context window (a single call, or two when the XML wrapper spills a small
+        # tail) while keeping every on-topic doc represented; a single deep source
+        # still gets the whole budget.
+        chunks = _allocate_specific_budget(kept, context_budget)
+        from collections import Counter as _Counter
+        _per_src = _Counter(c["source_id"] for c in chunks)
+        _chars = sum(len(c.get("content") or "") for c in chunks)
+        logger.info(
+            "SPECIFIC budget-split: {} chunks ({} chars) from {} on-topic sources | per-source: {} | budget {} | Query: '{}'",
+            len(chunks), _chars, len(kept), dict(_per_src), context_budget, embed_text[:80],
+        )
 
     # Build source-number mapping (Q1, Q2, ...) for multi-source disambiguation
     all_sources_list = {s["id"]: s for s in db.get_aia_sources_by_workspace(workspace["id"])}
@@ -940,69 +1110,37 @@ async def chat(
             if src:
                 transcript_by_source[sid] = _load_transcript_segments(src)
 
-    # Build context (capped at AIA_CONTEXT_MAX_CHARS) - XML tags per chunk (Anthropic best practice).
-    # source_index is built from the SAME chunks (only those that fit in context) so the
-    # post-hoc attribution cross-check can restrict each chip to a page the model actually
-    # saw (seen_pages_by_source). See _attribute_generic_text.
-    context_parts: list[str] = []
-    context_len = 0
-    source_index: dict[int, dict] = {}
-    qnum_to_source_id: dict[int, int] = {}
-    # cid runs 1..K over the chunks that ACTUALLY fit in context (the ones the model saw).
-    cid_counter = 0
-    from collections import Counter
-    sent_per_source: Counter = Counter()
-    for chunk in chunks:
-        qn = source_id_to_qnum.get(chunk["source_id"], 1)
-        src = all_sources_list.get(chunk["source_id"])
-        fname = src["filename"] if src else f"source-{qn}"
-        if chunk.get("start_time") is not None:
-            segments = transcript_by_source.get(chunk["source_id"], [])
-            content = _enrich_media_content(chunk, segments) if segments else chunk["content"]
-            loc = _format_timestamp(chunk["start_time"])
-        else:
-            content = chunk["content"]
-            loc = f"S. {chunk['page_number']}"
-        # Provisional id for THIS chunk; only consumed if the chunk fits the budget,
-        # so ids stay gap-free and match exactly what the model sees in the context.
-        cid = cid_counter + 1
-        part = (f'<document index="{qn}" id="{cid}">\n<source>{fname} | {loc}</source>\n'
-                f'<content>\n{content}\n</content>\n</document>')
-        if context_len + len(part) > context_budget:
-            continue  # skip this oversized chunk, keep packing smaller later ones (don't drop the whole tail)
-        cid_counter = cid
-        context_parts.append(part)
-        context_len += len(part)
-        sent_per_source[chunk["source_id"]] += 1
-        is_media_chunk = chunk.get("start_time") is not None
-        qnum_to_source_id[qn] = chunk["source_id"]
-        si = source_index.setdefault(qn, {"is_media": False, "pages": set(), "chunks": []})
-        si["chunks"].append({
-            "cid": cid,
-            "page": None if is_media_chunk else chunk["page_number"],
-            "start_time": chunk.get("start_time"),
-            "norm_content": _norm_for_match(content),
-        })
-        if is_media_chunk:
-            si["is_media"] = True
-    context = f"<documents>\n{''.join(context_parts)}\n</documents>"
+    # Pack the retrieved chunks into one or more <documents> context windows
+    # (XML tags per chunk — Anthropic best practice). SPECIFIC must never
+    # truncate a per-source hybrid hit (a deep fact would be lost), so when its
+    # candidates exceed the budget they spill into ADDITIONAL batches and the
+    # answer is produced via map-reduce (see _stream below). GENERIC/SCOPE/popup
+    # stay single-batch (overflow is fine for an overview / exact-scope ask).
+    # seen_pages_by_source is the UNION of pages the model saw across all batches;
+    # the post-hoc attribution cross-check uses it to keep a chip only on a page
+    # the model could actually have seen. See _attribute_generic_text.
+    _specific_multi = _specific_path and not body.source_text
+    batches, seen_pages_by_source = _pack_context_batches(
+        chunks, context_budget, source_id_to_qnum, all_sources_list,
+        transcript_by_source, multi=_specific_multi,
+    )
+    context = batches[0] if batches else "<documents>\n\n</documents>"
+    _ctx_chars = sum(len(b) for b in batches)
     logger.info(
-        "Context sent: {} chars (~{} tokens) of {} budget ({:.0f}%) | {}/{} chunks included | sent per-source: {}",
-        len(context), round(len(context) / 3.5), context_budget,
-        100 * len(context) / context_budget if context_budget else 0,
-        len(context_parts), len(chunks), dict(sent_per_source),
+        "Context: {} batch(es), {} chars total (~{} tokens), budget {}/batch | {} chunks | specific_multi={}",
+        len(batches), _ctx_chars, round(_ctx_chars / 3.5), context_budget,
+        len(chunks), _specific_multi,
     )
 
-    # Validity set per PDF source = its REAL pages (text/OCR chunks), so the
-    # citation resolver can reject pages no upstream step ever produced (e.g. a
-    # hallucinated [p.N]). Media sources keep an EMPTY page set on
-    # purpose: a page number on a video/audio citation is always bogus -> dropped.
-    for qn, si in source_index.items():
-        if not si["is_media"]:
-            si["pages"] = db.get_source_page_numbers(qnum_to_source_id[qn])
-
-    # Popup actions: user has selected text themselves
+    # Build the LLM call(s). One context window → one call (messages set here);
+    # SPECIFIC overflow (multiple batches) → map-reduce, where _map_messages holds
+    # one message pair per batch and the final reduce `messages` is built in
+    # _stream after the map step. No conversation history is ever sent: each turn
+    # is fully standalone (no follow-up condensing, no leaks).
+    _map_messages: Optional[list[list[dict]]] = None
+    messages: Optional[list[dict]] = None
     if body.source_text:
+        # Popup actions: user has selected text themselves.
         page_ref = f" [S. {body.source_page}]" if body.source_page else ""
         # "Elaborate" needs RAG context, the others work only with the selected text
         elaborate = AIA_POPUP_ACTIONS[0]
@@ -1013,16 +1151,23 @@ async def chat(
         else:
             system_prompt = AIA_SYSTEM_DIRECT
             user_message = f"{body.question}\n\nText (aus {body.source_filename or 'Dokument'}{page_ref}):\n{body.source_text}"
+        messages = [
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": user_message},
+        ]
+    elif len(batches) <= 1:
+        messages = [
+            {"role": "system", "content": aia_system_rag(chat_lang)},
+            {"role": "user", "content": aia_rag_user_message(context, rewritten_question)},
+        ]
     else:
-        system_prompt = aia_system_rag(chat_lang)
-        user_message = aia_rag_user_message(context, rewritten_question)
-
-    # Single-turn: system + user. No conversation history is ever sent, so a
-    # previous turn cannot leak into this answer; each question stands alone.
-    messages: list[dict] = [
-        {"role": "system", "content": system_prompt},
-        {"role": "user", "content": user_message},
-    ]
+        _map_messages = [
+            [
+                {"role": "system", "content": aia_system_rag(chat_lang)},
+                {"role": "user", "content": aia_rag_user_message(b, rewritten_question)},
+            ]
+            for b in batches
+        ]
 
     # Build source_pages before streaming so we can send them at the end
     source_pages: list[dict] = []
@@ -1093,26 +1238,69 @@ async def chat(
         assistant_saved = False
         tokens_in: Optional[int] = None
         tokens_out: Optional[int] = None
+        # Tokens spent by SPECIFIC map calls (the streamed reduce call's usage
+        # overwrites tokens_in/out, so map usage is tracked separately and folded
+        # into the usage log at the end). 0 for every single-call path.
+        _map_tok_in = 0
+        _map_tok_out = 0
         try:
             # Send qmap upfront so the frontend can resolve [Q1], [Q2] chips
             # during streaming instead of falling back to activeSourceIds[0].
             yield f"data: {json.dumps({'qmap': source_qmap, 'source_pages': source_pages})}\n\n"
-            # Built once here (was previously built after the loop) so each line can
-            # be grounded live. Reused by the canonical finalize block below.
-            # Pages the model ACTUALLY saw per source (context-budgeted chunks). The
-            # post-hoc attribution cross-check only keeps a chip when its page is in
-            # this set, so a claim is never chipped to a page the model couldn't have
-            # seen. MEDIA sources carry an EMPTY set on purpose: a timestamp chip has
-            # no page to validate, so an empty set means "source was retrieved, accept"
-            # (see the cross-check in _attribute_generic_text). Excluding media here
-            # would silently drop every audio/video chip.
-            seen_pages_by_source = {
-                qnum_to_source_id[qn]: (
-                    set() if si["is_media"]
-                    else {c["page"] for c in si["chunks"] if c.get("page") is not None}
+
+            # Resolve the messages for the streamed (final) call. Single-call paths
+            # (popup / one context batch) already have `messages`. SPECIFIC overflow
+            # runs MAP first — answer every batch concurrently — then streams a
+            # REDUCE over the partial answers, so no retrieved chunk is ever
+            # truncated unseen (the whole point: a deep fact like an author name
+            # cannot be cut). seen_pages_by_source (union across batches) is already
+            # computed at pack time and feeds the post-hoc attribution cross-check.
+            _final_messages = messages
+            if _map_messages is not None:
+                logger.info("SPECIFIC overflow: map-reduce over {} batches", len(_map_messages))
+
+                async def _map_one(_msgs: list[dict]):
+                    _r = await llm._async_client.with_options(
+                        timeout=120.0, max_retries=0
+                    ).chat.completions.create(
+                        model=llm._model, messages=_msgs, temperature=0.2, stream=False,
+                        **(llm._extra_body and {"extra_body": llm._extra_body} or {}),
+                    )
+                    _txt = (_r.choices[0].message.content or "") if _r.choices else ""
+                    _u = getattr(_r, "usage", None)
+                    return (
+                        _txt,
+                        getattr(_u, "prompt_tokens", None) if _u else None,
+                        getattr(_u, "completion_tokens", None) if _u else None,
+                    )
+
+                _map_out = await asyncio.gather(
+                    *[_map_one(m) for m in _map_messages], return_exceptions=True
                 )
-                for qn, si in source_index.items() if qn in qnum_to_source_id
-            }
+                _partials: list[str] = []
+                for _res in _map_out:
+                    if isinstance(_res, Exception):
+                        logger.warning("map call failed: {}", _res)
+                        continue
+                    _txt, _tin, _tout = _res
+                    _map_tok_in += _tin or 0
+                    _map_tok_out += _tout or 0
+                    if _txt and _txt.strip():
+                        _partials.append(_txt.strip())
+                logger.info("map-reduce: {}/{} batches produced a partial answer",
+                            len(_partials), len(_map_messages))
+                if _partials:
+                    _final_messages = [
+                        {"role": "system", "content": aia_system_rag(chat_lang)},
+                        {"role": "user", "content": aia_reduce_user_message(rewritten_question, _partials)},
+                    ]
+                else:
+                    # Every map call empty/failed → single call over the first batch
+                    # so the user still gets an answer rather than nothing.
+                    _final_messages = [
+                        {"role": "system", "content": aia_system_rag(chat_lang)},
+                        {"role": "user", "content": aia_rag_user_message(context, rewritten_question)},
+                    ]
             _line_buf = ""
             aborted = False
             # Safety net against a model repetition/degeneration loop (same few bullets
@@ -1126,7 +1314,7 @@ async def chat(
                 # inter-chunk inactivity guard below takes over.
                 stream = await llm._async_client.with_options(timeout=90.0, max_retries=0).chat.completions.create(
                     model=llm._model,
-                    messages=messages,
+                    messages=_final_messages,
                     temperature=0.2,
                     stream=True,
                     # Ask for a final usage chunk so chat token counts land in
@@ -1297,13 +1485,18 @@ async def chat(
                             _log_status = "aborted"
                     except Exception as e:
                         logger.warning("Fallback save of partial answer failed: {}", e)
+            # Fold SPECIFIC map-call usage into the totals (the reduce stream's
+            # usage already landed in tokens_in/out). `or None` keeps the
+            # "no usage reported" case as None instead of a misleading 0.
+            _total_in = ((tokens_in or 0) + _map_tok_in) or None
+            _total_out = ((tokens_out or 0) + _map_tok_out) or None
             _log_usage(
                 user_id=user_id,
                 endpoint="chat",
                 provider=getattr(llm, "_provider", None),
                 model=getattr(llm, "_model", None),
-                tokens_in=tokens_in,
-                tokens_out=tokens_out,
+                tokens_in=_total_in,
+                tokens_out=_total_out,
                 duration_ms=int((_time.monotonic() - _started_at) * 1000),
                 status=_log_status,
             )

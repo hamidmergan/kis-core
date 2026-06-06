@@ -179,6 +179,40 @@ def aia_rag_user_message(context: str, question: str) -> str:
     )
 
 
+def aia_reduce_user_message(question: str, partials: list[str]) -> str:
+    """Merge per-batch partial answers into one (SPECIFIC map-reduce reduce step).
+
+    SPECIFIC retrieval may exceed one context window; rather than truncate
+    relevant chunks (which once dropped an author on fused rank ~59), the
+    candidates are split into budget-sized batches, each answered separately
+    (map), and the partial answers are merged here. The decisive rule: a concrete
+    fact present in ANY partial must survive the merge — that is the whole reason
+    for multi-call. "Not in the sources" partials are ignored when another
+    partial answers. The merged answer goes through the SAME post-hoc attribution
+    as a single-call answer, so chips are unaffected.
+    """
+    blocks = "\n\n".join(
+        f"--- Partial answer {i} ---\n{p}" for i, p in enumerate(partials, 1)
+    )
+    return (
+        "Below are partial answers to the SAME question. Each was written from a "
+        "DIFFERENT slice of the same source documents, so each saw only part of "
+        "the evidence. Merge them into ONE final answer:\n"
+        "- KEEP every concrete fact (names, numbers, dates, terms) that appears "
+        "in AT LEAST ONE partial answer — a fact missing from the others only "
+        "means that slice did not contain it, NOT that it is wrong.\n"
+        "- IGNORE partials that say the information is not in the sources, as long "
+        "as another partial actually answers the question.\n"
+        "- If partials genuinely contradict each other, state both briefly.\n"
+        "- Do NOT repeat the same point twice. Do NOT mention 'partial answers', "
+        "slices, batches, or that any merge happened — output one clean answer.\n"
+        "- Keep the formatting rules: bullet points by default, a Markdown table "
+        "only when several entries share the same fields.\n"
+        "- Write the ENTIRE answer in the SAME language as the Question below.\n\n"
+        f"Question: {question}\n\n{blocks}"
+    )
+
+
 # Backward-compat constant for callers that don't have locale context (admin
 # registries, language_training source cards). Defaults to DE behavior.
 AIA_SYSTEM_RAG = aia_system_rag("de")
