@@ -492,26 +492,14 @@ def _pick_attribution(hits: list[dict], max_distance: float) -> Optional[dict]:
     return best if best["vec_distance"] <= max_distance else None
 
 
-def _attribution_chip(qnum: int, chunk: dict, line: str, offset_fn) -> list[str]:
-    """Build citation chip(s) for a post-hoc attributed line. PREFER exact server
-    offsets (``@start-end``) so the highlight is the precise span — NOT the keyword
-    path, which the viewer expands to the whole surrounding paragraph (pulling in
-    unrelated text). One chip per offset region. Falls back to a verbatim overlap
-    keyword, then nav-only. Media: the chunk's start timestamp.
-
-    ``offset_fn(source_id, page, line)`` returns ``" @start-end | span"`` suffixes."""
+def _attribution_chip(qnum: int, chunk: dict, line: str) -> list[str]:
+    """Nav-only citation chip for a post-hoc attributed line: page (PDF) or the chunk's
+    start timestamp (media). No span offset, no keyword — clicking only scrolls to the
+    page/timestamp. `line` kept in the signature for stability/logging."""
     page = chunk.get("page_number")
     if page is None:
         st = chunk.get("start_time")
         return [f"[{qnum}, {_format_timestamp(st)}]"] if st is not None else []
-    offs = offset_fn(chunk["source_id"], page, line) or []
-    if offs:
-        return [f"[{qnum}, S. {page}{s}]" for s in offs]
-    kw = _overlap_phrase(line, chunk.get("content") or "")
-    # _overlap_phrase falls back to the chunk's first words even with no real overlap;
-    # only anchor a keyword highlight when the phrase actually occurs in the line.
-    if kw and _norm_for_match(kw) in _norm_for_match(line):
-        return [f"[{qnum}, S. {page} | {kw}]"]
     return [f"[{qnum}, S. {page}]"]
 
 
@@ -523,14 +511,21 @@ def _needs_attribution(line: str) -> bool:
             and not _HAS_CITE.search(line.rstrip()))
 
 
-def _attribute_generic_text(text: str, search_one, source_id_to_qnum: dict, offset_fn,
+def _attribute_generic_text(text: str, search_one, source_id_to_qnum: dict, offset_fn=None, *,
+                            seen_pages_by_source=None,
                             max_distance: float = _GENERIC_ATTRIB_MAX_DIST) -> str:
     """Re-ground each substantial, uncited line of a GENERIC answer via semantic search.
 
     ``search_one(line)`` returns ranked hits (dicts with vec_distance / source_id /
-    page_number / content / optional start_time). ``offset_fn`` yields exact-span
-    suffixes for the matched chunk's page. Short/heading lines and lines that already
-    carry a chip are left untouched; an unsupported line (gate) gets no chip.
+    page_number / content / optional start_time). ``offset_fn`` is accepted for
+    backwards-compatibility but is now IGNORED — all chips are nav-only.
+    Short/heading lines and lines that already carry a chip are left untouched;
+    an unsupported line (gate) gets no chip.
+
+    ``seen_pages_by_source`` (optional) maps source_id -> set of PDF page numbers that
+    were actually retrieved into context. When given, a chip is only emitted if the
+    attributed source/page was in that set (cross-check). Media sources (page_number is
+    None) pass the check whenever their source_id is present in the mapping.
 
     The candidate gate is ``_needs_attribution`` — the caller uses the same predicate
     to batch-embed all candidate lines up front, so ``search_one`` only has to look up
@@ -541,8 +536,15 @@ def _attribute_generic_text(text: str, search_one, source_id_to_qnum: dict, offs
             out.append(line)
             continue
         best = _pick_attribution(search_one(line) or [], max_distance)
+        if best is not None and seen_pages_by_source is not None:
+            pages = seen_pages_by_source.get(best["source_id"])
+            if pages is None:
+                best = None                                   # source never retrieved -> reject
+            elif best.get("page_number") is not None and best["page_number"] not in pages:
+                best = None                                   # PDF page not in retrieved set -> reject
+            # media (page_number is None): empty/any set means the source WAS retrieved -> accept
         qnum = source_id_to_qnum.get(best["source_id"]) if best else None
-        chips = _attribution_chip(qnum, best, line, offset_fn) if qnum else []
+        chips = _attribution_chip(qnum, best, line) if qnum else []
         out.append(f"{line.rstrip()} {' '.join(chips)}" if chips else line)
     return "\n".join(out)
 
