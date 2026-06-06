@@ -59,7 +59,7 @@ def _media_timestamp(claim: str, entry: dict, loader) -> float:
     return start if start is not None else 0.0
 
 
-def resolve_chunk_refs(text: str, registry: dict, loader) -> "tuple[bool, str]":
+def resolve_chunk_refs(text: str, registry: dict, loader, *, with_offsets: bool = True) -> "tuple[bool, str]":
     """Rewrite every ``[N, #C | kw]`` chunk-id citation into a verified position chip.
 
     registry: ``{chunk_id: {"qnum": int, "source": row, "is_media": bool,
@@ -67,6 +67,8 @@ def resolve_chunk_refs(text: str, registry: dict, loader) -> "tuple[bool, str]":
               "content": str}}``
     loader:   object exposing ``offset_suffixes(source, page, claim)`` and
               ``units(source, is_media=...)`` (the same SourceUnitLoader used elsewhere).
+    with_offsets=False (nav-only / highlights off): skip the @start-end span offset
+    (stripped by ``_nav_only_chips`` afterward); the chunk's real page/timestamp stays.
 
     Returns ``(had_chunk_ref, new_text)``. ``had_chunk_ref`` lets the caller skip the
     legacy page-based resolver for lines already handled here. A verified PDF chip
@@ -74,7 +76,7 @@ def resolve_chunk_refs(text: str, registry: dict, loader) -> "tuple[bool, str]":
     precise in-window timestamp. The source number comes from the CHUNK (``entry.qnum``),
     not from the typed ``N`` — the chunk identifies its source uniquely. Unknown or
     unverified ids are dropped and no raw ``#C`` marker ever survives."""
-    _offset_suffixes = getattr(loader, "offset_suffixes", None)
+    _offset_suffixes = getattr(loader, "offset_suffixes", None) if with_offsets else None
     had = False
 
     def _line(line: str) -> str:

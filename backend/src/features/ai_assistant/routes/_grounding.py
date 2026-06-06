@@ -73,8 +73,10 @@ class CitationGrounder:
         # real page/timestamp chips FIRST. When this line carried a chunk-id citation we
         # trust it (authoritative) and skip the legacy keyword resolver; otherwise fall
         # back to it for old-format / uncited lines.
-        had_chunk_ref, line = resolve_chunk_refs(line, self._registry, self._loader)
-        resolved = line if had_chunk_ref else resolve_citation_positions(line, self._sources, self._loader)
+        # nav-only: skip the @offset span computation — it is stripped below anyway.
+        _wo = not self._nav_only
+        had_chunk_ref, line = resolve_chunk_refs(line, self._registry, self._loader, with_offsets=_wo)
+        resolved = line if had_chunk_ref else resolve_citation_positions(line, self._sources, self._loader, with_offsets=_wo)
         if self._in_summary:
             # Mirror _strip_summary_citations: only strip once a cited body has
             # preceded the heading; otherwise this is a summary-style TITLE and we
@@ -89,7 +91,7 @@ class CitationGrounder:
                 resolved = _nav_only_chips(resolved)
             return _strip_chunk_id_leak(resolved)
         if self._fill:
-            resolved = fill_uncited_lines(resolved, self._sources, self._loader)
+            resolved = fill_uncited_lines(resolved, self._sources, self._loader, with_offsets=_wo)
         # Drop a chip that points to the same source+position as another on this line
         # (model/filler can both land on the identical spot) -> never show it twice.
         resolved = _dedup_line_chips(resolved)

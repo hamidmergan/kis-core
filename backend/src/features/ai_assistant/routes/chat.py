@@ -585,6 +585,7 @@ from src.features.ai_assistant.routes._helpers import (
     _dedup_repeated_lines,
     _strip_inline_citation_chips,
     _attribute_generic_text,
+    _needs_attribution,
     _chipify_inline_refs,
     _build_page_regions,
     SourceUnitLoader,
@@ -1293,19 +1294,14 @@ async def chat(
                 # NO chip (distance gate, no post-rationalization). See _attribute_generic_text.
                 from src.services.aia_embeddings import get_embedding_provider
                 _prov = get_embedding_provider()
-
-                def _search_one(_line: str):
-                    try:
-                        _qv = _prov.embed_one(_line)
-                        return db.hybrid_search_chunks(workspace["id"], _line, _qv,
-                                                       source_ids=source_ids, limit=4)
-                    except Exception as e:
-                        logger.warning("post-hoc attribution search failed for a line: {}", e)
-                        return []
+                _hl = _highlights_enabled()
 
                 def _offset_fn(_sid: int, _page: int, _line: str):
                     # Exact-span offsets for the matched chunk's page -> precise highlight
                     # (the keyword path would expand to the whole paragraph). Best-effort.
+                    # nav-only / highlights off: skip — the span is stripped right below.
+                    if not _hl:
+                        return []
                     src = all_sources_list.get(_sid)
                     if not src:
                         return []
@@ -1315,11 +1311,37 @@ async def chat(
                         return []
 
                 _stripped = _strip_inline_citation_chips(_clean_answer)
-                answer = await asyncio.to_thread(
-                    _attribute_generic_text, _stripped, _search_one, source_id_to_qnum, _offset_fn,
-                )
+
+                def _attribute_blocking() -> str:
+                    # Batch-embed ALL candidate lines in ONE provider call (it chunks into
+                    # 100s internally) instead of one embed per line — same vectors, far
+                    # fewer round-trips. search_one then just reuses the precomputed vector
+                    # (falls back to a per-line embed if the batch failed or a line is new).
+                    _cands = [ln for ln in _stripped.split("\n") if _needs_attribution(ln)]
+                    _vec_by_line: dict[str, list] = {}
+                    if _cands:
+                        try:
+                            logger.info("post-hoc attribution: batch-embedding {} candidate lines in ONE call", len(_cands))
+                            _vecs = _prov.embed(_cands)
+                            if len(_vecs) == len(_cands):
+                                _vec_by_line = dict(zip(_cands, _vecs))
+                        except Exception as e:
+                            logger.warning("post-hoc batch embedding failed, falling back per-line: {}", e)
+
+                    def _search_one(_line: str):
+                        try:
+                            _qv = _vec_by_line.get(_line) or _prov.embed_one(_line)
+                            return db.hybrid_search_chunks(workspace["id"], _line, _qv,
+                                                           source_ids=source_ids, limit=4)
+                        except Exception as e:
+                            logger.warning("post-hoc attribution search failed for a line: {}", e)
+                            return []
+
+                    return _attribute_generic_text(_stripped, _search_one, source_id_to_qnum, _offset_fn)
+
+                answer = await asyncio.to_thread(_attribute_blocking)
                 # Highlights OFF -> reduce post-hoc chips to page/timestamp-only.
-                if not _highlights_enabled():
+                if not _hl:
                     answer = _nav_only_chips(answer)
             else:
                 # First repair malformed `[N] S.X` -> `[N, S.X]`. Then resolve the model's
@@ -1329,19 +1351,21 @@ async def chat(
                 # keyword resolver + the uncited-line filler (the safety net). Finally strip
                 # citations from the closing summary section.
                 _chipified = _chipify_inline_refs(_clean_answer, source_qmap)
+                # nav-only: skip @offset span computation (stripped by _nav_only_chips below).
+                _wo = not _nav_only_all
                 try:
-                    _had_chunk_ref, _chipified = resolve_chunk_refs(_chipified, chunk_registry, _unit_loader)
+                    _had_chunk_ref, _chipified = resolve_chunk_refs(_chipified, chunk_registry, _unit_loader, with_offsets=_wo)
                 except Exception as e:
                     logger.warning("chunk-id citation resolve failed, falling back to keyword resolver: {}", e)
                     _had_chunk_ref = False
                 try:
-                    _resolved = _chipified if _had_chunk_ref else resolve_citation_positions(_chipified, coverage_sources, _unit_loader)
+                    _resolved = _chipified if _had_chunk_ref else resolve_citation_positions(_chipified, coverage_sources, _unit_loader, with_offsets=_wo)
                 except Exception as e:
                     logger.warning("precise citation re-grounding failed, using base resolver: {}", e)
                     _resolved = _resolve_citation_pages(_chipified, source_index)
                 if do_fill:
                     try:
-                        _resolved = fill_uncited_lines(_resolved, coverage_sources, _unit_loader)
+                        _resolved = fill_uncited_lines(_resolved, coverage_sources, _unit_loader, with_offsets=_wo)
                     except Exception as e:
                         logger.warning("coverage fill failed, using ungrounded answer: {}", e)
                 # Collapse duplicate chips that point to the same source+position on a line

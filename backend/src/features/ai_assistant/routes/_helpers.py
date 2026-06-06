@@ -515,6 +515,14 @@ def _attribution_chip(qnum: int, chunk: dict, line: str, offset_fn) -> list[str]
     return [f"[{qnum}, S. {page}]"]
 
 
+def _needs_attribution(line: str) -> bool:
+    """Whether a GENERIC answer line gets post-hoc attribution: substantial enough AND
+    not already cited. Exposed so the caller can pre-collect the exact same candidate
+    lines and embed them in ONE batch call (instead of one embed per line)."""
+    return (len(_line_dedup_key(line)) >= _DEDUP_MIN_KEY_LEN
+            and not _HAS_CITE.search(line.rstrip()))
+
+
 def _attribute_generic_text(text: str, search_one, source_id_to_qnum: dict, offset_fn,
                             max_distance: float = _GENERIC_ATTRIB_MAX_DIST) -> str:
     """Re-ground each substantial, uncited line of a GENERIC answer via semantic search.
@@ -522,10 +530,14 @@ def _attribute_generic_text(text: str, search_one, source_id_to_qnum: dict, offs
     ``search_one(line)`` returns ranked hits (dicts with vec_distance / source_id /
     page_number / content / optional start_time). ``offset_fn`` yields exact-span
     suffixes for the matched chunk's page. Short/heading lines and lines that already
-    carry a chip are left untouched; an unsupported line (gate) gets no chip."""
+    carry a chip are left untouched; an unsupported line (gate) gets no chip.
+
+    The candidate gate is ``_needs_attribution`` — the caller uses the same predicate
+    to batch-embed all candidate lines up front, so ``search_one`` only has to look up
+    a precomputed vector here."""
     out: list[str] = []
     for line in text.split("\n"):
-        if len(_line_dedup_key(line)) < _DEDUP_MIN_KEY_LEN or _HAS_CITE.search(line.rstrip()):
+        if not _needs_attribution(line):
             out.append(line)
             continue
         best = _pick_attribution(search_one(line) or [], max_distance)
@@ -882,15 +894,19 @@ class SourceUnitLoader:
         return self._furniture.get(sid, set())
 
 
-def resolve_citation_positions(text: str, sources: dict, loader) -> str:
+def resolve_citation_positions(text: str, sources: dict, loader, *, with_offsets: bool = True) -> str:
     """Re-anchor each [N, pos | kw] to the precise unit located by the matcher.
 
     sources: {qnum: {"source": row, "is_media": bool}} (same shape as coverage).
     Source-N prior: a model citation is only ever matched within source N's own
-    units, never silently re-attributed to a different source."""
+    units, never silently re-attributed to a different source.
+
+    ``with_offsets=False`` (nav-only / highlights off): the page is still resolved as
+    usual, but the @start-end span offset is NOT computed — it would be stripped right
+    after by ``_nav_only_chips`` anyway, so the page-geometry char-match is skipped."""
     from ._citation_match import match_query  # local: _citation_match imports from this module
     _get_furniture = getattr(loader, "furniture", None)
-    _offset_suffixes = getattr(loader, "offset_suffixes", None)
+    _offset_suffixes = getattr(loader, "offset_suffixes", None) if with_offsets else None
 
     def _sub(m: "re.Match", line_text: str) -> str:
         qnum = int(m.group(1)) if m.group(1) else (min(sources) if sources else None)
@@ -1240,15 +1256,18 @@ def _main_clause(line: str) -> str:
     return _PARENTHETICAL.sub(" ", line).strip()
 
 
-def fill_uncited_lines(text: str, sources: dict, loader) -> str:
+def fill_uncited_lines(text: str, sources: dict, loader, *, with_offsets: bool = True) -> str:
     """Append a citation to each groundable line that lacks one.
 
     sources: {qnum: {"source": <row dict>, "is_media": bool}}
-    loader:  SourceUnitLoader (or any object with .units(source, is_media=...))."""
+    loader:  SourceUnitLoader (or any object with .units(source, is_media=...)).
+
+    ``with_offsets=False`` (nav-only / highlights off): skip the @start-end span offset
+    (stripped by ``_nav_only_chips`` afterward); the page/timestamp chip is unchanged."""
     # Local import: _citation_match imports from _helpers, so a module-level
     # import would create a circular dependency.
     from ._citation_match import match_query_multi  # noqa: PLC0415
-    _offset_suffixes = getattr(loader, "offset_suffixes", None)
+    _offset_suffixes = getattr(loader, "offset_suffixes", None) if with_offsets else None
 
     def _best_match(query: str):
         # Best source by its top score; carry that source's near-tie units so an
