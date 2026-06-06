@@ -1168,17 +1168,19 @@ async def chat(
             yield f"data: {json.dumps({'qmap': source_qmap, 'source_pages': source_pages})}\n\n"
             # Built once here (was previously built after the loop) so each line can
             # be grounded live. Reused by the canonical finalize block below.
-            # Pages the model ACTUALLY saw per source (context-budgeted chunks). Used
-            # to restrict citation grounding to seen pages, so a claim is only grounded
-            # to a page it could have come from — never to another page of the document
-            # that merely shares the same words (the cross-page tie problem).
-            seen_pages_by_qn = {
-                qn: {c["page"] for c in si["chunks"] if c.get("page") is not None}
-                for qn, si in source_index.items() if not si["is_media"]
-            }
+            # Pages the model ACTUALLY saw per source (context-budgeted chunks). The
+            # post-hoc attribution cross-check only keeps a chip when its page is in
+            # this set, so a claim is never chipped to a page the model couldn't have
+            # seen. MEDIA sources carry an EMPTY set on purpose: a timestamp chip has
+            # no page to validate, so an empty set means "source was retrieved, accept"
+            # (see the cross-check in _attribute_generic_text). Excluding media here
+            # would silently drop every audio/video chip.
             seen_pages_by_source = {
-                qnum_to_source_id[qn]: pages
-                for qn, pages in seen_pages_by_qn.items() if qn in qnum_to_source_id
+                qnum_to_source_id[qn]: (
+                    set() if si["is_media"]
+                    else {c["page"] for c in si["chunks"] if c.get("page") is not None}
+                )
+                for qn, si in source_index.items() if qn in qnum_to_source_id
             }
             _line_buf = ""
             aborted = False
