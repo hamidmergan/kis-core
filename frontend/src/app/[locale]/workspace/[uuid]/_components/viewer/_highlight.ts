@@ -9,7 +9,7 @@
 //   annotation.createAnnotation / purgeAnnotation / deselectAnnotation,
 //   engine.getPageGeometry, engine.getTextSlices, selection.getState (geometry cache).
 // Public Search plugin can't replace this: it only highlights exact matches,
-// not the surrounding sentence/paragraph that _findParaBounds expands to.
+// not the surrounding sentence that _findSentBounds expands a keyword hit to.
 
 export type HighlightRefs = {
   prevHighlightRef: { current: { pageIndex: number; ids: string[] } | null };
@@ -637,54 +637,6 @@ export function tryHighlightOnPage(
         return [sStart, sEnd];
       };
 
-      // Paragraph-break detection: double newline in raw text, or a heading pattern
-      // ("Kapitel:", "1.2 Titel") at the start of the next line.
-      const _isHeading = (text: string): boolean => {
-        const t = text.replace(/^\s+/, "");
-        // Colon-terminated heading: "International Coach:", "Fachlandkarte:"
-        if (/^\p{Lu}[\p{L}\p{N}_-]+(?:\s+\p{Lu}?[\p{L}\p{N}_-]+){0,3}\s*:/u.test(t)) return true;
-        // Numbered section heading: "1. Management Summary", "4.4 Transferpotential",
-        // "2.1.3 Skizze der Ausgangslage"
-        if (/^\d+(?:\.\d+)*\.?\s+\p{Lu}[\p{L}\p{N}_-]+/u.test(t)) return true;
-        return false;
-      };
-      const _isParagraphBreakBefore = (startInClean: number): boolean => {
-        if (startInClean <= 0) return false;
-        // cleanToRaw points at the FIRST whitespace char of the run — scan forward
-        // through raw to count newlines until a non-whitespace char appears.
-        const rawPos = cleanToRaw[startInClean - 1];
-        if (rawPos == null) return false;
-        let nlCount = 0;
-        for (let i = rawPos; i < rawPageText.length; i++) {
-          const ch = rawPageText[i];
-          if (ch === "\n") nlCount++;
-          else if (ch !== " " && ch !== "\r" && ch !== "\t") break;
-        }
-        // PPTX bullet page: single newline is a paragraph break ONLY if the
-        // next line starts like a new bullet — otherwise it's a wrap.
-        if (_isBulletPage && nlCount >= 1 && _looksLikeNewBullet(startInClean)) return true;
-        if (nlCount >= 2) return true;
-        const preview = cleanText.slice(startInClean, Math.min(cleanText.length, startInClean + 80));
-        if (_isHeading(preview)) return true;
-        // Skip a leading footnote-digit marker ("11 International Coach:") and re-test
-        const skipped = preview.replace(/^\s*\d{1,3}\s+/, "");
-        return skipped !== preview && _isHeading(skipped);
-      };
-      // True only if the WHOLE text is a heading (with optional leading page-num /
-      // footnote digit), not just its prefix — otherwise "4.4. Title Actual paragraph
-      // content..." would falsely match and cause the first paragraph sentence to be
-      // dropped from the highlight.
-      const _isFullHeading = (text: string): boolean => {
-        const t = text.replace(/^\s+|\s+$/g, "");
-        if (/^\p{Lu}[\p{L}\p{N}_-]+(?:\s+\p{Lu}?[\p{L}\p{N}_-]+){0,4}\s*:$/u.test(t)) return true;
-        if (/^\d+(?:\.\d+)*\.?\s+\p{Lu}[\p{L}\p{N}_-]+(?:\s+\p{Lu}?[\p{L}\p{N}_-]+){0,5}$/u.test(t)) return true;
-        return false;
-      };
-      const _isHeadingLike = (text: string): boolean => {
-        if (_isFullHeading(text)) return true;
-        const skipped = text.replace(/^\s*\d{1,3}\s+/, "");
-        return skipped !== text && _isFullHeading(skipped);
-      };
       // Strip a leading "page-number [+ numbered heading]" prefix from a position.
       // Needed because _findSentBounds scans backward for a sentence-ending period and
       // treats "1." / "4.4." as abbreviations, so pStart often lands at position 0 on
@@ -729,40 +681,6 @@ export function tryHighlightOnPage(
         }
         return Math.min(result, cleanText.length);
       };
-      // Expand to paragraph bounds: walk sentence-by-sentence backwards/forwards,
-      // stopping at a paragraph break or heading.
-      const _findParaBounds = (startPos: number, endPos: number): [number, number] => {
-        const [sStart0, sEnd0] = _findSentBounds(startPos, endPos);
-        let pStart = _stripLeadingHeading(sStart0);
-        if (pStart >= endPos) pStart = sStart0; // safety: don't strip past the match
-        for (let attempts = 0; attempts < 40 && pStart > 0; attempts++) {
-          if (_isParagraphBreakBefore(pStart)) break;
-          let prevEnd = pStart - 1;
-          while (prevEnd > 0 && cleanText[prevEnd] === " ") prevEnd--;
-          if (prevEnd <= 0) { pStart = 0; break; }
-          const [rawPrevStart] = _findSentBounds(prevEnd, prevEnd);
-          // Skip any leading page-num lines so prevStart lands at real content.
-          const prevStart = _stripLeadingHeading(rawPrevStart);
-          if (prevStart >= pStart) break;
-          const prevText = cleanText.slice(prevStart, prevEnd + 1);
-          if (_isHeadingLike(prevText)) break;
-          pStart = prevStart;
-        }
-        let pEnd = sEnd0;
-        for (let attempts = 0; attempts < 40 && pEnd < cleanText.length - 1; attempts++) {
-          let nextStart = pEnd + 1;
-          while (nextStart < cleanText.length && cleanText[nextStart] === " ") nextStart++;
-          if (nextStart >= cleanText.length) break;
-          if (_isParagraphBreakBefore(nextStart)) break;
-          const [, nextEnd] = _findSentBounds(nextStart, nextStart);
-          if (nextEnd <= pEnd) break;
-          const nextText = cleanText.slice(nextStart, nextEnd + 1);
-          if (_isHeadingLike(nextText)) break;
-          pEnd = nextEnd;
-        }
-        return [pStart, pEnd];
-      };
-
       // PPTX bullet helper: cleanText collapses newlines to spaces, so
       // _findSentBounds can't see line breaks. Look up the original rawPageText
       // to find newline boundaries for the current bullet / line.
@@ -806,13 +724,12 @@ export function tryHighlightOnPage(
         sentStart = stripped < matchEnd ? stripped : matchStart;
         sentEnd = matchEnd;
       } else {
-        [sentStart, sentEnd] = _findParaBounds(matchStart, matchEnd);
-        if (sentEnd - sentStart > 2500) {
-          [sentStart, sentEnd] = _findSentBounds(matchStart, matchEnd);
-        }
-        // PPTX-converted PDFs: all bullets live in one text box, so the whole
-        // slide is one paragraph. Back off to the current bullet/line via the
-        // original newline positions in rawPageText.
+        // C2: a citation keyword match highlights only the SENTENCE that contains it —
+        // never the surrounding paragraph (paragraph expansion pulled in unrelated text
+        // like a disclaimer). The tight unit is one sentence; tight-or-off, never broad.
+        [sentStart, sentEnd] = _findSentBounds(matchStart, matchEnd);
+        // PPTX-converted PDFs: all bullets live in one text box, so a "sentence" can be
+        // the whole slide. Back off to the current bullet/line via raw newline positions.
         if ((sentEnd - sentStart + 1) > cleanText.length * 0.6) {
           [sentStart, sentEnd] = _findLineBounds(matchStart, matchEnd);
         }
@@ -914,10 +831,11 @@ export function doHighlightSearch(
   // the target is an OCR/image page whose PDF text layer doesn't contain the
   // cited text. Better: scroll to the right page and highlight nothing.
   //
-  // Architecture B: when the chip carries an exact span offset, draw it directly
-  // (no re-finding / no expansion). On any failure (span not on the page, geometry
-  // unavailable, pdfium drift) fall back to the legacy keyword search so a chip is
-  // never worse than before.
+  // Architecture B/C2: when the chip carries an exact span offset, draw it directly
+  // (no re-finding / no expansion). On failure (span not on the page, geometry
+  // unavailable, pdfium/OCR drift) fall back to the keyword search — but that search
+  // now highlights only the matched SENTENCE, never the whole paragraph (C2), so the
+  // fallback can be tight-but-maybe-off, never a broad block.
   if (offsets && !exactSelection) {
     tryHighlightByOffsets(refs, r, doc, engine, docMgr, scroll, pageIndex, offsets, text, opts)
       .then((ok) => {
@@ -936,9 +854,9 @@ export function doHighlightSearch(
 // Merged citation chip: mark EVERY cited region on one page in a single ephemeral
 // annotation set. Spans are drawn sequentially — the first purges the previous
 // chip's markers and scrolls into view; the rest append (no purge, no scroll), so
-// the page ends up with one yellow mark per region. Each span uses the same
-// offset→keyword fallback as the single-chip path, so a region that can't be
-// located by offset still tries its keyword (and is simply skipped if neither hits).
+// the page ends up with one yellow mark per region. Each span tries its exact offset
+// first, then a keyword search (C2: sentence-tight, never a paragraph); a region that
+// can't be located by either is simply skipped.
 export function doMultiHighlightSearch(
   refs: HighlightRefs, reg: unknown, page: number, spans: CitationSpan[],
   highlightEnabled: boolean = true,
@@ -973,6 +891,8 @@ export function doMultiHighlightSearch(
     const text = (span.keyword || "").trim();
     chain = chain
       .then(() => {
+        // Offset first; on failure fall back to the keyword search (C2: sentence-
+        // tight, never a paragraph). A region with neither offset nor keyword is skipped.
         if (span.offsets && text) {
           return tryHighlightByOffsets(refs, r, doc, engine, docMgr, scroll, pageIndex, span.offsets, text, opts)
             .then((ok) => (ok ? true : (text ? tryHighlightOnPage(refs, r, doc, engine, docMgr, scroll, pageIndex, text, false, opts) : false)));
