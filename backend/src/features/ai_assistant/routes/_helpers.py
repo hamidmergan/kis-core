@@ -259,6 +259,58 @@ def _pick_attribution(hits: list[dict], max_distance: float) -> Optional[dict]:
     return best if best["vec_distance"] <= max_distance else None
 
 
+# DE+EN filler — dropped before exact-match so only content words must line up.
+_ATTR_STOP = frozenset((
+    "der die das ein eine und oder ist hat war wer was wie wo mit von für auf aus bei "
+    "den dem des als nach über vor bis wenn dass aber auch noch nur doch sehr wird sind "
+    "kann mehr nicht sich gibt diese einer einem einen welche welcher welches dieser "
+    "sein ihre über unter zwischen werden wurde "
+    "the and or of is in to was that this for with on at by from as it be are were has "
+    "had have not but so if then do does did what which who when where why how their "
+    "there here than them they you are our its".split()
+))
+# Keep word chars + German umlauts; allow @ . - inside so emails/hyphenated names and
+# numbers survive as one token.
+_TOKEN_RE = re.compile(r"[0-9A-Za-zÄÖÜäöüß][0-9A-Za-zÄÖÜäöüß@.\-]*")
+
+
+def _significant_tokens(line: str) -> list[str]:
+    """Distinctive content tokens of a line (lowercased): markdown stripped, words ≥4
+    chars that are not stopwords. Proper names, emails and numbers survive; filler is
+    dropped. Used to ground a line by VERBATIM presence in a retrieved chunk."""
+    s = re.sub(r"[*_`~#>]+", " ", line)
+    out: list[str] = []
+    for w in _TOKEN_RE.findall(s):
+        wl = w.strip(".-").lower()
+        if len(wl) >= 4 and wl not in _ATTR_STOP:
+            out.append(wl)
+    return out
+
+
+def _exact_attribution_chunk(line: str, context_chunks: list[dict]) -> Optional[dict]:
+    """Ground a line by VERBATIM presence in an already-retrieved chunk.
+
+    If every significant token of the line appears (case-insensitive) in one of the
+    chunks we already sent to the model, that chunk IS the source — no re-embedding,
+    no re-search. This is reliable exactly where semantic attribution fails: a proper
+    name / email / number embeds far from its surrounding prose (the same reason an
+    author can sit at fused rank ~59), but it is *literally* present in the chunk we
+    retrieved, whose page we already know. Returns the first match in ``context_chunks``
+    order (relevance-ordered, so the most relevant copy wins), else None. TOC/index
+    chunks are skipped — they list every term verbatim and would mis-attribute."""
+    toks = _significant_tokens(line)
+    if not toks:
+        return None
+    for c in context_chunks:
+        content = (c.get("content") or "")
+        if _is_toc_chunk(content):
+            continue
+        low = content.lower()
+        if all(t in low for t in toks):
+            return c
+    return None
+
+
 def _attribution_chip(qnum: int, chunk: dict, line: str) -> list[str]:
     """Nav-only citation chip for a post-hoc attributed line: page (PDF) or the chunk's
     start timestamp (media). No span offset, no keyword — clicking only scrolls to the
@@ -301,15 +353,22 @@ def _place_chip(line: str, chip_str: str) -> str:
 
 
 def _attribute_generic_text(text: str, search_one, source_id_to_qnum: dict, offset_fn=None, *,
-                            seen_pages_by_source=None,
+                            seen_pages_by_source=None, context_chunks=None,
                             max_distance: float = _GENERIC_ATTRIB_MAX_DIST) -> str:
-    """Re-ground each substantial, uncited line of a GENERIC answer via semantic search.
+    """Re-ground each substantial, uncited line of a GENERIC answer.
 
-    ``search_one(line)`` returns ranked hits (dicts with vec_distance / source_id /
-    page_number / content / optional start_time). ``offset_fn`` is accepted for
-    backwards-compatibility but is now IGNORED — all chips are nav-only.
-    Short/heading lines and lines that already carry a chip are left untouched;
-    an unsupported line (gate) gets no chip.
+    Two-stage grounding per line:
+    1. **Exact match against the already-retrieved chunks** (``context_chunks``): if
+       every significant token of the line is verbatim in a chunk we sent, that chunk
+       is the source. Catches names/emails/numbers that embed poorly — we already have
+       those chunks with their pages, so there is no need to re-search for them.
+    2. **Semantic search** (``search_one(line)`` → ranked hits with vec_distance /
+       source_id / page_number / content / optional start_time) for paraphrased prose
+       the model reworded, gated by ``max_distance``.
+
+    ``offset_fn`` is accepted for backwards-compatibility but IGNORED — all chips are
+    nav-only. Short/heading lines and lines that already carry a chip are left
+    untouched; an unsupported line (gate) gets no chip.
 
     ``seen_pages_by_source`` (optional) maps source_id -> set of PDF page numbers that
     were actually retrieved into context. When given, a chip is only emitted if the
@@ -332,7 +391,11 @@ def _attribute_generic_text(text: str, search_one, source_id_to_qnum: dict, offs
         if _is_table_row(line) and _is_table_delim(nxt):
             out.append(line)
             continue
-        best = _pick_attribution(search_one(line) or [], max_distance)
+        # Exact match against the retrieved chunks FIRST (names/emails/numbers we
+        # already have, with known pages), then semantic search for reworded prose.
+        best = _exact_attribution_chunk(line, context_chunks) if context_chunks else None
+        if best is None:
+            best = _pick_attribution(search_one(line) or [], max_distance)
         if best is not None and seen_pages_by_source is not None:
             pages = seen_pages_by_source.get(best["source_id"])
             if pages is None:

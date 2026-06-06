@@ -1414,7 +1414,8 @@ async def chat(
                             return []
 
                     return _attribute_generic_text(_stripped, _search_one, source_id_to_qnum,
-                                                   seen_pages_by_source=seen_pages_by_source)
+                                                   seen_pages_by_source=seen_pages_by_source,
+                                                   context_chunks=chunks)
 
                 answer = await asyncio.to_thread(_attribute_blocking)
 
