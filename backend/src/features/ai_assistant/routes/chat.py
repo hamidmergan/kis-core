@@ -577,6 +577,8 @@ from src.features.ai_assistant.routes._helpers import (
     _dedup_chips,
     _strip_title_chips,
     _nav_only_chips,
+    _strip_resolved_citation_chips,
+    _append_scope_anchor,
     _highlights_enabled,
     _scope_is_nav_only,
     _RepetitionGuard,
@@ -826,6 +828,12 @@ async def chat(
     # page, which is precise, not "wild" across pages. See _scope_is_nav_only.
     _scope_pages = {c.get("page_number") for c in (scope_chunks or []) if c.get("page_number") is not None}
     scope_nav_only = is_scoped and _scope_is_nav_only(_scope_pages, scope_chunks)
+    # A single-page PDF scope summary ("fasse Seite 30 zusammen"): every line would carry
+    # the SAME page chip for the page the user explicitly named. In nav-only mode (no span
+    # to differentiate) that chip is pure noise, so we drop chips entirely below. A MULTI-
+    # page scope keeps its page chips (they navigate to the right page); media scope (no
+    # page numbers) keeps its per-chunk timestamp chips.
+    scope_single_page = is_scoped and len(_scope_pages) == 1
     # Auto-filler policy:
     #  - normal answers: ON (every claim gets a chip).
     #  - scoped (PDF, single OR multi page): OFF — keep the model's own precise-highlight
@@ -1183,9 +1191,12 @@ async def chat(
             # Highlights OFF (default) -> force nav_only for EVERY mode: chips become
             # page/timestamp-only (scroll, no span). Consistent across clean & OCR PDFs.
             _nav_only_all = scope_nav_only or not _highlights_enabled()
+            # Single-page scope summary in nav-only mode: strip chips live too (every line
+            # would show the same redundant page chip). Multi-page/media scope keeps them.
+            _scope_strip = scope_single_page and _nav_only_all
             _grounder = CitationGrounder(coverage_sources, _unit_loader, source_qmap, chunk_registry,
                                          fill=do_fill, nav_only=_nav_only_all,
-                                         strip_only=post_hoc_generic)
+                                         strip_only=post_hoc_generic or _scope_strip)
             _line_buf = ""
             _line_idx = 0
             aborted = False
@@ -1342,9 +1353,18 @@ async def chat(
                 # Drop any trailing meta-clause leaking an internal chunk/source id
                 # ("... stammen aus den Dokumenten mit den IDs #1 und #2.").
                 answer = _strip_chunk_id_leak(answer)
-                # Multi-page/-chunk scoped summary: chips → page/timestamp-only (nav, no
-                # highlight) so a synthesis doesn't paint scattered spans across pages.
-                if scope_nav_only or not _highlights_enabled():
+                # Single-page scope summary (nav-only): drop the redundant per-line chips
+                # (every line repeats the same page the user named) but keep ONE anchor chip
+                # at the very bottom so the user still has a single click-to-page link.
+                # Otherwise, multi-page/-chunk scoped summary: chips → page/timestamp-only
+                # (nav, no highlight) so a synthesis doesn't paint scattered spans.
+                if scope_single_page and (scope_nav_only or not _highlights_enabled()):
+                    answer = _strip_resolved_citation_chips(answer)
+                    _anchor_qn = source_id_to_qnum.get(scope_chunks[0]["source_id"]) if scope_chunks else None
+                    _anchor_pg = next(iter(_scope_pages), None)
+                    if _anchor_qn and _anchor_pg is not None:
+                        answer = _append_scope_anchor(answer, _anchor_qn, _anchor_pg)
+                elif scope_nav_only or not _highlights_enabled():
                     answer = _nav_only_chips(answer)
 
             # Push the real question + answer onto the aia-chat trace; the

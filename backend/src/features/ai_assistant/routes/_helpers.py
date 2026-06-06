@@ -583,6 +583,24 @@ def _nav_only_chips(text: str) -> str:
     return _CITE_RESOLVE_RE.sub(_sub, text)
 
 
+def _strip_resolved_citation_chips(text: str) -> str:
+    """Remove every RESOLVED citation chip ([N, S.X] / [S.X] / [N, MM:SS]) and tidy the
+    orphaned spaces/punctuation. Used for a SINGLE-page PDF scope summary in nav-only mode:
+    every line carries the SAME page chip for the page the user explicitly named, so with
+    no highlight to differentiate it is pure noise. Multi-page scope keeps its (navigating)
+    page chips; media scope keeps its (per-chunk) timestamp chips. See _CITE_RESOLVE_RE."""
+    out = _CITE_RESOLVE_RE.sub("", text)
+    out = re.sub(r"[ \t]+([.,;:!?])", r"\1", out)
+    return re.sub(r"[ \t]{2,}", " ", out).rstrip()
+
+
+def _append_scope_anchor(text: str, qnum: int, page: int) -> str:
+    """After stripping the redundant per-line chips of a single-page scope summary, append
+    ONE chip at the very bottom so the user keeps a single click-to-page anchor (nav-only:
+    scroll to the named page, no highlight). Page-only chip → see _CITE_RESOLVE_RE."""
+    return f"{text.rstrip()}\n\n[{qnum}, S. {page}]"
+
+
 def _strip_summary_citations(text: str) -> str:
     """Remove citation chips from the closing summary section.
 
