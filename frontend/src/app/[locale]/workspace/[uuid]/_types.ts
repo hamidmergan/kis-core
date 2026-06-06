@@ -111,6 +111,10 @@ export interface ViewerState {
   // each region separately in a single ephemeral annotation. highlightText/
   // highlightOffsets above stay set to the first region as a single-span fallback.
   highlightSpans?: CitationHighlightSpan[];
+  // True when the viewer was opened by clicking a citation chip (pill / source
+  // reference). Only then does a span-less open draw the nav-only page-edge bar.
+  // A plain document open from the sources list leaves this false → no edge bar.
+  isCitation?: boolean;
   nonce?: number;
   startTime?: number;
 }

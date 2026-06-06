@@ -30,8 +30,8 @@ export function useViewerActions(opts: UseViewerActionsOptions) {
   // (see useChat). Narrowing here only overwrote — and persisted to sessionStorage —
   // the user's multi-source selection, which then came back as a stuck single
   // source after navigating away/reloading with the viewer still open.
-  const openViewer = useCallback((source: Source, page = 1, highlightText?: string, exactSelection?: boolean, highlightOffsets?: [number, number], highlightSpans?: CitationHighlightSpan[]) => {
-    setViewerSource({ uuid: source.uuid, filename: source.filename, page, highlightText, exactSelection, highlightOffsets, highlightSpans, nonce: Date.now() });
+  const openViewer = useCallback((source: Source, page = 1, highlightText?: string, exactSelection?: boolean, highlightOffsets?: [number, number], highlightSpans?: CitationHighlightSpan[], isCitation = false) => {
+    setViewerSource({ uuid: source.uuid, filename: source.filename, page, highlightText, exactSelection, highlightOffsets, highlightSpans, isCitation, nonce: Date.now() });
     setPanels((prev) => ({ ...prev, quellen: true }));
     if (isMobile) setActiveTab("quellen");
   }, [setViewerSource, setPanels, isMobile, setActiveTab]);
@@ -84,10 +84,10 @@ export function useViewerActions(opts: UseViewerActionsOptions) {
       return;
     }
     if (src) {
-      openViewer(src, page, sourceText, isExact, offsets, spans);
+      openViewer(src, page, sourceText, isExact, offsets, spans, true);
       return;
     }
-    setViewerSource({ uuid: sourceUuid, filename, page, highlightText: sourceText, exactSelection: isExact, highlightOffsets: offsets, highlightSpans: spans, nonce: Date.now() });
+    setViewerSource({ uuid: sourceUuid, filename, page, highlightText: sourceText, exactSelection: isExact, highlightOffsets: offsets, highlightSpans: spans, isCitation: true, nonce: Date.now() });
     setPanels((prev) => ({ ...prev, quellen: true }));
     if (isMobile) setActiveTab("quellen");
   }, [sources, setViewerSource, setPanels, isMobile, setActiveTab, openViewer]);

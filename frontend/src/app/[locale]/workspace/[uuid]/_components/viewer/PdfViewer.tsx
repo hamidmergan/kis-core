@@ -112,7 +112,7 @@ export function PdfViewer({
     if (!reg) {
       // Viewer not ready yet — save for later. A nav-only chip (no span to highlight)
       // still gets the page-edge bar cue, flagged here and drawn on layout-ready.
-      pendingHighlightRef.current = { page: source.page, text: source.highlightText ?? "", exact: !!source.exactSelection, offsets: source.highlightOffsets, spans: multi ?? undefined, barOnly: !source.highlightText && !multi };
+      pendingHighlightRef.current = { page: source.page, text: source.highlightText ?? "", exact: !!source.exactSelection, offsets: source.highlightOffsets, spans: multi ?? undefined, barOnly: !!source.isCitation && !source.highlightText && !multi };
       return;
     }
 
@@ -120,13 +120,14 @@ export function PdfViewer({
       doMultiHighlightSearch(highlightRefs, reg, source.page, multi, highlightEnabled);
     } else if (source.highlightText) {
       doHighlightSearch(highlightRefs, reg, source.page, source.highlightText, !!source.exactSelection, source.highlightOffsets, highlightEnabled);
-    } else {
+    } else if (source.isCitation) {
       // Nav-only chip (page/timestamp, no span): mark the cited page with the
       // persistent left-edge bar — honest page-level cue, no false-precision span.
+      // Only for citation opens; a plain document open draws no marker.
       doPageEdgeBar(highlightRefs, reg, source.page);
     }
 
-  }, [source.nonce, source.page, source.highlightText, source.exactSelection, source.highlightOffsets, source.highlightSpans]);
+  }, [source.nonce, source.page, source.highlightText, source.exactSelection, source.highlightOffsets, source.highlightSpans, source.isCitation]);
 
   // A new document remounts EmbedPDF (keyed by uuid), discarding the ephemeral
   // citation highlight — reset its tracking + dismiss button.
@@ -586,7 +587,7 @@ export function PdfViewer({
             centered page-nav. Icon-only to stay out of the way; full text lives in
             title/aria for hover + screen readers. */}
         {citationActive && (
-          <div className="absolute bottom-4 right-4 z-10 flex items-center gap-1.5">
+          <div className="absolute bottom-6 right-4 z-10 flex items-center gap-1.5">
             {/* Jump-to-highlight: shown only after the user has paged away. Arrow
                 points toward the highlight (down = further into the document),
                 number = its page. */}

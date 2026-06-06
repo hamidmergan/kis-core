@@ -115,6 +115,37 @@ describe("sanitizeCitationsForMarkdown", () => {
     expect(c.page).toBe(22);
     expect(c.offsets).toEqual([1, 5]);
   });
+
+  it("tucks a chip trailing a table header/row back into the last cell so gfm keeps the table", () => {
+    // The model appends the citation AFTER the final pipe of each row — incl. the
+    // header. That phantom column makes the header's cell count differ from the
+    // delimiter row, so gfm refuses to parse the table at all (renders raw pipes).
+    const raw = [
+      "| Thema | Inhalt | Quelle | [Q1:abc123def456, S. 19 @1-9 | Hauptmedien]",
+      "|-------|--------|--------|",
+      "| Hauptmedien | Text, Grafik | | [Q1:abc123def456, S. 19 @1-9 | Hauptmedien]",
+    ].join("\n");
+    const lines = sanitizeCitationsForMarkdown(raw).split("\n");
+    // every table line ends in a real pipe again → header matches delimiter
+    expect(lines[0].trimEnd().endsWith("|")).toBe(true);
+    expect(lines[2].trimEnd().endsWith("|")).toBe(true);
+    // chip moved inside, right before the restored closing pipe
+    expect(lines[0]).toMatch(/❘ Hauptmedien\]\s*\|\s*$/);
+    // both chips preserved (not stripped)
+    expect(parseCitationFields(lines.join("\n")).length).toBe(2);
+  });
+
+  it("leaves a well-formed table row (chip already inside a cell) unchanged", () => {
+    const raw = "| Abgabe | 03.07. [4, S. 6 @1-40 | Abgabe] |";
+    const out = sanitizeCitationsForMarkdown(raw);
+    expect(out.trimEnd().endsWith("|")).toBe(true);
+    expect(out).not.toMatch(/\|\s*\|\s*$/);   // no phantom empty cell introduced
+  });
+
+  it("does not touch a citation trailing a non-table line", () => {
+    expect(sanitizeCitationsForMarkdown("Ein Satz mit Quelle [1, S. 2 | k]"))
+      .toBe("Ein Satz mit Quelle [1, S. 2❘ k]");
+  });
 });
 
 describe("citationsAreAdjacentSameTarget", () => {

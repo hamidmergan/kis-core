@@ -97,8 +97,26 @@ export function sanitizeCitationsForMarkdown(text: string): string {
   // A thematic break (---/***/___) is a separator, not a claim. Older answers may
   // have a citation appended to it; strip the chip(s) so it renders as a clean rule.
   out = out.replace(/^(\s{0,3}(?:[-*_]\s*){3,})(?:\s*\[[^\]\n]*\])+\s*$/gm, "$1");
+  // The model often appends a citation AFTER the final pipe of a table row — incl.
+  // the header. That trailing chip is a phantom extra column, so the header's cell
+  // count no longer matches the delimiter row and gfm refuses to parse the block as
+  // a table (it leaks as raw text with literal pipes). Tuck any such trailing chip
+  // back into the last cell so every row keeps its pipe-defined column count. Runs
+  // after the in-chip '|'→'❘' swap above, so the only bare '|' left are real column
+  // separators. Language-agnostic; chips already inside a cell stay untouched.
+  out = out.replace(_TABLE_TRAIL_CHIP, (_m, row: string, chips: string) =>
+    row.replace(/\s*\|\s*$/, ` ${chips.trim()} |`));
   return out;
 }
+
+// One citation token (offset/timestamp/bare-page), keyword separator already '❘'.
+const _CHIP_SRC =
+  "[[【](?:Q?\\d+(?::[a-f0-9]{6,64})?,\\s*)?" +
+  "(?:S\\.\\s*\\d+(?:\\s*@\\d+-\\d+)?|\\d{1,2}:\\d{2}(?::\\d{2})?)" +
+  "(?:\\s*[|❘][^\\]】]+)?[\\]】]";
+// A table-row line (`| … |`) followed only by chip(s) + optional sentence punctuation.
+const _TABLE_TRAIL_CHIP =
+  new RegExp(`^(\\s*\\|.*\\|)(\\s*(?:${_CHIP_SRC}\\s*[.;,]?\\s*)+)$`, "gm");
 
 
 // Remove every citation chip (incl. the optional @start-end offset token) — used
