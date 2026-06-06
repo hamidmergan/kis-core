@@ -79,10 +79,48 @@ export function citationsAreAdjacentSameTarget(
 //      back into the last cell so every row keeps its pipe-defined column count.
 // Language-agnostic; chips already inside a cell stay untouched.
 export function sanitizeCitationsForMarkdown(text: string): string {
-  let out = text.replace(/^(\s{0,3}(?:[-*_]\s*){3,})(?:\s*\[[^\]\n]*\])+\s*$/gm, "$1");
+  let out = normalizeTableBlocks(text);
+  out = out.replace(/^(\s{0,3}(?:[-*_]\s*){3,})(?:\s*\[[^\]\n]*\])+\s*$/gm, "$1");
   out = out.replace(_TABLE_TRAIL_CHIP, (_m, row: string, chips: string) =>
     row.replace(/\s*\|\s*$/, ` ${chips.trim()} |`));
   return out;
+}
+
+// The model often nests a Markdown table under a bullet ("- Termine:\n | a | b |\n |---|")
+// — indented and with no blank line before it. GFM then does NOT parse it as a table
+// (it becomes a paragraph, so the rows collapse onto one line). Lift every table block
+// to column 0 and guarantee a blank line before AND after it, so it always renders as a
+// real table. A block = a row line immediately followed by a delimiter row, plus the
+// contiguous row/delimiter lines after it.
+function _isTableRow(l: string): boolean {
+  const s = l.trim();
+  return s.startsWith("|") && s.endsWith("|") && (s.match(/\|/g)?.length ?? 0) >= 2;
+}
+function _isTableDelim(l: string): boolean {
+  const s = l.trim();
+  return s.length > 0 && s.includes("-") && /^[|\-: ]+$/.test(s);
+}
+function normalizeTableBlocks(text: string): string {
+  if (!text.includes("|")) return text;
+  const lines = text.split("\n");
+  const out: string[] = [];
+  let i = 0;
+  while (i < lines.length) {
+    if (_isTableRow(lines[i]) && i + 1 < lines.length && _isTableDelim(lines[i + 1])) {
+      if (out.length > 0 && out[out.length - 1].trim() !== "") out.push("");
+      out.push(lines[i].trim());
+      i++;
+      while (i < lines.length && (_isTableRow(lines[i]) || _isTableDelim(lines[i]))) {
+        out.push(lines[i].trim());
+        i++;
+      }
+      if (i < lines.length && lines[i].trim() !== "") out.push("");
+      continue;
+    }
+    out.push(lines[i]);
+    i++;
+  }
+  return out.join("\n");
 }
 
 // One nav-only citation token (page or timestamp, optional q-num/uuid, trailing junk

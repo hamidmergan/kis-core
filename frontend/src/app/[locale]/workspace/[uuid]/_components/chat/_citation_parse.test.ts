@@ -112,6 +112,22 @@ describe("sanitizeCitationsForMarkdown", () => {
     expect(sanitizeCitationsForMarkdown("Ein Satz mit Quelle [1, S. 2]"))
       .toBe("Ein Satz mit Quelle [1, S. 2]");
   });
+
+  it("lifts a table nested+indented under a bullet to column 0 with a blank line before", () => {
+    const raw = [
+      "- **Wichtige Termine**:",
+      " | Inhalt | Termin |",
+      " |---|---|",
+      " | Webkonferenz | 01.04.2026 [1, S. 16] |",
+      " | Abgabe | 03.07.2026 [1, S. 6] |",
+    ].join("\n");
+    const lines = sanitizeCitationsForMarkdown(raw).split("\n");
+    const headerIdx = lines.findIndex((l) => l === "| Inhalt | Termin |");
+    expect(headerIdx).toBeGreaterThan(0);
+    expect(lines[headerIdx - 1]).toBe("");             // blank line before the table
+    expect(lines[headerIdx + 1]).toBe("|---|---|");    // delimiter de-indented
+    expect(lines[headerIdx + 2]).toBe("| Webkonferenz | 01.04.2026 [1, S. 16] |"); // row de-indented, chip kept
+  });
 });
 
 describe("citationsAreAdjacentSameTarget", () => {
