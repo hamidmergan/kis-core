@@ -85,20 +85,21 @@ def test_user_message_reminds_to_match_question_language():
     assert "another language" in msg  # documents may differ from the question
 
 
-def test_user_message_preserves_verbatim_keyword_exception():
+def test_user_message_has_no_citation_injection():
+    # Sources are attached post-hoc by semantic attribution, so the user message
+    # must NOT ask the model to emit citation chips / keywords.
     msg = aia_rag_user_message("CTX", "Q")
-    # The one carve-out: citation keywords stay in the document's language.
-    assert "verbatim" in msg.lower()
-    assert "keyword" in msg.lower()
+    assert "[N, #C" not in msg
+    assert "keyword" not in msg.lower()
+    assert "citation" not in msg.lower()
 
 
 def test_user_message_enforces_table_discipline():
-    # Small models habitually add an empty 'Hinweis'/'Note' column and cite a
-    # table only once. The recency reminder must forbid both.
+    # Small models habitually add an empty 'Hinweis'/'Note' column. The reminder
+    # must forbid that (per-row citations are gone — chips are post-hoc now).
     msg = aia_rag_user_message("CTX", "Q").lower()
     assert "table reminder" in msg
     assert "hinweis" in msg or "note" in msg  # names the forbidden empty column
-    assert "every row" in msg                  # citation per row, not once
 
 
 def test_user_message_has_no_language_specific_wordlist():

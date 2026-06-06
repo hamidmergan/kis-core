@@ -157,10 +157,9 @@ def aia_rag_user_message(context: str, question: str) -> str:
     reminder after) so the answer follows the QUESTION's language even when the
     context is in another language and the model is tempted to just reformat it
     (e.g. German source chunks otherwise pull the whole answer into German).
-    Language-agnostic: no detection, no word
-    lists — the model mirrors the question. Citation keywords stay verbatim in
-    the source language (enforced by the system prompt) so highlighting keeps
-    working.
+    Language-agnostic: no detection, no word lists — the model mirrors the
+    question. The answer carries NO citation chips; sources are attached
+    post-hoc by semantic attribution, so the prompt says nothing about citing.
     """
     return (
         "The documents below are REFERENCE MATERIAL ONLY. Write your answer "
@@ -168,15 +167,10 @@ def aia_rag_user_message(context: str, question: str) -> str:
         "facts as needed. Do NOT mirror the documents' language.\n\n"
         f"{context}\n\nQuestion: {question}\n\n"
         "REMINDER: Write your ENTIRE answer in the SAME language as this "
-        "Question, even though the documents above are in another language. "
-        "The ONLY exception is the citation keyword after the '|' inside each "
-        "[N, #C | keyword] chip — keep it verbatim in the document's "
-        "original language.\n"
+        "Question, even though the documents above are in another language.\n"
         "TABLE REMINDER: If you present data as a Markdown table, use ONLY "
         "columns you can fill from the sources — do NOT add an empty 'Hinweis'/"
-        "'Note' column or any column whose cells become '–'. Put the citation "
-        "in EVERY row's last cell (repeat it even when rows share the same page); "
-        "never a single citation under the table."
+        "'Note' column or any column whose cells become '–'."
     )
 
 

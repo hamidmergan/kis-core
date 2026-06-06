@@ -946,9 +946,9 @@ async def chat(
                 transcript_by_source[sid] = _load_transcript_segments(src)
 
     # Build context (capped at AIA_CONTEXT_MAX_CHARS) - XML tags per chunk (Anthropic best practice).
-    # source_index is built from the SAME chunks (only those that fit in context) so
-    # the post-stream resolver can re-ground every citation's page/timestamp against
-    # the real content the model actually saw. See _resolve_citation_pages.
+    # source_index is built from the SAME chunks (only those that fit in context) so the
+    # post-hoc attribution cross-check can restrict each chip to a page the model actually
+    # saw (seen_pages_by_source). See _attribute_generic_text.
     context_parts: list[str] = []
     context_len = 0
     source_index: dict[int, dict] = {}
