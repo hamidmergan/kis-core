@@ -76,6 +76,13 @@ _PAGE_REF_RE = re.compile(
 )
 _MAX_PAGE_SPAN = 50
 
+# SPECIFIC retrieval: how many ranked chunks to pull as candidates. The hybrid search
+# fuses vector(top-80)+keyword(top-80) via RRF, so ~160 is the practical ceiling; we
+# pass them ALL and let the context CHAR budget (see the context-build loop) be the real
+# cap — a big document otherwise loses a relevant chunk that ranks below a small top-K
+# (e.g. an author name buried at rank ~58 of 80). Budget has ample headroom in practice.
+_SPECIFIC_RETRIEVE_LIMIT = 200
+
 
 def _parse_page_refs(question: str) -> list[int]:
     """Extract explicit page numbers from a question. Returns them sorted and
@@ -841,7 +848,7 @@ async def chat(
 
         chunks = db.hybrid_search_chunks(
             workspace["id"], embed_text, query_vector,
-            source_ids=search_source_ids, limit=20,
+            source_ids=search_source_ids, limit=_SPECIFIC_RETRIEVE_LIMIT,
         )
         found_pages = sorted(set(c["page_number"] for c in chunks))
         found_source_ids = sorted(set(c["source_id"] for c in chunks))

@@ -120,7 +120,7 @@ def hybrid_search_chunks(
 
     with get_connection() as conn:
         with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
-            # 1) Vector search (top 40). Keep the raw cosine distance: it is the
+            # 1) Vector search (top 80). Keep the raw cosine distance: it is the
             # stopword-immune relevance signal (embeddings capture meaning, so a
             # conversational query like "erkläre mir bitte die X" still focuses on
             # X). Callers use it to tell a genuinely on-topic source from one that
@@ -136,13 +136,13 @@ def hybrid_search_chunks(
                     WHERE s.workspace_id = %s {source_filter}
                       AND c.embedding IS NOT NULL
                     ORDER BY c.embedding <=> %s::vector
-                    LIMIT 40""",
+                    LIMIT 80""",
                 [str(query_embedding), str(query_embedding), workspace_id] + source_param + [str(query_embedding)],
             )
             vec_rows = cur.fetchall()
             vec_distance = {row["id"]: float(row["distance"]) for row in vec_rows}
 
-            # 2) Keyword search (top 40) - OR conjunction so individual search terms match
+            # 2) Keyword search (top 80) - OR conjunction so individual search terms match
             cur.execute(
                 f"""SELECT c.id, c.page_number, ROW_NUMBER() OVER (
                         ORDER BY ts_rank_cd(c.search_vector,
@@ -154,7 +154,7 @@ def hybrid_search_chunks(
                     WHERE s.workspace_id = %s {source_filter}
                       AND c.search_vector IS NOT NULL
                       AND c.search_vector @@ (regexp_replace(plainto_tsquery('simple', %s)::text, ' & ', ' | ', 'g'))::tsquery
-                    LIMIT 40""",
+                    LIMIT 80""",
                 [query_text, workspace_id] + source_param + [query_text],
             )
             kw_rows = cur.fetchall()
@@ -185,7 +185,7 @@ def hybrid_search_chunks(
                         JOIN aia_sources s ON s.id = c.source_id
                         WHERE s.workspace_id = %s {source_filter}
                           AND {ilike_clauses}
-                        LIMIT 20""",
+                        LIMIT 40""",
                     [workspace_id] + source_param + ilike_params,
                 )
                 ilike_rows = cur.fetchall()
