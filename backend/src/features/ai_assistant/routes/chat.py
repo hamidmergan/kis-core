@@ -1180,26 +1180,7 @@ async def chat(
                 qnum_to_source_id[qn]: pages
                 for qn, pages in seen_pages_by_qn.items() if qn in qnum_to_source_id
             }
-            coverage_sources = {
-                qn: {"source": all_sources_list[qnum_to_source_id[qn]],
-                     "is_media": source_index[qn]["is_media"],
-                     # Validity set = the seen pages (fall back to all real pages for
-                     # media / when no seen pages were recorded).
-                     "pages": seen_pages_by_qn.get(qn) or source_index[qn].get("pages", set())}
-                for qn in source_index if qnum_to_source_id.get(qn) in all_sources_list
-            }
-            _unit_loader = SourceUnitLoader(seen_pages_by_source=seen_pages_by_source)
-            # Highlights OFF (default) -> force nav_only for EVERY mode: chips become
-            # page/timestamp-only (scroll, no span). Consistent across clean & OCR PDFs.
-            _nav_only_all = scope_nav_only or not _highlights_enabled()
-            # Single-page scope summary in nav-only mode: strip chips live too (every line
-            # would show the same redundant page chip). Multi-page/media scope keeps them.
-            _scope_strip = scope_single_page and _nav_only_all
-            _grounder = CitationGrounder(coverage_sources, _unit_loader, source_qmap, chunk_registry,
-                                         fill=do_fill, nav_only=_nav_only_all,
-                                         strip_only=post_hoc_generic or _scope_strip)
             _line_buf = ""
-            _line_idx = 0
             aborted = False
             # Safety net against a model repetition/degeneration loop (same few bullets
             # forever). When tripped we stop consuming the stream; the final dedup below
@@ -1257,12 +1238,9 @@ async def chat(
                         while "\n" in _line_buf:
                             _completed, _line_buf = _line_buf.split("\n", 1)
                             if _repeat_guard.is_loop(_completed):
-                                logger.warning("Repetition loop detected after {} lines, stopping stream", _line_idx)
+                                logger.warning("Repetition loop detected, stopping stream")
                                 _loop_detected = True
                                 break
-                            _grounded = await asyncio.to_thread(_grounder.feed_line, _completed)
-                            yield f"data: {json.dumps({'line_done': {'index': _line_idx, 'text': _grounded}})}\n\n"
-                            _line_idx += 1
                     if _loop_detected:
                         break
             except Exception as e:
@@ -1277,46 +1255,23 @@ async def chat(
                     except Exception:
                         pass
 
-            # Flush the last line (no trailing newline) so its chip grounds too.
-            # Skip on abort (client gone) or a detected loop (the buffer is just the
-            # start of another repeat).
-            if not aborted and not _loop_detected and _line_buf.strip():
-                _grounded = await asyncio.to_thread(_grounder.feed_line, _line_buf)
-                yield f"data: {json.dumps({'line_done': {'index': _line_idx, 'text': _grounded}})}\n\n"
-                _line_idx += 1
-
             _clean_answer = _dedup_repeated_lines(_sanitize_citations("".join(answer_parts).strip()))
-            if post_hoc_generic:
-                # ── GENERIC post-hoc attribution ──
-                # Drop the model's (unreliable) citations and re-ground each line with
-                # semantic search over the active sources — the same search that grounds
-                # specific questions perfectly. A line that isn't clearly supported gets
-                # NO chip (distance gate, no post-rationalization). See _attribute_generic_text.
+            # Unified post-hoc attribution for every RAG answer (specific / generic / scope):
+            # the model wrote plain text; we embed each substantial line, pgvector-search the
+            # active sources, cross-check the hit against the pages actually retrieved into
+            # context, and attach a nav-only chip. Popup/direct answers (their own selected
+            # text + AIA_SYSTEM_DIRECT prompt) get no RAG attribution.
+            if is_popup or not source_ids:
+                answer = _clean_answer
+            else:
                 from src.services.aia_embeddings import get_embedding_provider
                 _prov = get_embedding_provider()
-                _hl = _highlights_enabled()
-
-                def _offset_fn(_sid: int, _page: int, _line: str):
-                    # Exact-span offsets for the matched chunk's page -> precise highlight
-                    # (the keyword path would expand to the whole paragraph). Best-effort.
-                    # nav-only / highlights off: skip — the span is stripped right below.
-                    if not _hl:
-                        return []
-                    src = all_sources_list.get(_sid)
-                    if not src:
-                        return []
-                    try:
-                        return _unit_loader.offset_suffixes(src, _page, _line) or []
-                    except Exception:
-                        return []
-
-                _stripped = _strip_inline_citation_chips(_clean_answer)
+                _stripped = _strip_inline_citation_chips(_clean_answer)  # defensive: model shouldn't emit chips now
 
                 def _attribute_blocking() -> str:
-                    # Batch-embed ALL candidate lines in ONE provider call (it chunks into
-                    # 100s internally) instead of one embed per line — same vectors, far
-                    # fewer round-trips. search_one then just reuses the precomputed vector
-                    # (falls back to a per-line embed if the batch failed or a line is new).
+                    # Batch-embed ALL candidate lines in ONE provider call (chunks into 100s
+                    # internally) instead of one embed per line — same vectors, far fewer
+                    # round-trips. search_one reuses the precomputed vector (per-line fallback).
                     _cands = [ln for ln in _stripped.split("\n") if _needs_attribution(ln)]
                     _vec_by_line: dict[str, list] = {}
                     if _cands:
@@ -1337,59 +1292,10 @@ async def chat(
                             logger.warning("post-hoc attribution search failed for a line: {}", e)
                             return []
 
-                    return _attribute_generic_text(_stripped, _search_one, source_id_to_qnum, _offset_fn)
+                    return _attribute_generic_text(_stripped, _search_one, source_id_to_qnum,
+                                                   seen_pages_by_source=seen_pages_by_source)
 
                 answer = await asyncio.to_thread(_attribute_blocking)
-                # Highlights OFF -> reduce post-hoc chips to page/timestamp-only.
-                if not _hl:
-                    answer = _nav_only_chips(answer)
-            else:
-                # First repair malformed `[N] S.X` -> `[N, S.X]`. Then resolve the model's
-                # CHUNK-id citations (`[N, #C | kw]`) into verified, real page/timestamp chips
-                # — authoritative, so we skip the legacy keyword resolver where they ran.
-                # Lines the model cited the OLD way (or not at all) fall through to the
-                # keyword resolver + the uncited-line filler (the safety net). Finally strip
-                # citations from the closing summary section.
-                _chipified = _chipify_inline_refs(_clean_answer, source_qmap)
-                # nav-only: skip @offset span computation (stripped by _nav_only_chips below).
-                _wo = not _nav_only_all
-                try:
-                    _had_chunk_ref, _chipified = resolve_chunk_refs(_chipified, chunk_registry, _unit_loader, with_offsets=_wo)
-                except Exception as e:
-                    logger.warning("chunk-id citation resolve failed, falling back to keyword resolver: {}", e)
-                    _had_chunk_ref = False
-                try:
-                    _resolved = _chipified if _had_chunk_ref else resolve_citation_positions(_chipified, coverage_sources, _unit_loader, with_offsets=_wo)
-                except Exception as e:
-                    logger.warning("precise citation re-grounding failed, using base resolver: {}", e)
-                    _resolved = _resolve_citation_pages(_chipified, source_index)
-                if do_fill:
-                    try:
-                        _resolved = fill_uncited_lines(_resolved, coverage_sources, _unit_loader, with_offsets=_wo)
-                    except Exception as e:
-                        logger.warning("coverage fill failed, using ungrounded answer: {}", e)
-                # Collapse duplicate chips that point to the same source+position on a line
-                # (keeps distinct @offset highlight regions; matches the live grounder).
-                _resolved = _dedup_chips(_resolved)
-                # A bold-only section title is a heading, not a claim -> never cite it.
-                _resolved = _strip_title_chips(_resolved)
-                answer = _strip_summary_citations(_resolved)
-                # Drop any trailing meta-clause leaking an internal chunk/source id
-                # ("... stammen aus den Dokumenten mit den IDs #1 und #2.").
-                answer = _strip_chunk_id_leak(answer)
-                # Single-page scope summary (nav-only): drop the redundant per-line chips
-                # (every line repeats the same page the user named) but keep ONE anchor chip
-                # at the very bottom so the user still has a single click-to-page link.
-                # Otherwise, multi-page/-chunk scoped summary: chips → page/timestamp-only
-                # (nav, no highlight) so a synthesis doesn't paint scattered spans.
-                if scope_single_page and (scope_nav_only or not _highlights_enabled()):
-                    answer = _strip_resolved_citation_chips(answer)
-                    _anchor_qn = source_id_to_qnum.get(scope_chunks[0]["source_id"]) if scope_chunks else None
-                    _anchor_pg = next(iter(_scope_pages), None)
-                    if _anchor_qn and _anchor_pg is not None:
-                        answer = _append_scope_anchor(answer, _anchor_qn, _anchor_pg)
-                elif scope_nav_only or not _highlights_enabled():
-                    answer = _nav_only_chips(answer)
 
             # Push the real question + answer onto the aia-chat trace; the
             # @observe decorator otherwise only captured the StreamingResponse.
