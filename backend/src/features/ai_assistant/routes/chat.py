@@ -577,6 +577,12 @@ from src.features.ai_assistant.routes._helpers import (
     _dedup_chips,
     _strip_title_chips,
     _nav_only_chips,
+    _highlights_enabled,
+    _scope_is_nav_only,
+    _RepetitionGuard,
+    _dedup_repeated_lines,
+    _strip_inline_citation_chips,
+    _attribute_generic_text,
     _chipify_inline_refs,
     _build_page_regions,
     SourceUnitLoader,
@@ -813,19 +819,24 @@ async def chat(
     # page/timestamp, so auto-filling per line grounds against the WHOLE document and
     # scatters chips across unrelated pages (worst case: a table-of-contents page).
     is_scoped = bool(scope_chunks)
-    # A MULTI-page/-chunk scoped summary is a synthesis with no single location, so a
-    # span highlight lights up many blocks across pages ("wild"). Reduce its chips to
-    # page/timestamp-only (scroll, no highlight). A single-page scope keeps the precise
-    # highlight (it reads as intentional, and the user likes it).
+    # Nav-only (page/timestamp chip, no highlight) is reserved for MEDIA scope: mp3/mp4
+    # has no PDF text layer to anchor a highlight on, so a multi-chunk media summary just
+    # scrolls to the timestamp. A multi-PAGE PDF scope now KEEPS its highlights — with
+    # sentence-tight grounding (C2) each bullet marks only its own sentence on its own
+    # page, which is precise, not "wild" across pages. See _scope_is_nav_only.
     _scope_pages = {c.get("page_number") for c in (scope_chunks or []) if c.get("page_number") is not None}
-    scope_nav_only = is_scoped and (len(_scope_pages) > 1 or (not _scope_pages and len(scope_chunks or []) > 1))
+    scope_nav_only = is_scoped and _scope_is_nav_only(_scope_pages, scope_chunks)
     # Auto-filler policy:
     #  - normal answers: ON (every claim gets a chip).
-    #  - single-page scope: OFF — keep the model's own (sparse) precise-highlight chips.
-    #  - multi-page scope: ON again, because it is now safe: the filler only grounds to
-    #    the scoped pages (SourceUnitLoader restricts candidates to seen pages) and the
-    #    chips are nav-only, so every line gets a clean page chip without wild highlights.
+    #  - scoped (PDF, single OR multi page): OFF — keep the model's own precise-highlight
+    #    chips; filling per line would scatter chips across the document.
+    #  - media scope (nav-only): ON, safe because chips are page/timestamp-only anyway.
     do_fill = (not is_scoped) or scope_nav_only
+    # GENERIC (overview, non-scoped): the model's own page citations are the unreliable
+    # case (it grounds on frequent words, not meaning). Stream clean text (no live chips)
+    # and re-ground each line POST-HOC via semantic search in the finalize block — the
+    # same search that grounds specific questions perfectly. Specific/scoped stay as-is.
+    post_hoc_generic = (intent == "GENERIC") and not is_scoped
     if scope_chunks:
         chunks = scope_chunks
     elif intent == "GENERIC":
@@ -1169,11 +1180,20 @@ async def chat(
                 for qn in source_index if qnum_to_source_id.get(qn) in all_sources_list
             }
             _unit_loader = SourceUnitLoader(seen_pages_by_source=seen_pages_by_source)
+            # Highlights OFF (default) -> force nav_only for EVERY mode: chips become
+            # page/timestamp-only (scroll, no span). Consistent across clean & OCR PDFs.
+            _nav_only_all = scope_nav_only or not _highlights_enabled()
             _grounder = CitationGrounder(coverage_sources, _unit_loader, source_qmap, chunk_registry,
-                                         fill=do_fill, nav_only=scope_nav_only)
+                                         fill=do_fill, nav_only=_nav_only_all,
+                                         strip_only=post_hoc_generic)
             _line_buf = ""
             _line_idx = 0
             aborted = False
+            # Safety net against a model repetition/degeneration loop (same few bullets
+            # forever). When tripped we stop consuming the stream; the final dedup below
+            # cleans the handful of repeats that streamed before the stop.
+            _repeat_guard = _RepetitionGuard()
+            _loop_detected = False
             try:
                 # 90s connect/first-token timeout so an Ollama cold-start model
                 # load can finish before we abort. Once tokens flow the
@@ -1224,9 +1244,15 @@ async def chat(
                         _line_buf += delta.content
                         while "\n" in _line_buf:
                             _completed, _line_buf = _line_buf.split("\n", 1)
+                            if _repeat_guard.is_loop(_completed):
+                                logger.warning("Repetition loop detected after {} lines, stopping stream", _line_idx)
+                                _loop_detected = True
+                                break
                             _grounded = await asyncio.to_thread(_grounder.feed_line, _completed)
                             yield f"data: {json.dumps({'line_done': {'index': _line_idx, 'text': _grounded}})}\n\n"
                             _line_idx += 1
+                    if _loop_detected:
+                        break
             except Exception as e:
                 _log_status = "error"
                 logger.error("LLM stream error: {}", e)
@@ -1240,50 +1266,86 @@ async def chat(
                         pass
 
             # Flush the last line (no trailing newline) so its chip grounds too.
-            # Skip on abort: the client is gone, so don't ground/yield to a dead stream.
-            if not aborted and _line_buf.strip():
+            # Skip on abort (client gone) or a detected loop (the buffer is just the
+            # start of another repeat).
+            if not aborted and not _loop_detected and _line_buf.strip():
                 _grounded = await asyncio.to_thread(_grounder.feed_line, _line_buf)
                 yield f"data: {json.dumps({'line_done': {'index': _line_idx, 'text': _grounded}})}\n\n"
                 _line_idx += 1
 
-            # First repair malformed `[N] S.X` -> `[N, S.X]`. Then resolve the model's
-            # CHUNK-id citations (`[N, #C | kw]`) into verified, real page/timestamp chips
-            # — authoritative, so we skip the legacy keyword resolver where they ran.
-            # Lines the model cited the OLD way (or not at all) fall through to the
-            # keyword resolver + the uncited-line filler (the safety net). Finally strip
-            # citations from the closing summary section.
-            _chipified = _chipify_inline_refs(
-                _sanitize_citations("".join(answer_parts).strip()),
-                source_qmap,
-            )
-            try:
-                _had_chunk_ref, _chipified = resolve_chunk_refs(_chipified, chunk_registry, _unit_loader)
-            except Exception as e:
-                logger.warning("chunk-id citation resolve failed, falling back to keyword resolver: {}", e)
-                _had_chunk_ref = False
-            try:
-                _resolved = _chipified if _had_chunk_ref else resolve_citation_positions(_chipified, coverage_sources, _unit_loader)
-            except Exception as e:
-                logger.warning("precise citation re-grounding failed, using base resolver: {}", e)
-                _resolved = _resolve_citation_pages(_chipified, source_index)
-            if do_fill:
+            _clean_answer = _dedup_repeated_lines(_sanitize_citations("".join(answer_parts).strip()))
+            if post_hoc_generic:
+                # ── GENERIC post-hoc attribution ──
+                # Drop the model's (unreliable) citations and re-ground each line with
+                # semantic search over the active sources — the same search that grounds
+                # specific questions perfectly. A line that isn't clearly supported gets
+                # NO chip (distance gate, no post-rationalization). See _attribute_generic_text.
+                from src.services.aia_embeddings import get_embedding_provider
+                _prov = get_embedding_provider()
+
+                def _search_one(_line: str):
+                    try:
+                        _qv = _prov.embed_one(_line)
+                        return db.hybrid_search_chunks(workspace["id"], _line, _qv,
+                                                       source_ids=source_ids, limit=4)
+                    except Exception as e:
+                        logger.warning("post-hoc attribution search failed for a line: {}", e)
+                        return []
+
+                def _offset_fn(_sid: int, _page: int, _line: str):
+                    # Exact-span offsets for the matched chunk's page -> precise highlight
+                    # (the keyword path would expand to the whole paragraph). Best-effort.
+                    src = all_sources_list.get(_sid)
+                    if not src:
+                        return []
+                    try:
+                        return _unit_loader.offset_suffixes(src, _page, _line) or []
+                    except Exception:
+                        return []
+
+                _stripped = _strip_inline_citation_chips(_clean_answer)
+                answer = await asyncio.to_thread(
+                    _attribute_generic_text, _stripped, _search_one, source_id_to_qnum, _offset_fn,
+                )
+                # Highlights OFF -> reduce post-hoc chips to page/timestamp-only.
+                if not _highlights_enabled():
+                    answer = _nav_only_chips(answer)
+            else:
+                # First repair malformed `[N] S.X` -> `[N, S.X]`. Then resolve the model's
+                # CHUNK-id citations (`[N, #C | kw]`) into verified, real page/timestamp chips
+                # — authoritative, so we skip the legacy keyword resolver where they ran.
+                # Lines the model cited the OLD way (or not at all) fall through to the
+                # keyword resolver + the uncited-line filler (the safety net). Finally strip
+                # citations from the closing summary section.
+                _chipified = _chipify_inline_refs(_clean_answer, source_qmap)
                 try:
-                    _resolved = fill_uncited_lines(_resolved, coverage_sources, _unit_loader)
+                    _had_chunk_ref, _chipified = resolve_chunk_refs(_chipified, chunk_registry, _unit_loader)
                 except Exception as e:
-                    logger.warning("coverage fill failed, using ungrounded answer: {}", e)
-            # Collapse duplicate chips that point to the same source+position on a line
-            # (keeps distinct @offset highlight regions; matches the live grounder).
-            _resolved = _dedup_chips(_resolved)
-            # A bold-only section title is a heading, not a claim -> never cite it.
-            _resolved = _strip_title_chips(_resolved)
-            answer = _strip_summary_citations(_resolved)
-            # Drop any trailing meta-clause leaking an internal chunk/source id
-            # ("... stammen aus den Dokumenten mit den IDs #1 und #2.").
-            answer = _strip_chunk_id_leak(answer)
-            # Multi-page/-chunk scoped summary: chips → page/timestamp-only (nav, no
-            # highlight) so a synthesis doesn't paint scattered spans across pages.
-            if scope_nav_only:
-                answer = _nav_only_chips(answer)
+                    logger.warning("chunk-id citation resolve failed, falling back to keyword resolver: {}", e)
+                    _had_chunk_ref = False
+                try:
+                    _resolved = _chipified if _had_chunk_ref else resolve_citation_positions(_chipified, coverage_sources, _unit_loader)
+                except Exception as e:
+                    logger.warning("precise citation re-grounding failed, using base resolver: {}", e)
+                    _resolved = _resolve_citation_pages(_chipified, source_index)
+                if do_fill:
+                    try:
+                        _resolved = fill_uncited_lines(_resolved, coverage_sources, _unit_loader)
+                    except Exception as e:
+                        logger.warning("coverage fill failed, using ungrounded answer: {}", e)
+                # Collapse duplicate chips that point to the same source+position on a line
+                # (keeps distinct @offset highlight regions; matches the live grounder).
+                _resolved = _dedup_chips(_resolved)
+                # A bold-only section title is a heading, not a claim -> never cite it.
+                _resolved = _strip_title_chips(_resolved)
+                answer = _strip_summary_citations(_resolved)
+                # Drop any trailing meta-clause leaking an internal chunk/source id
+                # ("... stammen aus den Dokumenten mit den IDs #1 und #2.").
+                answer = _strip_chunk_id_leak(answer)
+                # Multi-page/-chunk scoped summary: chips → page/timestamp-only (nav, no
+                # highlight) so a synthesis doesn't paint scattered spans across pages.
+                if scope_nav_only or not _highlights_enabled():
+                    answer = _nav_only_chips(answer)
 
             # Push the real question + answer onto the aia-chat trace; the
             # @observe decorator otherwise only captured the StreamingResponse.

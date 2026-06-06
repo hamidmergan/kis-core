@@ -1,6 +1,7 @@
 """Shared helpers for KI-Assistent routes."""
 
 import html as _html
+import os
 import re
 import subprocess
 import tempfile
@@ -401,6 +402,152 @@ def _strip_chunk_id_leak(text: str) -> str:
         return text
     head = stripped[: m.start()].rstrip()
     return head if head else text
+
+
+# Repetition-loop safety net. A model can degenerate into emitting the same few
+# lines forever ("fasse detailliert zusammen" on a thin source). We key lines by
+# their PROSE only (citations + bullet/heading markers stripped, normalized), so the
+# same point with a different chip still counts as a repeat. Substantial lines only —
+# short/structural lines (markers, table seps) never trip the guard.
+_DEDUP_BRACKET_RE = re.compile(r"[\[【][^\]】]*[\]】]")
+_DEDUP_MIN_KEY_LEN = 16
+
+
+def _line_dedup_key(line: str) -> str:
+    """Normalized prose key for a line: strip citation chips + leading list/heading
+    markers, then NFKC/casefold/whitespace-normalize. Same key == same content line."""
+    s = _DEDUP_BRACKET_RE.sub("", line)
+    s = re.sub(r"^\s*(?:[-*+]\s+|\d+[.)]\s+|#{1,6}\s+)", "", s)
+    return _norm_for_match(s)
+
+
+class _RepetitionGuard:
+    """Detects a model repetition loop in a streamed answer: a substantial line
+    emitted ``max_repeats`` times (consecutive OR alternating). Per-stream state; the
+    caller stops consuming the LLM stream the moment ``is_loop`` returns True."""
+
+    def __init__(self, max_repeats: int = 4, min_key_len: int = _DEDUP_MIN_KEY_LEN) -> None:
+        self._counts: dict = {}
+        self._max = max_repeats
+        self._min = min_key_len
+
+    def is_loop(self, line: str) -> bool:
+        key = _line_dedup_key(line)
+        if len(key) < self._min:
+            return False
+        self._counts[key] = self._counts.get(key, 0) + 1
+        return self._counts[key] >= self._max
+
+
+def _dedup_repeated_lines(text: str) -> str:
+    """Drop later duplicates of a substantial line (same :func:`_line_dedup_key`).
+    Cleans up a repetition loop's residue; blank/short/marker lines pass through."""
+    seen: set = set()
+    out: list[str] = []
+    for line in text.split("\n"):
+        key = _line_dedup_key(line)
+        if len(key) >= _DEDUP_MIN_KEY_LEN:
+            if key in seen:
+                continue
+            seen.add(key)
+        out.append(line)
+    return "\n".join(out)
+
+
+# ── Post-hoc semantic attribution for GENERIC answers ───────────────────────
+# Overview answers are where the model's own page citations go wrong (it grounds on
+# a frequent word, not meaning). Instead we re-ground each answer line with the SAME
+# semantic search that grounds specific questions perfectly: embed the line, search
+# the active sources, attach the closest chunk's citation — but ONLY when it is close
+# enough. A line that isn't clearly supported gets NO chip (no post-rationalization).
+# The distance gate is the make-or-break knob; calibrate at the UI.
+_GENERIC_ATTRIB_MAX_DIST = 0.6
+
+
+def _pick_attribution(hits: list[dict], max_distance: float) -> Optional[dict]:
+    """Return the closest hit (min cosine ``vec_distance``) iff within the gate, else
+    None. None == the line is not clearly in the sources -> no chip is attached."""
+    cand = [h for h in hits if h.get("vec_distance") is not None]
+    if not cand:
+        return None
+    best = min(cand, key=lambda h: h["vec_distance"])
+    return best if best["vec_distance"] <= max_distance else None
+
+
+def _attribution_chip(qnum: int, chunk: dict, line: str, offset_fn) -> list[str]:
+    """Build citation chip(s) for a post-hoc attributed line. PREFER exact server
+    offsets (``@start-end``) so the highlight is the precise span — NOT the keyword
+    path, which the viewer expands to the whole surrounding paragraph (pulling in
+    unrelated text). One chip per offset region. Falls back to a verbatim overlap
+    keyword, then nav-only. Media: the chunk's start timestamp.
+
+    ``offset_fn(source_id, page, line)`` returns ``" @start-end | span"`` suffixes."""
+    page = chunk.get("page_number")
+    if page is None:
+        st = chunk.get("start_time")
+        return [f"[{qnum}, {_format_timestamp(st)}]"] if st is not None else []
+    offs = offset_fn(chunk["source_id"], page, line) or []
+    if offs:
+        return [f"[{qnum}, S. {page}{s}]" for s in offs]
+    kw = _overlap_phrase(line, chunk.get("content") or "")
+    # _overlap_phrase falls back to the chunk's first words even with no real overlap;
+    # only anchor a keyword highlight when the phrase actually occurs in the line.
+    if kw and _norm_for_match(kw) in _norm_for_match(line):
+        return [f"[{qnum}, S. {page} | {kw}]"]
+    return [f"[{qnum}, S. {page}]"]
+
+
+def _attribute_generic_text(text: str, search_one, source_id_to_qnum: dict, offset_fn,
+                            max_distance: float = _GENERIC_ATTRIB_MAX_DIST) -> str:
+    """Re-ground each substantial, uncited line of a GENERIC answer via semantic search.
+
+    ``search_one(line)`` returns ranked hits (dicts with vec_distance / source_id /
+    page_number / content / optional start_time). ``offset_fn`` yields exact-span
+    suffixes for the matched chunk's page. Short/heading lines and lines that already
+    carry a chip are left untouched; an unsupported line (gate) gets no chip."""
+    out: list[str] = []
+    for line in text.split("\n"):
+        if len(_line_dedup_key(line)) < _DEDUP_MIN_KEY_LEN or _HAS_CITE.search(line.rstrip()):
+            out.append(line)
+            continue
+        best = _pick_attribution(search_one(line) or [], max_distance)
+        qnum = source_id_to_qnum.get(best["source_id"]) if best else None
+        chips = _attribution_chip(qnum, best, line, offset_fn) if qnum else []
+        out.append(f"{line.rstrip()} {' '.join(chips)}" if chips else line)
+    return "\n".join(out)
+
+
+_INLINE_CITE_STRIP_RE = re.compile(r"\s*[\[【][^\]】\n]*(?:#\s*\d|S\.\s*\d|\d{1,2}:\d{2})[^\]】\n]*[\]】]")
+
+
+def _strip_inline_citation_chips(text: str) -> str:
+    """Remove citation-shaped brackets (chunk-id, page or timestamp) from a line. Used
+    for the GENERIC live stream: we show clean text while streaming and attach the
+    post-hoc semantic-attribution chips only in the final answer."""
+    out = _INLINE_CITE_STRIP_RE.sub("", text)
+    out = re.sub(r"[ \t]+([.,;:!?])", r"\1", out)
+    return re.sub(r"[ \t]{2,}", " ", out).rstrip()
+
+
+def _scope_is_nav_only(scope_pages: set, scope_chunks: list) -> bool:
+    """Whether a scoped summary should use nav-only chips (page/timestamp, no highlight).
+
+    Only MEDIA scope (mp3/mp4 — no page numbers) with several chunks: there is no PDF
+    text layer to anchor a highlight on, so the chip merely scrolls to the timestamp.
+    A multi-PAGE PDF scope KEEPS its highlights — sentence-tight grounding marks each
+    bullet's own sentence on its own page, which is precise, not 'wild' across pages."""
+    return (not scope_pages) and len(scope_chunks or []) > 1
+
+
+def _highlights_enabled() -> bool:
+    """Master switch for yellow span highlights. Default ON.
+
+    Highlights re-anchor a stored char-offset span in the live PDF text. That is
+    precise on clean text but can break on OCR'd documents (artifacts -> the keyword
+    paragraph fallback over-marks). Set AIA_HIGHLIGHTS=0 to turn highlights off for
+    ALL modes: every chip is then reduced to nav-only (page/timestamp, click scrolls,
+    no highlight). The kill-switch stays available for OCR-heavy tenants."""
+    return os.getenv("AIA_HIGHLIGHTS", "1").strip().lower() in ("1", "true", "yes", "on")
 
 
 def _nav_only_chips(text: str) -> str:

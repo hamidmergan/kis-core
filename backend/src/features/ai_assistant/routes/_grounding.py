@@ -20,6 +20,7 @@ from ._helpers import (
     _strip_title_line_chips,
     _strip_chunk_id_leak,
     _nav_only_chips,
+    _strip_inline_citation_chips,
     fill_uncited_lines,
     resolve_citation_positions,
 )
@@ -36,7 +37,7 @@ class CitationGrounder:
     """
 
     def __init__(self, sources: dict, loader, source_qmap: list, registry: dict | None = None,
-                 *, fill: bool = True, nav_only: bool = False) -> None:
+                 *, fill: bool = True, nav_only: bool = False, strip_only: bool = False) -> None:
         self._sources = sources
         self._loader = loader
         self._qmap = source_qmap
@@ -52,9 +53,16 @@ class CitationGrounder:
         # multi-page/-chunk scoped summary, where a span highlight would light up many
         # blocks across pages. Click then just scrolls to the page. See _nav_only_chips.
         self._nav_only = nav_only
+        # When True, strip ALL citation chips live (clean text). Used for GENERIC, where
+        # the model's own page citations are unreliable; the final answer is re-grounded
+        # post-hoc by semantic search (see _attribute_generic_text). No live chips.
+        self._strip_only = strip_only
 
     def feed_line(self, line: str) -> str:
         line = _sanitize_citations(line)
+        if self._strip_only:
+            # GENERIC: show clean text live; chips come from post-hoc attribution.
+            return _strip_inline_citation_chips(line)
         line = _chipify_inline_refs(line, self._qmap)
         # NOTE: triggers on the FIRST summary heading; the batch path
         # (_strip_summary_citations) uses the LAST. Divergence only matters with
