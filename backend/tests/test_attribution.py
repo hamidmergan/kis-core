@@ -138,3 +138,24 @@ def test_no_crosscheck_when_not_passed():
     out = _attribute_generic_text(line, _searcher({"substanzielle": [_hit(1, 7, "x", 0.2)]}),
                                   {1: 2}, max_distance=0.6)
     assert out == f"{line} [2, S. 7]"
+
+
+def test_table_header_not_cited_and_data_chip_inside_cell():
+    # A table block: header is a label (never cited), delimiter untouched, and the data
+    # row's chip goes INSIDE the last cell so GFM keeps the column count (table renders).
+    table = (
+        "| Datum der Veranstaltung | Termin und Uhrzeit |\n"
+        "|---|---|\n"
+        "| 01.04.2026 | Webkonferenz Einfuehrung zum Seminar |"
+    )
+    out = _attribute_generic_text(
+        table,
+        _searcher({"Datum": [_hit(1, 6, "x", 0.2)], "Webkonferenz": [_hit(1, 6, "x", 0.2)]}),
+        {1: 1}, seen_pages_by_source={1: {6}}, max_distance=0.6,
+    )
+    lines = out.split("\n")
+    assert lines[0] == "| Datum der Veranstaltung | Termin und Uhrzeit |"  # header NOT cited
+    assert lines[1] == "|---|---|"                                         # delimiter untouched
+    assert lines[2].rstrip().endswith("|")                                 # row still closes with a pipe
+    assert "[1, S. 6]" in lines[2]                                         # chip present
+    assert lines[2].count("|") == 3                                        # same column count as a clean 2-col row

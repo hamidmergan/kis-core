@@ -278,6 +278,28 @@ def _needs_attribution(line: str) -> bool:
             and not _HAS_CITE.search(line.rstrip()))
 
 
+def _is_table_row(line: str) -> bool:
+    """A Markdown table row: trimmed line starts and ends with a pipe."""
+    s = line.strip()
+    return s.startswith("|") and s.endswith("|") and s.count("|") >= 2
+
+
+def _is_table_delim(line: str) -> bool:
+    """A Markdown table delimiter row, e.g. ``|---|---|`` / ``|:--|--:|`` (only
+    pipes, dashes, colons, spaces)."""
+    s = line.strip()
+    return bool(s) and set(s) <= set("|-: ")
+
+
+def _place_chip(line: str, chip_str: str) -> str:
+    """Attach ``chip_str`` to a line. For a table row the chip goes INSIDE the last
+    cell (before the closing pipe) so the row keeps its pipe-defined column count and
+    GFM still parses the block as a table; otherwise it is appended after the line."""
+    if _is_table_row(line):
+        return re.sub(r"\s*\|\s*$", f" {chip_str} |", line.rstrip())
+    return f"{line.rstrip()} {chip_str}"
+
+
 def _attribute_generic_text(text: str, search_one, source_id_to_qnum: dict, offset_fn=None, *,
                             seen_pages_by_source=None,
                             max_distance: float = _GENERIC_ATTRIB_MAX_DIST) -> str:
@@ -298,8 +320,16 @@ def _attribute_generic_text(text: str, search_one, source_id_to_qnum: dict, offs
     to batch-embed all candidate lines up front, so ``search_one`` only has to look up
     a precomputed vector here."""
     out: list[str] = []
-    for line in text.split("\n"):
+    lines = text.split("\n")
+    for i, line in enumerate(lines):
         if not _needs_attribution(line):
+            out.append(line)
+            continue
+        # A table HEADER row (the next line is the |---| delimiter) is a column label,
+        # not a claim — never cite it. (The delimiter row itself is skipped above: its
+        # dedup key is empty.) Citing the header would also dirty the column titles.
+        nxt = lines[i + 1] if i + 1 < len(lines) else ""
+        if _is_table_row(line) and _is_table_delim(nxt):
             out.append(line)
             continue
         best = _pick_attribution(search_one(line) or [], max_distance)
@@ -312,7 +342,9 @@ def _attribute_generic_text(text: str, search_one, source_id_to_qnum: dict, offs
             # media (page_number is None): empty/any set means the source WAS retrieved -> accept
         qnum = source_id_to_qnum.get(best["source_id"]) if best else None
         chips = _attribution_chip(qnum, best, line) if qnum else []
-        out.append(f"{line.rstrip()} {' '.join(chips)}" if chips else line)
+        # Table data row -> chip INSIDE the last cell (keeps GFM column count intact);
+        # otherwise appended after the line.
+        out.append(_place_chip(line, " ".join(chips)) if chips else line)
     return "\n".join(out)
 
 
