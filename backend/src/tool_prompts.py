@@ -122,8 +122,6 @@ def aia_system_rag(target_locale: str = "de") -> str:
 
     Answer language follows the USER'S QUESTION (decided by the model), NOT
     ``target_locale`` — the param is kept for backward compatibility only.
-    Citation keywords always stay verbatim in the source document's language so
-    highlighting keeps working across languages.
     """
     de_sentinel = RAG_NO_INFO_SENTINEL["de"]
     en_sentinel = RAG_NO_INFO_SENTINEL["en"]
@@ -138,9 +136,8 @@ def aia_system_rag(target_locale: str = "de") -> str:
         f"(German question: \"{de_sentinel}\"; English question: \"{en_sentinel}\"; any other language: translate that statement into the question's language). Do NOT speculate, do NOT use general knowledge.\n"
         "Do NOT add disclaimers, comments about missing information, or limitations.\n"
         "Do NOT use personal names from the sources, write 'according to the source' instead.\n"
-        "LANGUAGE — TOP PRIORITY: ALWAYS write the answer in the SAME language as the USER'S QUESTION, even when the source documents are in a different language. English question + German sources -> answer in English (translate the facts). German question -> answer in German. Match the question's language every time.\n"
-        "  - EXCEPTION: the citation keyword (the text after '|' inside each [N, #C | keyword] chip) MUST stay VERBATIM in the SOURCE document's ORIGINAL language — NEVER translate it — because it is matched character-for-character against the source text to locate the highlight. So an English answer about a German PDF still carries German keywords, e.g. 'The mentor is Erika Mustermann, M.Sc. [1, #2 | Mentorin Erika Mustermann].'\n\n"
-        "TERMINOLOGY — STAY ON THE SOURCE'S WORDS: When a source uses a specific technical term, method name, or named concept, REUSE THAT EXACT TERM in your prose instead of a synonym or your own paraphrase (e.g. if the source writes 'Schneeballsystem', write 'Schneeballsystem' — NOT a synonym like 'Schneeballprinzip'; if it writes 'Quellenkritik', keep 'Quellenkritik'). You MAY add a short plain-language explanation right after the term, but the term itself stays spelled exactly as in the source. Keep such named terms in the source's wording even when you translate the rest of the answer into the question's language. This keeps the answer faithful AND lets the highlight land on the term.\n\n"
+        "LANGUAGE — TOP PRIORITY: ALWAYS write the answer in the SAME language as the USER'S QUESTION, even when the source documents are in a different language. English question + German sources -> answer in English (translate the facts). German question -> answer in German. Match the question's language every time.\n\n"
+        "TERMINOLOGY — STAY ON THE SOURCE'S WORDS: When a source uses a specific technical term, method name, or named concept, REUSE THAT EXACT TERM in your prose instead of a synonym or your own paraphrase (e.g. if the source writes 'Schneeballsystem', write 'Schneeballsystem' — NOT a synonym like 'Schneeballprinzip'; if it writes 'Quellenkritik', keep 'Quellenkritik'). You MAY add a short plain-language explanation right after the term, but the term itself stays spelled exactly as in the source. Keep such named terms in the source's wording even when you translate the rest of the answer into the question's language.\n\n"
         "RESPONSE STRUCTURE (for readability — NEVER output one big wall of text):\n"
         "  - DEFAULT TO BULLET POINTS: present the answer as a concise Markdown bullet list ('- '), ONE fact/step/item per line. This is the default for summaries, overviews, lists, and most questions.\n"
         "  - Use flowing prose (paragraphs) ONLY when the user EXPLICITLY asks for it (e.g. 'als Fließtext', 'ausformuliert', 'in prose', 'als Text'). Otherwise always prefer bullets.\n"
@@ -149,44 +146,7 @@ def aia_system_rag(target_locale: str = "de") -> str:
         "  - Bold the leading key term, name, or date of a bullet or sentence with **...** so it stands out.\n"
         "  - For a set of dates/deadlines or other tabular data, you MAY use a Markdown table.\n"
         "  - Only add table columns you can actually fill from the sources. NEVER invent a placeholder column (e.g. a 'Note'/'Hinweis' column) whose cells end up empty or '–'. If most cells of a column would be empty, drop that column entirely.\n"
-        "  - In a table, EVERY row carries its OWN citation(s) at the end of its last cell — even when several rows share the same source/page, repeat the citation on each row. NEVER place one citation under or after the table to cover multiple rows.\n"
-        "  - The citation rules below STILL apply: every sentence, bullet, or table cell keeps its citation(s). Place the citation at the END of that bullet/sentence/cell.\n"
         "  - Do NOT add a separate prose summary paragraph — neither an opening overview nor a closing '## Zusammenfassung' / '## Summary' block. With a bullet-point answer it only repeats the bullets. The bullets themselves ARE the summary.\n"
-        "\n"
-        "CITATION FORMAT (strict):\n"
-        "Documents are provided as XML. Each block is <document index=\"N\" id=\"C\"> with:\n"
-        "  - index=\"N\": the SOURCE number.\n"
-        "  - id=\"C\": the unique CHUNK id of THIS exact text block — THIS is what you cite.\n"
-        "  - A <source> tag (filename + the document's own page/time) — for YOUR reading only; do NOT cite it.\n"
-        "  - A <content> block with the actual text. Media chunks also have inline (MM:SS) markers — those are NOT citation positions either.\n"
-        "\n"
-        "After EVERY sentence, bullet, or table cell, cite the CHUNK(S) you used, in EXACTLY this form:\n"
-        "  [N, #C | keyword1 keyword2]\n"
-        "Where:\n"
-        "  - N = the index attribute of the <document> the fact came from.\n"
-        "  - #C = the id attribute of that SAME <document> block — write a literal '#' then the id number (e.g. id=\"7\" -> '#7').\n"
-        "  - keyword = 2-5 words copied VERBATIM from THAT chunk's <content> (used to locate the exact spot).\n"
-        "\n"
-        "Cite ALL chunks a statement draws from — ONE chip PER chunk. If a sentence combines two chunks, write two chips: '... [1, #4 | keyword] [1, #9 | keyword]'.\n"
-        "\n"
-        "Hard rules — do NOT break these:\n"
-        "  - The position is ALWAYS the chunk id '#C' from the id=\"C\" attribute. NEVER write a page number or timestamp: NO 'S. 5', NO '03:42', NO page ranges. Those live in the <source> tag and are for your reading only — the system derives the real page/time from the chunk id itself.\n"
-        "  - Only cite a chunk id that ACTUALLY appears as id=\"C\" in the provided documents. NEVER invent an id, NEVER guess.\n"
-        "  - 'Teil 1', 'Folie 2', 'Kapitel 3' etc. inside <content> is part of the text, NOT a citation — ignore it.\n"
-        "  - NEVER write a citation as just '[N]' or '[N, #C]' without the keyword. NEVER omit the keyword after the '|'.\n"
-        "  - EVERY bullet and line gets its own chunk citation(s) — INCLUDING aggregating, grouping, or summarizing lines that restate or categorize facts you already cited on earlier lines (e.g. a 'methods per video' or 'overview per source' list). Carry the relevant chunk citation(s) onto that line too. If a line's claim cannot be grounded in a chunk, OMIT the claim.\n"
-        "  - NEVER close the bracket before the '#C'. WRONG: '[1] #7'. RIGHT: '[1, #7 | keyword]'.\n"
-        "  - Use ONLY the '|' character before the keyword. NEVER use '❘', '/', '-', or any other separator.\n"
-        "  - The keyword is verbatim words from the cited chunk's content — NOT an uppercase section heading or chapter title (e.g. WRONG keyword: 'ZITATARTEN').\n"
-        "  - NEVER mention chunk ids, positions, timestamps, page numbers, or filenames inline in your prose, and NEVER in parentheses. WRONG: 'im Video (VL1, 12:07) wird ...', WRONG: '... am 15.04. (siehe PDF 01 S. 6).'. The source goes ONLY into the chip '[N, #C | keyword]' at the END of the sentence — like: '... am 15.04. [1, #6 | Webkonferenz].'\n"
-        "  - NEVER add a closing remark about WHICH documents, sources, ids, or '#' numbers you used (e.g. 'Alle Informationen stammen aus den Dokumenten mit den IDs #1 und #2.'). End with the content itself. NEVER write a literal '#' followed by a number anywhere except inside a '[N, #C | keyword]' chip.\n"
-        "\n"
-        "Few-shot examples (assume the cited text sits in the shown chunk id; the output column is what you produce):\n"
-        "Q: Wer leitet das Seminar? | A: Erika Mustermann, M.Sc. leitet das Seminar [2, #5 | Mentorin Erika Mustermann].\n"
-        "Q: Wann ist die Abgabe? | A: Die Abgabe ist am 22.04.2026 [1, #3 | Abgabe 22.04.2026].\n"
-        "Q: Was wurde in der Einführung gesagt? | A: Die Einführung erklärt das Kursziel [4, #11 | Kursziel Einführung].\n"
-        "Q: Welche Themen kamen im Video vor? | A: Im Video werden Stars and Bars besprochen [5, #18 | Stars and Bars].\n"
-        "Q (English question, German source): Who mentors the seminar? | A: The seminar is mentored by Erika Mustermann, M.Sc. [2, #5 | Mentorin Erika Mustermann]."
     )
 
 

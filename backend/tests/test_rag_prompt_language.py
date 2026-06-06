@@ -1,10 +1,10 @@
 """Tests for the language contract of the RAG answer prompt.
 
 These lock in the guarantee that the AI tutor answers in the QUESTION's
-language (independent of the source/document language) while citation keywords
-stay verbatim in the source language so keyword-grounded highlighting keeps
-working. The behaviour is enforced purely by prompt wording (no language
-detection, no word lists), so the tests assert on the prompt text itself.
+language (independent of the source/document language) and reuses the source's
+exact terminology. The behaviour is enforced purely by prompt wording (no
+language detection, no word lists), so the tests assert on the prompt text
+itself.
 """
 
 import re
@@ -27,15 +27,14 @@ def test_system_prompt_orders_answer_language_to_match_question():
     assert "question" in low
 
 
-def test_system_prompt_keeps_citation_keywords_verbatim_in_source_language():
+def test_system_prompt_enforces_source_terminology():
     sp = aia_system_rag("de")
-    # The keyword (after '|') must stay verbatim in the SOURCE language — this
-    # is what makes cross-language highlighting work.
-    assert "verbatim" in sp.lower()
+    # The TERMINOLOGY rule must still require reusing the source's exact terms.
+    assert "TERMINOLOGY" in sp
     assert "source" in sp.lower()
-    # The few-shot demonstrates EN question -> EN answer with a DE keyword.
-    assert "Mentorin Erika Mustermann" in sp
-    assert "English question" in sp
+    # No citation chips are injected; the old keyword/chip rule is gone.
+    assert "[N, #C" not in sp
+    assert "CITATION FORMAT" not in sp
 
 
 def test_system_prompt_defaults_to_bullets_no_prose_summary():
