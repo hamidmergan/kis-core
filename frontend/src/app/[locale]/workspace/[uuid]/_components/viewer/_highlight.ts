@@ -198,9 +198,14 @@ export function scrollToCitationPage(refs: HighlightRefs, reg: unknown) {
   const scroll = (reg as any)?.getPlugin?.("scroll")?.provides?.();
   scroll?.scrollToPage?.({
     pageNumber: cur.pageIndex + 1,
-    ...(cur.scrollY != null ? { pageCoordinates: { x: 0, y: cur.scrollY } } : {}),
+    // Span highlight: centre on the exact spot (pageCoordinates + alignY 50).
+    // Nav-only cue (no scrollY): align the page TOP to the viewport top, exactly
+    // like the native page-number input — alignY 50 would centre the page's top
+    // edge, leaving the previous page's lower half visible above it.
+    ...(cur.scrollY != null
+      ? { pageCoordinates: { x: 0, y: cur.scrollY }, alignY: 50 }
+      : {}),
     behavior: "smooth",
-    alignY: 50,
   });
 }
 
@@ -312,7 +317,10 @@ export function drawPageEdgeBar(
     }
   }
   if (scroll && doScroll) {
-    scroll.scrollToPage({ pageNumber: targetPageIndex + 1, behavior: "instant", alignY: 50 });
+    // Nav-only cue: land the page TOP at the viewport top (like the native
+    // page-number input). No alignY — alignY 50 would centre the page's top
+    // edge and show the previous page's lower half above it.
+    scroll.scrollToPage({ pageNumber: targetPageIndex + 1, behavior: "instant" });
   }
   return true;
 }
@@ -327,7 +335,7 @@ export function doPageEdgeBar(refs: HighlightRefs, reg: unknown, page: number): 
   const scroll = r.getPlugin?.("scroll")?.provides?.();
   const docMgr = r.getPlugin?.("document-manager")?.provides?.();
   if (!docMgr) {
-    scroll?.scrollToPage?.({ pageNumber: page, behavior: "instant", alignY: 50 });
+    scroll?.scrollToPage?.({ pageNumber: page, behavior: "instant" });
     return;
   }
   const doc = docMgr.getActiveDocument?.();
@@ -441,10 +449,12 @@ export function tryHighlightOnPage(
     const totalChars = lastRun ? lastRun.charStart + lastRun.glyphs.length : 0;
     if (noRuns || totalChars < 50) {
       if (scroll && doScroll) {
+        // No span to centre on (image/OCR page) — align the page TOP to the
+        // viewport top like the native page input, not centred (alignY 50 would
+        // leave the previous page's lower half visible above).
         scroll.scrollToPage({
           pageNumber: targetPageIndex + 1,
           behavior: "instant",
-          alignY: 50,
         });
       }
       return true;
@@ -619,10 +629,10 @@ export function tryHighlightOnPage(
       // footer of a PPTX slide). Just scroll and bail out.
       if (exactSelection && matchStart < 0) {
         if (scroll && doScroll) {
+          // No match to centre on — top-align the page like the native page input.
           scroll.scrollToPage({
             pageNumber: targetPageIndex + 1,
             behavior: "instant",
-            alignY: 50,
           });
         }
         return true;
