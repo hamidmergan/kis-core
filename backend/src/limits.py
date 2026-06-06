@@ -101,13 +101,16 @@ AIA_WORKSPACE_MAX_SOURCES              = 30      # max sources per workspace
 
 # --- AI tutor GENERIC context budget ----------------------------------------
 # The overview path fills context round-robin across the active sources and
-# truncates at this CHARACTER budget — sized for the smallest supported tier
-# (Small, 8B / 32k context). Math: 32k tokens minus reserve for system prompt +
-# question + history + answer ≈ ~24k tokens of context; at a conservative
-# ~3.5 chars/token (mixed DE / non-Latin scripts) ≈ ~60k chars. Shared by the
-# SPECIFIC path too (same context builder), so a topic answer also fits 32k.
-# Raise this if a deployment only runs large models.
-AIA_CONTEXT_MAX_CHARS                  = 60000
+# truncates at this CHARACTER budget — sized for the supported minimum tier
+# (Mid, ~128k token context; Small 8B/32k is no longer a design target). Math:
+# at a conservative ~3.5 chars/token (mixed DE / non-Latin scripts) 250k chars
+# ≈ ~71k tokens of context, leaving ample room for system prompt + question +
+# answer inside a 128k window. The SPECIFIC path shares this builder but never
+# truncates: when its per-source hits exceed the budget it spills into MORE
+# batches and answers via map-reduce (see chat._pack_context_batches), so a
+# higher budget here just means fewer SPECIFIC calls. Admin-tunable per
+# deployment; raise toward AIA_CONTEXT_HARD_CAP for large/cloud models.
+AIA_CONTEXT_MAX_CHARS                  = 250000
 # Hard ceiling for the admin-tunable budget (~140k tokens). Even a deployment on
 # the largest cloud models cannot exceed this — guards against an admin typo
 # (1M+) that would stall/overflow the model and waste a giant DB read. Enforced
