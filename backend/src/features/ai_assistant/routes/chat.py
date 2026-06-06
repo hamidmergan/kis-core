@@ -571,33 +571,16 @@ from src.features.ai_assistant.routes._helpers import (
     _load_transcript_segments,
     _enrich_media_content,
     _norm_for_match,
-    _resolve_citation_pages,
-    _strip_summary_citations,
-    _strip_chunk_id_leak,
-    _dedup_chips,
-    _strip_title_chips,
-    _nav_only_chips,
-    _strip_resolved_citation_chips,
-    _append_scope_anchor,
-    _highlights_enabled,
-    _scope_is_nav_only,
     _RepetitionGuard,
     _dedup_repeated_lines,
     _strip_inline_citation_chips,
     _attribute_generic_text,
     _needs_attribution,
-    _chipify_inline_refs,
-    _build_page_regions,
-    SourceUnitLoader,
-    fill_uncited_lines,
-    resolve_citation_positions,
     _ALLOWED_EXTENSIONS,
     _MEDIA_EXTENSIONS,
     _MAX_UPLOAD_BYTES,
     _sanitize_citations,
 )
-from src.features.ai_assistant.routes._grounding import CitationGrounder
-from src.features.ai_assistant.routes._chunk_cite import resolve_chunk_refs
 from src.features.ai_assistant import schemas
 
 router = APIRouter(tags=["ki-assistent: chat"])
@@ -805,7 +788,6 @@ async def chat(
             )
             yield f"data: {json.dumps({'qmap': [], 'source_pages': []})}\n\n"
             yield f"data: {json.dumps({'token': _cant_help})}\n\n"
-            yield f"data: {json.dumps({'line_done': {'index': 0, 'text': _cant_help}})}\n\n"
             await asyncio.to_thread(
                 db.save_aia_message, workspace["id"], user_id, "assistant", _cant_help,
                 enrollment_id=enrollment_id,
@@ -818,34 +800,6 @@ async def chat(
             headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
         )
 
-    # Scoped answers disable the uncited-line filler: the whole answer is one named
-    # page/timestamp, so auto-filling per line grounds against the WHOLE document and
-    # scatters chips across unrelated pages (worst case: a table-of-contents page).
-    is_scoped = bool(scope_chunks)
-    # Nav-only (page/timestamp chip, no highlight) is reserved for MEDIA scope: mp3/mp4
-    # has no PDF text layer to anchor a highlight on, so a multi-chunk media summary just
-    # scrolls to the timestamp. A multi-PAGE PDF scope now KEEPS its highlights — with
-    # sentence-tight grounding (C2) each bullet marks only its own sentence on its own
-    # page, which is precise, not "wild" across pages. See _scope_is_nav_only.
-    _scope_pages = {c.get("page_number") for c in (scope_chunks or []) if c.get("page_number") is not None}
-    scope_nav_only = is_scoped and _scope_is_nav_only(_scope_pages, scope_chunks)
-    # A single-page PDF scope summary ("fasse Seite 30 zusammen"): every line would carry
-    # the SAME page chip for the page the user explicitly named. In nav-only mode (no span
-    # to differentiate) that chip is pure noise, so we drop chips entirely below. A MULTI-
-    # page scope keeps its page chips (they navigate to the right page); media scope (no
-    # page numbers) keeps its per-chunk timestamp chips.
-    scope_single_page = is_scoped and len(_scope_pages) == 1
-    # Auto-filler policy:
-    #  - normal answers: ON (every claim gets a chip).
-    #  - scoped (PDF, single OR multi page): OFF — keep the model's own precise-highlight
-    #    chips; filling per line would scatter chips across the document.
-    #  - media scope (nav-only): ON, safe because chips are page/timestamp-only anyway.
-    do_fill = (not is_scoped) or scope_nav_only
-    # GENERIC (overview, non-scoped): the model's own page citations are the unreliable
-    # case (it grounds on frequent words, not meaning). Stream clean text (no live chips)
-    # and re-ground each line POST-HOC via semantic search in the finalize block — the
-    # same search that grounds specific questions perfectly. Specific/scoped stay as-is.
-    post_hoc_generic = (intent == "GENERIC") and not is_scoped
     if scope_chunks:
         chunks = scope_chunks
     elif intent == "GENERIC":
@@ -999,11 +953,7 @@ async def chat(
     context_len = 0
     source_index: dict[int, dict] = {}
     qnum_to_source_id: dict[int, int] = {}
-    # Per-chunk citation registry: the model cites a chunk by its `id` (the `id`
-    # attribute on its <document> block), and we map that id back to the chunk's REAL
-    # page/timestamp + content for verified grounding (see _chunk_cite.resolve_chunk_refs).
     # cid runs 1..K over the chunks that ACTUALLY fit in context (the ones the model saw).
-    chunk_registry: dict[int, dict] = {}
     cid_counter = 0
     from collections import Counter
     sent_per_source: Counter = Counter()
@@ -1031,15 +981,6 @@ async def chat(
         sent_per_source[chunk["source_id"]] += 1
         is_media_chunk = chunk.get("start_time") is not None
         qnum_to_source_id[qn] = chunk["source_id"]
-        chunk_registry[cid] = {
-            "qnum": qn,
-            "source": src,                 # source row (id/uuid/filename) for loader + offsets
-            "is_media": is_media_chunk,
-            "page": None if is_media_chunk else chunk["page_number"],
-            "start_time": chunk.get("start_time"),
-            "end_time": chunk.get("end_time"),
-            "content": content,            # exact text the model saw (media-enriched if media)
-        }
         si = source_index.setdefault(qn, {"is_media": False, "pages": set(), "chunks": []})
         si["chunks"].append({
             "cid": cid,
@@ -1064,11 +1005,6 @@ async def chat(
     for qn, si in source_index.items():
         if not si["is_media"]:
             si["pages"] = db.get_source_page_numbers(qnum_to_source_id[qn])
-            # Per-page body vs header/footer split, so the resolver can de-weight
-            # a term that only matched running page furniture (see _reroute_to_body).
-            si["page_regions"] = _build_page_regions(
-                db.get_aia_chunks_by_source(qnum_to_source_id[qn])
-            )
 
     # Popup actions: user has selected text themselves
     if body.source_text:
