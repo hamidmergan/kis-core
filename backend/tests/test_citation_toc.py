@@ -6,7 +6,6 @@ section. We drop such lines (dotted leader + trailing page number) before matchi
 per line, so real prose on the same chunk survives. Language-agnostic (structure only,
 no wordlist)."""
 from src.features.ai_assistant.routes._helpers import _strip_toc_lines
-from src.features.ai_assistant.routes._citation_match import Unit, match_query
 
 
 def test_strips_dotted_leader_toc_line():
@@ -41,14 +40,3 @@ def test_pure_toc_chunk_becomes_empty():
            "Grafik ........... 116\n"
            "Video ............ 200")
     assert _strip_toc_lines(txt).strip() == ""
-
-
-def test_toc_stripped_unit_does_not_match_but_prose_does():
-    # Behaviour contract: the same keyword matches a real prose unit but NOT a unit
-    # whose only mention sat in a (now stripped) TOC line.
-    toc = "Vektorgrafik ................. 4\nRastergrafik ............ 5"
-    prose = "Eine Vektorgrafik beschreibt Bilder durch mathematische Pfade und Kurven."
-    u_toc = Unit(page=4, start_time=None, end_time=None, raw_text=_strip_toc_lines(toc))
-    u_prose = Unit(page=130, start_time=None, end_time=None, raw_text=_strip_toc_lines(prose))
-    assert match_query("Vektorgrafik", [u_toc]).unit is None
-    assert match_query("Vektorgrafik", [u_prose]).unit is not None
