@@ -117,6 +117,14 @@ def test_crosscheck_drops_unretrieved_page():
     assert out == line
 
 
+def test_crosscheck_drops_source_not_in_seen_map():
+    # source 5 never appeared in retrieval -> seen_pages_by_source has no key for it -> reject
+    line = "Eine inhaltlich substanzielle Aussage zum Thema hier."
+    out = _attribute_generic_text(line, _searcher({"substanzielle": [_hit(5, 3, "x", 0.2)]}),
+                                  {5: 2}, seen_pages_by_source={1: {12}}, max_distance=0.6)
+    assert out == line
+
+
 def test_crosscheck_media_passes_when_source_retrieved():
     line = "Eine inhaltlich substanzielle Aussage zum Thema hier."
     hit = {"source_id": 3, "page_number": None, "content": "x", "vec_distance": 0.2, "start_time": 92.0}
