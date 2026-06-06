@@ -68,9 +68,6 @@ export interface ChatMessage {
   sourceCount?: number;
   popup_selection?: { uuid: string; page: number; text: string; action_key?: string; action_icon?: string };
   aborted?: boolean;
-  // Overlay filled by `line_done` stream events: index i holds the grounded text of
-  // answer line i. Undefined entries fall back to the raw (chip-stripped) line.
-  groundedLines?: (string | undefined)[];
 }
 
 export interface LernKarte {
@@ -84,36 +81,20 @@ export interface QuizQuestion {
   correct: number;
 }
 
-// One highlight target on a page: an Architecture-B offset span and/or a
-// verbatim keyword to relocate. A merged citation chip (several adjacent
-// citations of the SAME source+page) carries one of these per region, so a
-// single click marks every cited spot on that page.
-export interface CitationHighlightSpan {
-  offsets?: [number, number];
-  keyword?: string;
-}
-
 export interface ViewerState {
   uuid: string;
   filename: string;
   page: number;
+  // Verbatim text to highlight on the page. Only set by a popup/action-bar exact
+  // selection (the user marked this text). Citation chips never set it — a chip
+  // click only scrolls to the page/timestamp.
   highlightText?: string;
   // True when highlightText is a verbatim user-popup selection (highlight it
-  // exactly, no line/sentence expansion). False/omitted for LLM-suggested
-  // citations (expand to bullet/line for readable context).
+  // exactly, no line/sentence expansion). Always true when highlightText is set,
+  // since the only remaining highlight source is the popup exact selection.
   exactSelection?: boolean;
-  // Architecture B: exact character span [start, end] (inclusive) into the
-  // page's pdfium text, computed server-side. When present the viewer draws
-  // this span directly (no re-finding / no expansion); highlightText is the
-  // verbatim span used to verify/relocate on drift. Falls back to text search.
-  highlightOffsets?: [number, number];
-  // Multiple regions for ONE merged chip. When set (length > 1) the viewer marks
-  // each region separately in a single ephemeral annotation. highlightText/
-  // highlightOffsets above stay set to the first region as a single-span fallback.
-  highlightSpans?: CitationHighlightSpan[];
   // True when the viewer was opened by clicking a citation chip (pill / source
-  // reference). Only then does a span-less open draw the nav-only page-edge bar.
-  // A plain document open from the sources list leaves this false → no edge bar.
+  // reference) — used only to distinguish a chip nav from a plain document open.
   isCitation?: boolean;
   nonce?: number;
   startTime?: number;

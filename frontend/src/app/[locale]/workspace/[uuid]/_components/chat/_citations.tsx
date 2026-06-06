@@ -1,6 +1,6 @@
 import React from "react";
 import { _chunkLabel, type ChipLabelT } from "../../_utils";
-import type { ChatMessage, CitationHighlightSpan } from "../../_types";
+import type { ChatMessage } from "../../_types";
 import { citationPattern, citationsAreAdjacentSameTarget, stripCitations, type CitationFields } from "./_citation_parse";
 
 
@@ -11,16 +11,15 @@ export type CitationChipClickHandler = (
   sourceText?: string,
   startTime?: number,
   isExact?: boolean,
-  offsets?: [number, number],
-  spans?: CitationHighlightSpan[],
 ) => void;
 
 
 // Renders a single citation chip that links back to the source viewer. A chip may
-// stand for several merged citations of the same source+page (clickSpans), in which
-// case one click marks every cited region on that page.
+// stand for several merged citations of the same source+page (rendered as one chip).
+// Clicking a chip only scrolls to the page/timestamp — no highlight — UNLESS it is a
+// popup/action-bar exact selection, which still passes its verbatim text to highlight.
 function CitationChip({
-  filename, displayQNum, label, clickUuid, clickPage, clickSeconds, clickHighlight, isExactSelection, clickOffsets, clickSpans, onChipClick,
+  filename, displayQNum, label, clickUuid, clickPage, clickSeconds, clickHighlight, isExactSelection, onChipClick,
 }: {
   filename: string;
   displayQNum: number | null;
@@ -30,8 +29,6 @@ function CitationChip({
   clickSeconds: number | undefined;
   clickHighlight: string | undefined;
   isExactSelection: boolean;
-  clickOffsets: [number, number] | undefined;
-  clickSpans: CitationHighlightSpan[] | undefined;
   onChipClick: CitationChipClickHandler;
 }) {
   // onPointerDown (not onClick) so chips remain clickable during active token stream:
@@ -44,8 +41,6 @@ function CitationChip({
     clickSeconds ? undefined : clickHighlight,
     clickSeconds,
     isExactSelection,
-    clickSeconds ? undefined : clickOffsets,
-    clickSeconds ? undefined : clickSpans,
   );
   return (
     <span role="button" tabIndex={0}
@@ -59,8 +54,9 @@ function CitationChip({
 }
 
 
-// Parses inline citations like [Q1, S. 2 | keyword], [1, 05:32], [S. 2] and
-// replaces them with CitationChip elements. Text outside matches is returned as-is.
+// Parses inline citations like [Q1, S. 2], [1, 05:32], [S. 2] and replaces them with
+// CitationChip elements. Text outside matches is returned as-is. Chips are nav-only;
+// legacy tokens with a trailing offset/keyword still parse to their page/timestamp.
 export function parseCitations(
   text: string,
   msg: ChatMessage,
@@ -72,13 +68,12 @@ export function parseCitations(
 ): React.ReactNode[] {
   const msgSourcePages = msg.source_pages ?? [];
   const msgQmap = msg.source_qmap ?? [];
-  // Matches [1, S. 2 | kw], [Q1, S. 2 | kw], [S. 2], [1, 05:32 | kw] (Q prefix optional for backwards compat).
-  // Optional :uuid suffix on Q-prefix lets notes embed source UUIDs verbatim, so they survive even when
-  // the active source selection changes after the note was saved.
-  // Optional @start-end after the page = Architecture-B exact character span into the page's pdfium text.
-  // Also accept CJK lenticular brackets 【】 (U+3010/U+3011): some LLMs emit those instead of [] despite
-  // the prompt — render them as chips rather than raw text.
-  // Groups: 1=qnum 2=uuid 3=page 4=offStart 5=offEnd 6=timestamp 7=keyword/span (see _citation_parse).
+  // Matches [1, S. 2], [Q1, S. 2], [S. 2], [1, 05:32] (Q prefix optional for backwards
+  // compat). Optional :uuid suffix on Q-prefix lets notes embed source UUIDs verbatim,
+  // so they survive even when the active source selection changes after the note was
+  // saved. Legacy trailing "@..|.." tokens are tolerated and discarded. Also accepts
+  // CJK lenticular brackets 【】 (U+3010/U+3011): some LLMs emit those despite the prompt.
+  // Groups: 1=qnum 2=uuid 3=page 4=timestamp (see _citation_parse).
   const pattern = citationPattern();
 
   // Resolved per-token data, kept with the raw parsed fields so adjacent tokens of
@@ -92,8 +87,6 @@ export function parseCitations(
     clickSeconds: number | undefined;
     clickHighlight: string | undefined;
     isExactSelection: boolean;
-    clickOffsets: [number, number] | undefined;
-    keyword: string | null;
   }
 
   const parsed: Parsed[] = [];
@@ -102,10 +95,7 @@ export function parseCitations(
     const qNum = m[1] ? parseInt(m[1]) : null;
     const embeddedUuid = m[2] || null;
     const pageNum = m[3] ? parseInt(m[3]) : 0;
-    const offsets: [number, number] | undefined =
-      m[4] && m[5] ? [parseInt(m[4]), parseInt(m[5])] : undefined;
-    const timestamp = m[6] || null;
-    const keywords = m[7]?.trim().replace(/^["']+|["']+$/g, "").trim() || null;
+    const timestamp = m[4] || null;
     const qEntry = qNum ? msgQmap.find(q => q.qnum === qNum) : null;
     const sourceUuid = embeddedUuid ?? qEntry?.uuid ?? msgSourcePages[0]?.source_uuid ?? activeSourceIds[0] ?? "";
     const filename = qEntry?.filename ?? getFilename(sourceUuid);
@@ -117,7 +107,8 @@ export function parseCitations(
       const tp = timestamp.split(":").map(Number);
       seconds = tp.length === 3 ? tp[0] * 3600 + tp[1] * 60 + tp[2] : tp[0] * 60 + tp[1];
     }
-    // Popup action: use marked text as highlight
+    // Popup/action-bar exact selection: the user marked this verbatim text, so the
+    // chip still highlights it exactly (the ONLY remaining chip-driven highlight).
     const popupEntry = msgSourcePages.find(s => s.is_popup_selection && s.source_uuid === sourceUuid && s.page_number === pageNum);
     const popupSel = msg.popup_selection;
     const matchesPopupSel = popupSel && popupSel.uuid === sourceUuid && popupSel.page === pageNum;
@@ -125,19 +116,16 @@ export function parseCitations(
       ? popupEntry.source_text
       : matchesPopupSel
         ? popupSel!.text
-        : (keywords || undefined);
+        : undefined;
     const isExactSelection = !!(popupEntry?.source_text || matchesPopupSel);
-    // A popup selection carries its own verbatim bounds, so server offsets (if any)
-    // are ignored there; otherwise pass the exact span offsets through to the viewer.
-    const clickOffsets = isExactSelection ? undefined : offsets;
     parsed.push({
       fields: {
-        qNum, uuid: embeddedUuid, page: pageNum, offsets, timestamp,
-        keyword: keywords, index: m.index, length: m[0].length,
+        qNum, uuid: embeddedUuid, page: pageNum, timestamp,
+        index: m.index, length: m[0].length,
       },
       sourceUuid, filename, displayQNum, label,
       clickSeconds: timestamp ? seconds : undefined,
-      clickHighlight, isExactSelection, clickOffsets, keyword: keywords,
+      clickHighlight, isExactSelection,
     });
   }
 
@@ -149,8 +137,9 @@ export function parseCitations(
     const head = parsed[i];
     if (head.fields.index > last) nodes.push(text.slice(last, head.fields.index));
 
-    // Greedily gather directly-adjacent citations of the same source+page. Popup
-    // (exact) selections keep their own chip — they carry verbatim user bounds.
+    // Greedily gather directly-adjacent citations of the same source+page into one
+    // visual chip. Popup (exact) selections keep their own chip — they carry verbatim
+    // user bounds for the kept highlight.
     const group = [head];
     let j = i + 1;
     while (
@@ -166,25 +155,6 @@ export function parseCitations(
       j++;
     }
 
-    // Build one highlight span per cited region, de-duplicating identical ones so a
-    // repeated "[1] S. 15 [1] S. 15" doesn't draw the same mark twice.
-    let clickSpans: CitationHighlightSpan[] | undefined;
-    if (group.length > 1) {
-      const seen = new Set<string>();
-      const spans: CitationHighlightSpan[] = [];
-      for (const g of group) {
-        const span: CitationHighlightSpan = {
-          offsets: g.clickOffsets,
-          keyword: g.clickHighlight,
-        };
-        const key = `${span.offsets ? span.offsets.join("-") : ""}|${span.keyword ?? ""}`;
-        if (seen.has(key)) continue;
-        seen.add(key);
-        spans.push(span);
-      }
-      clickSpans = spans.length > 1 ? spans : undefined;
-    }
-
     nodes.push(
       <CitationChip
         key={`${keyPrefix}${chipKeyCounter++}`}
@@ -196,8 +166,6 @@ export function parseCitations(
         clickSeconds={head.clickSeconds}
         clickHighlight={head.clickHighlight}
         isExactSelection={head.isExactSelection}
-        clickOffsets={head.clickOffsets}
-        clickSpans={clickSpans}
         onChipClick={onChipClick}
       />,
     );

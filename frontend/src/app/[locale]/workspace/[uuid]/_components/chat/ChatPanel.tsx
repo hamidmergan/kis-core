@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import { CaretDown, CaretUp } from "@phosphor-icons/react";
-import type { ChatMessage as ChatMessageType, Source, CitationHighlightSpan } from "../../_types";
+import type { ChatMessage as ChatMessageType, Source } from "../../_types";
 import type { AddNoteExtras } from "../../_hooks/useNotes";
 import { useHildePref } from "@/hooks/useHildePref";
 import { ChatHeader } from "./ChatHeader";
@@ -34,7 +34,7 @@ export function ChatPanel({
   loading: boolean;
   onSend: (value: string) => void;
   onStop?: () => void;
-  onPillClick: (sourceUuid: string, page: number, filename: string, sourceText?: string, startTime?: number, isExact?: boolean, offsets?: [number, number], spans?: CitationHighlightSpan[]) => void;
+  onPillClick: (sourceUuid: string, page: number, filename: string, sourceText?: string, startTime?: number, isExact?: boolean) => void;
   moduleReady: boolean;
   onClear: () => void;
   externalTextareaRef?: React.RefObject<HTMLTextAreaElement | null>;
@@ -123,13 +123,12 @@ export function ChatPanel({
   // Captures scrollTop before the click and restores it across a few frames
   // while the panel layout settles.
   const handleChipClick = useCallback(
-    // A single chip keeps its existing keyword-based highlight (offsets intentionally
-    // not forwarded here, unchanged from before). A MERGED chip passes `spans`, which
-    // carry each region's offsets and drive the multi-region highlight.
-    (sourceUuid: string, page: number, filename: string, sourceText?: string, startTime?: number, isExact?: boolean, _offsets?: [number, number], spans?: CitationHighlightSpan[]) => {
+    // Chips are nav-only: a click scrolls to the page/timestamp. Only a popup/action-
+    // bar exact selection (isExact + sourceText) carries text to highlight.
+    (sourceUuid: string, page: number, filename: string, sourceText?: string, startTime?: number, isExact?: boolean) => {
       const el = scrollContainerRef.current;
       const savedTop = el?.scrollTop ?? 0;
-      onPillClickRef.current(sourceUuid, page, filename, sourceText, startTime, isExact, undefined, spans);
+      onPillClickRef.current(sourceUuid, page, filename, sourceText, startTime, isExact);
       if (el) {
         const restore = () => { el.scrollTop = savedTop; };
         requestAnimationFrame(() => { restore(); requestAnimationFrame(restore); });

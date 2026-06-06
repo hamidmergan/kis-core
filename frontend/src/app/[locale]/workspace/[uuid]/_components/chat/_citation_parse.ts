@@ -1,25 +1,27 @@
 // Pure citation-token parsing, separated from React rendering so it can be unit
-// tested in isolation. Chip syntax (all optional except the position):
-//   [Q1:uuid, S. 2 @start-end | keyword]   PDF with exact offset span
-//   [1, 05:32 | keyword]                    media timestamp
-//   [S. 2]                                  bare page
-// CJK lenticular brackets 【】 (U+3010/U+3011) are accepted in place of [].
+// tested in isolation. Chips are NAV-ONLY (position, no offsets/keyword):
+//   [Q1:uuid, S. 2]   PDF page (optional Q-num, optional embedded source uuid)
+//   [1, 05:32]        media timestamp
+//   [S. 2]            bare page
+// Legacy tokens with a trailing "@start-end" offset and/or "| keyword" still parse
+// to their page/timestamp — the extras are tolerated and discarded (forward-tolerant
+// for already-stored answers / saved notes). CJK lenticular brackets 【】
+// (U+3010/U+3011) are accepted in place of [].
 
 export interface CitationFields {
   qNum: number | null;
   uuid: string | null;
   page: number;                 // 0 for a timestamp citation
-  offsets?: [number, number];   // Architecture-B exact char span into the page text
   timestamp: string | null;
-  keyword: string | null;       // keyword OR verbatim span (offset chips)
   index: number;                // match start in the source string
   length: number;               // match length
 }
 
 // A fresh stateful (/g) matcher each call.
-// Groups: 1=qnum 2=uuid 3=page 4=offStart 5=offEnd 6=timestamp 7=keyword
+// Groups: 1=qnum 2=uuid 3=page 4=timestamp. Any trailing junk before the closing
+// bracket (legacy "@1-9 | kw") is matched by [^\]】]* and discarded.
 export function citationPattern(): RegExp {
-  return /[[【](?:Q?(\d+)(?::([a-f0-9]{6,64}))?,\s*)?(?:S\.\s*(\d+)(?:\s*@(\d+)-(\d+))?|(\d{1,2}:\d{2}(?::\d{2})?))(?:\s*[|❘]\s*([^\]】]+))?\s*[\]】]/g;
+  return /[[【](?:Q?(\d+)(?::([a-f0-9]{6,64}))?,\s*)?(?:S\.\s*(\d+)|(\d{1,2}:\d{2}(?::\d{2})?))[^\]】]*[\]】]/g;
 }
 
 export function parseCitationFields(text: string): CitationFields[] {
@@ -31,9 +33,7 @@ export function parseCitationFields(text: string): CitationFields[] {
       qNum: m[1] ? parseInt(m[1]) : null,
       uuid: m[2] || null,
       page: m[3] ? parseInt(m[3]) : 0,
-      offsets: m[4] && m[5] ? [parseInt(m[4]), parseInt(m[5])] : undefined,
-      timestamp: m[6] || null,
-      keyword: m[7]?.trim().replace(/^["']+|["']+$/g, "").trim() || null,
+      timestamp: m[4] || null,
       index: m.index,
       length: m[0].length,
     });
@@ -68,79 +68,39 @@ export function citationsAreAdjacentSameTarget(
 }
 
 
-// A URL or bare email inside a citation keyword (it can be verbatim source text, e.g.
-// a slide listing "Mensch und Computer, https://muc2026…/" or "E-Mail: x@th-luebeck.de")
-// must be removed BEFORE the text reaches react-markdown: gfm autolinks both URLs AND
-// bare email addresses, which splits the [..|..] token into separate nodes so the chip
-// never forms and the raw brackets leak as plain text. The email alternation needs at
-// least one local-part char immediately before '@' (a space there means it's the
-// '@start-end' offset token, not an email) and a dotted domain.
-const _URL_IN_CITE =
-  /https?:\/\/[^\s\]】|❘]+|www\.[^\s\]】|❘]+|[^\s\]】|❘@]+@[\w.-]+\.[A-Za-z]{2,}/gi;
-
-// Make citation tokens safe to hand to react-markdown. For every "[ … | … ]"-shaped
-// token: strip URLs from the keyword, swap '|' → '❘' (a bare '|' is a table-column
-// break in gfm), and tidy whitespace / a now-empty keyword. Finally collapse an
-// exact-duplicate citation emitted back-to-back ("[…]. […]" → "[…]"). This is the
-// last line of defence: it fixes already-stored answers and any time the model (or
-// an offset span) puts a URL in the keyword — no chip is ever shown as raw text.
+// Make citation tokens safe to hand to react-markdown. Chips are nav-only now, so
+// there is no in-chip '|' / keyword to scrub. Two structural fixes remain:
+//   1. A thematic break (---/***/___) is a separator, not a claim. Older answers may
+//      have a citation appended to it; strip the chip(s) so it renders as a clean rule.
+//   2. The model often appends a citation AFTER the final pipe of a table row — incl.
+//      the header. That trailing chip is a phantom extra column, so the header's cell
+//      count no longer matches the delimiter row and gfm refuses to parse the block as
+//      a table (it leaks as raw text with literal pipes). Tuck any such trailing chip
+//      back into the last cell so every row keeps its pipe-defined column count.
+// Language-agnostic; chips already inside a cell stay untouched.
 export function sanitizeCitationsForMarkdown(text: string): string {
-  let out = text.replace(/[[【]([^\]】]*[|❘][^\]】]*)[\]】]/g, (m) =>
-    m
-      .replace(_URL_IN_CITE, "")
-      .replace(/\|/g, "❘")
-      .replace(/\s{2,}/g, " ")
-      .replace(/\s+([❘\]】])/g, "$1")   // no space before the separator / close
-      .replace(/❘\s*([\]】])/g, "$1"),  // drop the separator if the keyword went empty
-  );
-  out = out.replace(/(\[[^\]\n❘]*❘[^\]\n]*\])(?:\s*\.?\s*\1)+/g, "$1");
-  // A thematic break (---/***/___) is a separator, not a claim. Older answers may
-  // have a citation appended to it; strip the chip(s) so it renders as a clean rule.
-  out = out.replace(/^(\s{0,3}(?:[-*_]\s*){3,})(?:\s*\[[^\]\n]*\])+\s*$/gm, "$1");
-  // The model often appends a citation AFTER the final pipe of a table row — incl.
-  // the header. That trailing chip is a phantom extra column, so the header's cell
-  // count no longer matches the delimiter row and gfm refuses to parse the block as
-  // a table (it leaks as raw text with literal pipes). Tuck any such trailing chip
-  // back into the last cell so every row keeps its pipe-defined column count. Runs
-  // after the in-chip '|'→'❘' swap above, so the only bare '|' left are real column
-  // separators. Language-agnostic; chips already inside a cell stay untouched.
+  let out = text.replace(/^(\s{0,3}(?:[-*_]\s*){3,})(?:\s*\[[^\]\n]*\])+\s*$/gm, "$1");
   out = out.replace(_TABLE_TRAIL_CHIP, (_m, row: string, chips: string) =>
     row.replace(/\s*\|\s*$/, ` ${chips.trim()} |`));
   return out;
 }
 
-// One citation token (offset/timestamp/bare-page), keyword separator already '❘'.
+// One nav-only citation token (page or timestamp, optional q-num/uuid, trailing junk
+// tolerated). Used to recognise a chip trailing a table row.
 const _CHIP_SRC =
   "[[【](?:Q?\\d+(?::[a-f0-9]{6,64})?,\\s*)?" +
-  "(?:S\\.\\s*\\d+(?:\\s*@\\d+-\\d+)?|\\d{1,2}:\\d{2}(?::\\d{2})?)" +
-  "(?:\\s*[|❘][^\\]】]+)?[\\]】]";
+  "(?:S\\.\\s*\\d+|\\d{1,2}:\\d{2}(?::\\d{2})?)" +
+  "[^\\]】]*[\\]】]";
 // A table-row line (`| … |`) followed only by chip(s) + optional sentence punctuation.
 const _TABLE_TRAIL_CHIP =
   new RegExp(`^(\\s*\\|.*\\|)(\\s*(?:${_CHIP_SRC}\\s*[.;,]?\\s*)+)$`, "gm");
 
 
-// Remove every citation chip (incl. the optional @start-end offset token) — used
-// when copying an answer to the clipboard.
+// Remove every citation chip (nav-only; legacy trailing offset/keyword tolerated) —
+// used when copying an answer to the clipboard.
 export function stripCitations(text: string): string {
   return text.replace(
-    /[[【](?:Q?\d+(?::[a-f0-9]{6,64})?,\s*)?(?:S\.\s*\d+(?:\s*@\d+-\d+)?|\d{1,2}:\d{2}(?::\d{2})?)(?:\s*[|❘][^\]】]+)?[\]】]/g,
+    /[[【](?:Q?\d+(?::[a-f0-9]{6,64})?,\s*)?(?:S\.\s*\d+|\d{1,2}:\d{2}(?::\d{2})?)[^\]】]*[\]】]/g,
     "",
   );
-}
-
-// Compose the text shown for an assistant message. While streaming, grounded lines
-// (filled by `line_done`) are shown verbatim (their chips are already correct); every
-// other line has its raw LLM chips stripped, so an unverified chip is never visible.
-// Once streaming is done the canonical `content` is rendered unchanged.
-export function buildDisplayContent(
-  content: string,
-  groundedLines: (string | undefined)[] | undefined,
-  streaming: boolean,
-): string {
-  if (!streaming) return content;
-  const g = groundedLines ?? [];
-  return content
-    .split("\n")
-    .map((raw, i) => g[i] ?? stripCitations(raw))
-    .join("\n");
 }

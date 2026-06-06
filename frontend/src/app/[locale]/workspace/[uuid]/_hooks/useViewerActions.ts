@@ -2,7 +2,7 @@
 
 import { useCallback } from "react";
 import { _isMediaFile } from "../_utils";
-import type { PanelKey, Source, ViewerState, CitationHighlightSpan } from "../_types";
+import type { PanelKey, Source, ViewerState } from "../_types";
 
 interface UseViewerActionsOptions {
   sources: Source[];
@@ -30,8 +30,8 @@ export function useViewerActions(opts: UseViewerActionsOptions) {
   // (see useChat). Narrowing here only overwrote — and persisted to sessionStorage —
   // the user's multi-source selection, which then came back as a stuck single
   // source after navigating away/reloading with the viewer still open.
-  const openViewer = useCallback((source: Source, page = 1, highlightText?: string, exactSelection?: boolean, highlightOffsets?: [number, number], highlightSpans?: CitationHighlightSpan[], isCitation = false) => {
-    setViewerSource({ uuid: source.uuid, filename: source.filename, page, highlightText, exactSelection, highlightOffsets, highlightSpans, isCitation, nonce: Date.now() });
+  const openViewer = useCallback((source: Source, page = 1, highlightText?: string, exactSelection?: boolean, isCitation = false) => {
+    setViewerSource({ uuid: source.uuid, filename: source.filename, page, highlightText, exactSelection, isCitation, nonce: Date.now() });
     setPanels((prev) => ({ ...prev, quellen: true }));
     if (isMobile) setActiveTab("quellen");
   }, [setViewerSource, setPanels, isMobile, setActiveTab]);
@@ -74,7 +74,7 @@ export function useViewerActions(opts: UseViewerActionsOptions) {
     fillChatInput(`"${selectedText}"\n\n`, chatWasOpen, false);
   }, [isMobile, activeTab, panels.chat, fillChatInput]);
 
-  const pillClick = useCallback((sourceUuid: string, page: number, filename: string, sourceText?: string, startTime?: number, isExact?: boolean, offsets?: [number, number], spans?: CitationHighlightSpan[]) => {
+  const pillClick = useCallback((sourceUuid: string, page: number, filename: string, sourceText?: string, startTime?: number, isExact?: boolean) => {
     const src = sources.find((s) => s.uuid === sourceUuid);
     const isMedia = _isMediaFile(filename);
     if (isMedia) {
@@ -84,10 +84,10 @@ export function useViewerActions(opts: UseViewerActionsOptions) {
       return;
     }
     if (src) {
-      openViewer(src, page, sourceText, isExact, offsets, spans, true);
+      openViewer(src, page, sourceText, isExact, true);
       return;
     }
-    setViewerSource({ uuid: sourceUuid, filename, page, highlightText: sourceText, exactSelection: isExact, highlightOffsets: offsets, highlightSpans: spans, isCitation: true, nonce: Date.now() });
+    setViewerSource({ uuid: sourceUuid, filename, page, highlightText: sourceText, exactSelection: isExact, isCitation: true, nonce: Date.now() });
     setPanels((prev) => ({ ...prev, quellen: true }));
     if (isMobile) setActiveTab("quellen");
   }, [sources, setViewerSource, setPanels, isMobile, setActiveTab, openViewer]);

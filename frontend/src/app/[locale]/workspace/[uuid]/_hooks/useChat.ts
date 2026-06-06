@@ -183,24 +183,11 @@ export function useChat({ uuid, enrollmentId, selectedSourceIds, viewerSource, c
               // Pre-stream metadata: lets citation chips resolve to the right
               // source while tokens are still arriving.
               updateLast({ source_qmap: evt.qmap, source_pages: evt.source_pages });
-            } else if (evt.line_done) {
-              const { index, text } = evt.line_done as { index: number; text: string };
-              setMessages((prev) => {
-                const updated = [...prev];
-                const last = updated[updated.length - 1];
-                if (last) {
-                  const gl = last.groundedLines ? [...last.groundedLines] : [];
-                  gl[index] = text;
-                  updated[updated.length - 1] = { ...last, groundedLines: gl };
-                }
-                return updated;
-              });
             } else if (evt.done) {
               if (rafId != null) { cancelAnimationFrame(rafId); rafId = null; }
               flushTokens();
               const patch: Record<string, unknown> = { source_pages: evt.source_pages, source_qmap: evt.source_qmap };
               if (evt.answer) patch.content = evt.answer;
-              patch.groundedLines = undefined;
               updateLast(patch);
             } else if (evt.error) {
               updateLast({ content: "Es ist ein Fehler aufgetreten. Bitte versuche es erneut." });

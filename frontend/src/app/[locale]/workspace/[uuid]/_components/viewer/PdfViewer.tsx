@@ -3,12 +3,12 @@ import { useTranslations } from "next-intl";
 import { ArrowDown, ArrowUp, CaretLeft, SidebarSimple, X } from "@phosphor-icons/react";
 import { PDFViewer, type PDFViewerRef } from "@embedpdf/react-pdf-viewer";
 import { LockModeType } from "@embedpdf/plugin-annotation";
-import type { ViewerState, CitationHighlightSpan } from "../../_types";
+import type { ViewerState } from "../../_types";
 import { FileIcon } from "../sources/FileIcon";
 
 import { EMBEDPDF_ICON_MAP } from "./_icons";
 import { wrapEngineGeometry } from "./_geometry";
-import { doHighlightSearch, doMultiHighlightSearch, doPageEdgeBar, clearCitationHighlight, scrollToCitationPage, type HighlightRefs } from "./_highlight";
+import { doHighlightSearch, clearCitationHighlight, scrollToCitationPage, type HighlightRefs } from "./_highlight";
 import { copyTextFromPromise } from "@/lib/clipboard";
 import { useTheme } from "@/hooks/useTheme";
 import { useCitationHighlightPref } from "@/hooks/useCitationHighlightPref";
@@ -84,8 +84,10 @@ export function PdfViewer({
     return () => document.removeEventListener("keydown", handler, true);
   }, []);
 
-  // Scroll to page + highlight text when nonce changes (pill click on same document)
-  const pendingHighlightRef = useRef<{ page: number; text: string; exact?: boolean; offsets?: [number, number]; spans?: CitationHighlightSpan[]; barOnly?: boolean } | null>(null);
+  // Scroll to page (+ highlight text for popup/action-bar exact selections) when the
+  // nonce changes (pill click on the same document). Citation chips set no text, so
+  // they only scroll; a popup/action-bar selection sets `text` and gets highlighted.
+  const pendingHighlightRef = useRef<{ page: number; text: string } | null>(null);
   const prevHighlightRef = useRef<{ pageIndex: number; ids: string[] } | null>(null);
   const citationHighlightRef = useRef<{ pageIndex: number; ids: string[]; scrollY?: number } | null>(null);
   // Controls the "Markierung aufheben" button shown while a citation highlight is active.
@@ -108,26 +110,23 @@ export function PdfViewer({
   useEffect(() => {
     if (source.nonce == null) return;
     const reg = registryRef.current;
-    const multi = source.highlightSpans && source.highlightSpans.length > 1 ? source.highlightSpans : null;
     if (!reg) {
-      // Viewer not ready yet — save for later. A nav-only chip (no span to highlight)
-      // still gets the page-edge bar cue, flagged here and drawn on layout-ready.
-      pendingHighlightRef.current = { page: source.page, text: source.highlightText ?? "", exact: !!source.exactSelection, offsets: source.highlightOffsets, spans: multi ?? undefined, barOnly: !!source.isCitation && !source.highlightText && !multi };
+      // Viewer not ready yet — save for later (drawn/scrolled on layout-ready).
+      pendingHighlightRef.current = { page: source.page, text: source.highlightText ?? "" };
       return;
     }
 
-    if (multi) {
-      doMultiHighlightSearch(highlightRefs, reg, source.page, multi, highlightEnabled);
-    } else if (source.highlightText) {
-      doHighlightSearch(highlightRefs, reg, source.page, source.highlightText, !!source.exactSelection, source.highlightOffsets, highlightEnabled);
-    } else if (source.isCitation) {
-      // Nav-only chip (page/timestamp, no span): mark the cited page with the
-      // persistent left-edge bar — honest page-level cue, no false-precision span.
-      // Only for citation opens; a plain document open draws no marker.
-      doPageEdgeBar(highlightRefs, reg, source.page);
+    if (source.highlightText) {
+      // Popup / action-bar exact selection: highlight the verbatim text.
+      doHighlightSearch(highlightRefs, reg, source.page, source.highlightText, highlightEnabled);
+    } else {
+      // Citation chip (or plain page open): scroll to the page only, no highlight.
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const scroll = (reg as any).getPlugin?.("scroll")?.provides?.();
+      scroll?.scrollToPage?.({ pageNumber: source.page, behavior: "instant" });
     }
 
-  }, [source.nonce, source.page, source.highlightText, source.exactSelection, source.highlightOffsets, source.highlightSpans, source.isCitation]);
+  }, [source.nonce, source.page, source.highlightText, source.isCitation]);
 
   // A new document remounts EmbedPDF (keyed by uuid), discarding the ephemeral
   // citation highlight — reset its tracking + dismiss button.
@@ -229,16 +228,14 @@ export function PdfViewer({
       const unsub = scroll.onLayoutReady?.(() => {
         const p = sourcePageRef.current;
         if (p > 1) scroll.scrollToPage({ pageNumber: p, behavior: "instant" });
-        // Run pending highlight search after layout is ready
+        // Run pending highlight after layout is ready. Only a popup/action-bar exact
+        // selection carries text to highlight; a plain/citation open just scrolled
+        // to the page above.
         const pending = pendingHighlightRef.current;
         if (pending) {
           pendingHighlightRef.current = null;
-          if (pending.spans && pending.spans.length > 1) {
-            doMultiHighlightSearch(highlightRefs, registry, pending.page, pending.spans, highlightEnabledRef.current);
-          } else if (pending.text) {
-            doHighlightSearch(highlightRefs, registry, pending.page, pending.text, !!pending.exact, pending.offsets, highlightEnabledRef.current);
-          } else if (pending.barOnly) {
-            doPageEdgeBar(highlightRefs, registry, pending.page);
+          if (pending.text) {
+            doHighlightSearch(highlightRefs, registry, pending.page, pending.text, highlightEnabledRef.current);
           }
         }
         unsub?.();
