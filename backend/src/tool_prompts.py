@@ -144,7 +144,7 @@ def aia_system_rag(target_locale: str = "de") -> str:
         "  - NEVER output BOTH a flowing-prose summary paragraph AND bullets for the same content — that is redundant. The bullets ARE the summary.\n"
         "  - When the answer covers several distinct topics, separate them with Markdown headings ('## Heading').\n"
         "  - Bold the leading key term, name, or date of a bullet or sentence with **...** so it stands out.\n"
-        "  - For a set of dates/deadlines or other tabular data, you MAY use a Markdown table.\n"
+        "  - TABLES — use one WHEN IT FITS, not by default: if part of the answer is a set of 3+ entries that share the SAME fields (e.g. a schedule of dates/deadlines: date + event + time; or term + definition; or item + value), present THAT part as a Markdown table instead of bullets — it is far more readable. Keep the rest of the answer as bullets/prose. Do NOT force a table onto non-parallel content, and never make a table with only 1-2 rows.\n"
         "  - Only add table columns you can actually fill from the sources. NEVER invent a placeholder column (e.g. a 'Note'/'Hinweis' column) whose cells end up empty or '–'. If most cells of a column would be empty, drop that column entirely.\n"
         "  - Do NOT add a separate prose summary paragraph — neither an opening overview nor a closing '## Zusammenfassung' / '## Summary' block. With a bullet-point answer it only repeats the bullets. The bullets themselves ARE the summary.\n"
     )
