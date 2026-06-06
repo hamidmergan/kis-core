@@ -846,62 +846,50 @@ async def chat(
             if popup_source:
                 search_source_ids = [popup_source["id"]]
 
-        chunks = db.hybrid_search_chunks(
-            workspace["id"], embed_text, query_vector,
-            source_ids=search_source_ids, limit=_SPECIFIC_RETRIEVE_LIMIT,
-        )
-        found_pages = sorted(set(c["page_number"] for c in chunks))
-        found_source_ids = sorted(set(c["source_id"] for c in chunks))
-        logger.info("Hybrid Search: {} chunks, source_ids={}, Seiten: {}, Query: '{}'", len(chunks), found_source_ids, found_pages, embed_text[:80])
-
-        # Source diversity: with multiple active sources at least 1 entry per source
-        if source_ids and len(source_ids) > 1:
-            diverse_chunks, remaining, missing = _diversify_by_source(chunks, source_ids)
-            # Fallback for sources without a hybrid-search hit. A source can miss
-            # the GLOBAL top-20 yet still be one the user wants compared, so we
-            # first run a per-source mini-search to pull ITS OWN most-relevant
-            # chunks (real pages/timestamps, citable). Only if that yields nothing
-            # (e.g. a media source with no matchable text) do we fall back to the
-            # first raw chunk.
-            if missing:
-                PER_SOURCE_FALLBACK_LIMIT = 3
-                # Relevance gate (language-agnostic): a per-source vector search
-                # ALWAYS returns something — every chunk has an embedding — so
-                # without a gate every selected source gets forced in, even ones
-                # with nothing to do with the question (e.g. seminar PDFs for a
-                # pure-math query). Keyword hits are useless here: BM25 'simple'
-                # keeps stopwords, so off-topic sources still "match" filler like
-                # "die"/"mir" from the question. The stopword-IMMUNE signal is the
-                # cosine DISTANCE (embeddings capture meaning), which is exactly why
-                # the global search ranked the math sources on top. Keep a missing
-                # source only if its closest chunk is within _DIST_FACTOR of the
-                # global best distance. No word lists -> stays language agnostic. We
-                # also drop the old "first raw chunk" last resort.
-                # 1.3 cleanly separates on-topic (cosine ~0.2) from loosely-related
-                # same-corpus sources (~0.31) without cutting through that cluster;
-                # for a vaguer query (higher best distance) it scales up and stays
-                # inclusive.
-                _DIST_FACTOR = 1.3
-                _global_dists = [c["vec_distance"] for c in chunks if c.get("vec_distance") is not None]
-                _best_dist = min(_global_dists) if _global_dists else None
-                _dist_threshold = _best_dist * _DIST_FACTOR if _best_dist is not None else None
-                for sid in missing:
-                    per_source = db.hybrid_search_chunks(
-                        workspace["id"], embed_text, query_vector,
-                        source_ids=[sid], limit=PER_SOURCE_FALLBACK_LIMIT,
-                    )
-                    ps_dists = [c["vec_distance"] for c in per_source if c.get("vec_distance") is not None]
-                    ps_best = min(ps_dists) if ps_dists else None
-                    if _dist_threshold is not None and ps_best is not None and ps_best <= _dist_threshold:
-                        relevant = [c for c in per_source
-                                    if c.get("vec_distance") is not None and c["vec_distance"] <= _dist_threshold]
-                        diverse_chunks.extend(relevant)
-                        logger.info("Source-Diversity: source {} added ({} chunks, dist {:.3f}<={:.3f})", sid, len(relevant), ps_best, _dist_threshold)
-                    else:
-                        logger.info("Source-Diversity: source {} skipped off-topic (dist {} > {})", sid,
-                                    f"{ps_best:.3f}" if ps_best is not None else "n/a",
-                                    f"{_dist_threshold:.3f}" if _dist_threshold is not None else "n/a")
-            chunks = diverse_chunks + remaining
+        # Per-source relevance retrieval. Instead of ONE global top-K (which a deep
+        # fact in a big document can fall below — the author name sat at fused rank
+        # ~59, so a global top-20 missed it), search EACH selected source on its own
+        # (reusing the one query vector) and keep ALL of that source's hits. Every
+        # source then brings its own most-relevant chunks; a per-source rank (_seq)
+        # lets _order_round_robin interleave fairly so the context CHAR budget
+        # (assembly loop below) drops late rounds, never a whole source. The budget
+        # is the real cap — nothing relevant is silently truncated below it.
+        #
+        # SOURCE-level distance gate (not chunk-level!): drop a source only when its
+        # CLOSEST chunk is off-topic (cosine > _DIST_FACTOR x global best). Within a
+        # kept source we keep every hit — gating individual chunks here would risk
+        # cutting the very chunk we need (the name chunk's distance is worse than the
+        # source's best). Cosine is stopword-immune -> language-agnostic, no wordlist.
+        _DIST_FACTOR = 1.3
+        per_source_hits: list[list[dict]] = []
+        for sid in search_source_ids:
+            hits = db.hybrid_search_chunks(
+                workspace["id"], embed_text, query_vector,
+                source_ids=[sid], limit=_SPECIFIC_RETRIEVE_LIMIT,
+            )
+            if hits:
+                per_source_hits.append(hits)
+        _all_dists = [c["vec_distance"] for hits in per_source_hits for c in hits if c.get("vec_distance") is not None]
+        _best_dist = min(_all_dists) if _all_dists else None
+        _dist_threshold = _best_dist * _DIST_FACTOR if _best_dist is not None else None
+        chunks = []
+        for hits in per_source_hits:
+            _src_dists = [c["vec_distance"] for c in hits if c.get("vec_distance") is not None]
+            _src_best = min(_src_dists) if _src_dists else None
+            # Multi-source: drop a source whose closest chunk is off-topic. Single
+            # source: always keep it (no cross-source comparison to make).
+            if (len(per_source_hits) > 1 and _dist_threshold is not None
+                    and _src_best is not None and _src_best > _dist_threshold):
+                logger.info("Per-source: source {} skipped off-topic (dist {:.3f} > {:.3f})",
+                            hits[0]["source_id"], _src_best, _dist_threshold)
+                continue
+            for i, c in enumerate(hits):
+                c["_seq"] = i  # per-source relevance rank -> fair round-robin interleave
+            chunks.extend(hits)
+        found_pages = sorted({c["page_number"] for c in chunks if c.get("page_number") is not None})
+        found_source_ids = sorted({c["source_id"] for c in chunks})
+        logger.info("Per-source hybrid: {} chunks from {} sources, Seiten: {}, Query: '{}'",
+                    len(chunks), len(found_source_ids), found_pages, embed_text[:80])
 
     # Build source-number mapping (Q1, Q2, ...) for multi-source disambiguation
     all_sources_list = {s["id"]: s for s in db.get_aia_sources_by_workspace(workspace["id"])}
