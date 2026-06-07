@@ -21,6 +21,11 @@ def init_db(admin_email: Optional[str] = None) -> None:
     with get_connection() as conn:
         with conn.cursor() as cur:
             cur.execute("CREATE EXTENSION IF NOT EXISTS vector")
+            # pg_trgm powers the typo-tolerant keyword anchor in hybrid_search_chunks:
+            # a misspelled query word ("authoren") still matches a similar word in the
+            # text ("Autoren") via trigram word-similarity, so the answer-bearing chunk
+            # is still retrieved. Language-agnostic (character trigrams, no word lists).
+            cur.execute("CREATE EXTENSION IF NOT EXISTS pg_trgm")
 
             # Migration: rename legacy table prefixes to aia_*. All entries are
             # idempotent (no-op on fresh DBs and on already-migrated DBs).
@@ -474,6 +479,13 @@ def init_db(admin_email: Optional[str] = None) -> None:
             cur.execute("""
                 CREATE INDEX IF NOT EXISTS idx_chunks_search
                 ON aia_chunks USING gin(search_vector)
+            """)
+            # Trigram index on content for the fuzzy (typo-tolerant) keyword fallback
+            # in hybrid_search_chunks — lets the `<%` word-similarity operator use an
+            # index instead of scanning every chunk.
+            cur.execute("""
+                CREATE INDEX IF NOT EXISTS idx_chunks_content_trgm
+                ON aia_chunks USING gin(content gin_trgm_ops)
             """)
             # Migration: page + doc summaries were removed (pgvector-only retrieval —
             # chat answers from chunks, studio tools build from chunks). Drop the

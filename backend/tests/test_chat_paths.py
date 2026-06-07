@@ -26,7 +26,7 @@ from src.features.ai_assistant.routes.chat import (
     _stream_usage_tokens,
     _enrich_chat_trace,
     _pack_context_batches,
-    _allocate_specific_budget,
+    _expand_with_neighbors,
     _INTENT_MAX_WORDS,
 )
 
@@ -449,49 +449,56 @@ def test_enrich_chat_trace_swallows_langfuse_errors(monkeypatch):
     _enrich_chat_trace("t", "q", "a", user_id="u", session_id="s")  # must not raise
 
 
-# ── SPECIFIC full-coverage: the deep fact must reach the model ───────────────
-# Regression for the "wer sind die autoren" miss: a co-author named only in a
-# chunk that embeds far from the question (vec_rank ~645) used to fall outside
-# the top-80 vector candidates and never reach the model. SPECIFIC now hands the
-# WHOLE on-topic source to _pack_context_batches(multi=True), which spills into
-# extra batches (map-reduce) rather than truncating — so every chunk is shown.
+# ── SPECIFIC neighbor-chunk expansion: a fact beside a hit gets pulled in ────
+# Regression for the "wer sind die autoren" miss AND the map-reduce hallucination:
+# the answer chunk (a co-author name) embeds far from the question (vec_rank ~645)
+# yet sits NEXT TO a retrieved anchor (the "Autoren" heading). Expanding each
+# anchor's ±radius document window pulls the neighbour into ONE coherent single
+# call — no whole-document read, no batch-splitting that invents names.
 
 def _chunk(cid, page, text):
     return {"id": cid, "source_id": 1, "page_number": page, "content": text}
 
 
-def test_pack_multi_spills_into_batches_without_dropping_any_chunk():
-    # 12 chunks, budget that fits ~3 per batch -> several batches, every chunk kept.
+def test_expand_pulls_neighbours_of_an_anchor():
+    # Anchor at index 2; the answer sits at index 4 and is NOT itself retrieved.
+    doc = [{"id": 100 + i, "page_number": i, "content": f"c{i}"} for i in range(10)]
+    anchors = [{"id": 102, "vec_distance": 0.4}]
+    out = _expand_with_neighbors(anchors, doc, radius=3, source_id=1)
+    ids = [c["id"] for c in out]
+    assert ids == [100, 101, 102, 103, 104, 105]   # 102 ±3, clamped at 0
+    assert 104 in ids                               # the deep neighbour is reached
+    assert all(c["source_id"] == 1 for c in out)
+    assert all(c["_anchor_dist"] == 0.4 for c in out)
+
+
+def test_expand_merges_overlapping_windows_with_best_distance():
+    doc = [{"id": 100 + i, "page_number": i, "content": f"c{i}"} for i in range(10)]
+    anchors = [{"id": 102, "vec_distance": 0.6}, {"id": 104, "vec_distance": 0.3}]
+    out = _expand_with_neighbors(anchors, doc, radius=1, source_id=7)
+    ids = [c["id"] for c in out]
+    assert ids == [101, 102, 103, 104, 105]         # union, deduped, document order
+    # one merged span -> all carry the span's best (smallest) anchor distance
+    assert all(c["_anchor_dist"] == 0.3 for c in out)
+
+
+def test_expand_bridges_gap_between_nearby_anchors():
+    # Two anchors 10 apart; the answer sits in the GAP between their ±3 windows.
+    # Windows [100..103] and [107..113] leave 104,105,106 uncovered — bridging fills
+    # them so a co-author named between two hits is not lost (the "authoren" case).
+    doc = [{"id": 100 + i, "page_number": i, "content": f"c{i}"} for i in range(20)]
+    anchors = [{"id": 100, "vec_distance": 0.5}, {"id": 110, "vec_distance": 0.7}]
+    out = _expand_with_neighbors(anchors, doc, radius=3, source_id=1)
+    ids = [c["id"] for c in out]
+    assert ids == list(range(100, 114))             # contiguous span, gap bridged
+    assert 105 in ids                               # the gap chunk is included
+
+
+def test_pack_single_batch_is_one_window():
+    # All chat paths now pack a single context window (no map-reduce). Overflow is
+    # skipped rather than spilled into a second batch.
     chunks = [_chunk(i, i, f"FACT-{i:02d} " + "x" * 300) for i in range(1, 13)]
-    budget = 1200
     batches, seen = _pack_context_batches(
-        chunks, budget, {1: 1}, {1: {"filename": "doc.pdf"}}, {}, multi=True,
-    )
-    assert len(batches) > 1, "oversized set must spill into multiple batches"
-    joined = "\n".join(batches)
-    # The deep fact (last, least-relevant chunk) is present, not truncated out.
-    for i in range(1, 13):
-        assert f"FACT-{i:02d}" in joined, f"chunk {i} was dropped"
-    # seen_pages is the UNION across ALL batches (feeds the attribution cross-check).
-    assert seen[1] == set(range(1, 13))
-
-
-def test_pack_single_batch_mode_may_skip_overflow():
-    # multi=False (GENERIC/SCOPE/popup) keeps ONE batch: an overflowing chunk is
-    # skipped, not spilled — contrast with multi=True above.
-    chunks = [_chunk(i, i, f"FACT-{i:02d} " + "x" * 300) for i in range(1, 13)]
-    batches, _ = _pack_context_batches(
         chunks, 1200, {1: 1}, {1: {"filename": "doc.pdf"}}, {}, multi=False,
     )
     assert len(batches) == 1
-
-
-def test_preview_budget_bounds_source_pages_set():
-    # `chunks` (preview behind source_pages) is capped well below the full source:
-    # the relevance-weighted split honours the smaller budget.
-    hits = [_chunk(i, i, "y" * 1000) for i in range(1, 201)]  # 200 chunks, ~1k each
-    kept = [(hits, 0.5)]
-    preview = _allocate_specific_budget(kept, 60000)
-    full = _allocate_specific_budget(kept, 250000)
-    assert len(preview) < len(full)
-    assert sum(len(c["content"]) for c in preview) <= 60000

@@ -14,6 +14,9 @@ from src.limits import MAX_RESULT_FILES, JOB_RETENTION_HOURS
 
 _TZ_BERLIN = ZoneInfo("Europe/Berlin")
 _REDIS_URL = os.environ.get("REDIS_URL", "redis://kis-redis:6379/0")
+# Min trigram word-similarity for the fuzzy keyword fallback in hybrid_search_chunks.
+# 0.45 catches typos ("authoren" vs "Autoren" ≈ 0.55) without pulling unrelated words.
+_FUZZY_WORD_SIM = 0.45
 from src.core.db.pool import get_connection
 
 
@@ -192,6 +195,34 @@ def hybrid_search_chunks(
                 if ilike_rows:
                     kw_rows = kw_rows + ilike_rows
 
+            # 2c) Fuzzy (typo-tolerant) fallback. A misspelled query word still
+            # matches a trigram-similar WORD in the text ("authoren" -> "Autoren"),
+            # so the answer-bearing chunk is retrieved even when the exact token (and
+            # thus its high BM25 rank) is lost. Language-agnostic (character trigrams,
+            # no word lists). Only words >= 4 chars — shorter ones match too loosely.
+            # Ranked by best similarity so the closest match leads the RRF fusion.
+            fuzzy_words = [w for w in words if len(w) >= 4]
+            if fuzzy_words:
+                best_sim = "GREATEST(" + ", ".join(["word_similarity(%s, c.content)"] * len(fuzzy_words)) + ")"
+                sim_clauses = " OR ".join(["word_similarity(%s, c.content) >= %s"] * len(fuzzy_words))
+                sim_params: list = []
+                for w in fuzzy_words:
+                    sim_params += [w, _FUZZY_WORD_SIM]
+                cur.execute(
+                    f"""SELECT c.id, c.page_number, ROW_NUMBER() OVER (
+                            ORDER BY {best_sim} DESC
+                        ) AS rank
+                        FROM aia_chunks c
+                        JOIN aia_sources s ON s.id = c.source_id
+                        WHERE s.workspace_id = %s {source_filter}
+                          AND ({sim_clauses})
+                        LIMIT 40""",
+                    list(fuzzy_words) + [workspace_id] + source_param + sim_params,
+                )
+                fuzzy_rows = cur.fetchall()
+                if fuzzy_rows:
+                    kw_rows = kw_rows + fuzzy_rows
+
             # 3) RRF fusion
             scores: dict[int, float] = {}
             for row in vec_rows:
@@ -226,45 +257,6 @@ def hybrid_search_chunks(
                     results.append(chunk)
 
     return results
-
-
-def chunks_by_relevance(
-    workspace_id: int,
-    source_id: int,
-    query_embedding: list[float],
-) -> list[dict]:
-    """EVERY chunk of one source, ranked by vector (cosine) distance to the query.
-
-    hybrid_search_chunks only ever looks at the 80 nearest vectors (+ keyword
-    hits), so a fact whose chunk embeds far from the question — an author named
-    in a first-person bio that never says the word "Autoren" sits at vec_rank
-    ~645 — is never even a candidate. This returns the WHOLE source ranked by
-    relevance so the SPECIFIC full-coverage path can pack it into budget-sized
-    batches and answer map-reduce: fill one context window, open the next call,
-    nothing truncated out.
-
-    Rows carry ``vec_distance`` (the on-topic signal the caller's source gate
-    reads) and the same fields hybrid_search_chunks returns.
-    """
-    with get_connection() as conn:
-        with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
-            cur.execute(
-                """SELECT c.id, c.source_id, c.page_number, c.content,
-                          c.start_time, c.end_time,
-                          (c.embedding <=> %s::vector) AS vec_distance
-                   FROM aia_chunks c
-                   JOIN aia_sources s ON s.id = c.source_id
-                   WHERE s.workspace_id = %s AND c.source_id = %s
-                     AND c.embedding IS NOT NULL
-                   ORDER BY c.embedding <=> %s::vector""",
-                [str(query_embedding), workspace_id, source_id, str(query_embedding)],
-            )
-            out: list[dict] = []
-            for r in cur.fetchall():
-                d = dict(r)
-                d["vec_distance"] = float(d["vec_distance"]) if d["vec_distance"] is not None else None
-                out.append(d)
-            return out
 
 
 # --- KI Tutor: Messages ---

@@ -91,10 +91,17 @@ _DIST_FACTOR = 1.3
 # chunks, so a question whose answer is spread across many docs (e.g. each doc names
 # one author) keeps every doc represented. ~4-5 chunks.
 _SPECIFIC_FLOOR_CHARS = 4000
-# The model reads the full on-topic source(s); `chunks` is only the bounded preview
-# behind source_pages (a frontend lookup + snippet list, NOT the model context), so
-# we cap it well below the full context budget to keep saved messages small.
-_SPECIFIC_PREVIEW_CHARS = 60000
+# Neighbor-chunk expansion (SPECIFIC, single call): how many top hybrid hits per
+# source act as expansion ANCHORS, and how many document neighbours to pull around
+# each (±radius). A fact often sits NEXT TO a hit (author name beside the "Autoren"
+# heading), so the window catches it without reading the whole document. ~24x(2*3+1)
+# ≈ 168 chunks worst case before dedup — comfortably one context window.
+_NEIGHBOR_ANCHORS = 24
+_NEIGHBOR_RADIUS = 3
+# Bridge anchors whose ±radius windows are within this many chunks of each other:
+# fill the gap so two anchors that BRACKET the answer pull the chunks between them
+# (a co-author named between the "Autoren" heading and the contact section).
+_NEIGHBOR_BRIDGE = 4
 
 
 def _parse_page_refs(question: str) -> list[int]:
@@ -663,6 +670,57 @@ def _allocate_specific_budget(
     return out
 
 
+def _expand_with_neighbors(
+    anchors: list[dict],
+    doc_chunks: list[dict],
+    radius: int,
+    source_id: int,
+    bridge: int = _NEIGHBOR_BRIDGE,
+) -> list[dict]:
+    """Expand relevance ANCHORS into ±``radius`` document windows, bridging gaps.
+
+    ``anchors`` = the source's top hybrid hits (carry ``id`` + ``vec_distance``).
+    ``doc_chunks`` = the SAME source's chunks in document order (id, page_number,
+    content, start/end_time). Each anchor becomes a window ``[i-radius, i+radius]``;
+    windows whose gap is ``<= bridge`` are merged so two anchors that BRACKET the
+    answer also pull the chunks between them. Returns the covered chunks in document
+    order, each tagged with ``_anchor_dist`` (the merged span's best/smallest anchor
+    distance) so the caller can trim to one context window best-first.
+
+    Why: a fact often sits NEXT TO a hit, or BETWEEN two hits, rather than in either
+    (a co-author named between the "Autoren" heading and the contact section). The
+    window + bridge catches it in a single coherent call — no whole-document read.
+    """
+    pos = {c["id"]: i for i, c in enumerate(doc_chunks)}
+    n = len(doc_chunks)
+    windows: list[tuple[int, int, float]] = []
+    for a in anchors:
+        i = pos.get(a["id"])
+        if i is None:
+            continue
+        ad = a.get("vec_distance")
+        ad = ad if ad is not None else 1.0
+        windows.append((max(0, i - radius), min(n - 1, i + radius), ad))
+    if not windows:
+        return []
+    windows.sort()
+    spans: list[list] = [list(windows[0])]
+    for lo, hi, ad in windows[1:]:
+        if lo - spans[-1][1] - 1 <= bridge:  # gap small enough -> merge + fill
+            spans[-1][1] = max(spans[-1][1], hi)
+            spans[-1][2] = min(spans[-1][2], ad)
+        else:
+            spans.append([lo, hi, ad])
+    out: list[dict] = []
+    for lo, hi, ad in spans:
+        for j in range(lo, hi + 1):
+            c = dict(doc_chunks[j])
+            c["source_id"] = source_id
+            c["_anchor_dist"] = ad
+            out.append(c)
+    return out
+
+
 def _pack_context_batches(
     chunks: list[dict],
     budget: int,
@@ -985,11 +1043,6 @@ async def chat(
     # its per-source hybrid hits must never be truncated (a deep fact would be
     # lost). GENERIC/SCOPE/popup stay single-call (overview / exact-scope).
     _specific_path = False
-    # coverage_chunks = what the MODEL reads (SPECIFIC: the whole on-topic
-    # source, batched + map-reduce). chunks = the bounded top-relevance set used
-    # for preview snippets / source_pages metadata. They diverge only on the
-    # SPECIFIC full-coverage path; everywhere else coverage_chunks == chunks.
-    coverage_chunks: list[dict] = []
     if scope_chunks:
         chunks = scope_chunks
     elif intent == "GENERIC":
@@ -1030,69 +1083,65 @@ async def chat(
             if popup_source:
                 search_source_ids = [popup_source["id"]]
 
-        # FULL-COVERAGE per-source retrieval. The old top-K hybrid search only
-        # ever looked at the 80 nearest vectors, so a fact whose chunk embeds far
-        # from the question (the author "Thorsten Lübben" sits at vec_rank ~645 in
-        # a 1414-chunk script — his bio never says "Autoren") was never even a
-        # candidate. We now rank EVERY chunk of each selected source by relevance
-        # and hand the WHOLE on-topic source to the model: packed into budget-sized
-        # batches and answered map-reduce (fill a window, open the next call). The
-        # deep fact can no longer be truncated out before the model ever sees it.
+        # NEIGHBOR-CHUNK EXPANSION (single call). Plain top-K throws the tail away,
+        # so a fact that sits NEXT TO a hit is lost (author "Thorsten Lübben" at
+        # vec_rank ~645 — two chunks past the "Autoren" heading the search DOES
+        # find). Instead we take the relevance ANCHORS (hybrid search) and pull each
+        # anchor's document neighbours (±_NEIGHBOR_RADIUS): the answer almost always
+        # sits beside something retrievable. Everything fits ONE coherent context
+        # window, answered in a single call — a window can't be split, so it can't
+        # grow a gap-filling hallucination (the earlier map-reduce "Prof. Böhm").
         #
-        # SOURCE-level distance gate (not chunk-level!): drop a source only when its
-        # CLOSEST chunk is off-topic (cosine > _DIST_FACTOR x global best). The gate
-        # decides WHICH sources are on-topic; it cannot tell which CHUNK holds the
-        # answer (a name embeds far from "who are the authors", hence rank ~645).
-        per_source_hits: list[list[dict]] = []
+        # SOURCE-level distance gate: drop a source only when its CLOSEST anchor is
+        # off-topic (cosine > _DIST_FACTOR x global best). Single source → always kept.
+        per_source_expanded: list[tuple[list[dict], Optional[float]]] = []
         for sid in search_source_ids:
-            hits = await _asyncio.to_thread(
-                db.chunks_by_relevance, workspace["id"], sid, query_vector,
+            anchors = await _asyncio.to_thread(
+                db.hybrid_search_chunks, workspace["id"], embed_text, query_vector,
+                [sid], _NEIGHBOR_ANCHORS,
             )
-            if hits:
-                per_source_hits.append(hits)
-        _all_dists = [c["vec_distance"] for hits in per_source_hits for c in hits if c.get("vec_distance") is not None]
-        _best_dist = min(_all_dists) if _all_dists else None
-        _dist_threshold = _best_dist * _DIST_FACTOR if _best_dist is not None else None
-        kept: list[tuple[list[dict], Optional[float]]] = []
-        for hits in per_source_hits:
-            _src_dists = [c["vec_distance"] for c in hits if c.get("vec_distance") is not None]
+            if not anchors:
+                continue
+            _src_dists = [a["vec_distance"] for a in anchors if a.get("vec_distance") is not None]
             _src_best = min(_src_dists) if _src_dists else None
-            # Multi-source: drop a source whose closest chunk is off-topic. Single
-            # source: always keep it (no cross-source comparison to make).
-            if (len(per_source_hits) > 1 and _dist_threshold is not None
+            doc = await _asyncio.to_thread(db.get_chunks_by_source, sid)
+            per_source_expanded.append(
+                (_expand_with_neighbors(anchors, doc, _NEIGHBOR_RADIUS, sid), _src_best)
+            )
+        _all_best = [d for _, d in per_source_expanded if d is not None]
+        _global_best = min(_all_best) if _all_best else None
+        _dist_threshold = _global_best * _DIST_FACTOR if _global_best is not None else None
+        kept_expanded: list[list[dict]] = []
+        for expanded, _src_best in per_source_expanded:
+            if (len(per_source_expanded) > 1 and _dist_threshold is not None
                     and _src_best is not None and _src_best > _dist_threshold):
                 logger.info("Per-source: source {} skipped off-topic (dist {:.3f} > {:.3f})",
-                            hits[0]["source_id"], _src_best, _dist_threshold)
+                            expanded[0]["source_id"] if expanded else "?", _src_best, _dist_threshold)
                 continue
-            kept.append((hits, _src_best))
-        # The model reads EVERY chunk of every on-topic source (relevance-ordered so
-        # the first batch is the most on-point); _pack_context_batches(multi=True)
-        # spills the rest into additional batches → map-reduce. chunks stays the
-        # bounded top-relevance set, used only for preview snippets / source_pages
-        # (a 1414-entry nav list would be useless); the post-hoc attribution
-        # cross-checks against seen_pages_by_source (the UNION across ALL batches),
-        # so a chip can still land on a deep page the model saw but chunks omits.
-        # DOCUMENT ORDER inside each source (not relevance!): map-reduce answers
-        # each batch independently, so a coherent passage split across batches
-        # loses its context — a batch that gets "…verantwortlich bis 15.03.2016"
-        # without the name chunk two paragraphs up will INVENT a name to fill the
-        # gap (observed: hallucinated "Prof. Dr. Böhm"/"Schäfer"). Since full
-        # coverage reads every batch anyway, relevance ordering buys nothing and
-        # only shreds locality; document order keeps neighbours in one window.
-        def _doc_order_key(c: dict) -> tuple:
-            return (
-                c.get("page_number") if c.get("page_number") is not None else -1,
-                c.get("start_time") if c.get("start_time") is not None else -1.0,
-                c.get("id") or 0,
-            )
-        coverage_chunks = [c for hits, _ in kept for c in sorted(hits, key=_doc_order_key)]
-        chunks = _allocate_specific_budget(kept, min(context_budget, _SPECIFIC_PREVIEW_CHARS))
+            kept_expanded.append(expanded)
+        # Cap to ONE context window: add neighbourhoods best-anchor-first until the
+        # budget is full (the most on-point windows win), then re-sort survivors into
+        # document order so each source reads as a coherent passage for the model.
+        _flat = sorted((c for ex in kept_expanded for c in ex), key=lambda c: c.get("_anchor_dist", 1.0))
+        chunks = []
+        _used = 0
+        for c in _flat:
+            _len = len(c.get("content") or "")
+            if chunks and _used + _len > context_budget:
+                break
+            chunks.append(c)
+            _used += _len
+        chunks.sort(key=lambda c: (
+            c["source_id"],
+            c.get("page_number") if c.get("page_number") is not None else -1,
+            c.get("start_time") if c.get("start_time") is not None else -1.0,
+            c.get("id") or 0,
+        ))
         from collections import Counter as _Counter
-        _per_src = _Counter(c["source_id"] for c in coverage_chunks)
-        _cov_chars = sum(len(c.get("content") or "") for c in coverage_chunks)
+        _per_src = _Counter(c["source_id"] for c in chunks)
         logger.info(
-            "SPECIFIC full-coverage: {} chunks ({} chars) from {} on-topic sources | per-source: {} | preview {} chunks | budget {}/batch | Query: '{}'",
-            len(coverage_chunks), _cov_chars, len(kept), dict(_per_src), len(chunks), context_budget, embed_text[:80],
+            "SPECIFIC neighbor-expansion: {} chunks ({} chars) from {} on-topic sources | per-source: {} | anchors<={} radius+-{} | Query: '{}'",
+            len(chunks), _used, len(kept_expanded), dict(_per_src), _NEIGHBOR_ANCHORS, _NEIGHBOR_RADIUS, embed_text[:80],
         )
 
     # Single-page PDF scope ("fasse Seite 5 zusammen"): every line of the summary would
@@ -1152,29 +1201,21 @@ async def chat(
             if src:
                 transcript_by_source[sid] = _load_transcript_segments(src)
 
-    # Pack the retrieved chunks into one or more <documents> context windows
-    # (XML tags per chunk — Anthropic best practice). SPECIFIC must never
-    # truncate a per-source hybrid hit (a deep fact would be lost), so when its
-    # candidates exceed the budget they spill into ADDITIONAL batches and the
-    # answer is produced via map-reduce (see _stream below). GENERIC/SCOPE/popup
-    # stay single-batch (overflow is fine for an overview / exact-scope ask).
-    # seen_pages_by_source is the UNION of pages the model saw across all batches;
-    # the post-hoc attribution cross-check uses it to keep a chip only on a page
-    # the model could actually have seen. See _attribute_generic_text.
-    _specific_multi = _specific_path and not body.source_text
-    # SPECIFIC: the model reads the full on-topic source(s) (coverage_chunks),
-    # spilled across batches → map-reduce. Other paths pack the bounded set.
-    _pack_chunks = coverage_chunks if (_specific_multi and coverage_chunks) else chunks
+    # Pack the retrieved chunks into ONE <documents> context window (XML tags per
+    # chunk — Anthropic best practice). Every path is single-batch now: neighbor
+    # expansion bounds SPECIFIC to one coherent window too, so there is no
+    # map-reduce and no gap-filling hallucination. seen_pages_by_source is the set
+    # of pages the model saw; the post-hoc attribution cross-check uses it to keep
+    # a chip only on a page the model could actually have seen.
     batches, seen_pages_by_source = _pack_context_batches(
-        _pack_chunks, context_budget, source_id_to_qnum, all_sources_list,
-        transcript_by_source, multi=_specific_multi,
+        chunks, context_budget, source_id_to_qnum, all_sources_list,
+        transcript_by_source, multi=False,
     )
     context = batches[0] if batches else "<documents>\n\n</documents>"
     _ctx_chars = sum(len(b) for b in batches)
     logger.info(
-        "Context: {} batch(es), {} chars total (~{} tokens), budget {}/batch | {} chunks | specific_multi={}",
-        len(batches), _ctx_chars, round(_ctx_chars / 3.5), context_budget,
-        len(chunks), _specific_multi,
+        "Context: {} batch(es), {} chars total (~{} tokens), budget {}/batch | {} chunks",
+        len(batches), _ctx_chars, round(_ctx_chars / 3.5), context_budget, len(chunks),
     )
 
     # Build the LLM call(s). One context window → one call (messages set here);
@@ -1469,11 +1510,9 @@ async def chat(
 
                     return _attribute_generic_text(_stripped, _search_one, source_id_to_qnum,
                                                    seen_pages_by_source=seen_pages_by_source,
-                                                   # Exact-match grounding must see what the MODEL
-                                                   # read (full coverage), not just the bounded
-                                                   # preview — else a deep-fact line (the author
-                                                   # "Lübben") finds no exact chunk and loses its chip.
-                                                   context_chunks=(coverage_chunks or chunks))
+                                                   # Exact-match grounding sees exactly what the
+                                                   # model read (the single neighbor-expanded window).
+                                                   context_chunks=chunks)
 
                 answer = await asyncio.to_thread(_attribute_blocking)
 
