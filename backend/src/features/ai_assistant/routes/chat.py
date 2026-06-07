@@ -85,7 +85,7 @@ _MAX_PAGE_SPAN = 50
 # Source-distance gate: drop a source whose CLOSEST chunk is farther than this multiple
 # of the best source's closest chunk (off-topic). Cosine distance is stopword-immune →
 # language-agnostic, no word lists.
-_DIST_FACTOR = 1.3
+_DIST_FACTOR = 999  # gate effektiv AUS: 1.3 verwarf bei Mehr-Quellen-/Zählfragen echte Quellen
 # Floor of the per-source CHAR allotment in the SPECIFIC budget split: every on-topic
 # source (one that passed the gate) is guaranteed at least this many chars of its top
 # chunks, so a question whose answer is spread across many docs (e.g. each doc names
@@ -1228,10 +1228,14 @@ async def chat(
     if body.source_text:
         # Popup actions: user has selected text themselves.
         page_ref = f" [S. {body.source_page}]" if body.source_page else ""
-        # "Elaborate" needs RAG context, the others work only with the selected text
-        elaborate = AIA_POPUP_ACTIONS[0]
-        elaborate_prefixes = (str(elaborate["prompt_de"]), str(elaborate["prompt_en"]))
-        if body.question.startswith(elaborate_prefixes):
+        # Only "Erklären"/Explain (simplify) needs the surrounding document context to
+        # expand on the passage. Translate — and every other action — works on the
+        # SELECTION ALONE: feeding it the doc context buries the "output ONLY the
+        # translation" instruction and bloats the result with neighbouring material.
+        # Identify the action by its KEY, not by list position: AIA_POPUP_ACTIONS[0]
+        # used to be the explain action but is now "translate", so the old index check
+        # silently swapped the two (translate got the context treatment, explain didn't).
+        if body.action_key == "simplify":
             system_prompt = AIA_SYSTEM_DIRECT_WITH_CONTEXT
             user_message = f"{body.question}\n\nMarkierter Text (aus {body.source_filename or 'Dokument'}{page_ref}):\n{body.source_text}\n\nWeiterer Kontext aus dem Dokument:\n{context}"
         else:
@@ -1546,12 +1550,14 @@ async def chat(
                     logger.warning("Failed to persist aborted chat message: {}", e)
                 return
 
+            # Popup actions (translate / explain): append the source page as an inline
+            # citation chip, exactly like normal RAG answers — the frontend renders it
+            # as a [N] S. X pill inside the answer text (consistent with other answers),
+            # and a click jumps to the page + re-highlights the user's exact selection.
             if is_popup:
                 suffix = f" [S. {body.source_page}]"
                 answer += suffix
                 yield f"data: {json.dumps({'token': suffix})}\n\n"
-
-            # Keywords in citations stay (used by frontend for highlighting)
 
             # Save assistant answer (user message was saved before _stream).
             await asyncio.to_thread(

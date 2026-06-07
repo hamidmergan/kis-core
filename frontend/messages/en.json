@@ -1653,8 +1653,6 @@
         "title": "Settings",
         "hildeTitle": "Hilde mascot",
         "hildeDescription": "Show the owl companion in chat.",
-        "pdfHighlightTitle": "Highlight passages in PDFs",
-        "pdfHighlightDescription": "Highlights the cited passage in yellow when you click a source. Off: it just jumps to the spot without a marker.",
         "studioTitle": "Studio",
         "studioDescription": "Show the studio panel with mind maps, notes and tools.",
         "languageTrainingTitle": "Language training",

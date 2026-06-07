@@ -105,8 +105,8 @@ describe("doHighlightSearch marks the user's exact popup selection", () => {
   });
 });
 
-describe("drawCitationHighlight highlightEnabled gating", () => {
-  it("draws the annotation and scrolls when highlighting is enabled (default)", () => {
+describe("drawCitationHighlight always draws the marker", () => {
+  it("draws the annotation and scrolls to the exact spot", () => {
     const { r, createAnnotation } = fakeRegistry();
     const refs = fakeRefs();
     const scroll = { scrollToPage: vi.fn() };
@@ -117,22 +117,6 @@ describe("drawCitationHighlight highlightEnabled gating", () => {
     expect(createAnnotation).toHaveBeenCalledTimes(1);
     expect(scroll.scrollToPage).toHaveBeenCalledTimes(1);
     expect(refs.onHighlightActive).toHaveBeenCalledWith(true);
-  });
-
-  it("scrolls to the exact spot but draws NO annotation when highlighting is disabled", () => {
-    const { r, createAnnotation } = fakeRegistry();
-    const refs = fakeRefs();
-    const scroll = { scrollToPage: vi.fn() };
-
-    const ok = drawCitationHighlight(refs, r, docMgr, scroll, 0, 0, 1, fakeGeometry(), {
-      highlightEnabled: false,
-    });
-
-    expect(ok).toBe(true);
-    expect(createAnnotation).not.toHaveBeenCalled();
-    expect(refs.onHighlightActive).not.toHaveBeenCalledWith(true);
-    // Still jumps to the exact text location — that is the whole point of the setting.
-    expect(scroll.scrollToPage).toHaveBeenCalledTimes(1);
     const arg = scroll.scrollToPage.mock.calls[0][0];
     expect(arg.pageCoordinates.y).toBe(20);
   });

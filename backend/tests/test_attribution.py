@@ -159,3 +159,25 @@ def test_table_header_not_cited_and_data_chip_inside_cell():
     assert lines[2].rstrip().endswith("|")                                 # row still closes with a pipe
     assert "[1, S. 6]" in lines[2]                                         # chip present
     assert lines[2].count("|") == 3                                        # same column count as a clean 2-col row
+
+
+def test_long_dash_delimiter_row_never_cited():
+    # Regression: a real GFM delimiter renders as `|--------|--------|` (Docling / most
+    # models emit padded dashes). Its dedup key is the dash/pipe string itself — 18 chars,
+    # OVER the substantial-line threshold — so the gate used to treat it as a claim and
+    # inject a chip INSIDE the delimiter, which makes GFM stop parsing the block as a table
+    # (the whole table collapses to a paragraph in the UI). The delimiter must stay verbatim.
+    table = (
+        "| Inhalt | Termin |\n"
+        "|--------|--------|\n"
+        "| Webkonferenz | 25.03.2026 |"
+    )
+    out = _attribute_generic_text(
+        table,
+        _searcher({"Inhalt": [_hit(1, 2, "x", 0.2)],
+                   "Webkonferenz": [_hit(1, 2, "x", 0.2)],
+                   "--------": [_hit(1, 2, "x", 0.2)]}),
+        {1: 1}, seen_pages_by_source={1: {2}}, max_distance=0.6,
+    )
+    lines = out.split("\n")
+    assert lines[1] == "|--------|--------|"   # delimiter untouched -> table still parses

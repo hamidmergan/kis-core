@@ -8,10 +8,9 @@ import { FileIcon } from "../sources/FileIcon";
 
 import { EMBEDPDF_ICON_MAP } from "./_icons";
 import { wrapEngineGeometry } from "./_geometry";
-import { doHighlightSearch, clearCitationHighlight, scrollToCitationPage, type HighlightRefs } from "./_highlight";
+import { doHighlightSearch, clearCitationHighlight, scrollToCitationPage, flashPageBorder, type HighlightRefs } from "./_highlight";
 import { copyTextFromPromise } from "@/lib/clipboard";
 import { useTheme } from "@/hooks/useTheme";
-import { useCitationHighlightPref } from "@/hooks/useCitationHighlightPref";
 
 
 export function PdfViewer({
@@ -57,12 +56,6 @@ export function PdfViewer({
   onAddToNoteRef.current = onAddToNote;
   const popupActionsRef = useRef(popupActions);
   popupActionsRef.current = popupActions;
-  // Per-user setting: when off, citation clicks jump to the exact spot without
-  // drawing the yellow marker. Mirrored into a ref so the onLayoutReady callback
-  // (a stable closure) reads the current value instead of a stale one.
-  const { enabled: highlightEnabled } = useCitationHighlightPref();
-  const highlightEnabledRef = useRef(highlightEnabled);
-  highlightEnabledRef.current = highlightEnabled;
 
   // Block EmbedPDF's document-level Ctrl+C handler when focus is outside the viewer
   // so native copy works in chat / tools panels
@@ -87,7 +80,7 @@ export function PdfViewer({
   // Scroll to page (+ highlight text for popup/action-bar exact selections) when the
   // nonce changes (pill click on the same document). Citation chips set no text, so
   // they only scroll; a popup/action-bar selection sets `text` and gets highlighted.
-  const pendingHighlightRef = useRef<{ page: number; text: string } | null>(null);
+  const pendingHighlightRef = useRef<{ page: number; text: string; isCitation?: boolean } | null>(null);
   const prevHighlightRef = useRef<{ pageIndex: number; ids: string[] } | null>(null);
   const citationHighlightRef = useRef<{ pageIndex: number; ids: string[]; scrollY?: number } | null>(null);
   // Controls the "Markierung aufheben" button shown while a citation highlight is active.
@@ -112,18 +105,21 @@ export function PdfViewer({
     const reg = registryRef.current;
     if (!reg) {
       // Viewer not ready yet — save for later (drawn/scrolled on layout-ready).
-      pendingHighlightRef.current = { page: source.page, text: source.highlightText ?? "" };
+      pendingHighlightRef.current = { page: source.page, text: source.highlightText ?? "", isCitation: source.isCitation };
       return;
     }
 
     if (source.highlightText) {
       // Popup / action-bar exact selection: highlight the verbatim text.
-      doHighlightSearch(highlightRefs, reg, source.page, source.highlightText, highlightEnabled);
+      doHighlightSearch(highlightRefs, reg, source.page, source.highlightText);
     } else {
-      // Citation chip (or plain page open): scroll to the page only, no highlight.
+      // Scroll to the page. A citation chip also gets a yellow frame around the page
+      // (cleared via the "Markierung aufheben" button or replaced by the next jump);
+      // a plain document open just scrolls.
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const scroll = (reg as any).getPlugin?.("scroll")?.provides?.();
       scroll?.scrollToPage?.({ pageNumber: source.page, behavior: "instant" });
+      if (source.isCitation) flashPageBorder(highlightRefs, reg, source.page);
     }
 
   }, [source.nonce, source.page, source.highlightText, source.isCitation]);
@@ -235,7 +231,9 @@ export function PdfViewer({
         if (pending) {
           pendingHighlightRef.current = null;
           if (pending.text) {
-            doHighlightSearch(highlightRefs, registry, pending.page, pending.text, highlightEnabledRef.current);
+            doHighlightSearch(highlightRefs, registry, pending.page, pending.text);
+          } else if (pending.isCitation) {
+            flashPageBorder(highlightRefs, registry, pending.page);
           }
         }
         unsub?.();

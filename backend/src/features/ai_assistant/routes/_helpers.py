@@ -333,10 +333,17 @@ def _append_scope_anchor(text: str, qnum: int, page: int) -> str:
 
 
 def _needs_attribution(line: str) -> bool:
-    """Whether a GENERIC answer line gets post-hoc attribution: substantial enough AND
-    not already cited. Exposed so the caller can pre-collect the exact same candidate
-    lines and embed them in ONE batch call (instead of one embed per line)."""
+    """Whether a GENERIC answer line gets post-hoc attribution: substantial enough, not a
+    table delimiter, AND not already cited. Exposed so the caller can pre-collect the exact
+    same candidate lines and embed them in ONE batch call (instead of one embed per line).
+
+    The delimiter guard is load-bearing: a real GFM delimiter is `|--------|--------|`, whose
+    dedup key is the dash/pipe run itself (≥16 chars) — substantial by length alone. Without
+    this it passes the gate and gets a chip injected INSIDE the row, which makes GFM stop
+    parsing the block as a table (it collapses to a paragraph in the UI). A short `|-|-|`
+    happens to fall under the length floor, which is why this only bites real-world tables."""
     return (len(_line_dedup_key(line)) >= _DEDUP_MIN_KEY_LEN
+            and not _is_table_delim(line)
             and not _HAS_CITE.search(line.rstrip()))
 
 
@@ -395,8 +402,9 @@ def _attribute_generic_text(text: str, search_one, source_id_to_qnum: dict, offs
             out.append(line)
             continue
         # A table HEADER row (the next line is the |---| delimiter) is a column label,
-        # not a claim — never cite it. (The delimiter row itself is skipped above: its
-        # dedup key is empty.) Citing the header would also dirty the column titles.
+        # not a claim — never cite it. (The delimiter row itself is rejected by the
+        # _is_table_delim guard in _needs_attribution above.) Citing the header would
+        # also dirty the column titles.
         nxt = lines[i + 1] if i + 1 < len(lines) else ""
         if _is_table_row(line) and _is_table_delim(nxt):
             out.append(line)

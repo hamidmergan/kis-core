@@ -29,9 +29,7 @@ export type HighlightRefs = {
 
 // Controls how drawCitationHighlight integrates with the current marker set:
 //   scroll (default true): scroll the highlight into view after drawing.
-//   highlightEnabled (default true): when false, still scroll to the exact spot but
-//   draw no annotation ("jump only").
-type DrawOpts = { scroll?: boolean; highlightEnabled?: boolean };
+type DrawOpts = { scroll?: boolean };
 
 // Exact-selection highlight = passive yellow marker (NOT a text selection), so it
 // never triggers the selection action-popup. Single colour constant — swap for a
@@ -39,6 +37,16 @@ type DrawOpts = { scroll?: boolean; highlightEnabled?: boolean };
 const CITATION_HL_COLOR = "#FFE14D";   // highlighter yellow
 const CITATION_HL_OPACITY = 0.4;
 const HIGHLIGHT_SUBTYPE = 9;           // PdfAnnotationSubtype.HIGHLIGHT
+
+// Page-frame marker for citation-chip jumps: a yellow border drawn around the whole
+// target page (no fill) so the user sees which page the chip landed on. Persistent
+// until the next jump or the "Markierung aufheben" button. SQUARE (subtype 5) renders
+// for programmatically-created annotations in our EmbedPDF build (verified by the
+// Docling layer-box overlay), unlike the HIGHLIGHT subtype which needs segmentRects.
+const SQUARE_SUBTYPE = 5;              // PdfAnnotationSubtype.SQUARE
+const BORDER_STYLE_SOLID = 1;         // PdfAnnotationBorderStyle.SOLID
+const PAGE_BORDER_WIDTH = 3;          // px frame thickness
+const PAGE_BORDER_OPACITY = 0.95;     // crisp frame
 
 // Position-preserving diacritic fold + lowercase: every character maps to exactly
 // ONE character (its NFKD base letter), so the result has the SAME length and the
@@ -129,6 +137,56 @@ export function clearCitationHighlight(refs: HighlightRefs, reg: unknown) {
 }
 
 
+// Draw a yellow frame around the whole target page when a citation chip jumps here,
+// so the user sees which page they landed on. Border only (no fill); persistent until
+// the next jump or the "Markierung aufheben" button. Ephemeral SQUARE annotation —
+// created but NEVER committed, so the PDF file is untouched — and readOnly+locked so
+// it never intercepts selection/edits. Reuses citationHighlightRef so the existing
+// dismiss button clears it and the next jump replaces it (one marker at a time).
+export function flashPageBorder(refs: HighlightRefs, reg: unknown, page: number) {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const r = reg as any;
+  const anno = r.getPlugin?.("annotation")?.provides?.();
+  const docMgr = r.getPlugin?.("document-manager")?.provides?.();
+  const docId = docMgr?.getActiveDocumentId?.();
+  const doc = docMgr?.getActiveDocument?.();
+  if (!anno?.createAnnotation || !docId || !doc) return;
+
+  const pageIndex = page - 1;
+  const pageObj = doc.pages?.[pageIndex];
+  const pageW = pageObj?.size?.width ?? pageObj?.width;
+  const pageH = pageObj?.size?.height ?? pageObj?.height;
+  if (!pageW || !pageH) return;
+
+  clearCitationHighlight(refs, r);   // one marker at a time
+
+  // Rect = the whole page (origin 0,0). The stroke is centred on the page edge so the
+  // frame sits flush — no inset, because the rect is in page coordinates while the
+  // stroke width is screen px, so any page-unit inset would open a zoom-dependent gap.
+  const id = `kis-pageborder-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+  try {
+    anno.createAnnotation(pageIndex, {
+      type: SQUARE_SUBTYPE,
+      pageIndex,
+      id,
+      rect: { origin: { x: 0, y: 0 }, size: { width: pageW, height: pageH } },
+      color: "transparent",
+      strokeColor: CITATION_HL_COLOR,
+      strokeWidth: PAGE_BORDER_WIDTH,
+      strokeStyle: BORDER_STYLE_SOLID,
+      opacity: PAGE_BORDER_OPACITY,
+      flags: ["readOnly", "locked"],
+      created: new Date(),
+    });
+    anno.deselectAnnotation?.();
+    refs.citationHighlightRef.current = { pageIndex, ids: [id] };
+    refs.onHighlightActive?.(true);
+  } catch {
+    /* frame is non-essential — ignore */
+  }
+}
+
+
 // Smoothly scroll the active highlight back into view. Re-centres the exact
 // highlight position (page + region y), not just the page top, mirroring the initial
 // scroll. The annotation persists in EmbedPDF's model across page virtualization, so
@@ -152,7 +210,7 @@ export function scrollToCitationPage(refs: HighlightRefs, reg: unknown) {
 // but never committed). No text selection is made, so the selection action-popup
 // never appears. Purges any previous one first (one highlight at a time), deselects
 // so no edit handles show, and scrolls the range into view.
-// Exported for unit tests (the highlightEnabled gating contract).
+// Exported for unit tests.
 export function drawCitationHighlight(
   refs: HighlightRefs,
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -160,37 +218,32 @@ export function drawCitationHighlight(
   opts: DrawOpts = {},
 ): boolean {
   const doScroll = opts.scroll ?? true;
-  // User turned the marker off (settings): skip drawing the annotation entirely
-  // but still compute the bbox below and scroll to the exact spot — "jump only".
-  const highlightEnabled = opts.highlightEnabled ?? true;
   const { segmentRects, bbox } = buildSegmentRects(g, geoStart, geoEnd);
   if (!segmentRects.length || !bbox) return false;
-  if (highlightEnabled) {
-    const anno = r.getPlugin?.("annotation")?.provides?.();
-    const docId = docMgr.getActiveDocumentId?.();
-    if (!anno?.createAnnotation || !docId) return false;
-    clearCitationHighlight(refs, r);   // one highlight at a time
-    const id = `kis-cite-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
-    try {
-      anno.createAnnotation(targetPageIndex, {
-        type: HIGHLIGHT_SUBTYPE,
-        pageIndex: targetPageIndex,
-        id,
-        rect: bbox,
-        segmentRects,
-        strokeColor: CITATION_HL_COLOR,
-        color: CITATION_HL_COLOR,
-        opacity: CITATION_HL_OPACITY,
-        // readOnly + locked so the user can't accidentally select/drag/edit our marker.
-        flags: ["readOnly", "locked"],
-        created: new Date(),
-      });
-      anno.deselectAnnotation?.();      // no selection handles on the fresh annotation
-      refs.citationHighlightRef.current = { pageIndex: targetPageIndex, ids: [id], scrollY: bbox.origin.y };
-      refs.onHighlightActive?.(true);
-    } catch {
-      return false;
-    }
+  const anno = r.getPlugin?.("annotation")?.provides?.();
+  const docId = docMgr.getActiveDocumentId?.();
+  if (!anno?.createAnnotation || !docId) return false;
+  clearCitationHighlight(refs, r);   // one highlight at a time
+  const id = `kis-cite-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+  try {
+    anno.createAnnotation(targetPageIndex, {
+      type: HIGHLIGHT_SUBTYPE,
+      pageIndex: targetPageIndex,
+      id,
+      rect: bbox,
+      segmentRects,
+      strokeColor: CITATION_HL_COLOR,
+      color: CITATION_HL_COLOR,
+      opacity: CITATION_HL_OPACITY,
+      // readOnly + locked so the user can't accidentally select/drag/edit our marker.
+      flags: ["readOnly", "locked"],
+      created: new Date(),
+    });
+    anno.deselectAnnotation?.();      // no selection handles on the fresh annotation
+    refs.citationHighlightRef.current = { pageIndex: targetPageIndex, ids: [id], scrollY: bbox.origin.y };
+    refs.onHighlightActive?.(true);
+  } catch {
+    return false;
   }
   if (scroll && doScroll) {
     scroll.scrollToPage({
@@ -343,11 +396,10 @@ export function tryHighlightOnPage(
 // page, clear any previous marker + stray selection, then mark the verbatim text.
 export function doHighlightSearch(
   refs: HighlightRefs, reg: unknown, page: number, text: string,
-  highlightEnabled: boolean = true,
 ) {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const r = reg as any;
-  const opts: DrawOpts = { highlightEnabled };
+  const opts: DrawOpts = {};
   const scroll = r.getPlugin?.("scroll")?.provides?.();
   scroll?.scrollToPage?.({ pageNumber: page, behavior: "instant" });
 

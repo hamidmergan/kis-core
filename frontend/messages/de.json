@@ -1653,8 +1653,6 @@
         "title": "Einstellungen",
         "hildeTitle": "Hilde-Maskottchen",
         "hildeDescription": "Eulen-Begleiterin im Chat anzeigen.",
-        "pdfHighlightTitle": "Stellen im PDF hervorheben",
-        "pdfHighlightDescription": "Markiert die zitierte Stelle beim Klick auf eine Quelle gelb. Aus: Es wird nur zur Stelle gesprungen, ohne Markierung.",
         "studioTitle": "Studio",
         "studioDescription": "Studio-Panel mit Mindmaps, Notizen und Tools einblenden.",
         "languageTrainingTitle": "Fachsprachentraining",

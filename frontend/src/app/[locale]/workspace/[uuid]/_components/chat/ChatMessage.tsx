@@ -96,6 +96,7 @@ function ChatMessageImpl({
     withCitations(children, msg, activeSourceIds, getFilename, onChipClick,
       (key, vals) => tChip(key, vals));
 
+
   const isTranslatePopup = msg.popup_selection?.action_key === "translate";
   const isStreaming = loading && isLatest;
   const translateFailed = msg.role === "assistant"
