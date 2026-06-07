@@ -111,8 +111,15 @@ def hybrid_search_chunks(
     source_ids: list[int] | None = None,
     limit: int = 15,
     rrf_k: int = 60,
+    fuzzy: bool = False,
 ) -> list[dict]:
-    """Hybrid search: combines vector similarity + BM25 keyword search via RRF."""
+    """Hybrid search: combines vector similarity + BM25 keyword search via RRF.
+
+    ``fuzzy`` adds a trigram word-similarity fallback so a MISSPELLED query word
+    ("authoren") still anchors the right chunk. It is a per-row word_similarity
+    scan (no index), so enable it ONLY for the short user query — NOT for the
+    post-hoc attribution, which fires once per answer line over clean text and
+    would otherwise pay seconds of needless fuzzy scans (slow citation chips)."""
     from loguru import logger
 
     source_filter = ""
@@ -202,7 +209,7 @@ def hybrid_search_chunks(
             # no word lists). Only words >= 4 chars — shorter ones match too loosely.
             # Ranked by best similarity so the closest match leads the RRF fusion.
             fuzzy_words = [w for w in words if len(w) >= 4]
-            if fuzzy_words:
+            if fuzzy and fuzzy_words:
                 best_sim = "GREATEST(" + ", ".join(["word_similarity(%s, c.content)"] * len(fuzzy_words)) + ")"
                 sim_clauses = " OR ".join(["word_similarity(%s, c.content) >= %s"] * len(fuzzy_words))
                 sim_params: list = []

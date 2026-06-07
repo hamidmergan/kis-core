@@ -1098,7 +1098,7 @@ async def chat(
         for sid in search_source_ids:
             anchors = await _asyncio.to_thread(
                 db.hybrid_search_chunks, workspace["id"], embed_text, query_vector,
-                [sid], _NEIGHBOR_ANCHORS,
+                [sid], _NEIGHBOR_ANCHORS, fuzzy=True,  # typo-tolerant for the user query
             )
             if not anchors:
                 continue
