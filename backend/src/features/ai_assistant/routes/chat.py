@@ -40,8 +40,8 @@ from src.tool_prompts import (
     AIA_POPUP_ACTIONS,
     AIA_INTENT_CLASSIFIER_SYSTEM,
     AIA_INTENT_CLASSIFIER_FEWSHOT,
-    AIA_SEARCH_STRATEGY_SYSTEM,
     AIA_SCOPE_EXTRACTOR_SYSTEM,
+    AIA_QUERY_UNDERSTANDING_SYSTEM,
 )
 
 # Upper bound on the question length we hand to the LLM intent classifier.
@@ -49,11 +49,16 @@ from src.tool_prompts import (
 # and very long inputs blow up the cheap-pre-filter premise of the classifier call.
 _INTENT_MAX_WORDS = 30
 
-# GENERIC (overview) retrieval: how many sub-queries the strategy LLM may emit,
-# and how many chunks each sub-query pulls. Together they fan out across the
-# document; the shared char budget at the call site truncates the merged result.
-_GENERIC_MAX_QUERIES = 4
-_GENERIC_PER_QUERY_LIMIT = 8
+# GENERIC (overview) retrieval: ONE wide hybrid search seeds the most on-topic
+# chunks; the round-robin budget top-up below (document order) then fills the rest
+# so the overview spans the whole content. No sub-query decomposition / strategy
+# LLM call — for a broad question semantic relevance is weak, so COVERAGE (the
+# fill) does the real work. The wide limit keeps breadth at/above the old 4-query
+# fan-out (4x8). The shared char budget at the call site truncates the result.
+_GENERIC_RETRIEVE_LIMIT = 32
+# Absolute fallback only: even-spread raw-chunk sample per source when retrieval
+# returns nothing matchable (e.g. media with no searchable text).
+_GENERIC_FALLBACK_SAMPLE = 8
 
 # Page-scoped retrieval: when a question names an explicit page ("fasse Seite 5
 # zusammen", "summarize page 12") we skip semantic search and hand the model
@@ -77,13 +82,6 @@ _PAGE_REF_RE = re.compile(
 )
 _MAX_PAGE_SPAN = 50
 
-# SPECIFIC retrieval: how many ranked chunks to pull PER SOURCE as candidates. The
-# hybrid search fuses vector(top-80)+keyword(top-80) via RRF, so ~160 is the practical
-# ceiling. These are only candidates — the relevance-weighted budget split below
-# (_allocate_specific_budget) decides how many of each source's top chunks actually go
-# to the model, so a big on-topic document still surfaces a deep hit (e.g. an author
-# name buried at rank ~58) without every source dumping all ~160 chunks (mostly noise).
-_SPECIFIC_RETRIEVE_LIMIT = 200
 # Source-distance gate: drop a source whose CLOSEST chunk is farther than this multiple
 # of the best source's closest chunk (off-topic). Cosine distance is stopword-immune →
 # language-agnostic, no word lists.
@@ -93,6 +91,10 @@ _DIST_FACTOR = 1.3
 # chunks, so a question whose answer is spread across many docs (e.g. each doc names
 # one author) keeps every doc represented. ~4-5 chunks.
 _SPECIFIC_FLOOR_CHARS = 4000
+# The model reads the full on-topic source(s); `chunks` is only the bounded preview
+# behind source_pages (a frontend lookup + snippet list, NOT the model context), so
+# we cap it well below the full context budget to keep saved messages small.
+_SPECIFIC_PREVIEW_CHARS = 60000
 
 
 def _parse_page_refs(question: str) -> list[int]:
@@ -335,22 +337,44 @@ async def _classify_intent(llm, question: str) -> str:
     return verdict
 
 
-async def _generate_search_strategy(llm, question: str) -> list[str]:
-    """Decompose a question into up to _GENERIC_MAX_QUERIES retrieval queries.
+def _parse_understanding(content: str) -> tuple[str, dict]:
+    """Parse the combined query-understanding reply into ``(intent, scope)``.
 
-    The GENERIC (overview) path uses this so a broad question retrieves across
-    the whole document instead of a single top-k slice (Open Notebook's "ask"
-    strategy; addresses the known top-k-misses-spread-content limitation). One
-    small LLM call, language-agnostic. Always includes the original question as a
-    query and falls back to ``[question]`` on any error/empty output. Runs in a
-    worker thread so a stalled provider cannot block the event loop.
-    """
+    Tolerant: strips <think>/code-fences, takes the first JSON object. ``intent``
+    defaults to SPECIFIC (the conservative route); ``scope`` is validated by
+    ``_parse_scope_response``. If the JSON is broken we still salvage a GENERIC
+    token if present. Any garbage → ``("SPECIFIC", {"unit": None, "intervals": []})``."""
+    import json
+    raw = re.sub(r"<think>.*?</think>", "", content or "", flags=re.DOTALL)
+    raw = raw.replace("```json", "").replace("```", "")
+    m = re.search(r"\{.*\}", raw, re.DOTALL)
+    if not m:
+        return "SPECIFIC", {"unit": None, "intervals": []}
+    try:
+        obj = json.loads(m.group(0))
+    except Exception:
+        cleaned = re.sub(r"[^A-Za-z]+", " ", raw).upper().split()
+        return ("GENERIC" if "GENERIC" in cleaned else "SPECIFIC"), {"unit": None, "intervals": []}
+    intent = "GENERIC" if "GENERIC" in str(obj.get("intent", "")).upper() else "SPECIFIC"
+    scope_obj = obj.get("scope")
+    scope = _parse_scope_response(json.dumps(scope_obj)) if scope_obj else {"unit": None, "intervals": []}
+    return intent, scope
+
+
+async def _understand_query(llm, question: str) -> tuple[str, dict]:
+    """ONE pre-call that does BOTH query-understanding jobs in a single round-trip:
+    route GENERIC vs SPECIFIC AND extract any explicit page/time scope. Replaces the
+    two separate pre-calls (intent classifier + scope extractor). Returns
+    ``(intent, scope)``. On any failure → ``("SPECIFIC", empty scope)`` — the
+    conservative route; the regex fallback still covers simple page refs downstream.
+    Runs in a worker thread so a stalled provider cannot block the event loop."""
     import asyncio
     def _call():
+        # 60s covers Ollama cold-start; warm calls return in ~500ms.
         return llm._client.with_options(timeout=60.0, max_retries=0).chat.completions.create(
             model=llm._model,
             messages=[
-                {"role": "system", "content": AIA_SEARCH_STRATEGY_SYSTEM},
+                {"role": "system", "content": AIA_QUERY_UNDERSTANDING_SYSTEM},
                 {"role": "user", "content": question},
             ],
             temperature=0.0,
@@ -360,22 +384,13 @@ async def _generate_search_strategy(llm, question: str) -> list[str]:
     try:
         response = await asyncio.to_thread(_call)
         msg = response.choices[0].message
-        raw = (msg.content or getattr(msg, "reasoning_content", None) or "").strip()
-        raw = re.sub(r"<think>.*?</think>", "", raw, flags=re.DOTALL).strip()
+        raw = msg.content or getattr(msg, "reasoning_content", None) or ""
     except Exception as e:
-        logger.warning("Search-strategy generation failed, using raw question: {}", e)
-        return [question]
-    terms: list[str] = []
-    for line in raw.splitlines():
-        t = re.sub(r"^\s*[-*\d.)\]]+\s*", "", line).strip().strip('"\'')
-        if t and t.lower() not in (x.lower() for x in terms):
-            terms.append(t)
-    # Always keep the original question as an anchor query, dedup-aware.
-    if question.strip().lower() not in (t.lower() for t in terms):
-        terms.insert(0, question.strip())
-    terms = terms[:_GENERIC_MAX_QUERIES]
-    logger.info("Search strategy: {} queries for '{}' -> {}", len(terms), question[:60], terms)
-    return terms or [question]
+        logger.warning("Query understanding failed, defaulting to SPECIFIC/no-scope: {}", e)
+        return "SPECIFIC", {"unit": None, "intervals": []}
+    intent, scope = _parse_understanding(raw)
+    logger.info("Query understanding: '{}' → intent={} scope={}", question[:50], intent, scope)
+    return intent, scope
 
 
 def _context_budget() -> int:
@@ -419,34 +434,32 @@ def _full_context_if_fits(source_ids: list[int], max_chars: int) -> Optional[lis
 
 
 async def _retrieve_generic_context(
-    llm, provider, workspace_id: int, source_ids: list[int], question: str,
+    provider, workspace_id: int, source_ids: list[int], question: str,
     budget: int = 0,
 ) -> list[dict]:
     """Build the GENERIC (overview) context purely from pgvector retrieval.
 
-    Decomposes the question into a few sub-queries, runs each through hybrid
-    search, merges + dedups the hits, then guarantees every active source is
-    represented (per-source mini-search fallback, then the source's first chunk).
-    No summaries involved — chunks + embeddings are the only precomputed data.
+    Runs the question through ONE wide hybrid search, dedups the hits, then
+    guarantees every active source is represented (per-source mini-search
+    fallback, then the source's first chunk). The round-robin budget top-up below
+    fills the rest of the context in document order, so the overview spans the
+    whole content — no sub-query decomposition and no strategy LLM call (for a
+    broad question relevance is weak; coverage does the real work). No summaries
+    involved — chunks + embeddings are the only precomputed data.
     """
     import asyncio
-    terms = await _generate_search_strategy(llm, question)
+    question_vector = await asyncio.to_thread(provider.embed_one, question)
+    hits = db.hybrid_search_chunks(
+        workspace_id, question, question_vector, source_ids=source_ids,
+        limit=_GENERIC_RETRIEVE_LIMIT,
+    )
     merged: list[dict] = []
     seen: set = set()
-    question_vector = None
-    for term in terms:
-        vec = await asyncio.to_thread(provider.embed_one, term)
-        if question_vector is None:
-            question_vector = vec  # first query is the original question (anchor)
-        hits = db.hybrid_search_chunks(
-            workspace_id, term, vec, source_ids=source_ids,
-            limit=_GENERIC_PER_QUERY_LIMIT,
-        )
-        for h in hits:
-            key = (h["source_id"], h["page_number"], (h.get("content") or "")[:80])
-            if key not in seen:
-                seen.add(key)
-                merged.append(h)
+    for h in hits:
+        key = (h["source_id"], h["page_number"], (h.get("content") or "")[:80])
+        if key not in seen:
+            seen.add(key)
+            merged.append(h)
 
     if not source_ids or len(source_ids) <= 1:
         chunks = merged
@@ -469,7 +482,7 @@ async def _retrieve_generic_context(
     # the document; the char budget at the call site truncates the rest.
     if not chunks:
         for sid in source_ids or []:
-            chunks.extend(_sample(db.get_aia_chunks_by_source(sid), _GENERIC_PER_QUERY_LIMIT))
+            chunks.extend(_sample(db.get_aia_chunks_by_source(sid), _GENERIC_FALLBACK_SAMPLE))
     # Budget top-up: relevance retrieval (max ~32 chunks) typically leaves the
     # overview context budget half-empty, so the summary only sees a fraction of
     # the material and a source can end up with a single chunk. Fill the rest of
@@ -514,8 +527,8 @@ async def _retrieve_generic_context(
 
     from collections import Counter
     per_source = Counter(c["source_id"] for c in chunks)
-    logger.info("Generic retrieval: {} chunks across {} sources ({} queries) | per-source: {}",
-                len(chunks), len(source_ids or []), len(terms), dict(per_source))
+    logger.info("Generic retrieval: {} chunks across {} sources (single wide search) | per-source: {}",
+                len(chunks), len(source_ids or []), dict(per_source))
     return chunks
 
 
@@ -745,6 +758,7 @@ from src.features.ai_assistant.routes._helpers import (
     _strip_inline_citation_chips,
     _attribute_generic_text,
     _needs_attribution,
+    _append_scope_anchor,
     _ALLOWED_EXTENSIONS,
     _MEDIA_EXTENSIONS,
     _MAX_UPLOAD_BYTES,
@@ -863,23 +877,21 @@ async def chat(
                 resolved_sources[source["id"]] = source
         source_ids = resolved if resolved else None
 
-    # Routing + scope extraction — two query-understanding pre-calls. Routing picks
-    # GENERIC (cross-source overview) vs SPECIFIC (topic-focused hybrid search); the
-    # scope extractor (Self-Query) turns any phrasing of an explicit page/timestamp
-    # into a structured scope. When the round-trip runs we fire BOTH with
-    # asyncio.gather so they overlap (~no added latency). The cheap pre-filter still
-    # skips both when the route is obvious (popup, no sources, long question).
+    # Routing + scope extraction — ONE combined query-understanding pre-call.
+    # Routing picks GENERIC (cross-source overview) vs SPECIFIC (topic-focused hybrid
+    # search); the scope part (Self-Query) turns any phrasing of an explicit
+    # page/timestamp into a structured scope. Both jobs read the same question before
+    # retrieval, so one round-trip carries both (was two parallel calls). The cheap
+    # pre-filter still skips it when the route is obvious (popup, no sources, long
+    # question) — then the regex fallback covers simple page refs.
     scope_raw: Optional[dict] = None
     if _should_skip_intent_classification(body.source_text, source_ids, body.question):
         intent = "SPECIFIC"
     else:
-        logger.info("Chat: calling intent classifier + scope extractor...")
+        logger.info("Chat: calling query understanding (intent + scope)...")
         _t0 = _time.monotonic()
-        intent, scope_raw = await asyncio.gather(
-            _classify_intent(llm, body.question),
-            _extract_query_scope(llm, body.question),
-        )
-        logger.info("Chat: intent+scope returned after {:.1f}s", _time.monotonic() - _t0)
+        intent, scope_raw = await _understand_query(llm, body.question)
+        logger.info("Chat: query understanding returned after {:.1f}s", _time.monotonic() - _t0)
     logger.info("Chat intent: {} ('{}' across {} sources)", intent, body.question[:60], len(source_ids or []))
 
     # The question is always used as-is: no conversation history is sent to the
@@ -973,6 +985,11 @@ async def chat(
     # its per-source hybrid hits must never be truncated (a deep fact would be
     # lost). GENERIC/SCOPE/popup stay single-call (overview / exact-scope).
     _specific_path = False
+    # coverage_chunks = what the MODEL reads (SPECIFIC: the whole on-topic
+    # source, batched + map-reduce). chunks = the bounded top-relevance set used
+    # for preview snippets / source_pages metadata. They diverge only on the
+    # SPECIFIC full-coverage path; everywhere else coverage_chunks == chunks.
+    coverage_chunks: list[dict] = []
     if scope_chunks:
         chunks = scope_chunks
     elif intent == "GENERIC":
@@ -991,7 +1008,7 @@ async def chat(
             from src.services.aia_embeddings import get_embedding_provider
             provider = get_embedding_provider()
             chunks = await _retrieve_generic_context(
-                llm, provider, workspace["id"], source_ids, body.question,
+                provider, workspace["id"], source_ids, body.question,
                 budget=context_budget,
             )
     else:
@@ -1013,20 +1030,23 @@ async def chat(
             if popup_source:
                 search_source_ids = [popup_source["id"]]
 
-        # Per-source relevance retrieval. Instead of ONE global top-K (which a deep
-        # fact in a big document can fall below — the author name sat at fused rank
-        # ~59, so a global top-20 missed it), search EACH selected source on its own
-        # (reusing the one query vector) for its most-relevant candidates.
+        # FULL-COVERAGE per-source retrieval. The old top-K hybrid search only
+        # ever looked at the 80 nearest vectors, so a fact whose chunk embeds far
+        # from the question (the author "Thorsten Lübben" sits at vec_rank ~645 in
+        # a 1414-chunk script — his bio never says "Autoren") was never even a
+        # candidate. We now rank EVERY chunk of each selected source by relevance
+        # and hand the WHOLE on-topic source to the model: packed into budget-sized
+        # batches and answered map-reduce (fill a window, open the next call). The
+        # deep fact can no longer be truncated out before the model ever sees it.
         #
         # SOURCE-level distance gate (not chunk-level!): drop a source only when its
         # CLOSEST chunk is off-topic (cosine > _DIST_FACTOR x global best). The gate
         # decides WHICH sources are on-topic; it cannot tell which CHUNK holds the
-        # answer (a name embeds far from "who are the authors", hence rank ~59).
+        # answer (a name embeds far from "who are the authors", hence rank ~645).
         per_source_hits: list[list[dict]] = []
         for sid in search_source_ids:
-            hits = db.hybrid_search_chunks(
-                workspace["id"], embed_text, query_vector,
-                source_ids=[sid], limit=_SPECIFIC_RETRIEVE_LIMIT,
+            hits = await _asyncio.to_thread(
+                db.chunks_by_relevance, workspace["id"], sid, query_vector,
             )
             if hits:
                 per_source_hits.append(hits)
@@ -1045,21 +1065,43 @@ async def chat(
                             hits[0]["source_id"], _src_best, _dist_threshold)
                 continue
             kept.append((hits, _src_best))
-        # Relevance-weighted budget split (Option 2): instead of dumping ALL ~160
-        # hits of every kept source (mostly noise — only a handful bear on the
-        # answer), give one total char budget to the on-topic sources, more to the
-        # more-relevant ones, each contributing its TOP chunks. Caps cost to ≈ one
-        # context window (a single call, or two when the XML wrapper spills a small
-        # tail) while keeping every on-topic doc represented; a single deep source
-        # still gets the whole budget.
-        chunks = _allocate_specific_budget(kept, context_budget)
+        # The model reads EVERY chunk of every on-topic source (relevance-ordered so
+        # the first batch is the most on-point); _pack_context_batches(multi=True)
+        # spills the rest into additional batches → map-reduce. chunks stays the
+        # bounded top-relevance set, used only for preview snippets / source_pages
+        # (a 1414-entry nav list would be useless); the post-hoc attribution
+        # cross-checks against seen_pages_by_source (the UNION across ALL batches),
+        # so a chip can still land on a deep page the model saw but chunks omits.
+        # DOCUMENT ORDER inside each source (not relevance!): map-reduce answers
+        # each batch independently, so a coherent passage split across batches
+        # loses its context — a batch that gets "…verantwortlich bis 15.03.2016"
+        # without the name chunk two paragraphs up will INVENT a name to fill the
+        # gap (observed: hallucinated "Prof. Dr. Böhm"/"Schäfer"). Since full
+        # coverage reads every batch anyway, relevance ordering buys nothing and
+        # only shreds locality; document order keeps neighbours in one window.
+        def _doc_order_key(c: dict) -> tuple:
+            return (
+                c.get("page_number") if c.get("page_number") is not None else -1,
+                c.get("start_time") if c.get("start_time") is not None else -1.0,
+                c.get("id") or 0,
+            )
+        coverage_chunks = [c for hits, _ in kept for c in sorted(hits, key=_doc_order_key)]
+        chunks = _allocate_specific_budget(kept, min(context_budget, _SPECIFIC_PREVIEW_CHARS))
         from collections import Counter as _Counter
-        _per_src = _Counter(c["source_id"] for c in chunks)
-        _chars = sum(len(c.get("content") or "") for c in chunks)
+        _per_src = _Counter(c["source_id"] for c in coverage_chunks)
+        _cov_chars = sum(len(c.get("content") or "") for c in coverage_chunks)
         logger.info(
-            "SPECIFIC budget-split: {} chunks ({} chars) from {} on-topic sources | per-source: {} | budget {} | Query: '{}'",
-            len(chunks), _chars, len(kept), dict(_per_src), context_budget, embed_text[:80],
+            "SPECIFIC full-coverage: {} chunks ({} chars) from {} on-topic sources | per-source: {} | preview {} chunks | budget {}/batch | Query: '{}'",
+            len(coverage_chunks), _cov_chars, len(kept), dict(_per_src), len(chunks), context_budget, embed_text[:80],
         )
+
+    # Single-page PDF scope ("fasse Seite 5 zusammen"): every line of the summary would
+    # carry the SAME page chip for the page the user explicitly named — pure noise in
+    # nav-only mode. We skip per-line attribution for it and append ONE click-to-page
+    # anchor at the bottom (see finalize). Multi-page scope keeps per-line page chips
+    # (they navigate); media scope keeps per-chunk timestamp chips.
+    _scope_pages = {c["page_number"] for c in (scope_chunks or []) if c.get("page_number") is not None}
+    scope_single_page = bool(scope_chunks) and len(_scope_pages) == 1
 
     # Build source-number mapping (Q1, Q2, ...) for multi-source disambiguation
     all_sources_list = {s["id"]: s for s in db.get_aia_sources_by_workspace(workspace["id"])}
@@ -1120,8 +1162,11 @@ async def chat(
     # the post-hoc attribution cross-check uses it to keep a chip only on a page
     # the model could actually have seen. See _attribute_generic_text.
     _specific_multi = _specific_path and not body.source_text
+    # SPECIFIC: the model reads the full on-topic source(s) (coverage_chunks),
+    # spilled across batches → map-reduce. Other paths pack the bounded set.
+    _pack_chunks = coverage_chunks if (_specific_multi and coverage_chunks) else chunks
     batches, seen_pages_by_source = _pack_context_batches(
-        chunks, context_budget, source_id_to_qnum, all_sources_list,
+        _pack_chunks, context_budget, source_id_to_qnum, all_sources_list,
         transcript_by_source, multi=_specific_multi,
     )
     context = batches[0] if batches else "<documents>\n\n</documents>"
@@ -1156,8 +1201,11 @@ async def chat(
             {"role": "user", "content": user_message},
         ]
     elif len(batches) <= 1:
+        # OVERVIEW MODE only for a broad GENERIC ask (not a page/time SCOPE summary):
+        # thematic lead-in + document-by-document coverage so all sources are touched.
+        _overview = intent == "GENERIC" and not scope_chunks
         messages = [
-            {"role": "system", "content": aia_system_rag(chat_lang)},
+            {"role": "system", "content": aia_system_rag(chat_lang, overview=_overview)},
             {"role": "user", "content": aia_rag_user_message(context, rewritten_question)},
         ]
     else:
@@ -1384,6 +1432,12 @@ async def chat(
             # text + AIA_SYSTEM_DIRECT prompt) get no RAG attribution.
             if is_popup or not source_ids:
                 answer = _clean_answer
+            elif scope_single_page:
+                # Single-page scope: skip per-line chips (they'd all repeat the named
+                # page) and append ONE click-to-page anchor at the bottom.
+                _aqn = source_id_to_qnum.get(scope_chunks[0]["source_id"]) if scope_chunks else None
+                _apg = next(iter(_scope_pages), None)
+                answer = _append_scope_anchor(_clean_answer, _aqn, _apg) if (_aqn and _apg is not None) else _clean_answer
             else:
                 from src.services.aia_embeddings import get_embedding_provider
                 _prov = get_embedding_provider()
@@ -1415,7 +1469,11 @@ async def chat(
 
                     return _attribute_generic_text(_stripped, _search_one, source_id_to_qnum,
                                                    seen_pages_by_source=seen_pages_by_source,
-                                                   context_chunks=chunks)
+                                                   # Exact-match grounding must see what the MODEL
+                                                   # read (full coverage), not just the bounded
+                                                   # preview — else a deep-fact line (the author
+                                                   # "Lübben") finds no exact chunk and loses its chip.
+                                                   context_chunks=(coverage_chunks or chunks))
 
                 answer = await asyncio.to_thread(_attribute_blocking)
 

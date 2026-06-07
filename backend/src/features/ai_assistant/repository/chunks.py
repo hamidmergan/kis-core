@@ -228,6 +228,45 @@ def hybrid_search_chunks(
     return results
 
 
+def chunks_by_relevance(
+    workspace_id: int,
+    source_id: int,
+    query_embedding: list[float],
+) -> list[dict]:
+    """EVERY chunk of one source, ranked by vector (cosine) distance to the query.
+
+    hybrid_search_chunks only ever looks at the 80 nearest vectors (+ keyword
+    hits), so a fact whose chunk embeds far from the question — an author named
+    in a first-person bio that never says the word "Autoren" sits at vec_rank
+    ~645 — is never even a candidate. This returns the WHOLE source ranked by
+    relevance so the SPECIFIC full-coverage path can pack it into budget-sized
+    batches and answer map-reduce: fill one context window, open the next call,
+    nothing truncated out.
+
+    Rows carry ``vec_distance`` (the on-topic signal the caller's source gate
+    reads) and the same fields hybrid_search_chunks returns.
+    """
+    with get_connection() as conn:
+        with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
+            cur.execute(
+                """SELECT c.id, c.source_id, c.page_number, c.content,
+                          c.start_time, c.end_time,
+                          (c.embedding <=> %s::vector) AS vec_distance
+                   FROM aia_chunks c
+                   JOIN aia_sources s ON s.id = c.source_id
+                   WHERE s.workspace_id = %s AND c.source_id = %s
+                     AND c.embedding IS NOT NULL
+                   ORDER BY c.embedding <=> %s::vector""",
+                [str(query_embedding), workspace_id, source_id, str(query_embedding)],
+            )
+            out: list[dict] = []
+            for r in cur.fetchall():
+                d = dict(r)
+                d["vec_distance"] = float(d["vec_distance"]) if d["vec_distance"] is not None else None
+                out.append(d)
+            return out
+
+
 # --- KI Tutor: Messages ---
 
 def get_chunks_by_source(source_id: int) -> list[dict]:

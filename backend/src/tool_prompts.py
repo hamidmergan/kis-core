@@ -117,20 +117,27 @@ RAG_NO_INFO_SENTINEL: dict[str, str] = {
 }
 
 
-def aia_system_rag(target_locale: str = "de") -> str:
+def aia_system_rag(target_locale: str = "de", *, overview: bool = False) -> str:
     """Build the RAG system prompt.
 
     Answer language follows the USER'S QUESTION (decided by the model), NOT
     ``target_locale`` — the param is kept for backward compatibility only.
+
+    ``overview=True`` (GENERIC overview/summary asks like "what are these about")
+    appends an OVERVIEW MODE block: a short thematic lead-in PLUS document-by-document
+    coverage, so a broad question over many sources yields comprehensive breadth
+    instead of a 5-line digest. SPECIFIC/SCOPE/popup answers keep the default
+    (overview=False) — they must stay tight and on-point.
     """
     de_sentinel = RAG_NO_INFO_SENTINEL["de"]
     en_sentinel = RAG_NO_INFO_SENTINEL["en"]
-    return (
+    base = (
         "You are an AI tutor. Answer thoroughly based on the provided documents.\n"
         "Use ALL relevant information from ALL provided document sections.\n"
         "Draw logical connections between the question and the source content.\n"
         "If the sources contain contact details for a person or organization, include them.\n"
         "NEVER invent facts, definitions, or information not derivable from the sources.\n"
+        "NEVER reference the documents by their number, index, or id, and NEVER enumerate where a fact appears. The <document index=\"N\" id=\"N\"> numbers are internal markup, NOT part of the answer: do NOT write 'in document 3', 'in Dokumenten 3, 7, 10', 'source 5', 'laut Quelle 2', or any list of such numbers. State each fact ONCE in plain language — the clickable source links are attached automatically afterwards, so you never cite, number, or list sources yourself.\n"
         "No conversation history is provided. The question is standalone - answer it using ONLY the <documents> below.\n"
         "If the <documents> do not contain enough information to answer, respond with EXACTLY ONE short sentence stating the information is not in the provided sources, written IN THE SAME LANGUAGE AS THE USER'S QUESTION "
         f"(German question: \"{de_sentinel}\"; English question: \"{en_sentinel}\"; any other language: translate that statement into the question's language). Do NOT speculate, do NOT use general knowledge.\n"
@@ -153,6 +160,23 @@ def aia_system_rag(target_locale: str = "de") -> str:
         "  - Only add table columns you can actually fill from the sources. NEVER invent a placeholder column (e.g. a 'Note'/'Hinweis' column) whose cells end up empty or '–'. If most cells of a column would be empty, drop that column entirely.\n"
         "  - Do NOT add a separate prose summary paragraph — neither an opening overview nor a closing '## Zusammenfassung' / '## Summary' block. With a bullet-point answer it only repeats the bullets. The bullets themselves ARE the summary.\n"
     )
+    if overview:
+        base += (
+            "\n"
+            "OVERVIEW MODE — this is a BROAD question about what the documents are about / a "
+            "summary / the main topics across SEVERAL sources. Be COMPREHENSIVE; this OVERRIDES "
+            "the 'no opening overview' rule above:\n"
+            "  1. LEAD with a short thematic overview — 2-4 bullets naming the overall subject and "
+            "the themes that span the documents.\n"
+            "  2. THEN go document by document: for EACH distinct source, give 1-2 bullets on what "
+            "THAT document specifically covers, naming it by its TOPIC or TITLE in plain language "
+            "(derive the title from its <source> tag / its content, e.g. '**Leitfaden zum Zitieren** "
+            "— ...'), NEVER by a number, index, or 'document N'. Do not skip a source because it "
+            "overlaps another — say what is distinctive about it.\n"
+            "  3. Cover ALL provided documents — aim for thorough breadth, not a short digest. Still: "
+            "state each fact once, invent nothing, and keep named terms spelled exactly as in the source.\n"
+        )
+    return base
 
 
 def aia_rag_user_message(context: str, question: str) -> str:
@@ -206,6 +230,9 @@ def aia_reduce_user_message(question: str, partials: list[str]) -> str:
         "- If partials genuinely contradict each other, state both briefly.\n"
         "- Do NOT repeat the same point twice. Do NOT mention 'partial answers', "
         "slices, batches, or that any merge happened — output one clean answer.\n"
+        "- NEVER reference documents by number/index/id and NEVER enumerate where a "
+        "fact appears (no 'in Dokumenten 3, 7, 10', no 'laut Quelle 2'). A fact that "
+        "shows up in many slices is stated ONCE, not annotated with where it occurred.\n"
         "- Keep the formatting rules: bullet points by default, a Markdown table "
         "only when several entries share the same fields.\n"
         "- Write the ENTIRE answer in the SAME language as the Question below.\n\n"
@@ -340,26 +367,50 @@ AIA_SCOPE_EXTRACTOR_SYSTEM = (
     'fasse zusammen -> {"unit":null,"intervals":[]}\n'
 )
 
-# Search-strategy decomposition for the GENERIC (overview) chat path. Mirrors
-# Open Notebook's "ask" graph: a broad question ("what is this about?") retrieves
-# poorly as a single top-k query, so the LLM proposes a few diverse sub-queries
-# that together cover the document's breadth. Each sub-query is embedded and run
-# through pgvector independently, then the hits are merged. Language-agnostic:
-# the model must answer in the question's language (no hardcoded word lists).
-AIA_SEARCH_STRATEGY_SYSTEM = (
-    "You are a retrieval strategist for a document question-answering system.\n"
-    "Given the user's question about their documents, output 2 to 4 short, "
-    "diverse search queries that together retrieve everything needed to answer "
-    "it.\n"
+# Combined query-understanding pre-call: does BOTH routing (GENERIC vs SPECIFIC)
+# AND page/time scope extraction in ONE round-trip, replacing the two separate
+# pre-calls. Both jobs read the same input (the question) before retrieval, so one
+# JSON reply carries everything. Language-agnostic (no word lists).
+AIA_QUERY_UNDERSTANDING_SYSTEM = (
+    "You analyze ONE question a user asks about their documents and output ONLY a "
+    "compact JSON object, nothing else:\n"
+    '{"intent":"GENERIC"|"SPECIFIC","scope":{"unit":"page"|"time"|"unknown"|null,"intervals":[[from,to]]}}\n'
     "\n"
-    "- For broad or overview questions, cover DIFFERENT facets of the documents "
-    "(themes, key concepts, structure) so the retrieval spans the whole content, "
-    "not just one spot.\n"
-    "- For focused questions, rephrase into a few complementary angles.\n"
-    "- Use the SAME language as the question.\n"
+    "intent:\n"
+    '- "GENERIC": the user wants a summary, overview, or the main topics across the '
+    "documents (no particular concept is named).\n"
+    '- "SPECIFIC": the user asks about a particular concept, term, definition, '
+    "person, fact, mechanism, comparison, or detail.\n"
     "\n"
-    "Reply with ONLY the queries, one per line. No numbering, no bullets, no "
-    "explanation, no quotes."
+    "scope (an explicit PAGE or TIME the question points to):\n"
+    '- unit "page": refers to PAGES (Seite, page, S., p., página, sayfa, pagina, ...).\n'
+    '- unit "time": refers to a TIME in audio/video (Minute, min, timestamp, '
+    "'ab Minute', 'at minute', ...). Numbers are MINUTES.\n"
+    '- unit "unknown": bare numbers, no page/time word at all ("alles zwischen 12 und '
+    '13"). Still fill intervals.\n'
+    "- unit null with intervals []: the question names no page or time.\n"
+    "- intervals: list of [from,to] inclusive; a single point is [x,x]; an OPEN end "
+    "('ab Seite 10', 'from minute 10 onwards') is [x,null]. A CONTINUOUS range "
+    "('12 bis 14', 'pages 12-14', 'between 10 and 12') is ONE interval [12,14]; "
+    "SEPARATE items ('Seite 5 und 10') are several points [[5,5],[10,10]]. NEVER "
+    "invent numbers that are not in the question.\n"
+    "\n"
+    "Understand ANY language and ANY phrasing; ignore typos and glued tokens.\n"
+    "\n"
+    "Examples (Input -> Output):\n"
+    'fasse zusammen -> {"intent":"GENERIC","scope":{"unit":null,"intervals":[]}}\n'
+    'gib mir einen Überblick -> {"intent":"GENERIC","scope":{"unit":null,"intervals":[]}}\n'
+    'was sind die Hauptthemen -> {"intent":"GENERIC","scope":{"unit":null,"intervals":[]}}\n'
+    'was sind neuronale Netze -> {"intent":"SPECIFIC","scope":{"unit":null,"intervals":[]}}\n'
+    'wer hat das gesagt -> {"intent":"SPECIFIC","scope":{"unit":null,"intervals":[]}}\n'
+    'unterschied zwischen X und Y -> {"intent":"SPECIFIC","scope":{"unit":null,"intervals":[]}}\n'
+    'fasse Seite 12 zusammen -> {"intent":"GENERIC","scope":{"unit":"page","intervals":[[12,12]]}}\n'
+    'fasse Seite 12 bis 14 zusammen -> {"intent":"GENERIC","scope":{"unit":"page","intervals":[[12,14]]}}\n'
+    'ab Seite 10 -> {"intent":"GENERIC","scope":{"unit":"page","intervals":[[10,null]]}}\n'
+    'Seite 5 und 10 -> {"intent":"SPECIFIC","scope":{"unit":"page","intervals":[[5,5],[10,10]]}}\n'
+    'was wird bei Minute 10 erzählt -> {"intent":"SPECIFIC","scope":{"unit":"time","intervals":[[10,10]]}}\n'
+    'fasse alles ab 10 min zusammen -> {"intent":"GENERIC","scope":{"unit":"time","intervals":[[10,null]]}}\n'
+    'alles zwischen 12 und 13 -> {"intent":"SPECIFIC","scope":{"unit":"unknown","intervals":[[12,13]]}}\n'
 )
 
 

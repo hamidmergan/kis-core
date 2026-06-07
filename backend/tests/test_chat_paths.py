@@ -1,10 +1,10 @@
-"""Tests for the two RAG chat paths: GENERIC (overview, multi-query retrieval)
+"""Tests for the two RAG chat paths: GENERIC (overview, single wide retrieval)
 and SPECIFIC (topic-focused, hybrid search). Both are pgvector-only — no
 summaries are precomputed at upload.
 
-Covers the routing decision, the generic search-strategy decomposition +
-multi-query retrieval, the specific source-diversity reordering, and the async
-LLM helpers — all the logic that decides WHICH context the tutor sees before it
+Covers the routing decision, the generic single-search retrieval (merge/dedup +
+source diversity), the specific source-diversity reordering, and the async LLM
+helpers — all the logic that decides WHICH context the tutor sees before it
 ever writes a citation.
 
 LLM and DB are faked/monkeypatched so these are deterministic and offline.
@@ -15,17 +15,19 @@ from src.features.ai_assistant.routes import chat as chat_mod
 from src.features.ai_assistant.routes.chat import (
     _should_skip_intent_classification,
     _sample,
-    _generate_search_strategy,
     _retrieve_generic_context,
     _full_context_if_fits,
     _context_budget,
     _diversify_by_source,
     _order_round_robin,
     _classify_intent,
+    _understand_query,
+    _parse_understanding,
     _stream_usage_tokens,
     _enrich_chat_trace,
+    _pack_context_batches,
+    _allocate_specific_budget,
     _INTENT_MAX_WORDS,
-    _GENERIC_MAX_QUERIES,
 )
 
 
@@ -123,6 +125,52 @@ async def test_classify_intent_defaults_specific_on_error():
     assert await _classify_intent(FakeLLM(raise_exc=True), "x") == "SPECIFIC"
 
 
+# ── combined query understanding (intent + scope in ONE call) ────────────────
+
+def test_parse_understanding_intent_and_page_scope():
+    intent, scope = _parse_understanding(
+        '{"intent":"GENERIC","scope":{"unit":"page","intervals":[[5,5]]}}')
+    assert intent == "GENERIC"
+    assert scope == {"unit": "page", "intervals": [[5, 5]]}
+
+
+def test_parse_understanding_specific_no_scope():
+    intent, scope = _parse_understanding(
+        '{"intent":"SPECIFIC","scope":{"unit":null,"intervals":[]}}')
+    assert intent == "SPECIFIC"
+    assert scope == {"unit": None, "intervals": []}
+
+
+def test_parse_understanding_strips_think_and_fences():
+    raw = '<think>hmm</think>```json\n{"intent":"SPECIFIC","scope":{"unit":"time","intervals":[[10,10]]}}\n```'
+    intent, scope = _parse_understanding(raw)
+    assert intent == "SPECIFIC" and scope == {"unit": "time", "intervals": [[10, 10]]}
+
+
+def test_parse_understanding_salvages_generic_from_broken_json():
+    # braces present but invalid JSON -> still salvage the GENERIC token
+    intent, scope = _parse_understanding("{intent: GENERIC, broken,}")
+    assert intent == "GENERIC" and scope == {"unit": None, "intervals": []}
+
+
+def test_parse_understanding_garbage_defaults_specific():
+    intent, scope = _parse_understanding("no json at all")
+    assert intent == "SPECIFIC" and scope == {"unit": None, "intervals": []}
+
+
+@pytest.mark.asyncio
+async def test_understand_query_reads_both():
+    llm = FakeLLM(content='{"intent":"GENERIC","scope":{"unit":"page","intervals":[[12,14]]}}')
+    intent, scope = await _understand_query(llm, "fasse Seite 12 bis 14 zusammen")
+    assert intent == "GENERIC" and scope == {"unit": "page", "intervals": [[12, 14]]}
+
+
+@pytest.mark.asyncio
+async def test_understand_query_defaults_on_error():
+    intent, scope = await _understand_query(FakeLLM(raise_exc=True), "x")
+    assert intent == "SPECIFIC" and scope == {"unit": None, "intervals": []}
+
+
 # ── _sample: even-spaced cap used in multi-source generic ────────────────────
 
 def test_sample_returns_all_when_under_cap():
@@ -192,26 +240,7 @@ def test_context_budget_clamps_oversized_setting(monkeypatch):
     assert _context_budget() == 120000
 
 
-# ── generic path: search-strategy decomposition (provider faked) ─────────────
-
-@pytest.mark.asyncio
-async def test_search_strategy_parses_lines_and_anchors_question():
-    # The LLM proposes facets; the original question is always kept as anchor[0].
-    llm = FakeLLM(content="Hauptthemen\nKernkonzepte\n- Struktur")
-    terms = await _generate_search_strategy(llm, "Worum geht es?")
-    assert terms[0] == "Worum geht es?"
-    assert "Hauptthemen" in terms
-    assert "Struktur" in terms          # leading "- " stripped
-    assert len(terms) <= _GENERIC_MAX_QUERIES
-
-
-@pytest.mark.asyncio
-async def test_search_strategy_falls_back_to_question_on_error():
-    terms = await _generate_search_strategy(FakeLLM(raise_exc=True), "Worum geht es?")
-    assert terms == ["Worum geht es?"]
-
-
-# ── generic path: multi-query pgvector retrieval (db/provider monkeypatched) ──
+# ── generic path: single-search pgvector retrieval (db/provider monkeypatched) ──
 
 class _FakeProvider:
     def embed_one(self, text):
@@ -219,46 +248,57 @@ class _FakeProvider:
 
 
 @pytest.mark.asyncio
+async def test_generic_retrieval_runs_one_wide_search(monkeypatch):
+    # No sub-query decomposition: a single source is retrieved with ONE wide
+    # hybrid search at _GENERIC_RETRIEVE_LIMIT, not N per-query searches.
+    calls = []
+    def fake_search(wsid, term, vec, source_ids=None, limit=None):
+        calls.append(limit)
+        return [{"source_id": 1, "page_number": 1, "content": "c1"}]
+    monkeypatch.setattr(chat_mod.db, "hybrid_search_chunks", fake_search)
+    monkeypatch.setattr(chat_mod.db, "get_aia_chunks_by_source", lambda sid: [])
+    await _retrieve_generic_context(_FakeProvider(), 99, [1], "Worum geht es?")
+    assert calls == [chat_mod._GENERIC_RETRIEVE_LIMIT]
+
+
+@pytest.mark.asyncio
 async def test_generic_retrieval_merges_dedups_and_diversifies(monkeypatch):
-    # Two sub-queries each return the same two chunks -> dedup to one each, and
+    # The wide search may surface a chunk more than once -> dedup to one each, and
     # both active sources are represented.
-    llm = FakeLLM(content="thema a\nthema b")
     monkeypatch.setattr(chat_mod.db, "hybrid_search_chunks",
         lambda wsid, term, vec, source_ids=None, limit=None: [
             {"source_id": 1, "page_number": 1, "content": "c1"},
             {"source_id": 2, "page_number": 5, "content": "c2"},
         ])
     monkeypatch.setattr(chat_mod.db, "get_aia_chunks_by_source", lambda sid: [])
-    out = await _retrieve_generic_context(llm, _FakeProvider(), 99, [1, 2], "Worum geht es?")
+    out = await _retrieve_generic_context(_FakeProvider(), 99, [1, 2], "Worum geht es?")
     keys = [(c["source_id"], c["page_number"]) for c in out]
-    assert keys.count((1, 1)) == 1      # deduped despite multiple queries
+    assert keys.count((1, 1)) == 1      # deduped
     assert keys.count((2, 5)) == 1
     assert {c["source_id"] for c in out} == {1, 2}
 
 
 @pytest.mark.asyncio
 async def test_generic_retrieval_backfills_missing_source(monkeypatch):
-    # Global search only ever surfaces source 1; source 2 is backfilled by a
+    # The wide search only surfaces source 1; source 2 is backfilled by a
     # per-source mini-search ([2] in source_ids).
-    llm = FakeLLM(content="q1")
     def fake_search(wsid, term, vec, source_ids=None, limit=None):
         if source_ids == [2]:
             return [{"source_id": 2, "page_number": 9, "content": "per-source"}]
         return [{"source_id": 1, "page_number": 1, "content": "c1"}]
     monkeypatch.setattr(chat_mod.db, "hybrid_search_chunks", fake_search)
     monkeypatch.setattr(chat_mod.db, "get_aia_chunks_by_source", lambda sid: [])
-    out = await _retrieve_generic_context(llm, _FakeProvider(), 99, [1, 2], "q")
+    out = await _retrieve_generic_context(_FakeProvider(), 99, [1, 2], "q")
     assert {c["source_id"] for c in out} == {1, 2}
 
 
 @pytest.mark.asyncio
 async def test_generic_retrieval_raw_chunk_fallback_when_no_hits(monkeypatch):
     # Retrieval returns nothing (e.g. media with no matchable text) -> raw chunks.
-    llm = FakeLLM(content="q1")
     monkeypatch.setattr(chat_mod.db, "hybrid_search_chunks", lambda *a, **k: [])
     monkeypatch.setattr(chat_mod.db, "get_aia_chunks_by_source",
         lambda sid: [{"source_id": sid, "page_number": 1, "content": "raw"}])
-    out = await _retrieve_generic_context(llm, _FakeProvider(), 99, [1], "q")
+    out = await _retrieve_generic_context(_FakeProvider(), 99, [1], "q")
     assert out and out[0]["content"] == "raw"
 
 
@@ -407,3 +447,51 @@ def test_enrich_chat_trace_swallows_langfuse_errors(monkeypatch):
     client = _SpyClient(raise_exc=True)
     monkeypatch.setattr(chat_mod, "langfuse_context", _SpyCtx(client))
     _enrich_chat_trace("t", "q", "a", user_id="u", session_id="s")  # must not raise
+
+
+# ── SPECIFIC full-coverage: the deep fact must reach the model ───────────────
+# Regression for the "wer sind die autoren" miss: a co-author named only in a
+# chunk that embeds far from the question (vec_rank ~645) used to fall outside
+# the top-80 vector candidates and never reach the model. SPECIFIC now hands the
+# WHOLE on-topic source to _pack_context_batches(multi=True), which spills into
+# extra batches (map-reduce) rather than truncating — so every chunk is shown.
+
+def _chunk(cid, page, text):
+    return {"id": cid, "source_id": 1, "page_number": page, "content": text}
+
+
+def test_pack_multi_spills_into_batches_without_dropping_any_chunk():
+    # 12 chunks, budget that fits ~3 per batch -> several batches, every chunk kept.
+    chunks = [_chunk(i, i, f"FACT-{i:02d} " + "x" * 300) for i in range(1, 13)]
+    budget = 1200
+    batches, seen = _pack_context_batches(
+        chunks, budget, {1: 1}, {1: {"filename": "doc.pdf"}}, {}, multi=True,
+    )
+    assert len(batches) > 1, "oversized set must spill into multiple batches"
+    joined = "\n".join(batches)
+    # The deep fact (last, least-relevant chunk) is present, not truncated out.
+    for i in range(1, 13):
+        assert f"FACT-{i:02d}" in joined, f"chunk {i} was dropped"
+    # seen_pages is the UNION across ALL batches (feeds the attribution cross-check).
+    assert seen[1] == set(range(1, 13))
+
+
+def test_pack_single_batch_mode_may_skip_overflow():
+    # multi=False (GENERIC/SCOPE/popup) keeps ONE batch: an overflowing chunk is
+    # skipped, not spilled — contrast with multi=True above.
+    chunks = [_chunk(i, i, f"FACT-{i:02d} " + "x" * 300) for i in range(1, 13)]
+    batches, _ = _pack_context_batches(
+        chunks, 1200, {1: 1}, {1: {"filename": "doc.pdf"}}, {}, multi=False,
+    )
+    assert len(batches) == 1
+
+
+def test_preview_budget_bounds_source_pages_set():
+    # `chunks` (preview behind source_pages) is capped well below the full source:
+    # the relevance-weighted split honours the smaller budget.
+    hits = [_chunk(i, i, "y" * 1000) for i in range(1, 201)]  # 200 chunks, ~1k each
+    kept = [(hits, 0.5)]
+    preview = _allocate_specific_budget(kept, 60000)
+    full = _allocate_specific_budget(kept, 250000)
+    assert len(preview) < len(full)
+    assert sum(len(c["content"]) for c in preview) <= 60000

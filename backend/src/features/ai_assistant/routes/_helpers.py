@@ -322,6 +322,16 @@ def _attribution_chip(qnum: int, chunk: dict, line: str) -> list[str]:
     return [f"[{qnum}, S. {page}]"]
 
 
+def _append_scope_anchor(text: str, qnum: int, page: int) -> str:
+    """Append ONE nav-only page chip at the very bottom of a SINGLE-page scope summary.
+
+    A single-page PDF scope ("fasse Seite 5 zusammen") would otherwise chip every line
+    with the SAME page the user explicitly named — pure noise in nav-only mode. We skip
+    per-line attribution for that case and append this one click-to-page anchor instead,
+    so a single jump-to-page link remains. The frontend renders ``[N, S. X]`` as a chip."""
+    return f"{text.rstrip()}\n\n[{qnum}, S. {page}]"
+
+
 def _needs_attribution(line: str) -> bool:
     """Whether a GENERIC answer line gets post-hoc attribution: substantial enough AND
     not already cited. Exposed so the caller can pre-collect the exact same candidate

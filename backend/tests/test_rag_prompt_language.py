@@ -45,6 +45,35 @@ def test_system_prompt_defaults_to_bullets_no_prose_summary():
     assert "Do NOT add a separate prose summary paragraph" in sp
 
 
+def test_overview_mode_adds_thematic_plus_per_document_block():
+    # GENERIC overview asks ("what are these about") must get the OVERVIEW MODE block:
+    # a short thematic lead-in PLUS document-by-document coverage of ALL sources.
+    sp = aia_system_rag("de", overview=True)
+    assert "OVERVIEW MODE" in sp
+    low = sp.lower()
+    assert "thematic overview" in low          # the lead-in
+    assert "document by document" in low        # per-source coverage
+    assert "all provided documents" in low      # breadth: do not skip sources
+
+
+def test_overview_mode_still_forbids_numbering_sources():
+    # Per-document coverage names documents by topic/title, NEVER by index/number —
+    # the post-hoc chips do the attribution. The override must keep that contract.
+    sp = aia_system_rag("de", overview=True)
+    assert "NEVER by a number" in sp
+    # Invention/terminology guards survive into the override too.
+    assert "invent nothing" in sp.lower()
+
+
+def test_overview_block_is_off_by_default():
+    # SPECIFIC / SCOPE / popup answers stay tight: the default prompt has no OVERVIEW
+    # MODE block, so a focused fact question is never inflated into a doc-by-doc tour.
+    assert "OVERVIEW MODE" not in aia_system_rag("de")
+    assert "OVERVIEW MODE" not in aia_system_rag("de", overview=False)
+    # The overview prompt is a strict superset of the default (base unchanged).
+    assert aia_system_rag("de", overview=True).startswith(aia_system_rag("de"))
+
+
 def test_system_prompt_is_locale_independent_for_answer_language():
     # target_locale is backward-compat only; it must NOT change the language
     # contract embedded in the prompt.
