@@ -96,7 +96,10 @@ SCREENCAST_SOFT_TIME_LIMIT      = 3600   # 60 min
 SCREENCAST_TIME_LIMIT           = 3720   # 62 min
 
 # --- AI tutor source limits -------------------------------------------------
-AIA_SOURCE_MAX_PAGES                = 500     # max pages per PDF/DOCX/PPTX upload
+AIA_SOURCE_MAX_PAGES                = 100     # max pages per PDF/DOCX/PPTX upload;
+# lange Skripte kapitelweise hochladen. Grund: bis ~100 S. passt eine Quelle (auch
+# dichter Text) noch nahe ans Fit-Budget → vollständiger Überblick (keine front-
+# lastigen Lücken wie bei 489-S.-Monstern). Reject-Meldung: ``ai.source.tooManyPages``.
 AIA_WORKSPACE_MAX_SOURCES              = 30      # max sources per workspace
 
 # --- AI tutor GENERIC context budget ----------------------------------------
@@ -132,7 +135,7 @@ AIA_SUMMARY_BATCH_MAX_CHARS            = 360000
 AIA_EMBEDDING_BATCH_SIZE               = 1000
 # Safety ceiling on how many chunk segments ONE source contributes to a generic
 # overview before round-robin + the char budget take over. Set well above
-# AIA_SOURCE_MAX_PAGES (500) so PDFs are never down-sampled — every chunk becomes
+# AIA_SOURCE_MAX_PAGES (100) so PDFs are never down-sampled — every chunk becomes
 # a candidate and the budget, not this cap, decides what survives.
 AIA_GENERIC_MAX_SEGMENTS_PER_SOURCE    = 900
 AIA_WORKSPACE_MAX_ACCESS_LINKS         = 10      # max enrollment links per workspace

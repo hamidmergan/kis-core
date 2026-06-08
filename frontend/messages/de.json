@@ -1136,6 +1136,13 @@
       "outOfRange": "Wert muss zwischen 1 und 1000 liegen.",
       "saveFailed": "Speichern fehlgeschlagen."
     },
+    "sourceMaxPagesCard": {
+      "title": "Maximale Seiten pro Quelle",
+      "hint": "Wie viele Seiten ein hochgeladenes Dokument (PDF/DOCX/PPTX) maximal haben darf. Größere werden abgelehnt – lange Skripte bitte kapitelweise hochladen. Default 100: so bleibt jede Quelle klein genug für einen vollständigen Überblick. Medien (mp3/mp4) sind nicht betroffen.",
+      "unit": "Seiten",
+      "outOfRange": "Wert muss zwischen 1 und 2000 liegen.",
+      "saveFailed": "Speichern fehlgeschlagen."
+    },
     "workspaceLabel": {
       "title": "Bezeichnung \"Workspace\"",
       "description": "Wie der Begriff im Frontend angezeigt wird (z. B. \"Modul\" / \"Module\" oder \"Kurs\" / \"Kurse\"). Default: Workspace / Workspaces. Pro Sprache separat einstellbar.",

@@ -821,6 +821,88 @@ function EmbeddingBatchCard() {
   );
 }
 
+function SourceMaxPagesCard() {
+  const t = useTranslations("admin.sourceMaxPagesCard");
+  const [value, setValue] = useState<number | null>(null);
+  const [draft, setDraft] = useState<string>("");
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    fetch("/api/admin/settings", { credentials: "include" })
+      .then((r) => r.json())
+      .then((d) => {
+        const n = typeof d.aia_source_max_pages === "number" ? d.aia_source_max_pages : 100;
+        setValue(n);
+        setDraft(String(n));
+      });
+  }, []);
+
+  const commit = async () => {
+    if (value === null) return;
+    const parsed = Number.parseInt(draft, 10);
+    if (!Number.isFinite(parsed) || parsed < 1 || parsed > 2000) {
+      setError(t("outOfRange"));
+      setDraft(String(value));
+      return;
+    }
+    if (parsed === value) return;
+    setSaving(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/admin/settings", {
+        method: "PATCH",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ aia_source_max_pages: parsed }),
+      });
+      if (res.ok) {
+        setValue(parsed);
+      } else {
+        let detail = t("saveFailed");
+        try {
+          const body = await res.json();
+          if (typeof body?.detail === "string") detail = body.detail;
+          else if (body?.detail?.message) detail = body.detail.message;
+        } catch { /* ignore */ }
+        setError(detail);
+        setDraft(String(value));
+      }
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  if (value === null) return null;
+
+  return (
+    <div className="border border-border-soft rounded-xl bg-background p-5">
+      <p className="text-sm font-medium text-foreground">{t("title")}</p>
+      <p className="text-xs text-muted-soft mt-1">{t("hint")}</p>
+      <div className="mt-3 flex items-center gap-3">
+        <input
+          type="number"
+          min={1}
+          max={2000}
+          step={10}
+          value={draft}
+          onChange={(e) => { setDraft(e.target.value); setError(null); }}
+          onBlur={commit}
+          onKeyDown={(e) => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); }}
+          disabled={saving}
+          className="font-mono text-sm px-3 py-1.5 border-2 border-border rounded-md w-28 transition-colors hover:border-kb focus:outline-none focus:border-kb disabled:opacity-50"
+        />
+        <span className="text-xs text-muted">{t("unit")}</span>
+      </div>
+      {error && (
+        <p className="mt-2 text-xs text-warn bg-warn-bg border border-warn-border rounded-md px-3 py-2">
+          {error}
+        </p>
+      )}
+    </div>
+  );
+}
+
 function SystemPane() {
   return (
     <div className="space-y-4">
@@ -829,6 +911,7 @@ function SystemPane() {
       <ReindexCard />
       <WorkspaceLabelCard />
       <WorkspaceLimitsCard />
+      <SourceMaxPagesCard />
       <ScheduleRetentionCard />
       <ContextBudgetCard />
       <SummaryBatchCard />

@@ -78,10 +78,16 @@ async def upload_source(
         data = _mp4_faststart(data)
 
     page_count = _count_pages(ext, data)
-    if page_count is not None and page_count > AIA_SOURCE_MAX_PAGES:
+    # Max pages per source is admin-tunable at runtime (settings tab); fall back to
+    # the code constant when the DB setting is missing or unparseable.
+    try:
+        max_pages = int(db.get_setting("aia_source_max_pages", str(AIA_SOURCE_MAX_PAGES)))
+    except (TypeError, ValueError):
+        max_pages = AIA_SOURCE_MAX_PAGES
+    if page_count is not None and page_count > max_pages:
         raise HTTPException(
             status_code=413,
-            detail=t("ai.source.tooManyPages", locale, pages=page_count, max=AIA_SOURCE_MAX_PAGES),
+            detail=t("ai.source.tooManyPages", locale, pages=page_count, max=max_pages),
         )
 
     source_uuid = uuid.uuid4().hex

@@ -203,6 +203,10 @@ MESSAGES: dict[str, dict[str, str]] = {
         "de": "Embedding-Chunks pro Aufruf muss zwischen {min} und {max} liegen.",
         "en": "Embedding chunks per call must be between {min} and {max}.",
     },
+    "admin.settings.maxPagesOutOfRange": {
+        "de": "Maximale Seiten pro Quelle muss zwischen {min} und {max} liegen.",
+        "en": "Max pages per source must be between {min} and {max}.",
+    },
     "admin.providers.requiredFields": {
         "de": "Name und Base-URL sind Pflicht.",
         "en": "Name and base URL are required.",

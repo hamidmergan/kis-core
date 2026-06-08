@@ -16,6 +16,7 @@ from src.limits import (
     AIA_CONTEXT_MAX_CHARS,
     AIA_SUMMARY_BATCH_MAX_CHARS,
     AIA_EMBEDDING_BATCH_SIZE,
+    AIA_SOURCE_MAX_PAGES,
 )
 
 from src.routes.admin._models import UpdateSettingsRequest
@@ -64,6 +65,10 @@ async def get_settings(_admin=Depends(get_admin_user)):
         # Chunks per embedding request at ingest (higher = fewer embedding calls).
         "aia_embedding_batch_size": int(
             db.get_setting("aia_embedding_batch_size", str(AIA_EMBEDDING_BATCH_SIZE))
+        ),
+        # Max pages per uploaded source (long scripts → upload chapter-wise).
+        "aia_source_max_pages": int(
+            db.get_setting("aia_source_max_pages", str(AIA_SOURCE_MAX_PAGES))
         ),
     }
 
@@ -168,5 +173,17 @@ async def update_settings(
                 detail=t("admin.settings.embeddingBatchOutOfRange", locale, min=1, max=1000),
             )
         db.set_setting("aia_embedding_batch_size", str(value))
+
+    # Max pages per uploaded source. Bounded 1..2000: keeps sources near the
+    # fit-shortcut size (complete overview) and rejects monster docs (split into
+    # chapters). Default 100; an admin can raise it for low-density slide decks.
+    if body.aia_source_max_pages is not None:
+        value = body.aia_source_max_pages
+        if value < 1 or value > 2000:
+            raise HTTPException(
+                status_code=400,
+                detail=t("admin.settings.maxPagesOutOfRange", locale, min=1, max=2000),
+            )
+        db.set_setting("aia_source_max_pages", str(value))
 
     return {"ok": True}

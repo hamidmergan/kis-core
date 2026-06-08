@@ -41,6 +41,9 @@ class UpdateSettingsRequest(BaseModel):
     # Chunks per embedding request at ingest. Higher = fewer embedding requests
     # against the shared GWDG rate limit. Bounded to a server-safe ceiling.
     aia_embedding_batch_size: int | None = None
+    # Max pages per uploaded source (long scripts → upload chapter-wise). Keeps a
+    # source near the fit-shortcut size so its overview stays complete.
+    aia_source_max_pages: int | None = None
 
 
 class ToggleToolRequest(BaseModel):
