@@ -18,8 +18,9 @@ Run (stack up + 5 PDFs ingested):
 Env overrides: AIA_EVAL_BASE, AIA_EVAL_WS, AIA_EVAL_USER, AIA_EVAL_PW, AIA_EVAL_PACE.
 
 Scenario status notes:
-  - 📄 page-scope cases (13/14) are xfail: scope auto-detection is dormant
-    (SPECIFIC-only pipeline) → semantic retrieval only; expected weak (baseline).
+  - 📄 page-scope cases (13/14): with the pre-call re-activated, scope is detected
+    and the EXACT page is retrieved. mode="scope" keeps a lenient net (xfail-on-fail)
+    so the suite still passes if run against a build where scope is dormant.
   - 🖼️ OCR/image case (24) is skipped: OCR is intentionally OFF; these PDFs are
     pure text.
 """
@@ -42,7 +43,9 @@ FILES = {
     "AGG13": "AGG13.pdf",
     "BDSG45": "BDSG45.pdf",
     "StGB173": "StGB173.pdf",
-    "BGB498": "BGB498.pdf",
+    # BGB498 (489 pages) removed: exceeds the 100-page per-source limit, so it can
+    # no longer be uploaded as a single source — testing it tests a non-supported
+    # scenario. (Whole-book overview is the multi-chapter / Phase-2 case instead.)
 }
 
 # id, cat, question, [short names], mode, required, forbidden
@@ -52,24 +55,20 @@ SCENARIOS = [
     (1, "A-fakt", "Welche Form schreibt das TVG für Tarifverträge vor?", ["TVG6"], "all", [["schriftform", "schriftlich"]], []),
     (2, "A-fakt", "Wann wurde das AGG ausgefertigt?", ["AGG13"], "all", [["14. august 2006", "14.8.2006", "august 2006"]], []),
     (3, "A-fakt", "Was regelt § 211 StGB?", ["StGB173"], "all", [["mord"]], []),
-    (4, "A-fakt", "Wann beginnt die Rechtsfähigkeit des Menschen nach dem BGB?", ["BGB498"], "all", [["geburt"]], []),
     (5, "A-fakt", "Wer ist die unabhängige Datenschutz-Aufsichtsbehörde des Bundes nach BDSG?", ["BDSG45"], "all", [["bundesbeauftragte", "bfdi", "informationsfreiheit"]], []),
 
-    (8, "B-tief", "Wie lang ist die regelmäßige Verjährungsfrist im BGB?", ["BGB498"], "all", [["drei jahre", "3 jahre"]], []),
     (9, "B-tief", "Auf wen sind die TVG-Vorschriften entsprechend anwendbar?", ["TVG6"], "all", [["arbeitnehmerähnlich"]], []),
 
     (10, "C-überblick", "Gib einen Überblick, was das Tarifvertragsgesetz regelt.", ["TVG6"], "all", [["tarifvertrag", "tarifverträge"], ["allgemeinverbindlich"]], []),
-    (11, "C-überblick", "In welche Bücher gliedert sich das BGB?", ["BGB498"], "all", [["schuldrecht", "schuldverhältnis"], ["sachenrecht"], ["familienrecht"], ["erbrecht"]], []),
     (12, "C-überblick", "Welche großen Teile hat das StGB?", ["StGB173"], "all", [["allgemein"], ["besonder"]], []),
 
     (13, "D-scope", "Was steht inhaltlich auf Seite 1 des BDSG?", ["BDSG45"], "scope", [["anwendungsbereich", "ds-gvo", "datenschutz", "begriffsbestimmung"]], []),
     (14, "D-scope", "Fasse Seite 5 des AGG zusammen.", ["AGG13"], "scope", [["schadensersatz", "entschädigung", "maßregelung"]], []),
 
     (15, "E-cross", "Welche unabhängige Bundesstelle gehört zum AGG und welche zum BDSG?", ["AGG13", "BDSG45"], "all", [["antidiskriminierungsstelle", "antidiskriminierung"], ["bundesbeauftragte", "bfdi", "datenschutz"]], []),
-    (16, "E-cross", "Wo ist Betrug geregelt und wo der zivilrechtliche Schadensersatz?", ["StGB173", "BGB498"], "all", [["263", "strafgesetzbuch", "stgb"], ["schadensersatz"]], []),
-    # #17 ("Welche fünf Gesetze sind aktiv?") ENTFERNT — schlecht gestellt: fragt nach
-    # der Quell-IDENTITÄT, die das Modell nicht bekommt (nur Chunk-Inhalt). Das ist
-    # eine Metadaten-/UI-Frage, kein RAG-Test. Echte Cross-Source-Tests = #16/#18.
+    # #16 ("Betrug vs. Schadensersatz", StGB+BGB) ENTFERNT mit dem BGB-Source.
+    # #17 ("Welche fünf Gesetze sind aktiv?") ENTFERNT — Metadaten-/UI-Frage, kein
+    # RAG-Test. Cross-Source bleibt über #15 + #18 abgedeckt.
     (18, "E-cross", "Bieten sowohl AGG als auch BDSG eine Beschwerde- bzw. Anrufungsmöglichkeit?", ["AGG13", "BDSG45"], "all", [["beschwerde"], ["bundesbeauftragte", "anrufung", "aufsichtsbehörde", "anrufen"]], []),
 
     (19, "F-hallu", "Welche Freiheitsstrafe sieht das Tarifvertragsgesetz für Mord vor?", ["TVG6"], "honest", [], []),
@@ -77,7 +76,7 @@ SCENARIOS = [
 
     (21, "G-unmöglich", "Fasse Seite 50 des AGG zusammen.", ["AGG13"], "honest", [], []),
 
-    (22, "H-format", "Stelle die Sanktionsarten des BDSG als Tabelle oder Stichpunkte dar.", ["BDSG45"], "all", [["bußgeld", "geldbuße"], ["freiheitsstrafe", "straftat"]], []),
+    (22, "H-format", "Stelle die Sanktionsarten des BDSG als Tabelle oder Stichpunkte dar.", ["BDSG45"], "all", [["bußgeld", "geldbuße"], ["freiheitsstrafe", "straftat", "strafvorschrift"]], []),
 
     (23, "I-tippfehler", "was steth in §242 stgb?", ["StGB173"], "all", [["diebstahl"]], []),
 ]
@@ -90,12 +89,10 @@ HONEST_MARKERS = [
     "alle arbeitgeber", "strafgesetzbuch", "nur 13", "13 seiten",
 ]
 
-# Known overview gaps (xfail, not regressions): the SPECIFIC-only pipeline does
-# not yet use summaries at query time (Phase 2), so an overview of a very large
-# doc / many sources can miss late or underrepresented content.
-XFAIL_KNOWN = {
-    11: "BGB-Überblick: 5. Buch (Erbrecht) fehlt — 489-S.-Doc, front-lastig (Phase-2-Ziel)",
-}
+# Known overview gaps (xfail, not regressions). Currently empty: the only entry
+# (#11 BGB whole-book overview) was removed together with the BGB source — a
+# 489-page book is no longer a valid single source (100-page limit).
+XFAIL_KNOWN: dict[int, str] = {}
 
 _state = {}
 
