@@ -245,14 +245,40 @@ def _dedup_repeated_lines(text: str) -> str:
 _GENERIC_ATTRIB_MAX_DIST = 0.6
 
 
-def _pick_attribution(hits: list[dict], max_distance: float) -> Optional[dict]:
+def _is_seen(chunk: dict, seen_pages_by_source: Optional[dict]) -> bool:
+    """True if this chunk's source/page was actually retrieved into the model's context.
+
+    ``None`` mapping == no cross-check (accept). A PDF chunk passes only if its page is in
+    the retrieved set for its source; a media chunk (``page_number`` is None) passes
+    whenever its source was retrieved at all. This is what keeps a chip pointing at a page
+    the model never saw."""
+    if seen_pages_by_source is None:
+        return True
+    pages = seen_pages_by_source.get(chunk.get("source_id"))
+    if pages is None:
+        return False
+    pg = chunk.get("page_number")
+    return pg is None or pg in pages
+
+
+def _pick_attribution(hits: list[dict], max_distance: float,
+                      seen_pages_by_source: Optional[dict] = None) -> Optional[dict]:
     """Return the closest hit (min cosine ``vec_distance``) iff within the gate, else
     None. None == the line is not clearly in the sources -> no chip is attached.
+
+    When ``seen_pages_by_source`` is given, candidates are FILTERED to pages actually
+    retrieved into context BEFORE the closest is chosen — so a line whose globally-closest
+    chunk sits on a page that was NOT retrieved (e.g. a non-dominant source only got its
+    budget floor) still gets a chip via the closest chunk that WAS retrieved, instead of
+    being dropped. The same fact usually appears on several pages; this picks the one the
+    model actually saw.
 
     A table-of-contents / index chunk is never a target: it carries every topic keyword
     verbatim, so it can rank close, but citing the index page is always wrong."""
     cand = [h for h in hits
-            if h.get("vec_distance") is not None and not _is_toc_chunk(h.get("content") or "")]
+            if h.get("vec_distance") is not None
+            and not _is_toc_chunk(h.get("content") or "")
+            and _is_seen(h, seen_pages_by_source)]
     if not cand:
         return None
     best = min(cand, key=lambda h: h["vec_distance"])
@@ -332,10 +358,21 @@ def _append_scope_anchor(text: str, qnum: int, page: int) -> str:
     return f"{text.rstrip()}\n\n[{qnum}, S. {page}]"
 
 
+def _is_label_line(line: str) -> bool:
+    """A lead-in / label line that ends with a colon once trailing markdown emphasis and
+    whitespace are stripped (``**Quelle nach dem AGG:**``, ``Sanktionen:``). It introduces
+    the content on the following line(s) rather than making a claim itself, so it must NOT
+    carry a citation chip — the chip would just dangle after the colon and the real claim
+    below is cited anyway. Colon-only (after stripping) → language-agnostic, no word lists."""
+    s = re.sub(r"[*_`~\s]+$", "", line.rstrip())
+    return s.endswith(":")
+
+
 def _needs_attribution(line: str) -> bool:
     """Whether a GENERIC answer line gets post-hoc attribution: substantial enough, not a
-    table delimiter, AND not already cited. Exposed so the caller can pre-collect the exact
-    same candidate lines and embed them in ONE batch call (instead of one embed per line).
+    table delimiter, not a colon-ending label, AND not already cited. Exposed so the caller
+    can pre-collect the exact same candidate lines and embed them in ONE batch call (instead
+    of one embed per line).
 
     The delimiter guard is load-bearing: a real GFM delimiter is `|--------|--------|`, whose
     dedup key is the dash/pipe run itself (≥16 chars) — substantial by length alone. Without
@@ -344,6 +381,7 @@ def _needs_attribution(line: str) -> bool:
     happens to fall under the length floor, which is why this only bites real-world tables."""
     return (len(_line_dedup_key(line)) >= _DEDUP_MIN_KEY_LEN
             and not _is_table_delim(line)
+            and not _is_label_line(line)
             and not _HAS_CITE.search(line.rstrip()))
 
 
@@ -411,16 +449,16 @@ def _attribute_generic_text(text: str, search_one, source_id_to_qnum: dict, offs
             continue
         # Exact match against the retrieved chunks FIRST (names/emails/numbers we
         # already have, with known pages), then semantic search for reworded prose.
+        # The seen-pages cross-check is applied as a FILTER here (and inside
+        # _pick_attribution), so we choose the closest chunk the model ACTUALLY saw
+        # rather than picking the global closest and then dropping it — the latter lost
+        # the chip whenever a fact's nearest copy sat on an un-retrieved page.
         best = _exact_attribution_chunk(line, context_chunks) if context_chunks else None
+        if best is not None and not _is_seen(best, seen_pages_by_source):
+            best = None
         if best is None:
-            best = _pick_attribution(search_one(line) or [], max_distance)
-        if best is not None and seen_pages_by_source is not None:
-            pages = seen_pages_by_source.get(best["source_id"])
-            if pages is None:
-                best = None                                   # source never retrieved -> reject
-            elif best.get("page_number") is not None and best["page_number"] not in pages:
-                best = None                                   # PDF page not in retrieved set -> reject
-            # media (page_number is None): empty/any set means the source WAS retrieved -> accept
+            best = _pick_attribution(search_one(line) or [], max_distance,
+                                     seen_pages_by_source=seen_pages_by_source)
         qnum = source_id_to_qnum.get(best["source_id"]) if best else None
         chips = _attribution_chip(qnum, best, line) if qnum else []
         # Table data row -> chip INSIDE the last cell (keeps GFM column count intact);

@@ -91,6 +91,16 @@ _DIST_FACTOR = 999  # gate effektiv AUS: 1.3 verwarf bei Mehr-Quellen-/Zählfrag
 # chunks, so a question whose answer is spread across many docs (e.g. each doc names
 # one author) keeps every doc represented. ~4-5 chunks.
 _SPECIFIC_FLOOR_CHARS = 4000
+# Co-dominance cutoff for the SPECIFIC budget split: a source counts as "co-dominant"
+# (and shares the bulk of the budget) only if its closest anchor is within this multiple
+# of the globally best anchor. A single-target question ("welche Form schreibt das TVG
+# vor") has ONE clearly-closest source → the other laws fall outside the cutoff and get
+# only the floor, so they can't FLOOD the context and drown the answer (also cuts latency
+# — far less context to chew). A genuine near-tie (AGG+BDSG cross-source) keeps BOTH inside
+# the cutoff → budget split between them. Cosine-distance ratio → language-agnostic, no
+# word lists. Tunable; loose enough that a real second source is never wrongly excluded
+# (and the floor still represents it even if it is).
+_CODOMINANT_FACTOR = 1.18
 # Neighbor-chunk expansion (SPECIFIC, single call): how many top hybrid hits per
 # source act as expansion ANCHORS, and how many document neighbours to pull around
 # each (±radius). A fact often sits NEXT TO a hit (author name beside the "Autoren"
@@ -458,7 +468,7 @@ async def _retrieve_generic_context(
     question_vector = await asyncio.to_thread(provider.embed_one, question)
     hits = db.hybrid_search_chunks(
         workspace_id, question, question_vector, source_ids=source_ids,
-        limit=_GENERIC_RETRIEVE_LIMIT,
+        limit=_GENERIC_RETRIEVE_LIMIT, fuzzy=True,  # typo-tolerant: "Überblick über <vertipptes Thema>"
     )
     merged: list[dict] = []
     seen: set = set()
@@ -619,28 +629,29 @@ def _allocate_specific_budget(
     kept: list[tuple[list[dict], Optional[float]]],
     char_budget: int,
 ) -> list[dict]:
-    """Relevance-weighted per-source chunk budget for SPECIFIC (Option 2).
+    """Relevance-CONCENTRATED per-source chunk budget for SPECIFIC.
 
-    ``kept`` = the on-topic sources (those that passed the distance gate) as
-    ``(hits, src_best_distance)`` pairs, hits RRF-ranked. Instead of dumping ALL
-    of every source's ~160 hits (mostly noise — only a handful actually bear on a
-    fact/name question), we split ONE total char budget across the sources:
+    ``kept`` = the kept sources as ``(hits, src_best_distance)`` pairs, ``hits``
+    already ordered most-relevant-first. The old flat fill ("add neighbourhoods
+    best-anchor-first until the budget is full") only trimmed when the total
+    OVERFLOWED the budget — so when several whole laws happened to fit under it,
+    ALL of them stayed and a single-target question ("welche Form schreibt das TVG
+    vor?") drowned in 3 unrelated laws (and paid their latency). This splits ONE
+    char budget by relevance instead:
 
-    - **More on-topic → more chars.** Weight = how far inside the gate the source
-      sits (``threshold - src_best``); a borderline source gets little, a strongly
-      on-topic one gets the bulk. Falls back to equal weights without distances.
-    - **Floor per source** (``_SPECIFIC_FLOOR_CHARS``, capped so floors never
-      exceed the budget) so every on-topic doc is represented — the "each doc
-      names one author" case keeps all docs. The remainder is distributed by
-      weight on top of the floors, so total CONTENT ≈ char_budget (≈ one context
-      window). With the per-chunk XML wrapper added at pack time the wrapped
-      context is usually one batch, occasionally two when a small tail spills —
-      answered as parallel map + reduce, far below the old "all hits" cost.
-    - **Single source** gets the whole budget → a deep hit (rank ~58) still fits.
+    - **Co-dominant sources** (closest anchor within ``_CODOMINANT_FACTOR`` × the
+      global best) share the bulk of the budget, weighted by closeness
+      (``best / d`` → nearer gets more). A single clearly-closest source takes it
+      all; a genuine near-tie (AGG+BDSG cross-source) is split between both.
+    - **Far sources** get only the floor — present (so counting / compare-all
+      questions still see every doc) but unable to flood the answer.
+    - **Floor per source** (``_SPECIFIC_FLOOR_CHARS``, capped so floors fit) so no
+      kept doc is represented by nothing.
+    - **Single source** gets the whole budget → a deep hit still fits.
 
-    Total stays ≤ char_budget, so nothing is silently dropped *below* the budget;
-    what is dropped is each source's long low-relevance tail (the noise), which is
-    the whole point.
+    A source whose weighted share exceeds what it actually has takes only what it
+    has; the slack is NOT redistributed to less-relevant docs (that would just
+    re-introduce the flood). Total stays ≤ char_budget.
     """
     if not kept:
         return []
@@ -648,24 +659,30 @@ def _allocate_specific_budget(
         return _take_chunks_within(kept[0][0], char_budget)
 
     dists = [d for _, d in kept if d is not None]
-    threshold = (min(dists) * _DIST_FACTOR) if dists else None
-    weights: list[float] = []
-    for _hits, d in kept:
-        if threshold is not None and d is not None:
-            weights.append(max(threshold - d, 0.0))
-        else:
-            weights.append(1.0)
-    wsum = sum(weights)
-    if wsum <= 0:
-        weights = [1.0] * len(kept)
-        wsum = float(len(kept))
+    best = min(dists) if dists else None
+    cutoff = best * _CODOMINANT_FACTOR if best is not None else None
 
-    # Floor first (capped so floors fit the budget), distribute the rest by weight.
     floor = min(_SPECIFIC_FLOOR_CHARS, char_budget // len(kept))
-    remaining = max(0, char_budget - floor * len(kept))
     out: list[dict] = []
-    for (hits, _d), w in zip(kept, weights):
-        share = floor + int(remaining * w / wsum)
+    codominant: list[tuple[list[dict], Optional[float]]] = []
+    far_count = 0
+    for hits, d in kept:
+        # No distance, or no cutoff → treat as co-dominant (safe fallback).
+        if cutoff is None or d is None or d <= cutoff:
+            codominant.append((hits, d))
+        else:
+            out.extend(_take_chunks_within(hits, floor))  # far source: floor only
+            far_count += 1
+
+    # Remaining budget after the far sources' floors, split among the co-dominant
+    # ones by closeness weight (nearer anchor → larger share).
+    remaining = max(0, char_budget - floor * far_count)
+    if not codominant:
+        return out
+    weights = [(best / d if (best and d) else 1.0) for _h, d in codominant]
+    wsum = sum(weights) or float(len(codominant))
+    for (hits, _d), w in zip(codominant, weights):
+        share = max(floor, int(remaining * w / wsum))
         out.extend(_take_chunks_within(hits, share))
     return out
 
@@ -1123,37 +1140,36 @@ async def chat(
         _all_best = [d for _, d in per_source_expanded if d is not None]
         _global_best = min(_all_best) if _all_best else None
         _dist_threshold = _global_best * _DIST_FACTOR if _global_best is not None else None
-        kept_expanded: list[list[dict]] = []
+        # Hard drop-gate (off by default at _DIST_FACTOR=999) — kept as a safety net.
+        # The SOFT concentration below is what actually stops the multi-source flood.
+        kept: list[tuple[list[dict], Optional[float]]] = []
         for expanded, _src_best in per_source_expanded:
             if (len(per_source_expanded) > 1 and _dist_threshold is not None
                     and _src_best is not None and _src_best > _dist_threshold):
                 logger.info("Per-source: source {} skipped off-topic (dist {:.3f} > {:.3f})",
                             expanded[0]["source_id"] if expanded else "?", _src_best, _dist_threshold)
                 continue
-            kept_expanded.append(expanded)
-        # Cap to ONE context window: add neighbourhoods best-anchor-first until the
-        # budget is full (the most on-point windows win), then re-sort survivors into
-        # document order so each source reads as a coherent passage for the model.
-        _flat = sorted((c for ex in kept_expanded for c in ex), key=lambda c: c.get("_anchor_dist", 1.0))
-        chunks = []
-        _used = 0
-        for c in _flat:
-            _len = len(c.get("content") or "")
-            if chunks and _used + _len > context_budget:
-                break
-            chunks.append(c)
-            _used += _len
+            # order each source's windows best-anchor-first so its budget share takes
+            # the most on-point chunks first
+            kept.append((sorted(expanded, key=lambda c: c.get("_anchor_dist", 1.0)), _src_best))
+        # RELEVANCE-CONCENTRATED budget split: the source(s) closest to the query get
+        # the bulk, far sources only a floor — a single-target question is no longer
+        # flooded by unrelated laws (which also keeps context + latency small). See
+        # _allocate_specific_budget. Then re-sort into document order so each source
+        # reads as a coherent passage for the model.
+        chunks = _allocate_specific_budget(kept, context_budget)
         chunks.sort(key=lambda c: (
             c["source_id"],
             c.get("page_number") if c.get("page_number") is not None else -1,
             c.get("start_time") if c.get("start_time") is not None else -1.0,
             c.get("id") or 0,
         ))
+        _used = sum(len(c.get("content") or "") for c in chunks)
         from collections import Counter as _Counter
         _per_src = _Counter(c["source_id"] for c in chunks)
         logger.info(
-            "SPECIFIC neighbor-expansion: {} chunks ({} chars) from {} on-topic sources | per-source: {} | anchors<={} radius+-{} | Query: '{}'",
-            len(chunks), _used, len(kept_expanded), dict(_per_src), _NEIGHBOR_ANCHORS, _NEIGHBOR_RADIUS, embed_text[:80],
+            "SPECIFIC neighbor-expansion: {} chunks ({} chars) from {} kept sources | per-source: {} | anchors<={} radius+-{} | Query: '{}'",
+            len(chunks), _used, len(kept), dict(_per_src), _NEIGHBOR_ANCHORS, _NEIGHBOR_RADIUS, embed_text[:80],
         )
 
     # Single-page PDF scope ("fasse Seite 5 zusammen"): every line of the summary would
@@ -1518,8 +1534,11 @@ async def chat(
                     def _search_one(_line: str):
                         try:
                             _qv = _vec_by_line.get(_line) or _prov.embed_one(_line)
+                            # limit 10 (was 4): the attribution now FILTERS hits to pages
+                            # actually retrieved, so it needs enough candidates to find the
+                            # closest one the model saw (a fact often sits on several pages).
                             return db.hybrid_search_chunks(workspace["id"], _line, _qv,
-                                                           source_ids=source_ids, limit=4)
+                                                           source_ids=source_ids, limit=10)
                         except Exception as e:
                             logger.warning("post-hoc attribution search failed for a line: {}", e)
                             return []
