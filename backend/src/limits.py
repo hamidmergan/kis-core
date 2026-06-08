@@ -116,6 +116,20 @@ AIA_CONTEXT_MAX_CHARS                  = 250000
 # (1M+) that would stall/overflow the model and waste a giant DB read. Enforced
 # both on write (admin PATCH validation) and on read (_context_budget clamp).
 AIA_CONTEXT_HARD_CAP                    = 500000
+# Per-batch char cap for the ingest-side DOC SUMMARY (aia_summarizer). Sized to
+# MINIMISE the number of GWDG-rate-limited summary calls per ingest (the shared
+# limit is 2/s, 15/min for the whole university), while keeping each batch small
+# enough that its summary still carries real detail (the output is capped, so a
+# huge batch compresses too hard — see private/summary-batching-erklaert.md).
+# 360k chars ≈ ~102k tokens; measured ~23s/call on KISSKI qwen3-30b (256k ctx),
+# well within limits. A large doc still spills into more batches + a combine call.
+# Admin-tunable: ``aia_summary_batch_max_chars``.
+AIA_SUMMARY_BATCH_MAX_CHARS            = 360000
+# Chunks (input texts) per embedding request at ingest. Higher = fewer requests
+# against the shared GWDG rate limit. Measured safe on myLab qwen3-embedding-4b:
+# 1000 OK, 2000 → 502 → bounded to 1000 (see aia_embeddings._BATCH_SIZE ceiling).
+# Admin-tunable: ``aia_embedding_batch_size``.
+AIA_EMBEDDING_BATCH_SIZE               = 1000
 # Safety ceiling on how many chunk segments ONE source contributes to a generic
 # overview before round-robin + the char budget take over. Set well above
 # AIA_SOURCE_MAX_PAGES (500) so PDFs are never down-sampled — every chunk becomes

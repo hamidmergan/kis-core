@@ -447,6 +447,12 @@ def init_db(admin_email: Optional[str] = None) -> None:
             cur.execute("""
                 ALTER TABLE aia_sources ADD COLUMN IF NOT EXISTS progress JSONB
             """)
+            # Migration: per-source DOC SUMMARY (one compact summary built at ingest,
+            # map-reduce over chunks). Used for GENERIC/overview answers. NULL until
+            # built; a source is only set 'ready' once its summary exists.
+            cur.execute("""
+                ALTER TABLE aia_sources ADD COLUMN IF NOT EXISTS summary TEXT
+            """)
             cur.execute("""
                 CREATE TABLE IF NOT EXISTS aia_chunks (
                     id          SERIAL PRIMARY KEY,
@@ -487,13 +493,13 @@ def init_db(admin_email: Optional[str] = None) -> None:
                 CREATE INDEX IF NOT EXISTS idx_chunks_content_trgm
                 ON aia_chunks USING gin(content gin_trgm_ops)
             """)
-            # Migration: page + doc summaries were removed (pgvector-only retrieval —
-            # chat answers from chunks, studio tools build from chunks). Drop the
-            # table and the now-unused aia_sources columns. Idempotent.
+            # Migration: legacy page/paragraph summary TABLES were removed
+            # (pgvector-only retrieval). NOTE: the per-source ``summary`` column is
+            # BACK (added above) for the DOC SUMMARY feature (GENERIC answers) — do
+            # NOT re-add a DROP for it. Idempotent.
             cur.execute("DROP TABLE IF EXISTS aia_page_summaries")
             cur.execute("DROP TABLE IF EXISTS aia_paragraph_summaries")
             cur.execute("ALTER TABLE aia_sources DROP COLUMN IF EXISTS summaries_status")
-            cur.execute("ALTER TABLE aia_sources DROP COLUMN IF EXISTS summary")
             cur.execute("""
                 CREATE TABLE IF NOT EXISTS aia_mindmaps (
                     id           SERIAL PRIMARY KEY,

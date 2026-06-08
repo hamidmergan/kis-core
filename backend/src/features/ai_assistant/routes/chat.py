@@ -942,15 +942,16 @@ async def chat(
     # retrieval, so one round-trip carries both (was two parallel calls). The cheap
     # pre-filter still skips it when the route is obvious (popup, no sources, long
     # question) — then the regex fallback covers simple page refs.
+    # PRE-CALL REMOVED (TODO v1 "Query-Seite vereinfachen"): no LLM round-trip for
+    # routing/scope. The system is SPECIFIC-only now (one retrieval path with a
+    # fit-shortcut), so intent classification is unnecessary, and scope (page/
+    # timestamp) is no longer auto-detected from the question text. The scope
+    # RETRIEVAL code (_retrieve_page_scoped_context / _retrieve_time_scoped_context)
+    # is KEPT, dormant, for a future explicit UI action (a structured page/time field
+    # from the frontend, like the popup's source_page). → 1 LLM call per question.
+    intent = "SPECIFIC"
     scope_raw: Optional[dict] = None
-    if _should_skip_intent_classification(body.source_text, source_ids, body.question):
-        intent = "SPECIFIC"
-    else:
-        logger.info("Chat: calling query understanding (intent + scope)...")
-        _t0 = _time.monotonic()
-        intent, scope_raw = await _understand_query(llm, body.question)
-        logger.info("Chat: query understanding returned after {:.1f}s", _time.monotonic() - _t0)
-    logger.info("Chat intent: {} ('{}' across {} sources)", intent, body.question[:60], len(source_ids or []))
+    logger.info("Chat: SPECIFIC-only, no pre-call ('{}' across {} sources)", body.question[:60], len(source_ids or []))
 
     # The question is always used as-is: no conversation history is sent to the
     # LLM. Each turn is fully standalone (no follow-up condensing, no leaks).
@@ -972,10 +973,11 @@ async def chat(
     if not body.source_text:
         unit = scope_raw["unit"] if scope_raw else None
         intervals = scope_raw["intervals"] if scope_raw else []
-        if not intervals:
-            rx = _parse_page_refs(body.question)
-            if rx:
-                unit, intervals = "page", [[p, p] for p in rx]
+        # Scope AUTO-DETECTION DISABLED (no pre-call, no regex on the question text):
+        # scope_raw is always None now and the _parse_page_refs regex fallback is
+        # intentionally not called — page/timestamp scope will be driven by an
+        # explicit UI action later (structured field). The retrieval block below stays
+        # in place (dormant) so re-activation is a one-line wire-up. intervals stays [].
         if intervals:
             kind = _first_source_kind(source_ids, resolved_sources)  # "pdf"|"media"|None
             # Explicit page/time ask -> may short-circuit to can't-help when unservable.
@@ -1039,33 +1041,25 @@ async def chat(
             headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
         )
 
-    # SPECIFIC (topic-focused) retrieval is the only path allowed to multi-call:
-    # its per-source hybrid hits must never be truncated (a deep fact would be
-    # lost). GENERIC/SCOPE/popup stay single-call (overview / exact-scope).
+    # ONE retrieval path now (SPECIFIC) plus a FIT-SHORTCUT — no GENERIC branch.
+    # FIT-SHORTCUT: if the active sources fit the context budget, hand over the FULL
+    # content (no retrieval, no embedding). Measured: fit-case = 10/10 and faster than
+    # a retrieved sample. _full_context_if_fits short-circuits to None once over budget,
+    # so a large source set bails after ~1-2 source fetches. Skipped for popups
+    # (selection flow narrows to one source below). _specific_path stays False for the
+    # fit-shortcut (single coherent window); it is set True only when we actually run
+    # the per-source hybrid search, which is the only path that may need multi-call.
     _specific_path = False
+    _fit_full = None if body.source_text else _full_context_if_fits(source_ids, context_budget)
     if scope_chunks:
         chunks = scope_chunks
-    elif intent == "GENERIC":
-        # ── Overview path ──
-        # If the active source(s) fit the context budget, hand over the FULL
-        # content (no retrieval, no strategy LLM call): the model sees the whole
-        # document, so a summary/overview misses nothing. Only when it does not
-        # fit do we fall back to pgvector multi-query retrieval (a sample).
-        full = _full_context_if_fits(source_ids, context_budget)
-        if full is not None:
-            chunks = full
-            from collections import Counter
-            _ps = Counter(c["source_id"] for c in chunks)
-            logger.info("Generic full-context: {} chunks fit budget ({} chars), skipping retrieval | per-source: {}", len(chunks), context_budget, dict(_ps))
-        else:
-            from src.services.aia_embeddings import get_embedding_provider
-            provider = get_embedding_provider()
-            chunks = await _retrieve_generic_context(
-                provider, workspace["id"], source_ids, body.question,
-                budget=context_budget,
-            )
+    elif _fit_full is not None:
+        chunks = _fit_full
+        from collections import Counter
+        _ps = Counter(c["source_id"] for c in chunks)
+        logger.info("Fit-shortcut: {} chunks fit budget ({} chars), skipping retrieval | per-source: {}", len(chunks), context_budget, dict(_ps))
     else:
-        # ── Normal path: hybrid search (SPECIFIC) ──
+        # ── Retrieval path: per-source hybrid + neighbor expansion (SPECIFIC) ──
         _specific_path = True
         from src.services.aia_embeddings import get_embedding_provider
         provider = get_embedding_provider()

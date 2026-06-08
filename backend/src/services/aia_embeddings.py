@@ -35,7 +35,12 @@ class OpenAICompatEmbeddingProvider(EmbeddingProvider):
     multiple deployments are different instances of this same class.
     """
 
-    _BATCH_SIZE = 100
+    # Chunks (input texts) per embedding request. Higher = fewer requests against
+    # the shared GWDG rate limit (2/s, 15/min for the whole university). Measured
+    # safe on myLab qwen3-embedding-4b: 1000 OK (~13s), 2000 → 502. Each chunk is
+    # tiny (~300 tok, well under the model's 40k/input limit), so a full 1000-batch
+    # is fine. NOTE: the ingest loop's _EMBED_BATCH must be >= this to take effect.
+    _BATCH_SIZE = 1000
 
     def __init__(self, base_url: str, api_key: str, model: str) -> None:
         from langfuse.openai import OpenAI

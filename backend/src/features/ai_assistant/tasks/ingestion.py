@@ -1,6 +1,7 @@
 """KI-Assistent Celery tasks - source indexing + media transcription."""
 
 import os
+import time
 
 from loguru import logger
 
@@ -108,9 +109,15 @@ def run_index_source(self, source_uuid: str, locale: str = "de"):
                 )
                 chunk_ids.append(chunk_id)
 
-            # 7. Embed chunks in batches of 20
+            # 7. Embed chunks. Batch size = admin-tunable chunks-per-request; each
+            # loop pass = one embedding request → fewer hits against the shared
+            # GWDG rate limit. Capped by the provider's _BATCH_SIZE ceiling.
             db.update_aia_source_progress(source_uuid, "embedding")
-            _EMBED_BATCH = 100
+            _t_embed = time.monotonic()
+            from src.limits import AIA_EMBEDDING_BATCH_SIZE
+            _EMBED_BATCH = int(
+                db.get_setting("aia_embedding_batch_size", str(AIA_EMBEDDING_BATCH_SIZE))
+            )
             for i in range(0, len(chunks), _EMBED_BATCH):
                 batch_chunks = chunks[i: i + _EMBED_BATCH]
                 batch_ids = chunk_ids[i: i + _EMBED_BATCH]
@@ -122,6 +129,30 @@ def run_index_source(self, source_uuid: str, locale: str = "de"):
                     "KI Tutor: embedded chunks {}-{}/{} for source {}",
                     i + 1, i + len(batch_chunks), len(chunks), source_uuid,
                 )
+            logger.info(
+                "KI Tutor: embedding done for {} ({} chunks) in {:.1f}s",
+                source_uuid, len(chunks), time.monotonic() - _t_embed,
+            )
+
+        # 7b. Build the per-source DOC SUMMARY (map-reduce over chunks) for
+        # GENERIC/overview answers. GATING step: a failure raises → the source is
+        # marked 'failed' below (→ user retry via the existing button), never set
+        # 'ready' without a summary. Chunk-based → works for PDF + media alike.
+        db.update_aia_source_progress(source_uuid, "summarizing")
+        from src.services.aia_summarizer import build_source_summary
+        from src.features.ai_assistant.tasks._helpers import _get_llm_client
+        from src.limits import AIA_SUMMARY_BATCH_MAX_CHARS
+        summary_cap = int(
+            db.get_setting("aia_summary_batch_max_chars", str(AIA_SUMMARY_BATCH_MAX_CHARS))
+        )
+        _t_sum = time.monotonic()
+        _sum_client, _sum_model, _ = _get_llm_client()
+        summary = build_source_summary(chunks, _sum_client, _sum_model, summary_cap)
+        db.update_aia_source_summary(source_uuid, summary)
+        logger.info(
+            "KI Tutor: summary built for source {} ({} chars) in {:.1f}s",
+            source_uuid, len(summary), time.monotonic() - _t_sum,
+        )
 
         # 8. Source status → ready
         db.update_aia_source_status(
@@ -175,10 +206,10 @@ def run_index_source(self, source_uuid: str, locale: str = "de"):
                     source_uuid, translation_mode,
                 )
 
-        # 11. No summaries (pgvector-only design). Both chat paths run on
-        # retrieval: SPECIFIC = hybrid search, GENERIC = multi-query retrieval
-        # (see routes/chat.py). The source is fully usable the moment indexing
-        # finishes; clear the progress field so the card shows ready.
+        # 11. Source is ready (chunks embedded + DOC SUMMARY built in step 7b).
+        # SPECIFIC answers run on chunk retrieval, GENERIC on the per-source
+        # summary (see routes/chat.py). Clear the progress field so the card
+        # shows ready.
         db.clear_aia_source_progress(source_uuid)
 
     except Exception as e:

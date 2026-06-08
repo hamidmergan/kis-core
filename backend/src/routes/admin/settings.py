@@ -12,7 +12,11 @@ from fastapi import APIRouter, Depends, HTTPException
 from src import database as db
 from src.dependencies import get_admin_user
 from src.i18n import get_locale, t
-from src.limits import AIA_CONTEXT_MAX_CHARS
+from src.limits import (
+    AIA_CONTEXT_MAX_CHARS,
+    AIA_SUMMARY_BATCH_MAX_CHARS,
+    AIA_EMBEDDING_BATCH_SIZE,
+)
 
 from src.routes.admin._models import UpdateSettingsRequest
 
@@ -52,6 +56,14 @@ async def get_settings(_admin=Depends(get_admin_user)):
         # KI-tutor chat context budget (chars). Default sized for 32k models.
         "aia_context_max_chars": int(
             db.get_setting("aia_context_max_chars", str(AIA_CONTEXT_MAX_CHARS))
+        ),
+        # Ingest-side DOC SUMMARY per-batch char cap (bigger = fewer summary calls).
+        "aia_summary_batch_max_chars": int(
+            db.get_setting("aia_summary_batch_max_chars", str(AIA_SUMMARY_BATCH_MAX_CHARS))
+        ),
+        # Chunks per embedding request at ingest (higher = fewer embedding calls).
+        "aia_embedding_batch_size": int(
+            db.get_setting("aia_embedding_batch_size", str(AIA_EMBEDDING_BATCH_SIZE))
         ),
     }
 
@@ -133,5 +145,28 @@ async def update_settings(
                 detail=t("admin.settings.contextBudgetOutOfRange", locale, min=1000, max=500_000),
             )
         db.set_setting("aia_context_max_chars", str(value))
+
+    # Summary per-batch char cap. Lower bound ~ one chunk; upper bound 500k chars
+    # (~140k tokens) so an admin typo can't push a single summary batch past even
+    # a large model window. Bigger = fewer (coarser) summary calls per upload.
+    if body.aia_summary_batch_max_chars is not None:
+        value = body.aia_summary_batch_max_chars
+        if value < 10_000 or value > 500_000:
+            raise HTTPException(
+                status_code=400,
+                detail=t("admin.settings.summaryBatchOutOfRange", locale, min=10_000, max=500_000),
+            )
+        db.set_setting("aia_summary_batch_max_chars", str(value))
+
+    # Embedding chunks-per-request. Upper bound 1000 = measured server-safe ceiling
+    # (2000 → 502 on the embedding endpoint); higher = fewer rate-limited requests.
+    if body.aia_embedding_batch_size is not None:
+        value = body.aia_embedding_batch_size
+        if value < 1 or value > 1000:
+            raise HTTPException(
+                status_code=400,
+                detail=t("admin.settings.embeddingBatchOutOfRange", locale, min=1, max=1000),
+            )
+        db.set_setting("aia_embedding_batch_size", str(value))
 
     return {"ok": True}

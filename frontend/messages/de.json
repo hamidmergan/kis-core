@@ -1121,6 +1121,21 @@
       "outOfRange": "Wert muss zwischen 1000 und 500000 liegen.",
       "saveFailed": "Speichern fehlgeschlagen."
     },
+    "summaryBatchCard": {
+      "title": "Zusammenfassung – Häppchengröße",
+      "hint": "Wie viel Text (in Zeichen) beim Hochladen pro Zusammenfassungs-Aufruf ans Modell geht. Größer = weniger Aufrufe (schont das Rate-Limit des Anbieters), aber jede Teil-Zusammenfassung wird gröber. Default 360000 (~72 Seiten) ist eine gute Balance.",
+      "unit": "Zeichen",
+      "approxPages": "≈ {n} Seiten",
+      "outOfRange": "Wert muss zwischen 10000 und 500000 liegen.",
+      "saveFailed": "Speichern fehlgeschlagen."
+    },
+    "embeddingBatchCard": {
+      "title": "Embedding – Chunks pro Aufruf",
+      "hint": "Wie viele Text-Stücke (Chunks) beim Hochladen in einen Embedding-Aufruf gepackt werden. Höher = weniger Aufrufe (schont das Rate-Limit des Anbieters). Default 1000 ist ein sicherer Wert; zu hoch kann der Anbieter ablehnen.",
+      "unit": "Chunks/Aufruf",
+      "outOfRange": "Wert muss zwischen 1 und 1000 liegen.",
+      "saveFailed": "Speichern fehlgeschlagen."
+    },
     "workspaceLabel": {
       "title": "Bezeichnung \"Workspace\"",
       "description": "Wie der Begriff im Frontend angezeigt wird (z. B. \"Modul\" / \"Module\" oder \"Kurs\" / \"Kurse\"). Default: Workspace / Workspaces. Pro Sprache separat einstellbar.",
@@ -1725,7 +1740,8 @@
           "parsing": "Lesen",
           "ocr": "OCR Seite",
           "chunking": "Zerlegen",
-          "embedding": "Embedding"
+          "embedding": "Embedding",
+          "summarizing": "Zusammenfassen"
         },
         "retry": "Erneut versuchen",
         "options": "Optionen",

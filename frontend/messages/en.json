@@ -1121,6 +1121,21 @@
       "outOfRange": "Value must be between 1000 and 500000.",
       "saveFailed": "Save failed."
     },
+    "summaryBatchCard": {
+      "title": "Summary – batch size",
+      "hint": "How much text (in characters) is sent to the model per summary call during upload. Larger = fewer calls (eases the provider's rate limit), but each partial summary gets coarser. Default 360000 (~72 pages) is a good balance.",
+      "unit": "characters",
+      "approxPages": "≈ {n} pages",
+      "outOfRange": "Value must be between 10000 and 500000.",
+      "saveFailed": "Save failed."
+    },
+    "embeddingBatchCard": {
+      "title": "Embedding – chunks per call",
+      "hint": "How many text chunks are packed into one embedding call during upload. Higher = fewer calls (eases the provider's rate limit). Default 1000 is a safe value; too high may be rejected by the provider.",
+      "unit": "chunks/call",
+      "outOfRange": "Value must be between 1 and 1000.",
+      "saveFailed": "Save failed."
+    },
     "workspaceLabel": {
       "title": "\"Workspace\" label",
       "description": "How the term is shown in the frontend (e.g. \"module\" / \"modules\" or \"course\" / \"courses\"). Default: workspace / workspaces. Configured per language.",
@@ -1725,7 +1740,8 @@
           "parsing": "Parsing",
           "ocr": "OCR page",
           "chunking": "Chunking",
-          "embedding": "Embedding"
+          "embedding": "Embedding",
+          "summarizing": "Summarizing"
         },
         "retry": "Retry",
         "options": "Options",

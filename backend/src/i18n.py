@@ -195,6 +195,14 @@ MESSAGES: dict[str, dict[str, str]] = {
         "de": "Kontext-Budget muss zwischen {min} und {max} Zeichen liegen.",
         "en": "Context budget must be between {min} and {max} characters.",
     },
+    "admin.settings.summaryBatchOutOfRange": {
+        "de": "Zusammenfassungs-Häppchen muss zwischen {min} und {max} Zeichen liegen.",
+        "en": "Summary batch must be between {min} and {max} characters.",
+    },
+    "admin.settings.embeddingBatchOutOfRange": {
+        "de": "Embedding-Chunks pro Aufruf muss zwischen {min} und {max} liegen.",
+        "en": "Embedding chunks per call must be between {min} and {max}.",
+    },
     "admin.providers.requiredFields": {
         "de": "Name und Base-URL sind Pflicht.",
         "en": "Name and base URL are required.",

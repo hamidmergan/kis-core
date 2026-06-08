@@ -170,6 +170,16 @@ def update_aia_source_toc(uuid: str, toc: list[dict]) -> None:
                 (json.dumps(toc), uuid),
             )
 
+def update_aia_source_summary(uuid: str, summary: str) -> None:
+    """Store the per-source DOC SUMMARY (built at ingest, map-reduce over chunks)."""
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                "UPDATE aia_sources SET summary = %s WHERE uuid = %s",
+                (summary, uuid),
+            )
+        conn.commit()
+
 def delete_aia_source(uuid: str) -> None:
     with get_connection() as conn:
         with conn.cursor() as cur:
