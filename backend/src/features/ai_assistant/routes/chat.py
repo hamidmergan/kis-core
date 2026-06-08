@@ -942,16 +942,22 @@ async def chat(
     # retrieval, so one round-trip carries both (was two parallel calls). The cheap
     # pre-filter still skips it when the route is obvious (popup, no sources, long
     # question) — then the regex fallback covers simple page refs.
-    # PRE-CALL REMOVED (TODO v1 "Query-Seite vereinfachen"): no LLM round-trip for
-    # routing/scope. The system is SPECIFIC-only now (one retrieval path with a
-    # fit-shortcut), so intent classification is unnecessary, and scope (page/
-    # timestamp) is no longer auto-detected from the question text. The scope
-    # RETRIEVAL code (_retrieve_page_scoped_context / _retrieve_time_scoped_context)
-    # is KEPT, dormant, for a future explicit UI action (a structured page/time field
-    # from the frontend, like the popup's source_page). → 1 LLM call per question.
-    intent = "SPECIFIC"
-    scope_raw: Optional[dict] = None
-    logger.info("Chat: SPECIFIC-only, no pre-call ('{}' across {} sources)", body.question[:60], len(source_ids or []))
+    # PRE-CALL (re-activated): ONE LLM round-trip routes GENERIC (cross-source
+    # overview) vs SPECIFIC (topic-focused) AND extracts any explicit page/time
+    # scope (_understand_query). A cheap pre-filter skips it when the route is
+    # obvious (popup / no sources / very long question) → SPECIFIC, no scope.
+    # Routing drives: GENERIC → wide overview retrieval + overview system prompt;
+    # SPECIFIC → neighbor-expansion retrieval; scope → exact page/time chunks.
+    if _should_skip_intent_classification(body.source_text, source_ids, body.question):
+        intent, scope_raw = "SPECIFIC", None
+        logger.info("Chat: pre-call skipped → SPECIFIC ('{}' across {} sources)",
+                    body.question[:60], len(source_ids or []))
+    else:
+        import time as _t_pc
+        _t_pc0 = _t_pc.monotonic()
+        intent, scope_raw = await _understand_query(llm, body.question)
+        logger.info("Chat: pre-call routed intent={} scope={} in {:.1f}s ('{}' across {} sources)",
+                    intent, scope_raw, _t_pc.monotonic() - _t_pc0, body.question[:60], len(source_ids or []))
 
     # The question is always used as-is: no conversation history is sent to the
     # LLM. Each turn is fully standalone (no follow-up condensing, no leaks).
@@ -973,11 +979,12 @@ async def chat(
     if not body.source_text:
         unit = scope_raw["unit"] if scope_raw else None
         intervals = scope_raw["intervals"] if scope_raw else []
-        # Scope AUTO-DETECTION DISABLED (no pre-call, no regex on the question text):
-        # scope_raw is always None now and the _parse_page_refs regex fallback is
-        # intentionally not called — page/timestamp scope will be driven by an
-        # explicit UI action later (structured field). The retrieval block below stays
-        # in place (dormant) so re-activation is a one-line wire-up. intervals stays [].
+        # Regex fallback: if the pre-call (or the skipped-pre-call case) produced no
+        # structured scope, still catch a simple "Seite 5" page reference in the text.
+        if not intervals:
+            rx = _parse_page_refs(body.question)
+            if rx:
+                unit, intervals = "page", [[p, p] for p in rx]
         if intervals:
             kind = _first_source_kind(source_ids, resolved_sources)  # "pdf"|"media"|None
             # Explicit page/time ask -> may short-circuit to can't-help when unservable.
@@ -1058,6 +1065,17 @@ async def chat(
         from collections import Counter
         _ps = Counter(c["source_id"] for c in chunks)
         logger.info("Fit-shortcut: {} chunks fit budget ({} chars), skipping retrieval | per-source: {}", len(chunks), context_budget, dict(_ps))
+    elif intent == "GENERIC":
+        # ── GENERIC overview retrieval: ONE wide hybrid search + round-robin coverage
+        # across ALL active sources (not question-anchored), so the overview spans
+        # every source/chapter; the overview system prompt below (_overview) then
+        # drives document-by-document coverage. (Phase-2 note: per-source summaries
+        # could replace this for many-chapter books — kept as chunks for now.)
+        from src.services.aia_embeddings import get_embedding_provider
+        provider = get_embedding_provider()
+        chunks = await _retrieve_generic_context(
+            provider, workspace["id"], source_ids, rewritten_question, budget=context_budget,
+        )
     else:
         # ── Retrieval path: per-source hybrid + neighbor expansion (SPECIFIC) ──
         _specific_path = True
