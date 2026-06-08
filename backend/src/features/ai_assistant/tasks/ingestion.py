@@ -11,6 +11,13 @@ from src.storage import open_input_file
 
 from src.features.ai_assistant.tasks._helpers import _format_ts
 
+# DOC SUMMARY at ingest is currently UNUSED: nothing reads aia_sources.summary (verified across
+# chat, backend logic and frontend) — it was built for the not-yet-wired "GENERIC over summaries"
+# Phase 2. Disabled so uploads don't burn map-reduce LLM calls for a dead artifact. The block in
+# run_index_source is kept intact; set this True to re-enable (or when Phase 2 lands). Existing
+# stored summaries are NOT touched.
+_BUILD_INGEST_SUMMARY = False
+
 
 def _save_transcript_artifact(key: str, text: str) -> None:
     """Write a transcript-related text artifact to the same backend as the source file."""
@@ -134,25 +141,27 @@ def run_index_source(self, source_uuid: str, locale: str = "de"):
                 source_uuid, len(chunks), time.monotonic() - _t_embed,
             )
 
-        # 7b. Build the per-source DOC SUMMARY (map-reduce over chunks) for
-        # GENERIC/overview answers. GATING step: a failure raises → the source is
-        # marked 'failed' below (→ user retry via the existing button), never set
-        # 'ready' without a summary. Chunk-based → works for PDF + media alike.
-        db.update_aia_source_progress(source_uuid, "summarizing")
-        from src.services.aia_summarizer import build_source_summary
-        from src.features.ai_assistant.tasks._helpers import _get_llm_client
-        from src.limits import AIA_SUMMARY_BATCH_MAX_CHARS
-        summary_cap = int(
-            db.get_setting("aia_summary_batch_max_chars", str(AIA_SUMMARY_BATCH_MAX_CHARS))
-        )
-        _t_sum = time.monotonic()
-        _sum_client, _sum_model, _ = _get_llm_client()
-        summary = build_source_summary(chunks, _sum_client, _sum_model, summary_cap)
-        db.update_aia_source_summary(source_uuid, summary)
-        logger.info(
-            "KI Tutor: summary built for source {} ({} chars) in {:.1f}s",
-            source_uuid, len(summary), time.monotonic() - _t_sum,
-        )
+        # 7b. Per-source DOC SUMMARY (map-reduce over chunks), built for the not-yet-wired
+        # "GENERIC over summaries" Phase 2. CURRENTLY DISABLED via _BUILD_INGEST_SUMMARY:
+        # nothing reads aia_sources.summary (verified across chat, backend logic and frontend),
+        # so building it only burns map-reduce LLM calls per upload. Code kept intact — flip the
+        # flag (top of file) to re-enable when Phase 2 lands. Existing summaries are NOT deleted.
+        if _BUILD_INGEST_SUMMARY:
+            db.update_aia_source_progress(source_uuid, "summarizing")
+            from src.services.aia_summarizer import build_source_summary
+            from src.features.ai_assistant.tasks._helpers import _get_llm_client
+            from src.limits import AIA_SUMMARY_BATCH_MAX_CHARS
+            summary_cap = int(
+                db.get_setting("aia_summary_batch_max_chars", str(AIA_SUMMARY_BATCH_MAX_CHARS))
+            )
+            _t_sum = time.monotonic()
+            _sum_client, _sum_model, _ = _get_llm_client()
+            summary = build_source_summary(chunks, _sum_client, _sum_model, summary_cap)
+            db.update_aia_source_summary(source_uuid, summary)
+            logger.info(
+                "KI Tutor: summary built for source {} ({} chars) in {:.1f}s",
+                source_uuid, len(summary), time.monotonic() - _t_sum,
+            )
 
         # 8. Source status → ready
         db.update_aia_source_status(
