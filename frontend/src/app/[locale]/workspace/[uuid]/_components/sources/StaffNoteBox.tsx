@@ -106,7 +106,10 @@ export function StaffNoteBox({ text, links, isOwner, workspaceUuid, onEdit }: St
         </div>
 
         {open && (
-          <div className="px-3 pb-3 pt-1 space-y-3" style={{ borderTop: "1px solid var(--border)" }}>
+          <div
+            className="px-3 pb-3 pt-1 space-y-3 overflow-y-auto overscroll-contain"
+            style={{ borderTop: "1px solid var(--border)", maxHeight: "40vh" }}
+          >
             {text && text.trim() && (
               <p
                 className="text-sm leading-relaxed whitespace-pre-wrap break-words pt-2"

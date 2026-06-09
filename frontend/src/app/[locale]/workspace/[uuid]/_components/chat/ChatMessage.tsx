@@ -210,7 +210,7 @@ function ChatMessageImpl({
       )}
       <div className="flex flex-col max-w-[96%] w-fit">
         <div
-          className="px-4 py-3 rounded-2xl text-base leading-relaxed break-words"
+          className="px-4 py-2 rounded-2xl text-base leading-snug break-words"
           style={
             msg.role === "user"
               ? { backgroundColor: "var(--kb)", color: "white", borderBottomRightRadius: 6, whiteSpace: "pre-wrap", overflowWrap: "break-word" }
@@ -239,7 +239,7 @@ function ChatMessageImpl({
                     p: ({ children }) => <p className="mb-2 last:mb-0">{wrapCitations(children)}</p>,
                     ul: ({ children }) => <ul className="list-disc pl-4 mb-2 space-y-0.5">{children}</ul>,
                     ol: ({ children }) => <ol className="list-decimal pl-4 mb-2 space-y-0.5">{children}</ol>,
-                    li: ({ children }) => <li className="leading-relaxed">{wrapCitations(children)}</li>,
+                    li: ({ children }) => <li className="leading-snug">{wrapCitations(children)}</li>,
                     strong: ({ children }) => <strong className="font-semibold">{children}</strong>,
                     h1: ({ children }) => <p className="font-semibold mb-1">{wrapCitations(children)}</p>,
                     h2: ({ children }) => <p className="font-semibold mb-1">{wrapCitations(children)}</p>,
@@ -352,7 +352,9 @@ function ChatMessageImpl({
                       title={q.filename}
                     >
                       <ChipIcon size={10} weight="bold" />
-                      <span style={{ color: "var(--kb)" }}>[{q.qnum}]</span>
+                      {msgQmap.length > 1 && (
+                        <span style={{ color: "var(--kb)" }}>[{q.qnum}]</span>
+                      )}
                       <span className="max-w-[500px] truncate">{q.filename}</span>
                     </span>
                   );

@@ -252,20 +252,30 @@ _GENERIC_ATTRIB_MAX_DIST = 0.6
 # distance band observed against off-topic retrieved chunks.
 _GUARANTEE_MAX_DIST = 0.85
 _MAX_CHIPS_PER_LINE = 3
+# An ADDITIONAL chip (multi-chip) is only added when its chunk sits CLOSE to the block's
+# best chunk — within this distance delta. A relative gate, not just the absolute 0.6:
+# otherwise a clearly-best source (e.g. 0.21) collects spurious near-misses (0.32) that
+# are on-topic enough to pass 0.6 but are not where the claim actually came from. Genuine
+# co-sources (a fact stated on two pages / in two laws) sit at ~equal distance and stay.
+_MULTI_CHIP_MAX_DELTA = 0.08
 
 
 def _is_seen(chunk: dict, seen_pages_by_source: Optional[dict]) -> bool:
     """True if this chunk's source/page was actually retrieved into the model's context.
 
     ``None`` mapping == no cross-check (accept). A PDF chunk passes only if its page is in
-    the retrieved set for its source; a media chunk (``page_number`` is None) passes
-    whenever its source was retrieved at all. This is what keeps a chip pointing at a page
-    the model never saw."""
+    the retrieved set for its source; a MEDIA chunk (audio/video — identified by a
+    ``start_time``; it ALSO carries a transcript ``page_number`` that is a segment index,
+    NOT a navigable page) passes whenever its source was retrieved at all — media is tracked
+    by source and navigated by timestamp, so its seen-set is intentionally empty. This is
+    what keeps a chip pointing at a page the model never saw."""
     if seen_pages_by_source is None:
         return True
     pages = seen_pages_by_source.get(chunk.get("source_id"))
     if pages is None:
         return False
+    if chunk.get("start_time") is not None:   # media: source-level cross-check (no page)
+        return True
     pg = chunk.get("page_number")
     return pg is None or pg in pages
 
@@ -347,14 +357,16 @@ def _exact_attribution_chunk(line: str, context_chunks: list[dict]) -> Optional[
 
 
 def _attribution_chip(qnum: int, chunk: dict, line: str) -> list[str]:
-    """Nav-only citation chip for a post-hoc attributed line: page (PDF) or the chunk's
-    start timestamp (media). No span offset, no keyword — clicking only scrolls to the
-    page/timestamp. `line` kept in the signature for stability/logging."""
+    """Nav-only citation chip for a post-hoc attributed line: a MEDIA chunk (audio/video —
+    has a ``start_time``) cites its timestamp ``[N, MM:SS]``; a PDF chunk cites its page
+    ``[N, S. X]``. Media also carries a transcript ``page_number`` (segment index) which
+    must NOT be rendered as a page, so the start_time is checked FIRST. No span offset, no
+    keyword — clicking only scrolls to the page/timestamp. `line` kept for stability/logging."""
+    st = chunk.get("start_time")
+    if st is not None:
+        return [f"[{qnum}, {_format_timestamp(st)}]"]
     page = chunk.get("page_number")
-    if page is None:
-        st = chunk.get("start_time")
-        return [f"[{qnum}, {_format_timestamp(st)}]"] if st is not None else []
-    return [f"[{qnum}, S. {page}]"]
+    return [f"[{qnum}, S. {page}]"] if page is not None else []
 
 
 def _append_scope_anchor(text: str, qnum: int, page: int) -> str:
@@ -448,19 +460,24 @@ def _chips_for_line(cands: list[dict], source_id_to_qnum: dict,
     genuine additional contributing passage), capped at ``_MAX_CHIPS_PER_LINE``."""
     chips: list[str] = []
     keys: set = set()
+    primary_d: Optional[float] = None
     for h in cands:
         qnum = source_id_to_qnum.get(h.get("source_id"))
         if qnum is None:
             continue
         d = h.get("vec_distance")
         d = 1.0 if d is None else d
-        if not chips:
+        if primary_d is None:
             if d > _GUARANTEE_MAX_DIST:  # even the closest seen chunk is an outlier
                 break
-        elif d > max_distance:           # additional sources must be clearly on-topic
-            break
-        page = h.get("page_number")
-        key = (qnum, page if page is not None else ("t", h.get("start_time")))
+            primary_d = d                # the guarantee chip; anchors the relative gate
+        elif d > min(max_distance, primary_d + _MULTI_CHIP_MAX_DELTA):
+            break                        # additional sources must be CLOSE to the best
+        st = h.get("start_time")
+        if st is not None:                  # media: dedup by timestamp, NOT the transcript
+            key = (qnum, "t", st)           # segment index that lives in page_number
+        else:
+            key = (qnum, h.get("page_number"))
         if key in keys:
             continue
         c = _attribution_chip(qnum, h, "")

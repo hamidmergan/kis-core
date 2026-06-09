@@ -1,4 +1,5 @@
 import React from "react";
+import { CaretRight } from "@phosphor-icons/react";
 import { _chunkLabel, type ChipLabelT } from "../../_utils";
 import type { ChatMessage } from "../../_types";
 import { citationPattern, citationsAreAdjacentSameTarget, stripCitations, type CitationFields } from "./_citation_parse";
@@ -14,13 +15,10 @@ export type CitationChipClickHandler = (
 ) => void;
 
 
-// Renders a single citation chip that links back to the source viewer. A chip may
-// stand for several merged citations of the same source+page (rendered as one chip).
-// Clicking a chip only scrolls to the page/timestamp — no highlight — UNLESS it is a
-// popup/action-bar exact selection, which still passes its verbatim text to highlight.
-function CitationChip({
-  filename, displayQNum, label, clickUuid, clickPage, clickSeconds, clickHighlight, isExactSelection, onChipClick,
-}: {
+// Resolved, render-ready data for one chip. A chip may stand for several merged
+// citations of the same source+page (collapsed into one during parsing).
+interface ChipDesc {
+  key: string;
   filename: string;
   displayQNum: number | null;
   label: string;
@@ -29,8 +27,16 @@ function CitationChip({
   clickSeconds: number | undefined;
   clickHighlight: string | undefined;
   isExactSelection: boolean;
-  onChipClick: CitationChipClickHandler;
-}) {
+  start: number;   // token span start in the answer text
+  end: number;     // token span end in the answer text
+}
+
+
+// Renders a single citation chip that links back to the source viewer.
+// Clicking a chip only scrolls to the page/timestamp — no highlight — UNLESS it is a
+// popup/action-bar exact selection, which still passes its verbatim text to highlight.
+function CitationChip({ desc, onChipClick }: { desc: ChipDesc; onChipClick: CitationChipClickHandler }) {
+  const { filename, displayQNum, label, clickUuid, clickPage, clickSeconds, clickHighlight, isExactSelection } = desc;
   // onPointerDown (not onClick) so chips remain clickable during active token stream:
   // with onClick, react-markdown often unmounts the chip between down and up, so the
   // native click lands on an ancestor. Pointer (not Mouse) so touch devices trigger it.
@@ -54,6 +60,41 @@ function CitationChip({
 }
 
 
+// Expanding is ONE-WAY and sticky: a clicked group opens and never collapses again —
+// not on a second click, and not on the re-render/remount churn from streaming tokens
+// or the 15s workspace poll. The open set lives at module scope so a fresh mount (which
+// resets local state) restores the open state from its stable groupId.
+const _openChipGroups = new Set<string>();
+
+// A run of directly-adjacent chips (only whitespace between them). The first chip is
+// always shown; the rest stay behind a minimal chevron until the user opens the group.
+// Once opened, all chips show and the chevron is gone (nothing to collapse back into).
+function CitationChipGroup({ groupId, chips, onChipClick }: { groupId: string; chips: ChipDesc[]; onChipClick: CitationChipClickHandler }) {
+  const [open, setOpen] = React.useState(() => _openChipGroups.has(groupId));
+  const reveal = () => { _openChipGroups.add(groupId); setOpen(true); };
+  if (open) {
+    return (
+      <span className="inline-flex items-center align-middle">
+        {chips.map(c => <CitationChip key={c.key} desc={c} onChipClick={onChipClick} />)}
+      </span>
+    );
+  }
+  return (
+    <span className="inline-flex items-center align-middle">
+      <CitationChip desc={chips[0]} onChipClick={onChipClick} />
+      <span role="button" tabIndex={0}
+        onPointerDown={(e) => { if (e.button === 0) { e.stopPropagation(); reveal(); } }}
+        onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.stopPropagation(); reveal(); } }}
+        aria-label={`+${chips.length - 1}`}
+        className="inline-flex items-center align-middle cursor-pointer mx-0.5 text-[var(--kb)] opacity-60 hover:opacity-100 transition-opacity"
+      >
+        <CaretRight size={11} weight="bold" />
+      </span>
+    </span>
+  );
+}
+
+
 // Parses inline citations like [Q1, S. 2], [1, 05:32], [S. 2] and replaces them with
 // CitationChip elements. Text outside matches is returned as-is. Chips are nav-only;
 // legacy tokens with a trailing offset/keyword still parse to their page/timestamp.
@@ -68,6 +109,8 @@ export function parseCitations(
 ): React.ReactNode[] {
   const msgSourcePages = msg.source_pages ?? [];
   const msgQmap = msg.source_qmap ?? [];
+  // With a single source the [n] prefix is redundant — the chip is just "S. X".
+  const singleSource = msgQmap.length === 1;
   // Matches [1, S. 2], [Q1, S. 2], [S. 2], [1, 05:32] (Q prefix optional for backwards
   // compat). Optional :uuid suffix on Q-prefix lets notes embed source UUIDs verbatim,
   // so they survive even when the active source selection changes after the note was
@@ -100,7 +143,7 @@ export function parseCitations(
     const sourceUuid = embeddedUuid ?? qEntry?.uuid ?? msgSourcePages[0]?.source_uuid ?? activeSourceIds[0] ?? "";
     const filename = qEntry?.filename ?? getFilename(sourceUuid);
     // Fallback: qnum from qmap via sourceUuid (e.g. popup actions without Q-prefix)
-    const displayQNum = qNum ?? msgQmap.find(q => q.uuid === sourceUuid)?.qnum ?? null;
+    const displayQNum = singleSource ? null : (qNum ?? msgQmap.find(q => q.uuid === sourceUuid)?.qnum ?? null);
     const label = timestamp || _chunkLabel(filename, pageNum, undefined, tChip);
     let seconds = 0;
     if (timestamp) {
@@ -129,50 +172,83 @@ export function parseCitations(
     });
   }
 
-  const nodes: React.ReactNode[] = [];
-  let last = 0;
+  // Phase 1: merge directly-adjacent citations of the same source+page into one chip
+  // (e.g. "[1] S. 15 [1] S. 15"). Popup (exact) selections keep their own chip — they
+  // carry verbatim user bounds for the kept highlight.
+  const chips: ChipDesc[] = [];
   let chipKeyCounter = 0;
   let i = 0;
   while (i < parsed.length) {
     const head = parsed[i];
-    if (head.fields.index > last) nodes.push(text.slice(last, head.fields.index));
-
-    // Greedily gather directly-adjacent citations of the same source+page into one
-    // visual chip. Popup (exact) selections keep their own chip — they carry verbatim
-    // user bounds for the kept highlight.
-    const group = [head];
+    const merged = [head];
     let j = i + 1;
     while (
       j < parsed.length
-      && !group[group.length - 1].isExactSelection
+      && !merged[merged.length - 1].isExactSelection
       && !parsed[j].isExactSelection
       && citationsAreAdjacentSameTarget(
-        text, group[group.length - 1].fields, parsed[j].fields,
-        group[group.length - 1].sourceUuid, parsed[j].sourceUuid,
+        text, merged[merged.length - 1].fields, parsed[j].fields,
+        merged[merged.length - 1].sourceUuid, parsed[j].sourceUuid,
       )
     ) {
-      group.push(parsed[j]);
+      merged.push(parsed[j]);
       j++;
+    }
+    const tail = merged[merged.length - 1].fields;
+    chips.push({
+      key: `${keyPrefix}${chipKeyCounter++}`,
+      filename: head.filename,
+      displayQNum: head.displayQNum,
+      label: head.label,
+      clickUuid: head.sourceUuid,
+      clickPage: head.fields.page,
+      clickSeconds: head.clickSeconds,
+      clickHighlight: head.clickHighlight,
+      isExactSelection: head.isExactSelection,
+      start: head.fields.index,
+      end: tail.index + tail.length,
+    });
+    i = j;
+  }
+
+  // Phase 2: emit text + chips. A maximal run of chips separated only by whitespace
+  // collapses into a CitationChipGroup (first chip shown, rest behind a chevron); lone
+  // chips render directly. Exact (popup) chips never fold into a group.
+  const nodes: React.ReactNode[] = [];
+  let last = 0;
+  let k = 0;
+  while (k < chips.length) {
+    const first = chips[k];
+    if (first.start > last) nodes.push(text.slice(last, first.start));
+
+    const run = [first];
+    let n = k + 1;
+    while (
+      n < chips.length
+      && !run[run.length - 1].isExactSelection
+      && !chips[n].isExactSelection
+      && /^\s*$/u.test(text.slice(chips[n - 1].end, chips[n].start))
+    ) {
+      run.push(chips[n]);
+      n++;
     }
 
     nodes.push(
-      <CitationChip
-        key={`${keyPrefix}${chipKeyCounter++}`}
-        filename={head.filename}
-        displayQNum={head.displayQNum}
-        label={head.label}
-        clickUuid={head.sourceUuid}
-        clickPage={head.fields.page}
-        clickSeconds={head.clickSeconds}
-        clickHighlight={head.clickHighlight}
-        isExactSelection={head.isExactSelection}
-        onChipClick={onChipClick}
-      />,
+      run.length > 1
+        ? <CitationChipGroup
+            key={first.key}
+            // Content-based id (source+pages, not text position) so the open state is
+            // restored after ANY remount. A collision just re-opens an identical group,
+            // which is exactly what the user wants anyway.
+            groupId={`${msg.id ?? keyPrefix}#${run.map(c => `${c.clickUuid}:${c.clickPage}`).join(",")}`}
+            chips={run}
+            onChipClick={onChipClick}
+          />
+        : <CitationChip key={first.key} desc={first} onChipClick={onChipClick} />,
     );
 
-    const tail = group[group.length - 1].fields;
-    last = tail.index + tail.length;
-    i = j;
+    last = run[run.length - 1].end;
+    k = n;
   }
   if (last < text.length) nodes.push(text.slice(last));
   return nodes;

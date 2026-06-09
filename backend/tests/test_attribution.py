@@ -49,6 +49,13 @@ def test_attribution_chip_is_nav_only_media():
     assert _attribution_chip(3, chunk, "line") == ["[3, 01:32]"]
 
 
+def test_attribution_chip_media_with_segment_page_uses_timestamp():
+    # REAL audio/video: transcript chunks carry a page_number (segment index) AND a
+    # start_time. The chip MUST be the timestamp, never "S. <segment-index>".
+    chunk = {"source_id": 3, "page_number": 9, "content": "x", "vec_distance": 0.2, "start_time": 92.0}
+    assert _attribution_chip(3, chunk, "line") == ["[3, 01:32]"]
+
+
 # ── _attribute_generic_text (orchestration, injected search) ─────────────────
 
 def _searcher(mapping):
@@ -133,6 +140,18 @@ def test_crosscheck_media_passes_when_source_retrieved():
     assert out == f"{line} [1, 01:32]"
 
 
+def test_crosscheck_media_with_segment_page_passes():
+    # REGRESSION (audio/video had NO chips): real media chunks carry a page_number
+    # (transcript segment index), and _pack_context_batches tracks media sources with an
+    # EMPTY seen-page set (navigated by time, not page). The cross-check must still let the
+    # chip through via start_time — keying on the segment page would reject every line.
+    line = "Eine inhaltlich substanzielle Aussage zum Thema hier."
+    hit = {"source_id": 3, "page_number": 9, "content": "x", "vec_distance": 0.2, "start_time": 92.0}
+    out = _attribute_generic_text(line, _searcher({"substanzielle": [hit]}),
+                                  {3: 1}, seen_pages_by_source={3: set()}, max_distance=0.6)
+    assert out == f"{line} [1, 01:32]"
+
+
 def test_no_crosscheck_when_not_passed():
     line = "Eine inhaltlich substanzielle Aussage zum Thema hier."
     out = _attribute_generic_text(line, _searcher({"substanzielle": [_hit(1, 7, "x", 0.2)]}),
@@ -195,14 +214,31 @@ def test_chips_at_block_end_not_mid_bullet():
     assert out.count("[2, S. 1]") == 1   # deduped across the block
 
 
-def test_multi_chip_distinct_pages_within_gate():
-    # A single synthesised line legitimately draws from TWO retrieved pages (both <=0.6)
-    # -> two chips. No exact verbatim match, so the semantic multi-chip path applies.
+def test_multi_chip_two_close_pages_both_cited():
+    # A synthesised line drawing from TWO retrieved pages at ~equal distance (genuine
+    # co-sources, within the relative delta) -> two chips.
     line = "Eine zusammengesetzte Aussage aus mehreren Stellen zugleich."
-    search = _searcher({"zusammengesetzte": [_hit(1, 5, "x", 0.30), _hit(1, 9, "y", 0.45)]})
+    search = _searcher({"zusammengesetzte": [_hit(1, 5, "x", 0.30), _hit(1, 9, "y", 0.35)]})
     out = _attribute_generic_text(line, search, {1: 1},
                                   seen_pages_by_source={1: {5, 9}}, max_distance=0.6)
     assert "[1, S. 5]" in out and "[1, S. 9]" in out
+
+
+def test_multi_chip_drops_far_secondary_relative_gate():
+    # The HwO case: a clearly-best chunk (0.21) plus on-topic-ish near-misses (0.32) that
+    # pass the absolute 0.6 gate but are NOT where the claim came from. The relative gate
+    # (best + _MULTI_CHIP_MAX_DELTA) keeps ONLY the best -> one chip, no spurious extras.
+    line = "Die Löschung der Eintragung in die Handwerksrolle ist unter Bedingungen möglich."
+    search = _searcher({"Löschung der Eintragung": [
+        _hit(1, 10, "real source", 0.21),
+        _hit(1, 9, "weakly related", 0.32),
+        _hit(1, 58, "off-topic noise", 0.33),
+    ]})
+    out = _attribute_generic_text(line, search, {1: 1},
+                                  seen_pages_by_source={1: {9, 10, 58}}, max_distance=0.6)
+    assert "[1, S. 10]" in out
+    assert "[1, S. 9]" not in out and "[1, S. 58]" not in out
+    assert out.count("[1,") == 1   # exactly one chip
 
 
 def test_ungrounded_answer_borderline_gets_no_chip():
