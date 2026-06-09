@@ -26,8 +26,12 @@ def _resolve_user_id(job_uuid: str) -> int:
     return row["user_id"]
 
 
-def _get_llm_client():
+def _get_llm_client(provider_id: int | None = None):
     from src.services.openai_compat_llm import OpenAICompatLLMClient
+    if provider_id is not None:
+        from src.services import feature_provider_choices, feature_router
+        binding = feature_provider_choices.resolve_binding("chat", provider_id)
+        return feature_router.make_llm_client(binding)
     from src.dependencies import _resolve_llm_provider
     api_key, base_url, model, provider = _resolve_llm_provider()
     if not api_key:
@@ -429,6 +433,7 @@ def run_summary(
     input_path: str,
     filename: str,
     output_format: str,
+    provider_id: int | None = None,
 ):
     try:
         db.update_job_status(job_uuid, "running")
@@ -438,7 +443,7 @@ def run_summary(
 
         content = get_file(input_path)
         ext = Path(filename).suffix.lower()
-        client = _get_llm_client()
+        client = _get_llm_client(provider_id)
 
         with job_heartbeat(job_uuid):
             from src.utils.text_extraction import EXTRACTORS

@@ -7,6 +7,8 @@ import { backendApi, pollJob, downloadJobAsBlob, parseDetail } from "@/lib/api";
 import { MAX_UPLOAD_MB, MAX_UPLOAD_BYTES } from "@/lib/constants";
 import BackLink from "@/components/ui/BackLink";
 import Spinner from "@/components/ui/Spinner";
+import ProviderSelect from "@/components/tools/ProviderSelect";
+import { useFeatureProviders } from "@/hooks/useFeatureProviders";
 
 const ACCEPTED_EXTENSIONS = [".srt", ".vtt", ".txt", ".md", ".pptx", ".docx"];
 const MAX_SIZE_MB = MAX_UPLOAD_MB;
@@ -15,6 +17,9 @@ const MAX_SIZE_BYTES = MAX_UPLOAD_BYTES;
 export default function ZusammenfassungPage() {
   const t = useTranslations("tools.summarize");
   const tCommon = useTranslations("common");
+  // Summary runs on the chat LLM; offer the reachable chat providers the admin
+  // configured a model for. Empty list hides the dropdown (admin default route).
+  const { providers, providerId, setProviderId } = useFeatureProviders("/summary/providers");
   const [processing, setProcessing] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [uploadError, setUploadError] = useState<string | null>(null);
@@ -68,6 +73,7 @@ export default function ZusammenfassungPage() {
       const formData = new FormData();
       formData.append("file", selectedFile);
       formData.append("output_format", outputFormat);
+      if (providerId != null) formData.append("provider_id", String(providerId));
       const response = await backendApi.fetch("/summary", { method: "POST", body: formData });
       if (!response.ok) {
         const err = await response.json().catch(() => ({ detail: tCommon("unknownError") }));
@@ -173,6 +179,16 @@ export default function ZusammenfassungPage() {
           {uploadError && (
             <p className="mt-2 text-sm text-error" role="alert">{uploadError}</p>
           )}
+
+          <ProviderSelect
+            id="summary-provider-select"
+            label={t("providerLabel")}
+            providers={providers}
+            value={providerId}
+            onChange={setProviderId}
+            disabled={processing}
+            className="mt-6"
+          />
 
           {!doneJobUuid && (
             <div className="mt-6 flex items-center gap-3">

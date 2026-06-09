@@ -96,6 +96,10 @@ MESSAGES: dict[str, dict[str, str]] = {
         "de": "output_format muss 'txt', 'md' oder 'html' sein",
         "en": "output_format must be 'txt', 'md' or 'html'",
     },
+    "summary.invalidProvider": {
+        "de": "Ungültiger Anbieter ausgewählt",
+        "en": "Invalid provider selected",
+    },
     "summary.fileTooLarge": {
         "de": "Datei zu groß",
         "en": "File too large",

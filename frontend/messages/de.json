@@ -216,7 +216,8 @@
       "selectFileAria": "Datei zur Zusammenfassung auswählen",
       "submit": "Zusammenfassung erstellen",
       "longRunning": "Läuft noch - umfangreiche Inhalte können einige Minuten dauern…",
-      "downloadLabel": "Zusammenfassung"
+      "downloadLabel": "Zusammenfassung",
+      "providerLabel": "KI-Anbieter"
     },
     "translate": {
       "title": "Übersetzung",

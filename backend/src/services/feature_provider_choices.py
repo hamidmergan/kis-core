@@ -28,11 +28,14 @@ from src.services.feature_router import FeatureBinding, FeatureNotConfigured
 from src.services.protocols import make_adapter
 
 # Each user-pickable tool feature is satisfied by exactly one capability.
+# ``chat`` is offered only as a per-tool pick (e.g. the summary tool); the
+# admin chat route and the AI-assistant chat stay on the default binding.
 _FEATURE_CAPABILITY: dict[str, str] = {
     "stt": "stt",
     "vision": "vision",
     "image_gen": "image_gen",
     "image_edit": "image_edit",
+    "chat": "chat",
 }
 
 # Cap a single reachability probe so one hanging endpoint cannot stall the list

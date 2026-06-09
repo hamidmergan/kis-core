@@ -216,7 +216,8 @@
       "selectFileAria": "Select file to summarize",
       "submit": "Create summary",
       "longRunning": "Still running - extensive content may take a few minutes…",
-      "downloadLabel": "Summary"
+      "downloadLabel": "Summary",
+      "providerLabel": "AI provider"
     },
     "translate": {
       "title": "Translation",
