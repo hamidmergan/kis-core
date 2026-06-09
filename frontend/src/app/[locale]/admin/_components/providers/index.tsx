@@ -105,6 +105,14 @@ export default function ProvidersTab() {
     [refreshAll],
   );
 
+  const handleToggleEnabled = useCallback(
+    async (p: Provider, enabled: boolean) => {
+      await updateProvider(p.id, { enabled });
+      await refreshAll();
+    },
+    [refreshAll],
+  );
+
   const handleDelete = useCallback(async (p: Provider) => {
     const affected = await fetchAffectedFeatures(p.id);
     setDeleteTarget({
@@ -306,6 +314,7 @@ export default function ProvidersTab() {
         onEdit={(p) => setDialog({ open: true, mode: "edit", provider: p })}
         onProbe={handleProbe}
         onDelete={handleDelete}
+        onToggleEnabled={handleToggleEnabled}
         onOpenExportImport={handleOpenExportImport}
       />
 

@@ -56,6 +56,7 @@ export type UpdateProviderInput = Partial<{
   api_key: string | null;
   capabilities: string[];
   voices: Voice[];
+  enabled: boolean;
 }>;
 
 export async function updateProvider(

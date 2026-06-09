@@ -18,6 +18,7 @@ type Props = {
   onEdit: (p: Provider) => void;
   onProbe: (p: Provider) => Promise<void> | void;
   onDelete: (p: Provider) => void;
+  onToggleEnabled: (p: Provider, enabled: boolean) => Promise<void> | void;
   onOpenExportImport: (initialTab: "export" | "import") => void;
 };
 
@@ -27,6 +28,7 @@ export default function ProviderListCard({
   onEdit,
   onProbe,
   onDelete,
+  onToggleEnabled,
   onOpenExportImport,
 }: Props) {
   const t = useTranslations("admin.providers");
@@ -66,6 +68,7 @@ export default function ProviderListCard({
               onEdit={() => onEdit(p)}
               onProbe={() => onProbe(p)}
               onDelete={() => onDelete(p)}
+              onToggleEnabled={(enabled) => onToggleEnabled(p, enabled)}
             />
           ))}
         </div>
@@ -115,14 +118,17 @@ function ProviderRow({
   onEdit,
   onProbe,
   onDelete,
+  onToggleEnabled,
 }: {
   provider: Provider;
   onEdit: () => void;
   onProbe: () => Promise<void> | void;
   onDelete: () => void;
+  onToggleEnabled: (enabled: boolean) => Promise<void> | void;
 }) {
   const t = useTranslations("admin.providers");
   const [probing, setProbing] = useState(false);
+  const [toggling, setToggling] = useState(false);
 
   const handleProbe = async () => {
     setProbing(true);
@@ -133,14 +139,30 @@ function ProviderRow({
     }
   };
 
+  const handleToggle = async () => {
+    setToggling(true);
+    try {
+      await onToggleEnabled(!provider.enabled);
+    } finally {
+      setToggling(false);
+    }
+  };
+
+  const dimmed = provider.enabled ? "" : "opacity-50";
+
   return (
     <div className="grid grid-cols-[auto_1fr_auto] gap-4 items-center py-4">
-      <div className="w-9 h-9 bg-surface border border-border-soft rounded-lg flex items-center justify-center text-kb">
+      <div className={`w-9 h-9 bg-surface border border-border-soft rounded-lg flex items-center justify-center text-kb ${dimmed}`}>
         <Cube size={18} weight="bold" />
       </div>
-      <div className="min-w-0">
+      <div className={`min-w-0 ${dimmed}`}>
         <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm font-medium text-foreground mb-0.5">
           <span className="truncate">{provider.name}</span>
+          {!provider.enabled && (
+            <span className="inline-flex items-center text-[11px] font-medium px-1.5 py-0.5 rounded-full bg-surface-dim text-muted">
+              {t("row.disabledChip")}
+            </span>
+          )}
           <StatusPill provider={provider} probing={probing} />
           {!provider.api_key_set && (
             <span className="inline-flex items-center text-[11px] font-medium px-1.5 py-0.5 rounded-full bg-surface-dim text-muted">
@@ -162,16 +184,34 @@ function ProviderRow({
           </p>
         )}
       </div>
-      <div className="flex gap-1">
-        <IconButton onClick={handleProbe} label={t("row.probe")} disabled={probing}>
-          <ArrowsClockwise size={14} weight="bold" className={probing ? "animate-spin" : undefined} />
-        </IconButton>
-        <IconButton onClick={onEdit} label={t("row.edit")}>
-          <NotePencil size={14} weight="bold" />
-        </IconButton>
-        <IconButton onClick={onDelete} label={t("row.delete")} danger>
-          <Trash size={14} weight="bold" />
-        </IconButton>
+      <div className="flex items-center gap-2">
+        <button
+          type="button"
+          onClick={handleToggle}
+          disabled={toggling}
+          aria-label={provider.enabled ? t("row.disable") : t("row.enable")}
+          title={provider.enabled ? t("row.disable") : t("row.enable")}
+          className={`relative inline-flex shrink-0 w-11 h-6 rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none enabled:hover:border-kb disabled:opacity-50 ${
+            provider.enabled ? "bg-kb" : "bg-border"
+          }`}
+        >
+          <span
+            className={`pointer-events-none inline-block w-5 h-5 bg-white rounded-full shadow transition-transform duration-200 ${
+              provider.enabled ? "translate-x-5" : "translate-x-0"
+            }`}
+          />
+        </button>
+        <div className="flex gap-1">
+          <IconButton onClick={handleProbe} label={t("row.probe")} disabled={probing}>
+            <ArrowsClockwise size={14} weight="bold" className={probing ? "animate-spin" : undefined} />
+          </IconButton>
+          <IconButton onClick={onEdit} label={t("row.edit")}>
+            <NotePencil size={14} weight="bold" />
+          </IconButton>
+          <IconButton onClick={onDelete} label={t("row.delete")} danger>
+            <Trash size={14} weight="bold" />
+          </IconButton>
+        </div>
       </div>
     </div>
   );

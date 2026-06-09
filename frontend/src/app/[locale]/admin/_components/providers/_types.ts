@@ -46,6 +46,7 @@ export type Provider = {
   base_url: string;
   capabilities: Capability[];
   voices: Voice[];
+  enabled: boolean;
   last_probed_at: string | null;
   probe_status: string | null;
   probe_error: string | null;
