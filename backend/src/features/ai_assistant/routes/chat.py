@@ -122,6 +122,20 @@ _NEIGHBOR_RADIUS = 3
 # fill the gap so two anchors that BRACKET the answer pull the chunks between them
 # (a co-author named between the "Autoren" heading and the contact section).
 _NEIGHBOR_BRIDGE = 4
+# Per-source retrieval (anchor search + chunk fetch) runs CONCURRENTLY — the queries are
+# independent, and sequential they were ~0.8s at n=30. This semaphore caps in-flight DB
+# queries BELOW the connection pool size (20) so parallel searches — and several
+# concurrent chat requests sharing the pool — can never exhaust it. Shared per process.
+_RETRIEVE_CONCURRENCY = 10
+_retrieve_sem: Optional[asyncio.Semaphore] = None
+
+
+def _get_retrieve_sem() -> asyncio.Semaphore:
+    """Lazily create the shared retrieval semaphore (binds to the running loop)."""
+    global _retrieve_sem
+    if _retrieve_sem is None:
+        _retrieve_sem = asyncio.Semaphore(_RETRIEVE_CONCURRENCY)
+    return _retrieve_sem
 
 
 def _parse_page_refs(question: str) -> list[int]:
@@ -1138,21 +1152,27 @@ async def chat(
         # the n=30 latency killer) and vector search is already typo-robust at the
         # SEMANTIC level (embeddings put "authoren" next to "Autoren"), with BM25 + ILIKE
         # covering exact tokens. So the per-source anchor search runs WITHOUT fuzzy
-        # (~0.01s each) and retrieval stays ~1-2s instead of ~90s.
-        per_source_expanded: list[tuple[list[dict], Optional[float]]] = []
-        for sid in search_source_ids:
-            anchors = await _asyncio.to_thread(
-                db.hybrid_search_chunks, workspace["id"], embed_text, query_vector,
-                [sid], _NEIGHBOR_ANCHORS, fuzzy=False,
-            )
-            if not anchors:
-                continue
-            _src_dists = [a["vec_distance"] for a in anchors if a.get("vec_distance") is not None]
-            _src_best = min(_src_dists) if _src_dists else None
-            doc = await _asyncio.to_thread(db.get_chunks_by_source, sid)
-            per_source_expanded.append(
-                (_expand_with_neighbors(anchors, doc, _NEIGHBOR_RADIUS, sid), _src_best)
-            )
+        # (~0.01s each). And since the sources are independent, the searches run
+        # CONCURRENTLY (semaphore-bounded), turning ~0.8s sequential into ~0.15s at n=30.
+        _sem = _get_retrieve_sem()
+
+        async def _expand_one(sid: int) -> Optional[tuple[list[dict], Optional[float]]]:
+            async with _sem:
+                anchors = await _asyncio.to_thread(
+                    db.hybrid_search_chunks, workspace["id"], embed_text, query_vector,
+                    [sid], _NEIGHBOR_ANCHORS, fuzzy=False,
+                )
+                if not anchors:
+                    return None
+                doc = await _asyncio.to_thread(db.get_chunks_by_source, sid)
+            _sd = [a["vec_distance"] for a in anchors if a.get("vec_distance") is not None]
+            return (_expand_with_neighbors(anchors, doc, _NEIGHBOR_RADIUS, sid),
+                    min(_sd) if _sd else None)
+
+        _results = await _asyncio.gather(*[_expand_one(s) for s in search_source_ids])
+        per_source_expanded: list[tuple[list[dict], Optional[float]]] = [
+            r for r in _results if r is not None
+        ]
         _all_best = [d for _, d in per_source_expanded if d is not None]
         _global_best = min(_all_best) if _all_best else None
         _dist_threshold = _global_best * _DIST_FACTOR if _global_best is not None else None
