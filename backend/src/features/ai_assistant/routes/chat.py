@@ -378,31 +378,36 @@ async def _classify_intent(llm, question: str) -> str:
     return verdict
 
 
-def _parse_understanding(content: str) -> tuple[str, dict]:
-    """Parse the combined query-understanding reply into ``(intent, scope)``.
+def _parse_understanding(content: str) -> tuple[str, dict, list[str]]:
+    """Parse the combined query-understanding reply into ``(intent, scope, subqueries)``.
 
     Tolerant: strips <think>/code-fences, takes the first JSON object. ``intent``
     defaults to SPECIFIC (the conservative route); ``scope`` is validated by
-    ``_parse_scope_response``. If the JSON is broken we still salvage a GENERIC
-    token if present. Any garbage → ``("SPECIFIC", {"unit": None, "intervals": []})``."""
+    ``_parse_scope_response``; ``subqueries`` is the question split into its distinct
+    asks for retrieval (empty when not decomposed / missing → caller uses the full
+    question). If the JSON is broken we still salvage a GENERIC token if present. Any
+    garbage → ``("SPECIFIC", {"unit": None, "intervals": []}, [])``."""
     import json
     raw = re.sub(r"<think>.*?</think>", "", content or "", flags=re.DOTALL)
     raw = raw.replace("```json", "").replace("```", "")
     m = re.search(r"\{.*\}", raw, re.DOTALL)
     if not m:
-        return "SPECIFIC", {"unit": None, "intervals": []}
+        return "SPECIFIC", {"unit": None, "intervals": []}, []
     try:
         obj = json.loads(m.group(0))
     except Exception:
         cleaned = re.sub(r"[^A-Za-z]+", " ", raw).upper().split()
-        return ("GENERIC" if "GENERIC" in cleaned else "SPECIFIC"), {"unit": None, "intervals": []}
+        return ("GENERIC" if "GENERIC" in cleaned else "SPECIFIC"), {"unit": None, "intervals": []}, []
     intent = "GENERIC" if "GENERIC" in str(obj.get("intent", "")).upper() else "SPECIFIC"
     scope_obj = obj.get("scope")
     scope = _parse_scope_response(json.dumps(scope_obj)) if scope_obj else {"unit": None, "intervals": []}
-    return intent, scope
+    subs_raw = obj.get("subqueries")
+    subqueries = ([s.strip() for s in subs_raw if isinstance(s, str) and s.strip()][:3]
+                  if isinstance(subs_raw, list) else [])
+    return intent, scope, subqueries
 
 
-async def _understand_query(llm, question: str) -> tuple[str, dict]:
+async def _understand_query(llm, question: str) -> tuple[str, dict, list[str]]:
     """ONE pre-call that does BOTH query-understanding jobs in a single round-trip:
     route GENERIC vs SPECIFIC AND extract any explicit page/time scope. Replaces the
     two separate pre-calls (intent classifier + scope extractor). Returns
@@ -419,7 +424,7 @@ async def _understand_query(llm, question: str) -> tuple[str, dict]:
                 {"role": "user", "content": question},
             ],
             temperature=0.0,
-            max_tokens=200,
+            max_tokens=300,  # room for the subqueries list on a compound question
             **(llm._extra_body and {"extra_body": llm._extra_body} or {}),
         )
     try:
@@ -428,10 +433,11 @@ async def _understand_query(llm, question: str) -> tuple[str, dict]:
         raw = msg.content or getattr(msg, "reasoning_content", None) or ""
     except Exception as e:
         logger.warning("Query understanding failed, defaulting to SPECIFIC/no-scope: {}", e)
-        return "SPECIFIC", {"unit": None, "intervals": []}
-    intent, scope = _parse_understanding(raw)
-    logger.info("Query understanding: '{}' → intent={} scope={}", question[:50], intent, scope)
-    return intent, scope
+        return "SPECIFIC", {"unit": None, "intervals": []}, []
+    intent, scope, subqueries = _parse_understanding(raw)
+    logger.info("Query understanding: '{}' → intent={} scope={} subqueries={}",
+                question[:50], intent, scope, subqueries)
+    return intent, scope, subqueries
 
 
 def _context_budget() -> int:
@@ -991,15 +997,15 @@ async def chat(
     # Routing drives: GENERIC → wide overview retrieval + overview system prompt;
     # SPECIFIC → neighbor-expansion retrieval; scope → exact page/time chunks.
     if _should_skip_intent_classification(body.source_text, source_ids, body.question):
-        intent, scope_raw = "SPECIFIC", None
+        intent, scope_raw, subqueries = "SPECIFIC", None, []
         logger.info("Chat: pre-call skipped → SPECIFIC ('{}' across {} sources)",
                     body.question[:60], len(source_ids or []))
     else:
         import time as _t_pc
         _t_pc0 = _t_pc.monotonic()
-        intent, scope_raw = await _understand_query(llm, body.question)
-        logger.info("Chat: pre-call routed intent={} scope={} in {:.1f}s ('{}' across {} sources)",
-                    intent, scope_raw, _t_pc.monotonic() - _t_pc0, body.question[:60], len(source_ids or []))
+        intent, scope_raw, subqueries = await _understand_query(llm, body.question)
+        logger.info("Chat: pre-call routed intent={} scope={} subqueries={} in {:.1f}s ('{}' across {} sources)",
+                    intent, scope_raw, len(subqueries), _t_pc.monotonic() - _t_pc0, body.question[:60], len(source_ids or []))
 
     # The question is always used as-is: no conversation history is sent to the
     # LLM. Each turn is fully standalone (no follow-up condensing, no leaks).
@@ -1128,7 +1134,17 @@ async def chat(
         # Run sync embedding call in a worker thread so a stalled provider
         # cannot block the FastAPI event loop.
         import asyncio as _asyncio
-        query_vector = await _asyncio.to_thread(provider.embed_one, embed_text)
+        # COMPOUND-question decomposition: a question that asks about several distinct
+        # things ("X und Y") is searched per CLAUSE, so a secondary source is anchored by
+        # the clause that concerns it. Without this the dominant clause's embedding hides
+        # the other source's relevant chunks → the model answers that part from the wrong
+        # pages or hallucinates (and the post-hoc chip then correctly refuses to cite it).
+        # Single-target questions / popup text keep exactly ONE query → identical to before.
+        _retrieval_queries = (subqueries if (len(subqueries) > 1 and not body.source_text)
+                              else [embed_text])
+        _qvecs = await _asyncio.to_thread(provider.embed, _retrieval_queries)
+        _query_pairs = list(zip(_retrieval_queries, _qvecs))
+        query_vector = _qvecs[0]  # primary vector, kept for any downstream use
 
         # For popup actions, only search in the source file
         search_source_ids = source_ids
@@ -1158,13 +1174,22 @@ async def chat(
 
         async def _expand_one(sid: int) -> Optional[tuple[list[dict], Optional[float]]]:
             async with _sem:
-                anchors = await _asyncio.to_thread(
-                    db.hybrid_search_chunks, workspace["id"], embed_text, query_vector,
-                    [sid], _NEIGHBOR_ANCHORS, fuzzy=False,
-                )
-                if not anchors:
+                # Search this source with EACH retrieval query (clause); merge anchors,
+                # keeping each chunk's BEST (smallest) distance across the clauses.
+                merged: dict[int, dict] = {}
+                for _qtext, _qvec in _query_pairs:
+                    for a in (await _asyncio.to_thread(
+                            db.hybrid_search_chunks, workspace["id"], _qtext, _qvec,
+                            [sid], _NEIGHBOR_ANCHORS, fuzzy=False) or []):
+                        ad = a.get("vec_distance")
+                        prev = merged.get(a["id"])
+                        if prev is None or (ad is not None and (prev.get("vec_distance") is None
+                                                                or ad < prev["vec_distance"])):
+                            merged[a["id"]] = a
+                if not merged:
                     return None
                 doc = await _asyncio.to_thread(db.get_chunks_by_source, sid)
+            anchors = list(merged.values())
             _sd = [a["vec_distance"] for a in anchors if a.get("vec_distance") is not None]
             return (_expand_with_neighbors(anchors, doc, _NEIGHBOR_RADIUS, sid),
                     min(_sd) if _sd else None)

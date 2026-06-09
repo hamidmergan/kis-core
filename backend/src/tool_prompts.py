@@ -147,6 +147,7 @@ def aia_system_rag(target_locale: str = "de", *, overview: bool = False) -> str:
         "TERMINOLOGY — STAY ON THE SOURCE'S WORDS: When a source uses a specific technical term, method name, or named concept, REUSE THAT EXACT TERM in your prose instead of a synonym or your own paraphrase (e.g. if the source writes 'Schneeballsystem', write 'Schneeballsystem' — NOT a synonym like 'Schneeballprinzip'; if it writes 'Quellenkritik', keep 'Quellenkritik'). You MAY add a short plain-language explanation right after the term, but the term itself stays spelled exactly as in the source. Keep such named terms in the source's wording even when you translate the rest of the answer into the question's language.\n\n"
         "RESPONSE STRUCTURE (for readability — NEVER output one big wall of text):\n"
         "  - DEFAULT TO BULLET POINTS: present the answer as a concise Markdown bullet list ('- '), ONE fact/step/item per line. This is the default for summaries, overviews, lists, and most questions.\n"
+        "  - ONE ATOMIC FACT PER BULLET — do NOT merge several distinct facts (each from a different passage) into one long run-on bullet. If a point combines two separate facts, split it into two bullets. Reason: each bullet is matched back to its source passage afterwards, so a bullet that fuses many passages cannot be linked cleanly. Short, single-fact bullets each get their own source link.\n"
         "  - Use flowing prose (paragraphs) ONLY when the user EXPLICITLY asks for it (e.g. 'als Fließtext', 'ausformuliert', 'in prose', 'als Text'). Otherwise always prefer bullets.\n"
         "  - NEVER output BOTH a flowing-prose summary paragraph AND bullets for the same content — that is redundant. The bullets ARE the summary.\n"
         "  - When the answer covers several distinct topics, separate them with Markdown headings ('## Heading').\n"
@@ -426,7 +427,7 @@ AIA_SCOPE_EXTRACTOR_SYSTEM = (
 AIA_QUERY_UNDERSTANDING_SYSTEM = (
     "You analyze ONE question a user asks about their documents and output ONLY a "
     "compact JSON object, nothing else:\n"
-    '{"intent":"GENERIC"|"SPECIFIC","scope":{"unit":"page"|"time"|"unknown"|null,"intervals":[[from,to]]}}\n'
+    '{"intent":"GENERIC"|"SPECIFIC","scope":{"unit":"page"|"time"|"unknown"|null,"intervals":[[from,to]]},"subqueries":["...",...]}\n'
     "\n"
     "intent:\n"
     '- "GENERIC": the user wants a summary, overview, or the main topics across the '
@@ -447,9 +448,21 @@ AIA_QUERY_UNDERSTANDING_SYSTEM = (
     "SEPARATE items ('Seite 5 und 10') are several points [[5,5],[10,10]]. NEVER "
     "invent numbers that are not in the question.\n"
     "\n"
+    "\n"
+    "subqueries (for retrieval): if the question asks about SEVERAL clearly DISTINCT "
+    "things — e.g. \"what is X and what is Y\", \"compare A, B and C\", two different "
+    "laws/topics/sources in one sentence — split it into ONE self-contained sub-question "
+    "per distinct thing. EACH sub-question must stand alone and KEEP the name of the "
+    "law/source/topic it refers to, so it can be searched on its own. If the question "
+    "asks about ONE thing, return a single-element list with the question itself. Max 3 "
+    "items, same language as the question.\n"
+    "\n"
     "Understand ANY language and ANY phrasing; ignore typos and glued tokens.\n"
     "\n"
     "Examples (Input -> Output):\n"
+    'was sind neuronale Netze -> {"intent":"SPECIFIC","scope":{"unit":null,"intervals":[]},"subqueries":["was sind neuronale Netze"]}\n'
+    'was schützt das Urheberrechtsgesetz und was das Markengesetz -> {"intent":"SPECIFIC","scope":{"unit":null,"intervals":[]},"subqueries":["was schützt das Urheberrechtsgesetz","was schützt das Markengesetz"]}\n'
+    'Welche Stelle ist für die Steuerfestsetzung zuständig (Abgabenordnung) und welche Stellung hat der Rechtsanwalt (BRAO)? -> {"intent":"SPECIFIC","scope":{"unit":null,"intervals":[]},"subqueries":["Welche Stelle ist für die Steuerfestsetzung zuständig (Abgabenordnung)?","Welche Stellung hat der Rechtsanwalt (BRAO)?"]}\n'
     'fasse zusammen -> {"intent":"GENERIC","scope":{"unit":null,"intervals":[]}}\n'
     'gib mir einen Überblick -> {"intent":"GENERIC","scope":{"unit":null,"intervals":[]}}\n'
     'was sind die Hauptthemen -> {"intent":"GENERIC","scope":{"unit":null,"intervals":[]}}\n'

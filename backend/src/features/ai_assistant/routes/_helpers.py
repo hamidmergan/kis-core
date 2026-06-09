@@ -243,6 +243,15 @@ def _dedup_repeated_lines(text: str) -> str:
 # enough. A line that isn't clearly supported gets NO chip (no post-rationalization).
 # The distance gate is the make-or-break knob; calibrate at the UI.
 _GENERIC_ATTRIB_MAX_DIST = 0.6
+# For an answer that IS grounded (>=1 substantial line lands within the normal gate
+# above), every OTHER substantial line still gets a chip to its closest retrieved chunk
+# up to this looser ceiling — a claim built from the sent chunks must never be left
+# without a "where does this come from" link (navigation beats pinpoint precision).
+# Beyond this the line is an outlier (or the answer is the honest "not in the sources"
+# response, which never grounds <=0.6 and so stays uncited). Tuned above the honest
+# distance band observed against off-topic retrieved chunks.
+_GUARANTEE_MAX_DIST = 0.85
+_MAX_CHIPS_PER_LINE = 3
 
 
 def _is_seen(chunk: dict, seen_pages_by_source: Optional[dict]) -> bool:
@@ -407,6 +416,101 @@ def _place_chip(line: str, chip_str: str) -> str:
     return f"{line.rstrip()} {chip_str}"
 
 
+def _line_candidates(line: str, search_one, context_chunks: Optional[list[dict]],
+                     seen_pages_by_source: Optional[dict]) -> list[dict]:
+    """Retrieved (seen), non-TOC source chunks that could ground ``line``, closest-first.
+
+    If an EXACT verbatim chunk exists (a name/email/number we already retrieved, whose
+    page we know), it is the SOLE high-confidence candidate — semantic near-misses on
+    other pages are suppressed. Otherwise the seen semantic hits, sorted by distance: a
+    reworded/synthesised line may legitimately draw from several passages, so the caller
+    can attach a chip per distinct source/page."""
+    exact = _exact_attribution_chunk(line, context_chunks) if context_chunks else None
+    if exact is not None and _is_seen(exact, seen_pages_by_source):
+        e = dict(exact)
+        e["vec_distance"] = 0.0  # verbatim presence == certain
+        return [e]
+    cands = [h for h in (search_one(line) or [])
+             if h.get("vec_distance") is not None
+             and not _is_toc_chunk(h.get("content") or "")
+             and _is_seen(h, seen_pages_by_source)]
+    cands.sort(key=lambda h: h["vec_distance"])
+    return cands
+
+
+def _chips_for_line(cands: list[dict], source_id_to_qnum: dict,
+                    max_distance: float) -> list[str]:
+    """Build the chip list for ONE line from its closest-first candidates.
+
+    The first usable candidate is the GUARANTEE chip (closest retrieved chunk, accepted
+    up to ``_GUARANTEE_MAX_DIST`` so a grounded claim is never left chip-less); each
+    further chip must be a DISTINCT source/page within the normal ``max_distance`` (a
+    genuine additional contributing passage), capped at ``_MAX_CHIPS_PER_LINE``."""
+    chips: list[str] = []
+    keys: set = set()
+    for h in cands:
+        qnum = source_id_to_qnum.get(h.get("source_id"))
+        if qnum is None:
+            continue
+        d = h.get("vec_distance")
+        d = 1.0 if d is None else d
+        if not chips:
+            if d > _GUARANTEE_MAX_DIST:  # even the closest seen chunk is an outlier
+                break
+        elif d > max_distance:           # additional sources must be clearly on-topic
+            break
+        page = h.get("page_number")
+        key = (qnum, page if page is not None else ("t", h.get("start_time")))
+        if key in keys:
+            continue
+        c = _attribution_chip(qnum, h, "")
+        if c:
+            chips.extend(c)
+            keys.add(key)
+        if len(chips) >= _MAX_CHIPS_PER_LINE:
+            break
+    return chips
+
+
+def _is_continuation(line: str) -> bool:
+    """A non-blank line that CONTINUES the previous claim block (wrapped prose / a second
+    sentence of the same bullet) rather than starting a new one. New list items, headings,
+    table rows and blank lines start a fresh block. Used so a bullet's chips go at the
+    block END, never mid-bullet."""
+    s = line.strip()
+    if not s or _is_table_row(line):
+        return False
+    ls = line.lstrip()
+    if ls.startswith("#"):
+        return False
+    if re.match(r"[-*+]\s", ls) or re.match(r"\d+[.)]\s", ls):
+        return False
+    return True
+
+
+def _attr_blocks(lines: list[str]) -> list[list[int]]:
+    """Group line indices into attribution BLOCKS. A claim block = one bullet/paragraph
+    line PLUS the continuation lines that render as part of it (its chips go on the
+    block's LAST line). Blank/heading lines and each table row are their own block."""
+    blocks: list[list[int]] = []
+    i, n = 0, len(lines)
+    while i < n:
+        if not lines[i].strip():
+            i += 1
+            continue
+        if _is_table_row(lines[i]) or lines[i].lstrip().startswith("#"):
+            blocks.append([i])
+            i += 1
+            continue
+        blk = [i]
+        i += 1
+        while i < n and _is_continuation(lines[i]):
+            blk.append(i)
+            i += 1
+        blocks.append(blk)
+    return blocks
+
+
 def _attribute_generic_text(text: str, search_one, source_id_to_qnum: dict, offset_fn=None, *,
                             seen_pages_by_source=None, context_chunks=None,
                             max_distance: float = _GENERIC_ATTRIB_MAX_DIST) -> str:
@@ -432,38 +536,53 @@ def _attribute_generic_text(text: str, search_one, source_id_to_qnum: dict, offs
 
     The candidate gate is ``_needs_attribution`` — the caller uses the same predicate
     to batch-embed all candidate lines up front, so ``search_one`` only has to look up
-    a precomputed vector here."""
-    out: list[str] = []
+    a precomputed vector here.
+
+    GUARANTEE + MULTI-CHIP: every substantial claim of a *grounded* answer gets at least
+    one chip (closest retrieved chunk, up to ``_GUARANTEE_MAX_DIST``) — a claim built
+    from the sent chunks is never left without a source link. A reworded/synthesised line
+    that legitimately draws from several retrieved passages gets a chip PER distinct
+    source/page (up to ``_MAX_CHIPS_PER_LINE``). "Grounded" = at least one substantial
+    line lands within ``max_distance`` (or has an exact verbatim match); the honest
+    "not in the sources" answer never does, so it stays uncited as before."""
     lines = text.split("\n")
+    # Pass 1: gather seen candidates per substantial line; decide if the answer is grounded.
+    cand_by_idx: dict[int, list[dict]] = {}
+    grounded = False
     for i, line in enumerate(lines):
         if not _needs_attribution(line):
-            out.append(line)
             continue
-        # A table HEADER row (the next line is the |---| delimiter) is a column label,
-        # not a claim — never cite it. (The delimiter row itself is rejected by the
-        # _is_table_delim guard in _needs_attribution above.) Citing the header would
-        # also dirty the column titles.
+        # A table HEADER row (next line is the |---| delimiter) is a column label, not a
+        # claim — never cite it (citing it would also dirty the column titles).
         nxt = lines[i + 1] if i + 1 < len(lines) else ""
         if _is_table_row(line) and _is_table_delim(nxt):
-            out.append(line)
             continue
-        # Exact match against the retrieved chunks FIRST (names/emails/numbers we
-        # already have, with known pages), then semantic search for reworded prose.
-        # The seen-pages cross-check is applied as a FILTER here (and inside
-        # _pick_attribution), so we choose the closest chunk the model ACTUALLY saw
-        # rather than picking the global closest and then dropping it — the latter lost
-        # the chip whenever a fact's nearest copy sat on an un-retrieved page.
-        best = _exact_attribution_chunk(line, context_chunks) if context_chunks else None
-        if best is not None and not _is_seen(best, seen_pages_by_source):
-            best = None
-        if best is None:
-            best = _pick_attribution(search_one(line) or [], max_distance,
-                                     seen_pages_by_source=seen_pages_by_source)
-        qnum = source_id_to_qnum.get(best["source_id"]) if best else None
-        chips = _attribution_chip(qnum, best, line) if qnum else []
-        # Table data row -> chip INSIDE the last cell (keeps GFM column count intact);
-        # otherwise appended after the line.
-        out.append(_place_chip(line, " ".join(chips)) if chips else line)
+        cands = _line_candidates(line, search_one, context_chunks, seen_pages_by_source)
+        if not cands:
+            continue
+        cand_by_idx[i] = cands
+        d0 = cands[0].get("vec_distance")
+        if d0 is not None and d0 <= max_distance:
+            grounded = True
+    # Pass 2: emit chips at the END of each BLOCK (a bullet/paragraph + its continuation
+    # lines), never mid-block, with contributing sources DEDUPED across the whole block —
+    # so a two-sentence bullet shows its chips once, at the end, not after each sentence.
+    # An UNGROUNDED answer (honest "not contained") gets none.
+    out = list(lines)
+    if grounded:
+        for blk in _attr_blocks(lines):
+            agg: list[dict] = []
+            for idx in blk:
+                agg.extend(cand_by_idx.get(idx, []))
+            if not agg:
+                continue
+            agg.sort(key=lambda h: h["vec_distance"] if h.get("vec_distance") is not None else 1.0)
+            chips = _chips_for_line(agg, source_id_to_qnum, max_distance)
+            if chips:
+                last = blk[-1]
+                # Table data row -> chip(s) INSIDE the last cell (keeps GFM column count
+                # intact); otherwise appended after the block's last line.
+                out[last] = _place_chip(lines[last], " ".join(chips))
     return "\n".join(out)
 
 

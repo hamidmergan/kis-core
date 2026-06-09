@@ -161,6 +161,60 @@ def test_table_header_not_cited_and_data_chip_inside_cell():
     assert lines[2].count("|") == 3                                        # same column count as a clean 2-col row
 
 
+def test_guarantee_chips_grounded_answer_borderline_block():
+    # Two SEPARATE bullets (= separate blocks). Answer IS grounded (bullet A at 0.2).
+    # Bullet B's closest seen chunk is 0.7 (just past the normal gate) — it must STILL
+    # get a chip (per-block guarantee), so no claim block is left without a source link.
+    text = ("- Erste klar belegte Aussage zum Thema hier.\n"
+            "- Zweite Aussage etwas vager formuliert hier.")
+    search = _searcher({
+        "klar belegte": [_hit(1, 5, "x", 0.2)],
+        "vager formuliert": [_hit(1, 8, "y", 0.7)],
+    })
+    out = _attribute_generic_text(text, search, {1: 1},
+                                  seen_pages_by_source={1: {5, 8}}, max_distance=0.6)
+    assert "[1, S. 5]" in out
+    assert "[1, S. 8]" in out          # guaranteed despite 0.7 > 0.6 gate
+
+
+def test_chips_at_block_end_not_mid_bullet():
+    # A bullet whose continuation spills onto a second (non-bullet) line: ALL chips go at
+    # the END of the block, NEVER after the first line (mid-bullet). Same source on both
+    # lines -> deduped to ONE chip at the end.
+    text = ("- **Artikel 1 schützt die Würde des Menschen.**\n"
+            " Dieser Artikel verpflichtet alle staatliche Gewalt dazu.")
+    search = _searcher({
+        "Würde des Menschen": [_hit(1, 1, "x", 0.2)],
+        "staatliche Gewalt": [_hit(1, 1, "y", 0.3)],
+    })
+    out = _attribute_generic_text(text, search, {1: 2},
+                                  seen_pages_by_source={1: {1}}, max_distance=0.6)
+    lines = out.split("\n")
+    assert "[2, S. 1]" not in lines[0]   # NO chip mid-bullet (after the first line)
+    assert "[2, S. 1]" in lines[1]       # chip only at the block END
+    assert out.count("[2, S. 1]") == 1   # deduped across the block
+
+
+def test_multi_chip_distinct_pages_within_gate():
+    # A single synthesised line legitimately draws from TWO retrieved pages (both <=0.6)
+    # -> two chips. No exact verbatim match, so the semantic multi-chip path applies.
+    line = "Eine zusammengesetzte Aussage aus mehreren Stellen zugleich."
+    search = _searcher({"zusammengesetzte": [_hit(1, 5, "x", 0.30), _hit(1, 9, "y", 0.45)]})
+    out = _attribute_generic_text(line, search, {1: 1},
+                                  seen_pages_by_source={1: {5, 9}}, max_distance=0.6)
+    assert "[1, S. 5]" in out and "[1, S. 9]" in out
+
+
+def test_ungrounded_answer_borderline_gets_no_chip():
+    # Honest "not contained" case: the only line's closest seen chunk is 0.7 (> gate)
+    # -> the answer is NOT grounded -> no chip, even though 0.7 < the guarantee ceiling.
+    line = "Diese Information ist nicht in den bereitgestellten Quellen enthalten."
+    search = _searcher({"Information": [_hit(1, 5, "x", 0.7)]})
+    out = _attribute_generic_text(line, search, {1: 1},
+                                  seen_pages_by_source={1: {5}}, max_distance=0.6)
+    assert out == line
+
+
 def test_long_dash_delimiter_row_never_cited():
     # Regression: a real GFM delimiter renders as `|--------|--------|` (Docling / most
     # models emit padded dashes). Its dedup key is the dash/pipe string itself — 18 chars,

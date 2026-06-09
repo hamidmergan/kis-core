@@ -128,14 +128,14 @@ async def test_classify_intent_defaults_specific_on_error():
 # ── combined query understanding (intent + scope in ONE call) ────────────────
 
 def test_parse_understanding_intent_and_page_scope():
-    intent, scope = _parse_understanding(
+    intent, scope, _subs = _parse_understanding(
         '{"intent":"GENERIC","scope":{"unit":"page","intervals":[[5,5]]}}')
     assert intent == "GENERIC"
     assert scope == {"unit": "page", "intervals": [[5, 5]]}
 
 
 def test_parse_understanding_specific_no_scope():
-    intent, scope = _parse_understanding(
+    intent, scope, _subs = _parse_understanding(
         '{"intent":"SPECIFIC","scope":{"unit":null,"intervals":[]}}')
     assert intent == "SPECIFIC"
     assert scope == {"unit": None, "intervals": []}
@@ -143,31 +143,53 @@ def test_parse_understanding_specific_no_scope():
 
 def test_parse_understanding_strips_think_and_fences():
     raw = '<think>hmm</think>```json\n{"intent":"SPECIFIC","scope":{"unit":"time","intervals":[[10,10]]}}\n```'
-    intent, scope = _parse_understanding(raw)
+    intent, scope, _subs = _parse_understanding(raw)
     assert intent == "SPECIFIC" and scope == {"unit": "time", "intervals": [[10, 10]]}
 
 
 def test_parse_understanding_salvages_generic_from_broken_json():
     # braces present but invalid JSON -> still salvage the GENERIC token
-    intent, scope = _parse_understanding("{intent: GENERIC, broken,}")
+    intent, scope, _subs = _parse_understanding("{intent: GENERIC, broken,}")
     assert intent == "GENERIC" and scope == {"unit": None, "intervals": []}
 
 
 def test_parse_understanding_garbage_defaults_specific():
-    intent, scope = _parse_understanding("no json at all")
+    intent, scope, _subs = _parse_understanding("no json at all")
     assert intent == "SPECIFIC" and scope == {"unit": None, "intervals": []}
+
+
+def test_parse_understanding_extracts_subqueries():
+    intent, scope, subs = _parse_understanding(
+        '{"intent":"SPECIFIC","scope":{"unit":null,"intervals":[]},'
+        '"subqueries":["was schützt das UrhG","was schützt das MarkenG"]}')
+    assert intent == "SPECIFIC"
+    assert subs == ["was schützt das UrhG", "was schützt das MarkenG"]
+
+
+def test_parse_understanding_subqueries_filtered_and_capped():
+    # non-strings and blanks dropped; capped at 3 for retrieval cost control
+    _i, _s, subs = _parse_understanding(
+        '{"intent":"SPECIFIC","scope":{"unit":null,"intervals":[]},'
+        '"subqueries":["a","",null,5,"b","c","d"]}')
+    assert subs == ["a", "b", "c"]
+
+
+def test_parse_understanding_missing_subqueries_is_empty():
+    _i, _s, subs = _parse_understanding(
+        '{"intent":"GENERIC","scope":{"unit":null,"intervals":[]}}')
+    assert subs == []
 
 
 @pytest.mark.asyncio
 async def test_understand_query_reads_both():
     llm = FakeLLM(content='{"intent":"GENERIC","scope":{"unit":"page","intervals":[[12,14]]}}')
-    intent, scope = await _understand_query(llm, "fasse Seite 12 bis 14 zusammen")
+    intent, scope, _subs = await _understand_query(llm, "fasse Seite 12 bis 14 zusammen")
     assert intent == "GENERIC" and scope == {"unit": "page", "intervals": [[12, 14]]}
 
 
 @pytest.mark.asyncio
 async def test_understand_query_defaults_on_error():
-    intent, scope = await _understand_query(FakeLLM(raise_exc=True), "x")
+    intent, scope, _subs = await _understand_query(FakeLLM(raise_exc=True), "x")
     assert intent == "SPECIFIC" and scope == {"unit": None, "intervals": []}
 
 
@@ -252,7 +274,7 @@ async def test_generic_retrieval_runs_one_wide_search(monkeypatch):
     # No sub-query decomposition: a single source is retrieved with ONE wide
     # hybrid search at _GENERIC_RETRIEVE_LIMIT, not N per-query searches.
     calls = []
-    def fake_search(wsid, term, vec, source_ids=None, limit=None):
+    def fake_search(wsid, term, vec, source_ids=None, limit=None, fuzzy=None):
         calls.append(limit)
         return [{"source_id": 1, "page_number": 1, "content": "c1"}]
     monkeypatch.setattr(chat_mod.db, "hybrid_search_chunks", fake_search)
@@ -266,7 +288,7 @@ async def test_generic_retrieval_merges_dedups_and_diversifies(monkeypatch):
     # The wide search may surface a chunk more than once -> dedup to one each, and
     # both active sources are represented.
     monkeypatch.setattr(chat_mod.db, "hybrid_search_chunks",
-        lambda wsid, term, vec, source_ids=None, limit=None: [
+        lambda wsid, term, vec, source_ids=None, limit=None, fuzzy=None: [
             {"source_id": 1, "page_number": 1, "content": "c1"},
             {"source_id": 2, "page_number": 5, "content": "c2"},
         ])
@@ -282,7 +304,7 @@ async def test_generic_retrieval_merges_dedups_and_diversifies(monkeypatch):
 async def test_generic_retrieval_backfills_missing_source(monkeypatch):
     # The wide search only surfaces source 1; source 2 is backfilled by a
     # per-source mini-search ([2] in source_ids).
-    def fake_search(wsid, term, vec, source_ids=None, limit=None):
+    def fake_search(wsid, term, vec, source_ids=None, limit=None, fuzzy=None):
         if source_ids == [2]:
             return [{"source_id": 2, "page_number": 9, "content": "per-source"}]
         return [{"source_id": 1, "page_number": 1, "content": "c1"}]
