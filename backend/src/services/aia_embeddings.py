@@ -100,6 +100,16 @@ def get_embedding_provider() -> EmbeddingProvider:
     )
 
 
+def fingerprint_from_dim(provider: EmbeddingProvider, dim: int) -> str:
+    """Serialize the embedding-space identity ``{model, dim}`` from an ALREADY-known
+    dimension — the byte-identical string ``compute_fingerprint`` produces, but with NO
+    API call. The ingest path uses this: it gets ``dim`` for free as ``len(vector)`` from
+    the chunk vectors it embeds anyway, so no separate probe embed is needed.
+    Keep this serialization in lock-step with ``compute_fingerprint`` (same keys/order),
+    or every already-indexed workspace would suddenly read as "stale → reindex"."""
+    return json.dumps({"model": provider.model_name, "dim": dim}, sort_keys=True)
+
+
 def compute_fingerprint(provider: EmbeddingProvider) -> str:
     """Return a stable identity of the embedding space: model name + dimension.
 
@@ -112,6 +122,10 @@ def compute_fingerprint(provider: EmbeddingProvider) -> str:
     call (non-deterministic), so a float-based fingerprint never matches itself
     and the reindex warning would be permanently stuck — even right after a
     successful reindex.
+
+    This PROBES the provider (one sentinel embed). Prefer ``fingerprint_from_dim``
+    whenever a real embedding (hence the dimension) is already at hand — e.g. during
+    ingest — to avoid the extra call.
     """
     dim = len(provider.embed_one("KIS Tutor Embedding Fingerprint v1"))
-    return json.dumps({"model": provider.model_name, "dim": dim}, sort_keys=True)
+    return fingerprint_from_dim(provider, dim)

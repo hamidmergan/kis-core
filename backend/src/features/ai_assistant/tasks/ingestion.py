@@ -47,10 +47,15 @@ def run_index_source(self, source_uuid: str, locale: str = "de"):
         db.update_aia_source_status(source_uuid, "indexing")
         logger.info("KI Tutor: indexing source {} ({})", source_uuid, filename)
 
-        # 3. Embedding provider + fingerprint
-        from src.services.aia_embeddings import get_embedding_provider, compute_fingerprint
+        # 3. Embedding provider. The drift-detection fingerprint {model, dim} is built
+        # WITHOUT a probe call: the dimension is read for free from the first chunk vector
+        # we embed below (len(vector)). compute_fingerprint kept only as a fallback for the
+        # (pathological) chunks-but-no-vector case.
+        from src.services.aia_embeddings import (
+            get_embedding_provider, compute_fingerprint, fingerprint_from_dim,
+        )
         provider = get_embedding_provider()
-        fingerprint = compute_fingerprint(provider)
+        fingerprint: str | None = None  # set from the first embedded batch (step 7)
 
         _en_translation_pending = False
 
@@ -130,6 +135,9 @@ def run_index_source(self, source_uuid: str, locale: str = "de"):
                 batch_ids = chunk_ids[i: i + _EMBED_BATCH]
                 texts = [c["content"] for c in batch_chunks]
                 vectors = provider.embed(texts)
+                if fingerprint is None and vectors:
+                    # dimension for free from the real embedding → no separate probe call
+                    fingerprint = fingerprint_from_dim(provider, len(vectors[0]))
                 for chunk_id, vector in zip(batch_ids, vectors):
                     db.update_chunk_embedding(chunk_id, vector)
                 logger.info(
@@ -140,6 +148,11 @@ def run_index_source(self, source_uuid: str, locale: str = "de"):
                 "KI Tutor: embedding done for {} ({} chunks) in {:.1f}s",
                 source_uuid, len(chunks), time.monotonic() - _t_embed,
             )
+            # Safety net: chunks existed but no vector came back (shouldn't happen) →
+            # probe once so the source still gets a drift fingerprint. Zero-chunk sources
+            # keep fingerprint=None (nothing indexed → nothing to drift; stale-check ignores it).
+            if fingerprint is None and chunks:
+                fingerprint = compute_fingerprint(provider)
 
         # 7b. Per-source DOC SUMMARY (map-reduce over chunks), built for the not-yet-wired
         # "GENERIC over summaries" Phase 2. CURRENTLY DISABLED via _BUILD_INGEST_SUMMARY:
