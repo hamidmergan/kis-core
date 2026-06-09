@@ -74,11 +74,34 @@ def run_index_source(self, source_uuid: str, locale: str = "de"):
                 # Audio/Video: transcribe with timestamps, then chunk
                 from src.services.subtitle_converter import segments_to_vtt
                 from src.dependencies import resolve_whisper_client
+
+                # Fragmented MP4 (fMP4) plays unreliably in the native <audio>/<video>
+                # element — the browser skips whole ~fragment-length spans mid-stream,
+                # which desyncs the transcript. Losslessly remux it to a progressive
+                # faststart MP4 and overwrite the stored playback file (no re-encode, no
+                # quality loss). Idempotent: a retry re-checks and skips an already-clean
+                # file. Transcription then runs on the same normalised file.
+                from src.services.media_normalize import normalize_if_fragmented
+                media_path = local_path
+                normalized_path = normalize_if_fragmented(local_path)
+                if normalized_path:
+                    from src.storage import put_file
+                    put_file(file_path_stored, normalized_path)
+                    media_path = normalized_path
+                    logger.info(
+                        "KI Tutor: normalized fragmented media {} -> progressive faststart",
+                        source_uuid,
+                    )
+
                 whisper_client = resolve_whisper_client()
                 logger.info("KI Tutor: transcribing media source {} ({})", source_uuid, filename)
-                segments, media_duration, media_language = whisper_client.transcribe_chunked_verbose(
-                    local_path, cache_key=source_uuid
-                )
+                try:
+                    segments, media_duration, media_language = whisper_client.transcribe_chunked_verbose(
+                        media_path, cache_key=source_uuid
+                    )
+                finally:
+                    if normalized_path:
+                        os.unlink(normalized_path)
                 if not segments:
                     raise RuntimeError("Whisper returned no segments for this audio/video file.")
                 chunks = aia_chunker.segments_to_chunks(segments)
