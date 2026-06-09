@@ -17,7 +17,8 @@ from src.features.ai_assistant.routes.chat import (
     _allocate_specific_budget,
     _take_chunks_within,
     _pack_context_batches,
-    _SPECIFIC_FLOOR_CHARS,
+    _SPECIFIC_FAR_CHARS,
+    _MAX_CODOMINANT,
 )
 from src.tool_prompts import aia_reduce_user_message
 
@@ -99,13 +100,33 @@ def test_allocate_floor_keeps_every_source_represented():
 
 
 def test_allocate_floor_capped_when_many_sources_tiny_budget():
-    # floor must be capped to budget//K so floors can never exceed the budget.
+    # far floor must be capped to budget//K so floors can never exceed the budget.
     kept = [( _mk(i, 50, chars=100), 0.5) for i in range(20)]
-    out = _allocate_specific_budget(kept, 10000)  # 10000//20 = 500 < _SPECIFIC_FLOOR_CHARS
+    out = _allocate_specific_budget(kept, 10000)  # 10000//20 = 500 < _SPECIFIC_FAR_CHARS
     total = sum(len(c["content"]) for c in out)
     # 20 sources * at-least-one chunk (100) is the hard floor; stays near budget
     assert total <= 10000 + 20 * 100
     assert len({c["source_id"] for c in out}) == 20
+
+
+def test_allocate_bounds_codominant_count_at_scale():
+    # A generic phrase can tie many structurally-similar sources under the cutoff.
+    # Only the nearest _MAX_CODOMINANT may share the bulk; the rest fall to the far
+    # floor — so the context can't fill to the brim with near-duplicates of the real
+    # source (the n=30 latency bug). The single closest source still dominates, and
+    # every source stays present (counting / compare-all safety).
+    kept = []
+    for k in range(8):  # 8 near-tied sources, source 0 the closest
+        d = 0.40 + 0.005 * k
+        kept.append((_mk(k, 400, chars=100, dist=d), d))
+    out = _allocate_specific_budget(kept, 200000)
+    per_src: dict[int, int] = {}
+    for c in out:
+        per_src[c["source_id"]] = per_src.get(c["source_id"], 0) + len(c["content"])
+    assert per_src[0] == max(per_src.values())                  # closest got the bulk
+    reduced = [sid for sid, ch in per_src.items() if ch <= _SPECIFIC_FAR_CHARS]
+    assert len(reduced) >= 8 - _MAX_CODOMINANT                  # tail reduced to floor
+    assert len(per_src) == 8                                    # all still present
 
 
 # ── _pack_context_batches ────────────────────────────────────────────────────

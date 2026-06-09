@@ -86,11 +86,21 @@ _MAX_PAGE_SPAN = 50
 # of the best source's closest chunk (off-topic). Cosine distance is stopword-immune →
 # language-agnostic, no word lists.
 _DIST_FACTOR = 999  # gate effektiv AUS: 1.3 verwarf bei Mehr-Quellen-/Zählfragen echte Quellen
-# Floor of the per-source CHAR allotment in the SPECIFIC budget split: every on-topic
-# source (one that passed the gate) is guaranteed at least this many chars of its top
-# chunks, so a question whose answer is spread across many docs (e.g. each doc names
-# one author) keeps every doc represented. ~4-5 chunks.
-_SPECIFIC_FLOOR_CHARS = 4000
+# SPECIFIC budget TIERS (chars/source). At n≈30 the old flat 4000-char floor for EVERY
+# source meant ~29 irrelevant laws × 4000 ≈ 116K chars of pure prefill ballast, and a
+# loose co-dominant cutoff let a generic phrase ("schützt Artikel 1") tie 5-6
+# structurally-similar laws that EACH grabbed ~50 chunks — so the context filled to
+# 250K chars / ~71K tokens on essentially every question and the LLM was slow. Three
+# tiers fix it without losing the answer (which lives in the closest source):
+#   * PRIMARY (the single closest source) takes the weighted bulk — full coverage of
+#     the law the question is actually about.
+#   * SECONDARY co-dominant peers (a genuine 2-law / compare question) are each capped
+#     so they can state their content without refilling the window with near-duplicates.
+#   * FAR sources get ~1 top chunk: present for counting / compare-all, but no flood.
+# _MAX_CODOMINANT bounds how many sources share the bulk (primary + secondaries).
+_SPECIFIC_FAR_CHARS = 900         # far source: ~1 top chunk, just "present"
+_SPECIFIC_SECONDARY_CHARS = 8000  # co-dominant non-primary source: ~10 chunks
+_MAX_CODOMINANT = 4               # at most this many sources share the bulk
 # Co-dominance cutoff for the SPECIFIC budget split: a source counts as "co-dominant"
 # (and shares the bulk of the budget) only if its closest anchor is within this multiple
 # of the globally best anchor. A single-target question ("welche Form schreibt das TVG
@@ -468,7 +478,7 @@ async def _retrieve_generic_context(
     question_vector = await asyncio.to_thread(provider.embed_one, question)
     hits = db.hybrid_search_chunks(
         workspace_id, question, question_vector, source_ids=source_ids,
-        limit=_GENERIC_RETRIEVE_LIMIT, fuzzy=True,  # typo-tolerant: "Überblick über <vertipptes Thema>"
+        limit=_GENERIC_RETRIEVE_LIMIT, fuzzy=False,  # no trigram fuzzy: ~3s no-index scan, vector is already typo-robust
     )
     merged: list[dict] = []
     seen: set = set()
@@ -629,29 +639,27 @@ def _allocate_specific_budget(
     kept: list[tuple[list[dict], Optional[float]]],
     char_budget: int,
 ) -> list[dict]:
-    """Relevance-CONCENTRATED per-source chunk budget for SPECIFIC.
+    """Relevance-CONCENTRATED, TIERED per-source chunk budget for SPECIFIC.
 
     ``kept`` = the kept sources as ``(hits, src_best_distance)`` pairs, ``hits``
-    already ordered most-relevant-first. The old flat fill ("add neighbourhoods
-    best-anchor-first until the budget is full") only trimmed when the total
-    OVERFLOWED the budget — so when several whole laws happened to fit under it,
-    ALL of them stayed and a single-target question ("welche Form schreibt das TVG
-    vor?") drowned in 3 unrelated laws (and paid their latency). This splits ONE
-    char budget by relevance instead:
+    already ordered most-relevant-first. One char budget is split by relevance so a
+    single-target question is never flooded — and, crucially, never *bloated* — by
+    the other active sources:
 
-    - **Co-dominant sources** (closest anchor within ``_CODOMINANT_FACTOR`` × the
-      global best) share the bulk of the budget, weighted by closeness
-      (``best / d`` → nearer gets more). A single clearly-closest source takes it
-      all; a genuine near-tie (AGG+BDSG cross-source) is split between both.
-    - **Far sources** get only the floor — present (so counting / compare-all
-      questions still see every doc) but unable to flood the answer.
-    - **Floor per source** (``_SPECIFIC_FLOOR_CHARS``, capped so floors fit) so no
-      kept doc is represented by nothing.
-    - **Single source** gets the whole budget → a deep hit still fits.
+    - **Primary** — the single closest source — takes the weighted bulk (full
+      coverage of the law the question is about). A single source gets the lot.
+    - **Secondary** co-dominant peers (closest anchor within ``_CODOMINANT_FACTOR`` ×
+      the global best, AND among the nearest ``_MAX_CODOMINANT``) are each capped at
+      ``_SPECIFIC_SECONDARY_CHARS`` — enough to answer a genuine 2-law / compare
+      question, not enough to refill the window with near-duplicates of the primary.
+    - **Far** sources (outside the cutoff, or beyond ``_MAX_CODOMINANT``) get only
+      ``_SPECIFIC_FAR_CHARS`` (≈ one top chunk) — present for counting / compare-all
+      questions, but unable to flood (or bloat) the context.
 
-    A source whose weighted share exceeds what it actually has takes only what it
-    has; the slack is NOT redistributed to less-relevant docs (that would just
-    re-introduce the flood). Total stays ≤ char_budget.
+    Why tiers: at scale (n≈30) a loose cutoff ties many structurally-similar docs and
+    a flat floor for each turned EVERY question into a ~250k-char / ~71k-token context
+    — slow, for an answer that lives in ONE source. Slack is never redistributed to
+    less-relevant docs (that would re-introduce the flood). Total stays ≤ char_budget.
     """
     if not kept:
         return []
@@ -662,28 +670,31 @@ def _allocate_specific_budget(
     best = min(dists) if dists else None
     cutoff = best * _CODOMINANT_FACTOR if best is not None else None
 
-    floor = min(_SPECIFIC_FLOOR_CHARS, char_budget // len(kept))
-    out: list[dict] = []
-    codominant: list[tuple[list[dict], Optional[float]]] = []
-    far_count = 0
-    for hits, d in kept:
-        # No distance, or no cutoff → treat as co-dominant (safe fallback).
-        if cutoff is None or d is None or d <= cutoff:
-            codominant.append((hits, d))
-        else:
-            out.extend(_take_chunks_within(hits, floor))  # far source: floor only
-            far_count += 1
+    # Nearest first: rank 0 is the PRIMARY; co-dominant peers ride along only up to
+    # _MAX_CODOMINANT, everyone else is FAR. (None distance sorts last → treated far
+    # unless it lands in the first _MAX_CODOMINANT slots as a safe fallback.)
+    ordered = sorted(kept, key=lambda hd: hd[1] if hd[1] is not None else float("inf"))
+    far_cap = min(_SPECIFIC_FAR_CHARS, char_budget // len(kept))
 
-    # Remaining budget after the far sources' floors, split among the co-dominant
-    # ones by closeness weight (nearer anchor → larger share).
-    remaining = max(0, char_budget - floor * far_count)
-    if not codominant:
-        return out
-    weights = [(best / d if (best and d) else 1.0) for _h, d in codominant]
-    wsum = sum(weights) or float(len(codominant))
-    for (hits, _d), w in zip(codominant, weights):
-        share = max(floor, int(remaining * w / wsum))
-        out.extend(_take_chunks_within(hits, share))
+    out: list[dict] = []
+    pool: list[tuple[list[dict], Optional[float], int]] = []  # (hits, dist, rank)
+    for rank, (hits, d) in enumerate(ordered):
+        codominant = cutoff is None or d is None or d <= cutoff
+        if rank < _MAX_CODOMINANT and (rank == 0 or codominant):
+            pool.append((hits, d, rank))
+        else:
+            out.extend(_take_chunks_within(hits, far_cap))  # far source: ~1 chunk
+
+    # Remaining budget after the far sources, split among the bulk pool by closeness.
+    far_count = len(ordered) - len(pool)
+    remaining = max(0, char_budget - far_cap * far_count)
+    weights = [(best / d if (best and d) else 1.0) for _h, d, _r in pool]
+    wsum = sum(weights) or float(len(pool))
+    for (hits, _d, rank), w in zip(pool, weights):
+        share = int(remaining * w / wsum)
+        if rank > 0:
+            share = min(share, _SPECIFIC_SECONDARY_CHARS)  # secondary: capped
+        out.extend(_take_chunks_within(hits, max(share, far_cap)))
     return out
 
 
@@ -1123,11 +1134,16 @@ async def chat(
         #
         # SOURCE-level distance gate: drop a source only when its CLOSEST anchor is
         # off-topic (cosine > _DIST_FACTOR x global best). Single source → always kept.
+        # No trigram fuzzy here: it is a no-index per-row word_similarity scan (~3s/call,
+        # the n=30 latency killer) and vector search is already typo-robust at the
+        # SEMANTIC level (embeddings put "authoren" next to "Autoren"), with BM25 + ILIKE
+        # covering exact tokens. So the per-source anchor search runs WITHOUT fuzzy
+        # (~0.01s each) and retrieval stays ~1-2s instead of ~90s.
         per_source_expanded: list[tuple[list[dict], Optional[float]]] = []
         for sid in search_source_ids:
             anchors = await _asyncio.to_thread(
                 db.hybrid_search_chunks, workspace["id"], embed_text, query_vector,
-                [sid], _NEIGHBOR_ANCHORS, fuzzy=True,  # typo-tolerant for the user query
+                [sid], _NEIGHBOR_ANCHORS, fuzzy=False,
             )
             if not anchors:
                 continue
