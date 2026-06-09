@@ -207,7 +207,8 @@
       },
       "submit": "Start transcription",
       "longRunning": "Still running - long audio files may take a few minutes…",
-      "downloadLabel": "Transcription"
+      "downloadLabel": "Transcription",
+      "providerLabel": "STT provider"
     },
     "summarize": {
       "title": "Summary",
@@ -403,6 +404,7 @@
         "constraints": "PNG or JPG, max 20 MB"
       },
       "previewAlt": "Preview",
+      "providerLabel": "AI provider",
       "generate": {
         "promptPlaceholder": "Describe the desired image ...",
         "size": "Size",
@@ -812,7 +814,10 @@
         "statusError": "error",
         "statusUnprobed": "not checked yet",
         "statusChecking": "checking…",
-        "noApiKeyChip": "No API-Key"
+        "noApiKeyChip": "No API-Key",
+        "disabledChip": "Inactive",
+        "enable": "Enable",
+        "disable": "Disable"
       },
       "probeErrors": {
         "unreachable": "Not reachable — check the URL and network connection",

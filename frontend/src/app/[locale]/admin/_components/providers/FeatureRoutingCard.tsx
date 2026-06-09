@@ -66,7 +66,11 @@ const FEATURE_ORDER: Feature[] = [
 // Split user-choice features test each eligible provider individually
 // (per-provider model). Other features test the row's resolved provider once.
 const SPLIT_USER_CHOICE_FEATURES: ReadonlySet<Feature> = new Set([
+  "stt",
   "tts",
+  "vision",
+  "image_gen",
+  "image_edit",
   "doc_translate",
 ]);
 
@@ -138,6 +142,7 @@ export default function FeatureRoutingCard({
         const route = routes.find((r) => r.feature === feature);
         if (SPLIT_USER_CHOICE_FEATURES.has(feature)) {
           const eligible = providers.filter((p) => {
+            if (!p.enabled) return false;
             const caps = new Set(p.capabilities);
             if (caps.has(FEATURE_CAPABILITY[feature])) return true;
             const extras = FEATURE_EXTRA_CAPABILITIES[feature] || [];
@@ -182,6 +187,7 @@ export default function FeatureRoutingCard({
           const route = routeByFeature.get(feature);
           const isUserChoice = meta.user_choice_features.includes(feature);
           const eligible = providers.filter((p) => {
+            if (!p.enabled) return false;
             const caps = new Set(p.capabilities);
             if (caps.has(FEATURE_CAPABILITY[feature])) return true;
             const extras = FEATURE_EXTRA_CAPABILITIES[feature] || [];
@@ -253,7 +259,7 @@ function FeatureRow({
   const userChoices = route?.user_choices ?? [];
   const canTest = providerId != null;
 
-  if (isUserChoice && (feature === "tts" || feature === "doc_translate")) {
+  if (isUserChoice && SPLIT_USER_CHOICE_FEATURES.has(feature)) {
     return (
       <div className="py-4 flex flex-col gap-2">
         <div className="min-w-0">

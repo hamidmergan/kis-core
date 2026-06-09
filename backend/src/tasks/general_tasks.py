@@ -35,18 +35,29 @@ def _get_llm_client():
     return OpenAICompatLLMClient(api_key=api_key, base_url=base_url, model=model, whisper_model=model, provider=provider)
 
 
-def _image_http_client(feature: str, *, extra_headers: dict | None = None, timeout: float = 120.0):
+def _image_http_client(
+    feature: str,
+    *,
+    provider_id: int | None = None,
+    extra_headers: dict | None = None,
+    timeout: float = 120.0,
+):
     """Build (base_url, model, httpx.Client) for an image-feature route.
 
-    Resolves the admin-configured provider for ``feature`` (``image_gen``,
-    ``image_edit``, ``vision``) via the central feature_router. Propagates
-    ``FeatureNotConfigured`` unchanged so the task's outer handler can
-    translate it into a localized job error_message.
+    Resolves the provider for ``feature`` (``image_gen``, ``image_edit``,
+    ``vision``). ``provider_id`` is the end-user's pick (capability-based,
+    same as the TTS/STT pickers); when omitted the admin default route is used.
+    Propagates ``FeatureNotConfigured`` unchanged so the task's outer handler
+    can translate it into a localized job error_message.
     """
     import httpx
     from src.services import feature_router
 
-    binding = feature_router.resolve(feature)  # raises FeatureNotConfigured
+    if provider_id is not None:
+        from src.services import feature_provider_choices
+        binding = feature_provider_choices.resolve_binding(feature, provider_id)
+    else:
+        binding = feature_router.resolve(feature)  # raises FeatureNotConfigured
 
     provider = binding.provider
     base = provider["base_url"].rstrip("/")
@@ -154,13 +165,14 @@ def run_transcribe(
     filename: str,
     task: str,
     response_format: str,
+    provider_id: int | None = None,
 ):
     try:
         db.update_job_status(job_uuid, "running")
         user_id = _resolve_user_id(job_uuid)
 
         from src.dependencies import resolve_whisper_client
-        client = resolve_whisper_client()
+        client = resolve_whisper_client(provider_id)
         ext_suffix = Path(filename).suffix.lower()
 
         with job_heartbeat(job_uuid), open_input_file(input_path, suffix=ext_suffix) as local_path:
@@ -195,12 +207,13 @@ def run_image_generate(
     job_uuid: str,
     prompt: str,
     size: str,
+    provider_id: int | None = None,
 ):
     try:
         db.update_job_status(job_uuid, "running")
         user_id = _resolve_user_id(job_uuid)
 
-        base_url, model, client = _image_http_client("image_gen", timeout=120.0)
+        base_url, model, client = _image_http_client("image_gen", provider_id=provider_id, timeout=120.0)
         if not model:
             from src.services.feature_router import FeatureNotConfigured
             raise FeatureNotConfigured("image_gen route has no model_name")
@@ -245,6 +258,7 @@ def run_image_edit(
     input_path: str,
     filename: str,
     prompt: str,
+    provider_id: int | None = None,
 ):
     try:
         db.update_job_status(job_uuid, "running")
@@ -257,12 +271,10 @@ def run_image_edit(
         # Standard OpenAI-compat transport: model in body, no provider quirks.
         # If a future provider requires a different convention, it gets its own
         # protocol adapter — not a transport-detection if/else here.
-        from src.services import feature_router
-        binding = feature_router.resolve("image_edit")
-        edit_model = binding.model or ""
+        base_url, edit_model, client = _image_http_client("image_edit", provider_id=provider_id, timeout=120.0)
         if not edit_model:
-            raise feature_router.FeatureNotConfigured("image_edit route has no model_name")
-        base_url, _model, client = _image_http_client("image_edit", timeout=120.0)
+            from src.services.feature_router import FeatureNotConfigured
+            raise FeatureNotConfigured("image_edit route has no model_name")
 
         # myLab/THL's image-edit pipeline crashes with "unsupported operand
         # type(s) for /: 'int' and 'NoneType'" when these numerics aren't
@@ -332,6 +344,7 @@ def run_image_analyze(
     input_path: str,
     filename: str,
     prompt: str,
+    provider_id: int | None = None,
 ):
     try:
         db.update_job_status(job_uuid, "running")
@@ -360,7 +373,7 @@ def run_image_analyze(
             f"{user_text}"
         )
 
-        base_url, model, client = _image_http_client("vision", timeout=60.0)
+        base_url, model, client = _image_http_client("vision", provider_id=provider_id, timeout=60.0)
         if not model:
             # Vision has no defacto-default model name across providers
             # (qwen3-omni / qwen3-vl / gpt-4-vision / claude-3 are all valid

@@ -45,6 +45,10 @@ MESSAGES: dict[str, dict[str, str]] = {
         "de": "Ungültiges Format: {format}",
         "en": "Invalid format: {format}",
     },
+    "transcription.invalidProvider": {
+        "de": "Ungültiger Anbieter ausgewählt",
+        "en": "Invalid provider selected",
+    },
 
     # ── tts ──────────────────────────────────────────────────────────────────
     "tts.unsupportedFormat": {
@@ -105,6 +109,10 @@ MESSAGES: dict[str, dict[str, str]] = {
     "image.invalidSize": {
         "de": "Ungültige Bildgröße",
         "en": "Invalid image size",
+    },
+    "image.invalidProvider": {
+        "de": "Ungültiger Anbieter ausgewählt",
+        "en": "Invalid provider selected",
     },
     "image.empty": {
         "de": "Bild ist leer",

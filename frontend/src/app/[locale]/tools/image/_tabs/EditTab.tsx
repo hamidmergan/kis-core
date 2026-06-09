@@ -4,6 +4,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import { backendApi, pollJob, downloadJobAsBlob, parseDetail } from "@/lib/api";
 import Spinner from "@/components/ui/Spinner";
+import ProviderSelect from "@/components/tools/ProviderSelect";
+import { useFeatureProviders } from "@/hooks/useFeatureProviders";
 import UploadZone from "../_components/UploadZone";
 import { validateImageFile } from "../_utils";
 
@@ -12,6 +14,7 @@ export default function EditTab() {
   const t = useTranslations("tools.image.edit");
   const tImage = useTranslations("tools.image");
   const tCommon = useTranslations("common");
+  const { providers, providerId, setProviderId } = useFeatureProviders("/image/providers/edit");
   const [file, setFile] = useState<File | null>(null);
   const [dragOver, setDragOver] = useState(false);
   const [prompt, setPrompt] = useState("");
@@ -50,6 +53,7 @@ export default function EditTab() {
       const formData = new FormData();
       formData.append("image", file);
       formData.append("prompt", prompt);
+      if (providerId != null) formData.append("provider_id", String(providerId));
       const response = await backendApi.fetch("/image/edit", { method: "POST", body: formData });
       if (!response.ok) {
         const err = await response.json().catch(() => ({ detail: tCommon("unknownError") }));
@@ -70,7 +74,7 @@ export default function EditTab() {
     } finally {
       setLoading(false);
     }
-  }, [file, prompt, t, tCommon]);
+  }, [file, prompt, providerId, t, tCommon]);
 
   const handleDownload = () => {
     if (!resultUrl || !resultFilename) return;
@@ -110,6 +114,15 @@ export default function EditTab() {
         rows={3}
         placeholder={t("promptPlaceholder")}
         className="w-full rounded-md border border-border px-3 py-2 text-sm text-foreground placeholder:text-muted-soft focus:border-kb focus:ring-1 focus:ring-kb focus:outline-none mb-4"
+      />
+
+      <ProviderSelect
+        id="image-edit-provider"
+        label={tImage("providerLabel")}
+        providers={providers}
+        value={providerId}
+        onChange={setProviderId}
+        disabled={loading}
       />
 
       {!resultUrl && (

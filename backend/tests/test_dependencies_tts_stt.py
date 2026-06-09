@@ -11,7 +11,10 @@ def test_resolve_whisper_client_raises_when_no_model(monkeypatch):
         provider={"base_url": "http://stt.example.com", "name": "Whisper", "api_key": None},
         model=None,
     )
-    monkeypatch.setattr("src.dependencies.feature_router.resolve", lambda f: binding)
+    monkeypatch.setattr(
+        "src.dependencies.feature_router.resolve",
+        lambda f, *, user_provider_id=None: binding,
+    )
 
     from src.dependencies import resolve_whisper_client
     with pytest.raises(FeatureNotConfigured, match="model_name"):

@@ -124,6 +124,20 @@ def make_llm_client(binding: FeatureBinding):
     )
 
 
+def make_whisper_client(binding: FeatureBinding):
+    """Return an OpenAICompatLLMClient configured for STT (transcription).
+
+    Mirrors ``make_llm_client`` but enforces that a model is set — a configured
+    STT route with no model is not usable (Whisper needs an explicit model).
+    """
+    if not binding.model:
+        raise FeatureNotConfigured(
+            f"stt provider '{binding.provider.get('name', '')}' has no model_name — "
+            "set it in the admin KI panel"
+        )
+    return make_llm_client(binding)
+
+
 def make_tts_client(binding: FeatureBinding):
     """Return an OpenAICompatTTSClient for the chosen TTS provider."""
     from src.services.openai_compat_tts import OpenAICompatTTSClient

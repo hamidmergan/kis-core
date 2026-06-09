@@ -4,12 +4,16 @@ import { useCallback, useState } from "react";
 import { useTranslations } from "next-intl";
 import { backendApi, pollJob, downloadJobAsBlob, parseDetail } from "@/lib/api";
 import Spinner from "@/components/ui/Spinner";
+import ProviderSelect from "@/components/tools/ProviderSelect";
+import { useFeatureProviders } from "@/hooks/useFeatureProviders";
 import { SIZES } from "../_utils";
 
 
 export default function GenerateTab() {
   const t = useTranslations("tools.image.generate");
+  const tImage = useTranslations("tools.image");
   const tCommon = useTranslations("common");
+  const { providers, providerId, setProviderId } = useFeatureProviders("/image/providers/generate");
   const [prompt, setPrompt] = useState("");
   const [size, setSize] = useState<string>("1024x1024");
   const [loading, setLoading] = useState(false);
@@ -27,6 +31,7 @@ export default function GenerateTab() {
       const formData = new FormData();
       formData.append("prompt", prompt);
       formData.append("size", size);
+      if (providerId != null) formData.append("provider_id", String(providerId));
       const response = await backendApi.fetch("/image/generate", { method: "POST", body: formData });
       if (!response.ok) {
         const err = await response.json().catch(() => ({ detail: tCommon("unknownError") }));
@@ -46,7 +51,7 @@ export default function GenerateTab() {
     } finally {
       setLoading(false);
     }
-  }, [prompt, size, t, tCommon]);
+  }, [prompt, size, providerId, t, tCommon]);
 
   return (
     <section>
@@ -56,6 +61,15 @@ export default function GenerateTab() {
         rows={4}
         placeholder={t("promptPlaceholder")}
         className="w-full rounded-md border border-border px-3 py-2 text-sm text-foreground placeholder:text-muted-soft focus:border-kb focus:ring-1 focus:ring-kb focus:outline-none mb-4"
+      />
+
+      <ProviderSelect
+        id="image-gen-provider"
+        label={tImage("providerLabel")}
+        providers={providers}
+        value={providerId}
+        onChange={setProviderId}
+        disabled={loading}
       />
 
       <div className="mb-6">

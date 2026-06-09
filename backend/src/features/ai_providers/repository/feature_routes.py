@@ -33,7 +33,11 @@ FEATURES: tuple[str, ...] = (
 # Features that support user-choice multi-pill selection (admin enables a set
 # of providers, end-user picks one inside the tool).
 USER_CHOICE_FEATURES: frozenset[str] = frozenset({
+    "stt",
     "tts",
+    "vision",
+    "image_gen",
+    "image_edit",
     "doc_translate",
     "screencast_translate",
 })

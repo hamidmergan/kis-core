@@ -7,6 +7,8 @@ import TranscriptionFileUpload from "@/components/jobs/TranscriptionFileUpload";
 import { backendApi, pollJob, downloadJobAsBlob, parseDetail } from "@/lib/api";
 import BackLink from "@/components/ui/BackLink";
 import Spinner from "@/components/ui/Spinner";
+import ProviderSelect from "@/components/tools/ProviderSelect";
+import { useFeatureProviders } from "@/hooks/useFeatureProviders";
 import HelpTooltip from "@/components/ui/HelpTooltip";
 
 export default function TranscriptionPage() {
@@ -26,6 +28,11 @@ export default function TranscriptionPage() {
 
   const [responseFormat, setResponseFormat] = useState("text");
 
+  // Reachable STT providers the admin configured a model for. Empty list means
+  // none configured/reachable — the dropdown hides and the backend uses its
+  // default route.
+  const { providers, providerId, setProviderId } = useFeatureProviders("/transcription/providers");
+
   const handleFileSelected = useCallback((file: File) => {
     setPendingFile(file);
     setSelectedFile(file.name);
@@ -44,6 +51,7 @@ export default function TranscriptionPage() {
       formData.append("file", pendingFile);
       formData.append("task", "transcribe");
       formData.append("response_format", responseFormat);
+      if (providerId != null) formData.append("provider_id", String(providerId));
       const response = await backendApi.fetch("/transcription", { method: "POST", body: formData });
       if (!response.ok) {
         const err = await response.json().catch(() => ({ detail: tCommon("unknownError") }));
@@ -97,6 +105,16 @@ export default function TranscriptionPage() {
           </p>
 
           <TranscriptionFileUpload onFileSelected={handleFileSelected} disabled={processing} selectedFilename={selectedFile || undefined} />
+
+          <ProviderSelect
+            id="stt-provider-select"
+            label={t("providerLabel")}
+            providers={providers}
+            value={providerId}
+            onChange={setProviderId}
+            disabled={processing}
+            className="mt-6"
+          />
 
           <div className="mb-6 mt-6">
             <span className="flex items-center gap-1.5 text-sm font-medium text-foreground-soft mb-2">

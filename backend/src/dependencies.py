@@ -127,26 +127,21 @@ def _resolve_translation_llm_provider() -> tuple[str, str, str, str]:
     return _resolve_llm_provider()
 
 
-def resolve_whisper_client() -> OpenAICompatLLMClient:
-    """Resolve a Whisper client from the ``stt`` feature route.
+def resolve_whisper_client(provider_id: Optional[int] = None) -> OpenAICompatLLMClient:
+    """Resolve a Whisper client for the ``stt`` feature.
 
-    Lets ``FeatureNotConfigured`` propagate so Celery tasks can recognise
-    the type and surface a localized error message instead of the internal
-    English text.
+    ``provider_id`` lets the end-user pick one of the STT providers the admin
+    configured a model for (capability-based, same as the TTS picker); when
+    omitted the admin default route is used. Lets ``FeatureNotConfigured``
+    propagate so Celery tasks can surface a localized error message instead of
+    the internal English text.
     """
-    binding = feature_router.resolve("stt")
-    api_key, base_url, model, provider_name = _binding_tuple(binding)
-    if not model:
-        raise feature_router.FeatureNotConfigured(
-            "stt route has no model_name — set it in the admin KI panel"
-        )
-    return OpenAICompatLLMClient(
-        api_key=api_key,
-        base_url=base_url,
-        model=model,
-        provider=provider_name,
-        whisper_model=model,
-    )
+    if provider_id is not None:
+        from src.services import feature_provider_choices
+        binding = feature_provider_choices.resolve_binding("stt", provider_id)
+    else:
+        binding = feature_router.resolve("stt")
+    return feature_router.make_whisper_client(binding)
 
 
 def get_llm_client(locale: str = Depends(get_locale)) -> OpenAICompatLLMClient:
