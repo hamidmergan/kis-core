@@ -4,6 +4,8 @@ from typing import Optional
 
 from pydantic import BaseModel, Field, field_validator
 
+from src.limits import AIA_QUESTION_MAX_CHARS
+
 
 class StaffNoteLink(BaseModel):
     url: str = Field(..., max_length=500)
@@ -55,7 +57,7 @@ class EnrollBody(BaseModel):
 
 
 class ChatBody(BaseModel):
-    question: str
+    question: str = Field(..., min_length=1, max_length=AIA_QUESTION_MAX_CHARS)
     active_source_ids: Optional[list[str]] = None
     direct_text: Optional[bool] = False  # True = no RAG, call LLM directly
     source_uuid: Optional[str] = None  # Source PDF UUID (for popup actions)

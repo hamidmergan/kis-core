@@ -27,6 +27,7 @@ from src.limits import (
     AIA_NOTES_MAX_PER_USER,
     AIA_CONTEXT_MAX_CHARS,
     AIA_CONTEXT_HARD_CAP,
+    AIA_EMBED_QUERY_MAX_CHARS,
 )
 from src.security.rate_limit import enforce_burst
 from src.security.usage_log import log_request as _log_usage
@@ -136,6 +137,32 @@ def _get_retrieve_sem() -> asyncio.Semaphore:
     if _retrieve_sem is None:
         _retrieve_sem = asyncio.Semaphore(_RETRIEVE_CONCURRENCY)
     return _retrieve_sem
+
+
+def _truncate_query_for_embedding(text: str) -> str:
+    """Trim a RETRIEVAL query to AIA_EMBED_QUERY_MAX_CHARS before it is embedded.
+
+    The question is embedded as ONE vector. A very long query produces a washed-out
+    average vector (worse retrieval) and can overflow the embedding model's input
+    limit — which is provider-configurable here (an admin may pick a 512-token
+    model), so we cannot assume a high ceiling. Retrieval intent lives in the
+    opening of a question, so a prefix is a fine search anchor. Only the SEARCH
+    query is shortened; the FULL question still reaches the answer model."""
+    if not text:
+        return text
+    return text[:AIA_EMBED_QUERY_MAX_CHARS]
+
+
+def _reserve_question_budget(budget: int, question: str) -> int:
+    """Subtract the question's chars from the context char budget.
+
+    The budget caps only the retrieved documents, but the question is appended
+    AFTER the context in the answer prompt (aia_rag_user_message), so context +
+    question could overflow the model window together. Reserve room for the
+    question (plus a little prompt scaffolding) and floor at 1000 so even a tiny
+    admin budget leaves usable context. Usually negligible against a 250k budget;
+    it matters when an admin sets a small budget and a user pastes a long question."""
+    return max(1000, budget - len(question or "") - 200)
 
 
 def _parse_page_refs(question: str) -> list[int]:
@@ -495,6 +522,9 @@ async def _retrieve_generic_context(
     involved — chunks + embeddings are the only precomputed data.
     """
     import asyncio
+    # Cap the retrieval query (embed + lexical search). Long pastes overflow the
+    # embedding model / blur the vector; the full question still reaches the answer.
+    question = _truncate_query_for_embedding(question)
     question_vector = await asyncio.to_thread(provider.embed_one, question)
     hits = db.hybrid_search_chunks(
         workspace_id, question, question_vector, source_ids=source_ids,
@@ -1012,8 +1042,11 @@ async def chat(
     rewritten_question = body.question
 
     # Admin-tunable context budget (chars). Drives both the full-context-fits
-    # check below and the final truncation in the shared context builder.
-    context_budget = _context_budget()
+    # check below and the final truncation in the shared context builder. Reserve
+    # room for the question: the budget caps the retrieved DOCUMENTS, but the
+    # question is appended AFTER them in the answer prompt, so context + question
+    # must fit the model window together (see _reserve_question_budget).
+    context_budget = _reserve_question_budget(_context_budget(), body.question)
 
     # ── Scoped path (Self-Query Retrieval) ──
     # An explicit page ("fasse Seite 5 zusammen") or media timestamp ("was wird bei
@@ -1142,6 +1175,8 @@ async def chat(
         # Single-target questions / popup text keep exactly ONE query → identical to before.
         _retrieval_queries = (subqueries if (len(subqueries) > 1 and not body.source_text)
                               else [embed_text])
+        # Cap each retrieval query (embed + lexical search) — see _truncate_query_for_embedding.
+        _retrieval_queries = [_truncate_query_for_embedding(q) for q in _retrieval_queries]
         _qvecs = await _asyncio.to_thread(provider.embed, _retrieval_queries)
         _query_pairs = list(zip(_retrieval_queries, _qvecs))
         query_vector = _qvecs[0]  # primary vector, kept for any downstream use

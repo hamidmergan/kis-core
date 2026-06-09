@@ -66,6 +66,9 @@ export function ChatInputBar({
               if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); if (!loading) submit(); }
             }}
             placeholder={t("inputPlaceholder")}
+            // Hard cap mirrors the backend ChatBody.max_length (AIA_QUESTION_MAX_CHARS):
+            // bound the paste so an oversized question can't overflow embedding / context.
+            maxLength={8000}
             rows={1}
             className="flex-1 text-base resize-none focus:outline-none disabled:opacity-50 bg-transparent"
             style={{ color: "var(--foreground)", maxHeight: 160, overflowY: "auto" }}

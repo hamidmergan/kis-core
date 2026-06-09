@@ -102,23 +102,40 @@ AIA_SOURCE_MAX_PAGES                = 100     # max pages per PDF/DOCX/PPTX uplo
 # lastigen Lücken wie bei 489-S.-Monstern). Reject-Meldung: ``ai.source.tooManyPages``.
 AIA_WORKSPACE_MAX_SOURCES              = 30      # max sources per workspace
 
+# --- AI tutor chat question input -------------------------------------------
+# Hard cap on a single chat question's length. Mirrored in the ChatBody schema
+# (max_length -> clean 422) and the chat textarea (maxLength). 8000 chars ~ 2000
+# tokens: long enough for a pasted multi-part question, but safely under any
+# model window. Without it an unbounded paste could overflow the embedding call
+# or the answer context. The retrieval query is ADDITIONALLY truncated to
+# AIA_EMBED_QUERY_MAX_CHARS before embedding: the embedding provider is admin-
+# configurable and may have a low input limit (e.g. a 512-token model), and a
+# very long query also yields a washed-out, less precise search vector. Only the
+# SEARCH query is shortened; the full question still reaches the answer model.
+AIA_QUESTION_MAX_CHARS                 = 8000
+AIA_EMBED_QUERY_MAX_CHARS              = 2000
+
 # --- AI tutor GENERIC context budget ----------------------------------------
 # The overview path fills context round-robin across the active sources and
 # truncates at this CHARACTER budget — sized for the supported minimum tier
 # (Mid, ~128k token context; Small 8B/32k is no longer a design target). Math:
 # at a conservative ~3.5 chars/token (mixed DE / non-Latin scripts) 250k chars
 # ≈ ~71k tokens of context, leaving ample room for system prompt + question +
-# answer inside a 128k window. The SPECIFIC path shares this builder but never
-# truncates: when its per-source hits exceed the budget it spills into MORE
-# batches and answers via map-reduce (see chat._pack_context_batches), so a
-# higher budget here just means fewer SPECIFIC calls. Admin-tunable per
-# deployment; raise toward AIA_CONTEXT_HARD_CAP for large/cloud models.
+# answer inside a 128k window. The SPECIFIC path shares this builder and packs
+# into ONE window (multi=False): hits beyond the budget are DROPPED, not split
+# into map-reduce batches anymore (neighbor expansion bounds SPECIFIC to one
+# coherent window). A higher budget mainly helps the FIT-shortcut (whole sources
+# sent in full) and GENERIC breadth; SPECIFIC stays bounded by its expansion
+# regardless. Admin-tunable per deployment; raise toward AIA_CONTEXT_HARD_CAP
+# for large/cloud models.
 AIA_CONTEXT_MAX_CHARS                  = 250000
-# Hard ceiling for the admin-tunable budget (~140k tokens). Even a deployment on
-# the largest cloud models cannot exceed this — guards against an admin typo
-# (1M+) that would stall/overflow the model and waste a giant DB read. Enforced
-# both on write (admin PATCH validation) and on read (_context_budget clamp).
-AIA_CONTEXT_HARD_CAP                    = 500000
+# Hard ceiling for the admin-tunable budget (~228k tokens at ~3.5 chars/token).
+# Sized for a 256k-token model, leaving ~28k tokens of headroom for system
+# prompt + question + answer. Even a deployment on the largest cloud models
+# cannot exceed this — guards against an admin typo (1M+) that would stall/
+# overflow the model and waste a giant DB read. Enforced both on write (admin
+# PATCH validation, which imports this constant) and on read (_context_budget clamp).
+AIA_CONTEXT_HARD_CAP                    = 800000
 # Per-batch char cap for the ingest-side DOC SUMMARY (aia_summarizer). Sized to
 # MINIMISE the number of GWDG-rate-limited summary calls per ingest (the shared
 # limit is 2/s, 15/min for the whole university), while keeping each batch small

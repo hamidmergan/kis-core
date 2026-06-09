@@ -14,6 +14,7 @@ from src.dependencies import get_admin_user
 from src.i18n import get_locale, t
 from src.limits import (
     AIA_CONTEXT_MAX_CHARS,
+    AIA_CONTEXT_HARD_CAP,
     AIA_SUMMARY_BATCH_MAX_CHARS,
     AIA_EMBEDDING_BATCH_SIZE,
     AIA_SOURCE_MAX_PAGES,
@@ -140,14 +141,15 @@ async def update_settings(
 
     # KI-tutor context budget in characters. Bounded so a typo cannot starve the
     # context (too low) or blow past even large model windows (too high). Lower
-    # bound ~ one small chunk; hard upper bound 500k chars (~140k tokens) so an
-    # admin typo (1M+) can't force a context that stalls/overflows the model.
+    # bound ~ one small chunk; hard upper bound = AIA_CONTEXT_HARD_CAP (single
+    # source of truth, ~228k tokens) so an admin typo (1M+) can't force a context
+    # that stalls/overflows the model.
     if body.aia_context_max_chars is not None:
         value = body.aia_context_max_chars
-        if value < 1000 or value > 500_000:
+        if value < 1000 or value > AIA_CONTEXT_HARD_CAP:
             raise HTTPException(
                 status_code=400,
-                detail=t("admin.settings.contextBudgetOutOfRange", locale, min=1000, max=500_000),
+                detail=t("admin.settings.contextBudgetOutOfRange", locale, min=1000, max=AIA_CONTEXT_HARD_CAP),
             )
         db.set_setting("aia_context_max_chars", str(value))
 
