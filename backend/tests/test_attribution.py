@@ -11,6 +11,7 @@ from src.features.ai_assistant.routes._helpers import (
     _attribution_chip,
     _attribute_generic_text,
     _names_many_laws,
+    _enum_chip_unbacked,
 )
 
 
@@ -284,6 +285,38 @@ def test_names_many_laws_detects_enumeration():
     assert _names_many_laws("zwei (ZPO) und (InsO) reichen nicht") is False
     # a descriptive Title-case paren is NOT a law list -> single-law line keeps its chip
     assert _names_many_laws("Das Markengesetz (MarkenG) schützt Zeichen (Wortmarken, Bildmarken).") is False
+
+
+def test_enum_chip_unbacked_content_gated():
+    # >= 4 spelled-out items, cited chunk backs only one (Bauwirtschaft) -> unbacked.
+    items = "In den Ausbildungsordnungen für Maler, Flugtechnik, Heimarbeiter, Bauwirtschaft …"
+    assert _enum_chip_unbacked(items, "Bauwirtschaft Dämmungen Trockenbau Prüfung") is True
+    # same shape, but the cited chunk literally enumerates all items -> in-source list, keep.
+    assert _enum_chip_unbacked(items, "Maler Flugtechnik Heimarbeiter Bauwirtschaft Liste") is False
+    # in-source example list (the real false-positive case) -> backed, keep the chip.
+    health = "In den Gesundheitsdienstberufen (Ärzte, Zahnärzte, Tierärzte, Apotheker) ist …"
+    assert _enum_chip_unbacked(health, "zuständig: Ärzte, Zahnärzte, Tierärzte, Apotheker, Kammern") is False
+    # only 3 items -> below the bar, never an enumeration suppression
+    assert _enum_chip_unbacked("Themen: Mathematik, Physik, Chemie.", "nichts davon") is False
+    # no tight comma-run at all
+    assert _enum_chip_unbacked("Anforderungen an Prüfungen, Berichte und Gewichtung.", "x") is False
+
+
+def test_overview_drops_enum_chip_when_chunk_backs_one_item():
+    line = "- In den Ausbildungsordnungen für Maler, Flugtechnik, Heimarbeiter, Bauwirtschaft gelten Regeln."
+    search = _searcher({"Ausbildungsordnungen": [_hit(1, 36, "Bauwirtschaft Dämmungen Trockenbau", 0.2)]})
+    # SPECIFIC still cites it; overview drops the chip because S.36 backs only "Bauwirtschaft".
+    assert "[1, S. 36]" in _attribute_generic_text(line, search, {1: 1}, max_distance=0.6)
+    assert _attribute_generic_text(line, search, {1: 1}, max_distance=0.6, overview=True) == line
+
+
+def test_overview_keeps_enum_chip_when_chunk_backs_all_items():
+    # In-source example list: the cited chunk enumerates all four professions -> chip stays.
+    line = "- In den Gesundheitsdienstberufen Ärzte, Zahnärzte, Tierärzte, Apotheker sind Kammern zuständig."
+    search = _searcher({"Gesundheitsdienstberufen": [
+        _hit(2, 40, "zuständige Stellen Ärzte Zahnärzte Tierärzte Apotheker Kammern", 0.2)]})
+    out = _attribute_generic_text(line, search, {2: 2}, max_distance=0.6, overview=True)
+    assert "[2, S. 40]" in out
 
 
 def test_overview_drops_loose_guarantee_chip():

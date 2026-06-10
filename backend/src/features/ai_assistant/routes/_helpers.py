@@ -572,17 +572,50 @@ _PAREN_RE = re.compile(r"\(([^)]{1,80})\)")
 # (Wortmarken, Berechnung) are NOT matched, so a descriptive paren is not read as a law.
 _LAW_ABBR_RE = re.compile(r"[A-ZÄÖÜ]{2,}[0-9]*|[A-ZÄÖÜ][A-Za-zäöüß0-9]*[A-ZÄÖÜ][A-Za-zÄÖÜäöüß0-9]*")
 
-
 def _names_many_laws(text: str, threshold: int = 3) -> bool:
     """True when a line names >= ``threshold`` DISTINCT law abbreviations inside parentheses
     (e.g. "… (ZPO) … (MarkenG) … (§ 21 StBerG) … (z. B. UWG, UmwG) …"). That is a GENERIC
     synthesis/enumeration over many sources that no single citation chip can meaningfully
     point at, so overview mode leaves it chip-free instead of attaching one misleading link.
-    Only law-shaped abbreviations count, not Title-case descriptive words."""
+    Only law-shaped abbreviations count, not Title-case descriptive words. A spelled-out
+    name-list ("Maler, Flugtechnik, …") is handled separately by ``_enum_chip_unbacked``,
+    which is content-gated — capitalisation alone cannot tell a multi-source enumeration
+    from an in-source example list ("(Ärzte, Zahnärzte, Tierärzte, Apotheker)")."""
     abbrs: set = set()
     for m in _PAREN_RE.finditer(text or ""):
         abbrs.update(_LAW_ABBR_RE.findall(m.group(1)))
     return len(abbrs) >= threshold
+
+
+# A SPELLED-OUT enumeration the paren-abbreviation rule misses: a tight comma-run of
+# capitalised single-word items ("Maler, Flugtechnik, Heimarbeiter, Bauwirtschaft"). Each
+# comma segment is exactly ONE capitalised token, so ordinary prose noun-lists carrying
+# prepositions or multi-word phrases ("Anforderungen an Prüfungen, … einschließlich
+# Gewichtung") break the run and do NOT match. ``{3,}`` = >= 3 commas = >= 4 items.
+# Language-agnostic: keys only on capitalisation + commas, no per-language word list.
+_CAP_TOKEN = r"[A-ZÄÖÜ][A-Za-zÄÖÜäöüß0-9-]+"
+_ENUM_LIST_RE = re.compile(rf"{_CAP_TOKEN}(?:\s*,\s*{_CAP_TOKEN}){{3,}}")
+_ENUM_BACKED_MIN = 0.5  # fraction of items the cited chunk must contain to keep the chip
+
+
+def _enum_chip_unbacked(text: str, content: str) -> bool:
+    """True when ``text`` spells out a >= 4-item name-list ("… Maler, Flugtechnik,
+    Heimarbeiter, Bauwirtschaft …") AND the single chunk we would cite (``content``)
+    does NOT actually contain most of those items — i.e. the chip would point at a page
+    that backs only one of the listed things, the misleading "one chip on a many-source
+    enumeration" case. The content gate is what separates that from an in-source example
+    list ("(Ärzte, Zahnärzte, Tierärzte, Apotheker)" whose chunk literally enumerates all
+    four): there the items ARE in the cited chunk, so the chip stays. Capitalisation alone
+    cannot tell the two apart, so we check the cited chunk's text, not just the shape."""
+    m = _ENUM_LIST_RE.search(text or "")
+    if not m:
+        return False
+    items = [t.strip() for t in m.group(0).split(",")]
+    if len(items) < 4:
+        return False
+    low = (content or "").lower()
+    present = sum(1 for it in items if it.lower() in low)
+    return present < len(items) * _ENUM_BACKED_MIN
 
 
 def _attribute_generic_text(text: str, search_one, source_id_to_qnum: dict, offset_fn=None, *,
@@ -649,7 +682,8 @@ def _attribute_generic_text(text: str, search_one, source_id_to_qnum: dict, offs
         # since one chip on a 100-source synthesis is misleading. SPECIFIC is unchanged.
         guarantee = max_distance if overview else _GUARANTEE_MAX_DIST
         for blk in _attr_blocks(lines):
-            if overview and _names_many_laws(" ".join(lines[i] for i in blk)):
+            block_text = " ".join(lines[i] for i in blk)
+            if overview and _names_many_laws(block_text):
                 continue
             agg: list[dict] = []
             for idx in blk:
@@ -657,6 +691,11 @@ def _attribute_generic_text(text: str, search_one, source_id_to_qnum: dict, offs
             if not agg:
                 continue
             agg.sort(key=lambda h: h["vec_distance"] if h.get("vec_distance") is not None else 1.0)
+            # Overview: a spelled-out name-list whose cited chunk backs only one item is the
+            # misleading "one chip on a many-source enumeration" case → leave it chip-free.
+            # Content-gated so an in-source example list (chunk holds all items) keeps its chip.
+            if overview and _enum_chip_unbacked(block_text, agg[0].get("content") or ""):
+                continue
             chips = _chips_for_line(agg, source_id_to_qnum, max_distance, guarantee_dist=guarantee)
             if chips:
                 last = blk[-1]
