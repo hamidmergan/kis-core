@@ -96,11 +96,11 @@ SCREENCAST_SOFT_TIME_LIMIT      = 3600   # 60 min
 SCREENCAST_TIME_LIMIT           = 3720   # 62 min
 
 # --- AI tutor source limits -------------------------------------------------
-AIA_SOURCE_MAX_PAGES                = 100     # max pages per PDF/DOCX/PPTX upload;
-# lange Skripte kapitelweise hochladen. Grund: bis ~100 S. passt eine Quelle (auch
-# dichter Text) noch nahe ans Fit-Budget → vollständiger Überblick (keine front-
-# lastigen Lücken wie bei 489-S.-Monstern). Reject-Meldung: ``ai.source.tooManyPages``.
-AIA_WORKSPACE_MAX_SOURCES              = 30      # max sources per workspace
+AIA_SOURCE_MAX_PAGES                = 200     # max pages per PDF/DOCX/PPTX upload;
+# lange Skripte kapitelweise hochladen. Bis ~200 S. bleibt eine Quelle handhabbar; sehr
+# große Dokumente (489-S.-Monster) werden weiter abgelehnt, damit der Überblick nicht
+# front-lastig wird. Admin-tunable (1..2000). Reject-Meldung: ``ai.source.tooManyPages``.
+AIA_WORKSPACE_MAX_SOURCES              = 50      # max sources per workspace (admin-tunable 1..1000)
 
 # --- AI tutor chat question input -------------------------------------------
 # Hard cap on a single chat question's length. Mirrored in the ChatBody schema

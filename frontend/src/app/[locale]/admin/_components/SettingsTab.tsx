@@ -401,7 +401,7 @@ function WorkspaceLimitsCard() {
     fetch("/api/admin/settings", { credentials: "include" })
       .then((r) => r.json())
       .then((d) => {
-        const n = typeof d.aia_workspace_max_sources === "number" ? d.aia_workspace_max_sources : 30;
+        const n = typeof d.aia_workspace_max_sources === "number" ? d.aia_workspace_max_sources : 50;
         setValue(n);
         setDraft(String(n));
       });
@@ -833,7 +833,7 @@ function SourceMaxPagesCard() {
     fetch("/api/admin/settings", { credentials: "include" })
       .then((r) => r.json())
       .then((d) => {
-        const n = typeof d.aia_source_max_pages === "number" ? d.aia_source_max_pages : 100;
+        const n = typeof d.aia_source_max_pages === "number" ? d.aia_source_max_pages : 200;
         setValue(n);
         setDraft(String(n));
       });

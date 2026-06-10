@@ -18,6 +18,7 @@ from src.limits import (
     AIA_SUMMARY_BATCH_MAX_CHARS,
     AIA_EMBEDDING_BATCH_SIZE,
     AIA_SOURCE_MAX_PAGES,
+    AIA_WORKSPACE_MAX_SOURCES,
 )
 
 from src.routes.admin._models import UpdateSettingsRequest
@@ -49,7 +50,7 @@ async def get_settings(_admin=Depends(get_admin_user)):
         "ocr_enabled": _enabled("ocr_enabled"),
         # Workspace limits (admin-tunable)
         "aia_workspace_max_sources": int(
-            db.get_setting("aia_workspace_max_sources", "30")
+            db.get_setting("aia_workspace_max_sources", str(AIA_WORKSPACE_MAX_SOURCES))
         ),
         # Schedule retention (admin-tunable). -1 = never delete (UI: empty input)
         "aia_schedule_retention_days": int(
