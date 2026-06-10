@@ -121,8 +121,16 @@ const nextConfig: NextConfig = {
         destination: `${backendUrl}/jobs/:job_uuid/retry`,
       },
       {
+        source: "/api/transcription/providers",
+        destination: `${backendUrl}/transcription/providers`,
+      },
+      {
         source: "/api/transcription",
         destination: `${backendUrl}/transcription`,
+      },
+      {
+        source: "/api/summary/providers",
+        destination: `${backendUrl}/summary/providers`,
       },
       {
         source: "/api/summary",

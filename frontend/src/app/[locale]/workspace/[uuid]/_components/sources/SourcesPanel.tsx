@@ -101,6 +101,11 @@ export function SourcesPanel({
         >
           <span className="text-base font-semibold tracking-wide" style={{ color: "var(--foreground)" }}>
             {t("title")}
+            {sources.length > 0 && (
+              <span className="ml-1.5 font-normal" style={{ color: "var(--foreground-soft)" }}>
+                ({sources.length})
+              </span>
+            )}
           </span>
           <button
             type="button"
