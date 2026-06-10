@@ -14,7 +14,13 @@ with the same chip still counts as a repeat.
 from src.features.ai_assistant.routes._helpers import (
     _RepetitionGuard,
     _dedup_repeated_lines,
+    _tail_repeats,
+    _collapse_repeats,
 )
+
+# A real intra-line degeneration loop: a phrase echoed with NO newline (GENERIC over
+# 107 sources produced 168k chars of this in a single line, ~11 min stream).
+_LOOP_UNIT = "dem Recht der Verkehrssicherheit (BEG, BStrMKnotV), "
 
 
 # ── _RepetitionGuard ─────────────────────────────────────────────────────────
@@ -86,3 +92,42 @@ def test_keeps_blank_and_short_lines():
     text = "## Überblick\n\n- ok\n\n- ok"
     # Short/heading/blank lines are not deduped away.
     assert _dedup_repeated_lines(text) == text
+
+
+# ── _tail_repeats (intra-line loop, no newline) ──────────────────────────────
+
+def test_tail_repeats_catches_intra_line_loop():
+    buf = "Die Dokumente behandeln Themen wie " + _LOOP_UNIT * 60
+    assert _tail_repeats(buf) is True
+
+
+def test_tail_repeats_ignores_normal_prose():
+    prose = ("Die Dokumente umfassen Zivilrecht, Strafrecht, Verwaltungsrecht, "
+             "Arbeitsrecht und Sozialrecht, jeweils mit eigenen Verfahrensvorschriften "
+             "und Zuständigkeiten der Behörden und Gerichte. ") * 3
+    assert _tail_repeats(prose) is False
+
+
+def test_tail_repeats_needs_enough_repeats():
+    # Only 3 repeats (< repeats=5) → not yet a loop.
+    assert _tail_repeats("Anfang " + _LOOP_UNIT * 3) is False
+    assert _tail_repeats("Anfang " + _LOOP_UNIT * 6) is True
+
+
+def test_tail_repeats_empty_and_short():
+    assert _tail_repeats("") is False
+    assert _tail_repeats("kurzer Satz ohne Wiederholung.") is False
+
+
+# ── _collapse_repeats (clean the residue) ────────────────────────────────────
+
+def test_collapse_repeats_shrinks_loop_residue():
+    buf = "Themen wie " + _LOOP_UNIT * 40
+    out = _collapse_repeats(buf)
+    assert out.count("BStrMKnotV") == 1
+    assert len(out) < 200
+
+
+def test_collapse_repeats_leaves_normal_text():
+    text = "- Zivilrecht\n- Strafrecht\n- Verwaltungsrecht"
+    assert _collapse_repeats(text) == text

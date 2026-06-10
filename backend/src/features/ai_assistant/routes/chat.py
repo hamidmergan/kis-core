@@ -890,6 +890,8 @@ from src.features.ai_assistant.routes._helpers import (
     _load_transcript_segments,
     _enrich_media_content,
     _RepetitionGuard,
+    _tail_repeats,
+    _collapse_repeats,
     _dedup_repeated_lines,
     _strip_inline_citation_chips,
     _attribute_generic_text,
@@ -1525,6 +1527,11 @@ async def chat(
             # cleans the handful of repeats that streamed before the stop.
             _repeat_guard = _RepetitionGuard()
             _loop_detected = False
+            # Intra-line loop guard baseline: the line guard only fires on a COMPLETED
+            # line (\n); a phrase looped with no newline never completes one, so we also
+            # scan the growing buffer's tail every _INTRA_LINE_CHECK_EVERY chars.
+            _last_intra = 0
+            _INTRA_LINE_CHECK_EVERY = 1500
             try:
                 # 90s connect/first-token timeout so an Ollama cold-start model
                 # load can finish before we abort. Once tokens flow the
@@ -1573,8 +1580,17 @@ async def chat(
                         answer_parts.append(delta.content)
                         yield f"data: {json.dumps({'token': delta.content})}\n\n"
                         _line_buf += delta.content
+                        # Intra-line degeneration loop (no newline) — cut the runaway
+                        # before it grows to 100k+ chars / minutes of streaming.
+                        if len(_line_buf) - _last_intra >= _INTRA_LINE_CHECK_EVERY:
+                            _last_intra = len(_line_buf)
+                            if _tail_repeats(_line_buf):
+                                logger.warning("Intra-line repetition loop detected, stopping stream")
+                                _loop_detected = True
+                                break
                         while "\n" in _line_buf:
                             _completed, _line_buf = _line_buf.split("\n", 1)
+                            _last_intra = min(_last_intra, len(_line_buf))  # buffer shrank → re-baseline
                             if _repeat_guard.is_loop(_completed):
                                 logger.warning("Repetition loop detected, stopping stream")
                                 _loop_detected = True
@@ -1593,7 +1609,7 @@ async def chat(
                     except Exception:
                         pass
 
-            _clean_answer = _dedup_repeated_lines(_sanitize_citations("".join(answer_parts).strip()))
+            _clean_answer = _dedup_repeated_lines(_collapse_repeats(_sanitize_citations("".join(answer_parts).strip())))
             # Unified post-hoc attribution for every RAG answer (specific / generic / scope):
             # the model wrote plain text; we embed each substantial line, pgvector-search the
             # active sources, cross-check the hit against the pages actually retrieved into

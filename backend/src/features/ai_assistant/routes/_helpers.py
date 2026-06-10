@@ -220,6 +220,41 @@ class _RepetitionGuard:
         return self._counts[key] >= self._max
 
 
+def _tail_repeats(buf: str, *, min_unit: int = 6, max_unit: int = 160,
+                  repeats: int = 5, window: int = 2000) -> bool:
+    """True when the END of ``buf`` is a short unit repeated back-to-back ``repeats``+
+    times — an INTRA-line degeneration loop (a phrase echoed with NO newline).
+
+    The line-based :class:`_RepetitionGuard` never catches this: no line ever completes
+    so it is never asked. Observed in GENERIC over 100+ sources, where the model looped
+    ``"… (BEG, BStrMKnotV), "`` thousands of times into a single 168k-char / ~11-min
+    answer. The stream loop calls this on the GROWING buffer so the runaway is cut early.
+    Only the trailing ``window`` chars are scanned, so it is cheap to call periodically.
+    ``repeats=5`` of a ``>=6``-char unit keeps it well clear of legitimate prose."""
+    tail = buf[-window:]
+    n = len(tail)
+    for unit in range(min_unit, max_unit + 1):
+        if unit * repeats > n:
+            break
+        seg = tail[-unit:]
+        if seg.strip() and tail.endswith(seg * repeats):
+            return True
+    return False
+
+
+# Collapse a short unit repeated 3+ times IN A ROW to one occurrence — cleans the
+# residue an intra-line loop leaves in the final answer before the stream guard trips.
+_COLLAPSE_REPEAT_RE = re.compile(r"(.{6,160}?)(?:\1){3,}", re.DOTALL)
+
+
+def _collapse_repeats(text: str) -> str:
+    """Collapse a unit repeated 3+ times back-to-back to a single copy. Bounded scan;
+    skipped on very large input to avoid pathological backtracking cost."""
+    if len(text) > 60000:
+        return text
+    return _COLLAPSE_REPEAT_RE.sub(lambda m: m.group(1), text)
+
+
 def _dedup_repeated_lines(text: str) -> str:
     """Drop later duplicates of a substantial line (same :func:`_line_dedup_key`).
     Cleans up a repetition loop's residue; blank/short/marker lines pass through."""
