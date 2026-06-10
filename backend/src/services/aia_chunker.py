@@ -220,21 +220,30 @@ def _extract_pdf(
         # with little or no text-layer content.
         coverage = _bitmap_coverage(page)
         should_ocr = coverage >= _OCR_IMAGE_COVERAGE_THRESHOLD
+
+        # Resolve the OCR provider lazily on the first page that wants OCR, so the
+        # log below reports whether OCR ACTUALLY ran (provider present) and not just
+        # the coverage heuristic. None = OCR toggle off / provider missing -> skip.
+        if should_ocr and not ocr_checked:
+            try:
+                from src.services.aia_ocr import get_ocr_provider
+                ocr_provider = get_ocr_provider()
+            except Exception as e:
+                logger.warning("OCR provider lookup failed: {}", e)
+                ocr_provider = None
+            ocr_checked = True
+
+        # ocr_wanted = page is image-heavy enough to be an OCR candidate;
+        # ocr_ran = it was AND OCR is actually enabled/available, i.e. text below
+        # really came from OCR. Logging only the heuristic before made a disabled
+        # toggle look like OCR had run.
+        ocr_ran = should_ocr and ocr_provider is not None
         logger.info(
-            "PDF page {}: text={} chars, image_coverage={:.1%}, ocr={}",
-            page_num + 1, len(text), coverage, should_ocr,
+            "PDF page {}: text={} chars, image_coverage={:.1%}, ocr_wanted={}, ocr_ran={}",
+            page_num + 1, len(text), coverage, should_ocr, ocr_ran,
         )
 
         if should_ocr:
-            if not ocr_checked:
-                try:
-                    from src.services.aia_ocr import get_ocr_provider
-                    ocr_provider = get_ocr_provider()
-                except Exception as e:
-                    logger.warning("OCR provider lookup failed: {}", e)
-                    ocr_provider = None
-                ocr_checked = True
-
             if ocr_provider is not None:
                 if progress_cb:
                     progress_cb("ocr", page_num + 1, total_pages)
