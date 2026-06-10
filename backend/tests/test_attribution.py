@@ -10,6 +10,7 @@ from src.features.ai_assistant.routes._helpers import (
     _pick_attribution,
     _attribution_chip,
     _attribute_generic_text,
+    _names_many_laws,
 )
 
 
@@ -271,3 +272,45 @@ def test_long_dash_delimiter_row_never_cited():
     )
     lines = out.split("\n")
     assert lines[1] == "|--------|--------|"   # delimiter untouched -> table still parses
+
+
+# ── overview mode: no loose guarantee chip, no chip on multi-law synthesis ────
+
+def test_names_many_laws_detects_enumeration():
+    assert _names_many_laws("Form (ZPO), Marken (MarkenG) und Anwalt (BRAO).") is True
+    # section-style + comma-list parens count too
+    assert _names_many_laws("Doku (z. B. § 21 StBerG), Behörden (§ 55 GwG), (UWG, UmwG)") is True
+    assert _names_many_laws("nur das (MarkenG) wird genannt") is False
+    assert _names_many_laws("zwei (ZPO) und (InsO) reichen nicht") is False
+    # a descriptive Title-case paren is NOT a law list -> single-law line keeps its chip
+    assert _names_many_laws("Das Markengesetz (MarkenG) schützt Zeichen (Wortmarken, Bildmarken).") is False
+
+
+def test_overview_drops_loose_guarantee_chip():
+    # Block 1 grounds the answer (0.2). Block 2 sits in the loose band (0.72):
+    # SPECIFIC guarantees a chip there, overview drops it (a pseudo-source link).
+    text = ("- Klar belegte Kernaussage zum Thema steht hier drin.\n"
+            "- Eine weitere eher lose verbundene Aussage zum Sachverhalt.")
+    search = _searcher({
+        "Kernaussage": [_hit(1, 5, "Kernaussage Thema", 0.2)],
+        "lose verbundene": [_hit(2, 8, "lose", 0.72)],
+    })
+    out_spec = _attribute_generic_text(text, search, {1: 1, 2: 2}, max_distance=0.6)
+    assert "[2, S. 8]" in out_spec                       # guarantee chip in SPECIFIC
+    out_ov = _attribute_generic_text(text, search, {1: 1, 2: 2}, max_distance=0.6, overview=True)
+    assert "[2, S. 8]" not in out_ov                     # dropped in overview
+    assert "[1, S. 5]" in out_ov                         # the close line still cited
+
+
+def test_overview_skips_multi_law_enumeration_line():
+    line = "- Regelungen zur Form von Urteilen (ZPO), zu Marken (MarkenG) und zur Anwaltschaft (BRAO)."
+    search = _searcher({"Regelungen": [_hit(1, 98, "Regelungen Form Urteilen", 0.2)]})
+    assert "[1, S. 98]" in _attribute_generic_text(line, search, {1: 1}, max_distance=0.6)
+    assert _attribute_generic_text(line, search, {1: 1}, max_distance=0.6, overview=True) == line
+
+
+def test_overview_keeps_close_single_source_chip():
+    line = "- Das Markengesetz schützt eingetragene Zeichen als eine Marke."
+    search = _searcher({"Markengesetz": [_hit(3, 8, "Markengesetz Zeichen Marke", 0.2)]})
+    out = _attribute_generic_text(line, search, {3: 3}, max_distance=0.6, overview=True)
+    assert "[3, S. 8]" in out

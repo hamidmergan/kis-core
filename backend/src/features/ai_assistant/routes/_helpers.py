@@ -486,13 +486,16 @@ def _line_candidates(line: str, search_one, context_chunks: Optional[list[dict]]
 
 
 def _chips_for_line(cands: list[dict], source_id_to_qnum: dict,
-                    max_distance: float) -> list[str]:
+                    max_distance: float,
+                    guarantee_dist: float = _GUARANTEE_MAX_DIST) -> list[str]:
     """Build the chip list for ONE line from its closest-first candidates.
 
     The first usable candidate is the GUARANTEE chip (closest retrieved chunk, accepted
-    up to ``_GUARANTEE_MAX_DIST`` so a grounded claim is never left chip-less); each
-    further chip must be a DISTINCT source/page within the normal ``max_distance`` (a
-    genuine additional contributing passage), capped at ``_MAX_CHIPS_PER_LINE``."""
+    up to ``guarantee_dist`` so a grounded claim is never left chip-less); each further
+    chip must be a DISTINCT source/page within the normal ``max_distance`` (a genuine
+    additional contributing passage), capped at ``_MAX_CHIPS_PER_LINE``. Overview mode
+    passes ``guarantee_dist = max_distance`` so a loose, misleading single chip on a
+    many-source synthesis line is dropped instead of guaranteed."""
     chips: list[str] = []
     keys: set = set()
     primary_d: Optional[float] = None
@@ -503,7 +506,7 @@ def _chips_for_line(cands: list[dict], source_id_to_qnum: dict,
         d = h.get("vec_distance")
         d = 1.0 if d is None else d
         if primary_d is None:
-            if d > _GUARANTEE_MAX_DIST:  # even the closest seen chunk is an outlier
+            if d > guarantee_dist:  # closest seen chunk too far → no chip at all
                 break
             primary_d = d                # the guarantee chip; anchors the relative gate
         elif d > min(max_distance, primary_d + _MULTI_CHIP_MAX_DELTA):
@@ -563,8 +566,27 @@ def _attr_blocks(lines: list[str]) -> list[list[int]]:
     return blocks
 
 
+_PAREN_RE = re.compile(r"\(([^)]{1,80})\)")
+# A law abbreviation: ALL-CAPS (ZPO, UWG, SGB, GG) or a word with an INTERNAL capital
+# (UrhG, MarkenG, VwVfG, BImSchG, StBerG, BauGB, FeV). Plain Title-case nouns
+# (Wortmarken, Berechnung) are NOT matched, so a descriptive paren is not read as a law.
+_LAW_ABBR_RE = re.compile(r"[A-ZÄÖÜ]{2,}[0-9]*|[A-ZÄÖÜ][A-Za-zäöüß0-9]*[A-ZÄÖÜ][A-Za-zÄÖÜäöüß0-9]*")
+
+
+def _names_many_laws(text: str, threshold: int = 3) -> bool:
+    """True when a line names >= ``threshold`` DISTINCT law abbreviations inside parentheses
+    (e.g. "… (ZPO) … (MarkenG) … (§ 21 StBerG) … (z. B. UWG, UmwG) …"). That is a GENERIC
+    synthesis/enumeration over many sources that no single citation chip can meaningfully
+    point at, so overview mode leaves it chip-free instead of attaching one misleading link.
+    Only law-shaped abbreviations count, not Title-case descriptive words."""
+    abbrs: set = set()
+    for m in _PAREN_RE.finditer(text or ""):
+        abbrs.update(_LAW_ABBR_RE.findall(m.group(1)))
+    return len(abbrs) >= threshold
+
+
 def _attribute_generic_text(text: str, search_one, source_id_to_qnum: dict, offset_fn=None, *,
-                            seen_pages_by_source=None, context_chunks=None,
+                            seen_pages_by_source=None, context_chunks=None, overview: bool = False,
                             max_distance: float = _GENERIC_ATTRIB_MAX_DIST) -> str:
     """Re-ground each substantial, uncited line of a GENERIC answer.
 
@@ -622,14 +644,20 @@ def _attribute_generic_text(text: str, search_one, source_id_to_qnum: dict, offs
     # An UNGROUNDED answer (honest "not contained") gets none.
     out = list(lines)
     if grounded:
+        # Overview (GENERIC): no loose GUARANTEE chip — cite only a genuinely close single
+        # source (gate = max_distance), and leave a multi-law enumeration line chip-free,
+        # since one chip on a 100-source synthesis is misleading. SPECIFIC is unchanged.
+        guarantee = max_distance if overview else _GUARANTEE_MAX_DIST
         for blk in _attr_blocks(lines):
+            if overview and _names_many_laws(" ".join(lines[i] for i in blk)):
+                continue
             agg: list[dict] = []
             for idx in blk:
                 agg.extend(cand_by_idx.get(idx, []))
             if not agg:
                 continue
             agg.sort(key=lambda h: h["vec_distance"] if h.get("vec_distance") is not None else 1.0)
-            chips = _chips_for_line(agg, source_id_to_qnum, max_distance)
+            chips = _chips_for_line(agg, source_id_to_qnum, max_distance, guarantee_dist=guarantee)
             if chips:
                 last = blk[-1]
                 # Table data row -> chip(s) INSIDE the last cell (keeps GFM column count

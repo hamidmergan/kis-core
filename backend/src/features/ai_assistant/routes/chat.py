@@ -1657,6 +1657,9 @@ async def chat(
 
                     return _attribute_generic_text(_stripped, _search_one, source_id_to_qnum,
                                                    seen_pages_by_source=seen_pages_by_source,
+                                                   # GENERIC overview: drop the loose guarantee chip
+                                                   # and chip-free the multi-law synthesis lines.
+                                                   overview=(intent == "GENERIC" and not scope_chunks),
                                                    # Exact-match grounding sees exactly what the
                                                    # model read (the single neighbor-expanded window).
                                                    context_chunks=chunks)
