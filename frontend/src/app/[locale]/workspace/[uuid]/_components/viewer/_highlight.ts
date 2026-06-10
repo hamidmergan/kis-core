@@ -34,7 +34,7 @@ type DrawOpts = { scroll?: boolean };
 // Exact-selection highlight = passive yellow marker (NOT a text selection), so it
 // never triggers the selection action-popup. Single colour constant — swap for a
 // tenant brand colour here if desired.
-const CITATION_HL_COLOR = "#FFE14D";   // highlighter yellow
+export const CITATION_HL_COLOR = "#FFE14D";   // highlighter yellow (shared with the active citation chip border)
 const CITATION_HL_OPACITY = 0.4;
 const HIGHLIGHT_SUBTYPE = 9;           // PdfAnnotationSubtype.HIGHLIGHT
 

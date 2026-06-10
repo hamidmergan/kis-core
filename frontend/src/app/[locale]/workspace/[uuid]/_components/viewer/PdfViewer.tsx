@@ -9,6 +9,7 @@ import { FileIcon } from "../sources/FileIcon";
 import { EMBEDPDF_ICON_MAP } from "./_icons";
 import { wrapEngineGeometry } from "./_geometry";
 import { doHighlightSearch, clearCitationHighlight, scrollToCitationPage, flashPageBorder, type HighlightRefs } from "./_highlight";
+import { clearActiveChipTarget } from "../chat/_citations";
 import { copyTextFromPromise } from "@/lib/clipboard";
 import { useTheme } from "@/hooks/useTheme";
 
@@ -601,7 +602,7 @@ export function PdfViewer({
             )}
             <button
               type="button"
-              onClick={() => clearCitationHighlight(highlightRefs, registryRef.current)}
+              onClick={() => { clearCitationHighlight(highlightRefs, registryRef.current); clearActiveChipTarget(); }}
               className="flex items-center justify-center w-7 h-7 rounded-full shadow-md btn-icon"
               style={{ backgroundColor: "var(--surface)", color: "var(--foreground)", border: "1px solid var(--border)" }}
               title={tViewer("dismissHighlight")}

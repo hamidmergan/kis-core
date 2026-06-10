@@ -3,6 +3,48 @@ import { CaretRight } from "@phosphor-icons/react";
 import { _chunkLabel, type ChipLabelT } from "../../_utils";
 import type { ChatMessage } from "../../_types";
 import { citationPattern, citationsAreAdjacentSameTarget, stripCitations, type CitationFields } from "./_citation_parse";
+import { CITATION_HL_COLOR } from "../viewer/_highlight";
+
+
+// The single citation target (source + page/timestamp) currently framed in the viewer,
+// i.e. the last clicked chip. Mirrors the viewer's one-frame-at-a-time behaviour so the
+// active chip wears the SAME yellow border as the page frame. Module scope (like
+// _openChipGroups below) so the active state survives the remount churn of streaming /
+// the 15s poll. Chips subscribe individually, so a click re-renders only the
+// previously- and newly-active chip, not the whole message tree.
+let _activeChipTarget: string | null = null;
+const _activeChipSubs = new Set<() => void>();
+
+// A chip's identity for "active" matching: source + page (PDF) or source + seconds
+// (media). Two chips for the same target light up together — consistent, since the
+// viewer frames exactly that one page either way.
+function chipTargetKey(uuid: string, page: number, seconds: number | undefined): string {
+  return seconds != null ? `${uuid}@t${seconds}` : `${uuid}@p${page}`;
+}
+
+function setActiveChipTarget(key: string): void {
+  if (_activeChipTarget === key) return;
+  _activeChipTarget = key;
+  _activeChipSubs.forEach((fn) => fn());
+}
+
+// Drop the active chip's yellow border. Called when the viewer's page frame is
+// dismissed (the X button bottom-right of the PDF), so the chip in the chat loses its
+// frame in lock-step with the page. No-op when no chip is active.
+export function clearActiveChipTarget(): void {
+  if (_activeChipTarget === null) return;
+  _activeChipTarget = null;
+  _activeChipSubs.forEach((fn) => fn());
+}
+
+function useIsActiveChip(key: string): boolean {
+  const subscribe = React.useCallback((cb: () => void) => {
+    _activeChipSubs.add(cb);
+    return () => { _activeChipSubs.delete(cb); };
+  }, []);
+  const getSnapshot = React.useCallback(() => _activeChipTarget === key, [key]);
+  return React.useSyncExternalStore(subscribe, getSnapshot, getSnapshot);
+}
 
 
 export type CitationChipClickHandler = (
@@ -37,23 +79,36 @@ interface ChipDesc {
 // popup/action-bar exact selection, which still passes its verbatim text to highlight.
 function CitationChip({ desc, onChipClick }: { desc: ChipDesc; onChipClick: CitationChipClickHandler }) {
   const { filename, displayQNum, label, clickUuid, clickPage, clickSeconds, clickHighlight, isExactSelection } = desc;
+  const targetKey = chipTargetKey(clickUuid, clickSeconds ? 0 : clickPage, clickSeconds);
+  const isActive = useIsActiveChip(targetKey);
   // onPointerDown (not onClick) so chips remain clickable during active token stream:
   // with onClick, react-markdown often unmounts the chip between down and up, so the
   // native click lands on an ancestor. Pointer (not Mouse) so touch devices trigger it.
-  const activate = () => onChipClick(
-    clickUuid,
-    clickSeconds ? 0 : clickPage,
-    filename,
-    clickSeconds ? undefined : clickHighlight,
-    clickSeconds,
-    isExactSelection,
-  );
+  const activate = () => {
+    // Mark this chip as the active one so it wears the same yellow border as the page
+    // frame the click is about to draw in the viewer.
+    setActiveChipTarget(targetKey);
+    onChipClick(
+      clickUuid,
+      clickSeconds ? 0 : clickPage,
+      filename,
+      clickSeconds ? undefined : clickHighlight,
+      clickSeconds,
+      isExactSelection,
+    );
+  };
   return (
     <span role="button" tabIndex={0}
       onPointerDown={(e) => { if (e.button === 0) activate(); }}
       onKeyDown={(e) => { if (e.key === "Enter") activate(); }}
       className="inline-flex items-center whitespace-nowrap text-xs px-1.5 py-0.5 rounded-full font-medium chip-cite align-middle mx-0.5 cursor-pointer"
-      style={{ backgroundColor: "rgba(var(--kb-rgb),0.12)", color: "var(--kb)" }}
+      // Transparent border by default so the active state adds the yellow frame without
+      // shifting layout. Yellow matches the viewer page frame (CITATION_HL_COLOR).
+      style={{
+        backgroundColor: "rgba(var(--kb-rgb),0.12)",
+        color: "var(--kb)",
+        border: `2px solid ${isActive ? CITATION_HL_COLOR : "transparent"}`,
+      }}
       title={`${filename}, ${label}`}
     >{displayQNum ? `[${displayQNum}] ` : ""}{label}</span>
   );
