@@ -87,6 +87,10 @@ export function useSources({ uuid, onModuleUpdate }: UseSourcesOptions) {
     }));
     setUploadErrors(errors);
     let rateLimitHit = false;
+    // Names already present (case-insensitive) so a re-uploaded file is skipped
+    // before hitting the network. The backend stays authoritative — it also
+    // catches office files whose stored name changes (e.g. .docx -> .pdf).
+    const existingNames = new Set(sources.map((s) => (s.filename ?? "").trim().toLowerCase()));
     for (let i = 0; i < toUpload.length; i++) {
       const file = toUpload[i];
       if (rateLimitHit) {
@@ -96,6 +100,13 @@ export function useSources({ uuid, onModuleUpdate }: UseSourcesOptions) {
         errors.push({ filename: file.name, message: t("uploadSkippedLimit") });
         continue;
       }
+      const nameKey = file.name.trim().toLowerCase();
+      if (existingNames.has(nameKey)) {
+        errors.push({ filename: file.name, message: t("uploadDuplicate") });
+        continue;
+      }
+      // Guard against duplicates within the same drop too.
+      existingNames.add(nameKey);
       setUploadProgress({ current: i + 1, total: toUpload.length, percent: 0 });
       try {
         await new Promise<void>((resolve, reject) => {
@@ -137,7 +148,7 @@ export function useSources({ uuid, onModuleUpdate }: UseSourcesOptions) {
     }
     setUploadProgress(null);
     if (errors.length > 0) setUploadErrors(errors);
-  }, [uuid]);
+  }, [uuid, sources, t]);
 
   return {
     sources, setSources,

@@ -43,6 +43,10 @@ MESSAGES: dict[str, dict[str, str]] = {
         "de": "Nur {extensions} erlaubt",
         "en": "Only {extensions} allowed",
     },
+    "ai.source.duplicateName": {
+        "de": "Eine Source mit dem Namen \"{name}\" existiert bereits in diesem {label}.",
+        "en": "A source named \"{name}\" already exists in this {label}.",
+    },
     "ai.source.fileTooLargeMb": {
         "de": "Datei zu groß (max {max} MB)",
         "en": "File too large (max {max} MB)",

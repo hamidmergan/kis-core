@@ -1976,6 +1976,7 @@
         "uploadFailed": "Upload fehlgeschlagen",
         "uploadSkippedMax": "Übersprungen, maximal {max} Dateien gleichzeitig hochladen.",
         "uploadSkippedLimit": "Übersprungen: Upload-Limit erreicht.",
+        "uploadDuplicate": "Übersprungen: Eine Source mit diesem Namen existiert bereits.",
         "networkError": "Netzwerkfehler",
         "noteSaveFailed": "Notiz konnte nicht gespeichert werden.",
         "termsAdded": "{count, plural, =1 {1 Begriff hinzugefügt.} other {# Begriffe hinzugefügt.}}",

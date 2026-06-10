@@ -1976,6 +1976,7 @@
         "uploadFailed": "Upload failed",
         "uploadSkippedMax": "Skipped, upload max {max} files at once.",
         "uploadSkippedLimit": "Skipped: upload limit reached.",
+        "uploadDuplicate": "Skipped: a source with this name already exists.",
         "networkError": "Network error",
         "noteSaveFailed": "Note could not be saved.",
         "termsAdded": "{count, plural, =1 {1 term added.} other {# terms added.}}",
