@@ -221,17 +221,25 @@ def enforce_aia_burst(user_id: int, locale: str = "de") -> None:
     enforce_tool_burst(user_id, "aia", locale)
 
 
-def enforce_upload_limits(user_id: int, locale: str = "de") -> None:
-    """Reject an upload only when it would exceed the hourly cap.
+def check_upload_limit(user_id: int, locale: str = "de") -> None:
+    """Reject an upload at the door only when the hourly cap is ALREADY full.
+
+    READ-ONLY: it inspects the current counter but never increments it. The
+    counter is bumped by ``record_upload`` AFTER an upload is fully accepted, so a
+    rejected attempt (duplicate name, workspace full, too many pages, bad file, …)
+    never consumes a slot. Called early in the route so spam is bounced before the
+    body is read.
 
     There is deliberately NO concurrent in-flight limit: backpressure for the
-    indexing pipeline belongs in the worker, not at the HTTP door. Celery's
-    bounded worker concurrency (``--concurrency`` on the ``aia`` queue) already
-    caps how many sources are indexed/summarised at once; extra uploads simply
-    wait in the queue as ``pending``. The hourly cap stays as the abuse guard
-    (alongside the per-workspace ceiling enforced by the caller). The counter is
-    incremented only when the upload would be accepted, so rejected uploads do
-    not consume the quota.
+    indexing pipeline belongs in the Celery worker (bounded ``--concurrency`` on
+    the ``aia`` queue), not at the HTTP door. The hourly cap is the abuse guard,
+    alongside the per-workspace ceiling enforced by the caller.
+
+    Trade-off of check-then-record (vs the old atomic incr-then-rollback): a burst
+    of concurrent uploads can momentarily slip a few past the cap, since each reads
+    the count before any has recorded. Acceptable for a soft abuse guard — the old
+    design instead counted EVERY rejected attempt, which wrongly throttled a
+    legitimate bulk upload that hit duplicates / the page or workspace ceiling.
     """
     if user_id <= 0:
         return
@@ -239,14 +247,7 @@ def enforce_upload_limits(user_id: int, locale: str = "de") -> None:
     redis_key = f"rl:upload:hourly:{user_id}"
     try:
         r = _redis()
-        pipe = r.pipeline()
-        pipe.incr(redis_key)
-        pipe.expire(redis_key, UPLOAD_HOURLY_WINDOW_SECONDS, nx=True)
-        count, _ = pipe.execute()
-        # On overflow roll the counter back so the user can retry next hour
-        # without being penalized for the rejected attempt.
-        if count > UPLOAD_HOURLY_MAX:
-            r.decr(redis_key)
+        count = int(r.get(redis_key) or 0)
         ttl = r.ttl(redis_key)
         r.close()
     except HTTPException:
@@ -255,7 +256,7 @@ def enforce_upload_limits(user_id: int, locale: str = "de") -> None:
         logger.warning("Upload hourly limit Redis error (user={}): {}", user_id, e)
         return  # fail-open
 
-    if count > UPLOAD_HOURLY_MAX:
+    if count >= UPLOAD_HOURLY_MAX:
         retry_after = max(ttl, 60) if ttl and ttl > 0 else UPLOAD_HOURLY_WINDOW_SECONDS
         raise HTTPException(
             status_code=429,
@@ -272,3 +273,26 @@ def enforce_upload_limits(user_id: int, locale: str = "de") -> None:
             },
             headers={"Retry-After": str(retry_after)},
         )
+
+
+def record_upload(user_id: int) -> None:
+    """Count ONE accepted upload toward the hourly cap.
+
+    Called by the route only after the upload passed every validation and the
+    source row was created + queued, so errors never consume the user's quota.
+    Failures here are swallowed (fail-open): a Redis hiccup must not undo an
+    upload the user already succeeded at.
+    """
+    if user_id <= 0:
+        return
+
+    redis_key = f"rl:upload:hourly:{user_id}"
+    try:
+        r = _redis()
+        pipe = r.pipeline()
+        pipe.incr(redis_key)
+        pipe.expire(redis_key, UPLOAD_HOURLY_WINDOW_SECONDS, nx=True)
+        pipe.execute()
+        r.close()
+    except Exception as e:
+        logger.warning("Upload hourly record Redis error (user={}): {}", user_id, e)

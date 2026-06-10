@@ -1,7 +1,7 @@
 """Source upload / retry / delete."""
 import uuid
 
-from src.security.rate_limit import enforce_upload_limits
+from src.security.rate_limit import check_upload_limit, record_upload
 from src.utils.file_validation import validate_or_raise
 
 from ._shared import (
@@ -26,11 +26,23 @@ async def upload_source(
     workspace = _require_own_workspace(workspace_uuid, current_user["user_id"], locale=locale)
 
     # Reject before reading the body so spam attempts don't waste bandwidth.
-    # Only the hourly cap applies here; concurrent throughput is bounded by the
-    # Celery worker, and the per-workspace ceiling is enforced just below.
-    enforce_upload_limits(current_user["user_id"], locale=locale)
+    # READ-ONLY check here; the counter is bumped by record_upload() only once the
+    # upload is fully accepted below, so a duplicate / over-max-sources /
+    # over-max-pages / bad-file rejection never consumes a slot. Concurrent
+    # throughput is bounded by the Celery worker; the per-workspace ceiling is
+    # enforced just below.
+    check_upload_limit(current_user["user_id"], locale=locale)
 
     existing_sources = db.get_aia_sources_by_workspace(workspace["id"])
+    # Existing filenames, normalized for a case-insensitive duplicate check below.
+    existing_names = {(s["filename"] or "").strip().lower() for s in existing_sources}
+
+    def _ws_label() -> str:
+        # Admin-configured workspace label (e.g. "Modul", "Kurs") so error
+        # messages match whatever students see elsewhere in the UI.
+        label_key = "workspace_label_singular_en" if locale == "en" else "workspace_label_singular_de"
+        return db.get_setting(label_key, db.get_setting("workspace_label_singular", "Workspace"))
+
     # Limit is admin-tunable at runtime via the settings tab; fall back to the
     # code constant when the DB setting is missing or unparseable.
     raw_limit = db.get_setting("aia_workspace_max_sources", str(AIA_WORKSPACE_MAX_SOURCES))
@@ -39,16 +51,9 @@ async def upload_source(
     except (TypeError, ValueError):
         max_sources = AIA_WORKSPACE_MAX_SOURCES
     if len(existing_sources) >= max_sources:
-        # Use the admin-configured workspace label (e.g. "Modul", "Kurs") so the
-        # error message matches whatever students see elsewhere in the UI.
-        label_key = "workspace_label_singular_en" if locale == "en" else "workspace_label_singular_de"
-        ws_label = db.get_setting(
-            label_key,
-            db.get_setting("workspace_label_singular", "Workspace"),
-        )
         raise HTTPException(
             status_code=409,
-            detail=t("ai.source.maxPerWorkspace", locale, max=max_sources, label=ws_label),
+            detail=t("ai.source.maxPerWorkspace", locale, max=max_sources, label=_ws_label()),
         )
 
     if not file.filename:
@@ -58,6 +63,15 @@ async def upload_source(
         raise HTTPException(
             status_code=400,
             detail=t("ai.source.allowedExtensions", locale, extensions=", ".join(sorted(_ALLOWED_EXTENSIONS))),
+        )
+
+    # Reject same-name uploads early (before reading the body) so a re-uploaded
+    # file is bounced cheaply. Office files get a second check after the PDF
+    # rename below, since their stored name changes.
+    if file.filename.strip().lower() in existing_names:
+        raise HTTPException(
+            status_code=409,
+            detail=t("ai.source.duplicateName", locale, name=file.filename, label=_ws_label()),
         )
 
     data = await file.read()
@@ -73,6 +87,13 @@ async def upload_source(
         data = _convert_office_to_pdf(data, ext, locale=locale)
         stored_filename = Path(file.filename).stem + ".pdf"
         ext = ".pdf"
+        # The converted name (e.g. lecture.docx -> lecture.pdf) may now collide
+        # with an existing source even though the original name did not.
+        if stored_filename.strip().lower() in existing_names:
+            raise HTTPException(
+                status_code=409,
+                detail=t("ai.source.duplicateName", locale, name=stored_filename, label=_ws_label()),
+            )
     elif ext == ".mp4":
         logger.info("KI Tutor: applying MP4 faststart ({})", file.filename)
         data = _mp4_faststart(data)
@@ -104,6 +125,10 @@ async def upload_source(
 
     from src.tasks.aia_tasks import run_index_source
     run_index_source.delay(source_uuid, locale)
+
+    # Count toward the hourly cap ONLY now that the upload is fully accepted —
+    # every reject path above returned before here, so errors don't burn a slot.
+    record_upload(current_user["user_id"])
 
     logger.info("KI Tutor: source {} ({}) uploaded to workspace {}", source_uuid, stored_filename, workspace_uuid)
     return {"uuid": source_uuid, "filename": stored_filename, "status": "pending"}

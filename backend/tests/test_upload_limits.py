@@ -1,9 +1,13 @@
 """Upload rate-limit behaviour.
 
-Locks in the design decision that source uploads have NO concurrent in-flight
-cap (backpressure lives in the Celery worker). The only HTTP-level throttle is
-the hourly window; the per-workspace ceiling is enforced separately in the
-route, not here.
+Locks in two design decisions:
+- source uploads have NO concurrent in-flight cap (backpressure lives in the
+  Celery worker); the only HTTP-level throttle is the hourly window, and the
+  per-workspace ceiling is enforced separately in the route, not here.
+- the hourly counter is split into a READ-ONLY ``check_upload_limit`` (gate at
+  the door) and ``record_upload`` (bump on success), so a REJECTED upload —
+  duplicate name, workspace full, too many pages, bad file — never consumes a
+  slot. Only fully-accepted uploads count.
 """
 import pytest
 from fastapi import HTTPException
@@ -30,7 +34,7 @@ class _FakePipeline:
 
 
 class _FakeRedis:
-    """Just enough of the redis client surface for enforce_upload_limits."""
+    """Just enough of the redis client surface for the upload limit helpers."""
 
     def __init__(self, store):
         self._store = store
@@ -38,8 +42,8 @@ class _FakeRedis:
     def pipeline(self):
         return _FakePipeline(self._store)
 
-    def decr(self, key):
-        self._store[key] = self._store.get(key, 0) - 1
+    def get(self, key):
+        return self._store.get(key)
 
     def ttl(self, key):
         return 1800
@@ -55,35 +59,46 @@ def fake_redis(monkeypatch):
     return store
 
 
-def test_no_concurrent_cap_many_uploads_accepted(fake_redis):
-    """Firing well past the old concurrent cap (10) never raises on its own.
-
-    Before the redesign the 11th in-flight upload got a 429; now only the
-    hourly window can reject, so a burst stays accepted until that window fills.
-    """
+def test_uploads_allowed_up_to_cap(fake_redis):
+    """check passes and record counts, up to exactly the hourly cap."""
     for _ in range(UPLOAD_HOURLY_MAX):
-        rate_limit.enforce_upload_limits(user_id=42)  # must not raise
+        rate_limit.check_upload_limit(user_id=42)   # must not raise
+        rate_limit.record_upload(user_id=42)
+    assert fake_redis["rl:upload:hourly:42"] == UPLOAD_HOURLY_MAX
 
 
-def test_hourly_cap_still_rejects(fake_redis):
+def test_check_rejects_when_cap_full(fake_redis):
     for _ in range(UPLOAD_HOURLY_MAX):
-        rate_limit.enforce_upload_limits(user_id=7)
+        rate_limit.record_upload(user_id=7)
     with pytest.raises(HTTPException) as exc:
-        rate_limit.enforce_upload_limits(user_id=7)
+        rate_limit.check_upload_limit(user_id=7)
     assert exc.value.status_code == 429
     assert exc.value.detail["kind"] == "upload_hourly"
 
 
-def test_rejected_upload_does_not_consume_quota(fake_redis):
-    """An over-limit attempt rolls the counter back so the next hour is clean."""
-    for _ in range(UPLOAD_HOURLY_MAX):
-        rate_limit.enforce_upload_limits(user_id=9)
-    with pytest.raises(HTTPException):
-        rate_limit.enforce_upload_limits(user_id=9)
-    # Counter must sit exactly at the cap, not above it.
-    assert fake_redis["rl:upload:hourly:9"] == UPLOAD_HOURLY_MAX
+def test_failed_upload_does_not_consume_quota(fake_redis):
+    """A rejected upload calls check (which passes) but never record, so the
+    counter stays put — duplicates / over-max-sources / over-max-pages / bad
+    files do not burn a slot, no matter how many are attempted."""
+    for _ in range(UPLOAD_HOURLY_MAX * 3):
+        rate_limit.check_upload_limit(user_id=9)    # route would then raise -> no record
+    assert fake_redis.get("rl:upload:hourly:9", 0) == 0
+    # And a real upload right after still goes through.
+    rate_limit.check_upload_limit(user_id=9)
+    rate_limit.record_upload(user_id=9)
+    assert fake_redis["rl:upload:hourly:9"] == 1
+
+
+def test_check_does_not_increment(fake_redis):
+    """Pure read: repeated checks under the cap never change the counter."""
+    rate_limit.record_upload(user_id=5)             # one real upload
+    for _ in range(10):
+        rate_limit.check_upload_limit(user_id=5)
+    assert fake_redis["rl:upload:hourly:5"] == 1
 
 
 def test_admin_bypass(fake_redis):
     for _ in range(UPLOAD_HOURLY_MAX * 2):
-        rate_limit.enforce_upload_limits(user_id=0)  # user_id <= 0 is a no-op
+        rate_limit.check_upload_limit(user_id=0)    # user_id <= 0 is a no-op
+        rate_limit.record_upload(user_id=0)
+    assert "rl:upload:hourly:0" not in fake_redis
