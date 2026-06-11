@@ -19,7 +19,23 @@ export interface Source {
 }
 
 export type TranscriptTranslationMode = "off" | "auto" | "manual";
-export type TranscriptDefaultLang = "de" | "en" | "both";
+// Default transcript view is role-based now (the concrete target is owner-chosen):
+// "source" = original media language, "target" = the translation, "both" = stacked.
+export type TranscriptDefaultLang = "source" | "target" | "both";
+
+// The list of target languages comes from the backend (GET /ai-assistant/
+// transcript-languages, single source: i18n.TRANSCRIPT_LANGUAGES). Viewer tabs
+// label arbitrary detected source codes via langLabel below.
+
+// Human label for an ISO language code in the user's locale, e.g. langLabel("fr","de")
+// -> "Französisch". Falls back to the upper-cased code when the runtime can't resolve it.
+export function langLabel(code: string, locale: string): string {
+  try {
+    const name = new Intl.DisplayNames([locale], { type: "language" }).of(code);
+    if (name) return name.charAt(0).toUpperCase() + name.slice(1);
+  } catch { /* Intl.DisplayNames unavailable or bad code */ }
+  return code.toUpperCase();
+}
 
 export interface StaffNoteLink {
   url: string;
@@ -35,6 +51,7 @@ export interface WorkspaceDetail {
   is_owner?: boolean;
   transcript_translation_mode?: TranscriptTranslationMode;
   transcript_default_lang?: TranscriptDefaultLang;
+  transcript_target_lang?: string;
   staff_note_text?: string | null;
   staff_note_links?: StaffNoteLink[];
   sources: Source[];

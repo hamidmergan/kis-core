@@ -158,6 +158,21 @@ export default function KiTutorWorkspacePage() {
       body: JSON.stringify({ transcript_default_lang: lang }),
     }).catch(() => { /* ignore */ });
   };
+  const [transcriptTargetLang, setTranscriptTargetLang] = useState<string>("en");
+  useEffect(() => {
+    if (moduleDetail?.transcript_target_lang) {
+      setTranscriptTargetLang(moduleDetail.transcript_target_lang);
+    }
+  }, [moduleDetail?.transcript_target_lang]);
+  const handleChangeTranscriptTargetLang = (lang: string) => {
+    setTranscriptTargetLang(lang);
+    fetch(`/api/ai-assistant/workspaces/${uuid}`, {
+      method: "PATCH",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ transcript_target_lang: lang }),
+    }).catch(() => { /* ignore */ });
+  };
 
   const handleStaffNoteSave = async (text: string | null, links: StaffNoteLink[]) => {
     const res = await fetch(`/api/ai-assistant/workspaces/${uuid}`, {
@@ -576,6 +591,8 @@ export default function KiTutorWorkspacePage() {
           onChangeTranslationMode={handleChangeTranslationMode}
           transcriptDefaultLang={transcriptDefaultLang}
           onChangeTranscriptDefaultLang={handleChangeTranscriptDefaultLang}
+          transcriptTargetLang={transcriptTargetLang}
+          onChangeTranscriptTargetLang={handleChangeTranscriptTargetLang}
           activeTab={activeTab}
           setActiveTab={setActiveTab}
           languageLevel={me?.language_level ?? null}

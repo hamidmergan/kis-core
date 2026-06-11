@@ -18,7 +18,7 @@ from langfuse.decorators import langfuse_context, observe
 
 from src import database as db
 from src.dependencies import get_current_user, get_llm_client
-from src.i18n import get_locale, t
+from src.i18n import get_locale, t, TRANSCRIPT_LANGUAGES
 from src.limits import (
     AIA_SOURCE_MAX_PAGES,
     AIA_WORKSPACE_MAX_SOURCES,
@@ -130,6 +130,21 @@ async def list_workspaces(current_user: dict = Depends(get_current_user)):
         })
     return result
 
+@router.get("/ai-assistant/transcript-languages")
+async def list_transcript_languages(
+    current_user: dict = Depends(get_current_user),
+    locale: str = Depends(get_locale),
+):
+    """Languages an owner may translate media transcripts into. Single source of
+    truth is i18n.TRANSCRIPT_LANGUAGES; labels come from the shared ``lang.*`` keys."""
+    from src.i18n import DEFAULT_TRANSCRIPT_TARGET
+    languages = [
+        {"id": code, "label": t(f"lang.{meta['deepl']}", locale)}
+        for code, meta in TRANSCRIPT_LANGUAGES.items()
+    ]
+    return {"languages": languages, "default": DEFAULT_TRANSCRIPT_TARGET}
+
+
 @router.get("/ai-assistant/workspaces/{workspace_uuid}")
 async def get_workspace(
     workspace_uuid: str,
@@ -150,6 +165,7 @@ async def get_workspace(
         "is_owner": workspace["user_id"] == current_user["user_id"],
         "transcript_translation_mode": workspace.get("transcript_translation_mode", "manual"),
         "transcript_default_lang": workspace.get("transcript_default_lang", "both"),
+        "transcript_target_lang": workspace.get("transcript_target_lang", "en"),
         "staff_note_text": workspace.get("staff_note_text"),
         "staff_note_links": workspace.get("staff_note_links") or [],
         "access_links": [
@@ -180,6 +196,37 @@ async def get_workspace(
         ],
     }
 
+def _dispatch_transcript_retranslation(workspace: dict, target_lang: str) -> None:
+    """Re-translate every ready media source in the workspace into ``target_lang``.
+
+    Owner-only path, fired when the workspace target language changes. No-op when
+    translation is off or no provider is configured. The task itself skips sources
+    whose source language already equals the target and cleans up stale VTTs.
+    """
+    if workspace.get("transcript_translation_mode", "manual") == "off":
+        return
+    from src.services import feature_router, aia_chunker
+    try:
+        binding = feature_router.resolve("transcript_translate")
+    except feature_router.FeatureNotConfigured:
+        logger.warning(
+            "KI Tutor: target changed but transcript_translate not configured (workspace {})",
+            workspace["uuid"],
+        )
+        return
+    from src.tasks.aia_tasks import run_translate_transcript
+    dispatched = 0
+    for s in db.get_aia_sources_by_workspace(workspace["id"]):
+        if s.get("status") != "ready" or not aia_chunker.is_media_file(s.get("file_type") or ""):
+            continue
+        run_translate_transcript.delay(s["uuid"], binding.provider["id"], target_lang)
+        dispatched += 1
+    logger.info(
+        "KI Tutor: dispatched re-translation to '{}' for {} media source(s) in workspace {}",
+        target_lang, dispatched, workspace["uuid"],
+    )
+
+
 @router.patch("/ai-assistant/workspaces/{workspace_uuid}")
 async def patch_workspace(
     workspace_uuid: str,
@@ -197,9 +244,19 @@ async def patch_workspace(
             raise HTTPException(status_code=400, detail=t("ai.workspace.translationModeInvalid", locale))
         db.set_aia_workspace_translation_mode(workspace_uuid, body.transcript_translation_mode)
     if body.transcript_default_lang is not None:
-        if body.transcript_default_lang not in ("de", "en", "both"):
+        if body.transcript_default_lang not in ("source", "target", "both"):
             raise HTTPException(status_code=400, detail=t("ai.workspace.transcriptDefaultLangInvalid", locale))
         db.set_aia_workspace_transcript_default_lang(workspace_uuid, body.transcript_default_lang)
+    if body.transcript_target_lang is not None:
+        if body.transcript_target_lang not in TRANSCRIPT_LANGUAGES:
+            raise HTTPException(status_code=400, detail=t("ai.workspace.transcriptTargetLangInvalid", locale))
+        prev_target = workspace.get("transcript_target_lang", "en")
+        db.set_aia_workspace_transcript_target_lang(workspace_uuid, body.transcript_target_lang)
+        # Switching the target re-translates existing media sources into the new
+        # language (overwrite-when-ready: the task writes the new VTT, then drops
+        # the stale one). Skipped when translation is off or the target is unchanged.
+        if body.transcript_target_lang != prev_target:
+            _dispatch_transcript_retranslation(workspace, body.transcript_target_lang)
     if body.staff_note_text is not None or body.staff_note_links is not None:
         new_text = body.staff_note_text if body.staff_note_text is not None else workspace.get("staff_note_text")
         new_links_models = body.staff_note_links if body.staff_note_links is not None else []

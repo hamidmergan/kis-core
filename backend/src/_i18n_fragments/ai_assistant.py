@@ -7,8 +7,12 @@ MESSAGES: dict[str, dict[str, str]] = {
         "en": "Invalid translation mode",
     },
     "ai.workspace.transcriptDefaultLangInvalid": {
-        "de": "Ungültige Standard-Transkript-Sprache",
-        "en": "Invalid default transcript language",
+        "de": "Ungültige Standard-Transkript-Ansicht",
+        "en": "Invalid default transcript view",
+    },
+    "ai.workspace.transcriptTargetLangInvalid": {
+        "de": "Ungültige Zielsprache für die Übersetzung",
+        "en": "Invalid translation target language",
     },
     "ai.workspace.invalidEnrollCode": {
         "de": "Ungültiger oder abgelaufener Einschreibecode",

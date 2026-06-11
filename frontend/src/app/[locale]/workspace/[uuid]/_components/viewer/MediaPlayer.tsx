@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import { CaretLeft, SidebarSimple, SpeakerHigh } from "@phosphor-icons/react";
-import type { ViewerState, TranscriptDefaultLang } from "../../_types";
+import { langLabel, type ViewerState, type TranscriptDefaultLang } from "../../_types";
 import type { AddNoteExtras } from "../../_hooks/useNotes";
 import { FileIcon } from "../sources/FileIcon";
 import { TranscriptPanel } from "./TranscriptPanel";
@@ -20,31 +20,27 @@ export function MediaPlayer({
 }) {
   const t = useTranslations("workspace.detail.viewer");
   const tPanels = useTranslations("workspace.detail.panels");
+  const locale = useLocale();
   const mediaRef = useRef<HTMLVideoElement | HTMLAudioElement>(null);
   const ext = source.filename.slice(source.filename.lastIndexOf(".")).toLowerCase();
   const isVideo = [".mp4", ".webm"].includes(ext);
   const mediaUrl = `/api/ai-assistant/workspaces/${workspaceUuid}/sources/${source.uuid}/file`;
-  const transcriptUrl = (lang: "de" | "en") =>
+  const transcriptUrl = (lang: string) =>
     `/api/ai-assistant/workspaces/${workspaceUuid}/sources/${source.uuid}/transcript?lang=${lang}`;
 
-  // Detect which VTT languages exist so we only attach available <track> elements.
-  const [availableLangs, setAvailableLangs] = useState<("de" | "en")[]>([]);
+  // Ask the backend which transcript languages exist so we only attach available
+  // <track> elements — works for any source/target language pair, not just de/en.
+  const [availableLangs, setAvailableLangs] = useState<string[]>([]);
   useEffect(() => {
     let cancelled = false;
-    const check = async (lang: "de" | "en") => {
-      try {
-        const res = await fetch(transcriptUrl(lang), { credentials: "include" });
-        return res.ok ? lang : null;
-      } catch {
-        return null;
-      }
-    };
-    Promise.all([check("de"), check("en")]).then((results) => {
-      if (cancelled) return;
-      setAvailableLangs(results.filter((l): l is "de" | "en" => l !== null));
-    });
+    fetch(
+      `/api/ai-assistant/workspaces/${workspaceUuid}/sources/${source.uuid}/transcript/langs`,
+      { credentials: "include" },
+    )
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => { if (!cancelled && data) setAvailableLangs(data.available ?? []); })
+      .catch(() => { /* no tracks */ });
     return () => { cancelled = true; };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [workspaceUuid, source.uuid]);
 
   // Seek to timestamp when source changes
@@ -95,7 +91,7 @@ export function MediaPlayer({
                 kind="subtitles"
                 src={transcriptUrl(lang)}
                 srcLang={lang}
-                label={lang === "de" ? t("tracksDe") : t("tracksEn")}
+                label={langLabel(lang, locale)}
               />
             ))}
           </video>

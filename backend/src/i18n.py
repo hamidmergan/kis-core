@@ -25,6 +25,25 @@ TRANSLATE_LANGUAGES: tuple[str, ...] = (
 DEFAULT_TRANSLATE_SOURCE = "DE"
 DEFAULT_TRANSLATE_TARGET = "EN-US"
 
+# Transcript-translation languages — the ONE place to add/remove a target a
+# workspace owner may translate media transcripts into. Keyed by the short ISO
+# code used both for the VTT filename (`_transcript.<code>.vtt`) and the player
+# <track srclang>. Each entry maps to the DeepL target code and the English
+# language name embedded in the LLM-translation prompt. Mirrors the 9
+# TRANSLATE_LANGUAGES above; `lang.<deepl>` i18n keys supply display labels.
+TRANSCRIPT_LANGUAGES: dict[str, dict[str, str]] = {
+    "de": {"deepl": "DE",    "name": "German"},
+    "en": {"deepl": "EN-US", "name": "English"},
+    "fr": {"deepl": "FR",    "name": "French"},
+    "es": {"deepl": "ES",    "name": "Spanish"},
+    "it": {"deepl": "IT",    "name": "Italian"},
+    "uk": {"deepl": "UK",    "name": "Ukrainian"},
+    "tr": {"deepl": "TR",    "name": "Turkish"},
+    "ar": {"deepl": "AR",    "name": "Arabic"},
+    "ru": {"deepl": "RU",    "name": "Russian"},
+}
+DEFAULT_TRANSCRIPT_TARGET = "en"
+
 
 # All user-facing backend strings live here. Keys follow `area.key` convention.
 # Add to BOTH locales when introducing a new key.

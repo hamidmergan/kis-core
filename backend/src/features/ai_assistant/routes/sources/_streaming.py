@@ -95,19 +95,21 @@ async def stream_source_file(
     )
 
 
-@router.post("/ai-assistant/workspaces/{workspace_uuid}/sources/{source_uuid}/regenerate-en-transcript")
-async def regenerate_en_transcript(
+@router.post("/ai-assistant/workspaces/{workspace_uuid}/sources/{source_uuid}/regenerate-transcript")
+async def regenerate_transcript(
     workspace_uuid: str,
     source_uuid: str,
     current_user: dict = Depends(get_current_user),
     locale: str = Depends(get_locale),
 ):
-    """Dispatch an async Celery task to translate the source-language VTT to English.
+    """Dispatch an async Celery task to translate the source-language VTT into the
+    workspace target language (owner-chosen, default English).
 
     The translation provider is resolved from the ``transcript_translate`` feature route
     configured in the admin KI panel.
     """
     from src.services import feature_router
+    from src.i18n import TRANSCRIPT_LANGUAGES
 
     workspace = _require_own_workspace(workspace_uuid, current_user["user_id"], locale=locale)
     source = db.get_aia_source(source_uuid)
@@ -125,20 +127,28 @@ async def regenerate_en_transcript(
             detail="transcript_translate not configured — set a translation provider in the admin KI panel",
         )
 
+    # The original-language VTT must exist (detected media language, or any known code
+    # for sources indexed before the language column was populated).
     base_key = source["file_path"].rsplit(".", 1)[0]
-    if not any(file_exists(f"{base_key}_transcript.{lang}.vtt") for lang in ("de",)):
-        raise HTTPException(
-            status_code=404,
-            detail=t("ai.transcript.sourceMissing", locale),
-        )
+    source_lang = (source.get("language") or "").lower()
+    has_source = bool(
+        source_lang and source_lang != "unknown"
+        and file_exists(f"{base_key}_transcript.{source_lang}.vtt")
+    ) or any(file_exists(f"{base_key}_transcript.{c}.vtt") for c in TRANSCRIPT_LANGUAGES)
+    if not has_source:
+        raise HTTPException(status_code=404, detail=t("ai.transcript.sourceMissing", locale))
 
-    from src.tasks.aia_tasks import run_translate_transcript_en
-    run_translate_transcript_en.delay(source_uuid, binding.provider["id"])
+    target_lang = workspace.get("transcript_target_lang") or "en"
+    from src.tasks.aia_tasks import run_translate_transcript
+    run_translate_transcript.delay(source_uuid, binding.provider["id"], target_lang)
     logger.info(
-        "KI Tutor: manual EN translation dispatched for {} (provider_id={})",
-        source_uuid, binding.provider["id"],
+        "KI Tutor: manual {} translation dispatched for {} (provider_id={})",
+        target_lang, source_uuid, binding.provider["id"],
     )
-    return {"uuid": source_uuid, "status": "dispatched", "provider_id": binding.provider["id"]}
+    return {
+        "uuid": source_uuid, "status": "dispatched",
+        "target_lang": target_lang, "provider_id": binding.provider["id"],
+    }
 
 
 @router.get("/ai-assistant/workspaces/{workspace_uuid}/sources/{source_uuid}/transcript")
@@ -212,3 +222,52 @@ async def get_transcript_exists(
     base_key = source["file_path"].rsplit(".", 1)[0]
     vtt_key = f"{base_key}_transcript.{lang_clean}.vtt"
     return {"exists": file_exists(vtt_key)}
+
+
+@router.get("/ai-assistant/workspaces/{workspace_uuid}/sources/{source_uuid}/transcript/langs")
+async def get_transcript_langs(
+    workspace_uuid: str,
+    source_uuid: str,
+    current_user: dict = Depends(get_current_user),
+    locale: str = Depends(get_locale),
+):
+    """Describe a media source's transcript languages for the player.
+
+    Returns the original (Whisper-detected) language, the workspace target language,
+    and the list of codes whose VTT actually exists right now. The player builds its
+    track list and language tabs from this instead of hard-coding de/en.
+    """
+    from src.i18n import TRANSCRIPT_LANGUAGES
+
+    user_id = current_user["user_id"]
+    workspace = db.get_aia_workspace(workspace_uuid)
+    if not workspace:
+        raise HTTPException(status_code=404, detail=t("workspace.notFound", locale))
+
+    is_owner = workspace["user_id"] == user_id
+    is_enrolled = db.is_student_enrolled(workspace["id"], user_id)
+    if not is_owner and not is_enrolled:
+        raise HTTPException(status_code=403, detail=t("workspace.accessDenied", locale))
+
+    source = db.get_aia_source(source_uuid)
+    if not source:
+        raise HTTPException(status_code=404, detail=t("source.notFound", locale))
+
+    base_key = source["file_path"].rsplit(".", 1)[0]
+    source_lang = (source.get("language") or "").lower() or None
+    target_lang = workspace.get("transcript_target_lang") or "en"
+
+    # Candidate codes: the detected source language plus every known target. Filter
+    # to those with an existing VTT so the player only attaches available tracks.
+    candidates: list[str] = []
+    if source_lang and source_lang != "unknown":
+        candidates.append(source_lang)
+    candidates.extend(c for c in TRANSCRIPT_LANGUAGES if c not in candidates)
+    available = [c for c in candidates if file_exists(f"{base_key}_transcript.{c}.vtt")]
+
+    # If the source language was never stored, treat the first available code that
+    # is not the target as the original so the UI can still label the tabs.
+    if not source_lang or source_lang == "unknown":
+        source_lang = next((c for c in available if c != target_lang), available[0] if available else None)
+
+    return {"source_lang": source_lang, "target_lang": target_lang, "available": available}

@@ -40,6 +40,7 @@ class PatchWorkspaceBody(BaseModel):
     is_active: Optional[bool] = None
     transcript_translation_mode: Optional[str] = None
     transcript_default_lang: Optional[str] = None
+    transcript_target_lang: Optional[str] = None
     staff_note_text: Optional[str] = Field(None, max_length=2000)
     staff_note_links: Optional[list[StaffNoteLink]] = Field(None, max_length=30)
 

@@ -26,6 +26,8 @@ interface WorkspaceTopbarProps {
   onChangeTranslationMode: (mode: TranscriptTranslationMode) => void;
   transcriptDefaultLang: TranscriptDefaultLang;
   onChangeTranscriptDefaultLang: (lang: TranscriptDefaultLang) => void;
+  transcriptTargetLang: string;
+  onChangeTranscriptTargetLang: (lang: string) => void;
   // Mobile tabs
   activeTab: PanelKey;
   setActiveTab: (k: PanelKey) => void;
@@ -49,6 +51,7 @@ export function WorkspaceTopbar(props: WorkspaceTopbarProps) {
     isLecturer, isOwner, hideHeader, onToggleHideHeader,
     translationMode, onChangeTranslationMode,
     transcriptDefaultLang, onChangeTranscriptDefaultLang,
+    transcriptTargetLang, onChangeTranscriptTargetLang,
     activeTab, setActiveTab,
     languageLevel, onResetLanguageLevel,
   } = props;
@@ -68,6 +71,8 @@ export function WorkspaceTopbar(props: WorkspaceTopbarProps) {
       onChangeTranslationMode={onChangeTranslationMode}
       transcriptDefaultLang={transcriptDefaultLang}
       onChangeTranscriptDefaultLang={onChangeTranscriptDefaultLang}
+      transcriptTargetLang={transcriptTargetLang}
+      onChangeTranscriptTargetLang={onChangeTranscriptTargetLang}
       languageLevel={languageLevel}
       onResetLanguageLevel={onResetLanguageLevel}
     />

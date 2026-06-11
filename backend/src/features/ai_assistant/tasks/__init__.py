@@ -3,7 +3,7 @@ and re-export task functions for backwards-compat imports."""
 
 from src.features.ai_assistant.tasks.ingestion import (  # noqa: F401
     run_index_source,
-    run_translate_transcript_en,
+    run_translate_transcript,
 )
 from src.features.ai_assistant.tasks.glossary import run_generate_glossary  # noqa: F401
 from src.features.ai_assistant.tasks.language_training import run_generate_exercise_set  # noqa: F401

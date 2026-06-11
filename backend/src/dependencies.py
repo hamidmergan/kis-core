@@ -220,11 +220,17 @@ def get_translation_providers() -> list[dict]:
     return result
 
 
-def get_translate_client_for_provider(provider_id: Optional[int], *, glossary_entries: dict | None = None):
+def get_translate_client_for_provider(
+    provider_id: Optional[int], *, glossary_entries: dict | None = None, feature: str = "doc_translate"
+):
     """Return (translation_client, GlossaryService) for use with TranslationService.
 
     When provider_id is None, falls back to the first available translation provider.
     Returns (None, GlossaryService()) if no provider can be found.
+
+    ``feature`` is the route the per-provider model name is read from. It defaults to
+    ``doc_translate`` (document tool) but transcript translation passes
+    ``transcript_translate`` so its model can be configured independently.
 
     Protocol dispatch:
       deepl         -> DeepLClient + GlossaryService with entries
@@ -245,7 +251,7 @@ def get_translate_client_for_provider(provider_id: Optional[int], *, glossary_en
     if not provider or not provider.get("enabled"):
         return None, GlossaryService()
 
-    route = db.get_route("doc_translate")
+    route = db.get_route(feature)
     provider_models = (route.get("provider_models") if route else None) or {}
     model = provider_models.get(str(provider_id)) or (route.get("model_name") if route else None) or ""
 

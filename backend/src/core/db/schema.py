@@ -322,10 +322,20 @@ def init_db(admin_email: Optional[str] = None) -> None:
             cur.execute(
                 "ALTER TABLE aia_workspaces ADD COLUMN IF NOT EXISTS transcript_translation_mode TEXT NOT NULL DEFAULT 'manual'"
             )
-            # Per-workspace setting: default transcript language pill (de/en/both). Owner-controlled.
+            # Per-workspace setting: default transcript view (source/target/both). Owner-controlled.
             cur.execute(
                 "ALTER TABLE aia_workspaces ADD COLUMN IF NOT EXISTS transcript_default_lang TEXT NOT NULL DEFAULT 'both'"
             )
+            # Per-workspace setting: the ONE language the owner translates transcripts into
+            # (short ISO code, see i18n.TRANSCRIPT_LANGUAGES). Source is the Whisper-detected
+            # media language; English is the default target.
+            cur.execute(
+                "ALTER TABLE aia_workspaces ADD COLUMN IF NOT EXISTS transcript_target_lang TEXT NOT NULL DEFAULT 'en'"
+            )
+            # Migrate legacy default-view values: the pill used to be language-specific
+            # (de/en) but the target is now owner-chosen, so it became role-based.
+            cur.execute("UPDATE aia_workspaces SET transcript_default_lang = 'source' WHERE transcript_default_lang = 'de'")
+            cur.execute("UPDATE aia_workspaces SET transcript_default_lang = 'target' WHERE transcript_default_lang = 'en'")
             # Owner-managed pinned note shown above the sources list. Plain text + structured links.
             cur.execute(
                 "ALTER TABLE aia_workspaces ADD COLUMN IF NOT EXISTS staff_note_text TEXT"

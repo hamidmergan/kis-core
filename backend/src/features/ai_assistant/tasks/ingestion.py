@@ -57,7 +57,7 @@ def run_index_source(self, source_uuid: str, locale: str = "de"):
         provider = get_embedding_provider()
         fingerprint: str | None = None  # set from the first embedded batch (step 7)
 
-        _en_translation_pending = False
+        _translation_pending = False
 
         embedding_model = provider.model_name
 
@@ -122,10 +122,11 @@ def run_index_source(self, source_uuid: str, locale: str = "de"):
                 _save_transcript_artifact(source_vtt_key, segments_to_vtt(segments))
                 logger.info("KI Tutor: VTT ({}) saved to {}", lang_code, source_vtt_key)
 
-                # English VTT is produced by a separate Celery task dispatched at the
-                # end of this task (after chunking/embedding) so chat is available
-                # before translation finishes.
-                _en_translation_pending = lang_code not in ("en", "unknown")
+                # The translated VTT is produced by a separate Celery task dispatched
+                # at the end of this task (after chunking/embedding) so chat is
+                # available before translation finishes. Pending whenever we detected
+                # a real source language (the target is resolved from the workspace).
+                _translation_pending = lang_code != "unknown"
             else:
                 def _progress_cb(stage: str, page: int | None = None, total: int | None = None) -> None:
                     db.update_aia_source_progress(source_uuid, stage, page=page, total=total)
@@ -225,30 +226,33 @@ def run_index_source(self, source_uuid: str, locale: str = "de"):
                 )
                 logger.info("KI Tutor: workspace {} is now ready", workspace["uuid"])
 
-        # 10. Dispatch non-critical follow-ups (EN translation runs relaxed in bg).
+        # 10. Dispatch non-critical follow-ups (translation runs relaxed in bg).
         # Mode is owner-controlled per workspace (default "manual"): only "auto"
         # triggers at ingest; "manual" waits for the button; "off" disables it.
-        if _en_translation_pending:
+        # The target language is owner-chosen; we skip when it equals the source.
+        if _translation_pending:
             workspace = db.get_aia_workspace_by_id(workspace_id)
             translation_mode = (workspace or {}).get("transcript_translation_mode", "manual")
-            if translation_mode == "auto":
+            target_lang = (workspace or {}).get("transcript_target_lang") or "en"
+            source_lang = (media_language or "").lower()
+            if translation_mode == "auto" and source_lang != target_lang:
                 from src.services import feature_router
                 try:
                     binding = feature_router.resolve("transcript_translate")
-                    run_translate_transcript_en.delay(source_uuid, binding.provider["id"])
+                    run_translate_transcript.delay(source_uuid, binding.provider["id"], target_lang)
                     logger.info(
-                        "KI Tutor: dispatched EN translation for {} (provider_id={})",
-                        source_uuid, binding.provider["id"],
+                        "KI Tutor: dispatched {} translation for {} (provider_id={})",
+                        target_lang, source_uuid, binding.provider["id"],
                     )
                 except feature_router.FeatureNotConfigured:
                     logger.warning(
-                        "KI Tutor: transcript_translate not configured, skipping auto EN translation for {}",
+                        "KI Tutor: transcript_translate not configured, skipping auto translation for {}",
                         source_uuid,
                     )
             else:
                 logger.info(
-                    "KI Tutor: skipping EN auto-translation for {} (mode={})",
-                    source_uuid, translation_mode,
+                    "KI Tutor: skipping auto-translation for {} (mode={}, source={}, target={})",
+                    source_uuid, translation_mode, source_lang, target_lang,
                 )
 
         # 11. Source is ready (chunks embedded + DOC SUMMARY built in step 7b).
@@ -289,97 +293,140 @@ def run_index_source(self, source_uuid: str, locale: str = "de"):
         raise
 
 
-@celery_app.task(bind=True, name="aia.translate_transcript_en", queue="aia")
-def run_translate_transcript_en(self, source_uuid: str, provider_id: int | None = None):
-    """Translate a media source's source-language VTT to English.
+@celery_app.task(bind=True, name="aia.translate_transcript", queue="aia")
+def run_translate_transcript(
+    self, source_uuid: str, provider_id: int | None = None, target_lang: str | None = None
+):
+    """Translate a media source's source-language VTT into the workspace target language.
 
     Runs as a follow-up to indexing so chat is available before translation completes.
     ``provider_id`` is resolved from the ``transcript_translate`` feature route.
+    ``target_lang`` falls back to the workspace's ``transcript_target_lang`` (default English).
     """
     try:
-        return _run_translate_transcript_en_inner(source_uuid, provider_id)
+        return _run_translate_transcript_inner(source_uuid, provider_id, target_lang)
     except Exception as e:
         msg = str(e).lower()
         is_rate_limit = "429" in msg or "rate limit" in msg
         if is_rate_limit and self.request.retries < 5:
             countdown = min(30 * (2 ** self.request.retries), 120)  # 30s..2m capped
             logger.warning(
-                "KI Tutor EN-translate: source {} hit rate limit (attempt {}/{}), retrying in {}s",
+                "KI Tutor translate: source {} hit rate limit (attempt {}/{}), retrying in {}s",
                 source_uuid, self.request.retries + 1, 5, countdown,
             )
             raise self.retry(exc=e, countdown=countdown, max_retries=5)
-        logger.error("KI Tutor EN-translate: source {} failed: {}", source_uuid, e)
+        logger.error("KI Tutor translate: source {} failed: {}", source_uuid, e)
         raise
 
 
-def _run_translate_transcript_en_inner(source_uuid: str, provider_id: int | None) -> None:
+def _resolve_source_vtt(base_key: str, source: dict) -> tuple[str | None, str | None]:
+    """Return (vtt_key, source_lang) for a media source's original-language VTT.
+
+    Prefers the Whisper-detected ``language`` on the source; falls back to probing
+    the known target codes for any existing ``_transcript.<code>.vtt`` (older sources
+    indexed before the language column was populated)."""
+    from src.storage import file_exists
+    from src.i18n import TRANSCRIPT_LANGUAGES
+
+    source_lang = (source.get("language") or "").lower()
+    if source_lang and source_lang != "unknown":
+        cand = f"{base_key}_transcript.{source_lang}.vtt"
+        if file_exists(cand):
+            return cand, source_lang
+    for code in TRANSCRIPT_LANGUAGES:
+        cand = f"{base_key}_transcript.{code}.vtt"
+        if file_exists(cand):
+            return cand, code
+    return None, None
+
+
+def _run_translate_transcript_inner(
+    source_uuid: str, provider_id: int | None, target_lang: str | None
+) -> None:
     from src.services.subtitle_converter import vtt_to_segments, segments_to_vtt
-    from src.storage import file_exists, get_file
+    from src.storage import get_file, delete_file, file_exists
     from src.dependencies import get_translate_client_for_provider
+    from src.i18n import TRANSCRIPT_LANGUAGES, DEFAULT_TRANSCRIPT_TARGET
 
     source = db.get_aia_source(source_uuid)
     if source is None:
-        logger.warning("KI Tutor EN-translate: source {} not found, skipping", source_uuid)
+        logger.warning("KI Tutor translate: source {} not found, skipping", source_uuid)
         return
 
     base_key = source["file_path"].rsplit(".", 1)[0]
-    en_key = f"{base_key}_transcript.en.vtt"
-    if file_exists(en_key):
-        logger.info("KI Tutor EN-translate: {} already exists, skipping", en_key)
+
+    # Target: explicit arg > workspace setting > default English.
+    if not target_lang:
+        workspace = db.get_aia_workspace_by_id(source["workspace_id"])
+        target_lang = (workspace or {}).get("transcript_target_lang") or DEFAULT_TRANSCRIPT_TARGET
+    target_lang = target_lang.lower()
+    if target_lang not in TRANSCRIPT_LANGUAGES:
+        logger.warning("KI Tutor translate: unknown target '{}' for {}, skipping", target_lang, source_uuid)
         return
 
-    # Locate the source-language VTT. Currently only German sources are auto-translated;
-    # the loop leaves room for other ISO codes without restructuring.
-    source_vtt_key: str | None = None
-    source_lang: str | None = None
-    for candidate_lang in ("de",):
-        candidate_key = f"{base_key}_transcript.{candidate_lang}.vtt"
-        if file_exists(candidate_key):
-            source_vtt_key = candidate_key
-            source_lang = candidate_lang
-            break
+    source_vtt_key, source_lang = _resolve_source_vtt(base_key, source)
     if not source_vtt_key or not source_lang:
-        logger.warning(
-            "KI Tutor EN-translate: no source VTT for {}, skipping", source_uuid
+        logger.warning("KI Tutor translate: no source VTT for {}, skipping", source_uuid)
+        return
+
+    # Keep exactly the source VTT + the languages in `keep`; drop every other
+    # known-language translation so a media source never accumulates spurs.
+    def _cleanup_stale(keep: set[str]) -> None:
+        for code in TRANSCRIPT_LANGUAGES:
+            if code in keep:
+                continue
+            stale = f"{base_key}_transcript.{code}.vtt"
+            if file_exists(stale):
+                delete_file(stale)
+                logger.info("KI Tutor translate: removed stale {}", stale)
+
+    # Target equals source → nothing to translate; just drop any old translation.
+    if target_lang == source_lang:
+        _cleanup_stale({source_lang})
+        logger.info(
+            "KI Tutor translate: target == source ({}) for {}, original kept only",
+            source_lang, source_uuid,
         )
         return
 
     segments = vtt_to_segments(get_file(source_vtt_key).decode("utf-8"))
     if not segments:
-        logger.warning(
-            "KI Tutor EN-translate: could not parse {}, skipping", source_vtt_key
-        )
+        logger.warning("KI Tutor translate: could not parse {}, skipping", source_vtt_key)
         return
 
     texts = [s["text"] for s in segments]
-    lang_name_map = {"de": "German"}
-    source_lang_name = lang_name_map.get(source_lang, source_lang)
 
-    client, _glossary = get_translate_client_for_provider(provider_id)
+    client, _glossary = get_translate_client_for_provider(provider_id, feature="transcript_translate")
     if client is None:
         raise RuntimeError(
             "transcript_translate: no translation provider configured — set one in the admin KI panel"
         )
 
-    # DeepLClient expects ISO codes ("DE", "EN-US"); LLMTranslationClient uses
-    # human-readable names embedded in the prompt ("German", "English").
+    # DeepLClient expects ISO codes (source "DE", target "EN-US"); LLMTranslationClient
+    # uses human-readable names embedded in the prompt ("German", "English").
     from src.services.deepl_client import DeepLClient
 
+    target_meta = TRANSCRIPT_LANGUAGES[target_lang]
     if isinstance(client, DeepLClient):
         translated: list[str] = client.translate_batch(
-            texts, source_lang=source_lang.upper(), target_lang="EN-US",
+            texts, source_lang=source_lang.upper(), target_lang=target_meta["deepl"],
         )
     else:
+        source_name = TRANSCRIPT_LANGUAGES.get(source_lang, {}).get("name", source_lang)
         translated = client.translate_batch(
-            texts, source_lang=source_lang_name, target_lang="English",
+            texts, source_lang=source_name, target_lang=target_meta["name"],
         )
 
-    en_segments = [
+    out_segments = [
         {"start": s["start"], "end": s["end"], "text": t_text}
         for s, t_text in zip(segments, translated)
     ]
-    _save_transcript_artifact(en_key, segments_to_vtt(en_segments))
+    target_key = f"{base_key}_transcript.{target_lang}.vtt"
+    _save_transcript_artifact(target_key, segments_to_vtt(out_segments))
+    # Overwrite-when-ready: only after the new VTT is saved do we drop the old one,
+    # so the player never sees a gap while a re-translation runs.
+    _cleanup_stale({source_lang, target_lang})
     logger.info(
-        "KI Tutor EN-translate: saved {} ({} segments via provider_id={})",
-        en_key, len(en_segments), provider_id,
+        "KI Tutor translate: saved {} ({} segments, {}->{}, provider_id={})",
+        target_key, len(out_segments), source_lang, target_lang, provider_id,
     )
