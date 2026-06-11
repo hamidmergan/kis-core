@@ -130,6 +130,20 @@ _NEIGHBOR_BRIDGE = 4
 _RETRIEVE_CONCURRENCY = 10
 _retrieve_sem: Optional[asyncio.Semaphore] = None
 
+# NAMED-SOURCE BOOST. A SPECIFIC question that names its document ("Was schützt das
+# Grundgesetz?") must surface THAT source even when a distractor that merely CITES it
+# (BKAG quotes "Artikel 1 GG", "Würde des Menschen" …) ranks closer to the query and
+# would otherwise win the budget Primary slot. Fix is LANGUAGE-AGNOSTIC: every document
+# names ITSELF in its title header (page 1: "Grundgesetz für die Bundesrepublik … GG").
+# A long-enough question token that prefix-matches a word in EXACTLY ONE active source's
+# title header marks the source the question names — generic words ("Gesetz", "Artikel")
+# match many headers and are ignored, so it can never flood. The named source's distance
+# is pulled just under the global best so the budget allocator makes it Primary.
+_NAME_TITLE_CHARS = 400          # how much of page 1 counts as the self-naming "title"
+_NAME_MIN_TOKEN_LEN = 5          # shorter tokens (der/die/und, abbreviations) are too loose
+_NAME_BOOST_FACTOR = 0.95        # boosted distance = global_best * this → Primary, peers survive
+_NAME_TOKEN_RE = re.compile(r"[^\W\d_]{%d,}" % _NAME_MIN_TOKEN_LEN, re.UNICODE)
+
 
 def _get_retrieve_sem() -> asyncio.Semaphore:
     """Lazily create the shared retrieval semaphore (binds to the running loop)."""
@@ -151,6 +165,52 @@ def _truncate_query_for_embedding(text: str) -> str:
     if not text:
         return text
     return text[:AIA_EMBED_QUERY_MAX_CHARS]
+
+
+def _title_word_match(token: str, hword: str) -> bool:
+    """True if a question token names a source-title word (lang-agnostic, no wordlist).
+
+    Three shapes, tuned to separate a real NAME from an incidental generic word:
+      - exact:                token == hword                       ("grundgesetz")
+      - name + law-type word: hword extends token by ≥4 chars      ("marke"→"markengesetz")
+      - question inflection:  token extends hword by ≤3 chars       ("grundgesetzes"→"grundgesetz")
+    The ≥4 vs ≤3 split is the crux: a real title compounds the typed name with a law-type
+    word ("…gesetz", "…ordnung", "…act"); a false match only adds an inflection ("allgemeine"
+    →"allgemeines", "stelle"→"stellen"), which this rejects.
+    """
+    if token == hword:
+        return True
+    # header = typed stem + a law-type word (≥4 chars). The stem must be substantial (≥7)
+    # so a short common word can't prefix a law compound ("grund"→"grundgesetz").
+    if len(token) >= 7 and hword.startswith(token) and len(hword) - len(token) >= 4:
+        return True
+    # question-side inflection of a substantial base name ("grundgesetzes"→"grundgesetz").
+    if len(hword) >= 7 and token.startswith(hword) and len(token) - len(hword) <= 3:
+        return True
+    return False
+
+
+def _named_source_ids(question: str, headers: dict[int, str]) -> set[int]:
+    """Source ids the question NAMES, via discriminative self-title match (lang-agnostic).
+
+    ``headers`` = {source_id: lowercased title region (page-1 header)}. A question token
+    (len ≥ ``_NAME_MIN_TOKEN_LEN``) that ``_title_word_match``-es a word in EXACTLY ONE
+    header marks that source as named. A token hitting several headers ("gesetz", "artikel")
+    is generic and ignored, so this can only concentrate onto a uniquely-named source, never
+    flood. A source whose copy is a fragment without its title page (no self-name in the
+    header) simply isn't matched — we never invent a boost for missing content.
+    """
+    qtokens = {m.group(0).lower() for m in _NAME_TOKEN_RE.finditer(question or "")}
+    if not qtokens or not headers:
+        return set()
+    hdr_words = {sid: set(_NAME_TOKEN_RE.findall(h or "")) for sid, h in headers.items()}
+    named: set[int] = set()
+    for t in qtokens:
+        hits = [sid for sid, words in hdr_words.items()
+                if any(_title_word_match(t, w) for w in words)]
+        if len(hits) == 1:
+            named.add(hits[0])
+    return named
 
 
 def _reserve_question_budget(budget: int, question: str) -> int:
@@ -1209,7 +1269,7 @@ async def chat(
         # CONCURRENTLY (semaphore-bounded), turning ~0.8s sequential into ~0.15s at n=30.
         _sem = _get_retrieve_sem()
 
-        async def _expand_one(sid: int) -> Optional[tuple[list[dict], Optional[float]]]:
+        async def _expand_one(sid: int) -> Optional[tuple[list[dict], Optional[float], str]]:
             async with _sem:
                 # Search this source with EACH retrieval query (clause); merge anchors,
                 # keeping each chunk's BEST (smallest) distance across the clauses.
@@ -1228,20 +1288,23 @@ async def chat(
                 doc = await _asyncio.to_thread(db.get_chunks_by_source, sid)
             anchors = list(merged.values())
             _sd = [a["vec_distance"] for a in anchors if a.get("vec_distance") is not None]
+            _hdr = ((doc[0].get("content") if doc else None) or "")[:_NAME_TITLE_CHARS].lower()
             return (_expand_with_neighbors(anchors, doc, _NEIGHBOR_RADIUS, sid),
-                    min(_sd) if _sd else None)
+                    min(_sd) if _sd else None, _hdr)
 
         _results = await _asyncio.gather(*[_expand_one(s) for s in search_source_ids])
-        per_source_expanded: list[tuple[list[dict], Optional[float]]] = [
+        per_source_expanded: list[tuple[list[dict], Optional[float], str]] = [
             r for r in _results if r is not None
         ]
-        _all_best = [d for _, d in per_source_expanded if d is not None]
+        _all_best = [d for _, d, _h in per_source_expanded if d is not None]
         _global_best = min(_all_best) if _all_best else None
         _dist_threshold = _global_best * _DIST_FACTOR if _global_best is not None else None
+        # Title header (page-1 self-name) per source — input to the named-source boost below.
+        _headers = {exp[0]["source_id"]: hdr for exp, _d, hdr in per_source_expanded if exp}
         # Hard drop-gate (off by default at _DIST_FACTOR=999) — kept as a safety net.
         # The SOFT concentration below is what actually stops the multi-source flood.
         kept: list[tuple[list[dict], Optional[float]]] = []
-        for expanded, _src_best in per_source_expanded:
+        for expanded, _src_best, _hdr in per_source_expanded:
             if (len(per_source_expanded) > 1 and _dist_threshold is not None
                     and _src_best is not None and _src_best > _dist_threshold):
                 logger.info("Per-source: source {} skipped off-topic (dist {:.3f} > {:.3f})",
@@ -1250,6 +1313,21 @@ async def chat(
             # order each source's windows best-anchor-first so its budget share takes
             # the most on-point chunks first
             kept.append((sorted(expanded, key=lambda c: c.get("_anchor_dist", 1.0)), _src_best))
+        # NAMED-SOURCE BOOST: if the question uniquely names a source by its title
+        # (self-name match), pull that source's distance just under the global best so the
+        # allocator below makes it Primary — a distractor that merely CITES it can no longer
+        # steal the bulk. No-op when nothing is uniquely named or a single source is active.
+        if len(kept) > 1 and _global_best is not None:
+            _named = _named_source_ids(rewritten_question, _headers)
+            if _named:
+                _nd = _global_best * _NAME_BOOST_FACTOR
+                kept = [
+                    (hits, (_nd if (hits and hits[0]["source_id"] in _named
+                                    and (d is None or _nd < d)) else d))
+                    for hits, d in kept
+                ]
+                logger.info("SPECIFIC named-source boost → sources {} → Primary (dist {:.3f})",
+                            sorted(_named), _nd)
         # RELEVANCE-CONCENTRATED budget split: the source(s) closest to the query get
         # the bulk, far sources only a floor — a single-target question is no longer
         # flooded by unrelated laws (which also keeps context + latency small). See
