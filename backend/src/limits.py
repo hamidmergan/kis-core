@@ -150,11 +150,6 @@ AIA_SUMMARY_BATCH_MAX_CHARS            = 360000
 # 1000 OK, 2000 → 502 → bounded to 1000 (see aia_embeddings._BATCH_SIZE ceiling).
 # Admin-tunable: ``aia_embedding_batch_size``.
 AIA_EMBEDDING_BATCH_SIZE               = 1000
-# Safety ceiling on how many chunk segments ONE source contributes to a generic
-# overview before round-robin + the char budget take over. Set well above
-# AIA_SOURCE_MAX_PAGES (100) so PDFs are never down-sampled — every chunk becomes
-# a candidate and the budget, not this cap, decides what survives.
-AIA_GENERIC_MAX_SEGMENTS_PER_SOURCE    = 900
 AIA_WORKSPACE_MAX_ACCESS_LINKS         = 10      # max enrollment links per workspace
 AIA_NOTES_MAX_PER_USER              = 100     # max notes per user per workspace
 GLOSSARY_LIMIT                        = 150     # max glossary entries per workspace
