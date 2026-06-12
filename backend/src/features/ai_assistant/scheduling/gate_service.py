@@ -19,8 +19,7 @@ from typing import Callable, Optional
 
 from loguru import logger
 
-from .rate_gate import RedisStore
-from .weighted_gate import WeightedGate
+from .weighted_gate import RedisWeightedGate
 
 _GATE: Optional[WeightedGate] = None
 _GATE_SIG: Optional[tuple] = None
@@ -52,7 +51,7 @@ def get_gate(get_setting: Callable[..., str] = _default_get_setting) -> Weighted
     global_per_sec, weights = _config(get_setting)
     sig = (global_per_sec, tuple(sorted(weights.items())))
     if _GATE is None or _GATE_SIG != sig:
-        _GATE = WeightedGate(global_per_sec, weights, store=RedisStore(), now=time.time)
+        _GATE = RedisWeightedGate(global_per_sec, weights)
         _GATE_SIG = sig
     return _GATE
 

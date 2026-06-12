@@ -95,6 +95,47 @@ class RateGate:
         return False
 
 
+# Atomic token-bucket consume as a single Redis round-trip. Lua runs atomically
+# inside Redis, so concurrent callers across processes can never over-grant (the
+# read-modify-write race the plain RateGate.allow has under contention).
+_TOKEN_BUCKET_LUA = """
+local data = redis.call('HMGET', KEYS[1], 'tokens', 'ts')
+local tokens = tonumber(data[1])
+local ts = tonumber(data[2])
+local now = tonumber(ARGV[1])
+local rate = tonumber(ARGV[2])
+local burst = tonumber(ARGV[3])
+if tokens == nil then tokens = burst; ts = now end
+tokens = math.min(burst, tokens + (now - ts) * rate)
+local allowed = 0
+if tokens >= 1.0 then tokens = tokens - 1.0; allowed = 1 end
+redis.call('HMSET', KEYS[1], 'tokens', tokens, 'ts', now)
+redis.call('PEXPIRE', KEYS[1], 3600000)
+return allowed
+"""
+
+
+class AtomicRedisLimiter:
+    """Cross-process-safe token bucket using an atomic Lua consume."""
+
+    def __init__(self, client=None, prefix: str = "aia:rategate:") -> None:
+        if client is None:
+            import redis
+
+            client = redis.from_url(
+                os.environ.get("REDIS_URL", "redis://kis-redis:6379/0")
+            )
+        self._r = client
+        self._prefix = prefix
+        self._script = client.register_script(_TOKEN_BUCKET_LUA)
+
+    def allow(self, key: str, rate: float, burst: float, now: Optional[float] = None) -> bool:
+        if rate <= 0:
+            return True
+        ts = now if now is not None else time.time()
+        return bool(self._script(keys=[self._prefix + key], args=[ts, rate, burst]))
+
+
 def gate_for_provider(
     provider: str,
     store: Optional[BucketStore] = None,
