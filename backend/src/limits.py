@@ -48,6 +48,11 @@ QUOTA_DEFAULTS: dict[str, dict] = {
     "aia_generate":   {"limit": 300, "window_hours": 4, "label": "KI-Tutor: Generierung"},
 }
 
+# --- Terminology glossaries (translation tool, per user, DB-backed) ----------
+GLOSSARY_MAX_COUNT   = 10    # max glossaries a single user may keep
+GLOSSARY_MAX_ENTRIES = 500   # max term pairs per glossary
+GLOSSARY_NAME_MAX    = 120   # max chars for a glossary name
+
 # --- Job management ---------------------------------------------------------
 MAX_RESULT_FILES            = 20    # max stored result files per user (oldest is evicted)
 JOB_RETENTION_HOURS         = 168   # 7 days, after which the file is marked as "expired"

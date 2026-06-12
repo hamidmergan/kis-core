@@ -129,6 +129,22 @@ class ApiClient {
     return response.json();
   }
 
+  async patchJson<T>(path: string, body: unknown, signal?: AbortSignal): Promise<T> {
+    const response = await this.fetch(path, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+      signal,
+    });
+
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ detail: fallback("unknownError") }));
+      throw _parseErrorResponse(error, response.status);
+    }
+
+    return response.json();
+  }
+
   async uploadFileWithFields(
     path: string,
     file: File,

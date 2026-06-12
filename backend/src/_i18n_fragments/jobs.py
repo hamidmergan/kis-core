@@ -32,6 +32,16 @@ MESSAGES: dict[str, dict[str, str]] = {
         "en": "Document too long ({chars} characters). Please split (max {maxChars} characters).",
     },
 
+    # ── glossary (terminology, per user) ──────────────────────────────────────
+    "glossary.tooMany": {
+        "de": "Maximal {max} Glossare pro Person erlaubt.",
+        "en": "At most {max} glossaries per user allowed.",
+    },
+    "glossary.notFound": {
+        "de": "Glossar nicht gefunden.",
+        "en": "Glossary not found.",
+    },
+
     # ── transcription ────────────────────────────────────────────────────────
     "transcription.unsupportedFormat": {
         "de": "Nur {formats} erlaubt",

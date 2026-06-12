@@ -85,6 +85,14 @@ const nextConfig: NextConfig = {
         destination: `${backendUrl}/me`,
       },
       {
+        source: "/api/glossaries/:path*",
+        destination: `${backendUrl}/glossaries/:path*`,
+      },
+      {
+        source: "/api/glossaries",
+        destination: `${backendUrl}/glossaries`,
+      },
+      {
         source: "/api/jobs/my",
         destination: `${backendUrl}/jobs/my`,
       },

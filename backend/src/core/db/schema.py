@@ -290,6 +290,25 @@ def init_db(admin_email: Optional[str] = None) -> None:
                     reset_at TIMESTAMP NOT NULL
                 )
             """)
+            # Per-user terminology glossaries for the translation tool. The id is
+            # a client-visible opaque string (uuid hex) generated server-side, so
+            # the frontend Glossary.id stays a plain string. entries is a flat
+            # {source_term: target_term} map. Deleting a user removes their
+            # glossaries.
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS user_glossaries (
+                    id         TEXT PRIMARY KEY,
+                    user_id    INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                    name       TEXT NOT NULL,
+                    entries    JSONB NOT NULL DEFAULT '{}'::jsonb,
+                    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+                    updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
+                )
+            """)
+            cur.execute(
+                "CREATE INDEX IF NOT EXISTS idx_user_glossaries_user "
+                "ON user_glossaries(user_id, created_at)"
+            )
             if admin_email and admin_email.strip():
                 cur.execute(
                     "INSERT INTO whitelist (email) VALUES (%s) ON CONFLICT DO NOTHING",
