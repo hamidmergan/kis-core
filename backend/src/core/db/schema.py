@@ -559,6 +559,29 @@ def init_db(admin_email: Optional[str] = None) -> None:
                     updated_at   TIMESTAMP NOT NULL DEFAULT NOW()
                 )
             """)
+            # AIA-owned orchestration queue. Decouples AIA background work from the
+            # global-tools `jobs` table (which is being split into its own project).
+            # area = 'ingest' | 'studio'. status = 'queued' | 'running' | 'done' | 'failed'.
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS aia_jobs (
+                    id             SERIAL PRIMARY KEY,
+                    job_uuid       TEXT NOT NULL UNIQUE,
+                    user_id        INTEGER NOT NULL,
+                    area           TEXT NOT NULL,
+                    task_name      TEXT NOT NULL,
+                    payload        JSONB NOT NULL DEFAULT '{}'::jsonb,
+                    status         TEXT NOT NULL DEFAULT 'queued',
+                    celery_task_id TEXT,
+                    error          TEXT,
+                    created_at     TIMESTAMP NOT NULL DEFAULT NOW(),
+                    started_at     TIMESTAMP,
+                    finished_at    TIMESTAMP
+                )
+            """)
+            cur.execute(
+                "CREATE INDEX IF NOT EXISTS idx_aia_jobs_area_status "
+                "ON aia_jobs(area, status, created_at)"
+            )
             cur.execute("""
                 CREATE TABLE IF NOT EXISTS aia_messages (
                     id           SERIAL PRIMARY KEY,
