@@ -158,6 +158,8 @@ def run_index_source(self, source_uuid: str, locale: str = "de"):
                 batch_chunks = chunks[i: i + _EMBED_BATCH]
                 batch_ids = chunk_ids[i: i + _EMBED_BATCH]
                 texts = [c["content"] for c in batch_chunks]
+                from src.features.ai_assistant.scheduling.gate_service import gate_acquire
+                gate_acquire("ingest")  # no-op unless aia_gate_enabled
                 vectors = provider.embed(texts)
                 if fingerprint is None and vectors:
                     # dimension for free from the real embedding → no separate probe call

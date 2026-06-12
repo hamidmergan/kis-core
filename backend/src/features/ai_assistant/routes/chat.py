@@ -1612,6 +1612,10 @@ async def chat(
             # scan the growing buffer's tail every _INTRA_LINE_CHECK_EVERY chars.
             _last_intra = 0
             _INTRA_LINE_CHECK_EVERY = 1500
+            # Chat stays synchronous, but waits for its weighted share of the
+            # shared budget before the answer call. No-op unless aia_gate_enabled.
+            from src.features.ai_assistant.scheduling.gate_service import gate_acquire_async
+            await gate_acquire_async("chat", max_wait=60.0)
             try:
                 # 90s connect/first-token timeout so an Ollama cold-start model
                 # load can finish before we abort. Once tokens flow the

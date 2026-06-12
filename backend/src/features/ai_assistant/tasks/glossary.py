@@ -135,6 +135,8 @@ def _extract_and_store_chunk(client, model, chunk: dict, workspace_terms: set[st
         {"role": "system", "content": _GLOSSARY_CHUNK_PROMPT},
         {"role": "user", "content": f"Chunk:\n\n{content}"},
     ]
+    from src.features.ai_assistant.scheduling.gate_service import gate_acquire
+    gate_acquire("studio")  # no-op unless aia_gate_enabled
     try:
         response = client.chat.completions.create(model=model, messages=messages, temperature=0.1)
     except Exception as e:
