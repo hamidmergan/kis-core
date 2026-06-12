@@ -43,6 +43,7 @@ from src.tool_prompts import (
     AIA_INTENT_CLASSIFIER_FEWSHOT,
     AIA_SCOPE_EXTRACTOR_SYSTEM,
     AIA_QUERY_UNDERSTANDING_SYSTEM,
+    RAG_NO_INFO_SENTINEL,
 )
 
 # Upper bound on the question length we hand to the LLM intent classifier.
@@ -956,6 +957,7 @@ from src.features.ai_assistant.routes._helpers import (
     _strip_inline_citation_chips,
     _attribute_generic_text,
     _needs_attribution,
+    _refusal_lines,
     _append_scope_anchor,
     _ALLOWED_EXTENSIONS,
     _MEDIA_EXTENSIONS,
@@ -1710,16 +1712,27 @@ async def chat(
                     # Batch-embed ALL candidate lines in ONE provider call (chunks into 100s
                     # internally) instead of one embed per line — same vectors, far fewer
                     # round-trips. search_one reuses the precomputed vector (per-line fallback).
+                    # The canonical no-info SENTINELS ride along in the SAME batch (no extra
+                    # round-trip): a candidate line embedding-near one of them is a refusal and
+                    # is excluded from attribution, so a compound answer never sources its
+                    # "not in the sources" sentence.
                     _cands = [ln for ln in _stripped.split("\n") if _needs_attribution(ln)]
+                    _sentinels = list(RAG_NO_INFO_SENTINEL.values())
                     _vec_by_line: dict[str, list] = {}
+                    _sentinel_vecs: list = []
                     if _cands:
                         try:
-                            logger.info("post-hoc attribution: batch-embedding {} candidate lines in ONE call", len(_cands))
-                            _vecs = _prov.embed(_cands)
-                            if len(_vecs) == len(_cands):
-                                _vec_by_line = dict(zip(_cands, _vecs))
+                            logger.info("post-hoc attribution: batch-embedding {} candidate lines (+{} sentinels) in ONE call", len(_cands), len(_sentinels))
+                            _batch = _cands + _sentinels
+                            _vecs = _prov.embed(_batch)
+                            if len(_vecs) == len(_batch):
+                                _vec_by_line = dict(zip(_cands, _vecs[:len(_cands)]))
+                                _sentinel_vecs = _vecs[len(_cands):]
                         except Exception as e:
                             logger.warning("post-hoc batch embedding failed, falling back per-line: {}", e)
+                    _refusals = _refusal_lines(_cands, _vec_by_line, _sentinel_vecs)
+                    if _refusals:
+                        logger.info("post-hoc attribution: {} refusal line(s) excluded from citation", len(_refusals))
 
                     def _search_one(_line: str):
                         try:
@@ -1740,7 +1753,15 @@ async def chat(
                                                    overview=(intent == "GENERIC" and not scope_chunks),
                                                    # Exact-match grounding sees exactly what the
                                                    # model read (the single neighbor-expanded window).
-                                                   context_chunks=chunks)
+                                                   context_chunks=chunks,
+                                                   # Honest "not in the sources" lines get no chip,
+                                                   # even inside an otherwise-grounded compound answer.
+                                                   refusal_lines=_refusals,
+                                                   # Explicit page/time scope ("ab Minute 40"): the
+                                                   # post-hoc search still sweeps the WHOLE source, so
+                                                   # clamp citations to the scoped chunks — otherwise a
+                                                   # closer chunk from minute 13 leaks into the summary.
+                                                   scope_chunks=scope_chunks)
 
                 answer = await asyncio.to_thread(_attribute_blocking)
 

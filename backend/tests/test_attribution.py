@@ -12,6 +12,8 @@ from src.features.ai_assistant.routes._helpers import (
     _attribute_generic_text,
     _names_many_laws,
     _enum_chip_unbacked,
+    _cos_dist,
+    _refusal_lines,
 )
 
 
@@ -251,6 +253,87 @@ def test_ungrounded_answer_borderline_gets_no_chip():
     out = _attribute_generic_text(line, search, {1: 1},
                                   seen_pages_by_source={1: {5}}, max_distance=0.6)
     assert out == line
+
+
+# ── refusal detection: a "not in the sources" line is never sourced ──────────
+# Even inside a COMPOUND answer where ANOTHER line grounds the answer, the refusal
+# sentence must not collect the loose GUARANTEE chip (the GG51 "S. 44" bug).
+
+# The user's exact case: a compound question answered for part 1, refused for part 2.
+# Two SEPARATE bullets (= separate blocks), as the answer actually renders — so each line
+# is attributed on its own and the refusal sentence carries its own (spurious) chip.
+_ANSWERED = "- Die Würde des Menschen ist unantastbar laut Grundgesetz Artikel 1 Absatz 1."
+_REFUSAL = "- Informationen darüber sind nicht in den bereitgestellten Quellen enthalten."
+_COMPOUND = f"{_ANSWERED}\n{_REFUSAL}"
+
+
+def _compound_search():
+    # Part 1 grounds at 0.3. The refusal sentence carries the query topic, so its closest
+    # SEEN chunk (page 44) is in the 0.6-0.85 guarantee band — exactly where the loose
+    # guarantee would (wrongly) chip it.
+    return _searcher({
+        "Würde des Menschen": [_hit(1, 1, "Art 1 Würde des Menschen unantastbar", 0.3)],
+        "Informationen darüber": [_hit(1, 44, "Kündigung am Rande erwähnt", 0.7)],
+    })
+
+
+def test_compound_refusal_would_be_chipped_without_detection():
+    # Documents the bug: with NO refusal filter the answered part grounds the whole answer,
+    # so the guarantee chips the refusal sentence -> a spurious "S. 44" on a non-answer.
+    out = _attribute_generic_text(_COMPOUND, _compound_search(), {1: 1},
+                                  seen_pages_by_source={1: {1, 44}}, max_distance=0.6)
+    assert "S. 44" in out
+
+
+def test_compound_refusal_no_chip_with_detection():
+    # The fix: mark the refusal line -> it gets NO chip, while the answered part keeps S. 1.
+    out = _attribute_generic_text(_COMPOUND, _compound_search(), {1: 1},
+                                  seen_pages_by_source={1: {1, 44}}, max_distance=0.6,
+                                  refusal_lines={_REFUSAL})
+    lines = out.split("\n")
+    assert "[1, S. 1]" in lines[0]          # answered part keeps its source
+    assert "S. 44" not in out               # refusal sentence is never sourced
+    assert lines[1] == _REFUSAL             # refusal line left verbatim
+
+
+def test_refusal_line_does_not_block_real_borderline_guarantee():
+    # The fix must NOT regress the deliberate guarantee for a real-but-vague claim at 0.7:
+    # only the line explicitly flagged as a refusal loses its chip.
+    text = ("- Erste klar belegte Aussage zum Thema hier.\n"
+            "- Zweite Aussage etwas vager formuliert hier.")
+    search = _searcher({
+        "klar belegte": [_hit(1, 5, "x", 0.2)],
+        "vager formuliert": [_hit(1, 8, "y", 0.7)],
+    })
+    out = _attribute_generic_text(text, search, {1: 1}, seen_pages_by_source={1: {5, 8}},
+                                  max_distance=0.6, refusal_lines={_REFUSAL})  # unrelated flag
+    assert "[1, S. 5]" in out and "[1, S. 8]" in out   # borderline real claim still guaranteed
+
+
+# ── _refusal_lines (embedding-proximity to the no-info sentinel) ─────────────
+
+def test_refusal_lines_flags_line_near_sentinel():
+    sentinels = [[1.0, 0.0, 0.0]]
+    cands = ["near sentinel line", "orthogonal content line"]
+    vbl = {"near sentinel line": [0.99, 0.02, 0.0],
+           "orthogonal content line": [0.0, 1.0, 0.0]}
+    flagged = _refusal_lines(cands, vbl, sentinels, max_dist=0.40)
+    assert "near sentinel line" in flagged
+    assert "orthogonal content line" not in flagged
+
+
+def test_refusal_lines_empty_without_sentinels():
+    # Embed batch failed (no sentinel vectors) -> filter off, behaviour unchanged.
+    assert _refusal_lines(["x"], {"x": [1.0, 0.0]}, [], max_dist=0.40) == set()
+
+
+def test_refusal_lines_skips_lines_without_vectors():
+    assert _refusal_lines(["x"], {}, [[1.0, 0.0]], max_dist=0.40) == set()
+
+
+def test_cos_dist_degenerate_vector_is_max():
+    # A zero vector never falsely reads as "near" a sentinel.
+    assert _cos_dist([0.0, 0.0], [1.0, 0.0]) == 1.0
 
 
 def test_long_dash_delimiter_row_never_cited():

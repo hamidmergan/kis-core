@@ -1,6 +1,7 @@
 """Shared helpers for KI-Assistent routes."""
 
 import html as _html
+import math
 import re
 import subprocess
 import tempfile
@@ -293,6 +294,54 @@ _MAX_CHIPS_PER_LINE = 3
 # are on-topic enough to pass 0.6 but are not where the claim actually came from. Genuine
 # co-sources (a fact stated on two pages / in two laws) sit at ~equal distance and stay.
 _MULTI_CHIP_MAX_DELTA = 0.08
+# A line whose embedding is within this cosine distance of a canonical no-info SENTINEL is
+# an honest "the answer is not in the sources" refusal, NOT a claim — it must get NO chip,
+# even inside an otherwise-grounded COMPOUND answer (one sub-question answered, another
+# refused). Distance alone cannot separate this from a real-but-vague claim (both sit in the
+# 0.6-0.85 guarantee band), so a refusal is detected by meaning, not by its chunk distance.
+# Language-agnostic: the model writes the refusal in the QUESTION's language and a
+# multilingual embedding places that translation near the de/en sentinel — no word lists.
+# Calibrated against the live embedding model: across refusal paraphrases (de + en, incl. the
+# topic-padded "Informationen darüber, welches Gesetz …, sind nicht enthalten") the distance
+# to the nearest sentinel stayed <=0.48, while real factual answer lines were >=0.75 — a wide,
+# clean gap. The gate sits in the MIDDLE of that gap, not on its edge: 0.40 sat right on a
+# refusal at 0.389 and so fired only intermittently as the wording shifted.
+_REFUSAL_MAX_DIST = 0.60
+
+
+def _cos_dist(a, b) -> float:
+    """Cosine distance (1 - cosine similarity) between two equal-length vectors. Returns the
+    max distance 1.0 if either vector is degenerate (zero norm) so a bad embed never
+    falsely flags a line as a refusal."""
+    dot = na = nb = 0.0
+    for x, y in zip(a, b):
+        dot += x * y
+        na += x * x
+        nb += y * y
+    if na <= 0.0 or nb <= 0.0:
+        return 1.0
+    return 1.0 - dot / (math.sqrt(na) * math.sqrt(nb))
+
+
+def _refusal_lines(cands: list[str], vec_by_line: dict, sentinel_vecs: list,
+                   max_dist: float = _REFUSAL_MAX_DIST) -> set:
+    """Subset of candidate lines that are a "not in the sources" refusal, by embedding
+    proximity to the canonical no-info ``sentinel_vecs`` (see ``RAG_NO_INFO_SENTINEL``).
+
+    Caller embeds the candidate lines AND the sentinels in one batch, then passes the
+    resulting set to ``_attribute_generic_text`` so those lines are skipped during
+    attribution. Empty ``sentinel_vecs`` (e.g. the embed batch failed) -> empty set, i.e.
+    the filter is simply off and behaviour falls back to the distance-only path."""
+    if not sentinel_vecs:
+        return set()
+    flagged: set = set()
+    for ln in cands:
+        v = vec_by_line.get(ln)
+        if v is None:
+            continue
+        if any(_cos_dist(v, sv) <= max_dist for sv in sentinel_vecs):
+            flagged.add(ln)
+    return flagged
 
 
 def _is_seen(chunk: dict, seen_pages_by_source: Optional[dict]) -> bool:
@@ -313,6 +362,21 @@ def _is_seen(chunk: dict, seen_pages_by_source: Optional[dict]) -> bool:
         return True
     pg = chunk.get("page_number")
     return pg is None or pg in pages
+
+
+def _scope_chunk_ids(scope_chunks: Optional[list[dict]]) -> Optional[set]:
+    """The set of chunk ids the model was shown for an EXPLICIT page/time scope.
+
+    Returned to attribution as a clamp: a citation may only point at a chunk INSIDE the
+    scoped window. For media this is the load-bearing fix — a media chunk's seen-check is
+    source-level (any chunk of the source passes ``_is_seen``), so without this clamp a
+    "from minute 40" summary could be attributed to a closer chunk at minute 13. ``None``
+    means no scope / no restriction; an empty scope never yields an empty set (which would
+    strip every chip) — it falls back to ``None``."""
+    if not scope_chunks:
+        return None
+    ids = {c["id"] for c in scope_chunks if c.get("id") is not None}
+    return ids or None
 
 
 def _pick_attribution(hits: list[dict], max_distance: float,
@@ -463,24 +527,38 @@ def _place_chip(line: str, chip_str: str) -> str:
     return f"{line.rstrip()} {chip_str}"
 
 
+def _in_scope(chunk: dict, scope_ids: Optional[set]) -> bool:
+    """True if the chunk is inside the explicit scope window (or no scope is active).
+
+    ``scope_ids`` (from :func:`_scope_chunk_ids`) is the set of chunk ids the model was
+    actually shown; ``None`` means no scope, so everything passes."""
+    return scope_ids is None or chunk.get("id") in scope_ids
+
+
 def _line_candidates(line: str, search_one, context_chunks: Optional[list[dict]],
-                     seen_pages_by_source: Optional[dict]) -> list[dict]:
+                     seen_pages_by_source: Optional[dict],
+                     scope_ids: Optional[set] = None) -> list[dict]:
     """Retrieved (seen), non-TOC source chunks that could ground ``line``, closest-first.
 
     If an EXACT verbatim chunk exists (a name/email/number we already retrieved, whose
     page we know), it is the SOLE high-confidence candidate — semantic near-misses on
     other pages are suppressed. Otherwise the seen semantic hits, sorted by distance: a
     reworded/synthesised line may legitimately draw from several passages, so the caller
-    can attach a chip per distinct source/page."""
+    can attach a chip per distinct source/page.
+
+    ``scope_ids`` clamps candidates to an EXPLICIT page/time scope: a "from minute 40"
+    summary may only cite chunks inside that window, never a closer chunk from minute 13."""
     exact = _exact_attribution_chunk(line, context_chunks) if context_chunks else None
-    if exact is not None and _is_seen(exact, seen_pages_by_source):
+    if (exact is not None and _is_seen(exact, seen_pages_by_source)
+            and _in_scope(exact, scope_ids)):
         e = dict(exact)
         e["vec_distance"] = 0.0  # verbatim presence == certain
         return [e]
     cands = [h for h in (search_one(line) or [])
              if h.get("vec_distance") is not None
              and not _is_toc_chunk(h.get("content") or "")
-             and _is_seen(h, seen_pages_by_source)]
+             and _is_seen(h, seen_pages_by_source)
+             and _in_scope(h, scope_ids)]
     cands.sort(key=lambda h: h["vec_distance"])
     return cands
 
@@ -620,7 +698,9 @@ def _enum_chip_unbacked(text: str, content: str) -> bool:
 
 def _attribute_generic_text(text: str, search_one, source_id_to_qnum: dict, offset_fn=None, *,
                             seen_pages_by_source=None, context_chunks=None, overview: bool = False,
-                            max_distance: float = _GENERIC_ATTRIB_MAX_DIST) -> str:
+                            max_distance: float = _GENERIC_ATTRIB_MAX_DIST,
+                            refusal_lines: Optional[set] = None,
+                            scope_chunks: Optional[list[dict]] = None) -> str:
     """Re-ground each substantial, uncited line of a GENERIC answer.
 
     Two-stage grounding per line:
@@ -651,20 +731,34 @@ def _attribute_generic_text(text: str, search_one, source_id_to_qnum: dict, offs
     that legitimately draws from several retrieved passages gets a chip PER distinct
     source/page (up to ``_MAX_CHIPS_PER_LINE``). "Grounded" = at least one substantial
     line lands within ``max_distance`` (or has an exact verbatim match); the honest
-    "not in the sources" answer never does, so it stays uncited as before."""
+    "not in the sources" answer never does, so it stays uncited as before.
+
+    ``refusal_lines`` (optional) is the set of answer lines the caller identified as a
+    "not in the sources" REFUSAL (embedding-near the no-info sentinel). They are skipped
+    here exactly like a non-candidate line, so a COMPOUND answer that answers one part and
+    refuses another never attaches a (misleading) source chip to the refusal sentence — the
+    GUARANTEE would otherwise chip it, since the answered part already grounded the whole."""
     lines = text.split("\n")
+    # An explicit page/time scope clamps attribution to the chunks the model was shown, so
+    # a "from minute 40" summary can never cite a closer chunk from minute 13 (media's
+    # seen-check is source-level and would otherwise let it through).
+    scope_ids = _scope_chunk_ids(scope_chunks)
     # Pass 1: gather seen candidates per substantial line; decide if the answer is grounded.
     cand_by_idx: dict[int, list[dict]] = {}
     grounded = False
     for i, line in enumerate(lines):
         if not _needs_attribution(line):
             continue
+        # A "not in the sources" refusal sentence is not a claim — never attribute it (it
+        # neither grounds the answer nor earns a chip), even when another line is grounded.
+        if refusal_lines and line in refusal_lines:
+            continue
         # A table HEADER row (next line is the |---| delimiter) is a column label, not a
         # claim — never cite it (citing it would also dirty the column titles).
         nxt = lines[i + 1] if i + 1 < len(lines) else ""
         if _is_table_row(line) and _is_table_delim(nxt):
             continue
-        cands = _line_candidates(line, search_one, context_chunks, seen_pages_by_source)
+        cands = _line_candidates(line, search_one, context_chunks, seen_pages_by_source, scope_ids)
         if not cands:
             continue
         cand_by_idx[i] = cands
