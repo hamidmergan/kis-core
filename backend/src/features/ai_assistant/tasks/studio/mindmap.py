@@ -11,11 +11,13 @@ from src.tool_prompts import AIA_MINDMAP_PROMPT
                  soft_time_limit=300, time_limit=360)
 @observe(name="aia-mindmap")
 def run_generate_mindmap(self, mindmap_id: int, source_ids: list[int], source_uuids: list[str],
-                          locale: str = "de"):
+                          locale: str = "de", _aia_job_uuid: str | None = None):
     """Generate a mindmap from source chunks as a background job.
 
     `locale` controls the label language (topic/labels); 'keyword' stays verbatim
     in the source language for highlighting. Defaults to 'de' for older queued tasks.
+    `_aia_job_uuid` is set by the shared-pool dispatcher; when present we report
+    completion so the freed slot is filled.
     """
     import json as _json
 
@@ -135,6 +137,13 @@ def run_generate_mindmap(self, mindmap_id: int, source_ids: list[int], source_uu
     except Exception as e:
         logger.error("KI Tutor: mindmap {} generation failed: {}", mindmap_id, e)
         db.update_aia_mindmap(mindmap_id, "failed", error=str(e))
+    finally:
+        if _aia_job_uuid:
+            try:
+                from src.features.ai_assistant.scheduling.service import on_complete
+                on_complete(_aia_job_uuid)
+            except Exception as e:
+                logger.error("KI Tutor: mindmap dispatch on_complete failed: {}", e)
 
 
 # --- Presentation generation (NotebookLM-style + FLUX images) ---------------
