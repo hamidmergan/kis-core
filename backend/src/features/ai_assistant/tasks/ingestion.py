@@ -30,7 +30,7 @@ def _save_transcript_artifact(key: str, text: str) -> None:
         _Path(key).write_text(text, encoding="utf-8")
 
 @celery_app.task(bind=True, name="aia.index_source", queue="aia")
-def run_index_source(self, source_uuid: str, locale: str = "de"):
+def run_index_source(self, source_uuid: str, locale: str = "de", _aia_job_uuid: str | None = None):
     try:
         # 1. Load source from DB
         source = db.get_aia_source(source_uuid)
@@ -291,6 +291,13 @@ def run_index_source(self, source_uuid: str, locale: str = "de"):
             error_message = str(e)
         db.update_aia_source_status(source_uuid, "failed", error_message=error_message)
         raise
+    finally:
+        if _aia_job_uuid:
+            try:
+                from src.features.ai_assistant.scheduling.service import on_complete
+                on_complete(_aia_job_uuid)
+            except Exception as exc:
+                logger.error("KI Tutor: index_source dispatch on_complete failed: {}", exc)
 
 
 @celery_app.task(bind=True, name="aia.translate_transcript", queue="aia")

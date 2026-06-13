@@ -123,8 +123,12 @@ async def upload_source(
         file_type=file_type,
     )
 
-    from src.tasks.aia_tasks import run_index_source
-    run_index_source.delay(source_uuid, locale)
+    from src.features.ai_assistant.scheduling.service import scheduler_enabled, enqueue_task
+    if scheduler_enabled():
+        enqueue_task("aia.index_source", current_user["user_id"], args=[source_uuid, locale])
+    else:
+        from src.tasks.aia_tasks import run_index_source
+        run_index_source.delay(source_uuid, locale)
 
     # Count toward the hourly cap ONLY now that the upload is fully accepted —
     # every reject path above returned before here, so errors don't burn a slot.
@@ -151,8 +155,12 @@ async def retry_source(
     db.delete_aia_chunks_by_source(source["id"])
     db.reset_aia_source_for_retry(source_uuid)
 
-    from src.tasks.aia_tasks import run_index_source
-    run_index_source.delay(source_uuid, locale)
+    from src.features.ai_assistant.scheduling.service import scheduler_enabled, enqueue_task
+    if scheduler_enabled():
+        enqueue_task("aia.index_source", current_user["user_id"], args=[source_uuid, locale])
+    else:
+        from src.tasks.aia_tasks import run_index_source
+        run_index_source.delay(source_uuid, locale)
 
     logger.info("KI Tutor: source {} retry dispatched", source_uuid)
     return {"uuid": source_uuid, "status": "pending"}
