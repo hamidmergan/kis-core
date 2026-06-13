@@ -15,6 +15,7 @@ from src.i18n import get_locale, t
 from src.limits import (
     AIA_CONTEXT_MAX_CHARS,
     AIA_CONTEXT_HARD_CAP,
+    AIA_PARALLEL_SLOTS,
     AIA_SUMMARY_BATCH_MAX_CHARS,
     AIA_EMBEDDING_BATCH_SIZE,
     AIA_SOURCE_MAX_PAGES,
@@ -71,6 +72,12 @@ async def get_settings(_admin=Depends(get_admin_user)):
         # Max pages per uploaded source (long scripts → upload chapter-wise).
         "aia_source_max_pages": int(
             db.get_setting("aia_source_max_pages", str(AIA_SOURCE_MAX_PAGES))
+        ),
+        # Background dispatcher: master switch (default off) + shared parallel-slot
+        # pool size (0 = unlimited, for when we run on our own GPU).
+        "aia_scheduler_enabled": _enabled("aia_scheduler_enabled", "false"),
+        "aia_parallel_slots": int(
+            db.get_setting("aia_parallel_slots", str(AIA_PARALLEL_SLOTS))
         ),
     }
 
@@ -188,5 +195,20 @@ async def update_settings(
                 detail=t("admin.settings.maxPagesOutOfRange", locale, min=1, max=2000),
             )
         db.set_setting("aia_source_max_pages", str(value))
+
+    # Background dispatcher master switch.
+    if body.aia_scheduler_enabled is not None:
+        db.set_setting("aia_scheduler_enabled", "true" if body.aia_scheduler_enabled else "false")
+
+    # Shared parallel-slot pool size. 0 = unlimited (own-GPU future); upper bound
+    # keeps a typo from spawning a runaway number of in-flight jobs.
+    if body.aia_parallel_slots is not None:
+        value = body.aia_parallel_slots
+        if value < 0 or value > 100:
+            raise HTTPException(
+                status_code=400,
+                detail=t("admin.settings.parallelSlotsOutOfRange", locale, min=0, max=100),
+            )
+        db.set_setting("aia_parallel_slots", str(value))
 
     return {"ok": True}

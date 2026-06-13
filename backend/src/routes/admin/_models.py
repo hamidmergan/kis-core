@@ -44,6 +44,9 @@ class UpdateSettingsRequest(BaseModel):
     # Max pages per uploaded source (long scripts → upload chapter-wise). Keeps a
     # source near the fit-shortcut size so its overview stays complete.
     aia_source_max_pages: int | None = None
+    # Background dispatcher: master switch + size of the shared parallel-slot pool.
+    aia_scheduler_enabled: bool | None = None
+    aia_parallel_slots: int | None = None
 
 
 class ToggleToolRequest(BaseModel):

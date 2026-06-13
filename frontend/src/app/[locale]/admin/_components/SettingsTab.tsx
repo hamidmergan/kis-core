@@ -822,6 +822,110 @@ function SourceMaxPagesCard() {
   );
 }
 
+function DispatcherCard() {
+  const [enabled, setEnabled] = useState<boolean | null>(null);
+  const [slots, setSlots] = useState<number | null>(null);
+  const [draft, setDraft] = useState<string>("");
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    fetch("/api/admin/settings", { credentials: "include" })
+      .then((r) => r.json())
+      .then((d) => {
+        setEnabled(d.aia_scheduler_enabled ?? false);
+        const n = typeof d.aia_parallel_slots === "number" ? d.aia_parallel_slots : 2;
+        setSlots(n);
+        setDraft(String(n));
+      });
+  }, []);
+
+  const patch = (payload: Record<string, unknown>) =>
+    fetch("/api/admin/settings", {
+      method: "PATCH",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+
+  const toggle = async () => {
+    if (enabled === null) return;
+    const next = !enabled;
+    setEnabled(next);
+    setSaving(true);
+    try { await patch({ aia_scheduler_enabled: next }); } finally { setSaving(false); }
+  };
+
+  const commitSlots = async () => {
+    if (slots === null) return;
+    const parsed = Number.parseInt(draft, 10);
+    if (!Number.isFinite(parsed) || parsed < 0 || parsed > 100) {
+      setError("Wert muss zwischen 0 und 100 liegen (0 = unbegrenzt).");
+      setDraft(String(slots));
+      return;
+    }
+    if (parsed === slots) return;
+    setSaving(true);
+    setError(null);
+    try {
+      const res = await patch({ aia_parallel_slots: parsed });
+      if (res.ok) setSlots(parsed);
+      else { setError("Speichern fehlgeschlagen."); setDraft(String(slots)); }
+    } finally { setSaving(false); }
+  };
+
+  if (enabled === null || slots === null) return null;
+
+  return (
+    <div className="border border-border-soft rounded-xl bg-background p-5">
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <p className="text-sm font-medium text-foreground">AIA Hintergrund-Dispatcher</p>
+          <p className="text-xs text-muted mt-1">
+            {enabled
+              ? "An: Hintergrund-Jobs laufen fair verteilt über den Slot-Pool."
+              : "Aus: Jobs laufen direkt, der Reihe nach, ohne Fairness."}
+          </p>
+        </div>
+        <button
+          onClick={toggle}
+          disabled={saving}
+          className={`relative inline-flex shrink-0 w-11 h-6 rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none enabled:hover:border-kb ${
+            enabled ? "bg-kb" : "bg-border"
+          } disabled:opacity-50`}
+          aria-label="Dispatcher an/aus"
+        >
+          <span
+            className={`pointer-events-none inline-block w-5 h-5 bg-white rounded-full shadow transition-transform duration-200 ${
+              enabled ? "translate-x-5" : "translate-x-0"
+            }`}
+          />
+        </button>
+      </div>
+
+      <div className="mt-4 flex items-center gap-3">
+        <label className="text-sm text-foreground">Parallele Slots</label>
+        <input
+          type="number"
+          min={0}
+          max={100}
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+          onBlur={commitSlots}
+          onKeyDown={(e) => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); }}
+          disabled={saving}
+          className="w-24 rounded-lg border border-border bg-background px-3 py-1.5 text-sm text-foreground focus:outline-none focus:border-kb disabled:opacity-50"
+        />
+        <span className="text-xs text-muted-soft">0 = unbegrenzt</span>
+      </div>
+      {error && <p className="mt-2 text-xs text-red-500">{error}</p>}
+      <p className="mt-3 text-xs text-muted-soft">
+        Wie viele Hintergrund-Jobs (Upload, Studio) gleichzeitig laufen. Chat ist nicht betroffen, der läuft immer sofort.
+      </p>
+    </div>
+  );
+}
+
 function SystemPane() {
   return (
     <div className="space-y-4">
@@ -840,6 +944,7 @@ function SystemPane() {
       <EmbeddingBatchCard />
       <OcrCard />
       <MascotCard />
+      <DispatcherCard />
       <WorkspaceExportImportCard />
     </div>
   );
