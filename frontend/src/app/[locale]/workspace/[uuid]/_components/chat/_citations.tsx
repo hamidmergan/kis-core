@@ -1,5 +1,5 @@
 import React from "react";
-import { CaretRight } from "@phosphor-icons/react";
+import { CaretRight, CaretLeft } from "@phosphor-icons/react";
 import { _chunkLabel, type ChipLabelT } from "../../_utils";
 import type { ChatMessage } from "../../_types";
 import { citationPattern, citationsAreAdjacentSameTarget, stripCitations, type CitationFields } from "./_citation_parse";
@@ -115,22 +115,39 @@ function CitationChip({ desc, onChipClick }: { desc: ChipDesc; onChipClick: Cita
 }
 
 
-// Expanding is ONE-WAY and sticky: a clicked group opens and never collapses again —
-// not on a second click, and not on the re-render/remount churn from streaming tokens
-// or the 15s workspace poll. The open set lives at module scope so a fresh mount (which
-// resets local state) restores the open state from its stable groupId.
+// Expanding is a TOGGLE: a group opens to show all chips and can be collapsed back to
+// just the first chip + chevron. The user's explicit open/closed choice lives at module
+// scope so it survives the re-render/remount churn from streaming tokens or the 15s
+// workspace poll (a fresh mount resets local state, then restores it from the stable
+// groupId): NOT in the set == collapsed (default), opened groups are added, re-collapsed
+// groups are removed.
 const _openChipGroups = new Set<string>();
 
 // A run of directly-adjacent chips (only whitespace between them). The first chip is
 // always shown; the rest stay behind a minimal chevron until the user opens the group.
-// Once opened, all chips show and the chevron is gone (nothing to collapse back into).
+// Open shows every chip plus a back-chevron that folds the extras away again.
 function CitationChipGroup({ groupId, chips, onChipClick }: { groupId: string; chips: ChipDesc[]; onChipClick: CitationChipClickHandler }) {
   const [open, setOpen] = React.useState(() => _openChipGroups.has(groupId));
   const reveal = () => { _openChipGroups.add(groupId); setOpen(true); };
+  const collapse = () => { _openChipGroups.delete(groupId); setOpen(false); };
+  const hidden = chips.length - 1;
+  // The toggle is a chip-sized hit area (easy click/tap target) carrying the hidden
+  // count, but WITHOUT the chip's filled pill background — just caret + count in the
+  // brand colour. `chip-toggle` keeps the hover outline (.chip-cite) yet opts out of the
+  // dark-mode chip background (see globals.css).
+  const toggleCls = "chip-cite chip-toggle inline-flex items-center gap-0.5 whitespace-nowrap text-xs px-2 py-0.5 rounded-full font-medium align-middle mx-0.5 cursor-pointer select-none";
+  const toggleStyle = { color: "var(--kb)" } as const;
   if (open) {
     return (
-      <span className="inline-flex items-center align-middle">
+      // flex-wrap + max-w-full so a long row of chips wraps onto multiple lines instead of
+      // overflowing the message width; gap-y keeps the wrapped rows legible.
+      <span className="inline-flex flex-wrap items-center align-middle max-w-full gap-y-1">
         {chips.map(c => <CitationChip key={c.key} desc={c} onChipClick={onChipClick} />)}
+        <span role="button" tabIndex={0}
+          onPointerDown={(e) => { if (e.button === 0) { e.stopPropagation(); collapse(); } }}
+          onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.stopPropagation(); collapse(); } }}
+          aria-label={`−${hidden}`} className={toggleCls} style={toggleStyle}
+        ><CaretLeft size={12} weight="bold" />{hidden}</span>
       </span>
     );
   }
@@ -140,11 +157,8 @@ function CitationChipGroup({ groupId, chips, onChipClick }: { groupId: string; c
       <span role="button" tabIndex={0}
         onPointerDown={(e) => { if (e.button === 0) { e.stopPropagation(); reveal(); } }}
         onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.stopPropagation(); reveal(); } }}
-        aria-label={`+${chips.length - 1}`}
-        className="inline-flex items-center align-middle cursor-pointer mx-0.5 text-[var(--kb)] opacity-60 hover:opacity-100 transition-opacity"
-      >
-        <CaretRight size={11} weight="bold" />
-      </span>
+        aria-label={`+${hidden}`} className={toggleCls} style={toggleStyle}
+      ><CaretRight size={12} weight="bold" />{hidden}</span>
     </span>
   );
 }

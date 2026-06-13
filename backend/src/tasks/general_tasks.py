@@ -181,9 +181,11 @@ def run_transcribe(
 
         with job_heartbeat(job_uuid), open_input_file(input_path, suffix=ext_suffix) as local_path:
             if task == "translate":
-                result_text = client.transcribe_and_translate_chunked(local_path, response_format=response_format)
+                result_text = client.transcribe_and_translate_chunked(
+                    local_path, response_format=response_format, cache_key=job_uuid)
             else:
-                result_text = client.transcribe_chunked(local_path, response_format=response_format)
+                result_text = client.transcribe_chunked(
+                    local_path, response_format=response_format, cache_key=job_uuid)
 
         out_ext = _FORMAT_EXT[response_format]
         if task == "translate":
@@ -199,6 +201,17 @@ def run_transcribe(
         logger.info("Transcribe task {} completed: {}", job_uuid, output_name)
 
     except Exception as e:
+        # Rate-limit (429): keep the job alive and requeue with backoff instead of failing.
+        # Chunks already transcribed are cached per job_uuid in Redis, so the retry resumes
+        # rather than restarting from zero. Mirrors the AIA media-ingestion retry policy.
+        msg = str(e).lower()
+        if ("429" in msg or "rate limit" in msg) and self.request.retries < 5:
+            countdown = min(30 * (2 ** self.request.retries), 120)  # 30s, 1m, 2m, 2m, 2m
+            logger.warning(
+                "Transcribe job {} hit rate limit (attempt {}/{}), retrying in {}s",
+                job_uuid, self.request.retries + 1, 5, countdown,
+            )
+            raise self.retry(exc=e, countdown=countdown, max_retries=5)
         _handle_task_exception(job_uuid, e, task_label="Transcribe")
         raise
 

@@ -105,6 +105,7 @@ export default function KiTutorWorkspacePage() {
 
   const [studioEnabled, setStudioEnabled] = useState(true);
   const [language_trainingActive, setLanguageTrainingActive] = useState(false);
+  const [showAllSources, setShowAllSources] = useState(false);
 
   // Language level diagnosis: triggered when Fachsprachentrainer toggles on
   // for a user without a stored language_level. Fetched once at mount.
@@ -227,6 +228,7 @@ export default function KiTutorWorkspacePage() {
       setChatLang(s.chat_lang);
       setStudioEnabled(s.studio_enabled);
       setLanguageTrainingActive(s.language_training_active);
+      setShowAllSources(s.show_all_sources);
     },
   });
 
@@ -260,9 +262,9 @@ export default function KiTutorWorkspacePage() {
       method: "PATCH",
       credentials: "include",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ chat_lang: chatLang, studio_enabled: studioEnabled, language_training_active: language_trainingActive }),
+      body: JSON.stringify({ chat_lang: chatLang, studio_enabled: studioEnabled, language_training_active: language_trainingActive, show_all_sources: showAllSources }),
     }).catch(() => { /* ignore */ });
-  }, [chatLang, studioEnabled, language_trainingActive, initialized, uuid]);
+  }, [chatLang, studioEnabled, language_trainingActive, showAllSources, initialized, uuid]);
 
   // ─── Viewer + chat input actions (see useViewerActions) ─────────────────
   const {
@@ -580,6 +582,8 @@ export default function KiTutorWorkspacePage() {
           onToggleStudio={() => setStudioEnabled((v) => !v)}
           language_trainingActive={language_trainingActive}
           onToggleLanguageTraining={() => setLanguageTrainingActive((v) => !v)}
+          showAllSources={showAllSources}
+          onToggleShowAllSources={() => setShowAllSources((v) => !v)}
           isLecturer={isLecturer}
           isOwner={moduleDetail?.is_owner ?? false}
           hideHeader={hideHeader}

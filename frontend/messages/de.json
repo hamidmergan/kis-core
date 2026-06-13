@@ -208,6 +208,8 @@
       "submit": "Transkription starten",
       "longRunning": "Läuft noch - lange Audiodateien können einige Minuten dauern…",
       "downloadLabel": "Transkription",
+      "readyTitle": "Transkript fertig",
+      "editorAria": "Transkript bearbeiten",
       "providerLabel": "STT-Anbieter"
     },
     "summarize": {
@@ -260,6 +262,7 @@
       "status": {
         "uploadingFile": "Datei wird hochgeladen...",
         "generatingAudio": "Audio wird generiert...",
+        "readyToPlay": "Audio fertig",
         "errorTitle": "Fehler bei der Audiogenerierung",
         "tryAgain": "Erneut versuchen",
         "newFileAria": "Neue Datei hochladen"
@@ -1682,6 +1685,8 @@
         "studioDescription": "Studio-Panel mit Mindmaps, Notizen und Tools einblenden.",
         "languageTrainingTitle": "Fachsprachentraining",
         "languageTrainingDescription": "Zeigt den Fachsprachentraining-Tab im Studio.",
+        "showAllSourcesTitle": "Alle Quellen anzeigen",
+        "showAllSourcesDescription": "Zeigt zu jeder Aussage alle Fundstellen als Quellen-Chips, nicht nur die besten.",
         "translationModeTitle": "Übersetzung der Transkripte",
         "translationModeDescription": "Übersetzt Untertitel von Audio-/Video-Quellen in die unten gewählte Zielsprache. Die Quellsprache wird automatisch erkannt. Studierende können im Transkript-Panel zwischen Original und Übersetzung umschalten. Die Übersetzung läuft als Hintergrund-Job und kann ein paar Minuten dauern.",
         "translationModeOff": "Aus",

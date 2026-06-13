@@ -231,8 +231,11 @@
 
 /* Dark Mode: Citation-Chips kraeftiger machen (Default-Inline-rgba ist zu dezent auf Dunkel). */
 :root[data-theme="dark"] .chip-cite {
-  background-color: rgba(91, 163, 206, 0.18) !important;
   color: #7BBDE5 !important;
+}
+/* …but the expand/collapse toggle (.chip-toggle) stays background-free, just caret + count. */
+:root[data-theme="dark"] .chip-cite:not(.chip-toggle) {
+  background-color: rgba(91, 163, 206, 0.18) !important;
 }
 
 /* Dark Mode only: Quellen-hinzufuegen-Button — weisse Schrift, neutrale Border, Hover kb-blau (dashed bleibt). */

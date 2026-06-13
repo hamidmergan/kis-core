@@ -32,8 +32,13 @@ def _reject_if_too_long(duration: float) -> None:
 class _WhisperChunkedMixin:
     """Erwartet alle `_WhisperMixin`-Methoden auf self (via Multi-Inheritance)."""
 
-    def transcribe_chunked(self, file_path: str, response_format: str = "text") -> str:
-        """Transcribe audio, splitting files that exceed KISSKI's 600s limit at silence points."""
+    def transcribe_chunked(self, file_path: str, response_format: str = "text",
+                           cache_key: str | None = None) -> str:
+        """Transcribe audio, splitting files that exceed KISSKI's 600s limit at silence points.
+
+        ``cache_key`` (e.g. the job_uuid) enables per-chunk Redis caching so a Celery
+        retry skips chunks that already succeeded instead of restarting from zero.
+        """
         duration = get_audio_duration(file_path)
         _reject_if_too_long(duration)
         if duration <= CHUNK_MAX_SEC:
@@ -43,12 +48,23 @@ class _WhisperChunkedMixin:
         silence_starts = find_silence_starts(file_path)
         split_points = compute_split_points(duration, silence_starts)
 
+        def _transcribe_or_cached(path: str, idx: int, total: int) -> str:
+            if cache_key:
+                hit = _chunk_cache.get_text(cache_key, idx)
+                if hit is not None:
+                    logger.info("Chunk {}/{} cache hit", idx + 1, total)
+                    return hit
+            text = self.transcribe(path, response_format=response_format)
+            if cache_key:
+                _chunk_cache.put_text(cache_key, idx, text)
+            return text
+
         with tempfile.TemporaryDirectory() as tmpdir:
             chunks = split_audio(file_path, split_points, tmpdir)
             results: dict[int, tuple[str, float]] = {}
             with ThreadPoolExecutor(max_workers=CHUNK_TRANSCRIBE_CONCURRENCY) as executor:
                 futures = {
-                    executor.submit(self.transcribe, path, response_format): (i, offset)
+                    executor.submit(_transcribe_or_cached, path, i, len(chunks)): (i, offset)
                     for i, (path, offset) in enumerate(chunks)
                 }
                 for future in as_completed(futures):
@@ -59,6 +75,8 @@ class _WhisperChunkedMixin:
                     except Exception as e:
                         raise RuntimeError(f"Chunk {i + 1} transcription failed: {e}") from e
 
+            if cache_key:
+                _chunk_cache.clear_text(cache_key, len(chunks))
             ordered = [results[i] for i in range(len(chunks))]
             if response_format == "srt":
                 return merge_srt(ordered)
@@ -66,8 +84,13 @@ class _WhisperChunkedMixin:
                 return merge_vtt(ordered)
             return " ".join(text for text, _ in ordered).strip()
 
-    def transcribe_and_translate_chunked(self, file_path: str, response_format: str = "text") -> str:
-        """Transcribe and translate audio, splitting files that exceed KISSKI's 600s limit."""
+    def transcribe_and_translate_chunked(self, file_path: str, response_format: str = "text",
+                                         cache_key: str | None = None) -> str:
+        """Transcribe and translate audio, splitting files that exceed KISSKI's 600s limit.
+
+        ``cache_key`` (e.g. the job_uuid) enables per-chunk Redis caching so a retry
+        skips chunks that already succeeded.
+        """
         duration = get_audio_duration(file_path)
         _reject_if_too_long(duration)
         if duration <= CHUNK_MAX_SEC:
@@ -77,12 +100,23 @@ class _WhisperChunkedMixin:
         silence_starts = find_silence_starts(file_path)
         split_points = compute_split_points(duration, silence_starts)
 
+        def _translate_or_cached(path: str, idx: int, total: int) -> str:
+            if cache_key:
+                hit = _chunk_cache.get_text(cache_key, idx)
+                if hit is not None:
+                    logger.info("Chunk {}/{} cache hit (translate)", idx + 1, total)
+                    return hit
+            text = self.transcribe_and_translate(path, response_format=response_format)
+            if cache_key:
+                _chunk_cache.put_text(cache_key, idx, text)
+            return text
+
         with tempfile.TemporaryDirectory() as tmpdir:
             chunks = split_audio(file_path, split_points, tmpdir)
             results: dict[int, tuple[str, float]] = {}
             with ThreadPoolExecutor(max_workers=CHUNK_TRANSCRIBE_CONCURRENCY) as executor:
                 futures = {
-                    executor.submit(self.transcribe_and_translate, path, response_format): (i, offset)
+                    executor.submit(_translate_or_cached, path, i, len(chunks)): (i, offset)
                     for i, (path, offset) in enumerate(chunks)
                 }
                 for future in as_completed(futures):
@@ -93,6 +127,8 @@ class _WhisperChunkedMixin:
                     except Exception as e:
                         raise RuntimeError(f"Chunk {i + 1} translation failed: {e}") from e
 
+            if cache_key:
+                _chunk_cache.clear_text(cache_key, len(chunks))
             ordered = [results[i] for i in range(len(chunks))]
             if response_format == "srt":
                 return merge_srt(ordered)

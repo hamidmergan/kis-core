@@ -14,6 +14,8 @@ interface SettingsMenuProps {
   onToggleStudio: () => void;
   language_trainingActive: boolean;
   onToggleLanguageTraining: () => void;
+  showAllSources: boolean;
+  onToggleShowAllSources: () => void;
   isOwner: boolean;
   translationMode: TranscriptTranslationMode;
   onChangeTranslationMode: (mode: TranscriptTranslationMode) => void;
@@ -70,6 +72,8 @@ export function SettingsMenu({
   onToggleStudio,
   language_trainingActive,
   onToggleLanguageTraining,
+  showAllSources,
+  onToggleShowAllSources,
   isOwner,
   translationMode,
   onChangeTranslationMode,
@@ -136,6 +140,12 @@ export function SettingsMenu({
           checked={language_trainingActive}
           onToggle={onToggleLanguageTraining}
           disabled={!studioEnabled}
+        />
+        <ToggleRow
+          title={t("showAllSourcesTitle")}
+          description={t("showAllSourcesDescription")}
+          checked={showAllSources}
+          onToggle={onToggleShowAllSources}
         />
         {languageLevel && onResetLanguageLevel && (
           <div className="flex items-center justify-between gap-4">

@@ -149,7 +149,7 @@ def aia_system_rag(target_locale: str = "de", *, overview: bool = False) -> str:
         "  - DEFAULT TO BULLET POINTS: present the answer as a concise Markdown bullet list ('- '), ONE fact/step/item per line. This is the default for summaries, overviews, lists, and most questions.\n"
         "  - ONE ATOMIC FACT PER BULLET — do NOT merge several distinct facts (each from a different passage) into one long run-on bullet. If a point combines two separate facts, split it into two bullets. Reason: each bullet is matched back to its source passage afterwards, so a bullet that fuses many passages cannot be linked cleanly. Short, single-fact bullets each get their own source link.\n"
         "  - Use flowing prose (paragraphs) ONLY when the user EXPLICITLY asks for it (e.g. 'als Fließtext', 'ausformuliert', 'in prose', 'als Text'). Otherwise always prefer bullets.\n"
-        "  - NEVER output BOTH a flowing-prose summary paragraph AND bullets for the same content — that is redundant. The bullets ARE the summary.\n"
+        "  - NEVER state the SAME content twice in two shapes — not a prose sentence/paragraph AND a table, not a prose summary AND bullets, for the same facts. Pick ONE shape. A single fact or value (one deadline, one date, one number, one name) is answered in ONE sentence or ONE bullet and is NEVER also wrapped in a table. The structured form (bullets/table) IS the answer, so do not also restate it in prose.\n"
         "  - When the answer covers several distinct topics, separate them with Markdown headings ('## Heading').\n"
         "  - Bold the leading key term, name, or date of a bullet or sentence with **...** so it stands out.\n"
         "  - TABLES — use one WHEN IT FITS, not by default: if part of the answer is a set of 3+ entries that share the SAME fields (e.g. a schedule of dates/deadlines: date + event + time; or term + definition; or item + value), present THAT part as a Markdown table instead of a bullet list — it is far more readable. This OVERRIDES the bullet default for that block; keep the rest of the answer as bullets/prose. For example, a schedule block must look like:\n"
@@ -157,7 +157,7 @@ def aia_system_rag(target_locale: str = "de", *, overview: bool = False) -> str:
         "      |---|---|---|\n"
         "      | 01.04.2026 | Webkonferenz Einführung | 17:30 |\n"
         "      | 29.05.2026 | Peer-Review (Präsenz) | 14:30 |\n"
-        "    Do NOT force a table onto non-parallel content, and never make a table with only 1-2 rows.\n"
+        "    Do NOT force a table onto non-parallel content, and NEVER make a table with fewer than 3 data rows — a single entry or a one-row 'table' is just a sentence or a bullet, so write it as one and do NOT add a table for it.\n"
         "  - Only add table columns you can actually fill from the sources. NEVER invent a placeholder column (e.g. a 'Note'/'Hinweis' column) whose cells end up empty or '–'. If most cells of a column would be empty, drop that column entirely.\n"
         "  - Do NOT add a separate prose summary paragraph — neither an opening overview nor a closing '## Zusammenfassung' / '## Summary' block. With a bullet-point answer it only repeats the bullets. The bullets themselves ARE the summary.\n"
     )
@@ -427,7 +427,7 @@ AIA_SCOPE_EXTRACTOR_SYSTEM = (
 AIA_QUERY_UNDERSTANDING_SYSTEM = (
     "You analyze ONE question a user asks about their documents and output ONLY a "
     "compact JSON object, nothing else:\n"
-    '{"intent":"GENERIC"|"SPECIFIC","scope":{"unit":"page"|"time"|"unknown"|null,"intervals":[[from,to]]},"subqueries":["...",...]}\n'
+    '{"intent":"GENERIC"|"SPECIFIC","scope":{"unit":"page"|"time"|"unknown"|null,"intervals":[[from,to]]},"subqueries":["...",...],"exhaustive":true|false}\n'
     "\n"
     "intent:\n"
     '- "GENERIC": the user wants a summary, overview, or the main topics across the '
@@ -457,11 +457,20 @@ AIA_QUERY_UNDERSTANDING_SYSTEM = (
     "asks about ONE thing, return a single-element list with the question itself. Max 3 "
     "items, same language as the question.\n"
     "\n"
+    "exhaustive: true ONLY when the user explicitly wants to see ALL sources / every "
+    "place a fact appears (e.g. \"zeige alle Quellen\", \"wo ueberall steht das\", "
+    "\"alle Stellen\", \"in welchen Dokumenten\", \"list every source\", "
+    "\"show all references / all occurrences\", in ANY language). Otherwise false. This "
+    "is about wanting an exhaustive list of LOCATIONS, not the depth of the answer.\n"
+    "\n"
     "Understand ANY language and ANY phrasing; ignore typos and glued tokens.\n"
     "\n"
     "Examples (Input -> Output):\n"
-    'was sind neuronale Netze -> {"intent":"SPECIFIC","scope":{"unit":null,"intervals":[]},"subqueries":["was sind neuronale Netze"]}\n'
-    'was schützt das Urheberrechtsgesetz und was das Markengesetz -> {"intent":"SPECIFIC","scope":{"unit":null,"intervals":[]},"subqueries":["was schützt das Urheberrechtsgesetz","was schützt das Markengesetz"]}\n'
+    'was sind neuronale Netze -> {"intent":"SPECIFIC","scope":{"unit":null,"intervals":[]},"subqueries":["was sind neuronale Netze"],"exhaustive":false}\n'
+    'was schützt das Urheberrechtsgesetz und was das Markengesetz -> {"intent":"SPECIFIC","scope":{"unit":null,"intervals":[]},"subqueries":["was schützt das Urheberrechtsgesetz","was schützt das Markengesetz"],"exhaustive":false}\n'
+    'Wann ist die Abgabe? Zeige mir alle Quellen -> {"intent":"SPECIFIC","scope":{"unit":null,"intervals":[]},"subqueries":["Wann ist die Abgabe?"],"exhaustive":true}\n'
+    'in welchen Dokumenten wird die Frist genannt -> {"intent":"SPECIFIC","scope":{"unit":null,"intervals":[]},"subqueries":["in welchen Dokumenten wird die Frist genannt"],"exhaustive":true}\n'
+    'show all sources for the deadline -> {"intent":"SPECIFIC","scope":{"unit":null,"intervals":[]},"subqueries":["deadline"],"exhaustive":true}\n'
     'Welche Stelle ist für die Steuerfestsetzung zuständig (Abgabenordnung) und welche Stellung hat der Rechtsanwalt (BRAO)? -> {"intent":"SPECIFIC","scope":{"unit":null,"intervals":[]},"subqueries":["Welche Stelle ist für die Steuerfestsetzung zuständig (Abgabenordnung)?","Welche Stellung hat der Rechtsanwalt (BRAO)?"]}\n'
     'fasse zusammen -> {"intent":"GENERIC","scope":{"unit":null,"intervals":[]}}\n'
     'gib mir einen Überblick -> {"intent":"GENERIC","scope":{"unit":null,"intervals":[]}}\n'

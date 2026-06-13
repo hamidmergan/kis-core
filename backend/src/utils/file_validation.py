@@ -43,6 +43,11 @@ TRANSCRIPTION_EXTENSIONS = {
     ".m4a": "audio/mp4",
     ".wav": "audio/wav",
     ".flac": "audio/flac",
+    ".ogg": "audio/ogg",
+    ".oga": "audio/ogg",
+    ".webm": "video/webm",
+    ".mpeg": "video/mpeg",
+    ".mpga": "audio/mpeg",
 }
 
 
@@ -83,6 +88,11 @@ _EXT_TO_DETECTED: dict[str, set[str]] = {
     ".m4a":  {"m4a", "mp4"},
     ".wav":  {"wav"},
     ".flac": {"flac"},
+    ".ogg":  {"ogg"},
+    ".oga":  {"ogg"},
+    ".webm": {"webm"},
+    ".mpeg": {"mpg"},
+    ".mpga": {"mp3"},
     ".png":  {"png"},
     ".jpg":  {"jpg"},
     ".jpeg": {"jpg"},

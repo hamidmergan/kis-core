@@ -33,6 +33,7 @@ export default function TtsPage() {
   const [pendingFile, setPendingFile] = useState<File | null>(null);
   const [ttsSelectedFile, setTtsSelectedFile] = useState<string>("");
   const [ttsDownloadBlob, setTtsDownloadBlob] = useState<Blob | null>(null);
+  const [ttsAudioUrl, setTtsAudioUrl] = useState<string>("");
   const [ttsDownloadName, setTtsDownloadName] = useState<string>("");
   const [ttsErrorMessage, setTtsErrorMessage] = useState<string>("");
   const [ttsProgressLabel, setTtsProgressLabel] = useState<string>("");
@@ -73,6 +74,14 @@ export default function TtsPage() {
   useEffect(() => {
     return () => { abortControllerRef.current?.abort(); setTtsState("idle"); };
   }, []);
+
+  // Expose the finished audio as a playable object URL (created/revoked with the blob).
+  useEffect(() => {
+    if (!ttsDownloadBlob) { setTtsAudioUrl(""); return; }
+    const url = URL.createObjectURL(ttsDownloadBlob);
+    setTtsAudioUrl(url);
+    return () => URL.revokeObjectURL(url);
+  }, [ttsDownloadBlob]);
 
   const isProcessing = ttsState === "uploading" || ttsState === "processing";
   const noProvider = providersLoaded && providers.length === 0;
@@ -347,6 +356,7 @@ export default function TtsPage() {
           <TtsStatus
             state={ttsState}
             fileName={ttsDownloadName}
+            audioUrl={ttsAudioUrl}
             errorMessage={ttsErrorMessage}
             onDownload={handleTtsDownload}
             onReset={handleTtsReset}

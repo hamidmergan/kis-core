@@ -118,12 +118,8 @@ export default function UebersetzungPage() {
 
           <FileUpload onFileSelected={handleFileSelected} disabled={processing} selectedFilename={selectedFile || undefined} />
 
-          <div className="mt-6">
-            <GlossarySelector values={glossaryIds} onChange={setGlossaryIds} />
-          </div>
-
           {languages.length > 0 && (
-            <div className="mb-4">
+            <div className="mb-4 mt-6">
               <label className="block text-sm font-medium text-foreground-soft mb-1">
                 {t("targetLang")}
               </label>
@@ -136,6 +132,8 @@ export default function UebersetzungPage() {
               <p className="mt-1 text-xs text-muted">{t("autoDetectHint")}</p>
             </div>
           )}
+
+          <GlossarySelector values={glossaryIds} onChange={setGlossaryIds} />
 
           {providers.length > 1 && (
             <div className="mb-4">

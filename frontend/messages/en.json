@@ -208,6 +208,8 @@
       "submit": "Start transcription",
       "longRunning": "Still running - long audio files may take a few minutes…",
       "downloadLabel": "Transcription",
+      "readyTitle": "Transcript ready",
+      "editorAria": "Edit transcript",
       "providerLabel": "STT provider"
     },
     "summarize": {
@@ -260,6 +262,7 @@
       "status": {
         "uploadingFile": "Uploading file...",
         "generatingAudio": "Generating audio...",
+        "readyToPlay": "Audio ready",
         "errorTitle": "Audio generation failed",
         "tryAgain": "Try again",
         "newFileAria": "Upload new file"
@@ -1682,6 +1685,8 @@
         "studioDescription": "Show the studio panel with mind maps, notes and tools.",
         "languageTrainingTitle": "Language training",
         "languageTrainingDescription": "Shows the language training tab in studio.",
+        "showAllSourcesTitle": "Show all sources",
+        "showAllSourcesDescription": "Shows every place a statement appears as source chips, not only the best ones.",
         "translationModeTitle": "Transcript translation",
         "translationModeDescription": "Translates subtitles of audio/video sources into the target language chosen below. The source language is detected automatically. Students can switch between original and translation in the transcript panel. Translation runs as a background job and can take a few minutes.",
         "translationModeOff": "Off",

@@ -16,6 +16,8 @@ from src.features.ai_assistant.routes._helpers import (
     _dedup_repeated_lines,
     _tail_repeats,
     _collapse_repeats,
+    _strip_source_list,
+    _strip_tiny_tables,
 )
 
 # A real intra-line degeneration loop: a phrase echoed with NO newline (GENERIC over
@@ -131,3 +133,61 @@ def test_collapse_repeats_shrinks_loop_residue():
 def test_collapse_repeats_leaves_normal_text():
     text = "- Zivilrecht\n- Strafrecht\n- Verwaltungsrecht"
     assert _collapse_repeats(text) == text
+
+
+# ── _strip_source_list (model-written "Quellen:" enumeration) ─────────────────
+
+def test_strip_source_list_removes_quellen_enumeration():
+    text = (
+        "Die Hausarbeit muss am 03.07.2026 abgegeben werden.\n\n"
+        "Quellen:\n\n"
+        "- VL1_25-03-2026.webm | 08:58\n"
+        "- 01_Einführung.pdf | S. 6\n"
+        "- 02_Publizieren.pdf | S. 4\n"
+    )
+    names = ["VL1_25-03-2026.webm", "01_Einführung.pdf", "02_Publizieren.pdf"]
+    out = _strip_source_list(text, names)
+    assert "Quellen:" not in out
+    assert "VL1_25-03-2026.webm" not in out and "01_Einführung.pdf" not in out
+    assert "Die Hausarbeit muss am 03.07.2026 abgegeben werden." in out
+
+
+def test_strip_source_list_keeps_inline_filename_mention():
+    text = "Laut 01_Einführung.pdf wird das Thema dort ausführlich erklärt und vertieft."
+    assert _strip_source_list(text, ["01_Einführung.pdf"]) == text
+
+
+def test_strip_source_list_noop_without_filenames():
+    text = "Quellen:\n- a | S. 1\n- b | S. 2"
+    assert _strip_source_list(text, []) == text
+
+
+# ── _strip_tiny_tables (one-row table duplicating a sentence) ─────────────────
+
+def test_strip_tiny_tables_drops_one_row_table_keeps_prose():
+    text = (
+        "Die Hausarbeit muss am **03.07.2026** abgegeben werden.\n\n"
+        "| Datum | Termin | Uhrzeit |\n"
+        "|---|---|---|\n"
+        "| 03.07.2026 | Abgabe Hausarbeit | — |\n"
+    )
+    out = _strip_tiny_tables(text)
+    assert "| Datum |" not in out
+    assert "Die Hausarbeit muss am **03.07.2026** abgegeben werden." in out
+
+
+def test_strip_tiny_tables_keeps_multirow_table():
+    text = (
+        "Termine:\n\n"
+        "| Datum | Termin |\n"
+        "|---|---|\n"
+        "| 01.04. | Start |\n"
+        "| 03.07. | Abgabe |\n"
+    )
+    out = _strip_tiny_tables(text)
+    assert "| 01.04. | Start |" in out and "| 03.07. | Abgabe |" in out
+
+
+def test_strip_tiny_tables_keeps_table_when_sole_content():
+    text = "| Datum | Termin |\n|---|---|\n| 03.07. | Abgabe |"
+    assert "| 03.07. | Abgabe |" in _strip_tiny_tables(text)
