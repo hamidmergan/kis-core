@@ -58,15 +58,18 @@ def select_shared_pool(
     total_slots: int,
     weights: dict[str, float],
     area_granted: Optional[dict[str, float]] = None,
+    user_granted: Optional[dict[int, int]] = None,
 ) -> list[str]:
     """Fill a single shared pool of ``total_slots`` background slots.
 
-    Each free slot goes to an area by weighted deficit, then to the least-loaded
-    user in that area, oldest job first. ``area_granted`` is a CUMULATIVE per-area
-    grant tally that persists across dispatches (so studio at weight 2 really gets
-    ~2x ingest's slots over time); it is updated in place. Pass ``None`` for a
-    one-shot pick with no memory. ``total_slots <= 0`` means unlimited (own-GPU
-    future): everything dispatches immediately, oldest first.
+    Each free slot goes to an area by weighted deficit, then to the fairest user
+    in that area. User fairness prefers (1) fewest jobs currently running, then
+    (2) fewest CUMULATIVE grants (``user_granted``), then oldest job. The
+    cumulative tally is what stops a flooder whose older jobs would otherwise win
+    every created-at tiebreak; it persists across dispatches and is updated in
+    place. ``area_granted`` does the same for areas. Pass ``None`` for a one-shot
+    pick with no memory. ``total_slots <= 0`` means unlimited (own-GPU future):
+    everything dispatches immediately, oldest first.
     """
     if total_slots <= 0:
         return [j.job_id for j in sorted(queued, key=lambda j: j.created_at)]
@@ -93,9 +96,12 @@ def select_shared_pool(
         if area is None:
             break
         cands = [j for j in remaining if j.area == area]
-        best = min(cands, key=lambda j: (user_load[j.user_id], j.created_at))
+        ug = user_granted if user_granted is not None else {}
+        best = min(cands, key=lambda j: (user_load[j.user_id], ug.get(j.user_id, 0), j.created_at))
         chosen.append(best.job_id)
         user_load[best.user_id] += 1
+        if user_granted is not None:
+            user_granted[best.user_id] = user_granted.get(best.user_id, 0) + 1
         remaining.remove(best)
         free -= 1
     if area_granted is not None:

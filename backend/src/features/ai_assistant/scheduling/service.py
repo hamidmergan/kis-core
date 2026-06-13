@@ -80,6 +80,7 @@ def _launch(job: Job) -> str:
 # - backend vs workers - the weighting is approximate; a shared store would make
 # it exact, a deliberate later refinement.)
 _AREA_GRANTED: dict[str, float] = {}
+_USER_GRANTED: dict[int, int] = {}
 
 
 def get_dispatch_service(
@@ -93,6 +94,7 @@ def get_dispatch_service(
         total_slots=slots_from_settings(get_setting),
         weights=weights_from_settings(get_setting),
         area_granted=_AREA_GRANTED,
+        user_granted=_USER_GRANTED,
     )
 
 

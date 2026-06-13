@@ -51,3 +51,21 @@ def test_running_area_load_counts():
     q = [_j("s", 1, "studio", 1.0), _j("i", 2, "ingest", 2.0)]
     picks = select_shared_pool(q, running=[(9, "studio")], total_slots=2, weights=W)
     assert picks == ["i"]
+
+
+def test_cumulative_user_fairness_interleaves_flooder_and_newcomer():
+    # flooder user 1 has 6 OLD jobs, newcomer user 2 has 3 NEWER jobs. With only
+    # created_at the flooder would win every tie; cumulative user_granted makes
+    # them interleave 1,2,1,2,...
+    ug: dict = {}
+    queued = [PoolJob(f"u1-{i}", 1, "studio", float(i)) for i in range(6)] + [
+        PoolJob(f"u2-{i}", 2, "studio", 100.0 + i) for i in range(3)
+    ]
+    order = []
+    pool = list(queued)
+    by_id = {j.job_id: j for j in queued}
+    while pool:
+        jid = select_shared_pool(pool, running=[], total_slots=1, weights={"studio": 1.0}, user_granted=ug)[0]
+        order.append(by_id[jid].user_id)
+        pool = [j for j in pool if j.job_id != jid]
+    assert order[:6] == [1, 2, 1, 2, 1, 2]  # perfect interleave, not 1,1,1,1,1,1

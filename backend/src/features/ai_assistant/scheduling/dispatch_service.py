@@ -93,14 +93,16 @@ class DispatchService:
         total_slots: int,
         weights: dict[str, float],
         area_granted: Optional[dict[str, float]] = None,
+        user_granted: Optional[dict[int, int]] = None,
     ) -> None:
         self.store = store
         self.launch = launch  # actually dispatch to Celery, return celery_task_id
         self.total_slots = total_slots
         self.weights = dict(weights)
-        # cumulative per-area grant tally so the weighting holds over time; pass a
-        # shared dict (e.g. process-level) to keep memory across dispatch calls.
+        # cumulative tallies so weighting (area) and round-robin (user) hold over
+        # time; pass shared dicts (process-level) to keep memory across calls.
         self.area_granted: dict[str, float] = area_granted if area_granted is not None else {}
+        self.user_granted: dict[int, int] = user_granted if user_granted is not None else {}
 
     def enqueue(self, job: Job) -> list[str]:
         self.store.add(job)
@@ -117,7 +119,7 @@ class DispatchService:
         concurrent dispatch passes can never launch the same job twice."""
         picks = select_shared_pool(
             self.store.queued_all(), self.store.running_all(), self.total_slots,
-            self.weights, self.area_granted,
+            self.weights, self.area_granted, self.user_granted,
         )
         started: list[str] = []
         for job_uuid in picks:
