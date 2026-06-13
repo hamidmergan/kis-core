@@ -12,7 +12,7 @@ from src.features.ai_assistant.scheduling.service import (
 
 def test_area_for_task():
     assert area_for_task("aia.generate_mindmap") == "studio"
-    assert area_for_task("aia.generate_glossary") == "studio"
+    assert area_for_task("aia.generate_data_table") == "studio"
     assert area_for_task("aia.index_source") == "ingest"
     assert area_for_task("aia.reindex_workspace") == "ingest"
     assert area_for_task("aia.unknown") == "ingest"  # safe default
@@ -43,10 +43,10 @@ def test_enqueue_task_routes_to_area_and_dispatches():
         areas_config={"ingest": 2, "studio": 2},
     )
     juid = enqueue_task(
-        "aia.generate_glossary", user_id=5, args=[1, 2], kwargs={"locale": "de"}, service=svc
+        "aia.generate_mindmap", user_id=5, args=[1, 2], kwargs={"locale": "de"}, service=svc
     )
     job = store.get(juid)
     assert job.area == "studio"
     assert job.user_id == 5
     assert job.payload == {"args": [1, 2], "kwargs": {"locale": "de"}}
-    assert launched == [("aia.generate_glossary", "studio")]
+    assert launched == [("aia.generate_mindmap", "studio")]

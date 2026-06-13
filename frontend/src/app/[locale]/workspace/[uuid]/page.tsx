@@ -315,11 +315,11 @@ export default function KiTutorWorkspacePage() {
   });
   const {
     langTrainingView, setSprachView,
-    glossary, glossaryLoading, glossaryCount, glossaryExtracting, glossaryFeedback,
+    glossary, glossaryCount, glossaryExtracting, glossaryFeedback,
     clozeExercises, clozeLoading,
     vocabQuestions, vocabLoading,
     deleteGlossaryEntry, deleteAllGlossaryEntries,
-    generateGlossary, generateCloze, generateVocabTest,
+    generateCloze, generateVocabTest,
     loadGlossary, loadGlossaryCount,
     extractGlossary, dismissFeedback,
   } = spr;
@@ -381,10 +381,7 @@ export default function KiTutorWorkspacePage() {
   const glossaryContent = (
     <GlossaryView
       entries={glossary}
-      loading={glossaryLoading}
       extracting={glossaryExtracting}
-      onGenerate={generateGlossary}
-      sourceCount={selectedSourceIds.length}
       onOpenSource={(filename, page, highlightText, startTime) => {
         const src = (filename && sources.find((s) => s.filename === filename))
           || sources.find((s) => selectedSourceIds.includes(s.uuid));

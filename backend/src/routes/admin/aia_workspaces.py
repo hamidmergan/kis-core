@@ -12,7 +12,7 @@ Bundle layout (ZIP):
     files/<source_uuid>_transcript.*    — Whisper transcript + VTTs (always included for media)
 
 Optional, opt-in via query flags on export, permissively read on import:
-    glossary.json   — aia_glossary_entries (workspace-shared pool) + the importer's picks for each entry
+    glossary.json   — aia_glossary_entries (per user; restored under the importer)
     notes.json      — aia_notes (per workspace + user; user_id reassigned to importer)
     schedule.json   — aia_schedule_entries (per workspace + user; user_id reassigned)
     studio.json     — aia_mindmaps + aia_data_tables + aia_exercise_sets/items
@@ -200,7 +200,7 @@ def _fetch_glossary(source_id_to_uuid: dict[int, str]) -> list[dict]:
         with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
             cur.execute(
                 """SELECT source_id, term_de, term_en, definition, definition_en,
-                          example_sentence, example_sentence_en, page_number, chunk_id
+                          example_sentence, example_sentence_en, page_number
                    FROM aia_glossary_entries WHERE source_id = ANY(%s)
                    ORDER BY id""",
                 (list(source_id_to_uuid.keys()),),
@@ -307,13 +307,11 @@ def _fetch_studio(workspace_id: int, source_id_to_uuid: dict[int, str]) -> dict:
 # ─── Insert helpers (import side) ───────────────────────────────────────────
 
 def _insert_glossary(rows: list[dict], uuid_to_source_id: dict[str, int], fallback_user_id: int) -> int:
-    """Restore the workspace-shared glossary pool, then mark each restored
-    entry as an active pick for the importing admin. (Legacy exports listed
-    per-user rows — duplicates are collapsed to the pool here.)"""
+    """Restore glossary entries under the importing admin's account. Re-imports
+    are idempotent via the (user_id, source_id, lower(term_de)) unique index."""
     if not rows:
         return 0
     n = 0
-    seen: set[tuple[int, str]] = set()
     with get_connection() as conn:
         with conn.cursor() as cur:
             for g in rows:
@@ -323,43 +321,19 @@ def _insert_glossary(rows: list[dict], uuid_to_source_id: dict[str, int], fallba
                 term = (g.get("term_de") or "").strip()
                 if not term:
                     continue
-                key = (sid, term.lower())
-                if key in seen:
-                    continue
-                seen.add(key)
-
-                # Skip if the pool already has this (source, term); pick the
-                # existing entry for the admin instead so re-imports are
-                # idempotent.
                 cur.execute(
-                    "SELECT id FROM aia_glossary_entries WHERE source_id = %s AND lower(term_de) = %s LIMIT 1",
-                    (sid, term.lower()),
+                    """INSERT INTO aia_glossary_entries
+                       (user_id, source_id, term_de, term_en, definition, definition_en,
+                        example_sentence, example_sentence_en, page_number)
+                       VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+                       ON CONFLICT (user_id, source_id, lower(term_de)) DO NOTHING""",
+                    (fallback_user_id, sid,
+                     term, g.get("term_en") or "",
+                     g.get("definition") or "", g.get("definition_en"),
+                     g.get("example_sentence"), g.get("example_sentence_en"),
+                     g.get("page_number")),
                 )
-                existing = cur.fetchone()
-                if existing:
-                    entry_id = existing[0]
-                else:
-                    cur.execute(
-                        """INSERT INTO aia_glossary_entries
-                           (source_id, chunk_id, term_de, term_en, definition, definition_en,
-                            example_sentence, example_sentence_en, page_number)
-                           VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
-                           RETURNING id""",
-                        (sid, g.get("chunk_id"),
-                         term, g.get("term_en") or "",
-                         g.get("definition") or "", g.get("definition_en"),
-                         g.get("example_sentence"), g.get("example_sentence_en"),
-                         g.get("page_number")),
-                    )
-                    entry_id = cur.fetchone()[0]
-
-                cur.execute(
-                    """INSERT INTO aia_user_glossary_picks (user_id, entry_id, status)
-                       VALUES (%s, %s, 'active')
-                       ON CONFLICT (user_id, entry_id) DO UPDATE SET status = 'active'""",
-                    (fallback_user_id, entry_id),
-                )
-                n += 1
+                n += cur.rowcount
         conn.commit()
     return n
 

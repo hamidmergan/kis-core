@@ -15,7 +15,6 @@ export function useLanguageTraining({ uuid, langTrainingActiveIds, onAfterCloze,
   const t = useTranslations("workspace.detail.errors");
   const [langTrainingView, setSprachView] = useState<LanguageTrainingView>("overview");
   const [glossary, setGlossary] = useState<GlossaryEntry[]>([]);
-  const [glossaryLoading, setGlossaryLoading] = useState(false);
   const [clozeExercises, setClozeExercises] = useState<ClozeExercise[]>([]);
   const [clozeLoading, setClozeLoading] = useState(false);
   const [vocabQuestions, setVocabQuestions] = useState<VocabTestQuestion[]>([]);
@@ -24,12 +23,7 @@ export function useLanguageTraining({ uuid, langTrainingActiveIds, onAfterCloze,
   const [glossaryExtracting, setGlossaryExtracting] = useState(false);
   const [glossaryFeedback, setGlossaryFeedback] = useState<{ kind: "success" | "info" | "error"; message: string } | null>(null);
 
-  const glossaryPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const glossaryFeedbackTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  const stopGlossaryPolling = useCallback(() => {
-    if (glossaryPollRef.current) { clearInterval(glossaryPollRef.current); glossaryPollRef.current = null; }
-  }, []);
 
   const showFeedback = useCallback((kind: "success" | "info" | "error", message: string) => {
     if (glossaryFeedbackTimerRef.current) clearTimeout(glossaryFeedbackTimerRef.current);
@@ -67,7 +61,6 @@ export function useLanguageTraining({ uuid, langTrainingActiveIds, onAfterCloze,
   useEffect(() => {
     loadGlossary();
     loadGlossaryCount();
-    return () => stopGlossaryPolling();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [uuid]);
 
@@ -90,42 +83,6 @@ export function useLanguageTraining({ uuid, langTrainingActiveIds, onAfterCloze,
       loadGlossaryCount();
     } catch { /* ignore */ }
   }, [uuid, loadGlossaryCount]);
-
-  const generateGlossary = useCallback(async () => {
-    if (langTrainingActiveIds.length === 0) return;
-    setGlossaryLoading(true);
-    try {
-      const res = await fetch(`/api/ai-assistant/workspaces/${uuid}/glossary/generate`, {
-        method: "POST", credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ active_source_ids: langTrainingActiveIds }),
-      });
-      if (res.ok) {
-        stopGlossaryPolling();
-        const startCount = glossary.length;
-        glossaryPollRef.current = setInterval(async () => {
-          const hasNew = await loadGlossary();
-          if (hasNew) {
-            const res2 = await fetch(`/api/ai-assistant/workspaces/${uuid}/glossary`, { credentials: "include" });
-            if (res2.ok) {
-              const data2 = await res2.json();
-              if ((data2.entries || []).length !== startCount) {
-                setGlossary(data2.entries || []);
-                setGlossaryLoading(false);
-                stopGlossaryPolling();
-                loadGlossaryCount();
-              }
-            }
-          }
-        }, 3000);
-        setTimeout(() => { stopGlossaryPolling(); setGlossaryLoading(false); }, 120000);
-      } else {
-        setGlossaryLoading(false);
-      }
-    } catch {
-      setGlossaryLoading(false);
-    }
-  }, [uuid, langTrainingActiveIds, glossary.length, loadGlossary, loadGlossaryCount, stopGlossaryPolling]);
 
   const generateCloze = useCallback(async () => {
     if (langTrainingActiveIds.length === 0) return;
@@ -193,11 +150,11 @@ export function useLanguageTraining({ uuid, langTrainingActiveIds, onAfterCloze,
 
   return {
     langTrainingView, setSprachView,
-    glossary, glossaryLoading, glossaryCount, glossaryExtracting, glossaryFeedback,
+    glossary, glossaryCount, glossaryExtracting, glossaryFeedback,
     clozeExercises, clozeLoading,
     vocabQuestions, vocabLoading,
     deleteGlossaryEntry, deleteAllGlossaryEntries,
-    generateGlossary, generateCloze, generateVocabTest,
+    generateCloze, generateVocabTest,
     loadGlossary, loadGlossaryCount,
     extractGlossary, showFeedback, dismissFeedback,
   };

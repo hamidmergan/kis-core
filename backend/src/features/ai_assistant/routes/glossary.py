@@ -44,7 +44,6 @@ from src.features.ai_assistant.routes._helpers import (
     _require_own_workspace,
     _save_source_file,
     _delete_source_files_for_workspace,
-    _resolve_source_ids,
     _term_appears_in_text,
     _ALLOWED_EXTENSIONS,
     _MEDIA_EXTENSIONS,
@@ -72,32 +71,6 @@ async def get_glossary(
 
     entries = db.get_aia_glossary_by_workspace(workspace["id"], user_id)
     return {"entries": entries}
-
-@router.post("/ai-assistant/workspaces/{workspace_uuid}/glossary/generate")
-async def generate_glossary(
-    workspace_uuid: str,
-    body: schemas.GlossaryGenerateBody,
-    current_user: dict = Depends(get_current_user),
-    locale: str = Depends(get_locale),
-):
-    user_id = current_user["user_id"]
-    workspace = db.get_aia_workspace(workspace_uuid)
-    if not workspace:
-        raise HTTPException(status_code=404, detail=t("workspace.notFound", locale))
-
-    is_owner = workspace["user_id"] == user_id
-    is_enrolled = db.is_student_enrolled(workspace["id"], user_id)
-    if not is_owner and not is_enrolled:
-        raise HTTPException(status_code=403, detail=t("workspace.accessDenied", locale))
-
-    enforce_aia_burst(user_id, locale)
-    enforce_quota(user_id, "aia_generate", is_admin_user(current_user), locale)
-
-    source_ids = _resolve_source_ids(workspace, body.active_source_ids, locale=locale)
-
-    from src.tasks.aia_tasks import run_generate_glossary
-    run_generate_glossary.delay(workspace["id"], user_id, source_ids)
-    return {"status": "generating"}
 
 @router.delete("/ai-assistant/workspaces/{workspace_uuid}/glossary/{entry_id}")
 async def delete_glossary_entry_endpoint(

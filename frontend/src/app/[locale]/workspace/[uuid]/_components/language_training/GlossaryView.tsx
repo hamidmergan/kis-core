@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Book, CaretDown, CaretUp, ClockCounterClockwise, DotsThreeVertical, FilePdf, Files, Sparkle, TextAa, Trash } from "@phosphor-icons/react";
+import { Book, CaretDown, CaretUp, ClockCounterClockwise, DotsThreeVertical, FilePdf, TextAa, Trash } from "@phosphor-icons/react";
 import { useTranslations } from "next-intl";
-import HelpTooltip from "@/components/ui/HelpTooltip";
 import Spinner from "@/components/ui/Spinner";
 import { EmptyState } from "@/components/ui/EmptyState";
 import type { GlossaryEntry, StudentStats } from "../../_types";
@@ -45,14 +44,13 @@ export function GlossaryMenu({ onDeleteAll }: { onDeleteAll?: () => void }) {
 }
 
 export function GlossaryView({
-  entries, loading, extracting, onGenerate, onBack, onOpenSource, onDelete, onDeleteAll, sourceCount = 0, stats, breadcrumbs, showTranslation, feedback, onDismissFeedback,
+  entries, extracting, onBack, onOpenSource, onDelete, onDeleteAll, stats, breadcrumbs, showTranslation, feedback, onDismissFeedback,
 }: {
-  entries: GlossaryEntry[]; loading: boolean; extracting?: boolean;
-  onGenerate: () => void; onBack?: () => void;
+  entries: GlossaryEntry[]; extracting?: boolean;
+  onBack?: () => void;
   onOpenSource?: (filename: string | undefined, page: number, highlightText?: string, startTime?: number | null) => void;
   onDelete?: (id: number) => void;
   onDeleteAll?: () => void;
-  sourceCount?: number;
   stats?: StudentStats | null;
   breadcrumbs?: BreadcrumbItem[];
   showTranslation?: boolean;
@@ -61,7 +59,6 @@ export function GlossaryView({
 }) {
   const t = useTranslations("workspace.detail.languageTraining");
   const tChip = useTranslations("sourceChip");
-  const noSources = sourceCount === 0;
   const [expandedId, setExpandedId] = useState<number | null>(null);
   const [sortMode, setSortMode] = useState<"recent" | "alpha">("recent");
   const sortedEntries = useMemo(() => {
@@ -74,36 +71,11 @@ export function GlossaryView({
     <div className="flex flex-col h-full">
       {onBack && <SubviewHeader title={t("glossary.title")} toolKey="Glossary" onBack={onBack} breadcrumbs={breadcrumbs} category="language_training" />}
       <div className="flex-1 overflow-y-auto p-3 flex flex-col gap-3">
-        <div className="rounded-xl px-3 py-2 text-xs font-medium flex items-center gap-2"
-          style={{
-            color: noSources ? "var(--error-strong)" : sourceCount > 5 ? "#c4820e" : "var(--kb)",
-          }}>
-          <Files size={13} weight="bold" />
-          {noSources
-            ? t("sourceStatus.none")
-            : sourceCount === 1
-              ? t("sourceStatus.one")
-              : sourceCount <= 5
-                ? t("sourceStatus.few", { count: sourceCount })
-                : t("sourceStatus.many", { count: sourceCount })}
-        </div>
-        <div className="relative w-full px-1 flex items-center justify-center gap-1.5">
-          <button
-            type="button"
-            onClick={onGenerate}
-            disabled={loading || noSources}
-            className="btn-outline-accent inline-flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-lg text-xs font-semibold transition-all disabled:opacity-40"
-          >
-            {loading ? <Spinner size="xs" color="current" /> : <Sparkle size={12} weight="bold" />}
-            {loading ? t("glossary.extracting") : t("glossary.extractButton", { current: entries.length, max: 150 })}
-          </button>
-          <HelpTooltip text={t("glossary.extractTooltip")} />
-          {entries.length > 0 && (
-            <div className="absolute right-1 flex items-center">
-              <GlossaryMenu onDeleteAll={onDeleteAll} />
-            </div>
-          )}
-        </div>
+        {entries.length > 0 && (
+          <div className="w-full px-1 flex items-center justify-end">
+            <GlossaryMenu onDeleteAll={onDeleteAll} />
+          </div>
+        )}
 
         <div className="mx-auto w-full px-1 pb-3 flex flex-col gap-3" style={{ maxWidth: 560 }}>
           {extracting && (
@@ -125,7 +97,7 @@ export function GlossaryView({
               )}
             </div>
           )}
-          {entries.length === 0 && !loading && (
+          {entries.length === 0 && (
             <EmptyState
               size="sm"
               icon={<Book size={32} weight="bold" />}

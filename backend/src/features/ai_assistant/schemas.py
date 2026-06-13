@@ -91,10 +91,6 @@ class NoteTitleBody(BaseModel):
 
 # ─── Lecturer endpoints ───────────────────────────────────────────────────────
 
-class GlossaryGenerateBody(BaseModel):
-    active_source_ids: list[str]  # max 3 source UUIDs
-
-
 class ExerciseGenerateBody(BaseModel):
     active_source_ids: list[str]
 

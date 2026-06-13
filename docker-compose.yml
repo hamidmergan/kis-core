@@ -120,61 +120,6 @@ services:
         max-size: "10m"
         max-file: "7"
 
-  # --- AIA scheduler lane workers (opt-in) ----------------------------------
-  # Hard-isolated pools for the two AIA lanes. Only start when the scheduler is
-  # enabled (setting aia_scheduler_enabled=true): `docker compose --profile
-  # aia-scheduler up`. When in use these REPLACE celery-worker-aia. Kept behind
-  # a profile so the default prod footprint (2C/4GB) is unchanged.
-  celery-worker-aia-ingest:
-    build: ./backend
-    container_name: kis-celery-aia-ingest
-    profiles: ["aia-scheduler"]
-    command: celery -A src.celery_app worker --queues=aia_ingest --concurrency=2 --loglevel=info
-    mem_limit: 1.5g
-    env_file:
-      - .env
-    volumes:
-      - ./backend/src:/app/src:ro
-      - kis-storage:/app/storage
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
-    depends_on:
-      redis:
-        condition: service_started
-      postgres:
-        condition: service_healthy
-    restart: unless-stopped
-    logging:
-      driver: json-file
-      options:
-        max-size: "10m"
-        max-file: "7"
-
-  celery-worker-aia-studio:
-    build: ./backend
-    container_name: kis-celery-aia-studio
-    profiles: ["aia-scheduler"]
-    command: celery -A src.celery_app worker --queues=aia_studio --concurrency=4 --loglevel=info
-    mem_limit: 0.75g
-    env_file:
-      - .env
-    volumes:
-      - ./backend/src:/app/src:ro
-      - kis-storage:/app/storage
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
-    depends_on:
-      redis:
-        condition: service_started
-      postgres:
-        condition: service_healthy
-    restart: unless-stopped
-    logging:
-      driver: json-file
-      options:
-        max-size: "10m"
-        max-file: "7"
-
   celery-beat:
     build: ./backend
     container_name: kis-celery-beat

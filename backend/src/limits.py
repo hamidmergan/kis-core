@@ -158,3 +158,19 @@ AIA_EMBEDDING_BATCH_SIZE               = 1000
 AIA_WORKSPACE_MAX_ACCESS_LINKS         = 10      # max enrollment links per workspace
 AIA_NOTES_MAX_PER_USER              = 100     # max notes per user per workspace
 GLOSSARY_LIMIT                        = 150     # max glossary entries per workspace
+
+# --- AI tutor background dispatcher -----------------------------------------
+# We manage a shared pool of parallel processing slots for BACKGROUND jobs, NOT
+# API rate limits (the per-second / 15-per-minute caps are KISSKI/GWDG's concern,
+# not ours). Chat is NOT in this pool: it runs synchronously in the request, not
+# as a background job. The pool covers upload (ingest) and studio tools.
+#
+# A freed slot goes to an area by weight, then round-robin across users so one
+# user can never block the others. Studio outweighs ingest because a student
+# actively waits on a studio tool, while uploads process in the background.
+#
+# Admin-tunable at runtime (settings: aia_parallel_slots, aia_area_weights).
+# Raise AIA_PARALLEL_SLOTS (or set 0 = unlimited) once we run on our own GPU and
+# the parallelism no longer needs rationing.
+AIA_PARALLEL_SLOTS                     = 2       # total background jobs in flight (0 = unlimited)
+AIA_AREA_WEIGHTS                       = {"studio": 2, "ingest": 1}

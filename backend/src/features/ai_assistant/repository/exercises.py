@@ -330,14 +330,13 @@ def get_streak(workspace_id: int, user_id: int) -> dict:
             return dict(row)
 
 def get_glossary_count(workspace_id: int, user_id: int) -> int:
-    """Get the user's active glossary-pick count for a workspace."""
+    """Get the user's glossary entry count for a workspace."""
     with get_connection() as conn:
         with conn.cursor() as cur:
             cur.execute(
-                """SELECT COUNT(*) FROM aia_user_glossary_picks p
-                   JOIN aia_glossary_entries g ON g.id = p.entry_id
+                """SELECT COUNT(*) FROM aia_glossary_entries g
                    JOIN aia_sources s ON s.id = g.source_id
-                   WHERE s.workspace_id = %s AND p.user_id = %s AND p.status = 'active'""",
+                   WHERE s.workspace_id = %s AND g.user_id = %s""",
                 (workspace_id, user_id),
             )
             return cur.fetchone()[0]

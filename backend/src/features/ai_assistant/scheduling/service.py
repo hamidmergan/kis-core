@@ -29,7 +29,6 @@ AREA_FOR_TASK: dict[str, str] = {
     "aia.generate_mindmap": "studio",
     "aia.generate_exercise_set": "studio",
     "aia.generate_data_table": "studio",
-    "aia.generate_glossary": "studio",
     "aia.generate_schedule": "studio",
 }
 
