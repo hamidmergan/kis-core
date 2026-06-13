@@ -38,6 +38,8 @@ class JobStore(Protocol):
     def get(self, job_uuid: str) -> Optional[Job]: ...
     def queued_all(self) -> list[PoolJob]: ...
     def running_all(self) -> list[tuple[int, str]]: ...
+    def area_grant_counts(self) -> dict[str, float]: ...
+    def user_grant_counts(self) -> dict[int, int]: ...
     def mark_running(self, job_uuid: str) -> bool: ...
     def set_celery_task_id(self, job_uuid: str, celery_task_id: str) -> None: ...
     def mark_finished(self, job_uuid: str, ok: bool, error: Optional[str]) -> None: ...
@@ -64,6 +66,20 @@ class InMemoryJobStore:
 
     def running_all(self) -> list[tuple[int, str]]:
         return [(j.user_id, j.area) for j in self._jobs.values() if j.status == "running"]
+
+    def area_grant_counts(self) -> dict[str, float]:
+        out: dict[str, float] = {}
+        for j in self._jobs.values():
+            if j.status != "queued":
+                out[j.area] = out.get(j.area, 0.0) + 1.0
+        return out
+
+    def user_grant_counts(self) -> dict[int, int]:
+        out: dict[int, int] = {}
+        for j in self._jobs.values():
+            if j.status != "queued":
+                out[j.user_id] = out.get(j.user_id, 0) + 1
+        return out
 
     def mark_running(self, job_uuid: str) -> bool:
         j = self._jobs.get(job_uuid)
@@ -92,17 +108,11 @@ class DispatchService:
         launch: Callable[[Job], str],
         total_slots: int,
         weights: dict[str, float],
-        area_granted: Optional[dict[str, float]] = None,
-        user_granted: Optional[dict[int, int]] = None,
     ) -> None:
         self.store = store
         self.launch = launch  # actually dispatch to Celery, return celery_task_id
         self.total_slots = total_slots
         self.weights = dict(weights)
-        # cumulative tallies so weighting (area) and round-robin (user) hold over
-        # time; pass shared dicts (process-level) to keep memory across calls.
-        self.area_granted: dict[str, float] = area_granted if area_granted is not None else {}
-        self.user_granted: dict[int, int] = user_granted if user_granted is not None else {}
 
     def enqueue(self, job: Job) -> list[str]:
         self.store.add(job)
@@ -117,9 +127,11 @@ class DispatchService:
 
         Claim-before-launch: ``mark_running`` atomically wins the slot, so two
         concurrent dispatch passes can never launch the same job twice."""
+        # Fairness counts are derived from the shared aia_jobs table (area/user
+        # grants so far), so every process - backend and workers - agrees.
         picks = select_shared_pool(
             self.store.queued_all(), self.store.running_all(), self.total_slots,
-            self.weights, self.area_granted, self.user_granted,
+            self.weights, self.store.area_grant_counts(), self.store.user_grant_counts(),
         )
         started: list[str] = []
         for job_uuid in picks:

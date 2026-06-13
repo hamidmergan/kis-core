@@ -68,6 +68,32 @@ class DbJobStore:
                 cur.execute("SELECT user_id, area FROM aia_jobs WHERE status = 'running'")
                 return [(r[0], r[1]) for r in cur.fetchall()]
 
+    # Fairness counts: jobs already granted (running or finished) in a recent
+    # window, grouped by area / user. Derived from the shared table so all
+    # processes agree. The 1h window means yesterday's heavy user is not
+    # penalised today, and the counts stay bounded.
+    _GRANT_WINDOW = "1 hour"
+
+    def area_grant_counts(self) -> dict[str, float]:
+        with get_connection() as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    f"""SELECT area, count(*) FROM aia_jobs
+                        WHERE status <> 'queued' AND created_at > NOW() - INTERVAL '{self._GRANT_WINDOW}'
+                        GROUP BY area"""
+                )
+                return {r[0]: float(r[1]) for r in cur.fetchall()}
+
+    def user_grant_counts(self) -> dict[int, int]:
+        with get_connection() as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    f"""SELECT user_id, count(*) FROM aia_jobs
+                        WHERE status <> 'queued' AND created_at > NOW() - INTERVAL '{self._GRANT_WINDOW}'
+                        GROUP BY user_id"""
+                )
+                return {r[0]: r[1] for r in cur.fetchall()}
+
     def mark_running(self, job_uuid: str) -> bool:
         """Atomically claim a queued job (queued -> running). Returns True iff this
         caller won the slot (so a concurrent dispatcher can never double-launch)."""

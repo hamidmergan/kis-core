@@ -75,14 +75,6 @@ def _launch(job: Job) -> str:
     return result.id
 
 
-# Process-level cumulative area tally so the weighting holds across the many
-# short-lived get_dispatch_service() calls within one process. (Across processes
-# - backend vs workers - the weighting is approximate; a shared store would make
-# it exact, a deliberate later refinement.)
-_AREA_GRANTED: dict[str, float] = {}
-_USER_GRANTED: dict[int, int] = {}
-
-
 def get_dispatch_service(
     store=None,
     launch: Optional[Callable[[Job], str]] = None,
@@ -93,8 +85,6 @@ def get_dispatch_service(
         launch=launch if launch is not None else _launch,
         total_slots=slots_from_settings(get_setting),
         weights=weights_from_settings(get_setting),
-        area_granted=_AREA_GRANTED,
-        user_granted=_USER_GRANTED,
     )
 
 
