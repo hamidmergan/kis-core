@@ -18,7 +18,7 @@ from psycopg2.extras import RealDictCursor
 
 from src.core.db.pool import get_connection
 from src.features.ai_assistant.scheduling.dispatch_service import Job
-from src.features.ai_assistant.scheduling.fair_dispatch import QueuedJob
+from src.features.ai_assistant.scheduling.scheduler import PoolJob
 
 
 class DbJobStore:
@@ -52,29 +52,25 @@ class DbJobStore:
             error=row["error"],
         )
 
-    def queued(self, area: str) -> list[QueuedJob]:
+    def queued_all(self) -> list[PoolJob]:
         with get_connection() as conn:
             with conn.cursor(cursor_factory=RealDictCursor) as cur:
                 cur.execute(
-                    """SELECT job_uuid, user_id, created_at FROM aia_jobs
-                       WHERE area = %s AND status = 'queued'
-                       ORDER BY created_at ASC""",
-                    (area,),
+                    """SELECT job_uuid, user_id, area, created_at FROM aia_jobs
+                       WHERE status = 'queued' ORDER BY created_at ASC"""
                 )
                 rows = cur.fetchall()
-        return [QueuedJob(r["job_uuid"], r["user_id"], r["created_at"].timestamp()) for r in rows]
+        return [PoolJob(r["job_uuid"], r["user_id"], r["area"], r["created_at"].timestamp()) for r in rows]
 
-    def running_user_ids(self, area: str) -> list[int]:
+    def running_all(self) -> list[tuple[int, str]]:
         with get_connection() as conn:
             with conn.cursor() as cur:
-                cur.execute(
-                    "SELECT user_id FROM aia_jobs WHERE area = %s AND status = 'running'",
-                    (area,),
-                )
-                return [r[0] for r in cur.fetchall()]
+                cur.execute("SELECT user_id, area FROM aia_jobs WHERE status = 'running'")
+                return [(r[0], r[1]) for r in cur.fetchall()]
 
-    def mark_running(self, job_uuid: str, celery_task_id: str) -> None:
-        """Claim a queued job atomically. No-op if it is no longer queued."""
+    def mark_running(self, job_uuid: str) -> bool:
+        """Atomically claim a queued job (queued -> running). Returns True iff this
+        caller won the slot (so a concurrent dispatcher can never double-launch)."""
         with get_connection() as conn:
             with conn.cursor() as cur:
                 cur.execute(
@@ -84,11 +80,19 @@ class DbJobStore:
                 row = cur.fetchone()
                 if row is None or row[0] != "queued":
                     conn.rollback()
-                    return
+                    return False
                 cur.execute(
-                    """UPDATE aia_jobs
-                       SET status = 'running', celery_task_id = %s, started_at = NOW()
-                       WHERE job_uuid = %s""",
+                    "UPDATE aia_jobs SET status = 'running', started_at = NOW() WHERE job_uuid = %s",
+                    (job_uuid,),
+                )
+            conn.commit()
+        return True
+
+    def set_celery_task_id(self, job_uuid: str, celery_task_id: str) -> None:
+        with get_connection() as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    "UPDATE aia_jobs SET celery_task_id = %s WHERE job_uuid = %s",
                     (celery_task_id, job_uuid),
                 )
             conn.commit()

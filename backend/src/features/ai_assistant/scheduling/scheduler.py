@@ -14,28 +14,9 @@ Two pure pieces, no IO:
 """
 from __future__ import annotations
 
+from collections import Counter
 from dataclasses import dataclass
 from typing import Optional
-
-from .fair_dispatch import QueuedJob, select_next_dispatches
-
-
-@dataclass
-class AreaState:
-    name: str
-    concurrency: int
-    queued: list[QueuedJob]
-    running_user_ids: list[int]
-
-
-def plan_dispatch(areas: list[AreaState]) -> dict[str, list[str]]:
-    """Per area, choose the job ids to start now. Areas are isolated."""
-    return {
-        area.name: select_next_dispatches(
-            area.queued, area.running_user_ids, area.concurrency
-        )
-        for area in areas
-    }
 
 
 class WeightedAreaSelector:
@@ -61,3 +42,63 @@ class WeightedAreaSelector:
         best = min(candidates, key=lambda a: (self.granted[a] / self.weights[a], a))
         self.granted[best] += 1.0
         return best
+
+
+@dataclass(frozen=True)
+class PoolJob:
+    job_id: str
+    user_id: int
+    area: str
+    created_at: float
+
+
+def select_shared_pool(
+    queued: list[PoolJob],
+    running: list[tuple[int, str]],
+    total_slots: int,
+    weights: dict[str, float],
+    area_granted: Optional[dict[str, float]] = None,
+) -> list[str]:
+    """Fill a single shared pool of ``total_slots`` background slots.
+
+    Each free slot goes to an area by weighted deficit, then to the least-loaded
+    user in that area, oldest job first. ``area_granted`` is a CUMULATIVE per-area
+    grant tally that persists across dispatches (so studio at weight 2 really gets
+    ~2x ingest's slots over time); it is updated in place. Pass ``None`` for a
+    one-shot pick with no memory. ``total_slots <= 0`` means unlimited (own-GPU
+    future): everything dispatches immediately, oldest first.
+    """
+    if total_slots <= 0:
+        return [j.job_id for j in sorted(queued, key=lambda j: j.created_at)]
+
+    free = total_slots - len(running)
+    if free <= 0 or not queued:
+        return []
+
+    sel = WeightedAreaSelector(weights)
+    if area_granted:
+        for a, g in area_granted.items():
+            if a in sel.granted:
+                sel.granted[a] = g
+    user_load: Counter = Counter(uid for uid, _area in running)
+
+    remaining = sorted(queued, key=lambda j: j.created_at)
+    chosen: list[str] = []
+    while free > 0 and remaining:
+        demand: dict[str, int] = {}
+        for j in remaining:
+            if weights.get(j.area, 0.0) > 0.0:
+                demand[j.area] = demand.get(j.area, 0) + 1
+        area = sel.pick(demand)
+        if area is None:
+            break
+        cands = [j for j in remaining if j.area == area]
+        best = min(cands, key=lambda j: (user_load[j.user_id], j.created_at))
+        chosen.append(best.job_id)
+        user_load[best.user_id] += 1
+        remaining.remove(best)
+        free -= 1
+    if area_granted is not None:
+        area_granted.clear()
+        area_granted.update(sel.granted)
+    return chosen

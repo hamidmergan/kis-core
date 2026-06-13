@@ -1,23 +1,24 @@
 """Production seam between AIA routes/tasks and the dispatch engine.
 
 Default OFF: ``scheduler_enabled()`` reads ``aia_scheduler_enabled`` (default
-"false"), so existing routes keep their direct ``.delay()`` behaviour until the
-flag is flipped and the new path is verified in the live app. When on, routes
-call ``enqueue_task`` and tasks call ``on_complete`` at the end.
+"false"), so routes keep their direct ``.delay()`` path until the flag is on and
+the new path is verified live. When on, routes call ``enqueue_task`` and tasks
+call ``on_complete`` at the end.
 
-Areas:
-- ``ingest``  -> index_source, translate_transcript, reindex_*  (heavy lane)
-- ``studio``  -> generate_* studio tools                         (interactive lane)
-
-Caps are admin-tunable settings; the launch sends each task to its lane queue
-``aia_ingest`` / ``aia_studio`` so the two worker pools stay hard-isolated.
+One shared pool of background slots (``AIA_PARALLEL_SLOTS``), areas weighted by
+``AIA_AREA_WEIGHTS``. Chat is NOT here (synchronous). All jobs go to the ``aia``
+queue; the dispatcher controls how many are in flight. Both knobs are
+admin-tunable (settings ``aia_parallel_slots``, ``aia_area_weights``); set slots
+to 0 for unlimited once we run on our own GPU.
 """
 from __future__ import annotations
 
+import json
 import time
 import uuid as _uuid
 from typing import Callable, Optional
 
+from src.limits import AIA_AREA_WEIGHTS, AIA_PARALLEL_SLOTS
 from src.features.ai_assistant.repository.jobs import DbJobStore
 from src.features.ai_assistant.scheduling.dispatch_service import DispatchService, Job
 
@@ -31,8 +32,6 @@ AREA_FOR_TASK: dict[str, str] = {
     "aia.generate_data_table": "studio",
     "aia.generate_schedule": "studio",
 }
-
-_DEFAULT_CAPS = {"ingest": 2, "studio": 4}
 
 
 def _default_get_setting(key: str, default: str = "") -> str:
@@ -49,24 +48,38 @@ def scheduler_enabled(get_setting: Callable[..., str] = _default_get_setting) ->
     return str(get_setting("aia_scheduler_enabled", "false")).strip().lower() == "true"
 
 
-def caps_from_settings(get_setting: Callable[..., str] = _default_get_setting) -> dict[str, int]:
-    return {
-        "ingest": int(get_setting("aia_ingest_concurrency", str(_DEFAULT_CAPS["ingest"]))),
-        "studio": int(get_setting("aia_studio_concurrency", str(_DEFAULT_CAPS["studio"]))),
-    }
+def slots_from_settings(get_setting: Callable[..., str] = _default_get_setting) -> int:
+    return int(get_setting("aia_parallel_slots", str(AIA_PARALLEL_SLOTS)))
+
+
+def weights_from_settings(get_setting: Callable[..., str] = _default_get_setting) -> dict[str, float]:
+    raw = get_setting("aia_area_weights", "")
+    if raw:
+        try:
+            return {k: float(v) for k, v in json.loads(raw).items()}
+        except Exception:
+            pass
+    return {k: float(v) for k, v in AIA_AREA_WEIGHTS.items()}
 
 
 def _launch(job: Job) -> str:
-    """Send the real Celery task to its lane queue. Lazy import keeps this module
-    importable without Celery/Redis (e.g. in unit tests)."""
+    """Send the real Celery task to the aia queue, threading the aia_job uuid so
+    the task can call ``on_complete`` when it finishes. Lazy import keeps this
+    module importable without Celery in unit tests."""
     from src.celery_app import celery_app
 
     args = job.payload.get("args", [])
-    kwargs = job.payload.get("kwargs", {})
-    result = celery_app.send_task(
-        job.task_name, args=args, kwargs=kwargs, queue=f"aia_{job.area}"
-    )
+    kwargs = dict(job.payload.get("kwargs", {}))
+    kwargs["_aia_job_uuid"] = job.job_uuid
+    result = celery_app.send_task(job.task_name, args=args, kwargs=kwargs, queue="aia")
     return result.id
+
+
+# Process-level cumulative area tally so the weighting holds across the many
+# short-lived get_dispatch_service() calls within one process. (Across processes
+# - backend vs workers - the weighting is approximate; a shared store would make
+# it exact, a deliberate later refinement.)
+_AREA_GRANTED: dict[str, float] = {}
 
 
 def get_dispatch_service(
@@ -77,7 +90,9 @@ def get_dispatch_service(
     return DispatchService(
         store=store if store is not None else DbJobStore(),
         launch=launch if launch is not None else _launch,
-        areas_config=caps_from_settings(get_setting),
+        total_slots=slots_from_settings(get_setting),
+        weights=weights_from_settings(get_setting),
+        area_granted=_AREA_GRANTED,
     )
 
 
@@ -88,7 +103,7 @@ def enqueue_task(
     kwargs: Optional[dict] = None,
     service: Optional[DispatchService] = None,
 ) -> str:
-    """Enqueue a task into its lane and try to dispatch. Returns the aia_job uuid."""
+    """Enqueue a task into the shared pool and try to dispatch. Returns aia_job uuid."""
     job = Job(
         job_uuid=_uuid.uuid4().hex,
         user_id=user_id,
@@ -108,6 +123,6 @@ def on_complete(
     error: Optional[str] = None,
     service: Optional[DispatchService] = None,
 ) -> None:
-    """Mark a job terminal and dispatch the next from the same lane."""
+    """Mark a job terminal and dispatch the next from the shared pool."""
     svc = service if service is not None else get_dispatch_service()
     svc.on_complete(job_uuid, ok=ok, error=error)

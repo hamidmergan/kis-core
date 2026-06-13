@@ -7,6 +7,7 @@ from src.features.ai_assistant.scheduling.dispatch_service import (
 )
 
 _counter = itertools.count()
+W = {"studio": 1.0, "ingest": 1.0}
 
 
 def _mk(area: str, user_id: int) -> Job:
@@ -21,7 +22,7 @@ def _mk(area: str, user_id: int) -> Job:
     )
 
 
-def _make(caps):
+def _make(total_slots, weights=W):
     store = InMemoryJobStore()
     launched: list[str] = []
 
@@ -29,20 +30,21 @@ def _make(caps):
         launched.append(job.job_uuid)
         return f"task-{job.job_uuid}"
 
-    return DispatchService(store=store, launch=launch, areas_config=caps), store, launched
+    return DispatchService(store=store, launch=launch, total_slots=total_slots, weights=weights), store, launched
 
 
-def test_enqueue_within_cap_launches_immediately():
-    svc, store, launched = _make({"ingest": 2})
-    job = _mk("ingest", 1)
+def test_enqueue_within_pool_launches_immediately():
+    svc, store, launched = _make(2)
+    job = _mk("studio", 1)
     svc.enqueue(job)
     assert launched == [job.job_uuid]
     assert store.get(job.job_uuid).status == "running"
+    assert store.get(job.job_uuid).celery_task_id == f"task-{job.job_uuid}"
 
 
-def test_enqueue_beyond_cap_queues_then_runs_on_complete():
-    svc, store, launched = _make({"ingest": 1})
-    a, b = _mk("ingest", 1), _mk("ingest", 1)
+def test_enqueue_beyond_pool_queues_then_runs_on_complete():
+    svc, store, launched = _make(1)
+    a, b = _mk("studio", 1), _mk("studio", 2)
     svc.enqueue(a)
     svc.enqueue(b)
     assert launched == [a.job_uuid]
@@ -52,29 +54,21 @@ def test_enqueue_beyond_cap_queues_then_runs_on_complete():
     assert store.get(a.job_uuid).status == "done"
 
 
-def test_cap_never_exceeded():
-    svc, store, launched = _make({"ingest": 2})
+def test_pool_size_never_exceeded():
+    svc, store, launched = _make(2)
     for uid in [1, 2, 3, 4, 5]:
-        svc.enqueue(_mk("ingest", uid))
+        svc.enqueue(_mk("studio", uid))
     running = [j for j in store._jobs.values() if j.status == "running"]
     assert len(running) == 2
 
 
-def test_area_isolation():
-    svc, store, launched = _make({"ingest": 1, "studio": 1})
-    i, s = _mk("ingest", 1), _mk("studio", 1)
-    svc.enqueue(i)
-    svc.enqueue(s)
-    assert set(launched) == {i.job_uuid, s.job_uuid}
-
-
 def test_user_fairness_flooder_does_not_block_newcomer():
-    svc, store, launched = _make({"ingest": 2})
-    flood = [_mk("ingest", 1) for _ in range(5)]
+    svc, store, launched = _make(2)
+    flood = [_mk("studio", 1) for _ in range(5)]
     for j in flood:
         svc.enqueue(j)
-    assert len(launched) == 2  # cap 2, rest queued
-    newcomer = _mk("ingest", 2)
+    assert len(launched) == 2  # pool of 2, rest queued
+    newcomer = _mk("studio", 2)
     svc.enqueue(newcomer)
     svc.on_complete(launched[0])
     # the freed slot must go to the newcomer, not user 1's backlog
@@ -82,11 +76,18 @@ def test_user_fairness_flooder_does_not_block_newcomer():
 
 
 def test_failed_job_frees_slot():
-    svc, store, launched = _make({"ingest": 1})
-    a, b = _mk("ingest", 1), _mk("ingest", 1)
+    svc, store, launched = _make(1)
+    a, b = _mk("studio", 1), _mk("studio", 2)
     svc.enqueue(a)
     svc.enqueue(b)
     svc.on_complete(a.job_uuid, ok=False, error="boom")
     assert store.get(a.job_uuid).status == "failed"
     assert store.get(a.job_uuid).error == "boom"
     assert launched == [a.job_uuid, b.job_uuid]
+
+
+def test_unlimited_pool_runs_everything():
+    svc, store, launched = _make(0)  # 0 = unlimited
+    for uid in range(10):
+        svc.enqueue(_mk("studio", uid))
+    assert len(launched) == 10
