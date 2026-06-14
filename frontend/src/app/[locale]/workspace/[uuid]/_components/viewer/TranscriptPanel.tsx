@@ -109,6 +109,10 @@ export function TranscriptPanel({
   const [citationInView, setCitationInView] = useState(true);
   const [citationDir, setCitationDir] = useState<"up" | "down">("down");
   const citationNonceRef = useRef<number | undefined>(undefined);
+  // Which source the loaded cues belong to. On a document switch the cues briefly still hold
+  // the OLD source's data; this lets the citation pin ignore those stale cues so it does not
+  // scroll to a wrong position (and burn the one-shot scroll) before the new cues arrive.
+  const cuesUuidRef = useRef<string | null>(null);
   const [savedCueIdx, setSavedCueIdx] = useState<number | null>(null);
   const [savingCueIdx, setSavingCueIdx] = useState<number | null>(null);
   const [regen, setRegen] = useState<"idle" | "running" | "error">("idle");
@@ -132,6 +136,7 @@ export function TranscriptPanel({
     setCues({});
     setSourceLang(null);
     setTargetLang(null);
+    cuesUuidRef.current = null; // cues are now stale until this source's transcript loads
 
     const fetchVtt = async (lang: string): Promise<Cue[] | null> => {
       try {
@@ -162,6 +167,7 @@ export function TranscriptPanel({
       const map: Record<string, Cue[]> = {};
       for (const [lang, c] of entries) if (c) map[lang] = c;
       setCues(map);
+      cuesUuidRef.current = sourceUuid; // cues now belong to this source
       setSourceLang(info.source_lang);
       setTargetLang(info.target_lang);
       setLoading(false);
@@ -247,6 +253,10 @@ export function TranscriptPanel({
   // `idx` — never the `citationIdx` state, which lags a render behind and previously made the
   // scroll race to a stale/old cue (e.g. jumping to the top) while consuming the nonce.
   useEffect(() => {
+    // Ignore cues that still belong to the previous source (mid document-switch): acting on
+    // them would scroll to the wrong place and consume the one-shot scroll before the new
+    // cues load. We act once the loaded cues match the current source.
+    if (cuesUuidRef.current !== sourceUuid) return;
     if (citationTime == null || masterCues.length === 0) { setCitationIdx(-1); return; }
     const idx = cueIndexAtTime(masterCues, citationTime);
     setCitationIdx(idx);
@@ -256,7 +266,7 @@ export function TranscriptPanel({
         itemRefs.current[idx]?.scrollIntoView({ block: "center", behavior: "instant" });
       });
     }
-  }, [citationNonce, citationTime, masterCues]);
+  }, [citationNonce, citationTime, masterCues, sourceUuid]);
 
   // Track whether the pinned cue is on-screen so the jump-back button only shows once
   // it has scrolled out of view (like the PDF jump button appearing after you page away).
@@ -300,17 +310,10 @@ export function TranscriptPanel({
     setFollowCurrent(true);
   };
 
-  // Jump back to the pinned citation: replay from its timestamp and scroll to it.
+  // Jump back to the pinned citation: ONLY scroll the transcript to the marking. The play
+  // head and ongoing playback are left exactly where they are — no seek, no pause, no play.
   const jumpToCitation = () => {
     if (citationIdx < 0) return;
-    const cue = masterCues[citationIdx];
-    const media = mediaRef.current;
-    if (media && cue) {
-      media.currentTime = cue.start;
-      media.play().catch(() => { });
-    }
-    // Scroll once to the citation, but do NOT turn on follow-mode — playback should keep
-    // running from there without the transcript auto-scrolling on every cue change.
     itemRefs.current[citationIdx]?.scrollIntoView({ block: "center", behavior: "smooth" });
   };
 
