@@ -645,7 +645,7 @@ AIA_SCHEDULE_CLASSIFY_PROMPT = (
     "or whether it is document metadata (slide date, author, footer, version) and "
     "must be dropped.\n\n"
     "Respond ONLY with a JSON object of the form:\n"
-    '{ "results": [ { "id": int, "keep": bool, "is_footer": bool, "is_historical": bool, '
+    '{ "results": [ { "id": int, "keep": bool, "is_footer": bool, "is_header": bool, "is_historical": bool, '
     '"type": "deadline" | "termin" | null, "title": "..." | null, '
     '"description": "..." | null, "due_time": "HH:MM" | null, "is_optional": bool } ] }\n\n'
     "Keep ALL fields as concise as possible. No `reason` field - just the decision fields.\n\n"
@@ -657,9 +657,13 @@ AIA_SCHEDULE_CLASSIFY_PROMPT = (
     "web conference, submission, lecture session). A scheduling verb/preposition "
     "is required ('am X findet', 'bis X abgeben', 'deadline on X', 'Abgabe:', "
     "'Klausur am', 'Meeting on', 'submission by').\n"
-    "2. keep=false / is_footer=true when the date looks like slide/document metadata: "
-    "near author names, 'M.Sc.', 'Prof.', emails, 'Mentor', 'Tutor', 'Kontakt', "
-    "'Folie', 'Seite', 'Slide', or a page number, without any scheduling verb.\n"
+    "2. keep=false when the date is page chrome, not body content. Set is_footer=true for "
+    "footer/document metadata: near author names, 'M.Sc.', 'Prof.', emails, 'Mentor', "
+    "'Tutor', 'Kontakt', 'Folie', 'Seite', 'Slide', version, or a page number, without any "
+    "scheduling verb. Set is_header=true for a running header or cover-sheet date that "
+    "repeats at the top of pages/slides (the same lecture/document date printed on every "
+    "page, a title-block date, 'Stand: <date>'), again without any scheduling verb. Both "
+    "is_footer and is_header are dropped.\n"
     "3. keep=false / is_historical=true when the date is merely a reference to the "
     "past or a historical fact ('letztes Jahr am 3. Juli fand die Prüfung statt', "
     "'im Wintersemester 2024/25 wurde X präsentiert', 'seit 2019 existiert'). "

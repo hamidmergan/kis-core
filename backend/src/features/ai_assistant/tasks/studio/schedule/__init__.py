@@ -151,11 +151,11 @@ def run_generate_schedule(self, job_id: int, workspace_id: int, user_id: int,
         added = 0
 
         for cand, cls in zip(all_candidates, classifications):
-            if not cls["keep"] or cls["is_footer"] or cls.get("is_historical"):
+            if not cls["keep"] or cls["is_footer"] or cls.get("is_header") or cls.get("is_historical"):
                 logger.info(
-                    "Schedule job {}: drop candidate date={} (footer={}, historical={}, keep={})",
+                    "Schedule job {}: drop candidate date={} (footer={}, header={}, historical={}, keep={})",
                     job_id, cand.get("date_iso") or cand.get("partial_date"),
-                    cls["is_footer"], cls.get("is_historical"), cls["keep"],
+                    cls["is_footer"], cls.get("is_header"), cls.get("is_historical"), cls["keep"],
                 )
                 continue
 

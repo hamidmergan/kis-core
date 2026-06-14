@@ -47,6 +47,12 @@ _DATE_PATTERNS_YEARLESS = [
 # "Date not yet fixed" patterns: the event is real but happens at a time still
 # to be negotiated. We surface these so the schedule shows them as a separate
 # 'to be arranged' block in the UI.
+#
+# TODO ANPASSEN (hardcodierte Wortliste): Diese Phrasen sind fest verdrahtet und
+# decken nur Deutsch und Englisch ab. Andere Sprachen und andere Formulierungen
+# werden nicht erkannt, der Zeitplan ist damit nicht sprach-agnostisch. Wir muessen
+# das System anpassen: die TBD-Erkennung sprach-unabhaengig machen, am besten ueber
+# den LLM-Klassifizierer statt ueber eine feste Regex-Phrasenliste.
 _TBD_PATTERNS = [
     re.compile(
         r"(?P<phrase>nach\s+(?:individueller\s+)?(?:Vereinbarung|Absprache)"
