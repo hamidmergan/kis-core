@@ -4,19 +4,28 @@ The chat re-grounds each answer line against pgvector and attaches a nav-only ch
 (closest retrieved chunk within a distance gate, page for PDFs / timestamp for media,
 or NO chip when nothing is close enough). The studio tools (flashcards, quiz, …) used
 to guess pages with their own lexical heuristics instead. This module lets a tool reuse
-the EXACT same gate and selector, but returns STRUCTURED chips (dicts) for the item's
-``sources`` JSON instead of inline markdown chip strings.
+the EXACT same selector, but returns STRUCTURED chips (dicts) for the item's ``sources``
+JSON instead of inline markdown chip strings.
 
-One logic source: the distance gate (``_GENERIC_ATTRIB_MAX_DIST``) and the selector
-(``_pick_attribution``) are imported from the chat helper, not re-implemented.
+One logic source: the selector (``_pick_attribution``) is imported from the chat helper,
+not re-implemented. Only the distance gate is a tool-tuned parameter
+(``_TOOL_ATTRIB_MAX_DIST``, slightly looser than the chat's 0.6 — see below).
 """
 
 from src.features.ai_assistant.routes._helpers import (
     _pick_attribution,
-    _GENERIC_ATTRIB_MAX_DIST,
     _MULTI_CHIP_MAX_DELTA,
     _MAX_CHIPS_PER_LINE,
 )
+
+# A tool claim (a card's question+answer, a quiz answer) is a concatenated/rephrased
+# string and sits slightly farther from its source page than a single chat answer LINE.
+# The chat gate (_GENERIC_ATTRIB_MAX_DIST = 0.6) is therefore a touch too strict here and
+# drops genuine borderline matches (measured 0.63-0.65 cosine distance to the correct page,
+# e.g. a card whose answer the page states only tersely in a schedule/table). This slightly
+# looser tool gate catches those while staying below the off-topic band (wrong pages sat at
+# >= ~0.68 in the same probes). Same selector/logic as chat — only this one parameter differs.
+_TOOL_ATTRIB_MAX_DIST = 0.66
 
 
 def _chip_key(chip: dict) -> tuple:
@@ -87,7 +96,7 @@ def chips_for_claim(
     source_id_to_label: dict[int, str],
     *,
     multi: bool = False,
-    max_distance: float = _GENERIC_ATTRIB_MAX_DIST,
+    max_distance: float = _TOOL_ATTRIB_MAX_DIST,
 ) -> list[dict]:
     """Turn ranked search hits for one claim into nav-only structured source chips.
 

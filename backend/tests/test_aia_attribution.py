@@ -25,6 +25,19 @@ def test_no_chip_when_all_hits_beyond_gate():
     assert chips_for_claim(hits, {1: "Skript.pdf"}) == []
 
 
+def test_tool_gate_keeps_borderline_hit_the_chat_gate_would_drop():
+    # The tool gate (0.66) is intentionally looser than the chat gate (0.6): a claim whose
+    # best page sits at ~0.65 (e.g. the answer is stated only tersely in a schedule/table)
+    # still gets its chip. At the chat's 0.6 this was a (wrong) no-chip miss.
+    chips = chips_for_claim([_hit(1, 6, 0.65)], {1: "Skript.pdf"})
+    assert chips == [{"source_label": "Skript.pdf", "page_number": 6, "start_time": None}]
+
+
+def test_tool_gate_still_rejects_off_topic_just_beyond():
+    # ...but a page just past the tool gate (off-topic band) is still dropped.
+    assert chips_for_claim([_hit(1, 9, 0.68)], {1: "Skript.pdf"}) == []
+
+
 def test_media_hit_cites_timestamp_not_page():
     # Audio/video chunk: carries a transcript page_number (segment index) AND a start_time.
     # The chip must use the timestamp and drop the page, mirroring the chat.
