@@ -21,7 +21,9 @@ test.describe("AIA chat — GENERIC path", () => {
     const answer = await askAndGetAnswer(page, "Worum geht es in diesem Dokument?");
     await waitForChipIn(answer);
     // The only active source is that PDF, so EVERY citation must reference it.
-    const titles = await chipsIn(answer).evaluateAll((els) =>
+    // Scope to real citation chips ([title]) — the group "+N" toggle is also a
+    // .chip-cite but carries no title, so it would inject an empty string here.
+    const titles = await chipsIn(answer, "[title]").evaluateAll((els) =>
       els.map((e) => e.getAttribute("title") || "")
     );
     expect(titles.length).toBeGreaterThan(0);

@@ -589,26 +589,28 @@ AIA_LERNKARTEN_PROMPT = (
     "- Respond ONLY with the JSON object, no other text."
 )
 
-AIA_KARTEIKARTEN_QUESTIONS_PROMPT = (
-    "You are an expert in learning materials. Generate {count} comprehension questions from the given documents. "
-    "Each question must be answerable using ONLY the documents (no general knowledge). "
-    "Write the questions in {language}, regardless of the source-text language. Translate source content into {language} if needed.\n\n"
+# One-call question+answer cards: generate the Q AND the A in a single LLM call
+# (no per-card RAG round-trip). Source links are attached post-hoc by pgvector
+# attribution, so the prompt forbids citing — same contract as the chat RAG prompt.
+AIA_KARTEIKARTEN_QA_PROMPT = (
+    "You are an expert in learning materials. Generate {count} question-answer flashcards from the given documents. "
+    "Each question AND its answer must be derivable using ONLY the documents (no general knowledge). "
+    "Write everything in {language}, regardless of the source-text language. Translate source content into {language} if needed.\n\n"
     "Respond ONLY with a JSON object in exactly this format:\n"
     "{\n"
     '  "title": "Short title summarizing the overall topic (in {language})",\n'
-    '  "questions": ["Question 1?", "Question 2?", "Question 3?"]\n'
+    '  "cards": [{"question": "Question 1?", "answer": "Answer in 2-3 short sentences."}]\n'
     "}\n\n"
     "Rules:\n"
-    "- Exactly {count} questions\n"
+    "- Exactly {count} cards\n"
     "- Comprehension/comparison/application questions (e.g. 'Warum...?', 'Erkläre...', 'Was ist der Unterschied...?')\n"
     "- NO pure definition questions - the goal is understanding and connections\n"
     "- Each question targets a different aspect of the documents\n"
     "- SINGLE-ASPECT questions only: ONE focused angle per question. NEVER combine multiple aspects "
-    "with 'und', 'sowie', or list-enumerations like '(A, B, C, D)'. "
-    "Bad: 'Welche Maßnahmen, Risiken und Kennzahlen sind vorgesehen?' (3 aspects). "
-    "Bad: 'Inwiefern erfüllt das Projekt die Kriterien (Neuheit, Transformativität, Adaptivität, Umsetzbarkeit, Wirksamkeit)?' (5 aspects). "
-    "Good: 'Welche Innovationskriterien wertet das Projekt am höchsten?' or 'Was bedeutet Transformativität im Projekt?'\n"
-    "- Each question must be answerable in 2-3 short sentences\n"
+    "with 'und', 'sowie', or list-enumerations like '(A, B, C, D)'.\n"
+    "- Each answer is 2-3 short sentences of plain flowing text: NO markdown, NO bullet points, NO bold.\n"
+    "- Do NOT cite sources, page numbers, or document numbers in the answer - the clickable source links are attached automatically afterwards.\n"
+    "- Do NOT use personal names; write 'laut Quelle' (German) or 'according to the source' (English), matching the output language.\n"
     "- Respond ONLY with the JSON object, no other text."
 )
 

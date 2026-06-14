@@ -69,10 +69,12 @@ export async function selectOnlySourceByName(page: Page, namePart: string): Prom
 }
 
 /**
- * Count selection-rect highlights inside the EmbedPDF shadow DOM. A grounded
- * citation click renders absolutely-positioned, background-filled rects over
- * the matched text; with no active highlight there are none. This is the
- * observable proof that "the highlight happened".
+ * Count citation text-highlight rects inside the EmbedPDF shadow DOM. A citation
+ * highlight is a yellow fill in the brand highlight colour (#FFE14D = rgb(255,225,77));
+ * we match THAT colour specifically, not "any absolutely-positioned background", so the
+ * PDF page/text-layer backgrounds (also absolute) are not miscounted. With chat citations
+ * now nav-only, a chip click navigates but draws no such fill, so this stays 0; only the
+ * user's own popup/action-bar selection produces a highlight.
  */
 export async function highlightRectCount(page: Page): Promise<number> {
   return page.evaluate(() => {
@@ -81,8 +83,8 @@ export async function highlightRectCount(page: Page): Promise<number> {
     if (!root) return 0;
     let n = 0;
     for (const el of Array.from(root.querySelectorAll<HTMLElement>("*"))) {
-      const st = el.getAttribute("style") || "";
-      if (/position:\s*absolute/i.test(st) && /background/i.test(st)) n++;
+      const bg = getComputedStyle(el).backgroundColor || "";
+      if (bg.includes("255, 225, 77")) n++; // CITATION_HL_COLOR (#FFE14D) fill
     }
     return n;
   });

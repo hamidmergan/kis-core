@@ -1,14 +1,12 @@
 """MC-basierte Tools (lueckentext, quiz, vokabeltest) aus Quelltext (mode='source')."""
 
 import json
-import re
 
-from src import database as db
 from src.features.ai_assistant.tasks._helpers import _clean_llm_json
 
+from src.features.ai_assistant.tasks.language_training._attribution import attach_chips
 from src.features.ai_assistant.tasks.language_training._card_base import with_avoid
 from src.features.ai_assistant.tasks.language_training._context import QuelleContext
-from src.features.ai_assistant.tasks.language_training._text_utils import normalize_chunk
 from src.features.ai_assistant.tasks.language_training._title import title_from_items
 
 
@@ -47,19 +45,16 @@ def generate_mc_from_source(
     if isinstance(exercises, list):
         exercises = exercises[:count]
 
-    page_index = _build_page_index(ctx.context)
-    chunks_by_source: dict[str, list] = {}
-
-    def find_page(search_text: str) -> tuple[str, int | None]:
-        return _match_page(page_index, ctx.first_label, search_text)
-
-    def page_highlight(sl: str | None, pn: int | None) -> str | None:
-        return _page_highlight(chunks_by_source, ctx.source_by_name, sl, pn)
-
     if tool == "lueckentext":
-        items = _build_lueckentext_items(ctx, exercises, find_page, page_highlight)
+        items, claims = _build_lueckentext_items(exercises)
     else:  # quiz + vokabeltest
-        items = _build_quiz_items(ctx, exercises, find_page, page_highlight)
+        items, claims = _build_quiz_items(exercises)
+
+    # Post-hoc attribution (same pgvector gate as chat): each item cites where its
+    # answer actually appears, nav-only, no highlight. The LLM's source_label/page_number
+    # (asked for above) are intentionally ignored — attribution decides the real page.
+    # multi=False: an MC answer has a single origin, not "every page with the word".
+    attach_chips(items, claims, ctx, multi=False)
 
     title = title_from_items(client, model, items, ctx.multi_label)
     return items, title
@@ -110,108 +105,30 @@ def _build_prompt(tool: str, count: int, language: str) -> str:
     )
 
 
-def _build_page_index(context: str) -> list[tuple[str, int, str]]:
-    """Baut einen durchsuchbaren Index (label, page, lowered_text) aus den Kontext-Zeilen."""
-    idx: list[tuple[str, int, str]] = []
-    for line in context.split("\n"):
-        m = re.match(r"\[(.+?),\s*S\.\s*(\d+)\]\s*(.*)", line)
-        if m:
-            idx.append((m.group(1), int(m.group(2)), m.group(3).lower()))
-    return idx
-
-
-def _match_page(
-    page_index: list[tuple[str, int, str]],
-    fallback_label: str,
-    search_text: str,
-) -> tuple[str, int | None]:
-    """Matcht den Übungstext gegen Kontext-Zeilen, um Source + Seite zu finden."""
-    words = re.findall(r"\w+", search_text.lower())
-    if not words or not page_index:
-        return fallback_label, None
-    best_label, best_page, best_score = fallback_label, None, 0
-    for label, page, text in page_index:
-        score = sum(1 for w in words if w in text)
-        if score > best_score:
-            best_label, best_page, best_score = label, page, score
-    return best_label, best_page
-
-
-def _page_highlight(
-    chunks_cache: dict[str, list],
-    source_by_name: dict[str, dict],
-    sl: str | None,
-    pn: int | None,
-) -> str | None:
-    if not sl or pn is None:
-        return None
-    if sl not in chunks_cache:
-        src = source_by_name.get(sl)
-        chunks_cache[sl] = db.get_chunks_by_source(src["id"]) if src else []
-    parts = [
-        (ch.get("content") or "").strip()
-        for ch in chunks_cache[sl]
-        if ch.get("page_number") == pn and (ch.get("content") or "").strip()
-    ]
-    if not parts:
-        return None
-    return normalize_chunk(" ".join(parts))
-
-
-def _build_item_sources(
-    page_highlight_fn,
-    sl: str,
-    pn: int | None,
-    st: float | None,
-) -> list[dict] | None:
-    highlight = page_highlight_fn(sl, pn)
-    if not highlight or pn is None:
-        return None
-    return [{
-        "source_label": sl,
-        "page_number": pn,
-        "start_time": st,
-        "highlight_text": highlight,
-    }]
-
-
-def _build_lueckentext_items(ctx: QuelleContext, exercises, find_page, page_highlight) -> list[dict]:
-    items = []
+def _build_lueckentext_items(exercises: list[dict]) -> tuple[list[dict], list[str]]:
+    """Cloze items + the claim text (filled sentence) attributed back to the source."""
+    items, claims = [], []
     for ex in exercises:
-        sl = ex.get("source_label") or ctx.first_label
-        pn = ex.get("page_number")
-        if not pn:
-            sl, pn = find_page(ex["sentence"] + " " + ex["answer"])
-        st = ctx.time_map.get((sl, pn or 0))
         items.append({
             "front": ex["sentence"],
             "back": ex["answer"],
             "options": ex["options"],
             "correct_idx": ex["correct_idx"],
-            "source_label": sl,
-            "page_number": pn,
-            "start_time": st,
-            "sources": _build_item_sources(page_highlight, sl, pn, st),
         })
-    return items
+        claims.append(f'{ex["sentence"]} {ex["answer"]}'.strip())
+    return items, claims
 
 
-def _build_quiz_items(ctx: QuelleContext, exercises, find_page, page_highlight) -> list[dict]:
-    items = []
+def _build_quiz_items(exercises: list[dict]) -> tuple[list[dict], list[str]]:
+    """Quiz/vocab items + the claim text (question + correct answer) for attribution."""
+    items, claims = [], []
     for q in exercises:
-        sl = q.get("source_label") or ctx.first_label
-        pn = q.get("page_number")
-        if not pn:
-            sl, pn = find_page(q["question"] + " " + q["options"][q["correct_idx"]])
-        st = ctx.time_map.get((sl, pn or 0))
+        answer = q["options"][q["correct_idx"]]
         items.append({
             "front": q["question"],
-            "back": q["options"][q["correct_idx"]],
+            "back": answer,
             "options": q["options"],
             "correct_idx": q["correct_idx"],
-            "source_label": sl,
-            "page_number": pn,
-            "start_time": st,
-            "sources": _build_item_sources(page_highlight, sl, pn, st),
         })
-    return items
+        claims.append(f'{q["question"]} {answer}'.strip())
+    return items, claims

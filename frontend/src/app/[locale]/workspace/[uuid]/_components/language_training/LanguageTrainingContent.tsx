@@ -73,9 +73,11 @@ export function LanguageTrainingContent(props: LanguageTrainingContentProps) {
   } = props;
   const t = useTranslations("workspace.detail.languageTraining");
 
-  const onSourceClick = (filename: string, page: number, startTime?: number, highlightText?: string) => {
+  const onSourceClick = (filename: string, page: number, startTime?: number) => {
+    // Tool chips are nav-only, exactly like chat citations: jump to the page/timestamp,
+    // never highlight. (Highlight stays only for the user's own text selection.)
     const src = sources.find((s) => s.filename === filename);
-    if (src) handlePillClick(src.uuid, page, filename, highlightText, startTime, true);
+    if (src) handlePillClick(src.uuid, page, filename, undefined, startTime, false);
   };
 
   const studioLabel = t("common.studio");

@@ -1590,7 +1590,7 @@
           "title": "Glossary",
           "deleteAll": "Delete all terms",
           "extractingMarkup": "Extracting terms from highlight…",
-          "emptyTitle": "No terms in your glossary yet. Highlight words in a PDF and add them via the popup.",
+          "emptyTitle": "No terms in your glossary yet. Highlight words in a PDF and add them via the selection bar.",
           "context": "Context",
           "explanation": "Explanation",
           "pageShort": "p. {page}",

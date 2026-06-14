@@ -11,26 +11,31 @@ import {
 /**
  * SPECIFIC path: topic-focused questions routed to hybrid search, producing
  * keyword-grounded citations. The payoff we verify here is the user-visible
- * effect of clicking a citation: the viewer navigates AND highlights/seeks.
+ * effect of clicking a citation: the viewer NAVIGATES — a PDF chip opens the
+ * cited page nav-only (no highlight), a media chip seeks the player. Citation
+ * chips are nav-only; only the user's own popup/action-bar selection highlights.
  */
 test.describe("AIA chat — SPECIFIC path", () => {
-  test("PDF citation click highlights the cited text in the viewer", async ({ page }) => {
+  test("PDF citation click opens the cited page nav-only (no text highlight)", async ({ page }) => {
     await openWorkspace(page);
+    // Scope to the citation-styles PDF so the answer's citation is deterministically a
+    // PDF page chip (with all 6 sources active it may cite a lecture video instead).
+    await selectOnlySourceByName(page, "WissenschaftlichesSchreiben");
     const answer = await askAndGetAnswer(page, "Welche Zitierstile oder Zitierregeln werden genannt?");
 
     const pdfChip = chipsIn(answer, '[title*="p."]').first();
     await expect(pdfChip).toBeVisible({ timeout: 90_000 });
 
-    // No highlight before the click (viewer not showing this passage yet).
+    // No PDF viewer open yet.
     expect(await highlightRectCount(page)).toBe(0);
 
     await pdfChip.click();
 
-    // Clicking the chip opens the PDF and renders selection-rect highlights
-    // over the grounded text inside the EmbedPDF shadow DOM.
-    await expect
-      .poll(() => highlightRectCount(page), { timeout: 30_000 })
-      .toBeGreaterThan(0);
+    // Nav-only: the chip opens the PDF viewer to the cited page (a flashing page
+    // frame), but NEVER draws a text highlight inside the EmbedPDF shadow DOM.
+    await expect(page.locator("embedpdf-container")).toBeVisible({ timeout: 30_000 });
+    await page.waitForTimeout(1500); // give any would-be highlight time to render
+    expect(await highlightRectCount(page)).toBe(0);
   });
 
   test("video timestamp citation click seeks the media player", async ({ page }) => {

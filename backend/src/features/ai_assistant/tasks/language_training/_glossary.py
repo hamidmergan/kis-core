@@ -31,11 +31,11 @@ def generate_from_glossary(
     language = _language_label(locale)
 
     def _sources_for(e: dict) -> list[dict]:
+        # Nav-only: glossary page comes from the index (authoritative), no highlight.
         return [{
             "source_label": e.get("filename", ""),
             "page_number": e.get("page_number"),
             "start_time": None,
-            "highlight_text": e["term_de"],
         }]
 
     if tool == "flashcards":
@@ -130,7 +130,6 @@ def _generate_lueckentext(client, model, selected: list[dict], count: int, langu
         sl = entry.get("filename") or ""
         pn = entry.get("page_number")
         st = entry.get("start_time")
-        highlight = ex.get("answer") or entry.get("term_de") or ""
         item = {
             "front": ex["sentence"],
             "back": ex["answer"],
@@ -145,7 +144,6 @@ def _generate_lueckentext(client, model, selected: list[dict], count: int, langu
                 "source_label": sl,
                 "page_number": pn,
                 "start_time": st,
-                "highlight_text": highlight,
             }]
         items.append(item)
     return items
@@ -185,7 +183,6 @@ def _generate_vokabeltest(client, model, selected: list[dict], count: int, langu
         sl = entry.get("filename") or ""
         pn = entry.get("page_number")
         st = entry.get("start_time")
-        highlight = entry.get("term_de") or ""
         item = {
             "front": q["question"],
             "back": q["options"][q["correct_idx"]],
@@ -201,7 +198,6 @@ def _generate_vokabeltest(client, model, selected: list[dict], count: int, langu
                 "source_label": sl,
                 "page_number": pn,
                 "start_time": st,
-                "highlight_text": highlight,
             }]
         items.append(item)
     return items

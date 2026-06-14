@@ -1590,7 +1590,7 @@
           "title": "Glossar",
           "deleteAll": "Alle Begriffe löschen",
           "extractingMarkup": "Begriffe werden aus Markierung extrahiert…",
-          "emptyTitle": "Noch keine Begriffe im Glossar. Markiere Wörter in einer PDF und füge sie über das Popup hinzu.",
+          "emptyTitle": "Noch keine Begriffe im Glossar. Markiere Wörter in einer PDF und füge sie über die Auswahlleiste hinzu.",
           "context": "Kontext",
           "explanation": "Erklärung",
           "pageShort": "S. {page}",
