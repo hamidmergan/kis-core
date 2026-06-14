@@ -19,6 +19,7 @@ one. 0.6 stays: no fabricated page, at the cost of leaving the rare terse case c
 
 from src.features.ai_assistant.routes._helpers import (
     _pick_attribution,
+    _is_seen,
     _GENERIC_ATTRIB_MAX_DIST,
     _MULTI_CHIP_MAX_DELTA,
     _MAX_CHIPS_PER_LINE,
@@ -47,6 +48,7 @@ def attribute_claims(
     multi: bool = False,
     workspace_id: int | None = None,
     source_ids: list[int] | None = None,
+    seen_pages_by_source: dict | None = None,
     embed_fn=None,
     search_fn=None,
 ) -> list[list[dict]]:
@@ -54,8 +56,9 @@ def attribute_claims(
 
     Embeds ALL claims in ONE call (``embed_fn``), then per claim runs hybrid search
     (``search_fn``) scoped to ``source_ids`` and selects chips via :func:`chips_for_claim`.
-    ``embed_fn``/``search_fn`` are injectable for testing; in production they default to the
-    shared embedding provider and ``db.hybrid_search_chunks`` (fuzzy OFF, as the chat does)."""
+    ``seen_pages_by_source`` (optional) clamps chips to pages actually shown to the LLM, like
+    the chat's seen-check. ``embed_fn``/``search_fn`` are injectable for testing; in production
+    they default to the shared embedding provider and ``db.hybrid_search_chunks`` (fuzzy OFF)."""
     if not claims:
         return []
 
@@ -84,7 +87,8 @@ def attribute_claims(
             from loguru import logger
             logger.warning("aia attribution: search failed for a claim, no chip: {}", e)
             hits = []
-        out.append(chips_for_claim(hits, source_id_to_label, multi=multi))
+        out.append(chips_for_claim(hits, source_id_to_label, multi=multi,
+                                   seen_pages_by_source=seen_pages_by_source))
     return out
 
 
@@ -94,6 +98,7 @@ def chips_for_claim(
     *,
     multi: bool = False,
     max_distance: float = _GENERIC_ATTRIB_MAX_DIST,
+    seen_pages_by_source: dict | None = None,
 ) -> list[dict]:
     """Turn ranked search hits for one claim into nav-only structured source chips.
 
@@ -102,7 +107,13 @@ def chips_for_claim(
     by source/page and capped at ``_MAX_CHIPS_PER_LINE`` — the same relative gate the chat
     uses, so a clearly-best single source never collects on-topic near-misses.
 
+    ``seen_pages_by_source`` (optional) restricts hits to source/pages the LLM was actually
+    shown (chat-style seen-check) BEFORE selecting — so a chip can never point at a page that
+    was not in the generation context.
+
     Returns ``[]`` when nothing lands within the distance gate (no fabricated source)."""
+    if seen_pages_by_source is not None:
+        hits = [h for h in hits if _is_seen(h, seen_pages_by_source)]
     best = _pick_attribution(hits, max_distance)
     if best is None:
         return []

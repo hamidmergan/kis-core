@@ -27,6 +27,17 @@ def test_no_chip_when_all_hits_beyond_gate():
     assert chips_for_claim(hits, {1: "Skript.pdf"}) == []
 
 
+def test_seen_pages_keeps_a_shown_page():
+    # chat-style seen-check: a close hit on a page the LLM WAS shown is kept.
+    chips = chips_for_claim([_hit(1, 4, 0.2)], {1: "A.pdf"}, seen_pages_by_source={1: {3, 4}})
+    assert chips == [{"source_label": "A.pdf", "page_number": 4, "start_time": None}]
+
+
+def test_seen_pages_rejects_an_unshown_page():
+    # A close hit on a page NOT in the generation context -> no chip (never cite unseen).
+    assert chips_for_claim([_hit(1, 9, 0.2)], {1: "A.pdf"}, seen_pages_by_source={1: {3, 4}}) == []
+
+
 def test_media_hit_cites_timestamp_not_page():
     # Audio/video chunk: carries a transcript page_number (segment index) AND a start_time.
     # The chip must use the timestamp and drop the page, mirroring the chat.

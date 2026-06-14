@@ -34,6 +34,10 @@ def attach_chips(
     chip_lists = attribute_claims(
         claims, id_to_label, multi=multi,
         workspace_id=workspace_id, source_ids=source_ids,
+        # Clamp chips to the pages the LLM was actually shown (chat-style seen-check):
+        # a card can only cite material from its own generation context, never elsewhere.
+        # `or None` is a safety net: an empty seen-set would otherwise strip EVERY chip.
+        seen_pages_by_source=ctx.seen_pages_by_source or None,
         embed_fn=embed_fn, search_fn=search_fn,
     )
     for item, chips in zip(items, chip_lists):

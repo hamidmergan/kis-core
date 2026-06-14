@@ -1,9 +1,13 @@
 """Context builder for mode='source': pulls chunks/summaries from N sources
 and packs them into a budget-limited context string for the LLM prompt."""
 
+import re
 from dataclasses import dataclass, field
 
 from src import database as db
+
+# Marker each context line starts with: ``[<filename>, S. <page>] <content>``.
+_CONTEXT_MARKER = re.compile(r"^\[(.+?),\s*S\.\s*(\d+)\]")
 
 
 @dataclass
@@ -14,6 +18,11 @@ class QuelleContext:
     multi_label: str
     source_hint: str  # "folgender Source" / "folgenden Sources"
     source_by_name: dict[str, dict] = field(default_factory=dict)
+    # {source_id: set(page_numbers)} actually present in the trimmed context above — the
+    # pages the LLM really saw. Attribution clamps chips to these (like chat's seen-check),
+    # so a card can never cite a page the model was not shown. Media source_ids appear here
+    # too (their seen-check is source-level, not per page).
+    seen_pages_by_source: dict[int, set] = field(default_factory=dict)
 
 
 def build_source_context(uuids: list[str], tool: str) -> QuelleContext | None:
@@ -64,12 +73,25 @@ def build_source_context(uuids: list[str], tool: str) -> QuelleContext | None:
     multi_label = first_label if len(uuids) == 1 else f"{len(uuids)} Sources"
     source_hint = "folgender Source" if len(uuids) == 1 else "folgenden Sources"
 
+    # Record which source/page actually survived into the trimmed context — the set the
+    # LLM was shown. Parsed from the final text so it matches byte-for-byte what it read.
+    seen_pages_by_source: dict[int, set] = {}
+    for block in trimmed:
+        for line in block.split("\n"):
+            m = _CONTEXT_MARKER.match(line)
+            if not m:
+                continue
+            src = source_by_name.get(m.group(1))
+            if src:
+                seen_pages_by_source.setdefault(src["id"], set()).add(int(m.group(2)))
+
     return QuelleContext(
         context="\n\n".join(trimmed),
         first_label=first_label,
         multi_label=multi_label,
         source_hint=source_hint,
         source_by_name=source_by_name,
+        seen_pages_by_source=seen_pages_by_source,
     )
 
 
