@@ -60,8 +60,7 @@ def generate_cards_from_source(
 
     items = [{"front": c["question"].strip(), "back": c["answer"].strip()} for c in cards]
     claims = [f'{c["question"].strip()} {c["answer"].strip()}'.strip() for c in cards]
-    # multi=True: a comprehension answer may legitimately synthesise a couple of passages;
-    # the tight relative gate still prevents the old "every page with the word" sprawl.
-    attach_chips(items, claims, ctx, multi=True)
+    # A card is one atomic Q+A, so multi=False -> exactly the single best-matching source.
+    attach_chips(items, claims, ctx, multi=False)
 
     return items, title

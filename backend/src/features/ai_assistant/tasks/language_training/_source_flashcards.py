@@ -37,9 +37,9 @@ def generate_flashcards_from_source(
     cards = (data.get("cards") or [])[:count]
     items = [_format_lernkarte(c) for c in cards]
     # One batched attribution for the whole set: each card cites where its term+definition
-    # actually appears (same pgvector gate as chat), nav-only, no highlight. multi=True so a
-    # term genuinely defined across two passages keeps both, but never "every page with the word".
-    attach_chips(items, [_card_claim(c) for c in cards], ctx, multi=True)
+    # actually appears (same pgvector gate as chat), nav-only, no highlight. A card is one
+    # atomic fact, so multi=False -> exactly the single best-matching source, never several.
+    attach_chips(items, [_card_claim(c) for c in cards], ctx, multi=False)
     title = title_from_items(client, model, items, ctx.multi_label)
     return items, title
 
