@@ -18,10 +18,10 @@ Run (stack up + 5 PDFs ingested):
 Env overrides: AIA_EVAL_BASE, AIA_EVAL_WS, AIA_EVAL_USER, AIA_EVAL_PW, AIA_EVAL_PACE.
 
 Scenario status notes:
-  - 📄 page-scope cases (13/14): with the pre-call re-activated, scope is detected
+  - 📄 page-scope cases (8/9): with the pre-call re-activated, scope is detected
     and the EXACT page is retrieved. mode="scope" keeps a lenient net (xfail-on-fail)
     so the suite still passes if run against a build where scope is dormant.
-  - 🖼️ OCR/image case (24) is skipped: OCR is intentionally OFF; these PDFs are
+  - 🖼️ the OCR/image case is skipped: OCR is intentionally OFF; these PDFs are
     pure text.
 """
 import json
@@ -55,30 +55,27 @@ SCENARIOS = [
     (1, "A-fakt", "Welche Form schreibt das TVG für Tarifverträge vor?", ["TVG6"], "all", [["schriftform", "schriftlich"]], []),
     (2, "A-fakt", "Wann wurde das AGG ausgefertigt?", ["AGG13"], "all", [["14. august 2006", "14.8.2006", "august 2006"]], []),
     (3, "A-fakt", "Was regelt § 211 StGB?", ["StGB173"], "all", [["mord"]], []),
-    (5, "A-fakt", "Wer ist die unabhängige Datenschutz-Aufsichtsbehörde des Bundes nach BDSG?", ["BDSG45"], "all", [["bundesbeauftragte", "bfdi", "informationsfreiheit"]], []),
+    (4, "A-fakt", "Wer ist die unabhängige Datenschutz-Aufsichtsbehörde des Bundes nach BDSG?", ["BDSG45"], "all", [["bundesbeauftragte", "bfdi", "informationsfreiheit"]], []),
 
-    (9, "B-tief", "Auf wen sind die TVG-Vorschriften entsprechend anwendbar?", ["TVG6"], "all", [["arbeitnehmerähnlich"]], []),
+    (5, "B-tief", "Auf wen sind die TVG-Vorschriften entsprechend anwendbar?", ["TVG6"], "all", [["arbeitnehmerähnlich"]], []),
 
-    (10, "C-überblick", "Gib einen Überblick, was das Tarifvertragsgesetz regelt.", ["TVG6"], "all", [["tarifvertrag", "tarifverträge"], ["allgemeinverbindlich"]], []),
-    (12, "C-überblick", "Welche großen Teile hat das StGB?", ["StGB173"], "all", [["allgemein"], ["besonder"]], []),
+    (6, "C-überblick", "Gib einen Überblick, was das Tarifvertragsgesetz regelt.", ["TVG6"], "all", [["tarifvertrag", "tarifverträge"], ["allgemeinverbindlich"]], []),
+    (7, "C-überblick", "Welche großen Teile hat das StGB?", ["StGB173"], "all", [["allgemein"], ["besonder"]], []),
 
-    (13, "D-scope", "Was steht inhaltlich auf Seite 1 des BDSG?", ["BDSG45"], "scope", [["anwendungsbereich", "ds-gvo", "datenschutz", "begriffsbestimmung"]], []),
-    (14, "D-scope", "Fasse Seite 5 des AGG zusammen.", ["AGG13"], "scope", [["schadensersatz", "entschädigung", "maßregelung"]], []),
+    (8, "D-scope", "Was steht inhaltlich auf Seite 1 des BDSG?", ["BDSG45"], "scope", [["anwendungsbereich", "ds-gvo", "datenschutz", "begriffsbestimmung"]], []),
+    (9, "D-scope", "Fasse Seite 5 des AGG zusammen.", ["AGG13"], "scope", [["schadensersatz", "entschädigung", "maßregelung"]], []),
 
-    (15, "E-cross", "Welche unabhängige Bundesstelle gehört zum AGG und welche zum BDSG?", ["AGG13", "BDSG45"], "all", [["antidiskriminierungsstelle", "antidiskriminierung"], ["bundesbeauftragte", "bfdi", "datenschutz"]], []),
-    # #16 ("Betrug vs. Schadensersatz", StGB+BGB) ENTFERNT mit dem BGB-Source.
-    # #17 ("Welche fünf Gesetze sind aktiv?") ENTFERNT — Metadaten-/UI-Frage, kein
-    # RAG-Test. Cross-Source bleibt über #15 + #18 abgedeckt.
-    (18, "E-cross", "Bieten sowohl AGG als auch BDSG eine Beschwerde- bzw. Anrufungsmöglichkeit?", ["AGG13", "BDSG45"], "all", [["beschwerde"], ["bundesbeauftragte", "anrufung", "aufsichtsbehörde", "anrufen"]], []),
+    (10, "E-cross", "Welche unabhängige Bundesstelle gehört zum AGG und welche zum BDSG?", ["AGG13", "BDSG45"], "all", [["antidiskriminierungsstelle", "antidiskriminierung"], ["bundesbeauftragte", "bfdi", "datenschutz"]], []),
+    (11, "E-cross", "Bieten sowohl AGG als auch BDSG eine Beschwerde- bzw. Anrufungsmöglichkeit?", ["AGG13", "BDSG45"], "all", [["beschwerde"], ["bundesbeauftragte", "anrufung", "aufsichtsbehörde", "anrufen"]], []),
 
-    (19, "F-hallu", "Welche Freiheitsstrafe sieht das Tarifvertragsgesetz für Mord vor?", ["TVG6"], "honest", [], []),
-    (20, "F-hallu", "Ab wie vielen Beschäftigten gilt das AGG in einem Unternehmen?", ["AGG13"], "honest", [], []),
+    (12, "F-hallu", "Welche Freiheitsstrafe sieht das Tarifvertragsgesetz für Mord vor?", ["TVG6"], "honest", [], []),
+    (13, "F-hallu", "Ab wie vielen Beschäftigten gilt das AGG in einem Unternehmen?", ["AGG13"], "honest", [], []),
 
-    (21, "G-unmöglich", "Fasse Seite 50 des AGG zusammen.", ["AGG13"], "honest", [], []),
+    (14, "G-unmöglich", "Fasse Seite 50 des AGG zusammen.", ["AGG13"], "honest", [], []),
 
-    (22, "H-format", "Stelle die Sanktionsarten des BDSG als Tabelle oder Stichpunkte dar.", ["BDSG45"], "all", [["bußgeld", "geldbuße"], ["freiheitsstrafe", "straftat", "strafvorschrift"]], []),
+    (15, "H-format", "Stelle die Sanktionsarten des BDSG als Tabelle oder Stichpunkte dar.", ["BDSG45"], "all", [["bußgeld", "geldbuße"], ["freiheitsstrafe", "straftat", "strafvorschrift"]], []),
 
-    (23, "I-tippfehler", "was steth in §242 stgb?", ["StGB173"], "all", [["diebstahl"]], []),
+    (16, "I-tippfehler", "was steth in §242 stgb?", ["StGB173"], "all", [["diebstahl"]], []),
 ]
 
 # Honesty markers for anti-hallucination cases: answer must admit the info is
