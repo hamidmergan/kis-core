@@ -231,7 +231,7 @@ export function MCExerciseView({
                       style={isCorrect
                         ? { color: "#1a8a5c", backgroundColor: "rgba(26,138,92,0.08)" }
                         : { color: "#d4453a", backgroundColor: "rgba(212,69,58,0.07)" }}>
-                      {isCorrect ? `✓ ${t("common.correctShort")}` : <span dangerouslySetInnerHTML={{ __html: `✗ ${t("mcExercise.correctIs")} ${_md(card.back)}` }} />}
+                      {isCorrect ? `✓ ${t("common.correctShort")}` : `✗ ${t("common.wrongShort")}`}
                     </div>
                   )}
                   {/* Source chips + Hint */}

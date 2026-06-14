@@ -31,16 +31,31 @@ def run_generate_data_table(self, data_table_id: int, source_ids: list[int],
         db.update_aia_data_table(data_table_id, "running")
         logger.info("KI Tutor: generating data_table {}", data_table_id)
 
-        # Build context with source filenames for citations
+        # Build context with source filenames for citations. Per-source budget from the admin
+        # aia_tool_context_max_chars setting (shared by all generation tools, separate from the
+        # chat budget); each source goes in whole when it fits, otherwise it is sampled across
+        # the WHOLE document with a per-run jitter so a re-run covers other rows instead of
+        # always the first chunks.
+        import random
+        from src.features.ai_assistant.tasks._context_budget import (
+            tool_context_budget,
+            select_chunks_for_budget,
+        )
         _MEDIA_EXTS = {".mp3", ".mp4", ".m4a", ".wav", ".ogg", ".webm", ".flac", ".aac"}
+        budget_per_source = max(1000, tool_context_budget() // max(1, len(source_ids)))
+        rng = random.Random()
         context_parts: list[str] = []
-        context_len = 0
+        # For post-hoc pgvector attribution (same gate as chat): which source/pages the model
+        # actually saw, and the id->label map. Chips are clamped to these seen pages.
+        source_id_to_label: dict[int, str] = {}
+        seen_pages_by_source: dict[int, set] = {}
         for sid, suuid in zip(source_ids, source_uuids):
             chunks = db.get_chunks_by_source(sid)
             src_info = source_map.get(str(sid), {})
             filename = src_info.get("filename", f"Source {src_info.get('number', '?')}")
+            source_id_to_label[sid] = filename
             is_media = any(filename.lower().endswith(ext) for ext in _MEDIA_EXTS)
-            for chunk in chunks:
+            for chunk in select_chunks_for_budget(chunks, budget_per_source, rng=rng):
                 if is_media and chunk.get("start_time") is not None:
                     st = chunk["start_time"]
                     h, m, s = int(st // 3600), int((st % 3600) // 60), int(st % 60)
@@ -48,10 +63,8 @@ def run_generate_data_table(self, data_table_id: int, source_ids: list[int],
                     part = f"[{filename}, {ts}]\n{chunk['content']}"
                 else:
                     part = f"[{filename}, S. {chunk['page_number']}]\n{chunk['content']}"
-                if context_len + len(part) > 200000:
-                    break
                 context_parts.append(part)
-                context_len += len(part)
+                seen_pages_by_source.setdefault(sid, set()).add(chunk["page_number"])
 
         if not context_parts:
             db.update_aia_data_table(data_table_id, "failed", error="Keine Chunks vorhanden")
@@ -88,6 +101,27 @@ def run_generate_data_table(self, data_table_id: int, source_ids: list[int],
         if not isinstance(table_data, dict) or "columns" not in table_data or "rows" not in table_data:
             db.update_aia_data_table(data_table_id, "failed", error="Invalid table format")
             return
+
+        # Post-hoc attribution (same pgvector gate as chat), nav-only: re-ground each row's
+        # content and OVERWRITE the LLM's guessed page/highlight with the verified page (or a
+        # media timestamp). A row that grounds nowhere gets no chip rather than a fabricated one.
+        from src.features.ai_assistant.tasks.studio._attribution import (
+            attribute_studio_claims, nav_page_value,
+        )
+        rows = table_data.get("rows") or []
+        workspace_id = None
+        if source_uuids:
+            first = db.get_aia_source(source_uuids[0])
+            workspace_id = first.get("workspace_id") if first else None
+        claims = [" ".join(str(c) for c in (r.get("cells") or []) if c).strip() for r in rows]
+        chip_lists = attribute_studio_claims(
+            claims, workspace_id=workspace_id, source_ids=source_ids,
+            source_id_to_label=source_id_to_label, seen_pages_by_source=seen_pages_by_source,
+        )
+        for r, chips in zip(rows, chip_lists):
+            r["sources"] = [
+                {"source_label": c["source_label"], "page": nav_page_value(c)} for c in chips
+            ]
 
         sources_list = [
             {"number": info["number"], "filename": info["filename"]}

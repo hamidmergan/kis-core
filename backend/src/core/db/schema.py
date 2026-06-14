@@ -609,12 +609,10 @@ def init_db(admin_email: Optional[str] = None) -> None:
                     chat_lang            TEXT NOT NULL DEFAULT 'de',
                     studio_enabled       BOOLEAN NOT NULL DEFAULT TRUE,
                     language_training_active BOOLEAN NOT NULL DEFAULT FALSE,
-                    show_all_sources     BOOLEAN NOT NULL DEFAULT FALSE,
                     UNIQUE (workspace_id, user_id)
                 )
             """)
             cur.execute("ALTER TABLE aia_user_settings ADD COLUMN IF NOT EXISTS studio_enabled BOOLEAN NOT NULL DEFAULT TRUE")
-            cur.execute("ALTER TABLE aia_user_settings ADD COLUMN IF NOT EXISTS show_all_sources BOOLEAN NOT NULL DEFAULT FALSE")
             cur.execute("""
                 CREATE TABLE IF NOT EXISTS aia_notes (
                     id           SERIAL PRIMARY KEY,

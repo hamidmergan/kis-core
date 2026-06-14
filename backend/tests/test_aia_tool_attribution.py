@@ -38,7 +38,7 @@ def test_attach_chips_sets_sources_and_primary_fields():
 
     def search_fn(text, vec):
         if text == "X":
-            return [{"source_id": 1, "page_number": 4, "content": "x",
+            return [{"source_id": 1, "page_number": 4, "content": "lorem ipsum " * 12,
                      "vec_distance": 0.2, "start_time": None}]
         return []  # Y grounds nowhere -> no chip
 
@@ -59,7 +59,7 @@ def test_attach_chips_clamps_to_seen_pages():
         return [[1.0, 0.0] for _ in texts]
 
     def search_fn(text, vec):
-        return [{"source_id": 1, "page_number": 9, "content": "x",
+        return [{"source_id": 1, "page_number": 9, "content": "lorem ipsum " * 12,
                  "vec_distance": 0.2, "start_time": None}]
 
     out = attach_chips(items, ["X"], _ctx(), multi=False, embed_fn=embed_fn, search_fn=search_fn)

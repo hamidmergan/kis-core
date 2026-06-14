@@ -1130,6 +1130,14 @@
       "outOfRange": "Wert muss zwischen 1000 und 500000 liegen.",
       "saveFailed": "Speichern fehlgeschlagen."
     },
+    "toolContextBudgetCard": {
+      "title": "Tools Kontext-Budget",
+      "hint": "Wie viel Quelltext (in Zeichen) die Lern-Tools (Mindmap, Datentabelle, Quiz, Lernkarte, Begriffe-Quiz, Lückentext, Karteikarten) ins Modell geben. Getrennt vom Chat-Budget, weil ein Tool ein ganzes Dokument in einem Aufruf verarbeitet. Der Wert wird durch die Anzahl der ausgewählten Quellen geteilt. Default 250000 ist für mittlere Modelle sicher. Höher setzen (z.B. 450000 oder 900000) nur, wenn ein Modell mit großem Kontext läuft.",
+      "unit": "Zeichen",
+      "approxTokens": "≈ {n}k Token",
+      "outOfRange": "Wert muss zwischen 1000 und 1000000 liegen.",
+      "saveFailed": "Speichern fehlgeschlagen."
+    },
     "summaryBatchCard": {
       "title": "Zusammenfassung – Häppchengröße",
       "hint": "Wie viel Text (in Zeichen) beim Hochladen pro Zusammenfassungs-Aufruf ans Modell geht. Größer = weniger Aufrufe (schont das Rate-Limit des Anbieters), aber jede Teil-Zusammenfassung wird gröber. Default 360000 (~72 Seiten) ist eine gute Balance.",
@@ -1525,6 +1533,7 @@
           "know": "Gewusst!",
           "minimizePanel": "Panel minimieren",
           "correctShort": "Richtig!",
+          "wrongShort": "Falsch",
           "downloadAsText": "Als Textdatei herunterladen",
           "hint": "Tipp",
           "learnMore": "Mehr erfahren"
@@ -1583,8 +1592,7 @@
         "mcExercise": {
           "quizCompleted": "Quiz abgeschlossen!",
           "quizScore": "<hl>{correct} / {total}</hl> richtig, <hl>{pct}%</hl>",
-          "tryAgain": "Erneut versuchen",
-          "correctIs": "Richtig wäre:"
+          "tryAgain": "Erneut versuchen"
         },
         "glossary": {
           "title": "Glossar",
@@ -1685,8 +1693,6 @@
         "studioDescription": "Studio-Panel mit Mindmaps, Notizen und Tools einblenden.",
         "languageTrainingTitle": "Fachsprachentraining",
         "languageTrainingDescription": "Zeigt den Fachsprachentraining-Tab im Studio.",
-        "showAllSourcesTitle": "Alle Quellen anzeigen",
-        "showAllSourcesDescription": "Zeigt zu jeder Aussage alle Fundstellen als Quellen-Chips, nicht nur die besten.",
         "translationModeTitle": "Übersetzung der Transkripte",
         "translationModeDescription": "Übersetzt Untertitel von Audio-/Video-Quellen in die unten gewählte Zielsprache. Die Quellsprache wird automatisch erkannt. Studierende können im Transkript-Panel zwischen Original und Übersetzung umschalten. Die Übersetzung läuft als Hintergrund-Job und kann ein paar Minuten dauern.",
         "translationModeOff": "Aus",
@@ -1802,6 +1808,7 @@
         "back": "Zurück",
         "dismissHighlight": "Markierung aufheben",
         "jumpToHighlightPage": "Zur Markierung springen (S. {page})",
+        "jumpToHighlightTime": "Zur Markierung springen ({time})",
         "transcriptLabel": "Transkript",
         "transcriptLoading": "Transkript wird geladen...",
         "jumpToCurrent": "Zum aktuellen Transkript springen",

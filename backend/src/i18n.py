@@ -214,6 +214,10 @@ MESSAGES: dict[str, dict[str, str]] = {
         "de": "Kontext-Budget muss zwischen {min} und {max} Zeichen liegen.",
         "en": "Context budget must be between {min} and {max} characters.",
     },
+    "admin.settings.toolContextBudgetOutOfRange": {
+        "de": "Tool-Kontext-Budget muss zwischen {min} und {max} Zeichen liegen.",
+        "en": "Tool context budget must be between {min} and {max} characters.",
+    },
     "admin.settings.summaryBatchOutOfRange": {
         "de": "Zusammenfassungs-Häppchen muss zwischen {min} und {max} Zeichen liegen.",
         "en": "Summary batch must be between {min} and {max} characters.",

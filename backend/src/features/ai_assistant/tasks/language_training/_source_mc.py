@@ -5,7 +5,6 @@ import json
 from src.features.ai_assistant.tasks._helpers import _clean_llm_json
 
 from src.features.ai_assistant.tasks.language_training._attribution import attach_chips
-from src.features.ai_assistant.tasks.language_training._card_base import with_avoid
 from src.features.ai_assistant.tasks.language_training._context import QuelleContext
 from src.features.ai_assistant.tasks.language_training._title import title_from_items
 
@@ -27,19 +26,20 @@ def generate_mc_from_source(
     ctx: QuelleContext,
     tool: str,
     count: int,
-    existing_fronts: list[str],
     locale: str = "de",
 ) -> tuple[list[dict], str]:
     language = _language_label(locale)
     tool_prompt = _build_prompt(tool, count, language)
+    # No "already exists, avoid these" block: feeding the old questions back made the model
+    # COPY them verbatim (it even reproduced a "laut Seite 7" question for a page no longer in
+    # context). Variation comes instead from the rotating page subset in build_source_context.
     messages = [
         {"role": "system", "content": tool_prompt},
-        {"role": "user", "content": with_avoid(
-            existing_fronts,
-            f"Write the output in {language}.\n\nSources:\n\n{ctx.context}",
-        )},
+        {"role": "user", "content": f"Write the output in {language}.\n\nSources:\n\n{ctx.context}"},
     ]
-    response = client.chat.completions.create(model=model, messages=messages, temperature=0.3)
+    # 0.6 (not 0.3): a little sampling diversity for wording. The real variation comes from the
+    # rotating page subset in build_source_context (different chunks per run). Still JSON-safe.
+    response = client.chat.completions.create(model=model, messages=messages, temperature=0.6)
     answer = _clean_llm_json(response.choices[0].message.content or "")
     exercises = json.loads(answer)
     if isinstance(exercises, list):

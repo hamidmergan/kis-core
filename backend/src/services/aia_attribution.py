@@ -25,6 +25,14 @@ from src.features.ai_assistant.routes._helpers import (
     _MAX_CHIPS_PER_LINE,
 )
 
+# Minimum chunk length (chars) to be a citation anchor. Slide decks get chunked into tiny
+# running-header/title fragments (e.g. "WISSENSCHAFTLICHES ARBEITEN UND PUBLIZIEREN? VON DER
+# IDEE ZUR VERÖFFENTLICHUNG", ~80 chars). Such a generic title sits close to almost ANY query
+# and becomes a "magnet" that mis-anchors short claims (a mindmap label) to its page. Real
+# content chunks are 200+ chars and media transcript segments ~580 avg, so this floor drops the
+# boilerplate without touching genuine matches.
+_MIN_ATTRIB_CONTENT = 100
+
 
 def _chip_key(chip: dict) -> tuple:
     """Identity of a nav chip: source + page (PDF) or timestamp (media)."""
@@ -46,6 +54,7 @@ def attribute_claims(
     source_id_to_label: dict[int, str],
     *,
     multi: bool = False,
+    max_distance: float = _GENERIC_ATTRIB_MAX_DIST,
     workspace_id: int | None = None,
     source_ids: list[int] | None = None,
     seen_pages_by_source: dict | None = None,
@@ -56,9 +65,11 @@ def attribute_claims(
 
     Embeds ALL claims in ONE call (``embed_fn``), then per claim runs hybrid search
     (``search_fn``) scoped to ``source_ids`` and selects chips via :func:`chips_for_claim`.
-    ``seen_pages_by_source`` (optional) clamps chips to pages actually shown to the LLM, like
-    the chat's seen-check. ``embed_fn``/``search_fn`` are injectable for testing; in production
-    they default to the shared embedding provider and ``db.hybrid_search_chunks`` (fuzzy OFF)."""
+    ``max_distance`` is the gate handed to the selector — a caller with thin claims (e.g. a
+    mindmap's one-word node labels) can tighten it so weak matches abstain instead of citing a
+    near-but-wrong page. ``seen_pages_by_source`` (optional) clamps chips to pages actually shown
+    to the LLM, like the chat's seen-check. ``embed_fn``/``search_fn`` are injectable for testing;
+    in production they default to the shared embedding provider and ``db.hybrid_search_chunks``."""
     if not claims:
         return []
 
@@ -88,6 +99,7 @@ def attribute_claims(
             logger.warning("aia attribution: search failed for a claim, no chip: {}", e)
             hits = []
         out.append(chips_for_claim(hits, source_id_to_label, multi=multi,
+                                   max_distance=max_distance,
                                    seen_pages_by_source=seen_pages_by_source))
     return out
 
@@ -112,6 +124,9 @@ def chips_for_claim(
     was not in the generation context.
 
     Returns ``[]`` when nothing lands within the distance gate (no fabricated source)."""
+    # Drop boilerplate/title fragments so a generic running-header chunk can't become a magnet
+    # that mis-anchors a thin claim (see _MIN_ATTRIB_CONTENT).
+    hits = [h for h in hits if len(h.get("content") or "") >= _MIN_ATTRIB_CONTENT]
     if seen_pages_by_source is not None:
         hits = [h for h in hits if _is_seen(h, seen_pages_by_source)]
     best = _pick_attribution(hits, max_distance)

@@ -11,7 +11,6 @@ interface WorkspaceSettings {
   chat_lang: "de" | "en";
   studio_enabled: boolean;
   language_training_active: boolean;
-  show_all_sources: boolean;
 }
 
 interface UseWorkspaceInitOptions {
@@ -60,7 +59,6 @@ export function useWorkspaceInit(opts: UseWorkspaceInitOptions) {
             chat_lang: s.chat_lang ?? "de",
             studio_enabled: s.studio_enabled ?? true,
             language_training_active: s.language_training_active ?? false,
-            show_all_sources: s.show_all_sources ?? false,
           });
         }
 

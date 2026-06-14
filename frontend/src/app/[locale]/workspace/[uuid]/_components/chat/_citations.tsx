@@ -218,6 +218,14 @@ export function parseCitations(
     if (timestamp) {
       const tp = timestamp.split(":").map(Number);
       seconds = tp.length === 3 ? tp[0] * 3600 + tp[1] * 60 + tp[2] : tp[0] * 60 + tp[1];
+      // The MM:SS token is the chunk start floored to whole seconds (backend int()). Recover
+      // the EXACT float start from source_pages, so the viewer pins the precise transcript
+      // cue instead of re-deriving from the lossy second. Matched by source + same floored
+      // second; chunks of one source are seconds apart, so that floor is unique.
+      const exact = msgSourcePages.find(
+        (s) => s.source_uuid === sourceUuid && s.start_time != null && Math.floor(s.start_time) === seconds,
+      );
+      if (exact?.start_time != null) seconds = exact.start_time;
     }
     // Popup/action-bar exact selection: the user marked this verbatim text, so the
     // chip still highlights it exactly (the ONLY remaining chip-driven highlight).

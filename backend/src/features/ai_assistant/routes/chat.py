@@ -466,46 +466,43 @@ async def _classify_intent(llm, question: str) -> str:
     return verdict
 
 
-def _parse_understanding(content: str) -> tuple[str, dict, list[str], bool]:
+def _parse_understanding(content: str) -> tuple[str, dict, list[str]]:
     """Parse the combined query-understanding reply into
-    ``(intent, scope, subqueries, exhaustive)``.
+    ``(intent, scope, subqueries)``.
 
     Tolerant: strips <think>/code-fences, takes the first JSON object. ``intent``
     defaults to SPECIFIC (the conservative route); ``scope`` is validated by
     ``_parse_scope_response``; ``subqueries`` is the question split into its distinct
     asks for retrieval (empty when not decomposed / missing → caller uses the full
-    question); ``exhaustive`` is the "show me ALL sources" flag (defaults False). If the
-    JSON is broken we still salvage a GENERIC token if present. Any garbage →
-    ``("SPECIFIC", {"unit": None, "intervals": []}, [], False)``."""
+    question). If the JSON is broken we still salvage a GENERIC token if present. Any
+    garbage → ``("SPECIFIC", {"unit": None, "intervals": []}, [])``."""
     import json
     raw = re.sub(r"<think>.*?</think>", "", content or "", flags=re.DOTALL)
     raw = raw.replace("```json", "").replace("```", "")
     m = re.search(r"\{.*\}", raw, re.DOTALL)
     if not m:
-        return "SPECIFIC", {"unit": None, "intervals": []}, [], False
+        return "SPECIFIC", {"unit": None, "intervals": []}, []
     try:
         obj = json.loads(m.group(0))
     except Exception:
         cleaned = re.sub(r"[^A-Za-z]+", " ", raw).upper().split()
-        return ("GENERIC" if "GENERIC" in cleaned else "SPECIFIC"), {"unit": None, "intervals": []}, [], False
+        return ("GENERIC" if "GENERIC" in cleaned else "SPECIFIC"), {"unit": None, "intervals": []}, []
     intent = "GENERIC" if "GENERIC" in str(obj.get("intent", "")).upper() else "SPECIFIC"
     scope_obj = obj.get("scope")
     scope = _parse_scope_response(json.dumps(scope_obj)) if scope_obj else {"unit": None, "intervals": []}
     subs_raw = obj.get("subqueries")
     subqueries = ([s.strip() for s in subs_raw if isinstance(s, str) and s.strip()][:3]
                   if isinstance(subs_raw, list) else [])
-    exhaustive = bool(obj.get("exhaustive", False))
-    return intent, scope, subqueries, exhaustive
+    return intent, scope, subqueries
 
 
-async def _understand_query(llm, question: str) -> tuple[str, dict, list[str], bool]:
+async def _understand_query(llm, question: str) -> tuple[str, dict, list[str]]:
     """ONE pre-call that does ALL query-understanding jobs in a single round-trip:
-    route GENERIC vs SPECIFIC, extract any explicit page/time scope, split compound
-    questions into subqueries, AND flag an explicit "show me all sources" ask. Replaces
-    the separate pre-calls. Returns ``(intent, scope, subqueries, exhaustive)``. On any
-    failure → ``("SPECIFIC", empty scope, [], False)`` — the conservative route; the
-    regex fallback still covers simple page refs downstream. Runs in a worker thread so a
-    stalled provider cannot block the event loop."""
+    route GENERIC vs SPECIFIC, extract any explicit page/time scope, and split compound
+    questions into subqueries. Replaces the separate pre-calls. Returns
+    ``(intent, scope, subqueries)``. On any failure → ``("SPECIFIC", empty scope, [])`` —
+    the conservative route; the regex fallback still covers simple page refs downstream.
+    Runs in a worker thread so a stalled provider cannot block the event loop."""
     import asyncio
     def _call():
         # 60s covers Ollama cold-start; warm calls return in ~500ms.
@@ -525,11 +522,11 @@ async def _understand_query(llm, question: str) -> tuple[str, dict, list[str], b
         raw = msg.content or getattr(msg, "reasoning_content", None) or ""
     except Exception as e:
         logger.warning("Query understanding failed, defaulting to SPECIFIC/no-scope: {}", e)
-        return "SPECIFIC", {"unit": None, "intervals": []}, [], False
-    intent, scope, subqueries, exhaustive = _parse_understanding(raw)
-    logger.info("Query understanding: '{}' → intent={} scope={} subqueries={} exhaustive={}",
-                question[:50], intent, scope, subqueries, exhaustive)
-    return intent, scope, subqueries, exhaustive
+        return "SPECIFIC", {"unit": None, "intervals": []}, []
+    intent, scope, subqueries = _parse_understanding(raw)
+    logger.info("Query understanding: '{}' → intent={} scope={} subqueries={}",
+                question[:50], intent, scope, subqueries)
+    return intent, scope, subqueries
 
 
 def _context_budget() -> int:
@@ -963,6 +960,7 @@ from src.features.ai_assistant.routes._helpers import (
     _strip_inline_citation_chips,
     _attribute_generic_text,
     _needs_attribution,
+    _clauses,
     _refusal_lines,
     _append_scope_anchor,
     _ALLOWED_EXTENSIONS,
@@ -1098,19 +1096,15 @@ async def chat(
     # Routing drives: GENERIC → wide overview retrieval + overview system prompt;
     # SPECIFIC → neighbor-expansion retrieval; scope → exact page/time chunks.
     if _should_skip_intent_classification(body.source_text, source_ids, body.question):
-        intent, scope_raw, subqueries, exhaustive_q = "SPECIFIC", None, [], False
+        intent, scope_raw, subqueries = "SPECIFIC", None, []
         logger.info("Chat: pre-call skipped → SPECIFIC ('{}' across {} sources)",
                     body.question[:60], len(source_ids or []))
     else:
         import time as _t_pc
         _t_pc0 = _t_pc.monotonic()
-        intent, scope_raw, subqueries, exhaustive_q = await _understand_query(llm, body.question)
-        logger.info("Chat: pre-call routed intent={} scope={} subqueries={} exhaustive={} in {:.1f}s ('{}' across {} sources)",
-                    intent, scope_raw, len(subqueries), exhaustive_q, _t_pc.monotonic() - _t_pc0, body.question[:60], len(source_ids or []))
-
-    # "alle Quellen"-Modus: Per-User-Toggle ODER erkannte Aufforderung. Post-hoc
-    # Attribution, daher kein Kontext-Risiko.
-    exhaustive_cites = bool(_user_settings.get("show_all_sources")) or bool(exhaustive_q)
+        intent, scope_raw, subqueries = await _understand_query(llm, body.question)
+        logger.info("Chat: pre-call routed intent={} scope={} subqueries={} in {:.1f}s ('{}' across {} sources)",
+                    intent, scope_raw, len(subqueries), _t_pc.monotonic() - _t_pc0, body.question[:60], len(source_ids or []))
 
     # The question is always used as-is: no conversation history is sent to the
     # LLM. Each turn is fully standalone (no follow-up condensing, no leaks).
@@ -1735,17 +1729,26 @@ async def chat(
                     # is excluded from attribution, so a compound answer never sources its
                     # "not in the sources" sentence.
                     _cands = [ln for ln in _stripped.split("\n") if _needs_attribution(ln)]
+                    # Clause sub-queries ride in the SAME batch (no extra provider round-trips):
+                    # a multi-fact line is attributed fact-by-fact, each clause searched on its
+                    # own focused vector.
+                    _clause_units: list[str] = []
+                    for _ln in _cands:
+                        for _cl in _clauses(_ln):
+                            if _cl not in _cands and _cl not in _clause_units:
+                                _clause_units.append(_cl)
+                    _batch_lines = _cands + _clause_units
                     _sentinels = list(RAG_NO_INFO_SENTINEL.values())
                     _vec_by_line: dict[str, list] = {}
                     _sentinel_vecs: list = []
-                    if _cands:
+                    if _batch_lines:
                         try:
-                            logger.info("post-hoc attribution: batch-embedding {} candidate lines (+{} sentinels) in ONE call", len(_cands), len(_sentinels))
-                            _batch = _cands + _sentinels
+                            logger.info("post-hoc attribution: batch-embedding {} candidate lines (+{} clauses, +{} sentinels) in ONE call", len(_cands), len(_clause_units), len(_sentinels))
+                            _batch = _batch_lines + _sentinels
                             _vecs = _prov.embed(_batch)
                             if len(_vecs) == len(_batch):
-                                _vec_by_line = dict(zip(_cands, _vecs[:len(_cands)]))
-                                _sentinel_vecs = _vecs[len(_cands):]
+                                _vec_by_line = dict(zip(_batch_lines, _vecs[:len(_batch_lines)]))
+                                _sentinel_vecs = _vecs[len(_batch_lines):]
                         except Exception as e:
                             logger.warning("post-hoc batch embedding failed, falling back per-line: {}", e)
                     _refusals = _refusal_lines(_cands, _vec_by_line, _sentinel_vecs)
@@ -1760,16 +1763,15 @@ async def chat(
                             # closest one the model saw (a fact often sits on several pages).
                             return db.hybrid_search_chunks(workspace["id"], _line, _qv,
                                                            source_ids=source_ids,
-                                                           limit=30 if exhaustive_cites else 10)
+                                                           limit=10)
                         except Exception as e:
                             logger.warning("post-hoc attribution search failed for a line: {}", e)
                             return []
 
                     return _attribute_generic_text(_stripped, _search_one, source_id_to_qnum,
-                                                   # Exhaustive ("alle Quellen"): drop the seen-page
-                                                   # clamp so chips can point at EVERY occurrence in
-                                                   # the active selection, not only retrieved pages.
-                                                   seen_pages_by_source=(None if exhaustive_cites else seen_pages_by_source),
+                                                   # Chips may only point at pages the model
+                                                   # actually saw (cross-check vs. retrieved pages).
+                                                   seen_pages_by_source=seen_pages_by_source,
                                                    # GENERIC overview: drop the loose guarantee chip
                                                    # and chip-free the multi-law synthesis lines.
                                                    overview=(intent == "GENERIC" and not scope_chunks),
@@ -1779,9 +1781,6 @@ async def chat(
                                                    # Honest "not in the sources" lines get no chip,
                                                    # even inside an otherwise-grounded compound answer.
                                                    refusal_lines=_refusals,
-                                                   # "alle Quellen": lift the 3-chip cap to 10, drop
-                                                   # the relative delta gate, surface all hits.
-                                                   exhaustive=exhaustive_cites,
                                                    # Explicit page/time scope ("ab Minute 40"): the
                                                    # post-hoc search still sweeps the WHOLE source, so
                                                    # clamp citations to the scoped chunks — otherwise a

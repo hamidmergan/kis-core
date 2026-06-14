@@ -128,14 +128,14 @@ async def test_classify_intent_defaults_specific_on_error():
 # ── combined query understanding (intent + scope in ONE call) ────────────────
 
 def test_parse_understanding_intent_and_page_scope():
-    intent, scope, _subs, _exh =_parse_understanding(
+    intent, scope, _subs =_parse_understanding(
         '{"intent":"GENERIC","scope":{"unit":"page","intervals":[[5,5]]}}')
     assert intent == "GENERIC"
     assert scope == {"unit": "page", "intervals": [[5, 5]]}
 
 
 def test_parse_understanding_specific_no_scope():
-    intent, scope, _subs, _exh =_parse_understanding(
+    intent, scope, _subs =_parse_understanding(
         '{"intent":"SPECIFIC","scope":{"unit":null,"intervals":[]}}')
     assert intent == "SPECIFIC"
     assert scope == {"unit": None, "intervals": []}
@@ -143,52 +143,39 @@ def test_parse_understanding_specific_no_scope():
 
 def test_parse_understanding_strips_think_and_fences():
     raw = '<think>hmm</think>```json\n{"intent":"SPECIFIC","scope":{"unit":"time","intervals":[[10,10]]}}\n```'
-    intent, scope, _subs, _exh =_parse_understanding(raw)
+    intent, scope, _subs =_parse_understanding(raw)
     assert intent == "SPECIFIC" and scope == {"unit": "time", "intervals": [[10, 10]]}
 
 
 def test_parse_understanding_salvages_generic_from_broken_json():
     # braces present but invalid JSON -> still salvage the GENERIC token
-    intent, scope, _subs, _exh =_parse_understanding("{intent: GENERIC, broken,}")
+    intent, scope, _subs =_parse_understanding("{intent: GENERIC, broken,}")
     assert intent == "GENERIC" and scope == {"unit": None, "intervals": []}
 
 
 def test_parse_understanding_garbage_defaults_specific():
-    intent, scope, _subs, _exh =_parse_understanding("no json at all")
+    intent, scope, _subs =_parse_understanding("no json at all")
     assert intent == "SPECIFIC" and scope == {"unit": None, "intervals": []}
 
 
 def test_parse_understanding_extracts_subqueries():
-    intent, scope, subs, _exh = _parse_understanding(
+    intent, scope, subs = _parse_understanding(
         '{"intent":"SPECIFIC","scope":{"unit":null,"intervals":[]},'
         '"subqueries":["was schützt das UrhG","was schützt das MarkenG"]}')
     assert intent == "SPECIFIC"
     assert subs == ["was schützt das UrhG", "was schützt das MarkenG"]
 
 
-def test_parse_understanding_exhaustive_true():
-    _i, _s, _subs, exhaustive = _parse_understanding(
-        '{"intent": "SPECIFIC", "scope": {"unit": null, "intervals": []}, '
-        '"subqueries": [], "exhaustive": true}')
-    assert exhaustive is True
-
-
-def test_parse_understanding_exhaustive_defaults_false():
-    _i, _s, _subs, exhaustive = _parse_understanding(
-        '{"intent": "SPECIFIC", "scope": {"unit": null, "intervals": []}}')
-    assert exhaustive is False
-
-
 def test_parse_understanding_subqueries_filtered_and_capped():
     # non-strings and blanks dropped; capped at 3 for retrieval cost control
-    _i, _s, subs, _exh = _parse_understanding(
+    _i, _s, subs = _parse_understanding(
         '{"intent":"SPECIFIC","scope":{"unit":null,"intervals":[]},'
         '"subqueries":["a","",null,5,"b","c","d"]}')
     assert subs == ["a", "b", "c"]
 
 
 def test_parse_understanding_missing_subqueries_is_empty():
-    _i, _s, subs, _exh = _parse_understanding(
+    _i, _s, subs = _parse_understanding(
         '{"intent":"GENERIC","scope":{"unit":null,"intervals":[]}}')
     assert subs == []
 
@@ -196,13 +183,13 @@ def test_parse_understanding_missing_subqueries_is_empty():
 @pytest.mark.asyncio
 async def test_understand_query_reads_both():
     llm = FakeLLM(content='{"intent":"GENERIC","scope":{"unit":"page","intervals":[[12,14]]}}')
-    intent, scope, _subs, _exh =await _understand_query(llm, "fasse Seite 12 bis 14 zusammen")
+    intent, scope, _subs =await _understand_query(llm, "fasse Seite 12 bis 14 zusammen")
     assert intent == "GENERIC" and scope == {"unit": "page", "intervals": [[12, 14]]}
 
 
 @pytest.mark.asyncio
 async def test_understand_query_defaults_on_error():
-    intent, scope, _subs, _exh =await _understand_query(FakeLLM(raise_exc=True), "x")
+    intent, scope, _subs =await _understand_query(FakeLLM(raise_exc=True), "x")
     assert intent == "SPECIFIC" and scope == {"unit": None, "intervals": []}
 
 

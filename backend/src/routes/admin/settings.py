@@ -15,6 +15,8 @@ from src.i18n import get_locale, t
 from src.limits import (
     AIA_CONTEXT_MAX_CHARS,
     AIA_CONTEXT_HARD_CAP,
+    AIA_TOOL_CONTEXT_MAX_CHARS,
+    AIA_TOOL_CONTEXT_HARD_CAP,
     AIA_PARALLEL_SLOTS,
     AIA_SUMMARY_BATCH_MAX_CHARS,
     AIA_EMBEDDING_BATCH_SIZE,
@@ -60,6 +62,11 @@ async def get_settings(_admin=Depends(get_admin_user)):
         # KI-tutor chat context budget (chars). Default sized for 32k models.
         "aia_context_max_chars": int(
             db.get_setting("aia_context_max_chars", str(AIA_CONTEXT_MAX_CHARS))
+        ),
+        # Context budget (chars) for the generation tools (mindmap, data table, quiz, …).
+        # Separate from the chat budget; divided by the number of sources at generation time.
+        "aia_tool_context_max_chars": int(
+            db.get_setting("aia_tool_context_max_chars", str(AIA_TOOL_CONTEXT_MAX_CHARS))
         ),
         # Ingest-side DOC SUMMARY per-batch char cap (bigger = fewer summary calls).
         "aia_summary_batch_max_chars": int(
@@ -160,6 +167,18 @@ async def update_settings(
                 detail=t("admin.settings.contextBudgetOutOfRange", locale, min=1000, max=AIA_CONTEXT_HARD_CAP),
             )
         db.set_setting("aia_context_max_chars", str(value))
+
+    # Generation-tools context budget in characters. Same lower bound as the chat
+    # budget; upper bound = AIA_TOOL_CONTEXT_HARD_CAP (higher than the chat cap, the
+    # tools pack a whole document into one call and may run on a large/cloud model).
+    if body.aia_tool_context_max_chars is not None:
+        value = body.aia_tool_context_max_chars
+        if value < 1000 or value > AIA_TOOL_CONTEXT_HARD_CAP:
+            raise HTTPException(
+                status_code=400,
+                detail=t("admin.settings.toolContextBudgetOutOfRange", locale, min=1000, max=AIA_TOOL_CONTEXT_HARD_CAP),
+            )
+        db.set_setting("aia_tool_context_max_chars", str(value))
 
     # Summary per-batch char cap. Lower bound ~ one chunk; upper bound 500k chars
     # (~140k tokens) so an admin typo can't push a single summary batch past even

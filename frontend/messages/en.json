@@ -1130,6 +1130,14 @@
       "outOfRange": "Value must be between 1000 and 500000.",
       "saveFailed": "Save failed."
     },
+    "toolContextBudgetCard": {
+      "title": "Tools context budget",
+      "hint": "How much source text (in characters) the learning tools (mind map, data table, quiz, flashcards, glossary, cloze, cards) send to the model. Separate from the chat budget because a tool processes a whole document in one call. The value is divided by the number of selected sources. The default 250000 is safe for mid-tier models. Raise it (e.g. 450000 or 900000) only when running a large-context model.",
+      "unit": "characters",
+      "approxTokens": "≈ {n}k tokens",
+      "outOfRange": "Value must be between 1000 and 1000000.",
+      "saveFailed": "Save failed."
+    },
     "summaryBatchCard": {
       "title": "Summary – batch size",
       "hint": "How much text (in characters) is sent to the model per summary call during upload. Larger = fewer calls (eases the provider's rate limit), but each partial summary gets coarser. Default 360000 (~72 pages) is a good balance.",
@@ -1525,6 +1533,7 @@
           "know": "Knew it!",
           "minimizePanel": "Minimize panel",
           "correctShort": "Correct!",
+          "wrongShort": "Incorrect",
           "downloadAsText": "Download as text file",
           "hint": "Hint",
           "learnMore": "Learn more"
@@ -1583,8 +1592,7 @@
         "mcExercise": {
           "quizCompleted": "Quiz completed!",
           "quizScore": "<hl>{correct} / {total}</hl> correct, <hl>{pct}%</hl>",
-          "tryAgain": "Try again",
-          "correctIs": "Correct answer:"
+          "tryAgain": "Try again"
         },
         "glossary": {
           "title": "Glossary",
@@ -1685,8 +1693,6 @@
         "studioDescription": "Show the studio panel with mind maps, notes and tools.",
         "languageTrainingTitle": "Language training",
         "languageTrainingDescription": "Shows the language training tab in studio.",
-        "showAllSourcesTitle": "Show all sources",
-        "showAllSourcesDescription": "Shows every place a statement appears as source chips, not only the best ones.",
         "translationModeTitle": "Transcript translation",
         "translationModeDescription": "Translates subtitles of audio/video sources into the target language chosen below. The source language is detected automatically. Students can switch between original and translation in the transcript panel. Translation runs as a background job and can take a few minutes.",
         "translationModeOff": "Off",
@@ -1802,6 +1808,7 @@
         "back": "Back",
         "dismissHighlight": "Clear highlight",
         "jumpToHighlightPage": "Jump to highlight (p. {page})",
+        "jumpToHighlightTime": "Jump to highlight ({time})",
         "transcriptLabel": "Transcript",
         "transcriptLoading": "Loading transcript...",
         "jumpToCurrent": "Jump to current transcript",

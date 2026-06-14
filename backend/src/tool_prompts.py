@@ -427,7 +427,7 @@ AIA_SCOPE_EXTRACTOR_SYSTEM = (
 AIA_QUERY_UNDERSTANDING_SYSTEM = (
     "You analyze ONE question a user asks about their documents and output ONLY a "
     "compact JSON object, nothing else:\n"
-    '{"intent":"GENERIC"|"SPECIFIC","scope":{"unit":"page"|"time"|"unknown"|null,"intervals":[[from,to]]},"subqueries":["...",...],"exhaustive":true|false}\n'
+    '{"intent":"GENERIC"|"SPECIFIC","scope":{"unit":"page"|"time"|"unknown"|null,"intervals":[[from,to]]},"subqueries":["...",...]}\n'
     "\n"
     "intent:\n"
     '- "GENERIC": the user wants a summary, overview, or the main topics across the '
@@ -457,20 +457,11 @@ AIA_QUERY_UNDERSTANDING_SYSTEM = (
     "asks about ONE thing, return a single-element list with the question itself. Max 3 "
     "items, same language as the question.\n"
     "\n"
-    "exhaustive: true ONLY when the user explicitly wants to see ALL sources / every "
-    "place a fact appears (e.g. \"zeige alle Quellen\", \"wo ueberall steht das\", "
-    "\"alle Stellen\", \"in welchen Dokumenten\", \"list every source\", "
-    "\"show all references / all occurrences\", in ANY language). Otherwise false. This "
-    "is about wanting an exhaustive list of LOCATIONS, not the depth of the answer.\n"
-    "\n"
     "Understand ANY language and ANY phrasing; ignore typos and glued tokens.\n"
     "\n"
     "Examples (Input -> Output):\n"
-    'was sind neuronale Netze -> {"intent":"SPECIFIC","scope":{"unit":null,"intervals":[]},"subqueries":["was sind neuronale Netze"],"exhaustive":false}\n'
-    'was schützt das Urheberrechtsgesetz und was das Markengesetz -> {"intent":"SPECIFIC","scope":{"unit":null,"intervals":[]},"subqueries":["was schützt das Urheberrechtsgesetz","was schützt das Markengesetz"],"exhaustive":false}\n'
-    'Wann ist die Abgabe? Zeige mir alle Quellen -> {"intent":"SPECIFIC","scope":{"unit":null,"intervals":[]},"subqueries":["Wann ist die Abgabe?"],"exhaustive":true}\n'
-    'in welchen Dokumenten wird die Frist genannt -> {"intent":"SPECIFIC","scope":{"unit":null,"intervals":[]},"subqueries":["in welchen Dokumenten wird die Frist genannt"],"exhaustive":true}\n'
-    'show all sources for the deadline -> {"intent":"SPECIFIC","scope":{"unit":null,"intervals":[]},"subqueries":["deadline"],"exhaustive":true}\n'
+    'was sind neuronale Netze -> {"intent":"SPECIFIC","scope":{"unit":null,"intervals":[]},"subqueries":["was sind neuronale Netze"]}\n'
+    'was schützt das Urheberrechtsgesetz und was das Markengesetz -> {"intent":"SPECIFIC","scope":{"unit":null,"intervals":[]},"subqueries":["was schützt das Urheberrechtsgesetz","was schützt das Markengesetz"]}\n'
     'Welche Stelle ist für die Steuerfestsetzung zuständig (Abgabenordnung) und welche Stellung hat der Rechtsanwalt (BRAO)? -> {"intent":"SPECIFIC","scope":{"unit":null,"intervals":[]},"subqueries":["Welche Stelle ist für die Steuerfestsetzung zuständig (Abgabenordnung)?","Welche Stellung hat der Rechtsanwalt (BRAO)?"]}\n'
     'fasse zusammen -> {"intent":"GENERIC","scope":{"unit":null,"intervals":[]}}\n'
     'gib mir einen Überblick -> {"intent":"GENERIC","scope":{"unit":null,"intervals":[]}}\n'

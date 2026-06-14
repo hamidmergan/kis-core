@@ -48,7 +48,6 @@ def run_generate_exercise_set(self, set_id: int, workspace_id: int, tool: str,
         user_id = ex_set["user_id"]
 
         client, model, _ = _get_llm_client()
-        existing_fronts = db.get_existing_exercise_fronts(workspace_id, tool)
 
         items: list[dict] = []
         title = "Wird generiert…"
@@ -71,11 +70,11 @@ def run_generate_exercise_set(self, set_id: int, workspace_id: int, tool: str,
                 return
 
             if tool == "flashcards":
-                items, title = generate_flashcards_from_source(client, model, ctx, count, existing_fronts, locale=locale)
+                items, title = generate_flashcards_from_source(client, model, ctx, count, locale=locale)
             elif tool == "karteikarten":
-                items, title = generate_cards_from_source(client, model, ctx, count, existing_fronts, locale=locale)
+                items, title = generate_cards_from_source(client, model, ctx, count, locale=locale)
             else:
-                items, title = generate_mc_from_source(client, model, ctx, tool, count, existing_fronts, locale=locale)
+                items, title = generate_mc_from_source(client, model, ctx, tool, count, locale=locale)
 
         if not items:
             db.fail_exercise_set(set_id)

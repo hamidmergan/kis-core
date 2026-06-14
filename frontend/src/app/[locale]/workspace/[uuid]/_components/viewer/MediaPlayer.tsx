@@ -122,6 +122,8 @@ export function MediaPlayer({
         canManage={canManage}
         onSaveNote={onSaveNote}
         defaultLang={defaultTranscriptLang}
+        citationTime={source.isCitation ? source.startTime : undefined}
+        citationNonce={source.nonce}
       />
     </div>
   );

@@ -73,7 +73,6 @@ class UserSettingsBody(BaseModel):
     chat_lang: str
     studio_enabled: bool = True
     language_training_active: bool
-    show_all_sources: bool = False
 
 
 class NoteBody(BaseModel):

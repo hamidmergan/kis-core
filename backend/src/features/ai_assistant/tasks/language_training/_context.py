@@ -1,27 +1,15 @@
-"""Context builder for mode='source': pulls chunks/summaries from N sources
-and packs them into a budget-limited context string for the LLM prompt."""
+"""Context builder for mode='source': pulls chunks from N sources and packs them into a
+budget-limited, per-run-rotating context string for the LLM prompt."""
 
-import re
+import random
 from dataclasses import dataclass, field
 
 from src import database as db
-from src.limits import AIA_CONTEXT_MAX_CHARS, AIA_CONTEXT_HARD_CAP
-
-# Marker each context line starts with: ``[<filename>, S. <page>] <content>``.
-_CONTEXT_MARKER = re.compile(r"^\[(.+?),\s*S\.\s*(\d+)\]")
-
-
-def _context_budget() -> int:
-    """Character budget for the LLM context, admin-tunable via ``aia_context_max_chars``.
-
-    Mirrors the chat's budget resolver so the tools honour the SAME admin setting instead
-    of a hardcoded value (a deployment on a small local model vs a large cloud model needs
-    different budgets). Falls back to AIA_CONTEXT_MAX_CHARS and is clamped to the hard cap."""
-    try:
-        value = int(db.get_setting("aia_context_max_chars", str(AIA_CONTEXT_MAX_CHARS)))
-    except (ValueError, TypeError):
-        return AIA_CONTEXT_MAX_CHARS
-    return max(1000, min(value, AIA_CONTEXT_HARD_CAP))
+from src.features.ai_assistant.tasks._context_budget import (
+    tool_context_budget,
+    select_chunks_for_budget,
+    rotating_focus,
+)
 
 
 @dataclass
@@ -32,69 +20,74 @@ class QuelleContext:
     multi_label: str
     source_hint: str  # "folgender Source" / "folgenden Sources"
     source_by_name: dict[str, dict] = field(default_factory=dict)
-    # {source_id: set(page_numbers)} actually present in the trimmed context above — the
-    # pages the LLM really saw. Attribution clamps chips to these (like chat's seen-check),
-    # so a card can never cite a page the model was not shown. Media source_ids appear here
-    # too (their seen-check is source-level, not per page).
+    # {source_id: set(page_numbers)} actually present in the context above — the pages the
+    # LLM really saw. Attribution clamps chips to these (like chat's seen-check), so a card
+    # can never cite a page the model was not shown. Media source_ids appear here too (their
+    # seen-check is source-level, not per page).
     seen_pages_by_source: dict[int, set] = field(default_factory=dict)
 
 
 def build_source_context(uuids: list[str], tool: str) -> QuelleContext | None:
-    """Build context string + meta maps from N sources. None = no content available."""
-    context_parts: list[str] = []
-    first_label = ""
-    source_by_name: dict[str, dict] = {}
+    """Build context string + meta maps from N sources. None = no content available.
 
-    # All tools draw from the WHOLE document; the per-source budget trim below is the only
-    # limiter. (Previously every tool except karteikarten was capped to the first 30 chunks,
-    # which biased exercises to the document's start — removed so the whole doc is covered.)
+    Two things keep the exercises varied (the user's "nicht immer die gleichen Fragen / nicht
+    die gleichen Chunks"):
+
+    * budget — a source goes in whole when it fits the admin ``aia_tool_context_max_chars``
+      budget (shared by all generation tools, separate from the chat budget), otherwise it is
+      sampled as contiguous windows spread across the whole document (``select_chunks_for_budget``).
+    * rotation — each run then keeps only a subset of the pages, rotating AWAY from the pages
+      that were just questioned (``rotating_focus`` + ``get_recent_exercise_pages``). This is a
+      HARD restriction on the context, not a prompt hint: the model demonstrably ignores a soft
+      "focus on these pages" instruction and reproduces the same salient questions, so we
+      instead change the chunks it is actually given. Across runs the whole document is
+      covered; within one run the model can't rehash the previous set.
+    """
+    sources: list[tuple[str, list[dict]]] = []
+    source_by_name: dict[str, dict] = {}
+    first_label = ""
+
     for suuid in uuids:
         source = db.get_aia_source(suuid)
         if not source:
             continue
-        source_label = source["filename"]
-        source_by_name[source_label] = source
-        if not first_label:
-            first_label = source_label
-
         chunks = db.get_chunks_by_source(source["id"])
         if not chunks:
             continue
-        parts = [f"[{source_label}, S. {c['page_number']}] {c['content']}" for c in chunks]
-        context_parts.append(f"--- {source_label} ---\n" + "\n".join(parts))
+        label = source["filename"]
+        source_by_name[label] = source
+        if not first_label:
+            first_label = label
+        sources.append((label, chunks))
 
-    if not context_parts:
+    if not sources:
         return None
 
-    # Fair budget split across sources, whole lines. Budget = admin aia_context_max_chars.
-    budget_per_source = _context_budget() // len(context_parts)
+    workspace_id = source_by_name[first_label].get("workspace_id")
+    recent_pages = db.get_recent_exercise_pages(workspace_id, tool) if workspace_id else []
+
+    budget_per_source = max(1000, tool_context_budget() // len(sources))
+    rng = random.Random()  # fresh per run -> different sampling/rotation each generation
+
     trimmed: list[str] = []
-    for part in context_parts:
-        lines = part.split("\n")
-        header = lines[0]
-        kept = [header]
-        size = len(header)
-        for line in lines[1:]:
-            if size + len(line) + 1 > budget_per_source:
-                break
-            kept.append(line)
-            size += len(line) + 1
-        trimmed.append("\n".join(kept))
+    seen_pages_by_source: dict[int, set] = {}
+    for label, chunks in sources:
+        picked = select_chunks_for_budget(chunks, budget_per_source, rng=rng)
+        # Rotate this run's pages away from recently-questioned ones (variation lever for the
+        # common case where the whole document fits and the chunk set is otherwise identical).
+        pages_here = [c["page_number"] for c in picked]
+        keep = set(rotating_focus(pages_here, recent=recent_pages, rng=rng))
+        picked = [c for c in picked if c["page_number"] in keep]
+        lines = [f"[{label}, S. {c['page_number']}] {c['content']}" for c in picked]
+        trimmed.append(f"--- {label} ---\n" + "\n".join(lines))
+        sid = source_by_name[label]["id"]
+        # The pages the LLM was actually shown (used as the attribution seen-set). Media
+        # chunks land here too: their page_number is a segment index, but the seen-check is
+        # source-level for media, so recording the source_id is what matters.
+        seen_pages_by_source.setdefault(sid, set()).update(c["page_number"] for c in picked)
 
     multi_label = first_label if len(uuids) == 1 else f"{len(uuids)} Sources"
     source_hint = "folgender Source" if len(uuids) == 1 else "folgenden Sources"
-
-    # Record which source/page actually survived into the trimmed context — the set the
-    # LLM was shown. Parsed from the final text so it matches byte-for-byte what it read.
-    seen_pages_by_source: dict[int, set] = {}
-    for block in trimmed:
-        for line in block.split("\n"):
-            m = _CONTEXT_MARKER.match(line)
-            if not m:
-                continue
-            src = source_by_name.get(m.group(1))
-            if src:
-                seen_pages_by_source.setdefault(src["id"], set()).add(int(m.group(2)))
 
     return QuelleContext(
         context="\n\n".join(trimmed),
@@ -104,5 +97,3 @@ def build_source_context(uuids: list[str], tool: str) -> QuelleContext | None:
         source_by_name=source_by_name,
         seen_pages_by_source=seen_pages_by_source,
     )
-
-

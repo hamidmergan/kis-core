@@ -1,9 +1,11 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
-import { ArrowsClockwise, Check, NavigationArrow, NotePencil } from "@phosphor-icons/react";
+import { ArrowDown, ArrowsClockwise, ArrowUp, Check, NavigationArrow, NotePencil, X } from "@phosphor-icons/react";
 import Spinner from "@/components/ui/Spinner";
 import { langLabel, type TranscriptDefaultLang } from "../../_types";
 import type { AddNoteExtras } from "../../_hooks/useNotes";
+import { cueIndexAtTime } from "./_transcript";
+import { CITATION_HL_COLOR } from "./_highlight";
 
 interface Cue {
   start: number;
@@ -70,6 +72,8 @@ export function TranscriptPanel({
   canManage = false,
   onSaveNote,
   defaultLang = "both",
+  citationTime,
+  citationNonce,
 }: {
   mediaRef: React.RefObject<HTMLVideoElement | HTMLAudioElement | null>;
   workspaceUuid: string;
@@ -77,6 +81,11 @@ export function TranscriptPanel({
   canManage?: boolean;
   onSaveNote?: (content: string, sourceUuids?: string[], extras?: AddNoteExtras) => void | Promise<void>;
   defaultLang?: TranscriptDefaultLang;
+  // The cited segment's start time (set only on a citation-chip jump) and the jump's
+  // nonce, used to pin a navigable "citation highlight" the way the PDF viewer frames
+  // the cited page.
+  citationTime?: number;
+  citationNonce?: number;
 }) {
   const t = useTranslations("workspace.detail.viewer");
   const locale = useLocale();
@@ -89,6 +98,13 @@ export function TranscriptPanel({
   const [currentIdx, setCurrentIdx] = useState<number>(-1);
   const [followCurrent, setFollowCurrent] = useState(true);
   const [jumpHover, setJumpHover] = useState(false);
+  // Pinned citation segment: index of the cue a citation chip jumped to (-1 = none),
+  // whether it is currently scrolled into view, and which way it lies relative to the
+  // viewport (so the jump-back button can point an arrow at it).
+  const [citationIdx, setCitationIdx] = useState<number>(-1);
+  const [citationInView, setCitationInView] = useState(true);
+  const [citationDir, setCitationDir] = useState<"up" | "down">("down");
+  const citationNonceRef = useRef<number | undefined>(undefined);
   const [savedCueIdx, setSavedCueIdx] = useState<number | null>(null);
   const [savingCueIdx, setSavingCueIdx] = useState<number | null>(null);
   const [regen, setRegen] = useState<"idle" | "running" | "error">("idle");
@@ -213,6 +229,52 @@ export function TranscriptPanel({
     }
   }, [currentIdx, followCurrent]);
 
+  // A new source clears any pinned citation before its cues load.
+  useEffect(() => { setCitationIdx(-1); }, [sourceUuid]);
+
+  // Pin the cited segment and scroll to it once per jump.
+  //
+  // The MARK (setCitationIdx) runs UNCONDITIONALLY whenever there is a citation time and the
+  // cues are loaded — no consumable guard in front of it — so it can never be "eaten": it
+  // re-pins on the FIRST click even when the media is already open, and re-pins the same chip
+  // after a dismiss (the nonce is a dep, so an identical re-click still re-evaluates).
+  //
+  // The SCROLL is gated to once per jump via the nonce ref, but uses the LOCALLY computed
+  // `idx` — never the `citationIdx` state, which lags a render behind and previously made the
+  // scroll race to a stale/old cue (e.g. jumping to the top) while consuming the nonce.
+  useEffect(() => {
+    if (citationTime == null || masterCues.length === 0) { setCitationIdx(-1); return; }
+    const idx = cueIndexAtTime(masterCues, citationTime);
+    setCitationIdx(idx);
+    if (idx >= 0 && citationNonceRef.current !== citationNonce) {
+      citationNonceRef.current = citationNonce;
+      requestAnimationFrame(() => {
+        itemRefs.current[idx]?.scrollIntoView({ block: "center", behavior: "instant" });
+      });
+    }
+  }, [citationNonce, citationTime, masterCues]);
+
+  // Track whether the pinned cue is on-screen so the jump-back button only shows once
+  // it has scrolled out of view (like the PDF jump button appearing after you page away).
+  // Programmatic follow-scrolls fire scroll events too, so this stays in sync with both.
+  useEffect(() => {
+    if (citationIdx < 0) { setCitationInView(true); return; }
+    const list = listRef.current;
+    if (!list) return;
+    const check = () => {
+      const el = itemRefs.current[citationIdx];
+      if (!el) return;
+      const er = el.getBoundingClientRect();
+      const lr = list.getBoundingClientRect();
+      const inView = er.bottom > lr.top && er.top < lr.bottom;
+      setCitationInView(inView);
+      if (!inView) setCitationDir(er.top >= lr.bottom ? "down" : "up");
+    };
+    check();
+    list.addEventListener("scroll", check, { passive: true });
+    return () => list.removeEventListener("scroll", check);
+  }, [citationIdx]);
+
   // User-initiated scroll disables follow mode until jump button is pressed.
   useEffect(() => {
     const el = listRef.current;
@@ -233,6 +295,21 @@ export function TranscriptPanel({
     if (el) el.scrollIntoView({ block: "center", behavior: "smooth" });
     setFollowCurrent(true);
   };
+
+  // Jump back to the pinned citation: replay from its timestamp and scroll to it.
+  const jumpToCitation = () => {
+    if (citationIdx < 0) return;
+    const cue = masterCues[citationIdx];
+    const media = mediaRef.current;
+    if (media && cue) {
+      media.currentTime = cue.start;
+      media.play().catch(() => { });
+    }
+    itemRefs.current[citationIdx]?.scrollIntoView({ block: "center", behavior: "smooth" });
+    setFollowCurrent(true);
+  };
+
+  const dismissCitation = () => setCitationIdx(-1);
 
   // Poll for the target VTT to appear after a translation task was dispatched.
   useEffect(() => {
@@ -349,7 +426,7 @@ export function TranscriptPanel({
 
   return (
     <div
-      className="flex flex-col min-h-0"
+      className="flex flex-col min-h-0 relative"
       style={{ borderTop: "1px solid var(--border)" }}
     >
       {/* Toolbar */}
@@ -427,7 +504,9 @@ export function TranscriptPanel({
       <div ref={listRef} className="flex-1 overflow-y-auto px-4 py-3">
         {masterCues.map((c, idx) => {
           const isCurrent = idx === currentIdx;
+          const isCitation = idx === citationIdx;
           const isPast = currentIdx >= 0 && idx < currentIdx;
+          const citationTint = `${CITATION_HL_COLOR}33`;  // ~20% amber, the pinned-segment tint
           const srcText = sourceLang ? cues[sourceLang]?.[idx]?.text : undefined;
           const tgtText = targetLang ? cues[targetLang]?.[idx]?.text : undefined;
           return (
@@ -435,20 +514,29 @@ export function TranscriptPanel({
               key={idx}
               ref={(el) => { itemRefs.current[idx] = el; }}
               className="group mb-2"
-              style={{ opacity: !isCurrent && isPast ? 0.55 : 1 }}
+              style={{ opacity: !isCurrent && !isCitation && isPast ? 0.55 : 1 }}
             >
               <div
                 onClick={() => onCueClick(c)}
                 className="px-3 py-2 rounded-md cursor-pointer transition-colors"
                 style={{
-                  backgroundColor: isCurrent ? "rgba(var(--kb-rgb), 0.12)" : "transparent",
-                  borderLeft: isCurrent ? "3px solid var(--kb)" : "3px solid transparent",
+                  // The amber citation pin ALWAYS wins the background so the yellow marking is
+                  // reliably visible even while that same cue is the one playing (which would
+                  // otherwise paint it blue and hide the pin behind a thin border). Once
+                  // playback moves on, the pinned cue stays amber and the new current cue
+                  // takes the blue.
+                  backgroundColor: isCitation
+                    ? citationTint
+                    : isCurrent ? "rgba(var(--kb-rgb), 0.12)" : "transparent",
+                  borderLeft: isCitation
+                    ? `3px solid ${CITATION_HL_COLOR}`
+                    : isCurrent ? "3px solid var(--kb)" : "3px solid transparent",
                 }}
                 onMouseEnter={(e) => {
-                  if (!isCurrent) e.currentTarget.style.backgroundColor = "var(--surface-dim)";
+                  if (!isCurrent && !isCitation) e.currentTarget.style.backgroundColor = "var(--surface-dim)";
                 }}
                 onMouseLeave={(e) => {
-                  if (!isCurrent) e.currentTarget.style.backgroundColor = "transparent";
+                  if (!isCurrent && !isCitation) e.currentTarget.style.backgroundColor = "transparent";
                 }}
               >
                 <div
@@ -497,6 +585,38 @@ export function TranscriptPanel({
           );
         })}
       </div>
+
+      {/* Citation pin controls — same corner + pill design as the PDF viewer's page-frame
+          bar. Icon-only with full text in title/aria. Shown while a citation is pinned. */}
+      {citationIdx >= 0 && masterCues[citationIdx] && (
+        <div className="absolute bottom-6 right-4 z-10 flex items-center gap-1.5">
+          {/* Jump-back: only after the pinned cue scrolled off-screen. Arrow points toward
+              it, label is its timestamp. Click replays from there. */}
+          {!citationInView && (
+            <button
+              type="button"
+              onClick={jumpToCitation}
+              className="flex items-center gap-1 pl-2 pr-2.5 py-1.5 rounded-full text-xs font-medium shadow-md btn-icon"
+              style={{ backgroundColor: "var(--surface)", color: "var(--kb)", border: "1px solid var(--kb)" }}
+              title={t("jumpToHighlightTime", { time: fmtTs(masterCues[citationIdx].start) })}
+              aria-label={t("jumpToHighlightTime", { time: fmtTs(masterCues[citationIdx].start) })}
+            >
+              {citationDir === "down" ? <ArrowDown size={13} weight="bold" /> : <ArrowUp size={13} weight="bold" />}
+              <span className="tabular-nums">{fmtTs(masterCues[citationIdx].start)}</span>
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={dismissCitation}
+            className="flex items-center justify-center w-7 h-7 rounded-full shadow-md btn-icon"
+            style={{ backgroundColor: "var(--surface)", color: "var(--foreground)", border: "1px solid var(--border)" }}
+            title={t("dismissHighlight")}
+            aria-label={t("dismissHighlight")}
+          >
+            <X size={13} weight="bold" />
+          </button>
+        </div>
+      )}
     </div>
   );
 }

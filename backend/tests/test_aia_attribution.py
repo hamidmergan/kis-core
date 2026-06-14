@@ -8,8 +8,10 @@ for media), or NO chip when nothing is close enough."""
 from src.services.aia_attribution import chips_for_claim, attribute_claims
 
 
-def _hit(sid, page, dist, start=None, content="x"):
-    return {"source_id": sid, "page_number": page, "content": content,
+def _hit(sid, page, dist, start=None, content=None):
+    # Real chunk text is long; the attribution drops sub-100-char boilerplate fragments, so
+    # tests use realistic content unless they specifically exercise that filter.
+    return {"source_id": sid, "page_number": page, "content": content or ("lorem ipsum " * 12),
             "vec_distance": dist, "start_time": start}
 
 
@@ -17,6 +19,18 @@ def test_returns_single_nav_chip_for_close_pdf_hit():
     hits = [_hit(1, 12, 0.2)]
     chips = chips_for_claim(hits, {1: "Skript.pdf"})
     assert chips == [{"source_label": "Skript.pdf", "page_number": 12, "start_time": None}]
+
+
+def test_boilerplate_magnet_chunk_is_ignored():
+    # A short running-header/title fragment (a "magnet" close to any query) must NOT anchor a
+    # citation, even at a tiny distance — it is filtered out before selection.
+    magnet = {"source_id": 1, "page_number": 15, "content": "VON DER IDEE ZUR VERÖFFENTLICHUNG",
+              "vec_distance": 0.1, "start_time": None}
+    assert chips_for_claim([magnet], {1: "Skript.pdf"}) == []
+    # but a real (long) chunk on another page still wins
+    real = _hit(1, 6, 0.45)
+    chips = chips_for_claim([magnet, real], {1: "Skript.pdf"})
+    assert chips == [{"source_label": "Skript.pdf", "page_number": 6, "start_time": None}]
 
 
 def test_no_chip_when_all_hits_beyond_gate():
@@ -85,6 +99,22 @@ def test_attribute_claims_batches_embeds_and_returns_chips_per_claim():
         [],
     ]
     assert calls["embed"] == 1  # ONE batched embed for all claims, not one per claim
+
+
+def test_attribute_claims_stricter_max_distance_abstains_on_weak_hit():
+    # A hit at 0.55 passes the default 0.6 gate but not a tighter 0.5 gate — used by the
+    # mindmap so a thin one-word label abstains instead of citing a near-but-wrong page.
+    def embed_fn(texts):
+        return [[1.0, 0.0] for _ in texts]
+
+    def search_fn(text, vec):
+        return [_hit(1, 4, 0.55)]
+
+    default_gate = attribute_claims(["Poster"], {1: "A.pdf"}, embed_fn=embed_fn, search_fn=search_fn)
+    strict_gate = attribute_claims(["Poster"], {1: "A.pdf"}, max_distance=0.5,
+                                   embed_fn=embed_fn, search_fn=search_fn)
+    assert default_gate == [[{"source_label": "A.pdf", "page_number": 4, "start_time": None}]]
+    assert strict_gate == [[]]
 
 
 def test_attribute_claims_returns_empty_on_embed_failure():

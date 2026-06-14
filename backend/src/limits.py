@@ -141,6 +141,20 @@ AIA_CONTEXT_MAX_CHARS                  = 250000
 # overflow the model and waste a giant DB read. Enforced both on write (admin
 # PATCH validation, which imports this constant) and on read (_context_budget clamp).
 AIA_CONTEXT_HARD_CAP                    = 800000
+# Separate context budget for the GENERATION TOOLS (mindmap, data table, quiz,
+# flashcards, glossary, cloze, cards) — kept distinct from the chat budget above
+# so an admin can give the tools a much larger window without enlarging every
+# chat turn. A tool packs (a share of) a WHOLE document into ONE generation call,
+# so the budget is divided by the number of selected sources at the call site.
+# Default matches the chat budget (safe for the supported minimum tier, ~128k);
+# raise toward the tool hard cap for large/cloud models. Admin-tunable via
+# ``aia_tool_context_max_chars``.
+AIA_TOOL_CONTEXT_MAX_CHARS             = 250000
+# Hard ceiling for the tool budget — higher than the chat cap because the tools
+# pack a whole document into a single call and an admin may run a large/cloud
+# model (target up to ~900k chars ≈ ~257k tokens). Enforced on write (admin
+# PATCH validation) and on read (tool_context_budget clamp).
+AIA_TOOL_CONTEXT_HARD_CAP              = 1_000_000
 # Per-batch char cap for the ingest-side DOC SUMMARY (aia_summarizer). Sized to
 # MINIMISE the number of GWDG-rate-limited summary calls per ingest (the shared
 # limit is 2/s, 15/min for the whole university), while keeping each batch small

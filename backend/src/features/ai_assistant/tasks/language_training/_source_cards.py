@@ -12,7 +12,6 @@ from src.features.ai_assistant.tasks._helpers import _clean_llm_json
 from src.tool_prompts import AIA_KARTEIKARTEN_QA_PROMPT
 
 from src.features.ai_assistant.tasks.language_training._attribution import attach_chips
-from src.features.ai_assistant.tasks.language_training._card_base import with_avoid
 from src.features.ai_assistant.tasks.language_training._context import QuelleContext
 
 
@@ -24,7 +23,6 @@ def generate_cards_from_source(
     client, model,
     ctx: QuelleContext,
     count: int,
-    existing_fronts: list[str],
     locale: str = "de",
 ) -> tuple[list[dict], str]:
     language = _language_label(locale)
@@ -33,15 +31,18 @@ def generate_cards_from_source(
         .replace("{count}", str(count))
         .replace("{language}", language)
     )
+    # No "avoid these existing cards" block: feeding them back made the model copy them.
+    # Variation comes from the rotating page subset in build_source_context.
     messages = [
         {"role": "system", "content": prompt},
-        {"role": "user", "content": with_avoid(
-            existing_fronts,
+        {"role": "user", "content": (
             f"Generate {count} question-answer cards from {ctx.source_hint} "
-            f"(write them in {language}, regardless of the source-text language):\n\n{ctx.context}",
+            f"(write them in {language}, regardless of the source-text language):\n\n{ctx.context}"
         )},
     ]
-    response = client.chat.completions.create(model=model, messages=messages, temperature=0.3)
+    # 0.6 for a little wording diversity; the real variation is the rotating page subset in
+    # build_source_context (different chunks per run). Still JSON-safe.
+    response = client.chat.completions.create(model=model, messages=messages, temperature=0.6)
     try:
         data = json.loads(_clean_llm_json(response.choices[0].message.content or ""))
     except json.JSONDecodeError as e:

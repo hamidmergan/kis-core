@@ -432,132 +432,106 @@ def test_overview_keeps_close_single_source_chip():
     assert "[3, S. 8]" in out
 
 
-# ── exhaustive mode: lift cap to 10, drop the relative delta gate ─────────────
+# ── NO cross-block chip dedup: each claim keeps its own best source ───────────
+# Cross-block dedup was removed. It gave a shared best source to the FIRST block and left a
+# later, DISTINCT claim with only a wrong leftover (the seminar/project bug: a "Theorie"
+# bullet and a "Praxis" bullet both grounded in the same passage, but the second showed an
+# unrelated timestamp). Genuine restatements are collapsed upstream (line-dedup +
+# answer-cleanup), so a citation is never sacrificed for tidiness. Each claim keeps its own
+# closest source(s) even when an earlier block already cited the same one.
 
-def test_exhaustive_chips_all_distinct_sources_within_gate():
-    # Five distinct sources, all within the 0.6 gate but spread wider than 0.08.
-    # Normal mode keeps only the best (relative delta); exhaustive chips all five.
-    line = "Die Abgabe der Hausarbeit ist am 03.07.2026 faellig und steht hier."
-    hits = [_hit(1, 6, "Abgabe 03.07.2026", 0.20), _hit(2, 4, "Frist 03.07.2026", 0.34),
-            _hit(3, 2, "Termin 03.07.2026", 0.41), _hit(4, 9, "Deadline 03.07.2026", 0.48),
-            _hit(5, 1, "Abgabetermin 03.07.2026", 0.55)]
-    search = _searcher({"Hausarbeit": hits})
-    qmap = {1: 1, 2: 2, 3: 3, 4: 4, 5: 5}
-    out = _attribute_generic_text(line, search, qmap, max_distance=0.6, exhaustive=True)
-    for q, p in [(1, 6), (2, 4), (3, 2), (4, 9), (5, 1)]:
-        assert f"[{q}, S. {p}]" in out
-    # normal mode: relative gate keeps only the closest
-    out_norm = _attribute_generic_text(line, search, qmap, max_distance=0.6)
-    assert "[1, S. 6]" in out_norm and "[5, S. 1]" not in out_norm
-
-
-def test_exhaustive_caps_at_ten():
-    line = "Eine inhaltlich substanzielle Aussage zum Thema die ueberall steht."
-    hits = [_hit(i, i, f"Aussage zum Thema {i}", 0.2 + i * 0.01) for i in range(1, 16)]
-    search = _searcher({"substanzielle": hits})
-    qmap = {i: i for i in range(1, 16)}
-    out = _attribute_generic_text(line, search, qmap, max_distance=0.9, exhaustive=True)
-    import re as _re
-    assert len(_re.findall(r"\[\d+, S\. \d+\]", out)) == 10
-
-
-def test_exhaustive_still_respects_max_distance():
-    # A source past the absolute gate is never chipped, even in exhaustive mode.
-    line = "Eine inhaltlich substanzielle Aussage zum Thema hier formuliert."
-    search = _searcher({"substanzielle": [_hit(1, 5, "x", 0.2), _hit(2, 7, "y", 0.95)]})
-    out = _attribute_generic_text(line, search, {1: 1, 2: 2}, max_distance=0.6, exhaustive=True)
-    assert "[1, S. 5]" in out and "[2, S. 7]" not in out
-
-
-def test_exhaustive_does_not_short_circuit_on_exact_match():
-    # A line whose tokens appear verbatim in ONE context chunk would normally collapse to
-    # that single exact source. Exhaustive must instead surface ALL semantic/hybrid hits
-    # so every occurrence across the selection is chipped.
-    line = "Die Abgabe der Hausarbeit ist am 03.07.2026 faellig."
-    ctx = [{"source_id": 1, "page_number": 6,
-            "content": "Die Abgabe der Hausarbeit ist am 03.07.2026 faellig.", "vec_distance": None}]
-    search = _searcher({"Hausarbeit": [_hit(1, 6, "Abgabe 03.07.2026", 0.20),
-                                       _hit(2, 4, "Frist 03.07.2026", 0.30)]})
-    out = _attribute_generic_text(line, search, {1: 1, 2: 2}, max_distance=0.6,
-                                  context_chunks=ctx, exhaustive=True)
-    assert "[1, S. 6]" in out and "[2, S. 4]" in out
-    # normal mode: exact match collapses to the single source 1 only
-    out_norm = _attribute_generic_text(line, search, {1: 1, 2: 2}, max_distance=0.6,
-                                       context_chunks=ctx)
-    assert "[2, S. 4]" not in out_norm
-
-
-def test_exhaustive_verbatim_occurrences_chipped_even_if_far_semantically():
-    # REGRESSION: a date/number line embeds POORLY (vec_distance > gate) but appears
-    # VERBATIM in several searched chunks. Exhaustive must chip every verbatim occurrence
-    # (force distance 0), never leave the line chip-less the way a pure semantic gate would.
-    line = "Die Abgabe der Hausarbeit ist am 03.07.2026 faellig."
-    search = _searcher({"Hausarbeit": [
-        {"source_id": 1, "page_number": 6, "content": "Die Abgabe der Hausarbeit ist am 03.07.2026 faellig.", "vec_distance": 0.75, "start_time": None},
-        {"source_id": 2, "page_number": 4, "content": "Abgabe der Hausarbeit am 03.07.2026 faellig laut Plan.", "vec_distance": 0.82, "start_time": None},
-    ]})
-    out = _attribute_generic_text(line, search, {1: 1, 2: 2}, max_distance=0.6, exhaustive=True)
-    assert "[1, S. 6]" in out and "[2, S. 4]" in out
-    # normal mode: both are too far semantically and there is no exact ctx chunk → no chip
-    out_norm = _attribute_generic_text(line, search, {1: 1, 2: 2}, max_distance=0.6)
-    assert "[1, S. 6]" not in out_norm
-
-
-def test_exhaustive_never_fewer_than_normal_with_exact_ctx():
-    # Exhaustive ⊇ normal: when the line grounds via an exact context chunk, exhaustive
-    # keeps that chip AND adds the other searched occurrence; normal keeps only the exact.
-    line = "Die Abgabe der Hausarbeit ist am 03.07.2026 faellig."
-    ctx = [{"source_id": 1, "page_number": 6,
-            "content": "Die Abgabe der Hausarbeit ist am 03.07.2026 faellig.", "vec_distance": None}]
-    search = _searcher({"Hausarbeit": [_hit(1, 6, "Abgabe 03.07.2026", 0.20),
-                                       _hit(2, 4, "Abgabe Frist 03.07.2026 Plan", 0.35)]})
-    out_norm = _attribute_generic_text(line, search, {1: 1, 2: 2}, max_distance=0.6, context_chunks=ctx)
-    assert "[1, S. 6]" in out_norm  # grounded via exact
-    out_ex = _attribute_generic_text(line, search, {1: 1, 2: 2}, max_distance=0.6,
-                                     context_chunks=ctx, exhaustive=True)
-    assert "[1, S. 6]" in out_ex and "[2, S. 4]" in out_ex  # exact kept + extra occurrence
-
-
-def test_exhaustive_overrides_overview_suppression():
-    # An enumeration line that overview mode would leave chip-free must still be chipped
-    # when the user explicitly asked for all sources (exhaustive), even with overview=True.
-    line = "- Regelungen zur Form (ZPO), zu Marken (MarkenG) und zur Anwaltschaft (BRAO)."
-    search = _searcher({"Regelungen": [_hit(1, 98, "Regelungen Form Urteilen", 0.2)]})
-    out_ov = _attribute_generic_text(line, search, {1: 1}, max_distance=0.6, overview=True)
-    assert out_ov == line  # overview suppresses
-    out_ex = _attribute_generic_text(line, search, {1: 1}, max_distance=0.6,
-                                     overview=True, exhaustive=True)
-    assert "[1, S. 98]" in out_ex  # exhaustive shows it anyway
-
-
-# ── exhaustive: cross-block dedup (each source/page shown ONCE per message) ───
-
-def test_exhaustive_dedups_chips_across_blocks():
-    # Two separate blocks restate the SAME fact (e.g. a sentence + a table row, or two
-    # bullets). Each independently attributes to the same sources, so WITHOUT cross-block
-    # dedup the same ~chip pile shows twice. Exhaustive must show each distinct source/page
-    # ONCE, at its first block; the redundant block is left chip-free.
-    line1 = "Die Abgabe der Hausarbeit ist am 03.07.2026 faellig und steht hier."
-    line2 = "Der Abgabetermin der Hausarbeit ist der 03.07.2026 wie hier erneut steht."
-    text = line1 + "\n\n" + line2
-    hits = [_hit(1, 6, "Abgabe 03.07.2026", 0.20), _hit(2, 4, "Frist 03.07.2026", 0.34),
-            _hit(3, 2, "Termin 03.07.2026", 0.41)]
-    search = _searcher({"Hausarbeit": hits})
-    qmap = {1: 1, 2: 2, 3: 3}
-    out = _attribute_generic_text(text, search, qmap, max_distance=0.6, exhaustive=True)
-    for chip in ["[1, S. 6]", "[2, S. 4]", "[3, S. 2]"]:
-        assert out.count(chip) == 1  # each distinct target appears exactly once in the message
+def test_distinct_blocks_each_keep_shared_best_source_pdf():
+    # Two DISTINCT bullets about overlapping content share the SAME best PDF page (S. 4).
+    # Each must keep it; before the fix bullet 2 lost S. 4 to bullet 1 and showed only the
+    # far leftover S. 9.
+    b1 = "- Das wissenschaftliche Seminar vermittelt die theoretischen Grundlagen hier."
+    b2 = "- Im wissenschaftlichen Projekt steht die praktische Umsetzung im Vordergrund hier."
+    text = b1 + "\n\n" + b2
+    search = _searcher({
+        "Seminar": [_hit(1, 4, "Seminar Theorie Grundlagen", 0.20),
+                    _hit(1, 5, "Einblick Wissenschaft", 0.30)],
+        "Projekt": [_hit(1, 4, "Seminar Projekt Praxis Umsetzung", 0.22),
+                    _hit(1, 9, "ganz anderes Thema", 0.50)],
+    })
+    out = _attribute_generic_text(text, search, {1: 1}, max_distance=0.6,
+                                  seen_pages_by_source=None)
     first, second = out.split("\n\n")
-    assert "[1, S. 6]" in first  # the chips land on the FIRST block
-    assert "[1, S. 6]" not in second and "[2, S. 4]" not in second and "[3, S. 2]" not in second
+    assert "[1, S. 4]" in first       # bullet 1 keeps the shared best source
+    assert "[1, S. 4]" in second      # bullet 2 ALSO keeps it (was lost to dedup before)
+
+
+def test_distinct_blocks_each_keep_shared_best_media():
+    # The real screenshot case (media/timestamps): bullet 2 must keep 03:47 (its true best),
+    # not fall back to the far leftover 26:04 because bullet 1 already showed 03:47.
+    b1 = "- Das wissenschaftliche Seminar vermittelt die theoretischen Grundlagen hier."
+    b2 = "- Im wissenschaftlichen Projekt steht die praktische Umsetzung im Vordergrund hier."
+    text = b1 + "\n\n" + b2
+    search = _searcher({
+        "Seminar": [_hit(1, 12, "Seminar Theorie", 0.20, start=227.0),     # 03:47
+                    _hit(1, 14, "Einblick", 0.30, start=245.0)],            # 04:05
+        "Projekt": [_hit(1, 12, "Seminar Projekt Praxis", 0.22, start=227.0),  # 03:47 best
+                    _hit(1, 80, "ganz anderes Thema", 0.50, start=1564.0)],     # 26:04 leftover
+    })
+    out = _attribute_generic_text(text, search, {1: 1}, max_distance=0.6,
+                                  seen_pages_by_source=None)
+    first, second = out.split("\n\n")
+    assert "[1, 03:47]" in first
+    assert "[1, 03:47]" in second     # was missing (only 26:04 showed) before the fix
 
 
 def test_normal_mode_keeps_per_block_chips_no_cross_dedup():
-    # Cross-block dedup is EXHAUSTIVE-only: in normal mode a source that legitimately backs
-    # two distinct claims must stay linkable from BOTH, so the same chip may repeat.
+    # Neither mode dedups chips across blocks: a source that legitimately backs two distinct
+    # claims must stay linkable from BOTH, so the same chip may repeat.
     line1 = "Die Abgabe der Hausarbeit ist am 03.07.2026 faellig und steht hier."
     line2 = "Der Abgabetermin der Hausarbeit ist der 03.07.2026 wie hier erneut steht."
     text = line1 + "\n\n" + line2
     search = _searcher({"Hausarbeit": [_hit(1, 6, "Abgabe 03.07.2026", 0.20)]})
     out = _attribute_generic_text(text, search, {1: 1}, max_distance=0.6)
     assert out.count("[1, S. 6]") == 2  # per-block, not deduped across the message
+
+
+# ── clause-level coverage: each FACT in a multi-fact line earns its own source ─
+# One sentence can bundle several facts. The whole-line vector is closest to ONE fact's
+# segment, so line-level attribution cites only that and the relative-delta gate trims the
+# rest. Each fact's clause, searched on its OWN focused vector, finds its OWN segment, so
+# every fact earns a chip. Punctuation-only clause split keeps this language-agnostic.
+
+def test_clause_coverage_multi_fact_line_media():
+    # The bullet-4 case (media): "... sechs bis sieben Seiten, sowie eine zwanzig Minuten
+    # Praesentation ...". The whole line is closest to the Seiten segment (14:53); the
+    # 20-minute presentation lives at 15:31 and was lost. Its clause must recover it.
+    line = ("- Die Pruefungsleistung umfasst sechs bis sieben Seiten, "
+            "sowie eine zwanzig Minuten Praesentation mit anschliessendem Fragegespraech.")
+    search = _searcher({
+        "Seiten": [_hit(1, 90, "sechs bis sieben Seiten Literaturverzeichnis", 0.20, start=893.0)],   # 14:53
+        "zwanzig Minuten": [_hit(1, 93, "zwanzig Minuten Praesentation Fragekontext", 0.25, start=931.0)],  # 15:31
+    })
+    out = _attribute_generic_text(line, search, {1: 1}, max_distance=0.6, seen_pages_by_source=None)
+    assert "[1, 14:53]" in out   # fact 1 (Seiten) cited as before
+    assert "[1, 15:31]" in out   # fact 2 (20-min presentation) now ALSO cited (was missing)
+
+
+def test_clause_coverage_multi_fact_line_pdf():
+    # Same, PDF pages: each clause grounds its own page.
+    line = ("- Die Pruefungsleistung umfasst sechs bis sieben Seiten, "
+            "sowie eine muendliche Praesentation mit anschliessendem Fragegespraech.")
+    search = _searcher({
+        "Seiten": [_hit(1, 7, "sechs bis sieben Seiten", 0.20)],
+        "muendliche Praesentation": [_hit(1, 12, "muendliche Praesentation Fragekontext", 0.25)],
+    })
+    out = _attribute_generic_text(line, search, {1: 1}, max_distance=0.6,
+                                  seen_pages_by_source={1: {7, 12}})
+    assert "[1, S. 7]" in out
+    assert "[1, S. 12]" in out
+
+
+def test_clause_coverage_no_inflation_when_clauses_share_source():
+    # Both clauses ground in the SAME page -> still ONE chip (dedup by target), no inflation.
+    line = "Die Regel betrifft die Anmeldung, sowie auch die Abmeldung im selben Abschnitt."
+    search = _searcher({"Anmeldung": [_hit(1, 5, "Anmeldung Abmeldung Abschnitt", 0.20)],
+                        "Abmeldung": [_hit(1, 5, "Anmeldung Abmeldung Abschnitt", 0.22)]})
+    out = _attribute_generic_text(line, search, {1: 1}, max_distance=0.6,
+                                  seen_pages_by_source={1: {5}})
+    assert out.count("[1, S. 5]") == 1
+
+

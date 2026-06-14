@@ -38,6 +38,9 @@ def run_generate_mindmap(self, mindmap_id: int, source_ids: list[int], source_uu
             return f"{h}:{m:02d}:{s:02d}" if h else f"{m}:{s:02d}"
 
         context_parts: list[str] = []
+        # Media sources keep their chunks here so we can later turn a node's keyword into a real
+        # timestamp (the model emits a bogus integer page for audio/video, see post-process below).
+        media_chunks_by_label: dict[str, list] = {}
         for sid, suuid in zip(source_ids, source_uuids):
             source = db.get_aia_source(suuid)
             source_label = source["filename"] if source else "Source"
@@ -47,8 +50,9 @@ def run_generate_mindmap(self, mindmap_id: int, source_ids: list[int], source_uu
                 # For media: use chunks with start_time as label
                 chunks = db.get_chunks_by_source(sid)
                 if chunks:
+                    media_chunks_by_label[source_label] = chunks
                     parts = []
-                    for c in chunks[:20]:
+                    for c in chunks:
                         st = c.get("start_time")
                         time_label = _fmt_time(st) if st is not None else f"Teil {c['page_number']}"
                         parts.append(f"[{source_label}, {time_label}] {c['content']}")
@@ -56,15 +60,19 @@ def run_generate_mindmap(self, mindmap_id: int, source_ids: list[int], source_uu
             else:
                 chunks = db.get_chunks_by_source(sid)
                 if chunks:
-                    parts = [f"[{source_label}, S. {c['page_number']}] {c['content']}" for c in chunks[:20]]
+                    parts = [f"[{source_label}, S. {c['page_number']}] {c['content']}" for c in chunks]
                     context_parts.append(f"--- {source_label} ---\n" + "\n".join(parts))
 
         if not context_parts:
             db.update_aia_mindmap(mindmap_id, "failed", error="Keine Inhalte vorhanden")
             return
 
-        # Fair budget split per source (200k total, whole chunk lines only)
-        budget_per_source = 200000 // len(source_ids)
+        # Fair budget split per source from the admin tool-context setting (whole chunk lines
+        # only). No fixed chunk cap anymore: each document is filled from the start until its
+        # share is full, so a long source contributes far more than the old 20-chunk limit and
+        # the map covers more than just the front of the document.
+        from src.features.ai_assistant.tasks._context_budget import tool_context_budget
+        budget_per_source = max(1000, tool_context_budget() // max(1, len(source_ids)))
         trimmed_parts: list[str] = []
         for part in context_parts:
             lines = part.split("\n")
@@ -130,6 +138,32 @@ def run_generate_mindmap(self, mindmap_id: int, source_ids: list[int], source_uu
         if not isinstance(mindmap, dict) or "topic" not in mindmap:
             db.update_aia_mindmap(mindmap_id, "failed", error="Invalid mindmap format")
             return
+
+        # Fix media citations only. For audio/video nodes the model emits an integer page_number
+        # (a guess that doesn't even match the real time), which the UI then renders as "S. 7".
+        # Replace it with a REAL timestamp by finding the node's verbatim keyword in the transcript
+        # (plain text match, no embeddings). No keyword match -> drop the bogus number so nothing
+        # wrong is shown. PDF nodes are left exactly as the model produced them.
+        def _fix_media_nodes(node):
+            if isinstance(node, dict):
+                label = node.get("source_label")
+                chunks = media_chunks_by_label.get(label) if label else None
+                if chunks is not None:  # node cites a media source
+                    kw = (node.get("keyword") or "").strip().lower()
+                    ts = None
+                    if kw:
+                        for c in chunks:
+                            if c.get("start_time") is not None and kw in (c.get("content") or "").lower():
+                                ts = _fmt_time(c["start_time"])
+                                break
+                    if ts is not None:
+                        node["page_number"] = ts
+                    else:
+                        node.pop("page_number", None)
+                for ch in (node.get("children") or []):
+                    _fix_media_nodes(ch)
+
+        _fix_media_nodes(mindmap)
 
         db.update_aia_mindmap(mindmap_id, "success", mindmap=mindmap)
         logger.info("KI Tutor: mindmap {} generated successfully", mindmap_id)

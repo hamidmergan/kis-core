@@ -383,17 +383,16 @@ _GENERIC_ATTRIB_MAX_DIST = 0.6
 # distance band observed against off-topic retrieved chunks.
 _GUARANTEE_MAX_DIST = 0.85
 _MAX_CHIPS_PER_LINE = 3
-# Exhaustive mode ("alle Quellen"): per-line chip cap raised from 3 to 10 and the
-# relative MULTI_CHIP delta gate is dropped, so EVERY distinct source/page within the
-# absolute distance gate is chipped (not just co-sources hugging the best). 10 is plenty
-# for "wo ueberall steht das" without exploding a line.
-_EXHAUSTIVE_MAX_CHIPS_PER_LINE = 10
 # An ADDITIONAL chip (multi-chip) is only added when its chunk sits CLOSE to the block's
 # best chunk — within this distance delta. A relative gate, not just the absolute 0.6:
 # otherwise a clearly-best source (e.g. 0.21) collects spurious near-misses (0.32) that
 # are on-topic enough to pass 0.6 but are not where the claim actually came from. Genuine
 # co-sources (a fact stated on two pages / in two laws) sit at ~equal distance and stay.
 _MULTI_CHIP_MAX_DELTA = 0.08
+# Clause coverage: a multi-fact line is also attributed fact-by-fact, so a block may carry
+# up to this many chips total (line-level chips PLUS one per distinct clause source). A
+# ceiling so a comma-heavy sentence cannot explode into a chip pile.
+_COVERAGE_MAX_CHIPS_PER_LINE = 6
 # A line whose embedding is within this cosine distance of a canonical no-info SENTINEL is
 # an honest "the answer is not in the sources" refusal, NOT a claim — it must get NO chip,
 # even inside an otherwise-grounded COMPOUND answer (one sub-question answered, another
@@ -635,10 +634,36 @@ def _in_scope(chunk: dict, scope_ids: Optional[set]) -> bool:
     return scope_ids is None or chunk.get("id") in scope_ids
 
 
+# Comma/semicolon only — NOT colon: a colon would split clock times ("14:53") and ratios in
+# prose into junk fragments, and the comma already separates list items.
+_CLAUSE_SPLIT_RE = re.compile(r"[,;]")
+
+
+def _clauses(line: str) -> list[str]:
+    """Substantial sub-clauses of a line (comma/semicolon-separated), EXCLUDING the
+    whole line. A multi-fact sentence ("X von sechs Seiten, sowie eine Praesentation") is
+    attributed fact-by-fact: each clause is embedded and searched on its OWN focused vector,
+    so a fact whose source segment sits far from the diluted whole-sentence vector still
+    earns a chip instead of being trimmed by the cap / relative-delta gate.
+
+    Punctuation-only split keeps this language-agnostic (no conjunction word lists). A clause
+    is kept only if it is substantial on its own (same dedup-key length floor as a line), so
+    short fragments ("sowie", "z. B.") never become spurious queries. The leading clause may
+    still carry the markdown bullet prefix — harmless for embedding and substring search."""
+    if not _CLAUSE_SPLIT_RE.search(line):
+        return []
+    whole = line.strip()
+    out: list[str] = []
+    for part in _CLAUSE_SPLIT_RE.split(line):
+        p = part.strip()
+        if p and p != whole and len(_line_dedup_key(p)) >= _DEDUP_MIN_KEY_LEN and p not in out:
+            out.append(p)
+    return out
+
+
 def _line_candidates(line: str, search_one, context_chunks: Optional[list[dict]],
                      seen_pages_by_source: Optional[dict],
-                     scope_ids: Optional[set] = None,
-                     exhaustive: bool = False) -> list[dict]:
+                     scope_ids: Optional[set] = None) -> list[dict]:
     """Retrieved (seen), non-TOC source chunks that could ground ``line``, closest-first.
 
     If an EXACT verbatim chunk exists (a name/email/number we already retrieved, whose
@@ -648,25 +673,13 @@ def _line_candidates(line: str, search_one, context_chunks: Optional[list[dict]]
     can attach a chip per distinct source/page.
 
     ``scope_ids`` clamps candidates to an EXPLICIT page/time scope: a "from minute 40"
-    summary may only cite chunks inside that window, never a closer chunk from minute 13.
-
-    Exhaustive ("alle Quellen") EXTENDS this, never narrows it: the verbatim chunk still
-    grounds the line (so a date/number line is never left chip-less), but instead of
-    short-circuiting to that single chunk it ALSO keeps every other searched occurrence —
-    and any searched chunk that contains the line's significant tokens VERBATIM is forced
-    to distance 0 so it survives the semantic gate (dates/numbers/names embed far yet are
-    literally present). This guarantees exhaustive ⊇ normal: at least the same chip, plus
-    every additional occurrence across the active selection."""
+    summary may only cite chunks inside that window, never a closer chunk from minute 13."""
     exact = _exact_attribution_chunk(line, context_chunks) if context_chunks else None
-    primary: list[dict] = []
     if (exact is not None and _is_seen(exact, seen_pages_by_source)
             and _in_scope(exact, scope_ids)):
         e = dict(exact)
         e["vec_distance"] = 0.0  # verbatim presence == certain
-        if not exhaustive:
-            return [e]           # normal: the verbatim chunk is the sole answer
-        primary = [e]            # exhaustive: it grounds the line; keep collecting below
-    toks = _significant_tokens(line) if exhaustive else None
+        return [e]               # the verbatim chunk is the sole answer
     cands = []
     for h in (search_one(line) or []):
         if (h.get("vec_distance") is None
@@ -674,19 +687,14 @@ def _line_candidates(line: str, search_one, context_chunks: Optional[list[dict]]
                 or not _is_seen(h, seen_pages_by_source)
                 or not _in_scope(h, scope_ids)):
             continue
-        if toks and all(t in (h.get("content") or "").lower() for t in toks):
-            h = dict(h)
-            h["vec_distance"] = 0.0   # verbatim occurrence → certain, never gated out
         cands.append(h)
-    cands = primary + cands
     cands.sort(key=lambda h: h["vec_distance"])
     return cands
 
 
 def _chips_for_line(cands: list[dict], source_id_to_qnum: dict,
                     max_distance: float,
-                    guarantee_dist: float = _GUARANTEE_MAX_DIST,
-                    exhaustive: bool = False) -> list[str]:
+                    guarantee_dist: float = _GUARANTEE_MAX_DIST) -> list[str]:
     """Build the chip list for ONE line from its closest-first candidates.
 
     The first usable candidate is the GUARANTEE chip (closest retrieved chunk, accepted
@@ -708,9 +716,6 @@ def _chips_for_line(cands: list[dict], source_id_to_qnum: dict,
             if d > guarantee_dist:  # closest seen chunk too far → no chip at all
                 break
             primary_d = d                # the guarantee chip; anchors the relative gate
-        elif exhaustive:
-            if d > max_distance:         # exhaustive: every distinct source within the
-                break                    # absolute gate, NO relative delta restriction
         elif d > min(max_distance, primary_d + _MULTI_CHIP_MAX_DELTA):
             break                        # additional sources must be CLOSE to the best
         st = h.get("start_time")
@@ -724,8 +729,7 @@ def _chips_for_line(cands: list[dict], source_id_to_qnum: dict,
         if c:
             chips.extend(c)
             keys.add(key)
-        cap = _EXHAUSTIVE_MAX_CHIPS_PER_LINE if exhaustive else _MAX_CHIPS_PER_LINE
-        if len(chips) >= cap:
+        if len(chips) >= _MAX_CHIPS_PER_LINE:
             break
     return chips
 
@@ -825,7 +829,6 @@ def _attribute_generic_text(text: str, search_one, source_id_to_qnum: dict, offs
                             seen_pages_by_source=None, context_chunks=None, overview: bool = False,
                             max_distance: float = _GENERIC_ATTRIB_MAX_DIST,
                             refusal_lines: Optional[set] = None,
-                            exhaustive: bool = False,
                             scope_chunks: Optional[list[dict]] = None) -> str:
     """Re-ground each substantial, uncited line of a GENERIC answer.
 
@@ -870,7 +873,10 @@ def _attribute_generic_text(text: str, search_one, source_id_to_qnum: dict, offs
     # seen-check is source-level and would otherwise let it through).
     scope_ids = _scope_chunk_ids(scope_chunks)
     # Pass 1: gather seen candidates per substantial line; decide if the answer is grounded.
+    # Also gather per-CLAUSE candidates so a multi-fact line can be attributed fact-by-fact
+    # in Pass 2.
     cand_by_idx: dict[int, list[dict]] = {}
+    clause_cands_by_idx: dict[int, list[list[dict]]] = {}
     grounded = False
     for i, line in enumerate(lines):
         if not _needs_attribution(line):
@@ -885,13 +891,18 @@ def _attribute_generic_text(text: str, search_one, source_id_to_qnum: dict, offs
         if _is_table_row(line) and _is_table_delim(nxt):
             continue
         cands = _line_candidates(line, search_one, context_chunks, seen_pages_by_source,
-                                 scope_ids, exhaustive=exhaustive)
+                                 scope_ids)
         if not cands:
             continue
         cand_by_idx[i] = cands
         d0 = cands[0].get("vec_distance")
         if d0 is not None and d0 <= max_distance:
             grounded = True
+        cc = [c for c in (_line_candidates(cl, search_one, context_chunks,
+                                           seen_pages_by_source, scope_ids)
+                          for cl in _clauses(line)) if c]
+        if cc:
+            clause_cands_by_idx[i] = cc
     # Pass 2: emit chips at the END of each BLOCK (a bullet/paragraph + its continuation
     # lines), never mid-block, with contributing sources DEDUPED across the whole block —
     # so a two-sentence bullet shows its chips once, at the end, not after each sentence.
@@ -902,16 +913,17 @@ def _attribute_generic_text(text: str, search_one, source_id_to_qnum: dict, offs
         # source (gate = max_distance), and leave a multi-law enumeration line chip-free,
         # since one chip on a 100-source synthesis is misleading. SPECIFIC is unchanged.
         guarantee = max_distance if overview else _GUARANTEE_MAX_DIST
-        # Exhaustive ("alle Quellen") dedups citation chips ACROSS the whole message: each
-        # distinct source/page (its chip string) is shown ONCE, at its first block. Without
-        # this, a fact the model restates in two shapes — a sentence AND a one-row table, or
-        # two bullets — gets the SAME ~10-chip pile twice. Normal mode keeps per-block chips
-        # (a source backing two genuinely different claims must stay linkable from both), so
-        # this set stays empty and the filter below is a no-op there.
-        seen_chips: set[str] = set()
+        # Chips are NOT deduped across blocks. Two DISTINCT claims may legitimately draw on
+        # the same passage (a "theory" bullet and a "practice" bullet both grounded in the
+        # one segment that contrasts them), so each block must keep its OWN closest source(s)
+        # — even one an earlier block already cited. Cross-block dedup used to hand a shared
+        # best source to the first block and leave the later, distinct claim with only a far,
+        # wrong leftover. Genuine restatements (a fact repeated in two shapes) are collapsed
+        # upstream — duplicate lines by _dedup_repeated_lines, redundant one-row tables /
+        # model source-lists by answer-cleanup — so a citation is never sacrificed for tidiness.
         for blk in _attr_blocks(lines):
             block_text = " ".join(lines[i] for i in blk)
-            if overview and not exhaustive and _names_many_laws(block_text):
+            if overview and _names_many_laws(block_text):
                 continue
             agg: list[dict] = []
             for idx in blk:
@@ -922,13 +934,28 @@ def _attribute_generic_text(text: str, search_one, source_id_to_qnum: dict, offs
             # Overview: a spelled-out name-list whose cited chunk backs only one item is the
             # misleading "one chip on a many-source enumeration" case → leave it chip-free.
             # Content-gated so an in-source example list (chunk holds all items) keeps its chip.
-            if overview and not exhaustive and _enum_chip_unbacked(block_text, agg[0].get("content") or ""):
+            if overview and _enum_chip_unbacked(block_text, agg[0].get("content") or ""):
                 continue
             chips = _chips_for_line(agg, source_id_to_qnum, max_distance,
-                                    guarantee_dist=guarantee, exhaustive=exhaustive)
-            if exhaustive and chips:
-                chips = [c for c in chips if c not in seen_chips]  # drop already-shown targets
-                seen_chips.update(chips)
+                                    guarantee_dist=guarantee)
+            # Clause coverage: the whole-line vector is closest to ONE fact, so the cap /
+            # relative-delta gate trims the others. Add each distinct clause's single closest
+            # in-gate source as a coverage chip — so every fact in a multi-fact bullet earns a
+            # link — deduped against what the line already shows and bounded by
+            # _COVERAGE_MAX_CHIPS_PER_LINE. A table data row keeps its in-cell chip only.
+            if not _is_table_row(lines[blk[-1]]):
+                seen_targets = set(chips)
+                for idx in blk:
+                    for ccands in clause_cands_by_idx.get(idx, []):
+                        cchips = _chips_for_line(ccands, source_id_to_qnum, max_distance,
+                                                 guarantee_dist=guarantee)
+                        if cchips and cchips[0] not in seen_targets:
+                            chips.append(cchips[0])
+                            seen_targets.add(cchips[0])
+                            if len(chips) >= _COVERAGE_MAX_CHIPS_PER_LINE:
+                                break
+                    if len(chips) >= _COVERAGE_MAX_CHIPS_PER_LINE:
+                        break
             if chips:
                 last = blk[-1]
                 # Table data row -> chip(s) INSIDE the last cell (keeps GFM column count

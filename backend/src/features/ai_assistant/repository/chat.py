@@ -103,24 +103,22 @@ def get_aia_user_settings(workspace_id: int, user_id: int) -> dict:
             row = cur.fetchone()
     if row:
         return dict(row)
-    return {"chat_lang": "de", "studio_enabled": True, "language_training_active": False,
-            "show_all_sources": False}
+    return {"chat_lang": "de", "studio_enabled": True, "language_training_active": False}
 
 def upsert_aia_user_settings(
     workspace_id: int, user_id: int, chat_lang: str, studio_enabled: bool,
-    language_training_active: bool, show_all_sources: bool = False,
+    language_training_active: bool,
 ) -> None:
     with get_connection() as conn:
         with conn.cursor() as cur:
             cur.execute(
-                """INSERT INTO aia_user_settings (workspace_id, user_id, chat_lang, studio_enabled, language_training_active, show_all_sources)
-                   VALUES (%s, %s, %s, %s, %s, %s)
+                """INSERT INTO aia_user_settings (workspace_id, user_id, chat_lang, studio_enabled, language_training_active)
+                   VALUES (%s, %s, %s, %s, %s)
                    ON CONFLICT (workspace_id, user_id)
                    DO UPDATE SET chat_lang = EXCLUDED.chat_lang,
                                  studio_enabled = EXCLUDED.studio_enabled,
-                                 language_training_active = EXCLUDED.language_training_active,
-                                 show_all_sources = EXCLUDED.show_all_sources""",
-                (workspace_id, user_id, chat_lang, studio_enabled, language_training_active, show_all_sources),
+                                 language_training_active = EXCLUDED.language_training_active""",
+                (workspace_id, user_id, chat_lang, studio_enabled, language_training_active),
             )
         conn.commit()
 
