@@ -43,13 +43,48 @@ export function MediaPlayer({
     return () => { cancelled = true; };
   }, [workspaceUuid, source.uuid]);
 
-  // Seek to timestamp when source changes
+  // Seek to the cited timestamp when the source changes — robust against Safari, which is the
+  // only browser that misbehaves here (Chrome seeks fine).
+  //
+  // Two Safari quirks: (1) on a source SWITCH the element still has the OLD resource loaded for
+  // a tick, so an immediate seek hits the wrong media; (2) right after a (re)load Safari SNAPS
+  // currentTime back toward 0 until the resource is really seekable, so a one-shot seek sticks
+  // only "sometimes". So we seek only once `currentSrc` is the NEW source AND `seekable` covers
+  // the target, then for a short window keep watching and re-apply if Safari snaps it back to
+  // ~0. Forward playback (currentTime >= target) is never disturbed.
   useEffect(() => {
-    if (source.startTime !== undefined && mediaRef.current) {
-      mediaRef.current.currentTime = source.startTime;
-      mediaRef.current.play().catch(() => { });
-    }
-  }, [source.startTime, source.nonce]);
+    const media = mediaRef.current;
+    if (source.startTime === undefined || !media) return;
+    const target = source.startTime;
+    const uuid = source.uuid;
+    const deadline = Date.now() + 8000; // stop watching once the load has settled
+    let seeked = false;
+    const reachable = () =>
+      media.currentSrc.includes(uuid) &&
+      media.seekable.length > 0 &&
+      media.seekable.end(media.seekable.length - 1) >= target - 0.25;
+    const tick = () => {
+      if (Date.now() > deadline) { stop(); return; }
+      if (!reachable()) return;
+      if (!seeked) {
+        try { media.currentTime = target; } catch { return; }
+        media.play().catch(() => { });
+        if (Math.abs(media.currentTime - target) < 0.5) seeked = true; // stuck (else retry next event)
+        return;
+      }
+      // Watchdog: undo Safari snapping currentTime back toward 0 after the seek — downward only,
+      // so playing forward past the target is left alone.
+      if (target > 1 && media.currentTime < target - 0.5) {
+        try { media.currentTime = target; } catch { /* ignore */ }
+        media.play().catch(() => { });
+      }
+    };
+    const events = ["loadedmetadata", "loadeddata", "canplay", "canplaythrough", "progress", "durationchange", "seeked", "timeupdate", "playing"];
+    const stop = () => events.forEach((e) => media.removeEventListener(e, tick));
+    events.forEach((e) => media.addEventListener(e, tick));
+    tick();
+    return stop;
+  }, [source.startTime, source.nonce, source.uuid]);
 
   return (
     <div className="flex flex-col h-full viewer-short">
