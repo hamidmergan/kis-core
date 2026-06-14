@@ -45,10 +45,9 @@ def build_source_context(uuids: list[str], tool: str) -> QuelleContext | None:
     first_label = ""
     source_by_name: dict[str, dict] = {}
 
-    # karteikarten generate from broad context, so use ALL chunks; the other tools
-    # cap to the first slice per source (then everything is budget-trimmed below).
-    use_chunks = tool == "karteikarten"
-
+    # All tools draw from the WHOLE document; the per-source budget trim below is the only
+    # limiter. (Previously every tool except karteikarten was capped to the first 30 chunks,
+    # which biased exercises to the document's start — removed so the whole doc is covered.)
     for suuid in uuids:
         source = db.get_aia_source(suuid)
         if not source:
@@ -61,8 +60,6 @@ def build_source_context(uuids: list[str], tool: str) -> QuelleContext | None:
         chunks = db.get_chunks_by_source(source["id"])
         if not chunks:
             continue
-        if not use_chunks:
-            chunks = chunks[:30]
         parts = [f"[{source_label}, S. {c['page_number']}] {c['content']}" for c in chunks]
         context_parts.append(f"--- {source_label} ---\n" + "\n".join(parts))
 
