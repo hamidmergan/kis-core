@@ -97,7 +97,10 @@ export function TranscriptPanel({
   const [loading, setLoading] = useState(true);
   const [mode, setMode] = useState<ViewMode>(defaultLang);
   const [currentIdx, setCurrentIdx] = useState<number>(-1);
-  const [followCurrent, setFollowCurrent] = useState(true);
+  // Follow-mode (auto-scroll the transcript to the playing cue) is OFF by default: playback
+  // runs without the list jumping around on every cue change. The user opts in via the
+  // jump-to-current button.
+  const [followCurrent, setFollowCurrent] = useState(false);
   const [jumpHover, setJumpHover] = useState(false);
   // Pinned citation segment: index of the cue a citation chip jumped to (-1 = none),
   // whether it is currently scrolled into view, and which way it lies relative to the
@@ -306,8 +309,9 @@ export function TranscriptPanel({
       media.currentTime = cue.start;
       media.play().catch(() => { });
     }
+    // Scroll once to the citation, but do NOT turn on follow-mode — playback should keep
+    // running from there without the transcript auto-scrolling on every cue change.
     itemRefs.current[citationIdx]?.scrollIntoView({ block: "center", behavior: "smooth" });
-    setFollowCurrent(true);
   };
 
   // Drop the pin AND the cited chip's yellow border in lockstep, exactly like the PDF

@@ -75,6 +75,14 @@ def build_source_context(uuids: list[str], tool: str) -> QuelleContext | None:
         picked = select_chunks_for_budget(chunks, budget_per_source, rng=rng)
         # Rotate this run's pages away from recently-questioned ones (variation lever for the
         # common case where the whole document fits and the chunk set is otherwise identical).
+        #
+        # TODO ANPASSEN (hardcodiert): Anders als Mindmap und Datentabelle sehen die
+        # Uebungs-Tools (Karteikarten, Flashcards, Quiz, Lueckentext, Begriffe) hier NICHT
+        # den vollen Dateikontext, sondern pro Lauf nur ein rotierendes Subset von rund 55
+        # Prozent der Seiten (rotating_focus fraction=0.55, min_keep=4). Diese Werte stehen
+        # fest im Code und sind ueber kein Admin-Setting steuerbar. Wir muessen das System
+        # anpassen: die Fraction konfigurierbar machen oder das Verhalten an Mindmap und
+        # Datentabelle angleichen (voller Kontext), je nachdem was didaktisch gewollt ist.
         pages_here = [c["page_number"] for c in picked]
         keep = set(rotating_focus(pages_here, recent=recent_pages, rng=rng))
         picked = [c for c in picked if c["page_number"] in keep]
