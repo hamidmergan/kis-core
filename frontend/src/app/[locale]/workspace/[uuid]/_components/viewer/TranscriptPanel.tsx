@@ -6,6 +6,7 @@ import { langLabel, type TranscriptDefaultLang } from "../../_types";
 import type { AddNoteExtras } from "../../_hooks/useNotes";
 import { cueIndexAtTime } from "./_transcript";
 import { CITATION_HL_COLOR } from "./_highlight";
+import { clearActiveChipTarget } from "../chat/_citations";
 
 interface Cue {
   start: number;
@@ -309,7 +310,9 @@ export function TranscriptPanel({
     setFollowCurrent(true);
   };
 
-  const dismissCitation = () => setCitationIdx(-1);
+  // Drop the pin AND the cited chip's yellow border in lockstep, exactly like the PDF
+  // viewer's dismiss button (clearActiveChipTarget), so the chat chip stops looking active.
+  const dismissCitation = () => { setCitationIdx(-1); clearActiveChipTarget(); };
 
   // Poll for the target VTT to appear after a translation task was dispatched.
   useEffect(() => {
