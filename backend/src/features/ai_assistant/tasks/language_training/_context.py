@@ -5,9 +5,23 @@ import re
 from dataclasses import dataclass, field
 
 from src import database as db
+from src.limits import AIA_CONTEXT_MAX_CHARS, AIA_CONTEXT_HARD_CAP
 
 # Marker each context line starts with: ``[<filename>, S. <page>] <content>``.
 _CONTEXT_MARKER = re.compile(r"^\[(.+?),\s*S\.\s*(\d+)\]")
+
+
+def _context_budget() -> int:
+    """Character budget for the LLM context, admin-tunable via ``aia_context_max_chars``.
+
+    Mirrors the chat's budget resolver so the tools honour the SAME admin setting instead
+    of a hardcoded value (a deployment on a small local model vs a large cloud model needs
+    different budgets). Falls back to AIA_CONTEXT_MAX_CHARS and is clamped to the hard cap."""
+    try:
+        value = int(db.get_setting("aia_context_max_chars", str(AIA_CONTEXT_MAX_CHARS)))
+    except (ValueError, TypeError):
+        return AIA_CONTEXT_MAX_CHARS
+    return max(1000, min(value, AIA_CONTEXT_HARD_CAP))
 
 
 @dataclass
@@ -55,8 +69,8 @@ def build_source_context(uuids: list[str], tool: str) -> QuelleContext | None:
     if not context_parts:
         return None
 
-    # Fair budget split: 200k chars total, whole lines
-    budget_per_source = 200000 // len(context_parts)
+    # Fair budget split across sources, whole lines. Budget = admin aia_context_max_chars.
+    budget_per_source = _context_budget() // len(context_parts)
     trimmed: list[str] = []
     for part in context_parts:
         lines = part.split("\n")
