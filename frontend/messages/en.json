@@ -611,7 +611,22 @@
       },
       "selectJsonFirst": "Please select a JSON file first.",
       "jobUnavailable": "Job data no longer available - please start a new screencast.",
-      "jobDeleted": "The job was deleted or cancelled. Please start a new screencast."
+      "jobDeleted": "The job was deleted or cancelled. Please start a new screencast.",
+      "demoBadge": "View demo →"
+    },
+    "screencastDemo": {
+      "backToScreencast": "Back",
+      "demoBadge": "Demo",
+      "title": "Screencast",
+      "intro": "Turn PowerPoint slides into a narrated video, optionally in another language.",
+      "startDemo": "Start demo",
+      "loadingDemo": "Loading demo...",
+      "loadingDemoSubtle": "This may take a few seconds depending on file size.",
+      "loadDemoError": "Could not load demo",
+      "loadScriptsError": "Could not load scripts",
+      "notAvailableInDemo": "Not available in the demo",
+      "selectJsonFile": "Select JSON file",
+      "errorWithCode": "Error: {code}"
     }
   },
   "admin": {

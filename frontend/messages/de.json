@@ -611,7 +611,22 @@
       },
       "selectJsonFirst": "Bitte zuerst eine JSON-Datei auswählen.",
       "jobUnavailable": "Job-Daten nicht mehr verfügbar - bitte neuen Screencast starten",
-      "jobDeleted": "Der Job wurde gelöscht oder abgebrochen. Bitte starte einen neuen Screencast."
+      "jobDeleted": "Der Job wurde gelöscht oder abgebrochen. Bitte starte einen neuen Screencast.",
+      "demoBadge": "Demo ansehen →"
+    },
+    "screencastDemo": {
+      "backToScreencast": "Zurück",
+      "demoBadge": "Demo",
+      "title": "Screencast",
+      "intro": "Aus PowerPoint-Folien ein vertontes Video erzeugen, wahlweise in einer anderen Sprache.",
+      "startDemo": "Demo starten",
+      "loadingDemo": "Demo wird geladen...",
+      "loadingDemoSubtle": "Das kann je nach Dateigröße einige Sekunden dauern.",
+      "loadDemoError": "Fehler beim Laden der Demo",
+      "loadScriptsError": "Fehler beim Laden der Skripte",
+      "notAvailableInDemo": "Nicht in der Demo verfügbar",
+      "selectJsonFile": "JSON-Datei auswählen",
+      "errorWithCode": "Fehler: {code}"
     }
   },
   "admin": {

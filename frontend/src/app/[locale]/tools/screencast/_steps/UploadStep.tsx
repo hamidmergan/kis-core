@@ -61,6 +61,13 @@ export default function UploadStep(props: UploadStepProps) {
     <section className="animate-[fadeIn_0.3s_ease-out]">
       <div className="flex items-baseline justify-between mb-1">
         <h1 className="text-xl font-bold">{t("title")}</h1>
+        <Link
+          href="/tools/screencast-demo"
+          className="text-xs font-semibold px-3.5 py-1.5 rounded border-2 border-transparent hover:border-black transition-colors"
+          style={{ backgroundColor: "rgb(245, 158, 11)", color: "rgb(0, 0, 0)" }}
+        >
+          {t("demoBadge")}
+        </Link>
       </div>
       <p className="text-sm text-muted mb-6">{t("intro")}</p>
 
