@@ -1,4 +1,7 @@
+export const UNIVERSAL_LANG = "universal";
+
 export const LANGUAGE_LABEL: Record<string, string> = {
+  universal: "🌐 Universal",
   de: "🇩🇪 Deutsch",
   en: "🇺🇸 English",
   fr: "🇫🇷 Français",

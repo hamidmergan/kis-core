@@ -3,7 +3,7 @@
 import { useTranslations } from "next-intl";
 import PlayButton from "../_components/PlayButton";
 import { useVoicePlayer } from "../_hooks/useVoicePlayer";
-import { LANGUAGE_LABEL, type Voice } from "../_utils";
+import { LANGUAGE_LABEL, UNIVERSAL_LANG, type Voice } from "../_utils";
 
 
 interface Props {
@@ -20,19 +20,24 @@ export default function ProviderTab({ providerId, voices }: Props) {
     return <p className="text-sm text-muted-soft">{t("noVoices")}</p>;
   }
 
-  // Group by language
+  // Group by language; empty language → "universal" bucket
   const grouped: Record<string, Voice[]> = {};
   for (const v of voices) {
-    const lang = v.language || "other";
+    const lang = v.language || UNIVERSAL_LANG;
     if (!grouped[lang]) grouped[lang] = [];
     grouped[lang].push(v);
   }
-  const languages = Object.keys(grouped).sort();
+  // Specific languages first (alphabetical), universal bucket last
+  const languages = Object.keys(grouped).sort((a, b) => {
+    if (a === UNIVERSAL_LANG) return 1;
+    if (b === UNIVERSAL_LANG) return -1;
+    return a.localeCompare(b);
+  });
 
   return (
     <div className="space-y-4">
       {languages.map((lang) => (
-        <details key={lang} open={lang === "de" || languages.length === 1}>
+        <details key={lang} open={lang === "de" || lang === UNIVERSAL_LANG || languages.length === 1}>
           <summary className="cursor-pointer select-none px-4 py-3 bg-surface border border-border-soft rounded-lg text-sm font-medium text-foreground hover:bg-surface transition-colors">
             {LANGUAGE_LABEL[lang] ?? lang}
             <span className="ml-2 text-xs text-muted-soft font-normal">

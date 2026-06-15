@@ -63,7 +63,7 @@ export function VoicesEditor({ voices, onChange, baseUrl, apiKey, voicesPath, on
   }
 
   function handleAddConfirm() {
-    if (!newVoice.voice_id || !newVoice.language) return;
+    if (!newVoice.voice_id) return;
     onChange([...voices, { ...newVoice }]);
     setNewVoice(EMPTY_VOICE);
     setAddingRow(false);
@@ -192,15 +192,13 @@ export function VoicesEditor({ voices, onChange, baseUrl, apiKey, voicesPath, on
                     </div>
                     <div className="space-y-1">
                       <label className="text-[10px] text-muted uppercase tracking-wide">
-                        {t("voices.colLang")} *
+                        {t("voices.colLang")}
                       </label>
                       <input
                         value={v.language}
                         onChange={(e) => handleFieldChange(i, "language", e.target.value)}
                         placeholder="de"
-                        className={`w-full text-xs px-2 py-1 border rounded font-mono focus:outline-none focus:border-kb ${
-                          !v.language ? "border-destructive" : "border-border"
-                        }`}
+                        className="w-full text-xs px-2 py-1 border border-border rounded font-mono focus:outline-none focus:border-kb"
                       />
                     </div>
                     <div className="space-y-1">
@@ -219,10 +217,6 @@ export function VoicesEditor({ voices, onChange, baseUrl, apiKey, voicesPath, on
             );
           })}
         </div>
-      )}
-
-      {voices.some((v) => !v.language) && (
-        <p className="text-xs text-destructive">{t("voices.languageRequired")}</p>
       )}
 
       {/* Add voice form */}
@@ -254,7 +248,7 @@ export function VoicesEditor({ voices, onChange, baseUrl, apiKey, voicesPath, on
             </div>
             <div className="space-y-1">
               <label className="text-[10px] text-muted uppercase tracking-wide">
-                {t("voices.colLang")} *
+                {t("voices.colLang")}
               </label>
               <input
                 value={newVoice.language}
@@ -274,11 +268,12 @@ export function VoicesEditor({ voices, onChange, baseUrl, apiKey, voicesPath, on
               />
             </div>
           </div>
+          <p className="text-[10px] text-muted-soft">{t("voices.langHint")}</p>
           <div className="flex gap-2 pt-1">
             <button
               type="button"
               onClick={handleAddConfirm}
-              disabled={!newVoice.voice_id || !newVoice.language}
+              disabled={!newVoice.voice_id}
               className="text-xs px-3 py-1.5 rounded-md bg-kb text-white disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {t("voices.add")}

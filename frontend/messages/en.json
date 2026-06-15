@@ -919,7 +919,7 @@
         "colName": "Name",
         "colLang": "Language",
         "colDesc": "Description",
-        "languageRequired": "All voices must have a language set (e.g. de, en).",
+        "langHint": "Leave empty for all languages (🌐 Universal). Otherwise a language code like de, en.",
         "remove": "Remove voice",
         "play": "Play voice",
         "stop": "Stop playback"

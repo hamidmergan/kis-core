@@ -919,7 +919,7 @@
         "colName": "Name",
         "colLang": "Sprache",
         "colDesc": "Beschreibung",
-        "languageRequired": "Alle Stimmen müssen eine Sprache haben (z. B. de, en).",
+        "langHint": "Leer lassen für alle Sprachen (🌐 Universal). Sonst ein Sprachkürzel wie de, en.",
         "remove": "Stimme entfernen",
         "play": "Stimme abspielen",
         "stop": "Wiedergabe stoppen"
