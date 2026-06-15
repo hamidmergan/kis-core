@@ -49,6 +49,9 @@ async def get_settings(_admin=Depends(get_admin_user)):
         "workspace_label_plural_en": db.get_setting("workspace_label_plural_en", "Workspaces"),
         # Hilde mascot (system-wide)
         "mascot_enabled": _enabled("mascot_enabled"),
+        # Home-page notice banner (all users, above "Nächste Termine").
+        "home_notice_enabled": _enabled("home_notice_enabled", "false"),
+        "home_notice_text": db.get_setting("home_notice_text", ""),
         # OCR on image-heavy pages during indexing (system-wide, default on)
         "ocr_enabled": _enabled("ocr_enabled"),
         # Workspace limits (admin-tunable)
@@ -100,6 +103,22 @@ async def update_settings(
 
     if body.mascot_enabled is not None:
         db.set_setting("mascot_enabled", "true" if body.mascot_enabled else "false")
+
+    # Home-page notice banner. Toggle is independent of the text so an admin can
+    # keep a drafted message and flip it on/off. Text is length-capped so a paste
+    # accident can't blow up the start page; empty text is allowed (banner stays
+    # hidden until something is typed even when the toggle is on).
+    if body.home_notice_enabled is not None:
+        db.set_setting("home_notice_enabled", "true" if body.home_notice_enabled else "false")
+
+    if body.home_notice_text is not None:
+        stripped = body.home_notice_text.strip()
+        if len(stripped) > 1000:
+            raise HTTPException(
+                status_code=400,
+                detail=t("admin.settings.homeNoticeTooLong", locale, max=1000),
+            )
+        db.set_setting("home_notice_text", stripped)
 
     if body.ocr_enabled is not None:
         db.set_setting("ocr_enabled", "true" if body.ocr_enabled else "false")

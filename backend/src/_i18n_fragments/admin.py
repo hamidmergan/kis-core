@@ -23,6 +23,10 @@ MESSAGES: dict[str, dict[str, str]] = {
         "de": "{label} ist zu lang (max 40 Zeichen)",
         "en": "{label} is too long (max 40 characters)",
     },
+    "admin.settings.homeNoticeTooLong": {
+        "de": "Hinweistext ist zu lang (max {max} Zeichen)",
+        "en": "Notice text is too long (max {max} characters)",
+    },
     "admin.settings.unknownModelKeys": {
         "de": "Unbekannte Model-Keys: {unknown}",
         "en": "Unknown model keys: {unknown}",

@@ -8,6 +8,7 @@ import { CalendarBlank } from "@phosphor-icons/react";
 import Spinner from "@/components/ui/Spinner";
 import ExpandableText from "@/components/ui/ExpandableText";
 import UpcomingDeadlinesWidget from "./UpcomingDeadlinesWidget";
+import HomeNotice from "./HomeNotice";
 import { useWorkspaceLabel } from "@/hooks/useWorkspaceLabel";
 import type { StudentWorkspace } from "../_shared";
 
@@ -151,6 +152,8 @@ export default function StudentView() {
               {t("enrollInvalidCode")}
             </div>
           )}
+
+          <HomeNotice />
 
           <div className="mb-12">
             <UpcomingDeadlinesWidget />

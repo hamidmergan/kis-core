@@ -1105,6 +1105,15 @@
       "hint": "Applies to all workspaces and new indexing. Existing documents are only affected after re-indexing.",
       "toggleAria": "Toggle OCR"
     },
+    "homeNoticeCard": {
+      "title": "Home page notice",
+      "active": "Active - the notice is shown to all users on the start page above the upcoming dates.",
+      "disabled": "Disabled - no notice is shown.",
+      "placeholder": "Notice text for the start page, for example a note during a test phase.",
+      "hint": "Shown centered above the upcoming dates. Even with the toggle on, the notice stays hidden while the field is empty.",
+      "toggleAria": "Toggle notice",
+      "saveFailed": "Save failed."
+    },
     "workspaceLimitsCard": {
       "title": "Max sources per {label}",
       "hint": "How many documents users may upload per {label}. Takes effect immediately for new uploads.",
@@ -1312,7 +1321,6 @@
       "newRole": "New role",
       "name": "Name",
       "aiaAccess": "AIA {label}",
-      "aiaNone": "No AIA {label}",
       "aiaRead": "Read access (link)",
       "aiaEdit": "Edit access (staff-level: create {plural})",
       "tools": "Global tools",

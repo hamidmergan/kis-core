@@ -1105,6 +1105,15 @@
       "hint": "Gilt für alle Workspaces und neue Indexierungen. Bestehende Dokumente erst nach erneutem Indexieren betroffen.",
       "toggleAria": "OCR umschalten"
     },
+    "homeNoticeCard": {
+      "title": "Hinweis auf Startseite",
+      "active": "Aktiv - der Hinweis wird allen Nutzern auf der Startseite über den Terminen angezeigt.",
+      "disabled": "Deaktiviert - es wird kein Hinweis angezeigt.",
+      "placeholder": "Hinweistext für die Startseite, zum Beispiel ein Hinweis während einer Testphase.",
+      "hint": "Wird zentriert über den Terminen angezeigt. Auch bei aktivem Schalter bleibt der Hinweis verborgen, solange das Feld leer ist.",
+      "toggleAria": "Hinweis umschalten",
+      "saveFailed": "Speichern fehlgeschlagen."
+    },
     "workspaceLimitsCard": {
       "title": "Maximale Quellen pro {label}",
       "hint": "Wie viele Dokumente Nutzer pro {label} hochladen dürfen. Greift sofort für neue Uploads.",
@@ -1312,7 +1321,6 @@
       "newRole": "Neue Rolle",
       "name": "Name",
       "aiaAccess": "AIA {label}",
-      "aiaNone": "Kein AIA {label}",
       "aiaRead": "Leserechte (Link-Zugriff)",
       "aiaEdit": "Bearbeitungsrechte (wie staff: {plural} erstellen)",
       "tools": "Globale Tools",

@@ -22,6 +22,10 @@ class UpdateSettingsRequest(BaseModel):
     workspace_label_plural_en: str | None = None
     # Hide the Hilde mascot system-wide. Default true (mascot shown).
     mascot_enabled: bool | None = None
+    # Home-page notice banner (shown to all users on the start page, above
+    # "Nächste Termine"). Enabled flag + free text, e.g. for test-phase notes.
+    home_notice_enabled: bool | None = None
+    home_notice_text: str | None = None
     # Run OCR on image-heavy PDF/slide pages during indexing. Default true.
     # Off = skip all OCR (faster + cheaper, but scanned pages stay un-indexed).
     ocr_enabled: bool | None = None

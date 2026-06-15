@@ -330,6 +330,112 @@ function MascotCard() {
   );
 }
 
+function HomeNoticeCard() {
+  const t = useTranslations("admin.homeNoticeCard");
+  const [enabled, setEnabled] = useState<boolean | null>(null);
+  const [text, setText] = useState<string>("");
+  const [draft, setDraft] = useState<string>("");
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    fetch("/api/admin/settings", { credentials: "include" })
+      .then((r) => r.json())
+      .then((d) => {
+        setEnabled(d.home_notice_enabled ?? false);
+        const value = typeof d.home_notice_text === "string" ? d.home_notice_text : "";
+        setText(value);
+        setDraft(value);
+      });
+  }, []);
+
+  const patch = (payload: Record<string, unknown>) =>
+    fetch("/api/admin/settings", {
+      method: "PATCH",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+
+  const toggle = async () => {
+    if (enabled === null) return;
+    const next = !enabled;
+    setEnabled(next);
+    setSaving(true);
+    try { await patch({ home_notice_enabled: next }); } finally { setSaving(false); }
+  };
+
+  const commitText = async () => {
+    const trimmed = draft.trim();
+    if (trimmed === text) { setDraft(trimmed); return; }
+    setSaving(true);
+    setError(null);
+    try {
+      const res = await patch({ home_notice_text: trimmed });
+      if (res.ok) {
+        setText(trimmed);
+        setDraft(trimmed);
+      } else {
+        let detail = t("saveFailed");
+        try {
+          const body = await res.json();
+          if (typeof body?.detail === "string") detail = body.detail;
+          else if (body?.detail?.message) detail = body.detail.message;
+        } catch { /* ignore */ }
+        setError(detail);
+        setDraft(text);
+      }
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  if (enabled === null) return null;
+
+  return (
+    <div className="border border-border-soft rounded-xl bg-background p-5">
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <p className="text-sm font-medium text-foreground">{t("title")}</p>
+          <p className="text-xs text-muted mt-1">
+            {enabled ? t("active") : t("disabled")}
+          </p>
+        </div>
+        <button
+          onClick={toggle}
+          disabled={saving}
+          className={`relative inline-flex shrink-0 w-11 h-6 rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none enabled:hover:border-kb ${
+            enabled ? "bg-kb" : "bg-border"
+          } disabled:opacity-50`}
+          aria-label={t("toggleAria")}
+        >
+          <span
+            className={`pointer-events-none inline-block w-5 h-5 bg-white rounded-full shadow transition-transform duration-200 ${
+              enabled ? "translate-x-5" : "translate-x-0"
+            }`}
+          />
+        </button>
+      </div>
+      <textarea
+        value={draft}
+        onChange={(e) => { setDraft(e.target.value); setError(null); }}
+        onBlur={commitText}
+        disabled={saving}
+        rows={3}
+        maxLength={1000}
+        placeholder={t("placeholder")}
+        className="mt-3 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:border-kb disabled:opacity-50 resize-y"
+      />
+      <p className="mt-2 text-xs text-muted-soft">{t("hint")}</p>
+      {error && (
+        <p className="mt-2 text-xs text-warn bg-warn-bg border border-warn-border rounded-md px-3 py-2">
+          {error}
+        </p>
+      )}
+    </div>
+  );
+}
+
 function OcrCard() {
   const t = useTranslations("admin.ocrCard");
   const [enabled, setEnabled] = useState<boolean | null>(null);
@@ -1031,6 +1137,7 @@ function SystemPane() {
           Phase 2). Backend setting + route kept; restore the card from git history. */}
       <EmbeddingBatchCard />
       <OcrCard />
+      <HomeNoticeCard />
       <MascotCard />
       <DispatcherCard />
       <WorkspaceExportImportCard />

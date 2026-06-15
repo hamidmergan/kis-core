@@ -6,6 +6,7 @@ import LockedNotice from "@/components/auth/LockedNotice";
 import { checkAuthStatus } from "@/lib/auth";
 import LecturerView from "./workspace/_components/LecturerView";
 import StudentView from "./workspace/_components/StudentView";
+import HomeNotice from "./workspace/_components/HomeNotice";
 
 type HomeView = "lecturer" | "student" | "tools-only";
 
@@ -30,6 +31,7 @@ export default function HomePage() {
       ) : (
         <div className="px-4 sm:px-6 md:px-8 pt-10 pb-20">
           <div className="max-w-2xl mx-auto">
+            <HomeNotice />
             <LockedNotice variant="aia" />
           </div>
         </div>
