@@ -35,9 +35,10 @@ interface UseScreencastTranslateFlowOptions {
 
   // Upload/Translate config
   file: File | null;
-  sourceLang: string;
+  skipTranslation: boolean;
   targetLang: string;
   glossaryIds: string[];
+  translationProviderId: number | null;
   mergeToApiJson: (ids: string[]) => string | null;
 
   // Callbacks from other hooks
@@ -61,9 +62,10 @@ export function useScreencastTranslateFlow(opts: UseScreencastTranslateFlowOptio
     slides,
     dispatch,
     file,
-    sourceLang,
+    skipTranslation,
     targetLang,
     glossaryIds,
+    translationProviderId,
     mergeToApiJson,
     checkBeforeSubmit,
     checkJobStillValid,
@@ -86,8 +88,8 @@ export function useScreencastTranslateFlow(opts: UseScreencastTranslateFlowOptio
     dispatch({ type: "SET_LOADING", loading: true });
     const signal = newSignal();
 
-    // ── Same-language path: skip DeepL, upload as-is, go directly to user-prompt ──
-    if (sourceLang === targetLang) {
+    // ── Skip-translation path: skip DeepL, upload as-is, go directly to user-prompt ──
+    if (skipTranslation) {
       try {
         const formData = new FormData();
         formData.append("file", file);
@@ -131,7 +133,9 @@ export function useScreencastTranslateFlow(opts: UseScreencastTranslateFlowOptio
       formData.append("file", file);
       const glossaryJson = mergeToApiJson(glossaryIds);
       if (glossaryJson) formData.append("glossary_json", glossaryJson);
-      formData.append("source_lang", sourceLang);
+      if (translationProviderId != null) formData.append("provider_id", String(translationProviderId));
+      // Source language is always auto-detected (empty source_lang).
+      formData.append("source_lang", "");
       formData.append("target_lang", targetLang);
 
       const uploadRes = await fetch("/api/screencast/translate", {
@@ -169,7 +173,7 @@ export function useScreencastTranslateFlow(opts: UseScreencastTranslateFlowOptio
       goError(err instanceof Error ? err.message : "Unbekannter Fehler");
     }
   }, [
-    file, sourceLang, targetLang, glossaryIds, mergeToApiJson,
+    file, skipTranslation, targetLang, glossaryIds, translationProviderId, mergeToApiJson,
     checkBeforeSubmit, goError,
     newSignal, dispatch, currentJobUuidRef,
   ]);
@@ -263,7 +267,7 @@ export function useScreencastTranslateFlow(opts: UseScreencastTranslateFlowOptio
           add_closing: true,
           min_chars: 1500,
           max_chars: 2000,
-          source_lang: sourceLang,
+          source_lang: "",
           target_lang: targetLang,
         },
         signal,
@@ -285,7 +289,7 @@ export function useScreencastTranslateFlow(opts: UseScreencastTranslateFlowOptio
       goError(err instanceof Error ? err.message : "Unbekannter Fehler");
     }
   }, [
-    slides, glossaryIds, mergeToApiJson, sourceLang, targetLang,
+    slides, glossaryIds, mergeToApiJson, targetLang,
     translateJobUuid,
     checkJobStillValid, checkJobFolder, checkBeforeSubmit, goError,
     newSignal, dispatch, currentJobUuidRef, isGeneratingScriptsRef,

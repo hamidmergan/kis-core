@@ -4,8 +4,10 @@ import { useCallback, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import { MAX_TRANSCRIPTION_MB, MAX_TRANSCRIPTION_BYTES } from "@/lib/constants";
 
-const DISPLAY_EXTENSIONS = [".mp3", ".mp4"];
-const ALLOWED_EXTENSIONS = [".mp3", ".mp4", ".m4a", ".wav", ".flac"];
+// Everything the Whisper endpoint accepts. Display mirrors the allow-list so
+// the hint and the "only these allowed" error stay honest.
+const ALLOWED_EXTENSIONS = [".mp3", ".mp4", ".m4a", ".wav", ".flac", ".ogg", ".oga", ".webm", ".mpeg", ".mpga"];
+const DISPLAY_EXTENSIONS = ALLOWED_EXTENSIONS;
 
 interface TranscriptionFileUploadProps {
   onFileSelected: (file: File) => void;

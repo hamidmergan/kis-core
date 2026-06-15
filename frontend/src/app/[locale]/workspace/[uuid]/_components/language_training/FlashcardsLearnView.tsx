@@ -1,6 +1,6 @@
 import React, { useContext, useEffect, useRef, useState } from "react";
 import { CaretLeft, CaretRight, Chat, Check, Lightbulb, Question, SidebarSimple, XIcon } from "@phosphor-icons/react";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import Spinner from "@/components/ui/Spinner";
 import type { ExerciseItem, ExerciseItemSource, ExerciseSet, Source } from "../../_types";
 import { _chunkLabel, _getChipIcon, _md, _sourceChipKey } from "../../_utils";
@@ -14,21 +14,26 @@ export function FlashcardsLearnView({
   onBack: () => void;
   onAnswer: (itemId: number, correct: boolean, newRun?: boolean) => void;
   onAskChat?: (text: string) => void;
-  onSourceClick?: (filename: string, page: number, startTime?: number, highlightText?: string) => void;
+  onSourceClick?: (filename: string, page: number, startTime?: number) => void;
   breadcrumbs?: BreadcrumbItem[];
   showTranslation?: boolean;
   chatLang?: "de" | "en";
 }) {
   const t = useTranslations("workspace.detail.languageTraining");
-  // Chat prompt strings are sent to the LLM, not displayed.
-  // chatLang controls the language of the LLM response, so prompts stay in chatLang.
-  const promptTip = (term: string) => chatLang === "en"
+  const tChip = useTranslations("sourceChip");
+  // Chat prompt strings are sent to the LLM, not displayed. They follow the UI
+  // locale (the language picked in the header) so a hint/learn-more for an
+  // English card is asked — and answered — in English. chatLang stays in the
+  // prop signature for callers but no longer drives these prompts.
+  void chatLang;
+  const locale = useLocale();
+  const promptTip = (term: string) => locale === "en"
     ? `Give me a brief hint for the following question, WITHOUT revealing the answer: "${term}"`
     : `Gib mir einen kurzen Tipp zur folgenden Frage, OHNE die Antwort zu verraten.: „${term}"`;
-  const promptTermDeep = (term: string) => chatLang === "en"
+  const promptTermDeep = (term: string) => locale === "en"
     ? `Explain the term "${term}" in detail. What does it mean, in which contexts is it used, and what are the important relationships?`
     : `Erkläre mir den Begriff „${term}" genauer. Was bedeutet er, in welchem Kontext wird er verwendet und welche Zusammenhänge sind wichtig?`;
-  const promptTopicDeep = (term: string) => chatLang === "en"
+  const promptTopicDeep = (term: string) => locale === "en"
     ? `Explain the following topic in more detail: "${term}". What are important details, examples, and connections?`
     : `Erkläre mir folgendes Thema genauer: „${term}". Was sind wichtige Details, Beispiele und Zusammenhänge?`;
   const minimize = useContext(MinimizeContext);
@@ -285,10 +290,10 @@ export function FlashcardsLearnView({
                             const ChipIcon = _getChipIcon(s.source_label);
                             return (
                             <button key={si} type="button"
-                              onClick={() => { if (onSourceClick) onSourceClick(s.source_label, s.page_number ?? 1, s.start_time, card.front); }}
+                              onClick={() => { if (onSourceClick) onSourceClick(s.source_label, s.page_number ?? 1, s.start_time); }}
                               className="chip-cite inline-flex items-center gap-0.5 text-[10px] font-medium px-2 py-1 rounded-full border-none cursor-pointer transition-colors"
                               style={{ color: "var(--kb)", backgroundColor: "rgba(var(--kb-rgb),0.07)" }}>
-                              <ChipIcon size={10} weight="bold" /> {multiFile ? `[${fileIndex[s.source_label]}] ` : ""}{_chunkLabel(s.source_label, s.page_number ?? 1, s.start_time)}
+                              <ChipIcon size={10} weight="bold" /> {multiFile ? `[${fileIndex[s.source_label]}] ` : ""}{_chunkLabel(s.source_label, s.page_number ?? 1, s.start_time, (key, vals) => tChip(key, vals))}
                             </button>
                             );
                           })}
@@ -383,8 +388,7 @@ export function FlashcardsLearnView({
               {flipped ? (
                 <>
                   <button key="again" type="button" onClick={() => answer(false)} title={t("common.again")}
-                    className="w-11 h-11 rounded-full flex items-center justify-center transition-colors hover:bg-[rgba(212,69,58,0.08)]"
-                    style={{ border: "2px solid #d4453a", color: "#d4453a", backgroundColor: "var(--surface)", boxShadow: "0 1px 3px rgba(0,40,60,0.06)" }}>
+                    className="btn-outline-danger w-11 h-11 rounded-full flex items-center justify-center">
                     <XIcon size={18} weight="bold" />
                   </button>
                   <button key="back-to-question" type="button" onClick={() => setFlipped(false)}
@@ -392,8 +396,7 @@ export function FlashcardsLearnView({
                     {t("common.showQuestion")}
                   </button>
                   <button key="knew" type="button" onClick={() => answer(true)} title={t("common.know")}
-                    className="w-11 h-11 rounded-full flex items-center justify-center transition-colors hover:bg-[rgba(26,138,92,0.08)]"
-                    style={{ border: "2px solid #1a8a5c", color: "#1a8a5c", backgroundColor: "var(--surface)", boxShadow: "0 1px 3px rgba(0,40,60,0.06)" }}>
+                    className="btn-outline-success w-11 h-11 rounded-full flex items-center justify-center">
                     <Check size={18} weight="bold" />
                   </button>
                 </>
@@ -425,10 +428,10 @@ export function FlashcardsLearnView({
                       const ChipIcon = _getChipIcon(s.source_label);
                       return (
                       <button key={si} type="button"
-                        onClick={() => { if (onSourceClick) onSourceClick(s.source_label, s.page_number ?? 1, s.start_time, s.highlight_text || card.back.replace(/[*_#`~<>[\](){}|]/g, "")); }}
+                        onClick={() => { if (onSourceClick) onSourceClick(s.source_label, s.page_number ?? 1, s.start_time); }}
                         className="chip-cite inline-flex items-center gap-0.5 text-[10px] font-medium px-2 py-1 rounded-full border-none cursor-pointer transition-colors"
                         style={{ color: "var(--kb)", backgroundColor: "rgba(var(--kb-rgb),0.07)" }}>
-                        <ChipIcon size={10} weight="bold" /> {multiFile ? `[${fileIndex[s.source_label]}] ` : ""}{_chunkLabel(s.source_label, s.page_number ?? 1, s.start_time)}
+                        <ChipIcon size={10} weight="bold" /> {multiFile ? `[${fileIndex[s.source_label]}] ` : ""}{_chunkLabel(s.source_label, s.page_number ?? 1, s.start_time, (key, vals) => tChip(key, vals))}
                       </button>
                       );
                     })}

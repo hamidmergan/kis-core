@@ -1,10 +1,9 @@
-"""Embedding providers for AI assistant - abstraction over OpenAI-compatible HTTP endpoints and Ollama.
+"""Embedding provider for the AI assistant.
 
-The OpenAI-compatible adapter is one class with two configured instances (today:
-KISSKI and THL myLab); the Ollama adapter is separate because it uses Ollama's
-native /api/embed endpoint to set ``options.num_ctx`` (which the OpenAI-compat
-shim drops). The active provider is chosen at runtime via the admin panel
-(DB settings, see get_embedding_provider).
+Single class targeting any OpenAI-compatible ``/v1/embeddings`` endpoint. The
+active provider (base URL, API key, model) is chosen at runtime via the admin
+panel and stored in the ``providers`` + ``feature_routes`` tables (see
+``get_embedding_provider``).
 """
 
 import json
@@ -33,15 +32,22 @@ class OpenAICompatEmbeddingProvider(EmbeddingProvider):
     """Embedding client for any OpenAI-compatible /v1/embeddings endpoint.
 
     A single instance is parameterised by ``base_url`` / ``api_key`` / ``model``;
-    multiple deployments (KISSKI, THL myLab, etc.) are different instances of
-    this same class.
+    multiple deployments are different instances of this same class.
     """
 
-    _BATCH_SIZE = 100
+    # Chunks (input texts) per embedding request. Higher = fewer requests against
+    # the shared GWDG rate limit (2/s, 15/min for the whole university). Measured
+    # safe on myLab qwen3-embedding-4b: 1000 OK (~13s), 2000 → 502. Each chunk is
+    # tiny (~300 tok, well under the model's 40k/input limit), so a full 1000-batch
+    # is fine. NOTE: the ingest loop's _EMBED_BATCH must be >= this to take effect.
+    _BATCH_SIZE = 1000
 
     def __init__(self, base_url: str, api_key: str, model: str) -> None:
         from langfuse.openai import OpenAI
-        self._client = OpenAI(api_key=api_key, base_url=base_url)
+        # 60s timeout: covers cold-start model loads on the first request after
+        # a provider switch. Warm calls return in well under a second. Chat
+        # callers wrap this in to_thread so the event loop stays free.
+        self._client = OpenAI(api_key=api_key, base_url=base_url, timeout=60.0)
         self._model = model
 
     def embed(self, texts: list[str]) -> list[list[float]]:
@@ -65,153 +71,61 @@ class OpenAICompatEmbeddingProvider(EmbeddingProvider):
         return results
 
 
-class OllamaEmbeddingProvider(EmbeddingProvider):
-    """Embedding client using Ollama's native /api/embed API.
-
-    Uses the native endpoint (not OpenAI-compat) so we can pass options.num_ctx
-    - the OpenAI-compat /v1/embeddings endpoint ignores Modelfile parameters.
-    """
-
-    # 600-char chunks ~ 240 tokens each; batch of 5 ~ 1200 tokens < 2048 limit -> safe
-    _BATCH_SIZE = 5
-    # nomic-bert context_length=2048 tokens; German BERT subword tokenizer ~2-3 chars/token
-    # -> 1000 chars ~ 400-500 tokens, safely within limit
-    _NUM_CTX = 2048
-
-    def __init__(self) -> None:
-        from src.config import Settings
-        from src.services.runtime_models import get_model
-        from langfuse import Langfuse
-        s = Settings()
-        base = s.local_provider_base_url.rstrip("/")
-        if base.endswith("/v1"):
-            base = base[:-3]
-        self._embed_url = base + "/api/embed"
-        self._model = get_model("local_embedding_model")
-        self._langfuse = Langfuse()
-
-    # Safety net only - chunker now produces <=600 char chunks, this should never trigger
-    _MAX_CHARS = 700
-
-    def _truncate(self, text: str) -> str:
-        if len(text) <= self._MAX_CHARS:
-            return text
-        cut = text[:self._MAX_CHARS].rsplit(None, 1)[0]
-        logger.debug("Ollama embed: truncated {} → {} chars", len(text), len(cut))
-        return cut
-
-    def embed(self, texts: list[str]) -> list[list[float]]:
-        import json
-        import urllib.request
-        import urllib.error
-        results: list[list[float]] = []
-        truncated = [self._truncate(t) for t in texts]
-        for i in range(0, len(truncated), self._BATCH_SIZE):
-            batch = truncated[i: i + self._BATCH_SIZE]
-            payload = json.dumps({
-                "model": self._model,
-                "input": batch,
-                "options": {"num_ctx": self._NUM_CTX},
-            }).encode()
-            generation = self._langfuse.generation(
-                name="ollama-embed",
-                model=self._model,
-                model_parameters={"num_ctx": self._NUM_CTX},
-                input=batch,
-            )
-            for attempt in range(2):
-                try:
-                    req = urllib.request.Request(
-                        self._embed_url,
-                        data=payload,
-                        headers={"Content-Type": "application/json"},
-                        method="POST",
-                    )
-                    with urllib.request.urlopen(req, timeout=120) as resp:
-                        data = json.loads(resp.read())
-                    batch_results = data["embeddings"]
-                    results.extend(batch_results)
-                    generation.end(
-                        output=f"{len(batch_results)} embedding(s), dim={len(batch_results[0]) if batch_results else 0}",
-                        usage={"input": sum(len(t) for t in batch), "unit": "CHARACTERS"},
-                    )
-                    break
-                except urllib.error.HTTPError as e:
-                    body = e.read().decode(errors="replace")
-                    logger.warning("Ollama embed HTTP {}: lens={} body={}", e.code, [len(t) for t in batch], body)
-                    if attempt == 0:
-                        time.sleep(3)
-                    else:
-                        generation.end(level="ERROR", status_message=f"HTTP {e.code}: {body}")
-                        raise RuntimeError(f"Ollama embedding request failed: {e} - {body}") from e
-                except Exception as e:
-                    if attempt == 0:
-                        logger.warning("Ollama embed batch {}/{} failed: {} - retrying in 3s", i, len(texts), e)
-                        time.sleep(3)
-                    else:
-                        generation.end(level="ERROR", status_message=str(e))
-                        raise RuntimeError(f"Ollama embedding request failed: {e}") from e
-
-        return results
-
-
-# ── Factory functions per admin-panel slot ─────────────────────────────────
-
-def _make_primary_embedding_provider() -> OpenAICompatEmbeddingProvider:
-    """Build an OpenAI-compat embedding provider against the primary slot
-    (today: KISSKI/GWDG)."""
-    from src.config import Settings
-    from src.services.runtime_models import get_model
-    s = Settings()
-    return OpenAICompatEmbeddingProvider(
-        base_url=s.primary_provider_base_url,
-        api_key=s.primary_provider_api_key,
-        model=get_model("primary_embedding_model"),
-    )
-
-
-def _make_fallback_embedding_provider() -> OpenAICompatEmbeddingProvider:
-    """Build an OpenAI-compat embedding provider against the fallback slot
-    (today: THL myLab)."""
-    from src.config import Settings
-    from src.services.runtime_models import get_model
-    s = Settings()
-    base = (s.fallback_provider_base_url or "").rstrip("/")
-    if not base:
-        raise RuntimeError("Fallback embedding base URL not configured")
-    # The fallback endpoint is open/unauthenticated within the TH network — any non-empty key works.
-    return OpenAICompatEmbeddingProvider(
-        base_url=f"{base}/v1",
-        api_key="ignored",
-        model=get_model("fallback_embedding_model"),
-    )
-
-
 def get_embedding_provider() -> EmbeddingProvider:
     """Return the currently-active embedding provider.
 
-    Exactly one of the three admin toggles must be enabled. No env-var fallback:
-    the admin explicitly picks a provider and any change requires a reindex,
-    so a silent fallback would corrupt the index.
+    Reads the ``embedding`` feature route from the admin panel. Changing the
+    route requires a reindex, so a silent fallback would corrupt the index —
+    when no route is configured we raise.
     """
-    from src import database as db
-    if db.get_setting("primary_embedding_enabled", "").lower() == "true":
-        return _make_primary_embedding_provider()
-    if db.get_setting("fallback_embedding_enabled", "").lower() == "true":
-        return _make_fallback_embedding_provider()
-    if db.get_setting("local_embedding_enabled", "").lower() == "true":
-        return OllamaEmbeddingProvider()
-    raise RuntimeError(
-        "Kein Embedding-Anbieter aktiv. Bitte im Admin-Bereich unter 'Embeddings (KI-Assistent)' "
-        "genau einen Anbieter aktivieren."
+    from src.services import feature_router
+    try:
+        binding = feature_router.resolve("embedding")
+    except feature_router.FeatureNotConfigured as e:
+        raise RuntimeError(
+            "Kein Embedding-Anbieter aktiv. Bitte im Admin-Bereich unter 'KI' den "
+            "Anbieter für das Feature 'Embedding' setzen. (" + str(e) + ")"
+        )
+
+    provider = binding.provider
+    base_url = provider["base_url"].rstrip("/")
+    model = binding.model or ""
+
+    if not base_url.endswith("/v1"):
+        base_url = f"{base_url}/v1"
+    return OpenAICompatEmbeddingProvider(
+        base_url=base_url,
+        api_key=provider.get("api_key") or "not-needed",
+        model=model,
     )
 
 
-def compute_fingerprint(provider: EmbeddingProvider) -> str:
-    """Embed a fixed sentinel string and return the vector as a JSON string.
+def fingerprint_from_dim(provider: EmbeddingProvider, dim: int) -> str:
+    """Serialize the embedding-space identity ``{model, dim}`` from an ALREADY-known
+    dimension — the byte-identical string ``compute_fingerprint`` produces, but with NO
+    API call. The ingest path uses this: it gets ``dim`` for free as ``len(vector)`` from
+    the chunk vectors it embeds anyway, so no separate probe embed is needed.
+    Keep this serialization in lock-step with ``compute_fingerprint`` (same keys/order),
+    or every already-indexed workspace would suddenly read as "stale → reindex"."""
+    return json.dumps({"model": provider.model_name, "dim": dim}, sort_keys=True)
 
-    The fingerprint is stored alongside indexed sources so we can detect
-    model drift (different model -> different fingerprint).
+
+def compute_fingerprint(provider: EmbeddingProvider) -> str:
+    """Return a stable identity of the embedding space: model name + dimension.
+
+    Stored alongside indexed sources/workspaces so we can detect model drift
+    (a different model -> a different fingerprint -> "needs reindex").
+
+    We embed a fixed sentinel ONLY to learn the provider's true output
+    dimension; we deliberately do NOT hash the raw floats. Real providers
+    (vLLM/KISSKI e.g. e5-mistral) return slightly different vectors on every
+    call (non-deterministic), so a float-based fingerprint never matches itself
+    and the reindex warning would be permanently stuck — even right after a
+    successful reindex.
+
+    This PROBES the provider (one sentinel embed). Prefer ``fingerprint_from_dim``
+    whenever a real embedding (hence the dimension) is already at hand — e.g. during
+    ingest — to avoid the extra call.
     """
-    vector = provider.embed_one("KIS Tutor Embedding Fingerprint v1")
-    return json.dumps(vector)
+    dim = len(provider.embed_one("KIS Tutor Embedding Fingerprint v1"))
+    return fingerprint_from_dim(provider, dim)

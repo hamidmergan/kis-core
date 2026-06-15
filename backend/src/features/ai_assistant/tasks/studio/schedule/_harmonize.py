@@ -29,7 +29,7 @@ def _harmonize_same_date_titles(
     """
     cand_groups: dict[date, list[int]] = defaultdict(list)
     for idx, (cand, cls) in enumerate(zip(all_candidates, classifications)):
-        if not cls["keep"] or cls["is_footer"] or cls.get("is_historical"):
+        if not cls["keep"] or cls["is_footer"] or cls.get("is_header") or cls.get("is_historical"):
             continue
         if cand.get("date_iso"):
             d = _parse_date(cand["date_iso"])

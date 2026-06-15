@@ -2,333 +2,12 @@
 
 import React, { useCallback, useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
-import Spinner from "@/components/ui/Spinner";
 import WorkspaceLabelCard from "./WorkspaceLabelCard";
 import WorkspaceExportImportCard from "./WorkspaceExportImportCard";
-import DeeplKeyCard from "./DeeplKeyCard";
 import { useWorkspaceLabel } from "@/hooks/useWorkspaceLabel";
 import { notifyMascotGlobalChanged } from "@/hooks/useHildePref";
 
-export type SettingsSection = "system" | "speech" | "images" | "embedding" | "llm";
-
-function ProviderToggle({
-  label,
-  enabled,
-  configured,
-  available,
-  envHint,
-  saving,
-  settingKey,
-  onToggle,
-  modelKey,
-  modelValue,
-  onModelChange,
-}: {
-  label: string;
-  enabled: boolean;
-  configured: boolean;
-  available?: boolean;
-  envHint?: string;
-  saving: boolean;
-  settingKey: string;
-  onToggle: (key: string, val: boolean) => void;
-  modelKey?: string;
-  modelValue?: string;
-  onModelChange?: (key: string, value: string) => void;
-}) {
-  const t = useTranslations("admin.settings");
-  const usable = configured && available !== false;
-  const visuallyOn = enabled && usable;
-  const statusText = !configured
-    ? t("providerNotConfigured")
-    : !enabled
-      ? t("providerDisabled")
-      : available === false
-        ? t("providerUnavailable")
-        : t("providerActive");
-  const [draft, setDraft] = React.useState(modelValue ?? "");
-  React.useEffect(() => { setDraft(modelValue ?? ""); }, [modelValue]);
-  const commit = () => {
-    if (!modelKey || !onModelChange) return;
-    const trimmed = draft.trim();
-    if (!trimmed || trimmed === (modelValue ?? "")) {
-      setDraft(modelValue ?? "");
-      return;
-    }
-    onModelChange(modelKey, trimmed);
-  };
-  return (
-    <div className="flex items-start justify-between gap-4">
-      <div className="flex-1 min-w-0">
-        <p className="text-sm text-foreground-soft">{label}</p>
-        <p className="text-xs text-muted mt-0.5">{statusText}</p>
-        {!configured && envHint && (
-          <p className="mt-1 text-xs text-muted-soft">
-            {t.rich("envNotSet", {
-              envHint,
-              code: (chunks) => <code>{chunks}</code>,
-            })}
-          </p>
-        )}
-        {modelKey && onModelChange && (
-          <div className="mt-2 flex items-center gap-2">
-            <span className="text-xs text-muted shrink-0">{t("modelLabel")}</span>
-            <input
-              type="text"
-              value={draft}
-              onChange={(e) => setDraft(e.target.value)}
-              onBlur={commit}
-              onKeyDown={(e) => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); }}
-              disabled={saving || !configured}
-              spellCheck={false}
-              className="font-mono text-xs px-3 py-1.5 border-2 border-border rounded-md w-full max-w-md transition-colors hover:border-kb focus:outline-none focus:border-kb disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:border-border"
-            />
-          </div>
-        )}
-      </div>
-      <button
-        onClick={() => onToggle(settingKey, !enabled)}
-        disabled={saving || !usable}
-        title={!configured && envHint ? t("envNotSetTitle", { envHint }) : undefined}
-        className={`relative inline-flex shrink-0 w-11 h-6 rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none enabled:hover:border-kb ${
-          visuallyOn ? "bg-kb" : "bg-border"
-        } disabled:opacity-50 disabled:cursor-not-allowed`}
-      >
-        <span
-          className={`pointer-events-none inline-block w-5 h-5 bg-white rounded-full shadow transition-transform duration-200 ${
-            visuallyOn ? "translate-x-5" : "translate-x-0"
-          }`}
-        />
-      </button>
-    </div>
-  );
-}
-
-function ProviderSection({
-  title,
-  hint,
-  children,
-}: {
-  title: string;
-  hint?: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <div className="border border-border-soft rounded-xl bg-background p-5">
-      <p className="text-sm font-medium text-foreground mb-1">{title}</p>
-      {hint && <p className="text-xs text-muted-soft mb-4">{hint}</p>}
-      {!hint && <div className="mb-3" />}
-      <div className="space-y-4">
-        {React.Children.toArray(children).flatMap((child, i, arr) =>
-          i < arr.length - 1 ? [child, <div key={`sep-${i}`} className="border-t border-border-soft" />] : [child],
-        )}
-      </div>
-    </div>
-  );
-}
-
-function ProvidersPane({ section }: { section: Exclude<SettingsSection, "system"> }) {
-  const t = useTranslations("admin.settings");
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const [s, setS] = useState<Record<string, any> | null>(null);
-  const [saving, setSaving] = useState(false);
-
-  useEffect(() => {
-    fetch("/api/admin/settings", { credentials: "include" })
-      .then((r) => r.json())
-      .then((d) => setS(d));
-  }, []);
-
-  const patch = async (body: Record<string, unknown>) => {
-    setSaving(true);
-    try {
-      await fetch("/api/admin/settings", {
-        method: "PATCH",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
-      });
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const EMBEDDING_KEYS = ["primary_embedding_enabled", "fallback_embedding_enabled", "local_embedding_enabled"];
-  const LLM_KEYS = ["primary_llm_enabled", "fallback_llm_enabled", "local_llm_enabled"];
-  const WHISPER_KEYS = ["primary_whisper_enabled", "fallback_whisper_enabled"];
-  const IMAGE_GEN_KEYS = ["primary_image_gen_enabled", "fallback_image_gen_enabled"];
-  const IMAGE_EDIT_KEYS = ["primary_image_edit_enabled", "fallback_image_edit_enabled"];
-  const IMAGE_ANALYZE_KEYS = ["primary_image_analyze_enabled", "fallback_image_analyze_enabled"];
-  const OCR_KEYS = ["primary_ocr_enabled", "fallback_ocr_enabled"];
-  const RADIO_GROUPS: Record<string, string[]> = {
-    embedding: EMBEDDING_KEYS,
-    llm: LLM_KEYS,
-    whisper: WHISPER_KEYS,
-    image_gen: IMAGE_GEN_KEYS,
-    image_edit: IMAGE_EDIT_KEYS,
-    image_analyze: IMAGE_ANALYZE_KEYS,
-    ocr: OCR_KEYS,
-  };
-
-  const toggle = async (key: string, val: boolean) => {
-    const group = Object.values(RADIO_GROUPS).find((keys) => keys.includes(key));
-    if (group && val) {
-      const mutex: Record<string, boolean> = { [key]: true };
-      for (const other of group) if (other !== key) mutex[other] = false;
-      setS((prev) => (prev ? { ...prev, ...mutex } : prev));
-    } else {
-      setS((prev) => (prev ? { ...prev, [key]: val } : prev));
-    }
-    await patch({ [key]: val });
-    if (EMBEDDING_KEYS.includes(key)) {
-      window.dispatchEvent(new CustomEvent("embedding-provider-changed"));
-    }
-  };
-
-  const setModel = async (key: string, value: string) => {
-    setS((prev) => (prev ? { ...prev, models: { ...(prev.models ?? {}), [key]: value } } : prev));
-    await patch({ models: { [key]: value } } as Record<string, unknown>);
-    if (key.includes("embedding")) {
-      window.dispatchEvent(new CustomEvent("embedding-provider-changed"));
-    }
-  };
-
-  if (!s) return <Spinner className="flex justify-center py-12" />;
-
-  const models: Record<string, string> = (s.models as Record<string, string>) ?? {};
-
-  const P = (props: Omit<Parameters<typeof ProviderToggle>[0], "saving" | "onToggle" | "onModelChange" | "modelValue"> & { modelKey?: string }) => (
-    <ProviderToggle
-      {...props}
-      saving={saving}
-      onToggle={toggle}
-      modelValue={props.modelKey ? models[props.modelKey] : undefined}
-      onModelChange={props.modelKey ? setModel : undefined}
-    />
-  );
-
-  return (
-    <div className="space-y-4">
-      {section === "speech" && (
-        <>
-          <ProviderSection title={t("speechTitle")}>
-            <P label={t("providerElevenlabs")} settingKey="elevenlabs_enabled" enabled={s.elevenlabs_enabled ?? false} configured={s.elevenlabs_configured ?? false} envHint="ELEVENLABS_API_KEY" />
-            <P label={t("providerKokoro")} settingKey="kokoro_enabled" enabled={s.kokoro_enabled ?? false} configured={s.kokoro_configured ?? false} available={s.kokoro_available} envHint="KOKORO_BASE_URL" />
-            <P label={t("providerMylabXtts")} settingKey="mylab_enabled" enabled={s.mylab_enabled ?? false} configured={s.mylab_configured ?? false} available={s.mylab_available} envHint="MYLAB_TTS_BASE_URL" modelKey="mylab_tts_model" />
-          </ProviderSection>
-
-          <ProviderSection title={t("transcriptionTitle")} hint={t("transcriptionHint")}>
-            <P label={t("providerKisskiWhisper")} settingKey="primary_whisper_enabled" enabled={s.primary_whisper_enabled ?? true} configured={s.primary_whisper_configured ?? false} envHint="PRIMARY_PROVIDER_API_KEY" />
-            <P label={t("providerMylabWhisper3")} settingKey="fallback_whisper_enabled" enabled={s.fallback_whisper_enabled ?? false} configured={s.fallback_whisper_configured ?? false} available={s.fallback_whisper_available} envHint="SECONDARY_PROVIDER_BASE_URL" />
-          </ProviderSection>
-
-          <ProviderSection title={t("translationTitle")} hint={t("translationHint")}>
-            {(() => {
-              const llmProv: string = s.translation_llm_provider ?? "";
-              const mech: string = s.transcript_translation_provider ?? "llm";
-              const active: "deepl" | "primary" | "fallback" | "local" | "" =
-                mech === "deepl" ? "deepl"
-                : llmProv === "primary" || llmProv === "fallback" || llmProv === "local" ? llmProv
-                : "";
-              const setProvider = async (target: "deepl" | "primary" | "fallback" | "local") => {
-                const updates: Record<string, string> = target === "deepl"
-                  ? { transcript_translation_provider: "deepl", translation_llm_provider: "" }
-                  : { transcript_translation_provider: "llm", translation_llm_provider: target };
-                setS((prev) => (prev ? { ...prev, ...updates } : prev));
-                await patch(updates);
-              };
-              const T = ({ label, target, configured, modelKey, envHint }: {
-                label: string;
-                target: "deepl" | "primary" | "fallback" | "local";
-                configured: boolean;
-                modelKey?: string;
-                envHint: string;
-              }) => (
-                <ProviderToggle
-                  label={label}
-                  enabled={active === target}
-                  configured={configured}
-                  envHint={envHint}
-                  saving={saving}
-                  settingKey={`translation:${target}`}
-                  onToggle={(_k, val) => { if (val) setProvider(target); }}
-                  modelKey={modelKey}
-                  modelValue={modelKey ? models[modelKey] : undefined}
-                  onModelChange={modelKey ? setModel : undefined}
-                />
-              );
-              return (
-                <>
-                  <T label={t("providerDeepl")} target="deepl" configured={s.deepl_configured ?? false} envHint="DEEPL_API_KEY" />
-                  <T label={t("providerKisski")} target="primary" configured={s.primary_llm_configured ?? false} modelKey="translation_primary_model" envHint="PRIMARY_PROVIDER_API_KEY" />
-                  <T label={t("providerMylab")} target="fallback" configured={s.fallback_llm_configured ?? false} modelKey="translation_fallback_model" envHint="SECONDARY_PROVIDER_BASE_URL" />
-                  <T label={t("providerOllama")} target="local" configured={s.local_llm_configured ?? false} modelKey="translation_local_model" envHint="LOCAL_PROVIDER_BASE_URL" />
-                </>
-              );
-            })()}
-          </ProviderSection>
-
-          <DeeplKeyCard
-            overrideSet={s.deepl_override_set ?? false}
-            overrideLastChars={s.deepl_override_last_chars ?? null}
-            envLastChars={s.deepl_env_last_chars ?? null}
-            onChanged={() => {
-              fetch("/api/admin/settings", { credentials: "include" })
-                .then((r) => r.json())
-                .then((d) => setS(d));
-            }}
-          />
-        </>
-      )}
-
-      {section === "images" && (
-        <>
-          <ProviderSection title={t("imageGenTitle")} hint={t("imageGenHint")}>
-            <P label={t("providerKisskiFlux")} settingKey="primary_image_gen_enabled" enabled={s.primary_image_gen_enabled ?? true} configured={s.primary_image_gen_configured ?? false} envHint="PRIMARY_PROVIDER_API_KEY" />
-            <P label={t("providerMylab")} settingKey="fallback_image_gen_enabled" enabled={s.fallback_image_gen_enabled ?? false} configured={s.fallback_image_gen_configured ?? false} available={s.fallback_image_gen_available} envHint="SECONDARY_PROVIDER_BASE_URL" modelKey="fallback_image_gen_model" />
-          </ProviderSection>
-
-          <ProviderSection title={t("imageAnalyzeTitle")} hint={t("imageAnalyzeHint")}>
-            <P label={t("providerKisskiQwen")} settingKey="primary_image_analyze_enabled" enabled={s.primary_image_analyze_enabled ?? true} configured={s.primary_image_analyze_configured ?? false} envHint="PRIMARY_PROVIDER_API_KEY" modelKey="primary_image_analyze_model" />
-            <P label={t("providerMylab")} settingKey="fallback_image_analyze_enabled" enabled={s.fallback_image_analyze_enabled ?? false} configured={s.fallback_image_analyze_configured ?? false} available={s.fallback_image_analyze_available} envHint="SECONDARY_PROVIDER_BASE_URL" modelKey="fallback_image_analyze_model" />
-          </ProviderSection>
-
-          <ProviderSection title={t("imageEditTitle")} hint={t("imageEditHint")}>
-            <P label={t("providerKisskiFlux")} settingKey="primary_image_edit_enabled" enabled={s.primary_image_edit_enabled ?? true} configured={s.primary_image_edit_configured ?? false} envHint="PRIMARY_PROVIDER_API_KEY" />
-            <P label={t("providerMylab")} settingKey="fallback_image_edit_enabled" enabled={s.fallback_image_edit_enabled ?? false} configured={s.fallback_image_edit_configured ?? false} available={s.fallback_image_edit_available} envHint="SECONDARY_PROVIDER_BASE_URL" modelKey="fallback_image_edit_model" />
-          </ProviderSection>
-
-          <ProviderSection title={t("ocrTitle")} hint={t("ocrHint")}>
-            <P label={t("providerKisski")} settingKey="primary_ocr_enabled" enabled={s.primary_ocr_enabled ?? true} configured={s.primary_ocr_configured ?? false} envHint="PRIMARY_PROVIDER_API_KEY" modelKey="primary_ocr_model" />
-            <P label={t("providerMylab")} settingKey="fallback_ocr_enabled" enabled={s.fallback_ocr_enabled ?? false} configured={s.fallback_ocr_configured ?? false} available={s.fallback_ocr_available} envHint="SECONDARY_PROVIDER_BASE_URL" modelKey="fallback_ocr_model" />
-          </ProviderSection>
-        </>
-      )}
-
-      {section === "embedding" && (
-        <>
-          <ProviderSection title={t("embeddingTitle")} hint={t("embeddingHint")}>
-            <P label={t("providerKisski")} settingKey="primary_embedding_enabled" enabled={s.primary_embedding_enabled ?? true} configured={s.primary_embedding_configured ?? false} envHint="PRIMARY_PROVIDER_API_KEY" modelKey="primary_embedding_model" />
-            <P label={t("providerMylab")} settingKey="fallback_embedding_enabled" enabled={s.fallback_embedding_enabled ?? false} configured={s.fallback_embedding_configured ?? false} available={s.fallback_embedding_available} envHint="SECONDARY_PROVIDER_BASE_URL" modelKey="fallback_embedding_model" />
-            <P label={t("providerOllama")} settingKey="local_embedding_enabled" enabled={s.local_embedding_enabled ?? false} configured={s.local_embedding_configured ?? false} envHint="LOCAL_PROVIDER_BASE_URL" modelKey="local_embedding_model" />
-          </ProviderSection>
-
-          <ReindexCard />
-        </>
-      )}
-
-      {section === "llm" && (
-        <>
-          <ProviderSection title={t("llmTitle")} hint={t("llmHint")}>
-            <P label={t("providerKisski")} settingKey="primary_llm_enabled" enabled={s.primary_llm_enabled ?? true} configured={s.primary_llm_configured ?? false} envHint="PRIMARY_PROVIDER_API_KEY" modelKey="primary_llm_model" />
-            <P label={t("providerMylab")} settingKey="fallback_llm_enabled" enabled={s.fallback_llm_enabled ?? false} configured={s.fallback_llm_configured ?? false} available={s.fallback_llm_available} envHint="SECONDARY_PROVIDER_BASE_URL" modelKey="fallback_llm_model" />
-            <P label={t("providerOllama")} settingKey="local_llm_enabled" enabled={s.local_llm_enabled ?? false} configured={s.local_llm_configured ?? false} envHint="LOCAL_PROVIDER_BASE_URL" modelKey="local_llm_model" />
-          </ProviderSection>
-        </>
-      )}
-    </div>
-  );
-}
+export type SettingsSection = "system";
 
 function WhitelistCard() {
   const t = useTranslations("admin.whitelistCard");
@@ -651,19 +330,821 @@ function MascotCard() {
   );
 }
 
+function HomeNoticeCard() {
+  const t = useTranslations("admin.homeNoticeCard");
+  const [enabled, setEnabled] = useState<boolean | null>(null);
+  const [text, setText] = useState<string>("");
+  const [draft, setDraft] = useState<string>("");
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    fetch("/api/admin/settings", { credentials: "include" })
+      .then((r) => r.json())
+      .then((d) => {
+        setEnabled(d.home_notice_enabled ?? false);
+        const value = typeof d.home_notice_text === "string" ? d.home_notice_text : "";
+        setText(value);
+        setDraft(value);
+      });
+  }, []);
+
+  const patch = (payload: Record<string, unknown>) =>
+    fetch("/api/admin/settings", {
+      method: "PATCH",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+
+  const toggle = async () => {
+    if (enabled === null) return;
+    const next = !enabled;
+    setEnabled(next);
+    setSaving(true);
+    try { await patch({ home_notice_enabled: next }); } finally { setSaving(false); }
+  };
+
+  const commitText = async () => {
+    const trimmed = draft.trim();
+    if (trimmed === text) { setDraft(trimmed); return; }
+    setSaving(true);
+    setError(null);
+    try {
+      const res = await patch({ home_notice_text: trimmed });
+      if (res.ok) {
+        setText(trimmed);
+        setDraft(trimmed);
+      } else {
+        let detail = t("saveFailed");
+        try {
+          const body = await res.json();
+          if (typeof body?.detail === "string") detail = body.detail;
+          else if (body?.detail?.message) detail = body.detail.message;
+        } catch { /* ignore */ }
+        setError(detail);
+        setDraft(text);
+      }
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  if (enabled === null) return null;
+
+  return (
+    <div className="border border-border-soft rounded-xl bg-background p-5">
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <p className="text-sm font-medium text-foreground">{t("title")}</p>
+          <p className="text-xs text-muted mt-1">
+            {enabled ? t("active") : t("disabled")}
+          </p>
+        </div>
+        <button
+          onClick={toggle}
+          disabled={saving}
+          className={`relative inline-flex shrink-0 w-11 h-6 rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none enabled:hover:border-kb ${
+            enabled ? "bg-kb" : "bg-border"
+          } disabled:opacity-50`}
+          aria-label={t("toggleAria")}
+        >
+          <span
+            className={`pointer-events-none inline-block w-5 h-5 bg-white rounded-full shadow transition-transform duration-200 ${
+              enabled ? "translate-x-5" : "translate-x-0"
+            }`}
+          />
+        </button>
+      </div>
+      <textarea
+        value={draft}
+        onChange={(e) => { setDraft(e.target.value); setError(null); }}
+        onBlur={commitText}
+        disabled={saving}
+        rows={3}
+        maxLength={1000}
+        placeholder={t("placeholder")}
+        className="mt-3 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:border-kb disabled:opacity-50 resize-y"
+      />
+      <p className="mt-2 text-xs text-muted-soft">{t("hint")}</p>
+      {error && (
+        <p className="mt-2 text-xs text-warn bg-warn-bg border border-warn-border rounded-md px-3 py-2">
+          {error}
+        </p>
+      )}
+    </div>
+  );
+}
+
+function OcrCard() {
+  const t = useTranslations("admin.ocrCard");
+  const [enabled, setEnabled] = useState<boolean | null>(null);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    fetch("/api/admin/settings", { credentials: "include" })
+      .then((r) => r.json())
+      .then((d) => setEnabled(d.ocr_enabled ?? true));
+  }, []);
+
+  const toggle = async () => {
+    if (enabled === null) return;
+    const next = !enabled;
+    setEnabled(next);
+    setSaving(true);
+    try {
+      await fetch("/api/admin/settings", {
+        method: "PATCH",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ocr_enabled: next }),
+      });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  if (enabled === null) return null;
+
+  return (
+    <div className="border border-border-soft rounded-xl bg-background p-5">
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <p className="text-sm font-medium text-foreground">{t("title")}</p>
+          <p className="text-xs text-muted mt-1">
+            {enabled ? t("active") : t("disabled")}
+          </p>
+        </div>
+        <button
+          onClick={toggle}
+          disabled={saving}
+          className={`relative inline-flex shrink-0 w-11 h-6 rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none enabled:hover:border-kb ${
+            enabled ? "bg-kb" : "bg-border"
+          } disabled:opacity-50`}
+          aria-label={t("toggleAria")}
+        >
+          <span
+            className={`pointer-events-none inline-block w-5 h-5 bg-white rounded-full shadow transition-transform duration-200 ${
+              enabled ? "translate-x-5" : "translate-x-0"
+            }`}
+          />
+        </button>
+      </div>
+      <p className="mt-3 text-xs text-muted-soft">{t("hint")}</p>
+    </div>
+  );
+}
+
+function WorkspaceLimitsCard() {
+  const t = useTranslations("admin.workspaceLimitsCard");
+  const labels = useWorkspaceLabel();
+  const [value, setValue] = useState<number | null>(null);
+  const [draft, setDraft] = useState<string>("");
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    fetch("/api/admin/settings", { credentials: "include" })
+      .then((r) => r.json())
+      .then((d) => {
+        const n = typeof d.aia_workspace_max_sources === "number" ? d.aia_workspace_max_sources : 50;
+        setValue(n);
+        setDraft(String(n));
+      });
+  }, []);
+
+  const commit = async () => {
+    if (value === null) return;
+    const parsed = Number.parseInt(draft, 10);
+    if (!Number.isFinite(parsed) || parsed < 1 || parsed > 1000) {
+      setError(t("outOfRange"));
+      setDraft(String(value));
+      return;
+    }
+    if (parsed === value) return;
+    setSaving(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/admin/settings", {
+        method: "PATCH",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ aia_workspace_max_sources: parsed }),
+      });
+      if (res.ok) {
+        setValue(parsed);
+      } else {
+        let detail = t("saveFailed");
+        try {
+          const body = await res.json();
+          if (typeof body?.detail === "string") detail = body.detail;
+          else if (body?.detail?.message) detail = body.detail.message;
+        } catch { /* ignore */ }
+        setError(detail);
+        setDraft(String(value));
+      }
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  if (value === null) return null;
+
+  return (
+    <div className="border border-border-soft rounded-xl bg-background p-5">
+      <p className="text-sm font-medium text-foreground">{t("title", { label: labels.singular })}</p>
+      <p className="text-xs text-muted-soft mt-1">{t("hint", { label: labels.singular })}</p>
+      <div className="mt-3 flex items-center gap-3">
+        <input
+          type="number"
+          min={1}
+          max={1000}
+          value={draft}
+          onChange={(e) => { setDraft(e.target.value); setError(null); }}
+          onBlur={commit}
+          onKeyDown={(e) => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); }}
+          disabled={saving}
+          className="font-mono text-sm px-3 py-1.5 border-2 border-border rounded-md w-28 transition-colors hover:border-kb focus:outline-none focus:border-kb disabled:opacity-50"
+        />
+        <span className="text-xs text-muted">{t("unit")}</span>
+      </div>
+      {error && (
+        <p className="mt-2 text-xs text-warn bg-warn-bg border border-warn-border rounded-md px-3 py-2">
+          {error}
+        </p>
+      )}
+    </div>
+  );
+}
+
+function ScheduleRetentionCard() {
+  const t = useTranslations("admin.scheduleRetentionCard");
+  const [value, setValue] = useState<number | null>(null);
+  const [draft, setDraft] = useState<string>("");
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    fetch("/api/admin/settings", { credentials: "include" })
+      .then((r) => r.json())
+      .then((d) => {
+        const n = typeof d.aia_schedule_retention_days === "number" ? d.aia_schedule_retention_days : -1;
+        setValue(n);
+        setDraft(n < 0 ? "" : String(n));
+      });
+  }, []);
+
+  const commit = async () => {
+    if (value === null) return;
+    const trimmed = draft.trim();
+    let parsed: number;
+    if (trimmed === "") {
+      parsed = -1;
+    } else {
+      const n = Number.parseInt(trimmed, 10);
+      if (!Number.isFinite(n) || n < 1 || n > 3650) {
+        setError(t("outOfRange"));
+        setDraft(value < 0 ? "" : String(value));
+        return;
+      }
+      parsed = n;
+    }
+    if (parsed === value) {
+      setDraft(value < 0 ? "" : String(value));
+      return;
+    }
+    setSaving(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/admin/settings", {
+        method: "PATCH",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ aia_schedule_retention_days: parsed }),
+      });
+      if (res.ok) {
+        setValue(parsed);
+        setDraft(parsed < 0 ? "" : String(parsed));
+      } else {
+        let detail = t("saveFailed");
+        try {
+          const body = await res.json();
+          if (typeof body?.detail === "string") detail = body.detail;
+          else if (body?.detail?.message) detail = body.detail.message;
+        } catch { /* ignore */ }
+        setError(detail);
+        setDraft(value < 0 ? "" : String(value));
+      }
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  if (value === null) return null;
+
+  return (
+    <div className="border border-border-soft rounded-xl bg-background p-5">
+      <p className="text-sm font-medium text-foreground">{t("title")}</p>
+      <p className="text-xs text-muted-soft mt-1">{t("hint")}</p>
+      <div className="mt-3 flex items-center gap-3">
+        <input
+          type="number"
+          min={1}
+          max={3650}
+          value={draft}
+          placeholder={t("placeholderNever")}
+          onChange={(e) => { setDraft(e.target.value); setError(null); }}
+          onBlur={commit}
+          onKeyDown={(e) => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); }}
+          disabled={saving}
+          className="font-mono text-sm px-3 py-1.5 border-2 border-border rounded-md w-32 transition-colors hover:border-kb focus:outline-none focus:border-kb disabled:opacity-50"
+        />
+        <span className="text-xs text-muted">{t("unit")}</span>
+        <span className="text-xs text-muted-soft">
+          {value < 0 ? t("modeNever") : t("modeDays", { n: value })}
+        </span>
+      </div>
+      {error && (
+        <p className="mt-2 text-xs text-warn bg-warn-bg border border-warn-border rounded-md px-3 py-2">
+          {error}
+        </p>
+      )}
+    </div>
+  );
+}
+
+function ContextBudgetCard() {
+  const t = useTranslations("admin.contextBudgetCard");
+  const [value, setValue] = useState<number | null>(null);
+  const [draft, setDraft] = useState<string>("");
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    fetch("/api/admin/settings", { credentials: "include" })
+      .then((r) => r.json())
+      .then((d) => {
+        const n = typeof d.aia_context_max_chars === "number" ? d.aia_context_max_chars : 60000;
+        setValue(n);
+        setDraft(String(n));
+      });
+  }, []);
+
+  const commit = async () => {
+    if (value === null) return;
+    const parsed = Number.parseInt(draft, 10);
+    // Upper bound must match backend AIA_CONTEXT_HARD_CAP (src/limits.py).
+    if (!Number.isFinite(parsed) || parsed < 1000 || parsed > 800000) {
+      setError(t("outOfRange"));
+      setDraft(String(value));
+      return;
+    }
+    if (parsed === value) return;
+    setSaving(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/admin/settings", {
+        method: "PATCH",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ aia_context_max_chars: parsed }),
+      });
+      if (res.ok) {
+        setValue(parsed);
+      } else {
+        let detail = t("saveFailed");
+        try {
+          const body = await res.json();
+          if (typeof body?.detail === "string") detail = body.detail;
+          else if (body?.detail?.message) detail = body.detail.message;
+        } catch { /* ignore */ }
+        setError(detail);
+        setDraft(String(value));
+      }
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  if (value === null) return null;
+
+  // Rough token estimate (~3.5 chars/token, mixed DE/non-Latin) just for orientation.
+  const approxTokens = Math.round((Number.parseInt(draft, 10) || value) / 3.5 / 1000);
+
+  return (
+    <div className="border border-border-soft rounded-xl bg-background p-5">
+      <p className="text-sm font-medium text-foreground">{t("title")}</p>
+      <p className="text-xs text-muted-soft mt-1">{t("hint")}</p>
+      <div className="mt-3 flex items-center gap-3">
+        <input
+          type="number"
+          min={1000}
+          max={800000}
+          step={1000}
+          value={draft}
+          onChange={(e) => { setDraft(e.target.value); setError(null); }}
+          onBlur={commit}
+          onKeyDown={(e) => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); }}
+          disabled={saving}
+          className="font-mono text-sm px-3 py-1.5 border-2 border-border rounded-md w-36 transition-colors hover:border-kb focus:outline-none focus:border-kb disabled:opacity-50"
+        />
+        <span className="text-xs text-muted">{t("unit")}</span>
+        <span className="text-xs text-muted-soft">{t("approxTokens", { n: approxTokens })}</span>
+      </div>
+      {error && (
+        <p className="mt-2 text-xs text-warn bg-warn-bg border border-warn-border rounded-md px-3 py-2">
+          {error}
+        </p>
+      )}
+    </div>
+  );
+}
+
+function ToolContextBudgetCard() {
+  const t = useTranslations("admin.toolContextBudgetCard");
+  const [value, setValue] = useState<number | null>(null);
+  const [draft, setDraft] = useState<string>("");
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    fetch("/api/admin/settings", { credentials: "include" })
+      .then((r) => r.json())
+      .then((d) => {
+        const n = typeof d.aia_tool_context_max_chars === "number" ? d.aia_tool_context_max_chars : 250000;
+        setValue(n);
+        setDraft(String(n));
+      });
+  }, []);
+
+  const commit = async () => {
+    if (value === null) return;
+    const parsed = Number.parseInt(draft, 10);
+    // Upper bound must match backend AIA_TOOL_CONTEXT_HARD_CAP (src/limits.py).
+    if (!Number.isFinite(parsed) || parsed < 1000 || parsed > 1000000) {
+      setError(t("outOfRange"));
+      setDraft(String(value));
+      return;
+    }
+    if (parsed === value) return;
+    setSaving(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/admin/settings", {
+        method: "PATCH",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ aia_tool_context_max_chars: parsed }),
+      });
+      if (res.ok) {
+        setValue(parsed);
+      } else {
+        let detail = t("saveFailed");
+        try {
+          const body = await res.json();
+          if (typeof body?.detail === "string") detail = body.detail;
+          else if (body?.detail?.message) detail = body.detail.message;
+        } catch { /* ignore */ }
+        setError(detail);
+        setDraft(String(value));
+      }
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  if (value === null) return null;
+
+  // Rough token estimate (~3.5 chars/token, mixed DE/non-Latin) just for orientation.
+  const approxTokens = Math.round((Number.parseInt(draft, 10) || value) / 3.5 / 1000);
+
+  return (
+    <div className="border border-border-soft rounded-xl bg-background p-5">
+      <p className="text-sm font-medium text-foreground">{t("title")}</p>
+      <p className="text-xs text-muted-soft mt-1">{t("hint")}</p>
+      <div className="mt-3 flex items-center gap-3">
+        <input
+          type="number"
+          min={1000}
+          max={1000000}
+          step={1000}
+          value={draft}
+          onChange={(e) => { setDraft(e.target.value); setError(null); }}
+          onBlur={commit}
+          onKeyDown={(e) => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); }}
+          disabled={saving}
+          className="font-mono text-sm px-3 py-1.5 border-2 border-border rounded-md w-36 transition-colors hover:border-kb focus:outline-none focus:border-kb disabled:opacity-50"
+        />
+        <span className="text-xs text-muted">{t("unit")}</span>
+        <span className="text-xs text-muted-soft">{t("approxTokens", { n: approxTokens })}</span>
+      </div>
+      {error && (
+        <p className="mt-2 text-xs text-warn bg-warn-bg border border-warn-border rounded-md px-3 py-2">
+          {error}
+        </p>
+      )}
+    </div>
+  );
+}
+
+// SummaryBatchCard removed from render (see note in SystemPane). Backend setting
+// aia_summary_batch_max_chars and its route stay; recover this component from git
+// history when "GENERIC over summaries" (Phase 2) is re-enabled.
+
+function EmbeddingBatchCard() {
+  const t = useTranslations("admin.embeddingBatchCard");
+  const [value, setValue] = useState<number | null>(null);
+  const [draft, setDraft] = useState<string>("");
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    fetch("/api/admin/settings", { credentials: "include" })
+      .then((r) => r.json())
+      .then((d) => {
+        const n = typeof d.aia_embedding_batch_size === "number" ? d.aia_embedding_batch_size : 1000;
+        setValue(n);
+        setDraft(String(n));
+      });
+  }, []);
+
+  const commit = async () => {
+    if (value === null) return;
+    const parsed = Number.parseInt(draft, 10);
+    if (!Number.isFinite(parsed) || parsed < 1 || parsed > 1000) {
+      setError(t("outOfRange"));
+      setDraft(String(value));
+      return;
+    }
+    if (parsed === value) return;
+    setSaving(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/admin/settings", {
+        method: "PATCH",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ aia_embedding_batch_size: parsed }),
+      });
+      if (res.ok) {
+        setValue(parsed);
+      } else {
+        let detail = t("saveFailed");
+        try {
+          const body = await res.json();
+          if (typeof body?.detail === "string") detail = body.detail;
+          else if (body?.detail?.message) detail = body.detail.message;
+        } catch { /* ignore */ }
+        setError(detail);
+        setDraft(String(value));
+      }
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  if (value === null) return null;
+
+  return (
+    <div className="border border-border-soft rounded-xl bg-background p-5">
+      <p className="text-sm font-medium text-foreground">{t("title")}</p>
+      <p className="text-xs text-muted-soft mt-1">{t("hint")}</p>
+      <div className="mt-3 flex items-center gap-3">
+        <input
+          type="number"
+          min={1}
+          max={1000}
+          step={50}
+          value={draft}
+          onChange={(e) => { setDraft(e.target.value); setError(null); }}
+          onBlur={commit}
+          onKeyDown={(e) => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); }}
+          disabled={saving}
+          className="font-mono text-sm px-3 py-1.5 border-2 border-border rounded-md w-28 transition-colors hover:border-kb focus:outline-none focus:border-kb disabled:opacity-50"
+        />
+        <span className="text-xs text-muted">{t("unit")}</span>
+      </div>
+      {error && (
+        <p className="mt-2 text-xs text-warn bg-warn-bg border border-warn-border rounded-md px-3 py-2">
+          {error}
+        </p>
+      )}
+    </div>
+  );
+}
+
+function SourceMaxPagesCard() {
+  const t = useTranslations("admin.sourceMaxPagesCard");
+  const [value, setValue] = useState<number | null>(null);
+  const [draft, setDraft] = useState<string>("");
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    fetch("/api/admin/settings", { credentials: "include" })
+      .then((r) => r.json())
+      .then((d) => {
+        const n = typeof d.aia_source_max_pages === "number" ? d.aia_source_max_pages : 200;
+        setValue(n);
+        setDraft(String(n));
+      });
+  }, []);
+
+  const commit = async () => {
+    if (value === null) return;
+    const parsed = Number.parseInt(draft, 10);
+    if (!Number.isFinite(parsed) || parsed < 1 || parsed > 2000) {
+      setError(t("outOfRange"));
+      setDraft(String(value));
+      return;
+    }
+    if (parsed === value) return;
+    setSaving(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/admin/settings", {
+        method: "PATCH",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ aia_source_max_pages: parsed }),
+      });
+      if (res.ok) {
+        setValue(parsed);
+      } else {
+        let detail = t("saveFailed");
+        try {
+          const body = await res.json();
+          if (typeof body?.detail === "string") detail = body.detail;
+          else if (body?.detail?.message) detail = body.detail.message;
+        } catch { /* ignore */ }
+        setError(detail);
+        setDraft(String(value));
+      }
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  if (value === null) return null;
+
+  return (
+    <div className="border border-border-soft rounded-xl bg-background p-5">
+      <p className="text-sm font-medium text-foreground">{t("title")}</p>
+      <p className="text-xs text-muted-soft mt-1">{t("hint")}</p>
+      <div className="mt-3 flex items-center gap-3">
+        <input
+          type="number"
+          min={1}
+          max={2000}
+          step={10}
+          value={draft}
+          onChange={(e) => { setDraft(e.target.value); setError(null); }}
+          onBlur={commit}
+          onKeyDown={(e) => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); }}
+          disabled={saving}
+          className="font-mono text-sm px-3 py-1.5 border-2 border-border rounded-md w-28 transition-colors hover:border-kb focus:outline-none focus:border-kb disabled:opacity-50"
+        />
+        <span className="text-xs text-muted">{t("unit")}</span>
+      </div>
+      {error && (
+        <p className="mt-2 text-xs text-warn bg-warn-bg border border-warn-border rounded-md px-3 py-2">
+          {error}
+        </p>
+      )}
+    </div>
+  );
+}
+
+function DispatcherCard() {
+  const [enabled, setEnabled] = useState<boolean | null>(null);
+  const [slots, setSlots] = useState<number | null>(null);
+  const [draft, setDraft] = useState<string>("");
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    fetch("/api/admin/settings", { credentials: "include" })
+      .then((r) => r.json())
+      .then((d) => {
+        setEnabled(d.aia_scheduler_enabled ?? false);
+        const n = typeof d.aia_parallel_slots === "number" ? d.aia_parallel_slots : 2;
+        setSlots(n);
+        setDraft(String(n));
+      });
+  }, []);
+
+  const patch = (payload: Record<string, unknown>) =>
+    fetch("/api/admin/settings", {
+      method: "PATCH",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+
+  const toggle = async () => {
+    if (enabled === null) return;
+    const next = !enabled;
+    setEnabled(next);
+    setSaving(true);
+    try { await patch({ aia_scheduler_enabled: next }); } finally { setSaving(false); }
+  };
+
+  const commitSlots = async () => {
+    if (slots === null) return;
+    const parsed = Number.parseInt(draft, 10);
+    if (!Number.isFinite(parsed) || parsed < 0 || parsed > 100) {
+      setError("Wert muss zwischen 0 und 100 liegen (0 = unbegrenzt).");
+      setDraft(String(slots));
+      return;
+    }
+    if (parsed === slots) return;
+    setSaving(true);
+    setError(null);
+    try {
+      const res = await patch({ aia_parallel_slots: parsed });
+      if (res.ok) setSlots(parsed);
+      else { setError("Speichern fehlgeschlagen."); setDraft(String(slots)); }
+    } finally { setSaving(false); }
+  };
+
+  if (enabled === null || slots === null) return null;
+
+  return (
+    <div className="border border-border-soft rounded-xl bg-background p-5">
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <p className="text-sm font-medium text-foreground">AIA Hintergrund-Dispatcher</p>
+          <p className="text-xs text-muted mt-1">
+            {enabled
+              ? "An: Hintergrund-Jobs laufen fair verteilt über den Slot-Pool."
+              : "Aus: Jobs laufen direkt, der Reihe nach, ohne Fairness."}
+          </p>
+        </div>
+        <button
+          onClick={toggle}
+          disabled={saving}
+          className={`relative inline-flex shrink-0 w-11 h-6 rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none enabled:hover:border-kb ${
+            enabled ? "bg-kb" : "bg-border"
+          } disabled:opacity-50`}
+          aria-label="Dispatcher an/aus"
+        >
+          <span
+            className={`pointer-events-none inline-block w-5 h-5 bg-white rounded-full shadow transition-transform duration-200 ${
+              enabled ? "translate-x-5" : "translate-x-0"
+            }`}
+          />
+        </button>
+      </div>
+
+      <div className="mt-4 flex items-center gap-3">
+        <label className="text-sm text-foreground">Parallele Slots</label>
+        <input
+          type="number"
+          min={0}
+          max={100}
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+          onBlur={commitSlots}
+          onKeyDown={(e) => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); }}
+          disabled={saving}
+          className="w-24 rounded-lg border border-border bg-background px-3 py-1.5 text-sm text-foreground focus:outline-none focus:border-kb disabled:opacity-50"
+        />
+        <span className="text-xs text-muted-soft">0 = unbegrenzt</span>
+      </div>
+      {error && <p className="mt-2 text-xs text-red-500">{error}</p>}
+      <p className="mt-3 text-xs text-muted-soft">
+        Wie viele Hintergrund-Jobs (Upload, Studio) gleichzeitig laufen. Chat ist nicht betroffen, der läuft immer sofort.
+      </p>
+    </div>
+  );
+}
+
 function SystemPane() {
   return (
     <div className="space-y-4">
       <MaintenanceCard />
       <WhitelistCard />
+      <ReindexCard />
       <WorkspaceLabelCard />
+      <WorkspaceLimitsCard />
+      <SourceMaxPagesCard />
+      <ScheduleRetentionCard />
+      <ContextBudgetCard />
+      <ToolContextBudgetCard />
+      {/* SummaryBatchCard intentionally hidden: tunes aia_summary_batch_max_chars,
+          which only matters once the doc-summary build is re-enabled
+          (_BUILD_INGEST_SUMMARY in backend ingestion.py, "GENERIC over summaries"
+          Phase 2). Backend setting + route kept; restore the card from git history. */}
+      <EmbeddingBatchCard />
+      <OcrCard />
+      <HomeNoticeCard />
       <MascotCard />
+      <DispatcherCard />
       <WorkspaceExportImportCard />
     </div>
   );
 }
 
-export default function SettingsTab({ section }: { section: SettingsSection }) {
-  if (section === "system") return <SystemPane />;
-  return <ProvidersPane section={section} />;
+export default function SettingsTab(_: { section: SettingsSection }) {
+  return <SystemPane />;
 }

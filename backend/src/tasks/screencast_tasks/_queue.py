@@ -9,7 +9,7 @@ from src import database as db
 from src.storage import get_job_file
 
 
-_SCREENCAST_TOOLS = ["screencast_translate", "screencast_render", "screencast_demo_render"]
+_SCREENCAST_TOOLS = ["screencast_translate", "screencast_render"]
 
 
 def dispatch_next_screencast_job_for_user(user_id: int) -> None:
@@ -21,7 +21,6 @@ def dispatch_next_screencast_job_for_user(user_id: int) -> None:
     try:
         from src.tasks.screencast_tasks._translate import run_screencast_translate
         from src.tasks.screencast_tasks._render import run_screencast_render
-        from src.tasks.screencast_tasks._demo import run_screencast_demo_render
 
         params = json.loads(get_job_file(user_id, job_uuid, "queue_params.json"))
         dispatch_as = params.get("dispatch_as", "")
@@ -30,6 +29,7 @@ def dispatch_next_screencast_job_for_user(user_id: int) -> None:
                 job_uuid, params["input_path"], params["filename"],
                 params["glossary_json"],
                 params["source_lang"], params["target_lang"],
+                params.get("provider_id"),
             ])
         elif dispatch_as == "render":
             scripts = json.loads(get_job_file(user_id, job_uuid, "render_scripts.json"))
@@ -43,15 +43,10 @@ def dispatch_next_screencast_job_for_user(user_id: int) -> None:
                 job_uuid, scripts,
                 params["voice_id"], params["speed"], params["slide_pause"],
                 job["original_filename"] or "screencast.pptx",
-                params["dpi"], params["provider"], params["voice_label"],
+                params["dpi"], int(params.get("provider_id", 0)), params["voice_label"],
                 params["is_admin"],
             ])
             db.set_render_queued_at(job_uuid)
-        elif dispatch_as == "demo_render":
-            task = run_screencast_demo_render.apply_async(args=[
-                job_uuid,
-                params["dpi"],
-            ])
         else:
             logger.warning("dispatch_next: unknown dispatch_as '{}' for job {}", dispatch_as, job_uuid[:8])
             db.update_job_status(job_uuid, "failed", error_message="Interner Fehler: Unbekannter Job-Typ in Warteschlange.")

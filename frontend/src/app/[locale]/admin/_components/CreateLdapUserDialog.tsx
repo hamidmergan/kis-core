@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
 import { Copy, Check, Warning } from "@phosphor-icons/react";
 import Select from "@/components/ui/Select";
+import { copyTextFromPromise } from "@/lib/clipboard";
 
 type Props = {
   onClose: () => void;
@@ -119,9 +120,9 @@ export default function CreateLdapUserDialog({ onClose }: Props) {
     }
   }
 
-  async function copyPassword() {
+  function copyPassword() {
     if (!success) return;
-    await navigator.clipboard.writeText(success.password);
+    copyTextFromPromise(Promise.resolve(success.password));
     setCopied(true);
     setTimeout(() => setCopied(false), 1500);
   }

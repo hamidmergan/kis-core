@@ -98,7 +98,7 @@ async def screencast_render(
         "speed": body.speed,
         "slide_pause": body.slide_pause,
         "dpi": body.dpi,
-        "provider": body.provider,
+        "provider_id": body.provider_id,
         "voice_label": body.voice_label,
         "is_admin": is_admin_user(current_user),
     }).encode())

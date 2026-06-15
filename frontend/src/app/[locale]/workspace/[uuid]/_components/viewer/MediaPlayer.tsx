@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import { CaretLeft, SidebarSimple, SpeakerHigh } from "@phosphor-icons/react";
-import type { ViewerState, TranscriptDefaultLang } from "../../_types";
+import { langLabel, type ViewerState, type TranscriptDefaultLang } from "../../_types";
 import type { AddNoteExtras } from "../../_hooks/useNotes";
 import { FileIcon } from "../sources/FileIcon";
 import { TranscriptPanel } from "./TranscriptPanel";
@@ -20,40 +20,71 @@ export function MediaPlayer({
 }) {
   const t = useTranslations("workspace.detail.viewer");
   const tPanels = useTranslations("workspace.detail.panels");
+  const locale = useLocale();
   const mediaRef = useRef<HTMLVideoElement | HTMLAudioElement>(null);
   const ext = source.filename.slice(source.filename.lastIndexOf(".")).toLowerCase();
   const isVideo = [".mp4", ".webm"].includes(ext);
   const mediaUrl = `/api/ai-assistant/workspaces/${workspaceUuid}/sources/${source.uuid}/file`;
-  const transcriptUrl = (lang: "de" | "en") =>
+  const transcriptUrl = (lang: string) =>
     `/api/ai-assistant/workspaces/${workspaceUuid}/sources/${source.uuid}/transcript?lang=${lang}`;
 
-  // Detect which VTT languages exist so we only attach available <track> elements.
-  const [availableLangs, setAvailableLangs] = useState<("de" | "en")[]>([]);
+  // Ask the backend which transcript languages exist so we only attach available
+  // <track> elements — works for any source/target language pair, not just de/en.
+  const [availableLangs, setAvailableLangs] = useState<string[]>([]);
   useEffect(() => {
     let cancelled = false;
-    const check = async (lang: "de" | "en") => {
-      try {
-        const res = await fetch(transcriptUrl(lang), { credentials: "include" });
-        return res.ok ? lang : null;
-      } catch {
-        return null;
-      }
-    };
-    Promise.all([check("de"), check("en")]).then((results) => {
-      if (cancelled) return;
-      setAvailableLangs(results.filter((l): l is "de" | "en" => l !== null));
-    });
+    fetch(
+      `/api/ai-assistant/workspaces/${workspaceUuid}/sources/${source.uuid}/transcript/langs`,
+      { credentials: "include" },
+    )
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => { if (!cancelled && data) setAvailableLangs(data.available ?? []); })
+      .catch(() => { /* no tracks */ });
     return () => { cancelled = true; };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [workspaceUuid, source.uuid]);
 
-  // Seek to timestamp when source changes
+  // Seek to the cited timestamp when the source changes — robust against Safari, which is the
+  // only browser that misbehaves here (Chrome seeks fine).
+  //
+  // Two Safari quirks: (1) on a source SWITCH the element still has the OLD resource loaded for
+  // a tick, so an immediate seek hits the wrong media; (2) right after a (re)load Safari SNAPS
+  // currentTime back toward 0 until the resource is really seekable, so a one-shot seek sticks
+  // only "sometimes". So we seek only once `currentSrc` is the NEW source AND `seekable` covers
+  // the target, then for a short window keep watching and re-apply if Safari snaps it back to
+  // ~0. Forward playback (currentTime >= target) is never disturbed.
   useEffect(() => {
-    if (source.startTime !== undefined && mediaRef.current) {
-      mediaRef.current.currentTime = source.startTime;
-      mediaRef.current.play().catch(() => { });
-    }
-  }, [source.startTime, source.nonce]);
+    const media = mediaRef.current;
+    if (source.startTime === undefined || !media) return;
+    const target = source.startTime;
+    const uuid = source.uuid;
+    const deadline = Date.now() + 8000; // stop watching once the load has settled
+    let seeked = false;
+    const reachable = () =>
+      media.currentSrc.includes(uuid) &&
+      media.seekable.length > 0 &&
+      media.seekable.end(media.seekable.length - 1) >= target - 0.25;
+    const tick = () => {
+      if (Date.now() > deadline) { stop(); return; }
+      if (!reachable()) return;
+      if (!seeked) {
+        try { media.currentTime = target; } catch { return; }
+        media.play().catch(() => { });
+        if (Math.abs(media.currentTime - target) < 0.5) seeked = true; // stuck (else retry next event)
+        return;
+      }
+      // Watchdog: undo Safari snapping currentTime back toward 0 after the seek — downward only,
+      // so playing forward past the target is left alone.
+      if (target > 1 && media.currentTime < target - 0.5) {
+        try { media.currentTime = target; } catch { /* ignore */ }
+        media.play().catch(() => { });
+      }
+    };
+    const events = ["loadedmetadata", "loadeddata", "canplay", "canplaythrough", "progress", "durationchange", "seeked", "timeupdate", "playing"];
+    const stop = () => events.forEach((e) => media.removeEventListener(e, tick));
+    events.forEach((e) => media.addEventListener(e, tick));
+    tick();
+    return stop;
+  }, [source.startTime, source.nonce, source.uuid]);
 
   return (
     <div className="flex flex-col h-full viewer-short">
@@ -95,7 +126,7 @@ export function MediaPlayer({
                 kind="subtitles"
                 src={transcriptUrl(lang)}
                 srcLang={lang}
-                label={lang === "de" ? t("tracksDe") : t("tracksEn")}
+                label={langLabel(lang, locale)}
               />
             ))}
           </video>
@@ -126,6 +157,8 @@ export function MediaPlayer({
         canManage={canManage}
         onSaveNote={onSaveNote}
         defaultLang={defaultTranscriptLang}
+        citationTime={source.isCitation ? source.startTime : undefined}
+        citationNonce={source.nonce}
       />
     </div>
   );

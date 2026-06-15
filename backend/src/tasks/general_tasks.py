@@ -12,6 +12,8 @@ from src import database as db
 from src.i18n import t
 from src.storage import delete_file, get_file, open_input_file, save_result_file, save_result_and_evict
 from src.utils.heartbeat import job_heartbeat
+from src.dependencies import get_translate_client_for_provider
+from src.services.translation import TranslationService
 
 
 # -- Helpers ------------------------------------------------------------------
@@ -24,49 +26,59 @@ def _resolve_user_id(job_uuid: str) -> int:
     return row["user_id"]
 
 
-def _get_llm_client():
+def _get_llm_client(provider_id: int | None = None):
     from src.services.openai_compat_llm import OpenAICompatLLMClient
+    if provider_id is not None:
+        from src.services import feature_provider_choices, feature_router
+        binding = feature_provider_choices.resolve_binding("chat", provider_id)
+        return feature_router.make_llm_client(binding)
     from src.dependencies import _resolve_llm_provider
     api_key, base_url, model, provider = _resolve_llm_provider()
     if not api_key:
         raise RuntimeError("Kein LLM-Provider konfiguriert")
-    return OpenAICompatLLMClient(api_key=api_key, base_url=base_url, model=model, provider=provider)
+    return OpenAICompatLLMClient(api_key=api_key, base_url=base_url, model=model, whisper_model=model, provider=provider)
 
 
-def _primary_http_client(extra_headers: dict | None = None, timeout: float = 120.0):
-    """HTTP client for the primary OpenAI-compat endpoint (today: KISSKI/GWDG)."""
+def _image_http_client(
+    feature: str,
+    *,
+    provider_id: int | None = None,
+    extra_headers: dict | None = None,
+    timeout: float = 120.0,
+):
+    """Build (base_url, model, httpx.Client) for an image-feature route.
+
+    Resolves the provider for ``feature`` (``image_gen``, ``image_edit``,
+    ``vision``). ``provider_id`` is the end-user's pick (capability-based,
+    same as the TTS/STT pickers); when omitted the admin default route is used.
+    Propagates ``FeatureNotConfigured`` unchanged so the task's outer handler
+    can translate it into a localized job error_message.
+    """
     import httpx
-    from src.config import Settings
-    s = Settings()
-    if not s.primary_provider_api_key:
-        raise RuntimeError("Primary provider API key not configured")
-    base_url = s.primary_provider_base_url.rstrip("/")
-    headers = {"Authorization": f"Bearer {s.primary_provider_api_key}"}
+    from src.services import feature_router
+
+    if provider_id is not None:
+        from src.services import feature_provider_choices
+        binding = feature_provider_choices.resolve_binding(feature, provider_id)
+    else:
+        binding = feature_router.resolve(feature)  # raises FeatureNotConfigured
+
+    provider = binding.provider
+    base = provider["base_url"].rstrip("/")
+    if not base.endswith("/v1"):
+        base = f"{base}/v1"
+
+    headers: dict[str, str] = {}
+    api_key = provider.get("api_key")
+    if api_key:
+        headers["Authorization"] = f"Bearer {api_key}"
     if extra_headers:
         headers.update(extra_headers)
-    return base_url, httpx.Client(headers=headers, timeout=timeout)
+
+    return base, (binding.model or ""), httpx.Client(headers=headers, timeout=timeout)
 
 
-def _fallback_http_client(timeout: float = 120.0):
-    """HTTP client for the fallback OpenAI-compat endpoint (today: THL myLab)."""
-    import httpx
-    from src.config import Settings
-    s = Settings()
-    base_url = (s.fallback_provider_base_url or "").rstrip("/")
-    if not base_url:
-        raise RuntimeError("Fallback provider base URL not configured")
-    return f"{base_url}/v1", httpx.Client(timeout=timeout)
-
-
-def _image_provider(task: str) -> str:
-    """Choose provider slot for image tasks via admin settings.
-
-    task: "gen" | "edit" | "analyze". If ``fallback_image_<task>_enabled`` is
-    set, route to the fallback endpoint; otherwise use the primary (default).
-    """
-    if db.get_setting(f"fallback_image_{task}_enabled", "false") == "true":
-        return "fallback"
-    return "primary"
+from src.tasks._errors import handle_task_exception as _handle_task_exception
 
 
 # -- Translation --------------------------------------------------------------
@@ -80,7 +92,7 @@ def run_translate(
     glossary_json: str,
     source_lang: str,
     target_lang: str,
-    translation_provider: str = "",
+    provider_id: int | None = None,
 ):
     try:
         db.update_job_status(job_uuid, "running")
@@ -89,14 +101,8 @@ def run_translate(
         content = get_file(input_path)
         ext = Path(filename).suffix.lower()
 
-        from src.config import Settings
         from src.services.glossary import GlossaryService
-        from src.services.translation import TranslationService
 
-        settings = Settings()
-        effective_provider = translation_provider or "deepl"
-
-        # Parse glossary entries from JSON
         glossary_entries: dict = {}
         if glossary_json:
             try:
@@ -106,29 +112,11 @@ def run_translate(
             except (json.JSONDecodeError, TypeError):
                 pass
 
-        if effective_provider == "llm":
-            from src.services.llm_translation_client import LLMTranslationClient
-            from src.dependencies import _resolve_translation_llm_provider
-            _api_key, _base_url, _model, _provider = _resolve_translation_llm_provider()
-            # LLM gets glossary directly in the prompt for context-aware translation
-            translation_client = LLMTranslationClient(
-                api_key=_api_key,
-                base_url=_base_url,
-                model=_model,
-                provider=_provider,
-                glossary=glossary_entries or None,
-            )
-            glossary = GlossaryService()  # empty: LLM handles glossary via prompt
-        else:
-            from src.services.deepl_client import DeepLClient
-            from src.dependencies import resolve_deepl_api_key
-            api_key = resolve_deepl_api_key()
-            if not api_key:
-                raise RuntimeError("DeepL API key not configured")
-            translation_client = DeepLClient(api_key)
-            glossary = GlossaryService()
-            if glossary_entries:
-                glossary.set_entries(glossary_entries)
+        translation_client, glossary = get_translate_client_for_provider(
+            provider_id, glossary_entries=glossary_entries or None
+        )
+        if translation_client is None:
+            raise RuntimeError("No translation provider configured")
 
         service = TranslationService(deepl_client=translation_client, glossary=glossary)
         translated_filename = service.translate_filename(filename, source_lang, target_lang)
@@ -164,8 +152,7 @@ def run_translate(
         logger.info("Translate task {} completed: {}", job_uuid, translated_filename)
 
     except Exception as e:
-        logger.error("Translate task {} failed: {}", job_uuid, e)
-        db.update_job_status(job_uuid, "failed", error_message=str(e))
+        _handle_task_exception(job_uuid, e, task_label="Translate")
         raise
 
 
@@ -182,20 +169,23 @@ def run_transcribe(
     filename: str,
     task: str,
     response_format: str,
+    provider_id: int | None = None,
 ):
     try:
         db.update_job_status(job_uuid, "running")
         user_id = _resolve_user_id(job_uuid)
 
         from src.dependencies import resolve_whisper_client
-        client = resolve_whisper_client()
+        client = resolve_whisper_client(provider_id)
         ext_suffix = Path(filename).suffix.lower()
 
         with job_heartbeat(job_uuid), open_input_file(input_path, suffix=ext_suffix) as local_path:
             if task == "translate":
-                result_text = client.transcribe_and_translate_chunked(local_path, response_format=response_format)
+                result_text = client.transcribe_and_translate_chunked(
+                    local_path, response_format=response_format, cache_key=job_uuid)
             else:
-                result_text = client.transcribe_chunked(local_path, response_format=response_format)
+                result_text = client.transcribe_chunked(
+                    local_path, response_format=response_format, cache_key=job_uuid)
 
         out_ext = _FORMAT_EXT[response_format]
         if task == "translate":
@@ -211,8 +201,18 @@ def run_transcribe(
         logger.info("Transcribe task {} completed: {}", job_uuid, output_name)
 
     except Exception as e:
-        logger.error("Transcribe task {} failed: {}", job_uuid, e)
-        db.update_job_status(job_uuid, "failed", error_message=str(e))
+        # Rate-limit (429): keep the job alive and requeue with backoff instead of failing.
+        # Chunks already transcribed are cached per job_uuid in Redis, so the retry resumes
+        # rather than restarting from zero. Mirrors the AIA media-ingestion retry policy.
+        msg = str(e).lower()
+        if ("429" in msg or "rate limit" in msg) and self.request.retries < 5:
+            countdown = min(30 * (2 ** self.request.retries), 120)  # 30s, 1m, 2m, 2m, 2m
+            logger.warning(
+                "Transcribe job {} hit rate limit (attempt {}/{}), retrying in {}s",
+                job_uuid, self.request.retries + 1, 5, countdown,
+            )
+            raise self.retry(exc=e, countdown=countdown, max_retries=5)
+        _handle_task_exception(job_uuid, e, task_label="Transcribe")
         raise
 
 
@@ -224,25 +224,29 @@ def run_image_generate(
     job_uuid: str,
     prompt: str,
     size: str,
+    provider_id: int | None = None,
 ):
     try:
         db.update_job_status(job_uuid, "running")
         user_id = _resolve_user_id(job_uuid)
 
-        provider = _image_provider("gen")
-        if provider == "fallback":
-            from src.services.runtime_models import get_model
-            base_url, client = _fallback_http_client(timeout=120.0)
-            body: dict = {"model": get_model("fallback_image_gen_model"), "prompt": prompt, "size": size, "n": 1, "response_format": "b64_json"}
-        else:
-            base_url, client = _primary_http_client(timeout=120.0)
-            body = {"model": "flux", "prompt": prompt, "size": size, "n": 1, "response_format": "b64_json"}
+        base_url, model, client = _image_http_client("image_gen", provider_id=provider_id, timeout=120.0)
+        if not model:
+            from src.services.feature_router import FeatureNotConfigured
+            raise FeatureNotConfigured("image_gen route has no model_name")
+        body: dict = {
+            "model": model,
+            "prompt": prompt,
+            "size": size,
+            "n": 1,
+            "response_format": "b64_json",
+        }
 
         with job_heartbeat(job_uuid), client:
             response = client.post(f"{base_url}/images/generations", json=body)
 
         if response.status_code != 200:
-            raise RuntimeError(f"Fehler bei der Bildgenerierung ({provider}): {response.text[:200]}")
+            raise RuntimeError(f"Fehler bei der Bildgenerierung: {response.text[:200]}")
 
         data = response.json()
         images = data.get("data", [])
@@ -258,8 +262,7 @@ def run_image_generate(
         logger.info("Image generate task {} completed", job_uuid)
 
     except Exception as e:
-        logger.error("Image generate task {} failed: {}", job_uuid, e)
-        db.update_job_status(job_uuid, "failed", error_message=str(e))
+        _handle_task_exception(job_uuid, e, task_label="Image generate")
         raise
 
 
@@ -272,6 +275,7 @@ def run_image_edit(
     input_path: str,
     filename: str,
     prompt: str,
+    provider_id: int | None = None,
 ):
     try:
         db.update_job_status(job_uuid, "running")
@@ -281,37 +285,38 @@ def run_image_edit(
         ext = Path(filename).suffix.lower()
         mime = "image/png" if ext == ".png" else "image/jpeg"
 
-        provider = _image_provider("edit")
-        if provider == "fallback":
-            from src.services.runtime_models import get_model
-            base_url, client = _fallback_http_client(timeout=120.0)
-            # Fallback image-edit endpoint quirk: the "quality" param isn't honoured;
-            # send guidance_scale / num_inference_steps explicitly instead.
-            form_data = {
-                "prompt": prompt,
-                "model": get_model("fallback_image_edit_model"),
-                "response_format": "b64_json",
-                "guidance_scale": "2.5",
-                "num_inference_steps": "25",
-            }
-            edits_url = f"{base_url}/images/edits"
-        else:
-            base_url, client = _primary_http_client(
-                extra_headers={"inference-service": "image-edit-2511"},
-                timeout=120.0,
-            )
-            form_data = {"prompt": prompt}
-            edits_url = f"{base_url}/images/edits/"
+        # Standard OpenAI-compat transport: model in body, no provider quirks.
+        # If a future provider requires a different convention, it gets its own
+        # protocol adapter — not a transport-detection if/else here.
+        base_url, edit_model, client = _image_http_client("image_edit", provider_id=provider_id, timeout=120.0)
+        if not edit_model:
+            from src.services.feature_router import FeatureNotConfigured
+            raise FeatureNotConfigured("image_edit route has no model_name")
 
+        # myLab/THL's image-edit pipeline crashes with "unsupported operand
+        # type(s) for /: 'int' and 'NoneType'" when these numerics aren't
+        # supplied — its internal defaults are absent. Vanilla OpenAI ignores
+        # unknown fields; KISSKI's image-edit isn't reached via this path
+        # anyway. Values match the "standard" quality preset documented in
+        # the myLab wiki (guidance_scale=3.5, num_inference_steps=25).
         with job_heartbeat(job_uuid), client:
             response = client.post(
-                edits_url,
+                f"{base_url}/images/edits",
                 files={"image": (filename, content, mime)},
-                data=form_data,
+                data={
+                    "model": edit_model,
+                    "prompt": prompt,
+                    "response_format": "b64_json",
+                    "n": "1",
+                    "size": "1024x1024",
+                    "quality": "standard",
+                    "guidance_scale": "3.5",
+                    "num_inference_steps": "25",
+                },
             )
 
         if response.status_code != 200:
-            raise RuntimeError(f"Fehler bei der Bildbearbeitung ({provider}, Status {response.status_code}): {response.text[:300]}")
+            raise RuntimeError(f"Fehler bei der Bildbearbeitung (Status {response.status_code}): {response.text[:300]}")
 
         content_type = response.headers.get("content-type", "")
         if content_type.startswith("image/"):
@@ -320,7 +325,7 @@ def run_image_edit(
             try:
                 resp_data = response.json()
             except Exception:
-                raise RuntimeError(f"Unerwartetes Antwortformat ({provider}, Content-Type: {content_type}): {response.text[:300]}")
+                raise RuntimeError(f"Unerwartetes Antwortformat (Content-Type: {content_type}): {response.text[:300]}")
             b64 = (
                 (resp_data.get("data") or [{}])[0].get("b64_json")
                 or (resp_data.get("data") or [{}])[0].get("b64")
@@ -329,7 +334,7 @@ def run_image_edit(
             )
             if not b64:
                 keys = list(resp_data.keys()) if isinstance(resp_data, dict) else type(resp_data).__name__
-                raise RuntimeError(f"Unerwartetes Antwortformat ({provider}, keys: {keys}): {str(resp_data)[:300]}")
+                raise RuntimeError(f"Unerwartetes Antwortformat (keys: {keys}): {str(resp_data)[:300]}")
             img_bytes = base64.b64decode(b64)
 
         result_filename = f"{Path(filename).stem}.png"
@@ -340,8 +345,7 @@ def run_image_edit(
         logger.info("Image edit task {} completed", job_uuid)
 
     except Exception as e:
-        logger.error("Image edit task {} failed: {}", job_uuid, e)
-        db.update_job_status(job_uuid, "failed", error_message=str(e))
+        _handle_task_exception(job_uuid, e, task_label="Image edit")
         raise
 
 
@@ -357,6 +361,7 @@ def run_image_analyze(
     input_path: str,
     filename: str,
     prompt: str,
+    provider_id: int | None = None,
 ):
     try:
         db.update_job_status(job_uuid, "running")
@@ -374,16 +379,24 @@ def run_image_analyze(
         # embed the system instructions as the first text block in the user message.
         # Same pattern works for qwen3-vl on the fallback slot.
         system_prompt = db.get_setting("prompt_image_analyze", _IMAGE_ANALYZE_SYSTEM_PROMPT)
-        user_content = f"{system_prompt}\n\n{user_text}"
+        # Force the response language to the job creator's UI locale so the
+        # user gets German output when they were running KIS in German etc.
+        from src.tasks._errors import job_locale
+        locale = job_locale(job_uuid)
+        target_language = "German" if locale == "de" else "English"
+        user_content = (
+            f"{system_prompt}\n\n"
+            f"Respond in {target_language}.\n\n"
+            f"{user_text}"
+        )
 
-        from src.services.runtime_models import get_model
-        provider = _image_provider("analyze")
-        if provider == "fallback":
-            base_url, client = _fallback_http_client(timeout=60.0)
-            model = get_model("fallback_image_analyze_model")
-        else:
-            base_url, client = _primary_http_client(timeout=60.0)
-            model = get_model("primary_image_analyze_model")
+        base_url, model, client = _image_http_client("vision", provider_id=provider_id, timeout=60.0)
+        if not model:
+            # Vision has no defacto-default model name across providers
+            # (qwen3-omni / qwen3-vl / gpt-4-vision / claude-3 are all valid
+            # depending on the configured provider), so we fail loudly here.
+            from src.services.feature_router import FeatureNotConfigured
+            raise FeatureNotConfigured("vision route has no model_name")
         with job_heartbeat(job_uuid), client:
             response = client.post(
                 f"{base_url}/chat/completions",
@@ -415,8 +428,7 @@ def run_image_analyze(
         logger.info("Image analyze task {} completed", job_uuid)
 
     except Exception as e:
-        logger.error("Image analyze task {} failed: {}", job_uuid, e)
-        db.update_job_status(job_uuid, "failed", error_message=str(e))
+        _handle_task_exception(job_uuid, e, task_label="Image analyze")
         raise
 
 
@@ -434,6 +446,7 @@ def run_summary(
     input_path: str,
     filename: str,
     output_format: str,
+    provider_id: int | None = None,
 ):
     try:
         db.update_job_status(job_uuid, "running")
@@ -443,7 +456,7 @@ def run_summary(
 
         content = get_file(input_path)
         ext = Path(filename).suffix.lower()
-        client = _get_llm_client()
+        client = _get_llm_client(provider_id)
 
         with job_heartbeat(job_uuid):
             from src.utils.text_extraction import EXTRACTORS

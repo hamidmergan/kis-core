@@ -5,7 +5,7 @@ import { useTranslations } from "next-intl";
 import { Link } from "@/i18n/navigation";
 import { GearSix, CaretUp, CaretDown } from "@phosphor-icons/react";
 import { SettingsMenu } from "./SettingsMenu";
-import type { PanelKey, TranscriptTranslationMode, TranscriptDefaultLang, SummaryMode } from "../../_types";
+import type { PanelKey, TranscriptTranslationMode, TranscriptDefaultLang } from "../../_types";
 
 interface WorkspaceTopbarProps {
   isMobile: boolean;
@@ -26,8 +26,8 @@ interface WorkspaceTopbarProps {
   onChangeTranslationMode: (mode: TranscriptTranslationMode) => void;
   transcriptDefaultLang: TranscriptDefaultLang;
   onChangeTranscriptDefaultLang: (lang: TranscriptDefaultLang) => void;
-  summaryMode: SummaryMode;
-  onChangeSummaryMode: (mode: SummaryMode) => void;
+  transcriptTargetLang: string;
+  onChangeTranscriptTargetLang: (lang: string) => void;
   // Mobile tabs
   activeTab: PanelKey;
   setActiveTab: (k: PanelKey) => void;
@@ -51,7 +51,7 @@ export function WorkspaceTopbar(props: WorkspaceTopbarProps) {
     isLecturer, isOwner, hideHeader, onToggleHideHeader,
     translationMode, onChangeTranslationMode,
     transcriptDefaultLang, onChangeTranscriptDefaultLang,
-    summaryMode, onChangeSummaryMode,
+    transcriptTargetLang, onChangeTranscriptTargetLang,
     activeTab, setActiveTab,
     languageLevel, onResetLanguageLevel,
   } = props;
@@ -71,8 +71,8 @@ export function WorkspaceTopbar(props: WorkspaceTopbarProps) {
       onChangeTranslationMode={onChangeTranslationMode}
       transcriptDefaultLang={transcriptDefaultLang}
       onChangeTranscriptDefaultLang={onChangeTranscriptDefaultLang}
-      summaryMode={summaryMode}
-      onChangeSummaryMode={onChangeSummaryMode}
+      transcriptTargetLang={transcriptTargetLang}
+      onChangeTranscriptTargetLang={onChangeTranscriptTargetLang}
       languageLevel={languageLevel}
       onResetLanguageLevel={onResetLanguageLevel}
     />

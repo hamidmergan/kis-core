@@ -1,0 +1,208 @@
+import { describe, it, expect } from "vitest";
+import {
+  _embedQmapIntoCitations,
+  _formatApiError,
+  _isMediaFile,
+  _fileKind,
+  _formatTime,
+  _md,
+  _sourceChipKey,
+  _chunkLabel,
+  _getChipIcon,
+  parseFlashcards,
+  parseQuiz,
+} from "./_utils";
+
+// ── _embedQmapIntoCitations ──────────────────────────────────────────────────
+describe("_embedQmapIntoCitations", () => {
+  it("embeds the source uuid into a new-format [1, ...] citation", () => {
+    const out = _embedQmapIntoCitations("See [1, S. 2 | kw].", [{ qnum: 1, uuid: "abc123" }]);
+    expect(out).toBe("See [Q1:abc123, S. 2 | kw].");
+  });
+
+  it("also upgrades old-format [Q1, ...] citations", () => {
+    const out = _embedQmapIntoCitations("See [Q1, S. 2].", [{ qnum: 1, uuid: "abc123" }]);
+    expect(out).toBe("See [Q1:abc123, S. 2].");
+  });
+
+  it("returns the text unchanged when qmap is empty", () => {
+    expect(_embedQmapIntoCitations("[1, S. 2]", [])).toBe("[1, S. 2]");
+  });
+
+  it("leaves citations whose qnum is not in the qmap untouched", () => {
+    expect(_embedQmapIntoCitations("[1, S. 2]", [{ qnum: 9, uuid: "x" }])).toBe("[1, S. 2]");
+  });
+});
+
+// ── _formatApiError ──────────────────────────────────────────────────────────
+describe("_formatApiError", () => {
+  it("returns a plain string detail", () => {
+    expect(_formatApiError({ detail: "boom" })).toBe("boom");
+  });
+
+  it("joins a FastAPI validation array on msg", () => {
+    expect(_formatApiError({ detail: [{ msg: "too short" }, { msg: "bad type" }] }))
+      .toBe("too short; bad type");
+  });
+
+  it("stringifies array items without a msg field", () => {
+    expect(_formatApiError({ detail: [{ code: 7 }] })).toBe('{"code":7}');
+  });
+
+  it("stringifies an object detail", () => {
+    expect(_formatApiError({ detail: { a: 1 } })).toBe('{"a":1}');
+  });
+
+  it("returns null for non-object / missing detail", () => {
+    expect(_formatApiError(null)).toBeNull();
+    expect(_formatApiError("nope")).toBeNull();
+    expect(_formatApiError({})).toBeNull();
+  });
+});
+
+// ── _isMediaFile / _fileKind / _getChipIcon ──────────────────────────────────
+describe("_isMediaFile", () => {
+  it.each([".mp3", ".mp4", ".wav", ".flac", ".m4a", ".webm"])("is true for %s", (ext) => {
+    expect(_isMediaFile(`clip${ext}`)).toBe(true);
+  });
+  it("is case-insensitive", () => {
+    expect(_isMediaFile("CLIP.MP4")).toBe(true);
+  });
+  it("is false for documents and extensionless names", () => {
+    expect(_isMediaFile("paper.pdf")).toBe(false);
+    expect(_isMediaFile("README")).toBe(false);
+  });
+});
+
+describe("_fileKind", () => {
+  it.each([
+    ["slides.pdf", "pdf"],
+    ["lecture.mp4", "video"],
+    ["talk.webm", "video"],
+    ["audio.mp3", "audio"],
+    ["sound.flac", "audio"],
+    ["notes.docx", "doc"],
+  ] as const)("classifies %s as %s", (name, kind) => {
+    expect(_fileKind(name)).toBe(kind);
+  });
+});
+
+describe("_getChipIcon", () => {
+  it("returns a component for every file kind", () => {
+    for (const f of ["a.pdf", "a.mp4", "a.mp3", "a.docx"]) {
+      expect(_getChipIcon(f)).toBeTruthy();
+    }
+  });
+});
+
+// ── _formatTime ──────────────────────────────────────────────────────────────
+describe("_formatTime", () => {
+  it.each([
+    [0, "0:00"],
+    [5, "0:05"],
+    [65, "1:05"],
+    [600, "10:00"],
+    [3661, "1:01:01"],
+  ] as const)("formats %i seconds as %s", (secs, expected) => {
+    expect(_formatTime(secs)).toBe(expected);
+  });
+});
+
+// ── _md (XSS-safe markdown) ──────────────────────────────────────────────────
+describe("_md", () => {
+  it("renders bold and italic", () => {
+    expect(_md("**hi**")).toBe("<strong>hi</strong>");
+    expect(_md("*hi*")).toBe("<em>hi</em>");
+  });
+
+  it("escapes HTML before applying markdown (no injection)", () => {
+    expect(_md("<script>alert(1)</script>")).toBe("&lt;script&gt;alert(1)&lt;/script&gt;");
+    expect(_md("a & b")).toBe("a &amp; b");
+  });
+
+  it("escapes HTML inside bold spans", () => {
+    expect(_md("**<img>**")).toBe("<strong>&lt;img&gt;</strong>");
+  });
+});
+
+// ── _sourceChipKey ───────────────────────────────────────────────────────────
+describe("_sourceChipKey", () => {
+  it("keys media chips by timestamp", () => {
+    expect(_sourceChipKey("1:05", 0, 65, null)).toBe("m:1:05:65");
+  });
+  it("keys PDF chips by page + highlight", () => {
+    expect(_sourceChipKey("S. 2", 2, null, "kw")).toBe("p:S. 2:2:kw");
+  });
+  it("defaults missing page and highlight", () => {
+    expect(_sourceChipKey("S. 0", null, null, null)).toBe("p:S. 0:0:");
+  });
+});
+
+// ── _chunkLabel ──────────────────────────────────────────────────────────────
+describe("_chunkLabel", () => {
+  it("uses a formatted timestamp for media with a start time", () => {
+    expect(_chunkLabel("v.mp4", 3, 65)).toBe("1:05");
+  });
+  it("falls back to German 'Teil N' for media without tChip", () => {
+    expect(_chunkLabel("v.mp4", 3)).toBe("Teil 3");
+  });
+  it("falls back to German 'S. N' for documents without tChip", () => {
+    expect(_chunkLabel("doc.pdf", 2)).toBe("S. 2");
+  });
+  it("uses the localized translator when provided", () => {
+    const tChip = (key: "page" | "part", v: { num: number }) =>
+      key === "page" ? `p. ${v.num}` : `Part ${v.num}`;
+    expect(_chunkLabel("doc.pdf", 2, null, tChip)).toBe("p. 2");
+    expect(_chunkLabel("v.mp4", 3, null, tChip)).toBe("Part 3");
+  });
+});
+
+// ── parseFlashcards ──────────────────────────────────────────────────────────
+describe("parseFlashcards", () => {
+  it("parses 'front | back' lines and strips list numbering", () => {
+    expect(parseFlashcards("1. Photosynthese | Umwandlung von Licht")).toEqual([
+      { front: "Photosynthese", back: "Umwandlung von Licht" },
+    ]);
+  });
+  it("skips lines without a separator or with an empty side", () => {
+    expect(parseFlashcards("no separator here\n2. Front | \n | Back")).toEqual([]);
+  });
+  it("parses multiple cards", () => {
+    expect(parseFlashcards("A | 1\nB | 2")).toEqual([
+      { front: "A", back: "1" },
+      { front: "B", back: "2" },
+    ]);
+  });
+});
+
+// ── parseQuiz ────────────────────────────────────────────────────────────────
+describe("parseQuiz", () => {
+  it("parses a question with options and marks the ✓ one correct", () => {
+    // Option words avoid the letters r/i/c/h/t/g — see the known-bug test below.
+    const text = "1. Welche Farbe?\nA. Apple ✓\nB. Banana\nC. Lemon";
+    expect(parseQuiz(text)).toEqual([
+      { question: "Welche Farbe?", options: ["Apple", "Banana", "Lemon"], correct: 0 },
+    ]);
+  });
+
+  it("supports the (richtig) marker and a non-zero correct index", () => {
+    const text = "1. Frage?\nA. Apple\nB. Banana (richtig)";
+    const out = parseQuiz(text);
+    expect(out[0].correct).toBe(1);
+  });
+
+  it("parses several questions", () => {
+    const text = "1. Eins?\nA. Apple ✓\nB. Banana\n2. Zwei?\nA. Lemon ✓\nB. Pomelo";
+    expect(parseQuiz(text)).toHaveLength(2);
+  });
+
+  // Regression guard for a former bug: the option-cleaning regex used to be a
+  // CHARACTER CLASS (/[✓(richtig)]/g) that stripped every individual letter
+  // r/i/c/h/t/g from option text. It must only remove the literal "✓" and
+  // "(richtig)" markers, leaving the words intact.
+  it("strips only the markers, never letters from the option words", () => {
+    const out = parseQuiz("1. Q?\nA. Right ✓\nB. Other (richtig)");
+    expect(out[0].options).toEqual(["Right", "Other"]);
+    expect(out[0].correct).toBe(1);
+  });
+});

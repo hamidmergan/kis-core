@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { api } from "@/lib/api";
 import type { MindmapNodeData } from "../_components/studio/MindmapStudio";
 
 interface UseMindmapOptions {
@@ -70,9 +71,10 @@ export function useMindmap({ uuid, selectedSourceIds }: UseMindmapOptions) {
     if (selectedSourceIds.length === 0) return;
     setMindmapLoading(true);
     try {
-      const res = await fetch(`/api/ai-assistant/workspaces/${uuid}/mindmap/generate`, {
+      // api.fetch attaches Accept-Language from the NEXT_LOCALE cookie so the
+      // mind map labels are generated in the UI language (raw fetch defaulted to de).
+      const res = await api.fetch(`/api/ai-assistant/workspaces/${uuid}/mindmap/generate`, {
         method: "POST",
-        credentials: "include",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ active_source_ids: selectedSourceIds.slice(0, 5) }),
       });

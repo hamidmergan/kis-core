@@ -13,14 +13,16 @@ export const MAX_IMAGE_BYTES = MAX_IMAGE_MB * 1024 * 1024;
 /** Max script chars for screencast (mirrors backend SCREENCAST_MAX_CHARS in limits.py). */
 export const SCREENCAST_MAX_CHARS = 100_000;
 
+/** Max chars for direct text-to-speech input (mirrors backend TTS_MAX_CHARS in limits.py). */
+export const TTS_MAX_CHARS = 100_000;
+
 /** UI locales for the header language switch (next-intl). */
 export const UI_LOCALES = ["de", "en"] as const;
 export const DEFAULT_UI_LOCALE: (typeof UI_LOCALES)[number] = "de";
 export type UiLocale = (typeof UI_LOCALES)[number];
 
-/** Translate-tool language codes (DeepL format). */
-export const TRANSLATE_LANGUAGES = ["DE", "EN-US"] as const;
-export const DEFAULT_TRANSLATE_SOURCE: (typeof TRANSLATE_LANGUAGES)[number] = "DE";
+/** Translate-tool language codes (DeepL format). Mirrors backend TRANSLATE_LANGUAGES in i18n.py. */
+export const TRANSLATE_LANGUAGES = ["DE", "EN-US", "FR", "ES", "IT", "UK", "TR", "AR", "RU"] as const;
 export const DEFAULT_TRANSLATE_TARGET: (typeof TRANSLATE_LANGUAGES)[number] = "EN-US";
 export type TranslateLanguage = (typeof TRANSLATE_LANGUAGES)[number];
 

@@ -9,9 +9,11 @@ import {
   Check,
   DotsThreeVertical,
 } from "@phosphor-icons/react";
-import type { Source } from "../../_types";
+import type { Source, StaffNoteLink } from "../../_types";
 import { FileIcon, SourceStatus } from "./FileIcon";
 import { UploadErrorsBlock } from "./UploadErrorsBlock";
+import { StaffNoteBox } from "./StaffNoteBox";
+import { StaffNoteEditModal } from "./StaffNoteEditModal";
 import { EmptyState } from "@/components/ui/EmptyState";
 
 export function SourcesPanel({
@@ -29,6 +31,9 @@ export function SourcesPanel({
   onMinimize,
   workspaceUuid,
   hideHeader,
+  staffNoteText,
+  staffNoteLinks,
+  onStaffNoteSave,
 }: {
   sources: Source[];
   selectedSourceIds: string[];
@@ -44,6 +49,9 @@ export function SourcesPanel({
   onMinimize: () => void;
   workspaceUuid: string;
   hideHeader?: boolean;
+  staffNoteText?: string | null;
+  staffNoteLinks?: StaffNoteLink[];
+  onStaffNoteSave?: (text: string | null, links: StaffNoteLink[]) => Promise<void>;
 }) {
   const t = useTranslations("workspace.detail.sources");
   const tPanels = useTranslations("workspace.detail.panels");
@@ -52,6 +60,8 @@ export function SourcesPanel({
   const [deleteSourceId, setDeleteSourceId] = useState<string | null>(null);
   const [menuOpenId, setMenuOpenId] = useState<string | null>(null);
   const [compact, setCompact] = useState(false);
+  const [staffNoteModalOpen, setStaffNoteModalOpen] = useState(false);
+  const noteLinks = staffNoteLinks ?? [];
 
   useEffect(() => {
     const el = panelRef.current;
@@ -63,7 +73,11 @@ export function SourcesPanel({
     return () => ro.disconnect();
   }, []);
 
-  const readySources = sources.filter((s) => s.status === "ready");
+  // A source is chat-ready once indexing is done (status "ready" with the
+  // progress field cleared). Selecting an in-progress source would feed the
+  // chat empty context.
+  const isFullyReady = (s: Source) => s.status === "ready" && !s.progress;
+  const readySources = sources.filter(isFullyReady);
   const allSelected = readySources.length > 0 && readySources.every((s) => selectedSourceIds.includes(s.uuid));
 
   function toggleAll() {
@@ -72,7 +86,7 @@ export function SourcesPanel({
       sources.forEach((s) => { if (selectedSourceIds.includes(s.uuid)) onToggleSource(s.uuid); });
     } else {
       // select all ready
-      sources.filter((s) => s.status === "ready" && !selectedSourceIds.includes(s.uuid))
+      sources.filter((s) => isFullyReady(s) && !selectedSourceIds.includes(s.uuid))
         .forEach((s) => onToggleSource(s.uuid));
     }
   }
@@ -87,6 +101,11 @@ export function SourcesPanel({
         >
           <span className="text-base font-semibold tracking-wide" style={{ color: "var(--foreground)" }}>
             {t("title")}
+            {sources.length > 0 && (
+              <span className="ml-1.5 font-normal" style={{ color: "var(--foreground-soft)" }}>
+                ({sources.length})
+              </span>
+            )}
           </span>
           <button
             type="button"
@@ -154,6 +173,17 @@ export function SourcesPanel({
         </div>
       )}
 
+      {/* Owner-managed pinned note (visible to owner + enrolled students) */}
+      {onStaffNoteSave && (
+        <StaffNoteBox
+          text={staffNoteText ?? null}
+          links={noteLinks}
+          isOwner={isLecturer}
+          workspaceUuid={workspaceUuid}
+          onEdit={() => setStaffNoteModalOpen(true)}
+        />
+      )}
+
       {/* Select all row */}
       {sources.length > 0 && (
         <label
@@ -190,7 +220,7 @@ export function SourcesPanel({
         ) : (
           sources.map((src) => {
             const checked = selectedSourceIds.includes(src.uuid);
-            const ready = src.status === "ready";
+            const ready = isFullyReady(src);
             return (
               <div
                 key={src.uuid}
@@ -238,7 +268,7 @@ export function SourcesPanel({
                   >
                     {src.filename}
                   </span>
-                  <SourceStatus status={src.status} />
+                  <SourceStatus status={src.status} progress={src.progress} />
                 </div>
 
                 {src.status === "failed" && src.error_message && (
@@ -312,12 +342,23 @@ export function SourcesPanel({
         )}
       </div>
 
+      {/* Staff note edit modal (owner only) */}
+      {isLecturer && onStaffNoteSave && (
+        <StaffNoteEditModal
+          open={staffNoteModalOpen}
+          initialText={staffNoteText ?? null}
+          initialLinks={noteLinks}
+          onClose={() => setStaffNoteModalOpen(false)}
+          onSave={onStaffNoteSave}
+        />
+      )}
+
       {/* Delete confirmation modal */}
       {deleteSourceId && (
         <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
           <div className="bg-background rounded-xl shadow-xl max-w-sm w-full p-6">
             <h3 className="text-base font-semibold mb-2">{t("deleteTitle")}</h3>
-            <p className="text-sm text-foreground-soft mb-1">
+            <p className="text-sm text-foreground-soft mb-1 break-all">
               <span className="font-medium">{sources.find((s) => s.uuid === deleteSourceId)?.filename || t("deleteFallback")}</span>
             </p>
             <p className="text-sm text-error mb-6">

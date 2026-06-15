@@ -296,10 +296,10 @@ export function MindmapStudio({
             let startTime = 0;
             if (parts.length === 3) startTime = parts[0] * 3600 + parts[1] * 60 + parts[2];
             else if (parts.length === 2) startTime = parts[0] * 60 + parts[1];
-            cb(src.uuid, 0, src.filename, srcInfo.keyword || undefined, startTime);
+            cb(src.uuid, 0, src.filename, undefined, startTime);
           } else {
             const pageNum = typeof srcInfo.page_number === "number" ? srcInfo.page_number : parseInt(String(srcInfo.page_number), 10) || 0;
-            cb(src.uuid, pageNum, src.filename, srcInfo.keyword || undefined);
+            cb(src.uuid, pageNum, src.filename, undefined);
           }
         }
       };

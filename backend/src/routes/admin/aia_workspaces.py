@@ -12,8 +12,7 @@ Bundle layout (ZIP):
     files/<source_uuid>_transcript.*    — Whisper transcript + VTTs (always included for media)
 
 Optional, opt-in via query flags on export, permissively read on import:
-    glossary.json   — aia_glossary_entries (per source)
-    summaries.json  — aia_paragraph_summaries (per source)
+    glossary.json   — aia_glossary_entries (per user; restored under the importer)
     notes.json      — aia_notes (per workspace + user; user_id reassigned to importer)
     schedule.json   — aia_schedule_entries (per workspace + user; user_id reassigned)
     studio.json     — aia_mindmaps + aia_data_tables + aia_exercise_sets/items
@@ -64,7 +63,7 @@ def _workspace_export_dict(workspace: dict) -> dict:
     keep = (
         "uuid", "title", "description", "is_active", "status",
         "embedding_model", "embedding_fingerprint",
-        "transcript_translation_mode", "transcript_default_lang", "summary_mode",
+        "transcript_translation_mode", "transcript_default_lang",
     )
     return {k: workspace.get(k) for k in keep}
 
@@ -115,7 +114,7 @@ def _bulk_insert_chunks(source_id: int, chunks: list[dict]) -> int:
                        (source_id, page_number, content, embedding,
                         start_time, end_time, search_vector)
                        VALUES (%s, %s, %s, %s::vector, %s, %s,
-                               to_tsvector('german', %s))""",
+                               to_tsvector('simple', %s))""",
                     (
                         source_id, c["page_number"], c["content"], embedding_param,
                         c.get("start_time"), c.get("end_time"), c["content"],
@@ -203,26 +202,6 @@ def _fetch_glossary(source_id_to_uuid: dict[int, str]) -> list[dict]:
                 """SELECT source_id, term_de, term_en, definition, definition_en,
                           example_sentence, example_sentence_en, page_number
                    FROM aia_glossary_entries WHERE source_id = ANY(%s)
-                   ORDER BY id""",
-                (list(source_id_to_uuid.keys()),),
-            )
-            rows = cur.fetchall()
-    return [
-        {**{k: v for k, v in dict(r).items() if k != "source_id"},
-         "source_uuid": source_id_to_uuid.get(r["source_id"])}
-        for r in rows if source_id_to_uuid.get(r["source_id"])
-    ]
-
-
-def _fetch_paragraph_summaries(source_id_to_uuid: dict[int, str]) -> list[dict]:
-    if not source_id_to_uuid:
-        return []
-    with get_connection() as conn:
-        with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
-            cur.execute(
-                """SELECT source_id, page_number, block_index,
-                          bbox_x0, bbox_y0, bbox_x1, bbox_y1, content, summary
-                   FROM aia_paragraph_summaries WHERE source_id = ANY(%s)
                    ORDER BY id""",
                 (list(source_id_to_uuid.keys()),),
             )
@@ -327,7 +306,9 @@ def _fetch_studio(workspace_id: int, source_id_to_uuid: dict[int, str]) -> dict:
 
 # ─── Insert helpers (import side) ───────────────────────────────────────────
 
-def _insert_glossary(rows: list[dict], uuid_to_source_id: dict[str, int]) -> int:
+def _insert_glossary(rows: list[dict], uuid_to_source_id: dict[str, int], fallback_user_id: int) -> int:
+    """Restore glossary entries under the importing admin's account. Re-imports
+    are idempotent via the (user_id, source_id, lower(term_de)) unique index."""
     if not rows:
         return 0
     n = 0
@@ -337,41 +318,22 @@ def _insert_glossary(rows: list[dict], uuid_to_source_id: dict[str, int]) -> int
                 sid = uuid_to_source_id.get(g.get("source_uuid"))
                 if not sid:
                     continue
+                term = (g.get("term_de") or "").strip()
+                if not term:
+                    continue
                 cur.execute(
                     """INSERT INTO aia_glossary_entries
-                       (source_id, term_de, term_en, definition, definition_en,
+                       (user_id, source_id, term_de, term_en, definition, definition_en,
                         example_sentence, example_sentence_en, page_number)
-                       VALUES (%s, %s, %s, %s, %s, %s, %s, %s)""",
-                    (sid, g.get("term_de") or "", g.get("term_en") or "",
+                       VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+                       ON CONFLICT (user_id, source_id, lower(term_de)) DO NOTHING""",
+                    (fallback_user_id, sid,
+                     term, g.get("term_en") or "",
                      g.get("definition") or "", g.get("definition_en"),
                      g.get("example_sentence"), g.get("example_sentence_en"),
                      g.get("page_number")),
                 )
-                n += 1
-        conn.commit()
-    return n
-
-
-def _insert_summaries(rows: list[dict], uuid_to_source_id: dict[str, int]) -> int:
-    if not rows:
-        return 0
-    n = 0
-    with get_connection() as conn:
-        with conn.cursor() as cur:
-            for s in rows:
-                sid = uuid_to_source_id.get(s.get("source_uuid"))
-                if not sid:
-                    continue
-                cur.execute(
-                    """INSERT INTO aia_paragraph_summaries
-                       (source_id, page_number, block_index,
-                        bbox_x0, bbox_y0, bbox_x1, bbox_y1, content, summary)
-                       VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)""",
-                    (sid, s.get("page_number"), s.get("block_index"),
-                     s.get("bbox_x0"), s.get("bbox_y0"), s.get("bbox_x1"), s.get("bbox_y1"),
-                     s.get("content") or "", s.get("summary") or ""),
-                )
-                n += 1
+                n += cur.rowcount
         conn.commit()
     return n
 
@@ -521,7 +483,6 @@ async def export_workspace(
     glossary: bool = False,
     notes: bool = False,
     schedule: bool = False,
-    summaries: bool = False,
     studio: bool = False,
     _admin=Depends(get_admin_user),
 ):
@@ -532,7 +493,7 @@ async def export_workspace(
     sources — those are token-expensive (Whisper + DeepL/LLM translation).
 
     Optional via query flags (each maps to one extra JSON entry in the bundle):
-        glossary, notes, schedule, summaries, studio
+        glossary, notes, schedule, studio
     """
     workspace = db.get_aia_workspace(workspace_uuid)
     if workspace is None:
@@ -556,7 +517,6 @@ async def export_workspace(
             "chunk_count": s.get("chunk_count") or 0,
             "embedding_model": s.get("embedding_model") or "",
             "toc": s.get("toc"),
-            "summaries_status": s.get("summaries_status") or "none",
             "duration": s.get("duration"),
             "language": s.get("language"),
             "chunks": chunks,
@@ -567,9 +527,6 @@ async def export_workspace(
     if glossary:
         extras_data["glossary"] = _fetch_glossary(source_id_to_uuid)
         extras_meta.append("glossary")
-    if summaries:
-        extras_data["summaries"] = _fetch_paragraph_summaries(source_id_to_uuid)
-        extras_meta.append("summaries")
     if notes:
         extras_data["notes"] = _fetch_notes(workspace["id"])
         extras_meta.append("notes")
@@ -731,8 +688,8 @@ async def import_workspace(
                         """INSERT INTO aia_workspaces
                            (uuid, user_id, title, description, is_active, status,
                             embedding_model, embedding_fingerprint,
-                            transcript_translation_mode, transcript_default_lang, summary_mode)
-                           VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                            transcript_translation_mode, transcript_default_lang)
+                           VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                            RETURNING id""",
                         (
                             workspace_uuid, admin_user_id,
@@ -744,7 +701,6 @@ async def import_workspace(
                             workspace_data.get("embedding_fingerprint"),
                             workspace_data.get("transcript_translation_mode") or "manual",
                             workspace_data.get("transcript_default_lang") or "both",
-                            workspace_data.get("summary_mode") or "manual",
                         ),
                     )
                     workspace_id = cur.fetchone()[0]
@@ -791,8 +747,8 @@ async def import_workspace(
                             """INSERT INTO aia_sources
                                (workspace_id, uuid, filename, file_path, file_type,
                                 status, chunk_count, embedding_model, toc,
-                                summaries_status, duration, language)
-                               VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                                duration, language)
+                               VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                                RETURNING id""",
                             (
                                 workspace_id, source_uuid, s.get("filename") or "",
@@ -800,7 +756,6 @@ async def import_workspace(
                                 s.get("status") or "ready",
                                 s.get("chunk_count") or 0, s.get("embedding_model") or "",
                                 json.dumps(s["toc"]) if s.get("toc") is not None else None,
-                                s.get("summaries_status") or "none",
                                 s.get("duration"), s.get("language"),
                             ),
                         )
@@ -825,10 +780,7 @@ async def import_workspace(
 
             glossary_rows = _try_load("glossary")
             if glossary_rows is not None:
-                extras_imported["glossary"] = _insert_glossary(glossary_rows, uuid_to_source_id)
-            summaries_rows = _try_load("summaries")
-            if summaries_rows is not None:
-                extras_imported["summaries"] = _insert_summaries(summaries_rows, uuid_to_source_id)
+                extras_imported["glossary"] = _insert_glossary(glossary_rows, uuid_to_source_id, admin_user_id)
             notes_rows = _try_load("notes")
             if notes_rows is not None:
                 extras_imported["notes"] = _insert_notes(workspace_id, admin_user_id, notes_rows)

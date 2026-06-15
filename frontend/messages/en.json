@@ -1,4 +1,8 @@
 {
+  "sourceChip": {
+    "page": "p. {num}",
+    "part": "Part {num}"
+  },
   "header": {
     "homeAria": "Go to homepage",
     "admin": "Admin",
@@ -80,7 +84,6 @@
       "creating": "Creating…",
       "generatingScripts": "Generating scripts…",
       "resumeScreencast": "Resume screencast →",
-      "resumeDemo": "Resume demo →",
       "downloadAllZip": "Download all (ZIP)",
       "fallbackFile": "File"
     },
@@ -114,10 +117,8 @@
     "tbdHeading": "By arrangement",
     "tbdLabel": "open",
     "card": {
-      "pastLockedAria": "Past entries cannot be changed",
       "uncheckAria": "Mark as not done",
       "checkAria": "Mark as done",
-      "pastLockedTitle": "Past entries are locked",
       "ownTooltip": "Own workspace",
       "sharedTooltip": "Shared workspace"
     }
@@ -206,7 +207,10 @@
       },
       "submit": "Start transcription",
       "longRunning": "Still running - long audio files may take a few minutes…",
-      "downloadLabel": "Transcription"
+      "downloadLabel": "Transcription",
+      "readyTitle": "Transcript ready",
+      "editorAria": "Edit transcript",
+      "providerLabel": "STT provider"
     },
     "summarize": {
       "title": "Summary",
@@ -214,14 +218,14 @@
       "selectFileAria": "Select file to summarize",
       "submit": "Create summary",
       "longRunning": "Still running - extensive content may take a few minutes…",
-      "downloadLabel": "Summary"
+      "downloadLabel": "Summary",
+      "providerLabel": "AI provider"
     },
     "translate": {
       "title": "Translation",
       "intro": "Translate documents into other languages. Layout and formatting are preserved.",
-      "sourceLang": "Source language",
       "targetLang": "Target language",
-      "autoDetect": "Auto-detect",
+      "autoDetectHint": "The source language is detected automatically.",
       "engine": "Translation engine",
       "submit": "Translate",
       "longRunning": "Still running - large documents may take a few minutes…",
@@ -258,12 +262,22 @@
       "status": {
         "uploadingFile": "Uploading file...",
         "generatingAudio": "Generating audio...",
+        "readyToPlay": "Audio ready",
         "errorTitle": "Audio generation failed",
         "tryAgain": "Try again",
         "newFileAria": "Upload new file"
       },
       "upload": {
         "selectFileAria": "Select file to read aloud"
+      },
+      "inputMode": {
+        "text": "Enter text",
+        "file": "Upload file"
+      },
+      "textInput": {
+        "label": "Text to read aloud",
+        "placeholder": "Type or paste text here…",
+        "count": "{count} / {max} characters"
       },
       "voiceDescription": {
         "Laid-Back": "Laid-back",
@@ -299,10 +313,9 @@
       "voices": {
         "title": "Available voices",
         "loading": "Loading…",
-        "noVoices": "No voices available.",
+        "noVoices": "No voices configured for this provider.",
+        "noProviders": "No TTS providers with voices configured.",
         "noSample": "No sample",
-        "kokoroUnavailable": "Kokoro server not reachable or no voices found.",
-        "mylabUnavailable": "myLab TTS server not reachable or no voices found.",
         "voiceSingular": "voice",
         "voicePlural": "voices",
         "genderFemale": "Female",
@@ -395,6 +408,7 @@
         "constraints": "PNG or JPG, max 20 MB"
       },
       "previewAlt": "Preview",
+      "providerLabel": "AI provider",
       "generate": {
         "promptPlaceholder": "Describe the desired image ...",
         "size": "Size",
@@ -425,7 +439,6 @@
     "screencast": {
       "title": "Screencast",
       "intro": "Turn PowerPoint slides into a narrated video, optionally in another language.",
-      "demoBadge": "View demo →",
       "resetStart": "Start over",
       "cancelScreencast": "Cancel screencast",
       "resuming": "Restoring screencast…",
@@ -456,8 +469,9 @@
         "replaceHint": "Click or drag another file here",
         "onlyPptx": "Only .pptx file",
         "skipTranslation": "Presentation already translated (skip translation)",
-        "sourceLang": "Source language",
-        "targetLang": "Target language"
+        "targetLang": "Target language",
+        "autoDetectHint": "The source language is detected automatically.",
+        "translationProvider": "Translation provider"
       },
       "translating": {
         "preparing": "Preparing presentation...",
@@ -597,7 +611,8 @@
       },
       "selectJsonFirst": "Please select a JSON file first.",
       "jobUnavailable": "Job data no longer available - please start a new screencast.",
-      "jobDeleted": "The job was deleted or cancelled. Please start a new screencast."
+      "jobDeleted": "The job was deleted or cancelled. Please start a new screencast.",
+      "demoBadge": "View demo →"
     },
     "screencastDemo": {
       "backToScreencast": "Back",
@@ -798,6 +813,222 @@
       "overrideHint": "-1 = unlimited, empty = default",
       "defaultsTitle": "Default limits (global)"
     },
+    "providers": {
+      "intro": "Providers are endpoints that deliver AI features (chat, embedding, TTS, vision, ...). Register as many as you like. For each feature below, pick which provider handles it.",
+      "list": {
+        "title": "Providers",
+        "hint": "\"Re-check\" verifies the endpoint is reachable. To test whether a specific feature actually works, use the row test buttons under \"Features\".",
+        "add": "Add",
+        "emptyTitle": "No provider configured yet",
+        "emptyHint": "Add your first provider to enable AI features.",
+        "exportImportMenuItem": "Export / Import…",
+        "moreActions": "More actions"
+      },
+      "row": {
+        "keySuffix": "· API-Key: ...{chars}",
+        "probe": "Re-check reachability",
+        "edit": "Edit",
+        "delete": "Delete",
+        "statusActive": "reachable",
+        "statusError": "error",
+        "statusUnprobed": "not checked yet",
+        "statusChecking": "checking…",
+        "noApiKeyChip": "No API-Key",
+        "disabledChip": "Inactive",
+        "enable": "Enable",
+        "disable": "Disable"
+      },
+      "probeErrors": {
+        "unreachable": "Not reachable — check the URL and network connection",
+        "auth_rejected": "Authentication rejected — check the API-Key",
+        "server_error": "The provider returned a server error",
+        "endpoint_not_found": "Endpoint not found — check the base URL"
+      },
+      "routes": {
+        "title": "Features",
+        "hint": "One provider and one model per feature. The bolt button tests whether the selected pairing (e.g. TTS via KISSKI) actually works.",
+        "unselected": "— pick a provider —",
+        "modelPlaceholder": "model name",
+        "userChoiceLabel": "User may choose:",
+        "noEligible": "No provider supports this feature.",
+        "test": "Test selection",
+        "testAll": "Test all sequentially",
+        "testOk": "Reachable",
+        "testNoProvider": "No provider selected.",
+        "testErrors": {
+          "model_name_not_set": "No model name entered",
+          "tts_speech_endpoint_not_found": "TTS endpoint not found",
+          "endpoint_not_found": "Endpoint not found (HTTP 404)",
+          "auth_rejected": "Authentication rejected (API-Key invalid or missing)",
+          "server_error": "Provider server error (HTTP 5xx) — endpoint reachable but responding with an error",
+          "unreachable": "Provider unreachable (DNS or network error)",
+          "invalid_model": "Model '{model}' not supported",
+          "no_voices_configured": "No voices configured — add at least one voice for this provider",
+          "stt_model_not_validated_by_provider": "Provider does not validate the STT model name — any input is accepted. Model name cannot be verified.",
+          "stt_endpoint_verified_model_unvalidated": "Endpoint verified reachable (auth ok, rate limit active, backend responding). The provider does not validate the model name — STT works with any name."
+        },
+        "modelForPrimary": "Model for {name}:",
+        "modelOptional": "(optional)"
+      },
+      "delete": {
+        "title": "Delete provider \"{name}\"?",
+        "bodyEmpty": "This will permanently delete provider \"{name}\" including the stored API-Key.",
+        "bodyWithRoutes": "\"{name}\" is currently used for:\n  • {features}",
+        "warningFeaturesUnavailable": "These features will NOT be available after deletion until you assign another provider.",
+        "warningIrreversible": "This action CANNOT be undone.",
+        "confirm": "Yes, delete",
+        "cancel": "Cancel"
+      },
+      "dialog": {
+        "titleCreate": "Add provider",
+        "titleEdit": "Edit provider",
+        "close": "Close",
+        "cancel": "Cancel",
+        "save": "Save and probe",
+        "saving": "Saving…",
+        "fieldName": "Name",
+        "namePlaceholder": "e.g. OpenAI, KISSKI, My Ollama",
+        "nameHint": "Free-form; shown in the feature dropdowns.",
+        "fieldProtocol": "Protocol",
+        "fieldBaseUrl": "Base URL",
+        "fieldCapabilities": "Capabilities",
+        "capabilitiesHint": "Select only what this provider supports. Leave empty = auto-detected after saving.",
+        "fieldApiKey": "API-Key",
+        "showKey": "Show key",
+        "hideKey": "Hide key",
+        "apiKeyHint": "Leave empty if the endpoint needs no key.",
+        "apiKeyEditHint": "Leaving empty keeps the existing key.",
+        "probeHint": "After save, KIS verifies the endpoint is reachable. Whether each feature actually works is tested per row under “Features”.",
+        "fixedCapabilitiesHint": "Protocol-fixed: {caps}",
+        "deeplFreeDetected": "DeepL Free key detected (suffix :fx) → api-free.deepl.com.",
+        "deeplProDetected": "DeepL Pro key detected → api.deepl.com.",
+        "deeplFreeOnProUrl": "DeepL Free key (suffix :fx) detected, but the base URL points to the Pro endpoint. KIS will auto-route to api-free.deepl.com.",
+        "deeplProOnFreeUrl": "DeepL Pro key detected, but the base URL points to the Free endpoint. KIS will auto-route to api.deepl.com."
+      },
+      "voices": {
+        "label": "Voices",
+        "discover": "Load voices",
+        "discovering": "Loading…",
+        "notDiscoverable": "No voices found via API. Please add them manually.",
+        "discoverFailed": "Could not reach the provider. Check the URL.",
+        "addManual": "Add voice manually",
+        "add": "Add",
+        "cancel": "Cancel",
+        "voicesPathLabel": "Voices endpoint",
+        "colVoiceId": "Voice ID",
+        "colName": "Name",
+        "colLang": "Language",
+        "colDesc": "Description",
+        "languageRequired": "All voices must have a language set (e.g. de, en).",
+        "remove": "Remove voice",
+        "play": "Play voice",
+        "stop": "Stop playback"
+      },
+      "validation": {
+        "required": "Name and base URL are required."
+      },
+      "protocolName": {
+        "openai_compat": "OpenAI-compatible",
+        "deepl": "DeepL",
+        "docling": "Docling"
+      },
+      "capabilityName": {
+        "chat": "Chat",
+        "embedding": "Embeddings",
+        "vision": "Vision",
+        "ocr": "OCR",
+        "stt": "Speech-to-Text",
+        "tts": "Text-to-Speech",
+        "image_gen": "Image generation",
+        "image_edit": "Image edit",
+        "translation": "Translation"
+      },
+      "featureName": {
+        "chat": "Chat",
+        "embedding": "Embeddings",
+        "vision": "Vision",
+        "ocr": "OCR / document extraction",
+        "stt": "Speech-to-Text",
+        "tts": "Text-to-Speech",
+        "image_gen": "Image generation",
+        "image_edit": "Image edit",
+        "doc_translate": "Document translation",
+        "screencast_translate": "Screencast translation",
+        "transcript_translate": "Transcript translation"
+      },
+      "featureDesc": {
+        "chat": "Chat, summaries, tool calls",
+        "embedding": "Vector search, semantic indexing",
+        "vision": "Recognize and describe image content",
+        "ocr": "Full text from PDFs, layout extraction",
+        "stt": "Audio transcription, Whisper-based",
+        "tts": "Voice output for screencast / read-aloud. The user picks a provider inside the tool.",
+        "image_gen": "Text-to-image",
+        "image_edit": "Edit images via prompt",
+        "doc_translate": "The user picks a provider inside the tool. (Document Translation, Screencast Translation)",
+        "screencast_translate": "Subtitles and audio for videos. The user picks a provider inside the tool.",
+        "transcript_translate": "AIA workspace: translate a transcript into the owner-chosen target language. Source language is detected automatically. Provider and model are admin-configured. Use an instruct model, not a reasoning model."
+      },
+      "exportImport": {
+        "modal": {
+          "title": "Export / Import",
+          "tabExport": "Export",
+          "tabImport": "Import",
+          "cancel": "Cancel"
+        },
+        "export": {
+          "providersHeading": "Providers",
+          "selectAll": "All",
+          "selectedCount": "{selected} of {total}",
+          "confirmButton": "Export ({count})"
+        },
+        "import": {
+          "dropzoneHint": "Drop a JSON file here or click to select",
+          "chooseAnotherFile": "Choose another file",
+          "confirmButton": "Confirm import",
+          "apiKeyRestoreOk": "{count, plural, one {# encrypted API key will be restored.} other {# encrypted API keys will be restored.}}",
+          "apiKeyRestoreFailed": "{count, plural, one {# encrypted API key cannot be decrypted (different KIS_EXPORT_KEY).} other {# encrypted API keys cannot be decrypted (different KIS_EXPORT_KEY).}}"
+        },
+        "exportButton": "Export",
+        "importButton": "Import",
+        "exportHint": "Includes endpoints, models, voices, capabilities and feature routes.",
+        "apiKeyEncryptionOn": "API keys are written encrypted into the backup (KIS_EXPORT_KEY) and can only be restored on this system.",
+        "apiKeyEncryptionOff": "API keys are NOT exported (KIS_EXPORT_KEY not set). Re-enter them manually on the target system.",
+        "preview": {
+          "title": "Import configuration",
+          "source": "Source: {filename}",
+          "createdAt": "Created {date}{from, select, none {} other {, from {from}}}",
+          "providersHeading": "Providers ({count})",
+          "routesHeading": "Feature routes ({count})",
+          "badge": {
+            "new": "NEW",
+            "merge": "MERGE",
+            "skip": "SKIPPED"
+          },
+          "apiKeyMissing": "API-Key missing — set after import!",
+          "apiKeyNotNeeded": "No API-Key needed",
+          "apiKeyPreserved": "Existing API-Key will be preserved",
+          "protocolChange": "Protocol will change: {from} → {to}",
+          "routeSkipped": "skipped (provider \"{provider}\" not in import)",
+          "confirm": "Confirm import",
+          "cancel": "Cancel"
+        },
+        "errors": {
+          "invalidJson": "The file is not valid JSON.",
+          "importFailed": "Import failed: {message}"
+        }
+      },
+      "clearAll": {
+        "menuItem": "Delete everything…",
+        "title": "Delete all providers and routes?",
+        "bodyCounts": "This action IRREVERSIBLY deletes:\n  • {providers, plural, one {# provider} other {# providers}} (incl. all API-Keys)\n  • {routes, plural, one {# feature route assignment} other {# feature route assignments}}",
+        "warningFeaturesUnavailable": "AI features (chat, TTS, ASR, translation, embedding) will NOT be available afterwards until providers are created or imported.",
+        "warningIrreversible": "This action CANNOT be undone. Consider creating an export first.",
+        "confirm": "Yes, delete everything",
+        "cancel": "Cancel",
+        "successToast": "All providers and routes deleted."
+      }
+    },
     "settings": {
       "providerNotConfigured": "Not configured.",
       "providerDisabled": "Disabled - will not be shown.",
@@ -819,6 +1050,10 @@
       "imageEditHint": "Only one provider active at a time.",
       "ocrTitle": "OCR (text recognition)",
       "ocrHint": "Only one provider active at a time.",
+      "ocrMasterLabel": "OCR enabled (master switch)",
+      "ocrMasterOn": "Pages with large embedded images are sent to the vision model.",
+      "ocrMasterOff": "Disabled - PDF pages with screenshots/scans will not be transcribed.",
+      "ocrMasterWarning": "Heads up: with GWDG Docling each OCR'd page takes ~7 seconds (with THL myLab chandra: 30-70 seconds). A scanned 300-page document can take 30+ minutes to ingest. Disable OCR if your sources are mostly text-based.",
       "embeddingTitle": "Embeddings (AI assistant)",
       "embeddingHint": "Only one provider at a time - switching requires reindex (see below).",
       "llmTitle": "LLM chat",
@@ -828,18 +1063,15 @@
       "providerKisskiFlux": "KISSKI (Flux)",
       "providerKisskiQwen": "KISSKI (qwen3-omni)",
       "providerKisskiWhisper": "KISSKI (Whisper)",
+      "providerDocling": "GWDG Docling",
       "providerOllama": "Ollama (local)",
       "providerElevenlabs": "ElevenLabs",
-      "providerKokoro": "Kokoro TTS",
-      "providerMylabXtts": "THL myLab (XTTS-v2)",
-      "providerMylab": "THL myLab",
-      "providerMylabWhisper3": "THL myLab (Whisper-3-large)",
       "deeplKey": {
-        "title": "DeepL API key",
-        "hint": "Empty → backend default key.",
-        "placeholderEmpty": "Enter DeepL API key…",
+        "title": "DeepL API-Key",
+        "hint": "Empty → backend default API-Key.",
+        "placeholderEmpty": "Enter DeepL API-Key…",
         "activeEnv": "Active: ••••{last}",
-        "activeEnvNoKey": "No key set",
+        "activeEnvNoKey": "No API-Key set",
         "activeOverride": "Active: override (••••{last})",
         "save": "Save",
         "clear": "Remove override",
@@ -881,6 +1113,77 @@
       "disabled": "Disabled - Hilde is not shown anywhere, the user toggle in the AI assistant settings is hidden.",
       "toggleAria": "Toggle mascot"
     },
+    "ocrCard": {
+      "title": "OCR for scans & image pages",
+      "active": "Active - image/scan-heavy pages are captured via OCR during indexing (slower, costs one vision call per page).",
+      "disabled": "Disabled - OCR is skipped system-wide. Indexing is faster and cheaper, but pure scan/image pages stay empty for search.",
+      "hint": "Applies to all workspaces and new indexing. Existing documents are only affected after re-indexing.",
+      "toggleAria": "Toggle OCR"
+    },
+    "homeNoticeCard": {
+      "title": "Home page notice",
+      "active": "Active - the notice is shown to all users on the start page above the upcoming dates.",
+      "disabled": "Disabled - no notice is shown.",
+      "placeholder": "Notice text for the start page, for example a note during a test phase.",
+      "hint": "Shown centered above the upcoming dates. Even with the toggle on, the notice stays hidden while the field is empty.",
+      "toggleAria": "Toggle notice",
+      "saveFailed": "Save failed."
+    },
+    "workspaceLimitsCard": {
+      "title": "Max sources per {label}",
+      "hint": "How many documents users may upload per {label}. Takes effect immediately for new uploads.",
+      "unit": "sources",
+      "outOfRange": "Value must be between 1 and 1000.",
+      "saveFailed": "Save failed."
+    },
+    "scheduleRetentionCard": {
+      "title": "Schedule retention",
+      "hint": "Past entries (done or not) are automatically deleted daily after this many days. Leave empty for 'never delete' (default). Future entries are always kept.",
+      "unit": "days",
+      "placeholderNever": "never",
+      "modeNever": "Never delete",
+      "modeDays": "{n, plural, =1 {Entries older than 1 day get deleted} other {Entries older than # days get deleted}}",
+      "outOfRange": "Value must be between 1 and 3650, or empty for 'never delete'.",
+      "saveFailed": "Save failed."
+    },
+    "contextBudgetCard": {
+      "title": "AI tutor context budget",
+      "hint": "How much source text (in characters) the AI tutor sends to the model per question. The default 60000 is safe for small models (32k). If a selected source fits entirely within the budget, it is sent whole for overview questions instead of a retrieved sample. Raise only if you run exclusively large-context models.",
+      "unit": "characters",
+      "approxTokens": "≈ {n}k tokens",
+      "outOfRange": "Value must be between 1000 and 500000.",
+      "saveFailed": "Save failed."
+    },
+    "toolContextBudgetCard": {
+      "title": "Tools context budget",
+      "hint": "How much source text (in characters) the learning tools (mind map, data table, quiz, flashcards, glossary, cloze, cards) send to the model. Separate from the chat budget because a tool processes a whole document in one call. The value is divided by the number of selected sources. The default 250000 is safe for mid-tier models. Raise it (e.g. 450000 or 900000) only when running a large-context model.",
+      "unit": "characters",
+      "approxTokens": "≈ {n}k tokens",
+      "outOfRange": "Value must be between 1000 and 1000000.",
+      "saveFailed": "Save failed."
+    },
+    "summaryBatchCard": {
+      "title": "Summary – batch size",
+      "hint": "How much text (in characters) is sent to the model per summary call during upload. Larger = fewer calls (eases the provider's rate limit), but each partial summary gets coarser. Default 360000 (~72 pages) is a good balance.",
+      "unit": "characters",
+      "approxPages": "≈ {n} pages",
+      "outOfRange": "Value must be between 10000 and 500000.",
+      "saveFailed": "Save failed."
+    },
+    "embeddingBatchCard": {
+      "title": "Embedding – chunks per call",
+      "hint": "How many text chunks are packed into one embedding call during upload. Higher = fewer calls (eases the provider's rate limit). Default 1000 is a safe value; too high may be rejected by the provider.",
+      "unit": "chunks/call",
+      "outOfRange": "Value must be between 1 and 1000.",
+      "saveFailed": "Save failed."
+    },
+    "sourceMaxPagesCard": {
+      "title": "Max. pages per source",
+      "hint": "Maximum number of pages an uploaded document (PDF/DOCX/PPTX) may have. Larger ones are rejected — please upload long scripts chapter by chapter. Default 100: keeps each source small enough for a complete overview. Media (mp3/mp4) is not affected.",
+      "unit": "pages",
+      "outOfRange": "Value must be between 1 and 2000.",
+      "saveFailed": "Save failed."
+    },
     "workspaceLabel": {
       "title": "\"Workspace\" label",
       "description": "How the term is shown in the frontend (e.g. \"module\" / \"modules\" or \"course\" / \"courses\"). Default: workspace / workspaces. Configured per language.",
@@ -907,7 +1210,6 @@
       "extrasLabel": "Also export:",
       "extra_all": "All",
       "extra_glossary": "Glossary",
-      "extra_summaries": "Page summaries",
       "extra_notes": "Notes",
       "extra_schedule": "Schedule",
       "extra_studio": "Mind maps + tables + exercises"
@@ -924,7 +1226,6 @@
       "modelImageAnalyze": "Image analysis",
       "modelWhisper": "Transcription (Whisper)",
       "ttsActive": "Active TTS providers",
-      "ttsMylabModel": "myLab TTS model",
       "rateLimitsTitle": "Rate limits (burst protection)",
       "rateLimitsSubtitle": "Triggers on bots/bugs. No daily/hourly limits.",
       "chatBurst": "Chat: max requests / window",
@@ -971,21 +1272,6 @@
       "ragFinalChunksHint": "Passed to the LLM",
       "ragEmbedBatch": "Embedding batch size",
       "ragEmbedBatchHint": "During indexing",
-      "summariesTitle": "Page summaries (pipeline)",
-      "summariesSubtitle": "Created when uploading a source.",
-      "sumMaxRetries": "Max retries",
-      "sumTimeoutSmall": "Timeout per page (Ollama)",
-      "sumTimeoutLarge": "Timeout per page (cloud)",
-      "sumMaxTokensSmall": "Max tokens (Ollama, single)",
-      "sumMaxTokensLarge": "Max tokens (cloud, single)",
-      "sumMaxTokensBatch": "Max tokens (cloud, batch)",
-      "sumMaxCharsPerPage": "Max chars per page to LLM",
-      "sumParallelSmall": "Parallel workers (Ollama)",
-      "sumParallelSmallHint": "Multiple pages in parallel",
-      "sumParallelLarge": "Parallel workers (cloud)",
-      "sumParallelLargeHint": "Sequential for stability",
-      "sumBatchSize": "Pages per batch",
-      "sumBatchSizeHint": "Cloud, multiple pages per request",
       "jobsTitle": "Job management",
       "jobsSubtitle": "Result files & watchdog for tool jobs.",
       "jobsMaxFiles": "Max result files per user",
@@ -1049,8 +1335,11 @@
       "custom": "Custom roles",
       "newRole": "New role",
       "name": "Name",
-      "allowAia": "AIA access",
+      "aiaAccess": "AIA {label}",
+      "aiaRead": "Read access (link)",
+      "aiaEdit": "Edit access (staff-level: create {plural})",
       "tools": "Global tools",
+      "toolsSelectAll": "Select all",
       "save": "Save",
       "cancel": "Cancel",
       "delete": "Delete",
@@ -1194,7 +1483,14 @@
   },
   "langLabels": {
     "DE": "German",
-    "EN-US": "English"
+    "EN-US": "English",
+    "FR": "French",
+    "ES": "Spanish",
+    "IT": "Italian",
+    "UK": "Ukrainian",
+    "TR": "Turkish",
+    "AR": "Arabic",
+    "RU": "Russian"
   },
   "workspace": {
     "detail": {
@@ -1260,6 +1556,7 @@
           "know": "Knew it!",
           "minimizePanel": "Minimize panel",
           "correctShort": "Correct!",
+          "wrongShort": "Incorrect",
           "downloadAsText": "Download as text file",
           "hint": "Hint",
           "learnMore": "Learn more"
@@ -1318,20 +1615,19 @@
         "mcExercise": {
           "quizCompleted": "Quiz completed!",
           "quizScore": "<hl>{correct} / {total}</hl> correct, <hl>{pct}%</hl>",
-          "tryAgain": "Try again",
-          "correctIs": "Correct answer:"
+          "tryAgain": "Try again"
         },
         "glossary": {
           "title": "Glossary",
           "deleteAll": "Delete all terms",
           "extractingMarkup": "Extracting terms from highlight…",
-          "extractButton": "Extract terms ({current}/{max})",
-          "extracting": "Extracting terms…",
-          "extractTooltip": "Extracts subject terms from the selected sources.",
-          "emptyTitle": "No glossary generated yet. Click \"Extract terms\" above to extract subject terms from your sources.",
+          "emptyTitle": "No terms in your glossary yet. Highlight words in a PDF and add them via the selection bar.",
           "context": "Context",
-          "explanationB1": "Explanation (B1)",
-          "pageShort": "p. {page}"
+          "explanation": "Explanation",
+          "pageShort": "p. {page}",
+          "sortRecent": "Newest",
+          "sortAlpha": "A–Z",
+          "sortAriaLabel": "Choose sort order"
         },
         "overview": {
           "glossaryCounter": "{count}/{max} glossary",
@@ -1420,26 +1716,20 @@
         "studioDescription": "Show the studio panel with mind maps, notes and tools.",
         "languageTrainingTitle": "Language training",
         "languageTrainingDescription": "Shows the language training tab in studio.",
-        "translationModeTitle": "EN translation of transcripts",
-        "translationModeDescription": "Generates English subtitles for German audio/video sources. Students can switch the language in the transcript panel. Translation runs as a background job and can take a few minutes.",
+        "translationModeTitle": "Transcript translation",
+        "translationModeDescription": "Translates subtitles of audio/video sources into the target language chosen below. The source language is detected automatically. Students can switch between original and translation in the transcript panel. Translation runs as a background job and can take a few minutes.",
         "translationModeOff": "Off",
         "translationModeAuto": "Auto (during indexing)",
         "translationModeManual": "Manual (on click)",
-        "translationModeOffHint": "No English subtitles are generated.",
+        "translationModeOffHint": "No translations are generated.",
         "translationModeAutoHint": "Translation starts automatically once a source is indexed.",
         "translationModeManualHint": "Translation only on click in the transcript panel (default).",
-        "summaryModeTitle": "AI page summaries for PDFs",
-        "summaryModeDescription": "Generates a short AI summary for every PDF page. Students see it in the summary panel next to the page. Runs as a background job and can take a few minutes on large PDFs.",
-        "summaryModeOff": "Off",
-        "summaryModeAuto": "Auto",
-        "summaryModeManual": "Manual (on click)",
-        "summaryModeOffHint": "No page summaries are generated for PDFs.",
-        "summaryModeAutoHint": "Page summary generation starts automatically once a PDF is indexed.",
-        "summaryModeManualHint": "Summary is generated only when clicked in the summary panel (default).",
-        "transcriptDefaultLangTitle": "Default transcript language",
-        "transcriptDefaultLangDescription": "Which language is preselected when an audio/video source is opened. Students can switch any time in the transcript panel.",
-        "transcriptDefaultLangDe": "German",
-        "transcriptDefaultLangEn": "English",
+        "transcriptTargetLangTitle": "Translation target language",
+        "transcriptTargetLangDescription": "Which language transcripts are translated into. The source language is detected automatically. Transcripts are always translated into exactly one language.",
+        "transcriptDefaultLangTitle": "Default transcript view",
+        "transcriptDefaultLangDescription": "Which track is preselected when an audio/video source is opened. Students can switch any time in the transcript panel.",
+        "transcriptDefaultLangSource": "Original",
+        "transcriptDefaultLangTarget": "Translation",
         "transcriptDefaultLangBoth": "Both"
       },
       "subviewHeader": {
@@ -1477,7 +1767,8 @@
         "sourcesCount": "{n, plural, =1 {1 source} other {# sources}}",
         "indexingInProgress": "{label} is still being indexed. Please wait a moment and try again.",
         "tooManyRequests": "Too many requests. Please wait a moment and try again.",
-        "genericError": "An error occurred. Please try again."
+        "genericError": "An error occurred. Please try again.",
+        "translateFailed": "This passage could not be translated."
       },
       "sources": {
         "title": "Sources",
@@ -1491,6 +1782,13 @@
         "stillProcessing": "Source is still being processed",
         "openInViewer": "Open in viewer",
         "indexingFailed": "Indexing failed",
+        "progressStage": {
+          "parsing": "Parsing",
+          "ocr": "OCR page",
+          "chunking": "Chunking",
+          "embedding": "Embedding",
+          "summarizing": "Summarizing"
+        },
         "retry": "Retry",
         "options": "Options",
         "delete": "Delete",
@@ -1503,10 +1801,37 @@
           "single": "1 file failed",
           "multi": "{n} files failed",
           "dismiss": "Close"
+        },
+        "staffNote": {
+          "title": "Note",
+          "expand": "Open note",
+          "collapse": "Close note",
+          "edit": "Edit note",
+          "emptyOwnerHint": "Add a note for users",
+          "modalTitle": "Note",
+          "modalSubtitle": "Visible to all users · {label}",
+          "textLabel": "Note text",
+          "textPlaceholder": "What users should know…",
+          "linksLabel": "Links",
+          "linksHint": "Label describes the content, URL points to the page.",
+          "addLink": "Add link",
+          "linkLabelPlaceholder": "Label",
+          "linkUrlPlaceholder": "https://…",
+          "removeLink": "Remove link",
+          "charCount": "{used}/{max}",
+          "save": "Save",
+          "cancel": "Cancel",
+          "saving": "Saving…",
+          "saveError": "Saving failed. Please try again.",
+          "linkUrlInvalid": "URL must start with http(s):// or mailto:",
+          "linkLabelMissing": "Label is missing."
         }
       },
       "viewer": {
         "back": "Back",
+        "dismissHighlight": "Clear highlight",
+        "jumpToHighlightPage": "Jump to highlight (p. {page})",
+        "jumpToHighlightTime": "Jump to highlight ({time})",
         "transcriptLabel": "Transcript",
         "transcriptLoading": "Loading transcript...",
         "jumpToCurrent": "Jump to current transcript",
@@ -1515,10 +1840,10 @@
         "tabBoth": "Both",
         "saveAsNote": "Save as note",
         "regenEnRunning": "running...",
-        "regenEnButton": "Translate to EN",
+        "regenEnButton": "Translate",
         "regenEnRunningTitle": "Translation is running in the background...",
-        "regenEnIdleTitle": "Translate English subtitles in the background",
-        "regenEnErrorTitle": "EN translation failed: {error}. Try again?",
+        "regenEnIdleTitle": "Translate subtitles in the background",
+        "regenEnErrorTitle": "Translation failed: {error}. Try again?",
         "regenEnTimeout": "Translation is taking too long. Check later or try again.",
         "regenEnUnknownError": "Unknown error",
         "tracksDe": "German",
@@ -1531,8 +1856,7 @@
         "failed": "Generation failed.",
         "none": "No summaries yet.",
         "generateButton": "Summarize",
-        "noneForPage": "No summary for this page.",
-        "disabledByOwner": "Page summaries are disabled in this workspace."
+        "noneForPage": "No summary for this page."
       },
       "pdf": {
         "askQuestion": "Ask a question",
@@ -1541,7 +1865,9 @@
         "addToGlossary": "Add to glossary",
         "addToGlossaryDescription": "Add specialized terms to the glossary",
         "addToGlossaryTitle": "Add to glossary",
-        "summaries": "Summaries",
+        "addToNote": "To note",
+        "addToNoteDescription": "Save selection as a new note",
+        "addToNoteTitle": "Save as note",
         "tracksDe": "German",
         "tracksEn": "English"
       },
@@ -1657,10 +1983,8 @@
             "confirm": "Delete all"
           },
           "entry": {
-            "pastLockedAria": "Past entries cannot be changed",
             "uncheckAria": "Mark as not done",
             "checkAria": "Mark as done",
-            "pastLockedTitle": "Past entries are locked",
             "edit": "Edit",
             "delete": "Delete"
           },
@@ -1685,6 +2009,8 @@
       "errors": {
         "uploadFailed": "Upload failed",
         "uploadSkippedMax": "Skipped, upload max {max} files at once.",
+        "uploadSkippedLimit": "Skipped: upload limit reached.",
+        "uploadDuplicate": "Skipped: a source with this name already exists.",
         "networkError": "Network error",
         "noteSaveFailed": "Note could not be saved.",
         "termsAdded": "{count, plural, =1 {1 term added.} other {# terms added.}}",
@@ -1707,8 +2033,6 @@
       "emptyTitle": "No {label} yet.",
       "emptyText": "Use the button above to add one.",
       "welcomeTitle": "Welcome to KIS",
-      "enrollPrompt": "Enter enrollment code",
-      "enrollPlaceholder": "e.g. a1b2c3d4",
       "enroll": "Enroll",
       "enrollInvalidCode": "Invalid code",
       "unknownError": "Unknown error",
@@ -1783,5 +2107,25 @@
     "description": "KIS - Services of TH Lübeck",
     "author": "Hamid Mergan, Institute for Interactive Systems (ISy), Technische Hochschule Lübeck",
     "copyright": "© 2026 Hamid Mergan, Institute for Interactive Systems (ISy), Technische Hochschule Lübeck"
+  },
+  "ki": {
+    "notConfigured": {
+      "title": "AI not configured",
+      "missing": "These feature(s) are not set up: {features}",
+      "configureLink": "Configure now →",
+      "featureName": {
+        "chat": "Chat",
+        "embedding": "Embeddings",
+        "vision": "Vision",
+        "ocr": "OCR",
+        "stt": "Speech-to-Text",
+        "tts": "Text-to-Speech",
+        "image_gen": "Image generation",
+        "image_edit": "Image edit",
+        "doc_translate": "Document translation",
+        "screencast_translate": "Screencast translation",
+        "transcript_translate": "Transcript translation"
+      }
+    }
   }
 }

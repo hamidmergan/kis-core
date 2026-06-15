@@ -27,8 +27,8 @@ interface ImportResult {
   extras_imported?: Record<string, unknown>;
 }
 
-type ExtraKey = "glossary" | "summaries" | "notes" | "schedule" | "studio";
-const EXTRA_KEYS: ExtraKey[] = ["glossary", "summaries", "notes", "schedule", "studio"];
+type ExtraKey = "glossary" | "notes" | "schedule" | "studio";
+const EXTRA_KEYS: ExtraKey[] = ["glossary", "notes", "schedule", "studio"];
 
 export default function WorkspaceExportImportCard() {
   const t = useTranslations("admin.workspaceExportImport");
@@ -39,7 +39,7 @@ export default function WorkspaceExportImportCard() {
   const [importResult, setImportResult] = useState<ImportResult | null>(null);
   const [reindexing, setReindexing] = useState<string | null>(null);
   const [extras, setExtras] = useState<Record<ExtraKey, boolean>>({
-    glossary: false, summaries: false, notes: false, schedule: false, studio: false,
+    glossary: false, notes: false, schedule: false, studio: false,
   });
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -57,7 +57,7 @@ export default function WorkspaceExportImportCard() {
   const toggleAll = () => {
     const next = !allChecked;
     setExtras({
-      glossary: next, summaries: next, notes: next, schedule: next, studio: next,
+      glossary: next, notes: next, schedule: next, studio: next,
     });
   };
 

@@ -33,7 +33,7 @@ export function useVoicePlayer() {
     audio.onerror = () => setPlayingId(null);
   }, [playingId, stopCurrent]);
 
-  const playFromApi = useCallback(async (voiceId: string, endpoint: string) => {
+  const playFromApi = useCallback(async (voiceId: string, endpoint: string, actualVoiceId?: string) => {
     stopCurrent();
     if (playingId === voiceId || loadingId === voiceId) {
       setPlayingId(null);
@@ -49,7 +49,7 @@ export function useVoicePlayer() {
         method: "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ voice_id: voiceId }),
+        body: JSON.stringify({ voice_id: actualVoiceId ?? voiceId }),
         signal: controller.signal,
       });
       if (!res.ok) { setLoadingId(null); return; }

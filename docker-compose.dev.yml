@@ -26,25 +26,12 @@ services:
 
   # ── Dev-Only Services ──────────────────────────────────────────────────
   adminer:
-    image: adminer:latest
+    image: adminer:4.8.1
     container_name: kis-adminer
     ports:
-      - "8080:8080"
+      - "8081:8080"
     depends_on:
       - postgres
-    restart: unless-stopped
-
-  # Live log viewer for all containers. Local only — not suitable for production
-  # (no auth, reads docker.sock read-only). Bind to 127.0.0.1 to avoid LAN exposure.
-  dozzle:
-    image: amir20/dozzle:latest
-    container_name: kis-dozzle
-    ports:
-      - "127.0.0.1:8888:8080"
-    volumes:
-      - /var/run/docker.sock:/var/run/docker.sock:ro
-    environment:
-      DOZZLE_NO_ANALYTICS: "true"
     restart: unless-stopped
 
   phpldapadmin:
@@ -73,32 +60,6 @@ services:
       - kis-minio-data:/data
     restart: unless-stopped
 
-  # CPU-Image als Default; gpu.yml swappt auf GPU-Image und reserviert NVIDIA
-  kokoro:
-    image: ghcr.io/remsky/kokoro-fastapi-cpu:latest
-    container_name: kis-kokoro
-    ports:
-      - "8880:8880"
-    restart: unless-stopped
-    logging:
-      driver: json-file
-      options:
-        max-size: "10m"
-        max-file: "7"
-
-  ollama:
-    image: ollama/ollama
-    container_name: kis-ollama
-    ports:
-      - "11434:11434"
-    volumes:
-      - kis-ollama-data:/root/.ollama
-    restart: unless-stopped
-    logging:
-      driver: json-file
-      options:
-        max-size: "10m"
-        max-file: "7"
 
   langfuse-db-init:
     image: postgres:16-alpine
@@ -141,4 +102,3 @@ services:
 
 volumes:
   kis-minio-data:
-  kis-ollama-data:

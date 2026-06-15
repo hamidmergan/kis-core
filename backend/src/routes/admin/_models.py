@@ -8,43 +8,13 @@ class AddWhitelistRequest(BaseModel):
 
 
 class UpdateSettingsRequest(BaseModel):
+    """System-wide settings the admin can edit from the "System" tab.
+
+    Provider selection, model names, and feature routing live in the dedicated
+    "KI" admin tab (providers + feature_routes tables); they are NOT part of
+    this payload.
+    """
     whitelist_enabled: bool | None = None
-    # TTS
-    elevenlabs_enabled: bool | None = None
-    kokoro_enabled: bool | None = None
-    mylab_enabled: bool | None = None
-    # Transcription
-    primary_whisper_enabled: bool | None = None
-    fallback_whisper_enabled: bool | None = None
-    # Embeddings
-    primary_embedding_enabled: bool | None = None
-    fallback_embedding_enabled: bool | None = None
-    local_embedding_enabled: bool | None = None
-    # Image generation
-    primary_image_gen_enabled: bool | None = None
-    fallback_image_gen_enabled: bool | None = None
-    # Image analysis (primary: KISSKI qwen3-omni, fallback: myLab qwen3-vl)
-    primary_image_analyze_enabled: bool | None = None
-    fallback_image_analyze_enabled: bool | None = None
-    # Image editing
-    primary_image_edit_enabled: bool | None = None
-    fallback_image_edit_enabled: bool | None = None
-    # OCR
-    primary_ocr_enabled: bool | None = None
-    fallback_ocr_enabled: bool | None = None
-    # LLM Chat
-    primary_llm_enabled: bool | None = None
-    fallback_llm_enabled: bool | None = None
-    local_llm_enabled: bool | None = None
-    # Transcript translation (EN)
-    transcript_translation_provider: str | None = None
-    # /translate LLM provider override (empty = use active LLM)
-    # Model values flow through the generic `models` dict (see MODEL_KEYS).
-    translation_llm_provider: str | None = None  # "" | "primary" | "fallback" | "local"
-    # DeepL API key override; empty string clears it (env var DEEPL_API_KEY is used instead).
-    deepl_api_key_override: str | None = None
-    # Provider model names (DB setting). Allowed keys: see runtime_models.MODEL_KEYS.
-    models: dict[str, str] | None = None
     # UI label for "Workspace" (singular + plural), per UI locale.
     workspace_label_singular_de: str | None = None
     workspace_label_plural_de: str | None = None
@@ -52,6 +22,39 @@ class UpdateSettingsRequest(BaseModel):
     workspace_label_plural_en: str | None = None
     # Hide the Hilde mascot system-wide. Default true (mascot shown).
     mascot_enabled: bool | None = None
+    # Home-page notice banner (shown to all users on the start page, above
+    # "Nächste Termine"). Enabled flag + free text, e.g. for test-phase notes.
+    home_notice_enabled: bool | None = None
+    home_notice_text: str | None = None
+    # Run OCR on image-heavy PDF/slide pages during indexing. Default true.
+    # Off = skip all OCR (faster + cheaper, but scanned pages stay un-indexed).
+    ocr_enabled: bool | None = None
+    # Per-workspace source upload cap (admin-tunable, default 30).
+    aia_workspace_max_sources: int | None = None
+    # Schedule entries older than this many days are pruned daily.
+    # 0 = never delete (default). Bounded to a sane upper limit.
+    aia_schedule_retention_days: int | None = None
+    # KI-tutor chat context budget in characters. Drives both the truncation in
+    # the context builder and the "full document fits -> send it whole" overview
+    # path. Sized for the smallest supported model (32k) by default; a deployment
+    # on large-context models can raise it.
+    aia_context_max_chars: int | None = None
+    # Context budget (chars) for the GENERATION TOOLS (mindmap, data table, quiz,
+    # flashcards, …). Separate from the chat budget so the tools can get a larger
+    # window; divided by the number of selected sources at generation time.
+    aia_tool_context_max_chars: int | None = None
+    # Per-batch char cap for the ingest-side DOC SUMMARY. Bigger = fewer (but
+    # coarser) summary calls per upload → fewer GWDG-rate-limited requests.
+    aia_summary_batch_max_chars: int | None = None
+    # Chunks per embedding request at ingest. Higher = fewer embedding requests
+    # against the shared GWDG rate limit. Bounded to a server-safe ceiling.
+    aia_embedding_batch_size: int | None = None
+    # Max pages per uploaded source (long scripts → upload chapter-wise). Keeps a
+    # source near the fit-shortcut size so its overview stays complete.
+    aia_source_max_pages: int | None = None
+    # Background dispatcher: master switch + size of the shared parallel-slot pool.
+    aia_scheduler_enabled: bool | None = None
+    aia_parallel_slots: int | None = None
 
 
 class ToggleToolRequest(BaseModel):
@@ -68,3 +71,76 @@ class UpdatePromptRequest(BaseModel):
 
 class SetQuotaOverrideRequest(BaseModel):
     limit_value: int  # -1 = unlimited
+
+
+class VoiceEntry(BaseModel):
+    voice_id: str
+    name: str
+    language: str               # required – e.g. "de", "en"
+    description: str | None = None
+
+
+class CreateProviderRequest(BaseModel):
+    name: str
+    protocol: str
+    base_url: str
+    api_key: str | None = None
+    voices: list[VoiceEntry] = []
+    enabled: bool = True
+    initial_capabilities: list[str] | None = None  # if set, skips probe-seeding
+
+
+class UpdateProviderRequest(BaseModel):
+    name: str | None = None
+    base_url: str | None = None
+    api_key: str | None = None  # empty string clears the key
+    capabilities: list[str] | None = None  # admin override after probe
+    voices: list[VoiceEntry] | None = None
+    enabled: bool | None = None
+
+
+class DiscoverVoicesRequest(BaseModel):
+    base_url: str
+    api_key: str | None = None
+    voices_path: str | None = None  # default: /v1/audio/voices
+
+
+class SetFeatureRouteRequest(BaseModel):
+    provider_id: int | None = None  # null clears the route
+    model_name: str | None = None
+    user_choices: list[int] | None = None  # multi-pill provider ids
+    provider_models: dict[str, str] | None = None  # per-provider model overrides
+
+
+# ─── Export/Import schema ──────────────────────────────────────────────────
+
+class ExportedProvider(BaseModel):
+    name: str
+    protocol: str
+    base_url: str
+    capabilities: list[str] = []
+    voices: list[VoiceEntry] = []
+    enabled: bool = True
+    # AES-GCM envelope produced by export_crypto.wrap_api_key, or None when
+    # the source instance had no KIS_EXPORT_KEY configured / no key on file.
+    api_key: dict | None = None
+
+
+class ExportedFeatureRoute(BaseModel):
+    feature: str
+    provider_name: str | None = None
+    model_name: str | None = None
+    user_choices: list[str] = []
+    provider_models: dict[str, str] = {}
+
+
+class ExportedConfig(BaseModel):
+    schema_version: int
+    exported_at: str
+    exported_from: str | None = None
+    providers: list[ExportedProvider] = []
+    feature_routes: list[ExportedFeatureRoute] = []
+
+
+class ImportConfigRequest(BaseModel):
+    config: ExportedConfig

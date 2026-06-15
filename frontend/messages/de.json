@@ -1,4 +1,8 @@
 {
+  "sourceChip": {
+    "page": "S. {num}",
+    "part": "Teil {num}"
+  },
   "header": {
     "homeAria": "Zur Startseite",
     "admin": "Admin",
@@ -80,7 +84,6 @@
       "creating": "Wird erstellt…",
       "generatingScripts": "Skripte werden generiert…",
       "resumeScreencast": "Screencast fortsetzen →",
-      "resumeDemo": "Demo fortsetzen →",
       "downloadAllZip": "Alles herunterladen (ZIP)",
       "fallbackFile": "Datei"
     },
@@ -114,10 +117,8 @@
     "tbdHeading": "Nach Vereinbarung",
     "tbdLabel": "offen",
     "card": {
-      "pastLockedAria": "Vergangene Termine können nicht geändert werden",
       "uncheckAria": "Erledigt aufheben",
       "checkAria": "Als erledigt markieren",
-      "pastLockedTitle": "Vergangene Termine sind gesperrt",
       "ownTooltip": "Eigener Arbeitsraum",
       "sharedTooltip": "Geteilter Arbeitsraum"
     }
@@ -206,7 +207,10 @@
       },
       "submit": "Transkription starten",
       "longRunning": "Läuft noch - lange Audiodateien können einige Minuten dauern…",
-      "downloadLabel": "Transkription"
+      "downloadLabel": "Transkription",
+      "readyTitle": "Transkript fertig",
+      "editorAria": "Transkript bearbeiten",
+      "providerLabel": "STT-Anbieter"
     },
     "summarize": {
       "title": "Zusammenfassung",
@@ -214,14 +218,14 @@
       "selectFileAria": "Datei zur Zusammenfassung auswählen",
       "submit": "Zusammenfassung erstellen",
       "longRunning": "Läuft noch - umfangreiche Inhalte können einige Minuten dauern…",
-      "downloadLabel": "Zusammenfassung"
+      "downloadLabel": "Zusammenfassung",
+      "providerLabel": "KI-Anbieter"
     },
     "translate": {
       "title": "Übersetzung",
       "intro": "Dokumente in andere Sprachen übersetzen. Layout und Formatierung bleiben erhalten.",
-      "sourceLang": "Quellsprache",
       "targetLang": "Zielsprache",
-      "autoDetect": "Automatisch erkennen",
+      "autoDetectHint": "Die Quellsprache wird automatisch erkannt.",
       "engine": "Übersetzungs-Engine",
       "submit": "Übersetzen",
       "longRunning": "Läuft noch - große Dokumente können einige Minuten dauern…",
@@ -258,12 +262,22 @@
       "status": {
         "uploadingFile": "Datei wird hochgeladen...",
         "generatingAudio": "Audio wird generiert...",
+        "readyToPlay": "Audio fertig",
         "errorTitle": "Fehler bei der Audiogenerierung",
         "tryAgain": "Erneut versuchen",
         "newFileAria": "Neue Datei hochladen"
       },
       "upload": {
         "selectFileAria": "Datei zum Vorlesen auswählen"
+      },
+      "inputMode": {
+        "text": "Text eingeben",
+        "file": "Datei hochladen"
+      },
+      "textInput": {
+        "label": "Text zum Vorlesen",
+        "placeholder": "Text hier eingeben oder einfügen…",
+        "count": "{count} / {max} Zeichen"
       },
       "voiceDescription": {
         "Laid-Back": "Entspannt",
@@ -299,10 +313,9 @@
       "voices": {
         "title": "Verfügbare Stimmen",
         "loading": "Wird geladen…",
-        "noVoices": "Keine Stimmen verfügbar.",
+        "noVoices": "Keine Stimmen für diesen Provider konfiguriert.",
+        "noProviders": "Keine TTS-Provider mit Stimmen konfiguriert.",
         "noSample": "Kein Sample",
-        "kokoroUnavailable": "Kokoro Server nicht erreichbar oder keine Stimmen gefunden.",
-        "mylabUnavailable": "myLab TTS Server nicht erreichbar oder keine Stimmen gefunden.",
         "voiceSingular": "Stimme",
         "voicePlural": "Stimmen",
         "genderFemale": "Weiblich",
@@ -395,6 +408,7 @@
         "constraints": "PNG oder JPG, max. 20 MB"
       },
       "previewAlt": "Vorschau",
+      "providerLabel": "KI-Anbieter",
       "generate": {
         "promptPlaceholder": "Beschreiben Sie das gewünschte Bild ...",
         "size": "Größe",
@@ -425,7 +439,6 @@
     "screencast": {
       "title": "Screencast",
       "intro": "Aus PowerPoint-Folien ein vertontes Video erzeugen, wahlweise in einer anderen Sprache.",
-      "demoBadge": "Demo ansehen →",
       "resetStart": "Neu starten",
       "cancelScreencast": "Screencast abbrechen",
       "resuming": "Screencast wird wiederhergestellt…",
@@ -456,8 +469,9 @@
         "replaceHint": "Klicken oder ziehen Sie eine andere Datei hierher",
         "onlyPptx": "Nur .pptx-Datei",
         "skipTranslation": "Präsentation bereits übersetzt (Übersetzung überspringen)",
-        "sourceLang": "Quellsprache",
-        "targetLang": "Zielsprache"
+        "targetLang": "Zielsprache",
+        "autoDetectHint": "Die Quellsprache wird automatisch erkannt.",
+        "translationProvider": "Übersetzungsanbieter"
       },
       "translating": {
         "preparing": "Präsentation wird vorbereitet...",
@@ -597,7 +611,8 @@
       },
       "selectJsonFirst": "Bitte zuerst eine JSON-Datei auswählen.",
       "jobUnavailable": "Job-Daten nicht mehr verfügbar - bitte neuen Screencast starten",
-      "jobDeleted": "Der Job wurde gelöscht oder abgebrochen. Bitte starte einen neuen Screencast."
+      "jobDeleted": "Der Job wurde gelöscht oder abgebrochen. Bitte starte einen neuen Screencast.",
+      "demoBadge": "Demo ansehen →"
     },
     "screencastDemo": {
       "backToScreencast": "Zurück",
@@ -798,6 +813,222 @@
       "overrideHint": "-1 = unlimitiert, leer = Standard",
       "defaultsTitle": "Standard-Limits (global)"
     },
+    "providers": {
+      "intro": "Anbieter sind Endpoints, die KI-Funktionen liefern (Chat, Embedding, TTS, Bildanalyse, ...). Lege beliebig viele an. Pro Funktion wählst du unten, welcher Anbieter sie übernimmt.",
+      "list": {
+        "title": "Anbieter",
+        "hint": "Mit „Erneut prüfen\" testest du, ob der Endpoint erreichbar ist. Welche Funktionen tatsächlich funktionieren, prüfst du pro Zeile im Bereich „Funktionen\".",
+        "add": "Hinzufügen",
+        "emptyTitle": "Noch kein Anbieter konfiguriert",
+        "emptyHint": "Lege deinen ersten Anbieter an, um KI-Funktionen freizuschalten.",
+        "exportImportMenuItem": "Export / Import…",
+        "moreActions": "Weitere Aktionen"
+      },
+      "row": {
+        "keySuffix": "· API-Key: ...{chars}",
+        "probe": "Erreichbarkeit prüfen",
+        "edit": "Bearbeiten",
+        "delete": "Löschen",
+        "statusActive": "erreichbar",
+        "statusError": "Fehler",
+        "statusUnprobed": "noch nicht geprüft",
+        "statusChecking": "wird geprüft…",
+        "noApiKeyChip": "Kein API-Key",
+        "disabledChip": "Inaktiv",
+        "enable": "Aktivieren",
+        "disable": "Deaktivieren"
+      },
+      "probeErrors": {
+        "unreachable": "Nicht erreichbar — URL und Netzwerkverbindung prüfen",
+        "auth_rejected": "Authentifizierung abgelehnt — API-Key prüfen",
+        "server_error": "Der Anbieter hat einen Server-Fehler zurückgegeben",
+        "endpoint_not_found": "Endpunkt nicht gefunden — Base-URL prüfen"
+      },
+      "routes": {
+        "title": "Funktionen",
+        "hint": "Pro Funktion ein Anbieter und ein Modell. Mit dem Blitz-Symbol testest du, ob die konkrete Auswahl (z.B. TTS bei KISSKI) tatsächlich funktioniert.",
+        "unselected": "— Anbieter wählen —",
+        "modelPlaceholder": "Modellname",
+        "userChoiceLabel": "Nutzer kann wählen:",
+        "noEligible": "Kein Anbieter unterstützt diese Funktion.",
+        "test": "Auswahl testen",
+        "testAll": "Alle nacheinander testen",
+        "testOk": "Erreichbar",
+        "testNoProvider": "Kein Anbieter ausgewählt.",
+        "testErrors": {
+          "model_name_not_set": "Kein Modellname eingetragen",
+          "tts_speech_endpoint_not_found": "TTS-Endpoint nicht gefunden",
+          "endpoint_not_found": "Endpoint nicht gefunden (HTTP 404)",
+          "auth_rejected": "Authentifizierung abgelehnt (API-Key ungültig oder fehlt)",
+          "server_error": "Server-Fehler beim Provider (HTTP 5xx) — Endpoint erreichbar, antwortet aber fehlerhaft",
+          "unreachable": "Provider nicht erreichbar (DNS-/Netzwerk-Fehler)",
+          "invalid_model": "Modell '{model}' nicht unterstützt",
+          "no_voices_configured": "Keine Stimmen konfiguriert — füge mindestens eine Stimme für diesen Provider hinzu",
+          "stt_model_not_validated_by_provider": "Provider validiert den STT-Modellnamen nicht — beliebige Eingaben werden akzeptiert. Modellname kann nicht überprüft werden.",
+          "stt_endpoint_verified_model_unvalidated": "Endpoint verifiziert erreichbar (Auth ok, Rate-Limit aktiv, Backend antwortet). Der Provider validiert den Modellnamen nicht — STT funktioniert auch mit beliebigen Namen."
+        },
+        "modelForPrimary": "Modell für {name}:",
+        "modelOptional": "(optional)"
+      },
+      "delete": {
+        "title": "Anbieter „{name}\" löschen?",
+        "bodyEmpty": "Diese Aktion löscht den Anbieter „{name}\" inklusive des hinterlegten API-Keys.",
+        "bodyWithRoutes": "„{name}\" wird aktuell für folgende Funktionen verwendet:\n  • {features}",
+        "warningFeaturesUnavailable": "Diese Funktionen sind nach dem Löschen NICHT mehr verfügbar, bis du einen anderen Anbieter zuweist.",
+        "warningIrreversible": "Diese Aktion kann NICHT rückgängig gemacht werden.",
+        "confirm": "Ja, löschen",
+        "cancel": "Abbrechen"
+      },
+      "dialog": {
+        "titleCreate": "Anbieter hinzufügen",
+        "titleEdit": "Anbieter bearbeiten",
+        "close": "Schließen",
+        "cancel": "Abbrechen",
+        "save": "Speichern und prüfen",
+        "saving": "Speichert…",
+        "fieldName": "Name",
+        "namePlaceholder": "z.B. OpenAI, KISSKI, Mein Ollama",
+        "nameHint": "Frei wählbar, wird in den Funktions-Dropdowns angezeigt.",
+        "fieldProtocol": "Protokoll",
+        "fieldBaseUrl": "Base-URL",
+        "fieldCapabilities": "Fähigkeiten",
+        "capabilitiesHint": "Nur auswählen was dieser Anbieter unterstützt. Leer lassen = wird nach dem Speichern automatisch ermittelt.",
+        "fieldApiKey": "API-Key",
+        "showKey": "API-Key anzeigen",
+        "hideKey": "API-Key verbergen",
+        "apiKeyHint": "Leer lassen wenn der Endpoint keinen API-Key benötigt.",
+        "apiKeyEditHint": "Leer lassen behält den bestehenden API-Key.",
+        "probeHint": "Nach dem Speichern prüft KIS die Erreichbarkeit des Endpoints. Welche Funktionen tatsächlich laufen, testest du pro Zeile im Bereich „Funktionen“.",
+        "fixedCapabilitiesHint": "Protokoll-fest: {caps}",
+        "deeplFreeDetected": "DeepL-Free-Key erkannt (Suffix :fx) → api-free.deepl.com.",
+        "deeplProDetected": "DeepL-Pro-Key erkannt → api.deepl.com.",
+        "deeplFreeOnProUrl": "DeepL-Free-Key (Suffix :fx) erkannt, Base-URL zeigt aber auf den Pro-Endpoint. KIS leitet automatisch auf api-free.deepl.com um.",
+        "deeplProOnFreeUrl": "DeepL-Pro-Key erkannt, Base-URL zeigt aber auf den Free-Endpoint. KIS leitet automatisch auf api.deepl.com um."
+      },
+      "voices": {
+        "label": "Stimmen",
+        "discover": "Stimmen laden",
+        "discovering": "Lädt…",
+        "notDiscoverable": "Keine Stimmen über API gefunden. Bitte manuell eintragen.",
+        "discoverFailed": "Provider nicht erreichbar. URL prüfen.",
+        "addManual": "Stimme manuell hinzufügen",
+        "add": "Hinzufügen",
+        "cancel": "Abbrechen",
+        "voicesPathLabel": "Stimmen-Endpoint",
+        "colVoiceId": "Voice-ID",
+        "colName": "Name",
+        "colLang": "Sprache",
+        "colDesc": "Beschreibung",
+        "languageRequired": "Alle Stimmen müssen eine Sprache haben (z. B. de, en).",
+        "remove": "Stimme entfernen",
+        "play": "Stimme abspielen",
+        "stop": "Wiedergabe stoppen"
+      },
+      "validation": {
+        "required": "Name und Base-URL sind Pflicht."
+      },
+      "protocolName": {
+        "openai_compat": "OpenAI-kompatibel",
+        "deepl": "DeepL",
+        "docling": "Docling"
+      },
+      "capabilityName": {
+        "chat": "Chat",
+        "embedding": "Embeddings",
+        "vision": "Bildanalyse",
+        "ocr": "OCR",
+        "stt": "Speech-to-Text",
+        "tts": "Text-to-Speech",
+        "image_gen": "Bildgenerierung",
+        "image_edit": "Bild-Edit",
+        "translation": "Übersetzung"
+      },
+      "featureName": {
+        "chat": "Chat",
+        "embedding": "Embeddings",
+        "vision": "Bildanalyse",
+        "ocr": "OCR / Dokumenten-Extraktion",
+        "stt": "Speech-to-Text",
+        "tts": "Text-to-Speech",
+        "image_gen": "Bildgenerierung",
+        "image_edit": "Bild-Edit",
+        "doc_translate": "Dokumenten-Übersetzung",
+        "screencast_translate": "Screencast-Übersetzung",
+        "transcript_translate": "Transkript-Übersetzung"
+      },
+      "featureDesc": {
+        "chat": "Konversation, Zusammenfassungen, Werkzeug-Aufrufe",
+        "embedding": "Vektor-Suche, semantische Indexierung",
+        "vision": "Bildinhalt erkennen, beschreiben",
+        "ocr": "Volltext aus PDFs, Layout-Erkennung",
+        "stt": "Audio-Transkription, Whisper-basiert",
+        "tts": "Sprachausgabe für Screencast und Vorlesen. Nutzer wählt im Tool, welcher Anbieter verwendet wird.",
+        "image_gen": "Text-zu-Bild",
+        "image_edit": "Bilder bearbeiten via Prompt",
+        "doc_translate": "Nutzer wählt im Tool, welcher Anbieter verwendet wird. (Dokumenten-Übersetzung, Screencast-Übersetzung)",
+        "screencast_translate": "Untertitel und Audio für Videos. Nutzer wählt im Tool, welcher Anbieter verwendet wird.",
+        "transcript_translate": "AIA-Arbeitsbereich: Transkript in die vom Owner gewählte Zielsprache übersetzen. Quellsprache wird automatisch erkannt. Anbieter und Modell werden vom Admin konfiguriert. Instruct-Modell empfohlen, keine Reasoning-Modelle."
+      },
+      "exportImport": {
+        "modal": {
+          "title": "Export / Import",
+          "tabExport": "Exportieren",
+          "tabImport": "Importieren",
+          "cancel": "Abbrechen"
+        },
+        "export": {
+          "providersHeading": "Provider",
+          "selectAll": "Alle",
+          "selectedCount": "{selected} von {total}",
+          "confirmButton": "Exportieren ({count})"
+        },
+        "import": {
+          "dropzoneHint": "JSON-Datei hier ablegen oder klicken zum Auswählen",
+          "chooseAnotherFile": "Andere Datei wählen",
+          "confirmButton": "Import bestätigen",
+          "apiKeyRestoreOk": "{count, plural, one {# verschlüsselter API-Key wird wiederhergestellt.} other {# verschlüsselte API-Keys werden wiederhergestellt.}}",
+          "apiKeyRestoreFailed": "{count, plural, one {# verschlüsselter API-Key kann nicht entschlüsselt werden (anderes KIS_EXPORT_KEY).} other {# verschlüsselte API-Keys können nicht entschlüsselt werden (anderes KIS_EXPORT_KEY).}}"
+        },
+        "exportButton": "Exportieren",
+        "importButton": "Importieren",
+        "exportHint": "Inkl. Endpoints, Modelle, Stimmen, Capabilities und Feature-Routen.",
+        "apiKeyEncryptionOn": "API-Keys werden verschlüsselt mit ins Backup geschrieben (KIS_EXPORT_KEY) und sind nur auf diesem System wiederherstellbar.",
+        "apiKeyEncryptionOff": "API-Keys werden NICHT exportiert (KIS_EXPORT_KEY nicht gesetzt). Auf dem Zielsystem manuell neu eintragen.",
+        "preview": {
+          "title": "Konfiguration importieren",
+          "source": "Quelle: {filename}",
+          "createdAt": "Erstellt am {date}{from, select, none {} other {, von {from}}}",
+          "providersHeading": "Provider ({count})",
+          "routesHeading": "Feature-Routes ({count})",
+          "badge": {
+            "new": "NEU",
+            "merge": "MERGE",
+            "skip": "ÜBERSPRUNGEN"
+          },
+          "apiKeyMissing": "API-Key fehlt — nach Import setzen!",
+          "apiKeyNotNeeded": "Kein API-Key nötig",
+          "apiKeyPreserved": "Bestehender API-Key bleibt erhalten",
+          "protocolChange": "Protocol ändert sich: {from} → {to}",
+          "routeSkipped": "übersprungen (Provider „{provider}\" nicht im Import)",
+          "confirm": "Import bestätigen",
+          "cancel": "Abbrechen"
+        },
+        "errors": {
+          "invalidJson": "Die Datei ist kein gültiges JSON.",
+          "importFailed": "Import fehlgeschlagen: {message}"
+        }
+      },
+      "clearAll": {
+        "menuItem": "Alles löschen…",
+        "title": "Alle Provider und Routes löschen?",
+        "bodyCounts": "Diese Aktion löscht UNWIDERRUFLICH:\n  • {providers, plural, one {# Provider} other {# Provider}} (inkl. aller API-Keys)\n  • {routes, plural, one {# Feature-Route-Zuordnung} other {# Feature-Route-Zuordnungen}}",
+        "warningFeaturesUnavailable": "KI-Funktionen (Chat, TTS, ASR, Übersetzung, Embedding) stehen danach NICHT mehr zur Verfügung, bis Provider neu angelegt oder importiert wurden.",
+        "warningIrreversible": "Diese Aktion kann NICHT rückgängig gemacht werden. Vorher ggf. Export erstellen.",
+        "confirm": "Ja, alles löschen",
+        "cancel": "Abbrechen",
+        "successToast": "Alle Provider und Routes gelöscht."
+      }
+    },
     "settings": {
       "providerNotConfigured": "Nicht konfiguriert.",
       "providerDisabled": "Deaktiviert - wird nicht angezeigt.",
@@ -819,6 +1050,10 @@
       "imageEditHint": "Nur ein Anbieter gleichzeitig aktiv.",
       "ocrTitle": "OCR (Texterkennung)",
       "ocrHint": "Nur ein Anbieter gleichzeitig aktiv.",
+      "ocrMasterLabel": "OCR aktiviert (Master-Schalter)",
+      "ocrMasterOn": "Seiten mit großen eingebetteten Bildern werden an das Vision-Modell gesendet.",
+      "ocrMasterOff": "Deaktiviert - PDF-Seiten mit Screenshots/Scans werden nicht transkribiert.",
+      "ocrMasterWarning": "Achtung: mit GWDG Docling dauert jede OCR-Seite ~7 Sekunden (mit THL myLab chandra: 30-70 Sekunden). Ein gescanntes 300-Seiten-Dokument kann 30+ Minuten brauchen. Deaktivieren wenn deine Quellen überwiegend Text sind.",
       "embeddingTitle": "Embeddings (KI-Assistent)",
       "embeddingHint": "Nur ein Anbieter gleichzeitig - Wechsel erfordert Reindex (siehe unten).",
       "llmTitle": "LLM Chat",
@@ -828,18 +1063,15 @@
       "providerKisskiFlux": "KISSKI (Flux)",
       "providerKisskiQwen": "KISSKI (qwen3-omni)",
       "providerKisskiWhisper": "KISSKI (Whisper)",
+      "providerDocling": "GWDG Docling",
       "providerOllama": "Ollama (lokal)",
       "providerElevenlabs": "ElevenLabs",
-      "providerKokoro": "Kokoro TTS",
-      "providerMylabXtts": "THL myLab (XTTS-v2)",
-      "providerMylab": "THL myLab",
-      "providerMylabWhisper3": "THL myLab (Whisper-3-large)",
       "deeplKey": {
-        "title": "DeepL API Key",
-        "hint": "Leer → Standard-Key vom Backend.",
-        "placeholderEmpty": "DeepL API Key eintragen…",
+        "title": "DeepL API-Key",
+        "hint": "Leer → Standard-API-Key vom Backend.",
+        "placeholderEmpty": "DeepL API-Key eintragen…",
         "activeEnv": "Aktiv: ••••{last}",
-        "activeEnvNoKey": "Kein Key gesetzt",
+        "activeEnvNoKey": "Kein API-Key gesetzt",
         "activeOverride": "Aktiv: Override (••••{last})",
         "save": "Speichern",
         "clear": "Override entfernen",
@@ -881,6 +1113,77 @@
       "disabled": "Deaktiviert - Hilde wird nirgendwo angezeigt, der Nutzer-Toggle in den KI-Assistent-Einstellungen ist ausgeblendet.",
       "toggleAria": "Maskottchen umschalten"
     },
+    "ocrCard": {
+      "title": "OCR für Scans & Bild-Seiten",
+      "active": "Aktiv - bild-/scanlastige Seiten werden beim Indexieren per OCR erfasst (langsamer, kostet pro Seite einen Vision-Aufruf).",
+      "disabled": "Deaktiviert - OCR wird systemweit übersprungen. Indexierung ist schneller und günstiger, aber reine Scan-/Bild-Seiten bleiben durchsuchbar leer.",
+      "hint": "Gilt für alle Workspaces und neue Indexierungen. Bestehende Dokumente erst nach erneutem Indexieren betroffen.",
+      "toggleAria": "OCR umschalten"
+    },
+    "homeNoticeCard": {
+      "title": "Hinweis auf Startseite",
+      "active": "Aktiv - der Hinweis wird allen Nutzern auf der Startseite über den Terminen angezeigt.",
+      "disabled": "Deaktiviert - es wird kein Hinweis angezeigt.",
+      "placeholder": "Hinweistext für die Startseite, zum Beispiel ein Hinweis während einer Testphase.",
+      "hint": "Wird zentriert über den Terminen angezeigt. Auch bei aktivem Schalter bleibt der Hinweis verborgen, solange das Feld leer ist.",
+      "toggleAria": "Hinweis umschalten",
+      "saveFailed": "Speichern fehlgeschlagen."
+    },
+    "workspaceLimitsCard": {
+      "title": "Maximale Quellen pro {label}",
+      "hint": "Wie viele Dokumente Nutzer pro {label} hochladen dürfen. Greift sofort für neue Uploads.",
+      "unit": "Quellen",
+      "outOfRange": "Wert muss zwischen 1 und 1000 liegen.",
+      "saveFailed": "Speichern fehlgeschlagen."
+    },
+    "scheduleRetentionCard": {
+      "title": "Zeitplan-Aufbewahrung",
+      "hint": "Vergangene Einträge (erledigt oder nicht) werden nach dieser Anzahl Tagen täglich automatisch gelöscht. Leer lassen für 'nie löschen' (Default). Zukünftige Einträge bleiben immer erhalten.",
+      "unit": "Tage",
+      "placeholderNever": "nie",
+      "modeNever": "Nie löschen",
+      "modeDays": "{n, plural, =1 {Älter als 1 Tag wird gelöscht} other {Älter als # Tage wird gelöscht}}",
+      "outOfRange": "Wert muss zwischen 1 und 3650 liegen, oder leer für 'nie löschen'.",
+      "saveFailed": "Speichern fehlgeschlagen."
+    },
+    "contextBudgetCard": {
+      "title": "KI-Tutor Kontext-Budget",
+      "hint": "Wie viel Quelltext (in Zeichen) der KI-Tutor pro Frage ins Modell gibt. Default 60000 ist für kleine Modelle (32k) sicher. Passt eine ausgewählte Quelle komplett ins Budget, wird sie bei Übersichtsfragen ganz statt nur als Auszug gesendet. Höher setzen nur, wenn ausschließlich Modelle mit großem Kontext laufen.",
+      "unit": "Zeichen",
+      "approxTokens": "≈ {n}k Token",
+      "outOfRange": "Wert muss zwischen 1000 und 500000 liegen.",
+      "saveFailed": "Speichern fehlgeschlagen."
+    },
+    "toolContextBudgetCard": {
+      "title": "Tools Kontext-Budget",
+      "hint": "Wie viel Quelltext (in Zeichen) die Lern-Tools (Mindmap, Datentabelle, Quiz, Lernkarte, Begriffe-Quiz, Lückentext, Karteikarten) ins Modell geben. Getrennt vom Chat-Budget, weil ein Tool ein ganzes Dokument in einem Aufruf verarbeitet. Der Wert wird durch die Anzahl der ausgewählten Quellen geteilt. Default 250000 ist für mittlere Modelle sicher. Höher setzen (z.B. 450000 oder 900000) nur, wenn ein Modell mit großem Kontext läuft.",
+      "unit": "Zeichen",
+      "approxTokens": "≈ {n}k Token",
+      "outOfRange": "Wert muss zwischen 1000 und 1000000 liegen.",
+      "saveFailed": "Speichern fehlgeschlagen."
+    },
+    "summaryBatchCard": {
+      "title": "Zusammenfassung – Häppchengröße",
+      "hint": "Wie viel Text (in Zeichen) beim Hochladen pro Zusammenfassungs-Aufruf ans Modell geht. Größer = weniger Aufrufe (schont das Rate-Limit des Anbieters), aber jede Teil-Zusammenfassung wird gröber. Default 360000 (~72 Seiten) ist eine gute Balance.",
+      "unit": "Zeichen",
+      "approxPages": "≈ {n} Seiten",
+      "outOfRange": "Wert muss zwischen 10000 und 500000 liegen.",
+      "saveFailed": "Speichern fehlgeschlagen."
+    },
+    "embeddingBatchCard": {
+      "title": "Embedding – Chunks pro Aufruf",
+      "hint": "Wie viele Text-Stücke (Chunks) beim Hochladen in einen Embedding-Aufruf gepackt werden. Höher = weniger Aufrufe (schont das Rate-Limit des Anbieters). Default 1000 ist ein sicherer Wert; zu hoch kann der Anbieter ablehnen.",
+      "unit": "Chunks/Aufruf",
+      "outOfRange": "Wert muss zwischen 1 und 1000 liegen.",
+      "saveFailed": "Speichern fehlgeschlagen."
+    },
+    "sourceMaxPagesCard": {
+      "title": "Maximale Seiten pro Quelle",
+      "hint": "Wie viele Seiten ein hochgeladenes Dokument (PDF/DOCX/PPTX) maximal haben darf. Größere werden abgelehnt – lange Skripte bitte kapitelweise hochladen. Default 100: so bleibt jede Quelle klein genug für einen vollständigen Überblick. Medien (mp3/mp4) sind nicht betroffen.",
+      "unit": "Seiten",
+      "outOfRange": "Wert muss zwischen 1 und 2000 liegen.",
+      "saveFailed": "Speichern fehlgeschlagen."
+    },
     "workspaceLabel": {
       "title": "Bezeichnung \"Workspace\"",
       "description": "Wie der Begriff im Frontend angezeigt wird (z. B. \"Modul\" / \"Module\" oder \"Kurs\" / \"Kurse\"). Default: Workspace / Workspaces. Pro Sprache separat einstellbar.",
@@ -907,7 +1210,6 @@
       "extrasLabel": "Zusätzlich exportieren:",
       "extra_all": "Alle",
       "extra_glossary": "Glossar",
-      "extra_summaries": "Page-Summaries",
       "extra_notes": "Notizen",
       "extra_schedule": "Zeitplan",
       "extra_studio": "Mindmaps + Tabellen + Übungen"
@@ -924,7 +1226,6 @@
       "modelImageAnalyze": "Bild-Analyse",
       "modelWhisper": "Transkription (Whisper)",
       "ttsActive": "TTS-Provider aktiv",
-      "ttsMylabModel": "myLab TTS Modell",
       "rateLimitsTitle": "Rate-Limits (Burst-Schutz)",
       "rateLimitsSubtitle": "Greift bei Bots/Bugs. Keine Tages-/Stunden-Limits.",
       "chatBurst": "Chat: max Anfragen / Fenster",
@@ -971,21 +1272,6 @@
       "ragFinalChunksHint": "Werden ans LLM gegeben",
       "ragEmbedBatch": "Embedding Batch-Größe",
       "ragEmbedBatchHint": "Beim Indexieren",
-      "summariesTitle": "Seiten-Zusammenfassungen (Pipeline)",
-      "summariesSubtitle": "Werden beim Hochladen einer Quelle erstellt.",
-      "sumMaxRetries": "Max Retries",
-      "sumTimeoutSmall": "Timeout pro Seite (Ollama)",
-      "sumTimeoutLarge": "Timeout pro Seite (Cloud)",
-      "sumMaxTokensSmall": "Max Tokens (Ollama, einzeln)",
-      "sumMaxTokensLarge": "Max Tokens (Cloud, einzeln)",
-      "sumMaxTokensBatch": "Max Tokens (Cloud, Batch)",
-      "sumMaxCharsPerPage": "Max Zeichen pro Seite an LLM",
-      "sumParallelSmall": "Parallele Worker (Ollama)",
-      "sumParallelSmallHint": "Mehrere Seiten parallel",
-      "sumParallelLarge": "Parallele Worker (Cloud)",
-      "sumParallelLargeHint": "Sequenziell für Stabilität",
-      "sumBatchSize": "Seiten pro Batch",
-      "sumBatchSizeHint": "Cloud, mehrere Seiten in einer Anfrage",
       "jobsTitle": "Job-Verwaltung",
       "jobsSubtitle": "Ergebnisdateien & Watchdog für Tool-Jobs.",
       "jobsMaxFiles": "Max Ergebnis-Dateien pro Nutzer",
@@ -1049,8 +1335,11 @@
       "custom": "Eigene Rollen",
       "newRole": "Neue Rolle",
       "name": "Name",
-      "allowAia": "AIA-Zugriff",
+      "aiaAccess": "AIA {label}",
+      "aiaRead": "Leserechte (Link-Zugriff)",
+      "aiaEdit": "Bearbeitungsrechte (wie staff: {plural} erstellen)",
       "tools": "Globale Tools",
+      "toolsSelectAll": "Alle auswählen",
       "save": "Speichern",
       "cancel": "Abbrechen",
       "delete": "Löschen",
@@ -1194,7 +1483,14 @@
   },
   "langLabels": {
     "DE": "Deutsch",
-    "EN-US": "Englisch"
+    "EN-US": "Englisch",
+    "FR": "Französisch",
+    "ES": "Spanisch",
+    "IT": "Italienisch",
+    "UK": "Ukrainisch",
+    "TR": "Türkisch",
+    "AR": "Arabisch",
+    "RU": "Russisch"
   },
   "workspace": {
     "detail": {
@@ -1260,6 +1556,7 @@
           "know": "Gewusst!",
           "minimizePanel": "Panel minimieren",
           "correctShort": "Richtig!",
+          "wrongShort": "Falsch",
           "downloadAsText": "Als Textdatei herunterladen",
           "hint": "Tipp",
           "learnMore": "Mehr erfahren"
@@ -1318,20 +1615,19 @@
         "mcExercise": {
           "quizCompleted": "Quiz abgeschlossen!",
           "quizScore": "<hl>{correct} / {total}</hl> richtig, <hl>{pct}%</hl>",
-          "tryAgain": "Erneut versuchen",
-          "correctIs": "Richtig wäre:"
+          "tryAgain": "Erneut versuchen"
         },
         "glossary": {
           "title": "Glossar",
           "deleteAll": "Alle Begriffe löschen",
           "extractingMarkup": "Begriffe werden aus Markierung extrahiert…",
-          "extractButton": "Begriffe extrahieren ({current}/{max})",
-          "extracting": "Begriffe werden extrahiert…",
-          "extractTooltip": "Extrahiert Fachbegriffe aus den ausgewählten Quellen.",
-          "emptyTitle": "Noch kein Glossar generiert. Klicke oben auf „Begriffe extrahieren\", um Fachbegriffe aus deinen Quellen zu extrahieren.",
+          "emptyTitle": "Noch keine Begriffe im Glossar. Markiere Wörter in einer PDF und füge sie über die Auswahlleiste hinzu.",
           "context": "Kontext",
-          "explanationB1": "Erklärung (B1)",
-          "pageShort": "S. {page}"
+          "explanation": "Erklärung",
+          "pageShort": "S. {page}",
+          "sortRecent": "Neueste",
+          "sortAlpha": "A–Z",
+          "sortAriaLabel": "Sortierung wählen"
         },
         "overview": {
           "glossaryCounter": "{count}/{max} Glossar",
@@ -1420,26 +1716,20 @@
         "studioDescription": "Studio-Panel mit Mindmaps, Notizen und Tools einblenden.",
         "languageTrainingTitle": "Fachsprachentraining",
         "languageTrainingDescription": "Zeigt den Fachsprachentraining-Tab im Studio.",
-        "translationModeTitle": "EN-Übersetzung der Transkripte",
-        "translationModeDescription": "Erzeugt englische Untertitel zu deutschen Audio-/Video-Quellen. Studierende können die Sprache im Transkript-Panel umschalten. Die Übersetzung läuft als Hintergrund-Job und kann ein paar Minuten dauern.",
+        "translationModeTitle": "Übersetzung der Transkripte",
+        "translationModeDescription": "Übersetzt Untertitel von Audio-/Video-Quellen in die unten gewählte Zielsprache. Die Quellsprache wird automatisch erkannt. Studierende können im Transkript-Panel zwischen Original und Übersetzung umschalten. Die Übersetzung läuft als Hintergrund-Job und kann ein paar Minuten dauern.",
         "translationModeOff": "Aus",
         "translationModeAuto": "Auto (beim Indexieren)",
         "translationModeManual": "Manuell (per Klick)",
-        "translationModeOffHint": "Es werden keine englischen Untertitel erstellt.",
+        "translationModeOffHint": "Es werden keine Übersetzungen erstellt.",
         "translationModeAutoHint": "Sobald eine Quelle indexiert ist, startet die Übersetzung automatisch.",
         "translationModeManualHint": "Übersetzung erst per Klick im Transkript-Panel (Standard).",
-        "summaryModeTitle": "KI-Zusammenfassung der PDF-Seiten",
-        "summaryModeDescription": "Erzeugt zu jeder PDF-Seite eine kurze KI-Zusammenfassung. Studierende sehen sie im Summary-Panel neben der Seite. Die Generierung läuft als Hintergrund-Job und kann bei großen PDFs ein paar Minuten dauern.",
-        "summaryModeOff": "Aus",
-        "summaryModeAuto": "Auto",
-        "summaryModeManual": "Manuell (per Klick)",
-        "summaryModeOffHint": "Für PDFs werden keine Seiten-Zusammenfassungen erzeugt.",
-        "summaryModeAutoHint": "Sobald ein PDF indexiert ist, startet die Zusammenfassung automatisch.",
-        "summaryModeManualHint": "Zusammenfassung erst per Klick im Summary-Panel (Standard).",
-        "transcriptDefaultLangTitle": "Standard-Sprache im Transkript",
-        "transcriptDefaultLangDescription": "Welche Sprache beim Öffnen einer Audio-/Video-Quelle vorausgewählt ist. Studierende können im Transkript-Panel jederzeit umschalten.",
-        "transcriptDefaultLangDe": "Deutsch",
-        "transcriptDefaultLangEn": "English",
+        "transcriptTargetLangTitle": "Zielsprache der Übersetzung",
+        "transcriptTargetLangDescription": "In welche Sprache Transkripte übersetzt werden. Die Quellsprache erkennt das System automatisch. Es wird immer in genau eine Sprache übersetzt.",
+        "transcriptDefaultLangTitle": "Standard-Ansicht im Transkript",
+        "transcriptDefaultLangDescription": "Welche Spur beim Öffnen einer Audio-/Video-Quelle vorausgewählt ist. Studierende können im Transkript-Panel jederzeit umschalten.",
+        "transcriptDefaultLangSource": "Original",
+        "transcriptDefaultLangTarget": "Übersetzung",
         "transcriptDefaultLangBoth": "Beide"
       },
       "subviewHeader": {
@@ -1477,7 +1767,8 @@
         "sourcesCount": "{n, plural, =1 {1 Quelle} other {# Quellen}}",
         "indexingInProgress": "{label} wird noch indiziert. Bitte warte einen Moment und versuche es erneut.",
         "tooManyRequests": "Zu viele Anfragen. Bitte einen Moment warten und erneut senden.",
-        "genericError": "Es ist ein Fehler aufgetreten. Bitte versuche es erneut."
+        "genericError": "Es ist ein Fehler aufgetreten. Bitte versuche es erneut.",
+        "translateFailed": "Diese Passage konnte nicht übersetzt werden."
       },
       "sources": {
         "title": "Quellen",
@@ -1491,6 +1782,13 @@
         "stillProcessing": "Quelle wird noch verarbeitet",
         "openInViewer": "Im Viewer öffnen",
         "indexingFailed": "Indizierung fehlgeschlagen",
+        "progressStage": {
+          "parsing": "Lesen",
+          "ocr": "OCR Seite",
+          "chunking": "Zerlegen",
+          "embedding": "Embedding",
+          "summarizing": "Zusammenfassen"
+        },
         "retry": "Erneut versuchen",
         "options": "Optionen",
         "delete": "Löschen",
@@ -1503,10 +1801,37 @@
           "single": "1 Datei fehlgeschlagen",
           "multi": "{n} Dateien fehlgeschlagen",
           "dismiss": "Schließen"
+        },
+        "staffNote": {
+          "title": "Hinweis",
+          "expand": "Hinweis öffnen",
+          "collapse": "Hinweis schließen",
+          "edit": "Hinweis bearbeiten",
+          "emptyOwnerHint": "Hinweis für Nutzer hinzufügen",
+          "modalTitle": "Hinweis",
+          "modalSubtitle": "Sichtbar für alle Nutzer · {label}",
+          "textLabel": "Hinweistext",
+          "textPlaceholder": "Was Nutzer wissen sollten…",
+          "linksLabel": "Links",
+          "linksHint": "Beschriftung beschreibt den Inhalt, URL führt zur Seite.",
+          "addLink": "Link hinzufügen",
+          "linkLabelPlaceholder": "Beschriftung",
+          "linkUrlPlaceholder": "https://…",
+          "removeLink": "Link entfernen",
+          "charCount": "{used}/{max}",
+          "save": "Speichern",
+          "cancel": "Abbrechen",
+          "saving": "Speichert…",
+          "saveError": "Speichern fehlgeschlagen. Bitte erneut versuchen.",
+          "linkUrlInvalid": "URL muss mit http(s):// oder mailto: beginnen.",
+          "linkLabelMissing": "Beschriftung fehlt."
         }
       },
       "viewer": {
         "back": "Zurück",
+        "dismissHighlight": "Markierung aufheben",
+        "jumpToHighlightPage": "Zur Markierung springen (S. {page})",
+        "jumpToHighlightTime": "Zur Markierung springen ({time})",
         "transcriptLabel": "Transkript",
         "transcriptLoading": "Transkript wird geladen...",
         "jumpToCurrent": "Zum aktuellen Transkript springen",
@@ -1515,10 +1840,10 @@
         "tabBoth": "Beide",
         "saveAsNote": "Als Notiz speichern",
         "regenEnRunning": "läuft...",
-        "regenEnButton": "EN übersetzen",
+        "regenEnButton": "Übersetzen",
         "regenEnRunningTitle": "Übersetzung läuft im Hintergrund...",
-        "regenEnIdleTitle": "Englische Untertitel im Hintergrund übersetzen",
-        "regenEnErrorTitle": "EN-Übersetzung fehlgeschlagen: {error}. Nochmal versuchen?",
+        "regenEnIdleTitle": "Untertitel im Hintergrund übersetzen",
+        "regenEnErrorTitle": "Übersetzung fehlgeschlagen: {error}. Nochmal versuchen?",
         "regenEnTimeout": "Übersetzung dauert zu lange. Später prüfen oder erneut versuchen.",
         "regenEnUnknownError": "Unbekannter Fehler",
         "tracksDe": "Deutsch",
@@ -1531,8 +1856,7 @@
         "failed": "Generierung fehlgeschlagen.",
         "none": "Noch keine Zusammenfassungen vorhanden.",
         "generateButton": "Zusammenfassen",
-        "noneForPage": "Keine Zusammenfassung für diese Seite.",
-        "disabledByOwner": "Seiten-Zusammenfassungen sind in diesem Workspace deaktiviert."
+        "noneForPage": "Keine Zusammenfassung für diese Seite."
       },
       "pdf": {
         "askQuestion": "Frage stellen",
@@ -1541,7 +1865,9 @@
         "addToGlossary": "Zum Glossar",
         "addToGlossaryDescription": "Fachbegriffe zum Glossar hinzufügen",
         "addToGlossaryTitle": "Zum Glossar hinzufügen",
-        "summaries": "Zusammenfassungen",
+        "addToNote": "In Notiz",
+        "addToNoteDescription": "Auswahl als neue Notiz speichern",
+        "addToNoteTitle": "In Notiz speichern",
         "tracksDe": "Deutsch",
         "tracksEn": "English"
       },
@@ -1657,10 +1983,8 @@
             "confirm": "Alles löschen"
           },
           "entry": {
-            "pastLockedAria": "Vergangene Termine können nicht geändert werden",
             "uncheckAria": "Erledigt aufheben",
             "checkAria": "Als erledigt markieren",
-            "pastLockedTitle": "Vergangene Termine sind gesperrt",
             "edit": "Bearbeiten",
             "delete": "Löschen"
           },
@@ -1685,6 +2009,8 @@
       "errors": {
         "uploadFailed": "Upload fehlgeschlagen",
         "uploadSkippedMax": "Übersprungen, maximal {max} Dateien gleichzeitig hochladen.",
+        "uploadSkippedLimit": "Übersprungen: Upload-Limit erreicht.",
+        "uploadDuplicate": "Übersprungen: Eine Source mit diesem Namen existiert bereits.",
         "networkError": "Netzwerkfehler",
         "noteSaveFailed": "Notiz konnte nicht gespeichert werden.",
         "termsAdded": "{count, plural, =1 {1 Begriff hinzugefügt.} other {# Begriffe hinzugefügt.}}",
@@ -1707,8 +2033,6 @@
       "emptyTitle": "Noch keine {label} vorhanden.",
       "emptyText": "Mit dem Button oben anlegen.",
       "welcomeTitle": "Willkommen bei KIS",
-      "enrollPrompt": "Einschreibecode eingeben",
-      "enrollPlaceholder": "z. B. a1b2c3d4",
       "enroll": "Einschreiben",
       "enrollInvalidCode": "Ungültiger Code",
       "unknownError": "Unbekannter Fehler",
@@ -1783,5 +2107,25 @@
     "description": "KIS - Services der TH Lübeck",
     "author": "Hamid Mergan, Institut für Interaktive Systeme (ISy), Technische Hochschule Lübeck",
     "copyright": "© 2026 Hamid Mergan, Institut für Interaktive Systeme (ISy), Technische Hochschule Lübeck"
+  },
+  "ki": {
+    "notConfigured": {
+      "title": "KI nicht konfiguriert",
+      "missing": "Diese Funktion(en) sind nicht eingerichtet: {features}",
+      "configureLink": "Jetzt konfigurieren →",
+      "featureName": {
+        "chat": "Chat",
+        "embedding": "Embeddings",
+        "vision": "Bildanalyse",
+        "ocr": "OCR",
+        "stt": "Speech-to-Text",
+        "tts": "Text-to-Speech",
+        "image_gen": "Bildgenerierung",
+        "image_edit": "Bild-Edit",
+        "doc_translate": "Dokumenten-Übersetzung",
+        "screencast_translate": "Screencast-Übersetzung",
+        "transcript_translate": "Transkript-Übersetzung"
+      }
+    }
   }
 }

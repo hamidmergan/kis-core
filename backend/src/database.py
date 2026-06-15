@@ -10,6 +10,7 @@ from src.features.admin.repository.roles import *  # noqa: F401,F403
 from src.features.admin.repository.settings import *  # noqa: F401,F403
 from src.features.jobs.repository import *  # noqa: F401,F403
 from src.features.quotas.repository import *  # noqa: F401,F403
+from src.features.glossaries.repository import *  # noqa: F401,F403
 from src.features.ai_assistant.repository.workspaces import *  # noqa: F401,F403
 from src.features.ai_assistant.repository.access_links import *  # noqa: F401,F403
 from src.features.ai_assistant.repository.enrollments import *  # noqa: F401,F403
@@ -17,7 +18,6 @@ from src.features.ai_assistant.repository.sources import *  # noqa: F401,F403
 from src.features.ai_assistant.repository.chunks import *  # noqa: F401,F403
 from src.features.ai_assistant.repository.chat import *  # noqa: F401,F403
 from src.features.ai_assistant.repository.notes import *  # noqa: F401,F403
-from src.features.ai_assistant.repository.summaries import *  # noqa: F401,F403
 from src.features.ai_assistant.repository.mindmaps import *  # noqa: F401,F403
 from src.features.ai_assistant.repository.data_tables import *  # noqa: F401,F403
 from src.features.ai_assistant.repository.schedule import *  # noqa: F401,F403
@@ -25,3 +25,5 @@ from src.features.ai_assistant.repository.glossary import *  # noqa: F401,F403
 from src.features.ai_assistant.repository.exercises import *  # noqa: F401,F403
 from src.features.ai_assistant.repository.stats import *  # noqa: F401,F403
 from src.features.ai_assistant.repository.language_level import *  # noqa: F401,F403
+from src.features.ai_providers.repository.providers import *  # noqa: F401,F403
+from src.features.ai_providers.repository.feature_routes import *  # noqa: F401,F403

@@ -13,6 +13,7 @@ export function VocabFlashcards({
   breadcrumbs?: BreadcrumbItem[];
 }) {
   const t = useTranslations("workspace.detail.languageTraining");
+  const tChip = useTranslations("sourceChip");
   const [index, setIndex] = useState(0);
   const [flipped, setFlipped] = useState(false);
   const [results, setResults] = useState<{ glossary_entry_id: number; correct: boolean }[]>([]);
@@ -141,7 +142,7 @@ export function VocabFlashcards({
                     <span className="text-sm leading-relaxed font-semibold" style={{ color: "var(--foreground)" }}
                       dangerouslySetInnerHTML={{ __html: _md(card.definition) }} />
                     {card.page_number && (
-                      <span className="text-xs mt-1" style={{ color: "var(--muted)" }}>{card.filename ? _chunkLabel(card.filename, card.page_number!) : t("glossary.pageShort", { page: card.page_number })}</span>
+                      <span className="text-xs mt-1" style={{ color: "var(--muted)" }}>{card.filename ? _chunkLabel(card.filename, card.page_number!, undefined, (key, vals) => tChip(key, vals)) : t("glossary.pageShort", { page: card.page_number })}</span>
                     )}
                   </>
                 )}

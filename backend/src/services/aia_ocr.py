@@ -1,15 +1,23 @@
-"""OCR providers for KI Tutor - Vision-LLM based.
+"""OCR providers for KI Tutor.
 
-OCR is delegated to an OpenAI-compatible /v1/chat/completions endpoint with a
-Vision-LLM. The same adapter works against any OpenAI-compatible vision model;
-the active deployment (model + base_url + key) is picked at runtime via the
-admin panel. Image input is passed as a base64 data URL.
+Two backends are supported, both selected at runtime via the admin panel:
+
+- ``DoclingOcrProvider``: Docling document-understanding API. Per-image POST
+  with a dedicated layout+OCR model. ~7s per typical slide vs. 30-70s for the
+  vision-LLM route — 5-10x faster in practice.
+- ``OpenAICompatOcrProvider``: OpenAI-compatible /v1/chat/completions with a
+  Vision-LLM. Kept as an alternative provider.
+
+Both expose the same ``ocr_image(bytes) -> str`` interface so the chunker
+doesn't care which is active.
 """
 
 import base64
+import re
 from abc import ABC, abstractmethod
 from typing import Optional
 
+import httpx
 from loguru import logger
 
 
@@ -59,12 +67,15 @@ def _call_vlm(client, model: str, image_bytes: bytes, mime_type: str) -> str:
 class OpenAICompatOcrProvider(OcrProvider):
     """OCR via any OpenAI-compatible Vision-LLM endpoint.
 
-    Multiple deployments (KISSKI, THL myLab, etc.) are different instances of
-    this same class with their own ``base_url`` / ``api_key`` / ``model``.
+    Multiple deployments are different instances of this same class with
+    their own ``base_url`` / ``api_key`` / ``model``.
     """
 
     def __init__(self, base_url: str, api_key: str, model: str) -> None:
-        from langfuse.openai import OpenAI
+        # Plain OpenAI client (not langfuse-wrapped): vision payloads trigger
+        # Langfuse multimodal media uploads, which require an S3 bucket we
+        # don't run. Tracing OCR calls isn't worth the operational cost.
+        from openai import OpenAI
         self._client = OpenAI(api_key=api_key, base_url=base_url)
         self._model = model
 
@@ -72,51 +83,67 @@ class OpenAICompatOcrProvider(OcrProvider):
         return _call_vlm(self._client, self._model, image_bytes, mime_type)
 
 
-# ── Per-provider factory functions ─────────────────────────────────────────
+class DoclingOcrProvider(OcrProvider):
+    """OCR via the Docling document-understanding API.
 
-def _make_kisski_ocr_provider() -> OpenAICompatOcrProvider:
-    """Build the KISSKI Vision-LLM OCR provider."""
-    from src.config import Settings
-    from src.services.runtime_models import get_model
-    s = Settings()
-    return OpenAICompatOcrProvider(
-        base_url=s.primary_provider_base_url,
-        api_key=s.primary_provider_api_key,
-        model=get_model("primary_ocr_model"),
-    )
+    Posts the image as a single-page document to ``/v1/documents/convert`` and
+    returns the extracted markdown. The API runs IBM's Granite-Docling model
+    end-to-end (layout + OCR) - much faster than a generic vision LLM, but the
+    response is one markdown blob with no page metadata. Since the chunker
+    calls this once per PDF page, page-mapping comes from the caller, not the
+    response.
+    """
 
+    _PICTURE_REF_RE = re.compile(r"^picture-\d+\.png\s*$", re.MULTILINE)
+    _IMAGE_COMMENT_RE = re.compile(r"<!--\s*image\s*-->")
 
-def _make_mylab_ocr_provider() -> OpenAICompatOcrProvider:
-    """Build the THL myLab Vision-LLM OCR provider."""
-    from src.config import Settings
-    from src.services.runtime_models import get_model
-    s = Settings()
-    base = (s.fallback_provider_base_url or "").rstrip("/")
-    if not base:
-        raise RuntimeError("myLab OCR base URL not configured")
-    return OpenAICompatOcrProvider(
-        base_url=f"{base}/v1",
-        api_key="ignored",
-        model=get_model("fallback_ocr_model"),
-    )
+    def __init__(self, base_url: str, api_key: str, timeout: float = 120.0) -> None:
+        self._endpoint = f"{base_url.rstrip('/')}/documents/convert"
+        self._api_key = api_key
+        self._timeout = timeout
+
+    def ocr_image(self, image_bytes: bytes, mime_type: str = "image/png") -> str:
+        ext = mime_type.rsplit("/", 1)[-1] or "png"
+        files = {"document": (f"page.{ext}", image_bytes, mime_type)}
+        headers = {"Authorization": f"Bearer {self._api_key}"}
+        with httpx.Client(timeout=self._timeout) as client:
+            response = client.post(self._endpoint, files=files, headers=headers)
+        response.raise_for_status()
+        markdown = (response.json().get("markdown") or "").strip()
+        # Docling tags image-input responses with "<!-- image -->" and inlines
+        # picture-N.png placeholders for embedded images. Neither belongs in
+        # the chunk text - the rendered page is the source of truth visually.
+        markdown = self._IMAGE_COMMENT_RE.sub("", markdown)
+        markdown = self._PICTURE_REF_RE.sub("", markdown)
+        return markdown.strip()
 
 
 def get_ocr_provider() -> Optional[OcrProvider]:
-    """Return the currently-active OCR provider, or None if OCR is disabled.
+    """Return the currently-active OCR provider, or None if OCR is unconfigured.
 
-    The admin panel exposes one toggle per provider; only one is expected to
-    be active at a time. DB-key names (``primary_ocr_enabled`` /
-    ``fallback_ocr_enabled``) are legacy and kept for backward compatibility.
+    Reads the ``ocr`` feature route from the admin tab. The chosen protocol
+    determines the concrete client:
+      - ``docling``: returns the ``DoclingAdapter`` (which carries an
+        ``ocr_image`` method that matches the ``OcrProvider`` interface).
+      - ``openai_compat``: returns an ``OpenAICompatOcrProvider`` driving a
+        Vision-LLM via ``/v1/chat/completions``.
+
+    Returns None early when the global ``ocr_enabled`` switch (admin "System"
+    tab) is off, so OCR is skipped for ALL workspaces/modules regardless of the
+    configured feature route. Default is on, preserving prior behaviour.
     """
     from src import database as db
-    if db.get_setting("primary_ocr_enabled", "true").lower() == "true":
-        try:
-            return _make_kisski_ocr_provider()
-        except Exception as e:
-            logger.warning("KISSKI OCR init failed: {}", e)
-    if db.get_setting("fallback_ocr_enabled", "false").lower() == "true":
-        try:
-            return _make_mylab_ocr_provider()
-        except Exception as e:
-            logger.warning("myLab OCR init failed: {}", e)
-    return None
+    if db.get_setting("ocr_enabled", "true").lower() != "true":
+        logger.info("OCR resolver: globally disabled via admin setting, skipping OCR")
+        return None
+    from src.services import feature_router
+    try:
+        binding = feature_router.resolve("ocr")
+    except feature_router.FeatureNotConfigured as e:
+        logger.warning("OCR resolver: {}", e)
+        return None
+    try:
+        return feature_router.make_ocr_provider(binding)
+    except Exception as e:
+        logger.warning("OCR provider init failed: {}", e)
+        return None

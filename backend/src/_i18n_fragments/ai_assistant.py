@@ -7,12 +7,12 @@ MESSAGES: dict[str, dict[str, str]] = {
         "en": "Invalid translation mode",
     },
     "ai.workspace.transcriptDefaultLangInvalid": {
-        "de": "Ungültige Standard-Transkript-Sprache",
-        "en": "Invalid default transcript language",
+        "de": "Ungültige Standard-Transkript-Ansicht",
+        "en": "Invalid default transcript view",
     },
-    "ai.workspace.summaryModeInvalid": {
-        "de": "Ungültiger Summary-Modus",
-        "en": "Invalid summary mode",
+    "ai.workspace.transcriptTargetLangInvalid": {
+        "de": "Ungültige Zielsprache für die Übersetzung",
+        "en": "Invalid translation target language",
     },
     "ai.workspace.invalidEnrollCode": {
         "de": "Ungültiger oder abgelaufener Einschreibecode",
@@ -24,8 +24,8 @@ MESSAGES: dict[str, dict[str, str]] = {
     },
     # Sources
     "ai.source.maxPerWorkspace": {
-        "de": "Maximal {max} Sources pro Workspace erlaubt. Bitte lösche nicht mehr benötigte Sources.",
-        "en": "Maximum {max} sources per workspace allowed. Please delete sources you no longer need.",
+        "de": "Maximal {max} Sources pro {label} erlaubt. Bitte lösche nicht mehr benötigte Sources.",
+        "en": "Maximum {max} sources per {label} allowed. Please delete sources you no longer need.",
     },
     "ai.source.maxAllowed": {
         "de": "Maximal {max} Sources erlaubt",
@@ -47,6 +47,10 @@ MESSAGES: dict[str, dict[str, str]] = {
         "de": "Nur {extensions} erlaubt",
         "en": "Only {extensions} allowed",
     },
+    "ai.source.duplicateName": {
+        "de": "Eine Source mit dem Namen \"{name}\" existiert bereits in diesem {label}.",
+        "en": "A source named \"{name}\" already exists in this {label}.",
+    },
     "ai.source.fileTooLargeMb": {
         "de": "Datei zu groß (max {max} MB)",
         "en": "File too large (max {max} MB)",
@@ -66,10 +70,6 @@ MESSAGES: dict[str, dict[str, str]] = {
     "ai.source.pdfConversionFailed": {
         "de": "Konvertierung nach PDF fehlgeschlagen",
         "en": "Conversion to PDF failed",
-    },
-    "ai.summary.disabled": {
-        "de": "Seiten-Zusammenfassungen sind in diesem Workspace deaktiviert",
-        "en": "Page summaries are disabled in this workspace",
     },
     # Chat / RAG
     "ai.chat.noIndexedSources": {

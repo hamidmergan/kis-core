@@ -65,7 +65,7 @@ class LLMTranslationClient:
         api_key: str,
         base_url: str,
         model: str,
-        provider: str = "kisski",
+        provider: str = "openai_compat",
         glossary: dict[str, str] | None = None,
     ):
         self._client = OpenAI(api_key=api_key, base_url=base_url)
@@ -125,8 +125,35 @@ class LLMTranslationClient:
         )
         return self._completion_with_retry(system, text)
 
+    @staticmethod
+    def _parse_numbered(raw: str, n: int) -> tuple[list[str | None], list[int]]:
+        """Parse a ``1. ...\\n2. ...`` response into ``n`` slots keyed by item number.
+
+        Keying by the explicit number (not split position) means a single dropped or
+        duplicated line shifts nothing. Returns ``(results, missing)`` where ``results``
+        holds ``None`` for any item the model omitted and ``missing`` lists those 0-based
+        indices, so the caller can retranslate only those instead of the whole chunk.
+        """
+        parsed: dict[int, str] = {}
+        for m in re.finditer(
+            r"^\s*(\d+)\.\s*(.*?)(?=\n\s*\d+\.\s|\Z)", raw, flags=re.MULTILINE | re.DOTALL
+        ):
+            num = int(m.group(1))
+            text = m.group(2).strip()
+            if 1 <= num <= n and text:
+                parsed.setdefault(num, text)
+        results: list[str | None] = [parsed.get(i + 1) for i in range(n)]
+        missing = [i for i, r in enumerate(results) if r is None]
+        return results, missing
+
     def _translate_chunk(self, texts: list[str], source_lang: str, target_lang: str) -> list[str]:
-        """Translate a single chunk in one API call. Falls back to per-item calls on parse mismatch."""
+        """Translate a single chunk in one API call.
+
+        On a parse mismatch we retranslate only the missing items individually rather
+        than the whole chunk, so a single dropped line costs one extra call instead of
+        exploding a 40-item chunk into 40 per-item calls (matters under the shared rate
+        limit). Only a fully unparseable response falls all the way back to per-item.
+        """
         if source_lang:
             instruction = f"from {source_lang} to {target_lang}"
         else:
@@ -139,18 +166,25 @@ class LLMTranslationClient:
         )
 
         raw = self._completion_with_retry(system, numbered)
+        results, missing = self._parse_numbered(raw, len(texts))
 
-        parts = re.split(r"^\d+\.\s+", raw, flags=re.MULTILINE)
-        results = [p.rstrip("\n") for p in parts if p]
+        if not missing:
+            return results  # type: ignore[return-value]
 
-        if len(results) == len(texts):
-            return results
+        if len(missing) == len(texts):
+            logger.warning(
+                "LLM chunk unparseable ({} items), per-item fallback.", len(texts),
+            )
+            return self._translate_each(texts, source_lang, target_lang)
 
         logger.warning(
-            "LLM chunk parse mismatch: expected {}, got {}. Falling back to per-item calls.",
-            len(texts), len(results),
+            "LLM chunk: {}/{} items missing, retranslating those individually.",
+            len(missing), len(texts),
         )
-        return self._translate_each(texts, source_lang, target_lang)
+        fixes = self._translate_each([texts[i] for i in missing], source_lang, target_lang)
+        for idx, fixed in zip(missing, fixes):
+            results[idx] = fixed
+        return results  # type: ignore[return-value]
 
     def _translate_each(self, texts: list[str], source_lang: str, target_lang: str) -> list[str]:
         """Translate each text with an individual API call, in parallel."""

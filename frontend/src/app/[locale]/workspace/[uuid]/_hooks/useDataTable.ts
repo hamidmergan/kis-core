@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { api } from "@/lib/api";
 import type { DataTableData, DataTableSource } from "../_types";
 
 interface UseDataTableOptions {
@@ -73,9 +74,10 @@ export function useDataTable({ uuid, selectedSourceIds }: UseDataTableOptions) {
     if (selectedSourceIds.length === 0) return;
     setDataTableLoading(true);
     try {
-      const res = await fetch(`/api/ai-assistant/workspaces/${uuid}/data_table/generate`, {
+      // api.fetch attaches Accept-Language from the NEXT_LOCALE cookie so the
+      // table is generated in the UI language (raw fetch defaulted to de).
+      const res = await api.fetch(`/api/ai-assistant/workspaces/${uuid}/data_table/generate`, {
         method: "POST",
-        credentials: "include",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ active_source_ids: selectedSourceIds.slice(0, 5) }),
       });

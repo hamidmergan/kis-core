@@ -37,7 +37,6 @@ import { useVoices } from "@/hooks/useVoices";
 import { useScriptEditing, useScriptAutosave } from "@/hooks/useScriptEditing";
 import { useScreencastResume, useSlideImageBackfill, useActiveJobCheck } from "@/hooks/useScreencastResume";
 import { useLanguageConfig } from "@/hooks/useLanguageConfig";
-import { useEnabledTools } from "@/hooks/useEnabledTools";
 import { useRenderResult } from "@/hooks/useRenderResult";
 import { useFailedRender } from "@/hooks/useFailedRender";
 import { useScriptInputMode } from "@/hooks/useScriptInputMode";
@@ -79,6 +78,8 @@ function ScreencastPageInner() {
 
 
   const [glossaryIds, setGlossaryIds] = useState<string[]>(["", "", ""]);
+  const [translationProviders, setTranslationProviders] = useState<{ id: number; name: string }[]>([]);
+  const [translationProviderId, setTranslationProviderId] = useState<number | null>(null);
   const renderResult = useRenderResult();
   const { downloadBlob, videoUrl, audioId, audioCount, resultStem, apply: applyRenderResult, clear: clearRenderResult } = renderResult;
 
@@ -106,28 +107,33 @@ function ScreencastPageInner() {
   const {
     loaded: providersLoaded,
     providers,
-    defaultProvider,
+    defaultProviderId,
     defaultVoiceId,
-    elevenlabs: voices,
-    kokoro: kokoroVoices,
-    mylab: mylabVoices,
   } = voicesResult;
-  const elevenlabsEnabled = providers.elevenlabs;
-  const kokoroEnabled = providers.kokoro;
-  const mylabEnabled = providers.mylab;
   const [voiceId, setVoiceId] = useState("");
-  const [ttsProvider, setTtsProvider] = useState<"elevenlabs" | "kokoro" | "mylab">("kokoro");
+  const [providerId, setProviderId] = useState<number>(0);
   useEffect(() => {
-    if (defaultProvider) setTtsProvider(defaultProvider);
-  }, [defaultProvider]);
+    if (defaultProviderId != null && providerId === 0) setProviderId(defaultProviderId);
+  }, [defaultProviderId, providerId]);
   useEffect(() => {
     if (defaultVoiceId && !voiceId) setVoiceId(defaultVoiceId);
   }, [defaultVoiceId, voiceId]);
-  const { languages, sourceLang, setSourceLang, targetLang, setTargetLang } = useLanguageConfig();
-  const { isToolEnabled } = useEnabledTools();
-  const showDemoLink = isToolEnabled("screencast-demo");
-
+  const { languages, targetLang, setTargetLang } = useLanguageConfig();
+  const [skipTranslation, setSkipTranslation] = useState(false);
   const [hasActiveJob, setHasActiveJob] = useActiveJobCheck("screencast");
+
+  useEffect(() => {
+    fetch("/api/translate/config", { credentials: "include" })
+      .then((r) => r.json())
+      .then((data) => {
+        const provs: { id: number; name: string }[] = (data.providers ?? []).map(
+          (p: { id: number; label: string }) => ({ id: p.id, name: p.label })
+        );
+        setTranslationProviders(provs);
+        if (provs.length > 0) setTranslationProviderId(provs[0].id);
+      })
+      .catch(() => {});
+  }, []);
 
   const scriptInput = useScriptInputMode();
   const {
@@ -194,10 +200,9 @@ function ScreencastPageInner() {
     resetScriptEditing();
     failedRender.clear();
     sessionStorage.removeItem(RENDER_SESSION_KEY);
-    setSourceLang("DE");
+    setSkipTranslation(false);
     setTargetLang("EN-US");
     scriptInput.reset();
-    setTtsProvider(kokoroEnabled ? "kokoro" : elevenlabsEnabled ? "elevenlabs" : "kokoro");
     if (fileRef.current) fileRef.current.value = "";
   }, [translateJobUuid]);
 
@@ -245,9 +250,8 @@ function ScreencastPageInner() {
     slidePause,
     dpi,
     voiceId,
-    ttsProvider,
-    kokoroVoices,
-    voices,
+    providerId,
+    providers,
     failedRender,
     renderResult,
     checkBeforeSubmit,
@@ -298,9 +302,10 @@ function ScreencastPageInner() {
     slides,
     dispatch,
     file,
-    sourceLang,
+    skipTranslation,
     targetLang,
     glossaryIds,
+    translationProviderId,
     mergeToApiJson,
     checkBeforeSubmit,
     checkJobStillValid,
@@ -401,7 +406,7 @@ function ScreencastPageInner() {
             <ScreencastStepper
               step={step}
               maxReachedIdx={maxReachedIdx}
-              sourceLang={sourceLang}
+              skipTranslation={skipTranslation}
               onStepClick={handleStepClick}
             />
             <div className="flex justify-between mb-6">
@@ -438,12 +443,11 @@ function ScreencastPageInner() {
         {/* ── Step: Upload ── */}
         {!resumeLoading && step === "upload" && (
           <UploadStep
-            showDemoLink={showDemoLink}
             hasActiveJob={hasActiveJob}
             file={file}
             fileError={fileError}
             dragOver={dragOver}
-            sourceLang={sourceLang}
+            skipTranslation={skipTranslation}
             targetLang={targetLang}
             languages={languages}
             glossaryIds={glossaryIds}
@@ -452,9 +456,12 @@ function ScreencastPageInner() {
             onDragLeave={handleDragLeave}
             onDrop={handleDrop}
             onFileSelect={handleFileSelect}
-            onSourceLangChange={setSourceLang}
+            onSkipTranslationChange={setSkipTranslation}
             onTargetLangChange={setTargetLang}
             onGlossaryIdsChange={setGlossaryIds}
+            translationProviders={translationProviders}
+            translationProviderId={translationProviderId}
+            onTranslationProviderChange={setTranslationProviderId}
             onUploadNext={handleUploadNext}
           />
         )}
@@ -462,8 +469,7 @@ function ScreencastPageInner() {
         {/* ── Step: Translating (loading) ── */}
         {!resumeLoading && step === "translating" && (
           <TranslatingStep
-            sourceLang={sourceLang}
-            targetLang={targetLang}
+            skipTranslation={skipTranslation}
             onCancel={() => {
               const uuid = currentJobUuidRef.current;
               currentJobUuidRef.current = null;
@@ -568,13 +574,8 @@ function ScreencastPageInner() {
         {!resumeLoading && step === "tts-settings" && (
           <TtsSettingsStep
             providersLoaded={providersLoaded}
-            elevenlabsEnabled={elevenlabsEnabled}
-            kokoroEnabled={kokoroEnabled}
-            mylabEnabled={mylabEnabled}
-            ttsProvider={ttsProvider}
-            voices={voices}
-            kokoroVoices={kokoroVoices}
-            mylabVoices={mylabVoices}
+            providers={providers}
+            providerId={providerId}
             voiceId={voiceId}
             speed={speed}
             slidePause={slidePause}
@@ -585,7 +586,7 @@ function ScreencastPageInner() {
             scriptOverLimit={scriptOverLimit}
             maxChars={SCREENCAST_MAX_CHARS}
             ttsSettingsError={ttsSettingsError}
-            onTtsProviderChange={setTtsProvider}
+            onProviderIdChange={setProviderId}
             onVoiceIdChange={setVoiceId}
             onSpeedChange={setSpeed}
             onSlidePauseChange={setSlidePause}

@@ -8,14 +8,14 @@ import { STEP_KEYS, stepToIndex } from "./steps";
 interface ScreencastStepperProps {
   step: ScreencastStep;
   maxReachedIdx: number;
-  sourceLang: string;
+  skipTranslation: boolean;
   onStepClick: (index: number) => void;
 }
 
 export default function ScreencastStepper({
   step,
   maxReachedIdx,
-  sourceLang,
+  skipTranslation,
   onStepClick,
 }: ScreencastStepperProps) {
   const t = useTranslations("stepper");
@@ -96,7 +96,7 @@ export default function ScreencastStepper({
       <ol className="flex items-center gap-1 sm:gap-2 min-w-0 w-max sm:w-full">
         {STEP_KEYS.map((stepKey, i) => {
           const label = t(`steps.${stepKey}`);
-          const isSkipped = sourceLang === "EN" && (i === 1 || i === 2);
+          const isSkipped = skipTranslation && (i === 1 || i === 2);
           const isDone = !isSkipped && i < currentIdx;
           const isActive = i === currentIdx;
           const isReached = i <= maxReachedIdx;

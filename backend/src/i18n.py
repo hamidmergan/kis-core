@@ -19,9 +19,30 @@ SUPPORTED_LOCALES = ("de", "en")
 DEFAULT_LOCALE = "de"
 
 # Translate-tool language codes (DeepL format).
-TRANSLATE_LANGUAGES: tuple[str, ...] = ("DE", "EN-US")
+TRANSLATE_LANGUAGES: tuple[str, ...] = (
+    "DE", "EN-US", "FR", "ES", "IT", "UK", "TR", "AR", "RU",
+)
 DEFAULT_TRANSLATE_SOURCE = "DE"
 DEFAULT_TRANSLATE_TARGET = "EN-US"
+
+# Transcript-translation languages — the ONE place to add/remove a target a
+# workspace owner may translate media transcripts into. Keyed by the short ISO
+# code used both for the VTT filename (`_transcript.<code>.vtt`) and the player
+# <track srclang>. Each entry maps to the DeepL target code and the English
+# language name embedded in the LLM-translation prompt. Mirrors the 9
+# TRANSLATE_LANGUAGES above; `lang.<deepl>` i18n keys supply display labels.
+TRANSCRIPT_LANGUAGES: dict[str, dict[str, str]] = {
+    "de": {"deepl": "DE",    "name": "German"},
+    "en": {"deepl": "EN-US", "name": "English"},
+    "fr": {"deepl": "FR",    "name": "French"},
+    "es": {"deepl": "ES",    "name": "Spanish"},
+    "it": {"deepl": "IT",    "name": "Italian"},
+    "uk": {"deepl": "UK",    "name": "Ukrainian"},
+    "tr": {"deepl": "TR",    "name": "Turkish"},
+    "ar": {"deepl": "AR",    "name": "Arabic"},
+    "ru": {"deepl": "RU",    "name": "Russian"},
+}
+DEFAULT_TRANSCRIPT_TARGET = "en"
 
 
 # All user-facing backend strings live here. Keys follow `area.key` convention.
@@ -101,6 +122,10 @@ MESSAGES: dict[str, dict[str, str]] = {
         "de": "Das PDF enthält keinen lesbaren Text. Gescannte PDFs werden aktuell nicht unterstützt. Bitte konvertiere das PDF zuerst mit einem OCR-Tool (z.B. Adobe Acrobat oder online unter smallpdf.com).",
         "en": "The PDF does not contain readable text. Scanned PDFs are not supported. Please convert the PDF with an OCR tool first (e.g. Adobe Acrobat or online via smallpdf.com).",
     },
+    "ai.source.ocrFailed": {
+        "de": "OCR fehlgeschlagen auf Seite {page} - der Texterkennungs-Dienst war nach mehreren Versuchen nicht erreichbar (evtl. überlastet). Es ging nichts verloren: Bitte später erneut indexieren.",
+        "en": "OCR failed on page {page} - the text-recognition service stayed unreachable after several attempts (possibly overloaded). Nothing was lost: please re-index later.",
+    },
     "file.contentMismatch": {
         "de": "Dateiinhalt passt nicht zur Endung. Möglicherweise wurde die Datei umbenannt oder ist beschädigt.",
         "en": "File content does not match the extension. The file may have been renamed or is corrupted.",
@@ -168,22 +193,78 @@ MESSAGES: dict[str, dict[str, str]] = {
         "de": "Kein LLM-Provider konfiguriert",
         "en": "No LLM provider configured",
     },
-    "elevenlabs.notConfigured": {
-        "de": "ElevenLabs API Key nicht konfiguriert",
-        "en": "ElevenLabs API key not configured",
-    },
-    "kokoro.unreachable": {
-        "de": "Kokoro Server nicht erreichbar",
-        "en": "Kokoro server unreachable",
-    },
-    "mylab.ttsUnreachable": {
-        "de": "myLab TTS Server nicht erreichbar",
-        "en": "myLab TTS server unreachable",
-    },
     # Rate limiting / burst block
     "rateLimit.blocked": {
         "de": "Chat ist bis {time} Uhr gesperrt (zu viele Anfragen in kurzer Zeit). Bitte später erneut versuchen.",
         "en": "Chat is locked until {time} (too many requests in a short time). Please try again later.",
+    },
+    "rateLimit.uploadHourly": {
+        "de": "Stunden-Limit erreicht ({limit} Uploads pro Stunde). Erneut versuchen in ~{minutes} Min.",
+        "en": "Hourly limit reached ({limit} uploads per hour). Try again in ~{minutes} min.",
+    },
+    "admin.settings.maxSourcesOutOfRange": {
+        "de": "Quellen-Limit muss zwischen {min} und {max} liegen.",
+        "en": "Source limit must be between {min} and {max}.",
+    },
+    "admin.settings.scheduleRetentionOutOfRange": {
+        "de": "Aufbewahrungsdauer muss zwischen {min} und {max} Tagen liegen, oder leer für 'nie löschen'.",
+        "en": "Retention must be between {min} and {max} days, or empty for 'never delete'.",
+    },
+    "admin.settings.contextBudgetOutOfRange": {
+        "de": "Kontext-Budget muss zwischen {min} und {max} Zeichen liegen.",
+        "en": "Context budget must be between {min} and {max} characters.",
+    },
+    "admin.settings.toolContextBudgetOutOfRange": {
+        "de": "Tool-Kontext-Budget muss zwischen {min} und {max} Zeichen liegen.",
+        "en": "Tool context budget must be between {min} and {max} characters.",
+    },
+    "admin.settings.summaryBatchOutOfRange": {
+        "de": "Zusammenfassungs-Häppchen muss zwischen {min} und {max} Zeichen liegen.",
+        "en": "Summary batch must be between {min} and {max} characters.",
+    },
+    "admin.settings.embeddingBatchOutOfRange": {
+        "de": "Embedding-Chunks pro Aufruf muss zwischen {min} und {max} liegen.",
+        "en": "Embedding chunks per call must be between {min} and {max}.",
+    },
+    "admin.settings.maxPagesOutOfRange": {
+        "de": "Maximale Seiten pro Quelle muss zwischen {min} und {max} liegen.",
+        "en": "Max pages per source must be between {min} and {max}.",
+    },
+    "admin.providers.requiredFields": {
+        "de": "Name und Base-URL sind Pflicht.",
+        "en": "Name and base URL are required.",
+    },
+    "admin.providers.unknownProtocol": {
+        "de": "Unbekanntes Protokoll: {protocol}",
+        "en": "Unknown protocol: {protocol}",
+    },
+    "admin.providers.nameTaken": {
+        "de": "Ein Anbieter mit dem Namen \"{name}\" existiert bereits.",
+        "en": "A provider with the name \"{name}\" already exists.",
+    },
+    "admin.providers.notFound": {
+        "de": "Anbieter nicht gefunden.",
+        "en": "Provider not found.",
+    },
+    "admin.providers.unknownCapability": {
+        "de": "Unbekannte Funktion(en): {items}",
+        "en": "Unknown capability/ies: {items}",
+    },
+    "admin.providers.unknownFeature": {
+        "de": "Unbekannte Funktion: {feature}",
+        "en": "Unknown feature: {feature}",
+    },
+    "admin.providers.userChoiceNotSupported": {
+        "de": "Funktion {feature} unterstützt keine Nutzer-Auswahl.",
+        "en": "Feature {feature} does not support a user-choice list.",
+    },
+    "admin.providers.userChoiceUnknownProvider": {
+        "de": "Anbieter {provider_id} aus der Auswahl existiert nicht.",
+        "en": "Provider {provider_id} from the choice list does not exist.",
+    },
+    "admin.providers.testNoProvider": {
+        "de": "Kein Anbieter für diese Funktion ausgewählt.",
+        "en": "No provider selected for this feature.",
     },
     # Quota enforcement
     "quota.limitReached": {
@@ -225,7 +306,6 @@ MESSAGES: dict[str, dict[str, str]] = {
         "en": "Maintenance in progress - please try again later.",
     },
     # Tool labels (shown in job listing)
-    "tool.screencast_demo_render": {"de": "Demo-Screencast", "en": "Demo screencast"},
     "tool.screencast_render": {"de": "Screencast", "en": "Screencast"},
     "tool.screencast_translate": {
         "de": "Screencast-Übersetzung",
@@ -244,6 +324,13 @@ MESSAGES: dict[str, dict[str, str]] = {
     # Translate language labels (DeepL codes)
     "lang.DE": {"de": "Deutsch", "en": "German"},
     "lang.EN-US": {"de": "Englisch", "en": "English"},
+    "lang.FR": {"de": "Französisch", "en": "French"},
+    "lang.ES": {"de": "Spanisch", "en": "Spanish"},
+    "lang.IT": {"de": "Italienisch", "en": "Italian"},
+    "lang.UK": {"de": "Ukrainisch", "en": "Ukrainian"},
+    "lang.TR": {"de": "Türkisch", "en": "Turkish"},
+    "lang.AR": {"de": "Arabisch", "en": "Arabic"},
+    "lang.RU": {"de": "Russisch", "en": "Russian"},
 }
 
 

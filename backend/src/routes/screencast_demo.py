@@ -1,21 +1,19 @@
 """Screencast-Demo route: static playthrough using pre-baked demo files.
 
-No computation, no Celery tasks, no PPTX parsing.
-Files are read from S3 under the 'demo/' prefix (production) or from
-backend/demo/ on the local filesystem when DEMO_LOCAL=true:
-  demo/images/slide_001.png ...  → slide images
+No computation, no Celery tasks, no PPTX parsing. All files are read from
+backend/demo/ on the local filesystem (mounted into the container at
+/app/demo, read-only):
+  demo/images/slide_*.png        → slide images
   demo/accepted_scripts.json     → scripts per slide (list[str])
   demo/output.mp4                → pre-rendered video
+  demo/audio/*.mp3, demo/*.pptx  → extras for the bundle download
 """
 
 import base64
 import io
 import json
-import os
-import zipfile
 from pathlib import Path
 
-from botocore.exceptions import ClientError
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
 from loguru import logger
@@ -25,7 +23,6 @@ from src.dependencies import get_current_user
 from src.dependencies_rbac import require_tool_access
 from src.i18n import get_locale, t
 from src.limits import BUNDLE_INCLUDE_AUDIO, BUNDLE_INCLUDE_IMAGES
-from src.storage import _S3_BUCKET, _s3
 
 router = APIRouter(
     tags=["screencast-demo"],
@@ -33,11 +30,6 @@ router = APIRouter(
 )
 
 DEMO_DIR = Path(__file__).resolve().parent.parent.parent / "demo"
-_S3_DEMO_PREFIX = "demo"
-
-# DEMO_LOCAL=true  -> reads from backend/demo/ (local)
-# DEMO_LOCAL=false / not set -> reads from S3 demo/ prefix (server)
-DEMO_LOCAL = os.environ.get("DEMO_LOCAL", "false").lower() == "true"
 
 
 # ── Pydantic models ──────────────────────────────────────────────────────────
@@ -54,52 +46,18 @@ class DemoRenderRequest(BaseModel):
     slide_pause: float = 0.5
     voice_id: str = ""
     voice_label: str = ""
-    provider: str = "kokoro"
-
-
-# ── S3 helpers ────────────────────────────────────────────────────────────────
-
-def _s3_get(key: str) -> bytes | None:
-    try:
-        resp = _s3().get_object(Bucket=_S3_BUCKET, Key=key)
-        return resp["Body"].read()
-    except ClientError:
-        return None
-
-
-def _s3_exists(key: str) -> bool:
-    try:
-        _s3().head_object(Bucket=_S3_BUCKET, Key=key)
-        return True
-    except ClientError:
-        return False
-
-
-def _s3_list_keys(prefix: str) -> list[str]:
-    resp = _s3().list_objects_v2(Bucket=_S3_BUCKET, Prefix=prefix)
-    return [obj["Key"] for obj in resp.get("Contents", [])]
+    provider_id: int = 0
 
 
 # ── Helper functions ─────────────────────────────────────────────────────────
 
-def _require_demo_enabled() -> None:
-    pass
-
-
 def _load_accepted_scripts() -> list[str]:
     """Load scripts from accepted_scripts.json or render_scripts.json."""
     for fname in ("accepted_scripts.json", "render_scripts.json"):
-        if not DEMO_LOCAL:
-            data_bytes = _s3_get(f"{_S3_DEMO_PREFIX}/{fname}")
-            if data_bytes is None:
-                continue
-            data = json.loads(data_bytes.decode("utf-8"))
-        else:
-            path = DEMO_DIR / fname
-            if not path.exists():
-                continue
-            data = json.loads(path.read_text(encoding="utf-8"))
-
+        path = DEMO_DIR / fname
+        if not path.exists():
+            continue
+        data = json.loads(path.read_text(encoding="utf-8"))
         if not isinstance(data, list):
             continue
         result: list[str] = []
@@ -118,16 +76,6 @@ def _load_accepted_scripts() -> list[str]:
 
 def _load_demo_images() -> list[str]:
     """Load slide images from demo/images/ as base64 strings."""
-    if not DEMO_LOCAL:
-        prefix = f"{_S3_DEMO_PREFIX}/images/"
-        keys = sorted(k for k in _s3_list_keys(prefix) if k.endswith(".png"))
-        result = []
-        for key in keys:
-            data = _s3_get(key)
-            if data:
-                result.append(base64.b64encode(data).decode())
-        return result
-
     images_dir = DEMO_DIR / "images"
     if not images_dir.exists():
         return []
@@ -137,16 +85,8 @@ def _load_demo_images() -> list[str]:
     return [base64.b64encode(img.read_bytes()).decode() for img in images]
 
 
-def _find_demo_video() -> str | Path | None:
-    """Return S3 key or local Path for the pre-rendered demo video."""
-    if not DEMO_LOCAL:
-        for name in ("output.mp4", "video.mp4"):
-            key = f"{_S3_DEMO_PREFIX}/{name}"
-            if _s3_exists(key):
-                return key
-        keys = sorted(k for k in _s3_list_keys(f"{_S3_DEMO_PREFIX}/") if k.endswith(".mp4"))
-        return keys[0] if keys else None
-
+def _find_demo_video() -> Path | None:
+    """Return local Path for the pre-rendered demo video."""
     for name in ("output.mp4", "video.mp4"):
         p = DEMO_DIR / name
         if p.exists():
@@ -156,10 +96,6 @@ def _find_demo_video() -> str | Path | None:
 
 
 def _demo_images_exist() -> bool:
-    if not DEMO_LOCAL:
-        prefix = f"{_S3_DEMO_PREFIX}/images/"
-        keys = [k for k in _s3_list_keys(prefix) if k.endswith(".png")]
-        return bool(keys)
     images_dir = DEMO_DIR / "images"
     return images_dir.exists() and bool(list(images_dir.glob("*.png")))
 
@@ -186,8 +122,6 @@ async def demo_translate(
     locale: str = Depends(get_locale),
 ):
     """Return demo slide data instantly from pre-baked files."""
-    _require_demo_enabled()
-
     scripts = _load_accepted_scripts()
     if not scripts:
         raise HTTPException(
@@ -213,8 +147,6 @@ async def demo_generate_scripts(
     locale: str = Depends(get_locale),
 ):
     """Return pre-baked scripts instantly."""
-    _require_demo_enabled()
-
     scripts = _load_accepted_scripts()
     if not scripts:
         raise HTTPException(
@@ -232,9 +164,7 @@ async def demo_render(
     _: dict = Depends(get_current_user),
     locale: str = Depends(get_locale),
 ):
-    """Stream the pre-rendered demo video directly."""
-    _require_demo_enabled()
-
+    """Stream the pre-rendered demo video directly from disk."""
     video = _find_demo_video()
     if not video:
         raise HTTPException(
@@ -242,16 +172,8 @@ async def demo_render(
             detail=t("screencastDemo.videoMissing", locale),
         )
 
-    if not DEMO_LOCAL:
-        video_bytes = _s3_get(str(video))
-        if not video_bytes:
-            raise HTTPException(status_code=404, detail=t("screencastDemo.videoReadFailed", locale))
-        name = str(video).split("/")[-1]
-    else:
-        video_bytes = Path(video).read_bytes()
-        name = Path(video).name
-
-    logger.info("Demo/render: streaming {} ({} bytes)", name, len(video_bytes))
+    video_bytes = video.read_bytes()
+    logger.info("Demo/render: streaming {} ({} bytes)", video.name, len(video_bytes))
     return StreamingResponse(
         iter([video_bytes]),
         media_type="video/mp4",
@@ -299,63 +221,38 @@ def _streaming_demo_bundle():
         return stream.read(pos_after - pos_before)
 
     def _add_file_and_yield(arcname: str, filepath: Path):
-        data = filepath.read_bytes()
-        return _add_bytes_and_yield(arcname, data)
+        return _add_bytes_and_yield(arcname, filepath.read_bytes())
 
     # Video
     video = _find_demo_video()
     if video:
-        if not DEMO_LOCAL:
-            data = _s3_get(str(video))
-            if data:
-                yield _add_bytes_and_yield(str(video).split("/")[-1], data)
-                del data
-        else:
-            yield _add_file_and_yield(Path(video).name, Path(video))
+        yield _add_file_and_yield(video.name, video)
 
     # Script JSON
     for fname in ("accepted_scripts.json", "render_scripts.json"):
-        if not DEMO_LOCAL:
-            data = _s3_get(f"{_S3_DEMO_PREFIX}/{fname}")
-            if data:
-                yield _add_bytes_and_yield(fname, data)
-                break
-        else:
-            p = DEMO_DIR / fname
-            if p.exists():
-                yield _add_file_and_yield(fname, p)
-                break
+        p = DEMO_DIR / fname
+        if p.exists():
+            yield _add_file_and_yield(fname, p)
+            break
 
-    # PPTX, audio, images
-    if not DEMO_LOCAL:
-        for key in sorted(k for k in _s3_list_keys(f"{_S3_DEMO_PREFIX}/") if k.endswith(".pptx")):
-            data = _s3_get(key)
-            if data:
-                yield _add_bytes_and_yield(key.split("/")[-1], data)
-        if BUNDLE_INCLUDE_AUDIO:
-            for key in sorted(_s3_list_keys(f"{_S3_DEMO_PREFIX}/audio/")):
-                data = _s3_get(key)
-                if data:
-                    yield _add_bytes_and_yield(f"audio/{key.split('/')[-1]}", data)
-        if BUNDLE_INCLUDE_IMAGES:
-            for key in sorted(k for k in _s3_list_keys(f"{_S3_DEMO_PREFIX}/images/") if k.endswith(".png")):
-                data = _s3_get(key)
-                if data:
-                    yield _add_bytes_and_yield(f"images/{key.split('/')[-1]}", data)
-    else:
-        for p in sorted(DEMO_DIR.glob("*.pptx")):
-            yield _add_file_and_yield(p.name, p)
-        if BUNDLE_INCLUDE_AUDIO:
-            audio_dir = DEMO_DIR / "audio"
-            if audio_dir.exists():
-                for f in sorted(audio_dir.iterdir()):
-                    if f.is_file():
-                        yield _add_file_and_yield(f"audio/{f.name}", f)
-        if BUNDLE_INCLUDE_IMAGES:
-            images_dir = DEMO_DIR / "images"
-            if images_dir.exists():
-                for f in sorted(images_dir.glob("*.png")):
-                    yield _add_file_and_yield(f"images/{f.name}", f)
+    # PPTX
+    for p in sorted(DEMO_DIR.glob("*.pptx")):
+        yield _add_file_and_yield(p.name, p)
+
+    # Audio
+    if BUNDLE_INCLUDE_AUDIO:
+        audio_dir = DEMO_DIR / "audio"
+        if audio_dir.exists():
+            for f in sorted(audio_dir.iterdir()):
+                if f.is_file():
+                    yield _add_file_and_yield(f"audio/{f.name}", f)
+
+    # Images
+    if BUNDLE_INCLUDE_IMAGES:
+        images_dir = DEMO_DIR / "images"
+        if images_dir.exists():
+            for f in sorted(images_dir.glob("*.png")):
+                yield _add_file_and_yield(f"images/{f.name}", f)
 
     # Finalize ZIP (central directory)
     pos_before = stream.tell()
@@ -367,9 +264,7 @@ def _streaming_demo_bundle():
 
 @router.get("/screencast-demo/bundle")
 async def demo_bundle(_: dict = Depends(get_current_user)):
-    """Return a ZIP with the demo video and audio files."""
-    _require_demo_enabled()
-
+    """Return a ZIP with the demo video, scripts, PPTX, audio and images."""
     return StreamingResponse(
         _streaming_demo_bundle(),
         media_type="application/zip",

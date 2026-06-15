@@ -19,11 +19,13 @@ interface HeaderProps {
 export default function Header({ hasSession = true, showLogout = false, showToolsToggle = false }: HeaderProps) {
   const t = useTranslations("header");
   const [isAdmin, setIsAdmin] = useState(false);
+  const [isLocalMode, setIsLocalMode] = useState(false);
 
   useEffect(() => {
     if (!showLogout || !hasSession) return;
     checkAuthStatus().then((s) => {
       setIsAdmin(s.is_admin ?? false);
+      setIsLocalMode(s.local_mode ?? false);
     });
   }, [showLogout, hasSession]);
 
@@ -70,7 +72,7 @@ export default function Header({ hasSession = true, showLogout = false, showTool
                 </Link>
               )}
 
-              {hasSession && (
+              {hasSession && !isLocalMode && (
                 <button
                   onClick={handleLogout}
                   aria-label={t("logout")}
@@ -86,6 +88,7 @@ export default function Header({ hasSession = true, showLogout = false, showTool
             <HeaderMobileMenu
               hasSession={hasSession}
               isAdmin={isAdmin}
+              isLocalMode={isLocalMode}
               showToolsToggle={showToolsToggle}
               onLogout={handleLogout}
             />

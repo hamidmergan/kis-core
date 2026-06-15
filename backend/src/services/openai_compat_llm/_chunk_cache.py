@@ -32,6 +32,12 @@ def _key(cache_key: str, chunk_index: int) -> str:
     return f"whisper:chunk:{cache_key}:{chunk_index}"
 
 
+def _text_key(cache_key: str, chunk_index: int) -> str:
+    # Separate namespace from the verbose (segments) cache so a text entry is never
+    # read as JSON segments and vice-versa.
+    return f"whisper:chunktext:{cache_key}:{chunk_index}"
+
+
 def get(cache_key: str, chunk_index: int) -> tuple[list[dict], str] | None:
     """Return cached ``(segments, language)`` for a chunk, or None if not cached."""
     try:
@@ -65,5 +71,37 @@ def clear(cache_key: str, total_chunks: int) -> None:
         client = _r()
         for i in range(total_chunks):
             client.delete(_key(cache_key, i))
+    except Exception:
+        pass
+
+
+# ── Plain-text variant (non-verbose transcribe/translate tool) ───────────────
+# The standalone transcription tool produces a TEXT string per chunk (text/srt/vtt),
+# not (segments, language). Same per-(job, chunk) keying and TTL so a failed run can
+# resume instead of re-burning quota.
+
+def get_text(cache_key: str, chunk_index: int) -> str | None:
+    """Return the cached chunk text, or None if not cached. An empty cached string ('')
+    is a valid hit (a silent chunk) and is returned as ''."""
+    try:
+        return _r().get(_text_key(cache_key, chunk_index))
+    except Exception:
+        return None
+
+
+def put_text(cache_key: str, chunk_index: int, text: str) -> None:
+    """Store a chunk's transcribed text. Best-effort: swallow Redis errors."""
+    try:
+        _r().setex(_text_key(cache_key, chunk_index), _TTL_SECONDS, text)
+    except Exception:
+        pass
+
+
+def clear_text(cache_key: str, total_chunks: int) -> None:
+    """Drop all text-chunk entries for a cache key. Called once a job fully succeeds."""
+    try:
+        client = _r()
+        for i in range(total_chunks):
+            client.delete(_text_key(cache_key, i))
     except Exception:
         pass

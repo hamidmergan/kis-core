@@ -86,9 +86,16 @@ async def generate_mindmap(
     # Create DB record
     mindmap_id = db.create_aia_mindmap(workspace["id"], user_id, source_ids)
 
-    # Queue Celery task
-    from src.tasks.aia_tasks import run_generate_mindmap
-    run_generate_mindmap.delay(mindmap_id, source_ids, source_uuids)
+    # Queue: through the shared-pool dispatcher when enabled, else direct .delay.
+    from src.features.ai_assistant.scheduling.service import scheduler_enabled, enqueue_task
+    if scheduler_enabled():
+        enqueue_task(
+            "aia.generate_mindmap", user_id,
+            args=[mindmap_id, source_ids, source_uuids], kwargs={"locale": locale},
+        )
+    else:
+        from src.tasks.aia_tasks import run_generate_mindmap
+        run_generate_mindmap.delay(mindmap_id, source_ids, source_uuids, locale=locale)
 
     return {"mindmap_id": mindmap_id, "status": "pending"}
 

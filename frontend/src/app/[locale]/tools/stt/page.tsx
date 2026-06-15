@@ -7,6 +7,8 @@ import TranscriptionFileUpload from "@/components/jobs/TranscriptionFileUpload";
 import { backendApi, pollJob, downloadJobAsBlob, parseDetail } from "@/lib/api";
 import BackLink from "@/components/ui/BackLink";
 import Spinner from "@/components/ui/Spinner";
+import ProviderSelect from "@/components/tools/ProviderSelect";
+import { useFeatureProviders } from "@/hooks/useFeatureProviders";
 import HelpTooltip from "@/components/ui/HelpTooltip";
 
 export default function TranscriptionPage() {
@@ -23,8 +25,15 @@ export default function TranscriptionPage() {
   const [errorMessage, setErrorMessage] = useState<string>("");
   const [stallMessage, setStallMessage] = useState<string>("");
   const [doneJobUuid, setDoneJobUuid] = useState<string | null>(null);
+  const [transcriptText, setTranscriptText] = useState<string>("");
+  const [transcriptFilename, setTranscriptFilename] = useState<string>("");
 
   const [responseFormat, setResponseFormat] = useState("text");
+
+  // Reachable STT providers the admin configured a model for. Empty list means
+  // none configured/reachable — the dropdown hides and the backend uses its
+  // default route.
+  const { providers, providerId, setProviderId } = useFeatureProviders("/transcription/providers");
 
   const handleFileSelected = useCallback((file: File) => {
     setPendingFile(file);
@@ -44,6 +53,7 @@ export default function TranscriptionPage() {
       formData.append("file", pendingFile);
       formData.append("task", "transcribe");
       formData.append("response_format", responseFormat);
+      if (providerId != null) formData.append("provider_id", String(providerId));
       const response = await backendApi.fetch("/transcription", { method: "POST", body: formData });
       if (!response.ok) {
         const err = await response.json().catch(() => ({ detail: tCommon("unknownError") }));
@@ -56,6 +66,13 @@ export default function TranscriptionPage() {
         60_000,
       );
       window.dispatchEvent(new Event("kis-jobs-changed"));
+      // Load the finished transcript into the editor so it can be reviewed,
+      // edited and re-downloaded without a second round-trip.
+      const ext = responseFormat === "text" ? "txt" : responseFormat;
+      const stem = pendingFile.name.replace(/\.[^.]+$/, "");
+      const { blob, filename } = await downloadJobAsBlob(data.job_uuid, `${stem}.${ext}`);
+      setTranscriptText(await blob.text());
+      setTranscriptFilename(filename);
       setDoneJobUuid(data.job_uuid);
     } catch (err) {
       setErrorMessage(err instanceof Error ? err.message : tCommon("unknownError"));
@@ -64,19 +81,15 @@ export default function TranscriptionPage() {
     }
   };
 
-  const handleDownload = async () => {
-    if (!doneJobUuid) return;
-    try {
-      const { blob, filename } = await downloadJobAsBlob(doneJobUuid);
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = filename;
-      a.click();
-      URL.revokeObjectURL(url);
-    } catch (err) {
-      setErrorMessage(err instanceof Error ? err.message : tCommon("downloadFailed"));
-    }
+  const handleDownload = () => {
+    if (!transcriptText) return;
+    const blob = new Blob([transcriptText], { type: "text/plain;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = transcriptFilename || "transcript.txt";
+    a.click();
+    URL.revokeObjectURL(url);
   };
 
   const handleReset = () => {
@@ -84,6 +97,8 @@ export default function TranscriptionPage() {
     setSelectedFile("");
     setErrorMessage("");
     setDoneJobUuid(null);
+    setTranscriptText("");
+    setTranscriptFilename("");
   };
 
   return (
@@ -97,6 +112,16 @@ export default function TranscriptionPage() {
           </p>
 
           <TranscriptionFileUpload onFileSelected={handleFileSelected} disabled={processing} selectedFilename={selectedFile || undefined} />
+
+          <ProviderSelect
+            id="stt-provider-select"
+            label={t("providerLabel")}
+            providers={providers}
+            value={providerId}
+            onChange={setProviderId}
+            disabled={processing}
+            className="mt-6"
+          />
 
           <div className="mb-6 mt-6">
             <span className="flex items-center gap-1.5 text-sm font-medium text-foreground-soft mb-2">
@@ -145,19 +170,28 @@ export default function TranscriptionPage() {
           )}
 
           {doneJobUuid && (
-            <div className="mt-6 rounded-lg border border-border-soft bg-background p-6" role="status" aria-live="polite">
+            <div className="mt-6 rounded-lg border border-border-soft bg-background p-4 sm:p-6" role="status" aria-live="polite">
               <div className="space-y-3">
                 <div className="flex items-center gap-2">
-                  <svg className="h-5 w-5 text-success" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                  <svg className="h-5 w-5 text-success shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                   </svg>
-                  <span className="text-sm font-medium text-foreground">{tCommon("downloadReady")}</span>
+                  <span className="text-sm font-medium text-foreground">{t("readyTitle")}</span>
+                  {transcriptFilename && <span className="text-xs text-muted truncate min-w-0">{transcriptFilename}</span>}
                 </div>
-                {selectedFile && <p className="text-xs text-muted">{selectedFile}</p>}
-                <div className="flex gap-3">
+
+                <textarea
+                  value={transcriptText}
+                  onChange={(e) => setTranscriptText(e.target.value)}
+                  aria-label={t("editorAria")}
+                  spellCheck={false}
+                  className="w-full min-h-[16rem] sm:min-h-[20rem] resize-y rounded-md border border-border bg-surface px-3 py-2 text-sm leading-relaxed text-foreground-soft focus:border-kb focus:ring-1 focus:ring-kb focus:outline-none"
+                />
+
+                <div className="flex flex-col sm:flex-row gap-3">
                   <button
                     onClick={handleDownload}
-                    className="px-4 py-2 btn-primary text-sm rounded-md focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-kb transition-colors flex items-center gap-2"
+                    className="px-4 py-2 btn-primary text-sm rounded-md focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-kb transition-colors flex items-center justify-center gap-2"
                   >
                     <svg className="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />

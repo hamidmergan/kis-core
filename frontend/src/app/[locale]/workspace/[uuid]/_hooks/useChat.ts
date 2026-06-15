@@ -46,7 +46,24 @@ export function useChat({ uuid, enrollmentId, selectedSourceIds, viewerSource, c
     try {
       const eidParam = enrollmentId ? `?enrollment_id=${enrollmentId}` : "";
       const res = await fetch(`/api/ai-assistant/workspaces/${uuid}/messages${eidParam}`, { credentials: "include" });
-      if (res.ok) setMessages(await res.json());
+      if (res.ok) {
+        const raw: ChatMessage[] = await res.json();
+        const hydrated = raw.map((m) => {
+          const popup = m.source_pages?.find((s) => s.is_popup_selection);
+          if (!popup || m.popup_selection) return m;
+          return {
+            ...m,
+            popup_selection: {
+              uuid: popup.source_uuid,
+              page: popup.page_number,
+              text: popup.source_text ?? "",
+              ...(popup.action_key && { action_key: popup.action_key }),
+              ...(popup.action_icon && { action_icon: popup.action_icon }),
+            },
+          };
+        });
+        setMessages(hydrated);
+      }
     } catch { /* ignore */ }
   }, [uuid, enrollmentId]);
 
@@ -65,15 +82,24 @@ export function useChat({ uuid, enrollmentId, selectedSourceIds, viewerSource, c
   const sendChatMessage = useCallback(async (
     content: string,
     directText = false,
-    sourceInfo?: { uuid: string; filename: string; page: number; selectedText?: string }
+    sourceInfo?: { uuid: string; filename: string; page: number; selectedText?: string; actionKey?: string }
   ) => {
     content = content.replace(/\s*\[(?:Q\d+,\s*)?S\.\s*\d+\]/g, "");
     const effectiveSourceIds = viewerSource ? [viewerSource.uuid] : selectedSourceIds;
     if (!content.trim()) return;
     if (!directText && effectiveSourceIds.length === 0) return;
     const msgSourceCount = directText ? 1 : effectiveSourceIds.length;
+    const actionDef = sourceInfo?.actionKey
+      ? popupActions.find((a) => a.key === sourceInfo.actionKey)
+      : undefined;
     const popupSel = sourceInfo?.selectedText
-      ? { uuid: sourceInfo.uuid, page: sourceInfo.page, text: sourceInfo.selectedText }
+      ? {
+          uuid: sourceInfo.uuid,
+          page: sourceInfo.page,
+          text: sourceInfo.selectedText,
+          ...(sourceInfo.actionKey && { action_key: sourceInfo.actionKey }),
+          ...(actionDef?.icon && { action_icon: actionDef.icon }),
+        }
       : undefined;
     setMessages((prev) => [...prev, { role: "user", content: content.trim(), sourceCount: msgSourceCount, popup_selection: popupSel }]);
     setChatLoading(true);
@@ -122,6 +148,7 @@ export function useChat({ uuid, enrollmentId, selectedSourceIds, viewerSource, c
             source_filename: sourceInfo.filename,
             source_page: sourceInfo.page,
             source_text: sourceInfo.selectedText,
+            ...(sourceInfo.actionKey && { action_key: sourceInfo.actionKey }),
           }),
         }),
       });
@@ -212,7 +239,7 @@ export function useChat({ uuid, enrollmentId, selectedSourceIds, viewerSource, c
       if (abortControllerRef.current === ac) abortControllerRef.current = null;
       setChatLoading(false);
     }
-  }, [uuid, enrollmentId, selectedSourceIds, viewerSource]);
+  }, [uuid, enrollmentId, selectedSourceIds, viewerSource, popupActions]);
 
   useEffect(() => {
     loadPopupActions();

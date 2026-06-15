@@ -1,0 +1,26 @@
+- generic [ref=e1]:
+  - main [ref=e2]:
+    - heading "Zur Startseite DEV" [level=1] [ref=e45]:
+      - link "Zur Startseite" [ref=e46] [cursor=pointer]:
+        - /url: /
+        - text: KIS
+      - generic [ref=e47]: DEV
+    - main [ref=e48]:
+      - generic [ref=e49]:
+        - heading "Willkommen bei KIS" [level=1] [ref=e50]
+        - generic [ref=e51]:
+          - heading "Anmelden" [level=2] [ref=e52]
+          - form "Anmeldeformular" [ref=e53]:
+            - generic [ref=e54]:
+              - generic [ref=e55] [cursor=pointer]: Benutzername
+              - textbox "Benutzername" [active] [ref=e56]
+            - generic [ref=e57]:
+              - generic [ref=e58] [cursor=pointer]: Passwort
+              - generic [ref=e59]:
+                - textbox "Passwort" [ref=e60]
+                - button "Passwort anzeigen" [ref=e61] [cursor=pointer]:
+                  - img [ref=e62]
+            - button "Anmelden" [disabled] [ref=e65] [cursor=pointer]
+  - button "Open Next.js Dev Tools" [ref=e71] [cursor=pointer]:
+    - img [ref=e72]
+  - alert [ref=e75]

@@ -58,6 +58,7 @@ def get_aia_sources_by_workspace(workspace_id: int) -> list[dict]:
             rows = cur.fetchall()
     return [dict(row) for row in rows]
 
+
 def list_aia_workspaces_with_stale_fingerprint(current_fingerprint: str) -> list[dict]:
     """Return workspaces (with owner name) whose stored fingerprint differs from current.
 
@@ -85,6 +86,14 @@ def get_all_aia_sources() -> list[dict]:
             rows = cur.fetchall()
     return [dict(row) for row in rows]
 
+
+def list_all_sources_for_eval() -> list[dict]:
+    """Eval/diagnostics only: every source row (id, filename, file_path)."""
+    with get_connection() as conn:
+        with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
+            cur.execute("SELECT id, filename, file_path, workspace_id FROM aia_sources")
+            return [dict(r) for r in cur.fetchall()]
+
 def update_aia_source_status(
     uuid: str,
     status: str,
@@ -94,18 +103,61 @@ def update_aia_source_status(
     duration: float | None = None,
     language: str | None = None,
 ) -> None:
+    # Terminal states (ready/failed) clear the progress JSON so the UI stops
+    # showing a stale stage label after indexing finishes.
+    progress_clause = ", progress = NULL" if status in ("ready", "failed") else ""
     with get_connection() as conn:
         with conn.cursor() as cur:
             cur.execute(
-                """UPDATE aia_sources
-                   SET status = %s,
-                       chunk_count = COALESCE(%s, chunk_count),
-                       embedding_model = COALESCE(%s, embedding_model),
-                       error_message = COALESCE(%s, error_message),
-                       duration = COALESCE(%s, duration),
-                       language = COALESCE(%s, language)
-                   WHERE uuid = %s""",
+                f"""UPDATE aia_sources
+                    SET status = %s,
+                        chunk_count = COALESCE(%s, chunk_count),
+                        embedding_model = COALESCE(%s, embedding_model),
+                        error_message = COALESCE(%s, error_message),
+                        duration = COALESCE(%s, duration),
+                        language = COALESCE(%s, language)
+                        {progress_clause}
+                    WHERE uuid = %s""",
                 (status, chunk_count, embedding_model, error_message, duration, language, uuid),
+            )
+        conn.commit()
+
+
+def clear_aia_source_progress(uuid: str) -> None:
+    """Reset the progress JSON to NULL once indexing has finished, so the
+    source card stops showing a stage label.
+    """
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                "UPDATE aia_sources SET progress = NULL WHERE uuid = %s",
+                (uuid,),
+            )
+        conn.commit()
+
+
+def update_aia_source_progress(
+    uuid: str,
+    stage: str,
+    page: int | None = None,
+    total: int | None = None,
+) -> None:
+    """Record the active indexing stage for the source so the UI can render it.
+
+    ``page`` / ``total`` are optional and only meaningful for the OCR stage;
+    other stages pass them as ``None``. The terminal status update clears this
+    column.
+    """
+    payload: dict = {"stage": stage}
+    if page is not None:
+        payload["page"] = page
+    if total is not None:
+        payload["total"] = total
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                "UPDATE aia_sources SET progress = %s WHERE uuid = %s",
+                (json.dumps(payload), uuid),
             )
         conn.commit()
 
@@ -116,6 +168,15 @@ def update_aia_source_toc(uuid: str, toc: list[dict]) -> None:
             cur.execute(
                 "UPDATE aia_sources SET toc = %s WHERE uuid = %s",
                 (json.dumps(toc), uuid),
+            )
+
+def update_aia_source_summary(uuid: str, summary: str) -> None:
+    """Store the per-source DOC SUMMARY (built at ingest, map-reduce over chunks)."""
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                "UPDATE aia_sources SET summary = %s WHERE uuid = %s",
+                (summary, uuid),
             )
         conn.commit()
 

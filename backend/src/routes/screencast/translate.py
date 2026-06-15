@@ -46,6 +46,7 @@ async def screencast_translate(
     glossary_json: str = Form(""),
     source_lang: str = Form("DE"),
     target_lang: str = Form("EN-US"),
+    provider_id: int | None = Form(None),
     current_user: dict = Depends(get_current_user),
     locale: str = Depends(get_locale),
 ):
@@ -78,6 +79,7 @@ async def screencast_translate(
         "glossary_json": glossary_json,
         "source_lang": source_lang,
         "target_lang": target_lang,
+        "provider_id": provider_id,
     }).encode())
     db.update_job_status(job_uuid, "queued")
     from src.tasks.screencast_tasks import dispatch_next_screencast_job_for_user

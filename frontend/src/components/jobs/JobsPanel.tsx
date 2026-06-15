@@ -25,7 +25,7 @@ interface MyJob {
   is_generating_scripts?: boolean;
 }
 
-const SCREENCAST_RENDER_TOOLS = new Set(["screencast_render", "screencast_auto", "screencast_demo_render"]);
+const SCREENCAST_RENDER_TOOLS = new Set(["screencast_render", "screencast_auto"]);
 
 const isActive = (s: MyJob["status"]) => s === "pending" || s === "running" || s === "awaiting_user" || s === "queued";
 const needsAttention = (s: MyJob["status"]) => isActive(s);
@@ -364,7 +364,7 @@ export default function JobsPanel() {
                           <p className="text-xs text-muted-soft truncate mt-0.5">{job.original_filename}</p>
                           {job.tts_params?.voice_label || job.tts_params?.provider ? (
                             <p className="text-xs text-muted-soft truncate mt-0.5">
-                              {job.tts_params.provider === "kokoro" ? "Kokoro TTS" : job.tts_params.provider === "mylab" ? "THL myLab" : job.tts_params.provider === "elevenlabs" ? "ElevenLabs" : job.tts_params.provider}
+                              {job.tts_params.provider}
                               {job.tts_params.voice_label ? ` · ${job.tts_params.voice_label}` : ""}
                             </p>
                           ) : null}
@@ -418,7 +418,7 @@ export default function JobsPanel() {
                               {cancelling === job.job_uuid ? "..." : tActions("cancel")}
                             </button>
                           )}
-                          {(job.tool === "tts" || job.tool === "screencast_translate" || job.tool === "screencast_render" || job.tool === "screencast_demo_render") && job.status === "failed" && (
+                          {(job.tool === "tts" || job.tool === "screencast_translate" || job.tool === "screencast_render") && job.status === "failed" && (
                             <button
                               onClick={(e) => handleRetry(e, job)}
                               disabled={retrying === job.job_uuid}
@@ -429,7 +429,7 @@ export default function JobsPanel() {
                           )}
                         </div>
                       </div>
-                      {job.status === "awaiting_user" && (job.tool === "screencast_translate" || job.tool === "screencast_demo_render") && (
+                      {job.status === "awaiting_user" && job.tool === "screencast_translate" && (
                         <div className="mt-2">
                           {job.is_generating_scripts ? (
                             <span className="inline-flex items-center gap-1.5 text-xs text-muted bg-surface border border-border-soft px-2.5 py-1 rounded-full">
@@ -438,11 +438,11 @@ export default function JobsPanel() {
                             </span>
                           ) : (
                             <a
-                              href={job.tool === "screencast_demo_render" ? `/tools/screencast-demo?resume=${job.job_uuid}` : `/tools/screencast?resume=${job.job_uuid}`}
+                              href={`/tools/screencast?resume=${job.job_uuid}`}
                               onClick={(e) => { e.stopPropagation(); setOpen(false); }}
                               className="inline-flex items-center gap-1 text-xs text-warn-strong bg-warn-bg hover:bg-warn-bg border border-warn-border px-2.5 py-1 rounded-full"
                             >
-                              {job.tool === "screencast_demo_render" ? tArtifacts("resumeDemo") : tArtifacts("resumeScreencast")}
+                              {tArtifacts("resumeScreencast")}
                             </a>
                           )}
                         </div>

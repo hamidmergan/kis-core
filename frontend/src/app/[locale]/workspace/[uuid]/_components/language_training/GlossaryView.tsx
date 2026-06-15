@@ -1,7 +1,6 @@
-import { useEffect, useRef, useState } from "react";
-import { Book, CaretDown, CaretUp, DotsThreeVertical, FilePdf, Files, Sparkle, Trash } from "@phosphor-icons/react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { Book, CaretDown, CaretUp, ClockCounterClockwise, DotsThreeVertical, FilePdf, TextAa, Trash } from "@phosphor-icons/react";
 import { useTranslations } from "next-intl";
-import HelpTooltip from "@/components/ui/HelpTooltip";
 import Spinner from "@/components/ui/Spinner";
 import { EmptyState } from "@/components/ui/EmptyState";
 import type { GlossaryEntry, StudentStats } from "../../_types";
@@ -45,14 +44,13 @@ export function GlossaryMenu({ onDeleteAll }: { onDeleteAll?: () => void }) {
 }
 
 export function GlossaryView({
-  entries, loading, extracting, onGenerate, onBack, onOpenSource, onDelete, onDeleteAll, sourceCount = 0, stats, breadcrumbs, showTranslation, feedback, onDismissFeedback,
+  entries, extracting, onBack, onOpenSource, onDelete, onDeleteAll, stats, breadcrumbs, showTranslation, feedback, onDismissFeedback,
 }: {
-  entries: GlossaryEntry[]; loading: boolean; extracting?: boolean;
-  onGenerate: () => void; onBack?: () => void;
+  entries: GlossaryEntry[]; extracting?: boolean;
+  onBack?: () => void;
   onOpenSource?: (filename: string | undefined, page: number, highlightText?: string, startTime?: number | null) => void;
   onDelete?: (id: number) => void;
   onDeleteAll?: () => void;
-  sourceCount?: number;
   stats?: StudentStats | null;
   breadcrumbs?: BreadcrumbItem[];
   showTranslation?: boolean;
@@ -60,42 +58,24 @@ export function GlossaryView({
   onDismissFeedback?: () => void;
 }) {
   const t = useTranslations("workspace.detail.languageTraining");
-  const noSources = sourceCount === 0;
+  const tChip = useTranslations("sourceChip");
   const [expandedId, setExpandedId] = useState<number | null>(null);
+  const [sortMode, setSortMode] = useState<"recent" | "alpha">("recent");
+  const sortedEntries = useMemo(() => {
+    if (sortMode === "alpha") {
+      return [...entries].sort((a, b) => a.term_de.localeCompare(b.term_de, "de", { sensitivity: "base" }));
+    }
+    return [...entries].sort((a, b) => b.id - a.id);
+  }, [entries, sortMode]);
   return (
     <div className="flex flex-col h-full">
       {onBack && <SubviewHeader title={t("glossary.title")} toolKey="Glossary" onBack={onBack} breadcrumbs={breadcrumbs} category="language_training" />}
       <div className="flex-1 overflow-y-auto p-3 flex flex-col gap-3">
-        <div className="rounded-xl px-3 py-2 text-xs font-medium flex items-center gap-2"
-          style={{
-            color: noSources ? "var(--error-strong)" : sourceCount > 5 ? "#c4820e" : "var(--kb)",
-          }}>
-          <Files size={13} weight="bold" />
-          {noSources
-            ? t("sourceStatus.none")
-            : sourceCount === 1
-              ? t("sourceStatus.one")
-              : sourceCount <= 5
-                ? t("sourceStatus.few", { count: sourceCount })
-                : t("sourceStatus.many", { count: sourceCount })}
-        </div>
-        <div className="relative w-full px-1 flex items-center justify-center gap-1.5">
-          <button
-            type="button"
-            onClick={onGenerate}
-            disabled={loading || noSources}
-            className="btn-outline-accent inline-flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-lg text-xs font-semibold transition-all disabled:opacity-40"
-          >
-            {loading ? <Spinner size="xs" color="current" /> : <Sparkle size={12} weight="bold" />}
-            {loading ? t("glossary.extracting") : t("glossary.extractButton", { current: entries.length, max: 150 })}
-          </button>
-          <HelpTooltip text={t("glossary.extractTooltip")} />
-          {entries.length > 0 && (
-            <div className="absolute right-1 flex items-center">
-              <GlossaryMenu onDeleteAll={onDeleteAll} />
-            </div>
-          )}
-        </div>
+        {entries.length > 0 && (
+          <div className="w-full px-1 flex items-center justify-end">
+            <GlossaryMenu onDeleteAll={onDeleteAll} />
+          </div>
+        )}
 
         <div className="mx-auto w-full px-1 pb-3 flex flex-col gap-3" style={{ maxWidth: 560 }}>
           {extracting && (
@@ -117,7 +97,7 @@ export function GlossaryView({
               )}
             </div>
           )}
-          {entries.length === 0 && !loading && (
+          {entries.length === 0 && (
             <EmptyState
               size="sm"
               icon={<Book size={32} weight="bold" />}
@@ -125,6 +105,31 @@ export function GlossaryView({
             />
           )}
         </div>
+
+        {entries.length > 1 && (
+          <div className="w-full flex justify-end gap-1 px-1" role="group" aria-label={t("glossary.sortAriaLabel")}>
+            {(["recent", "alpha"] as const).map((mode) => {
+              const active = sortMode === mode;
+              const Icon = mode === "recent" ? ClockCounterClockwise : TextAa;
+              return (
+                <button
+                  key={mode}
+                  type="button"
+                  onClick={() => setSortMode(mode)}
+                  aria-pressed={active}
+                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium transition-colors"
+                  style={{
+                    backgroundColor: active ? "var(--kb)" : "transparent",
+                    color: active ? "#fff" : "var(--muted)",
+                  }}
+                >
+                  <Icon size={12} weight="bold" />
+                  {t(mode === "recent" ? "glossary.sortRecent" : "glossary.sortAlpha")}
+                </button>
+              );
+            })}
+          </div>
+        )}
 
         {entries.length > 0 && (
           <div className="w-full px-1 pb-3">
@@ -135,9 +140,9 @@ export function GlossaryView({
                 boxShadow: "0 2px 10px rgba(0,40,60,0.05), 0 0 0 1px rgba(0,40,60,0.03)",
               }}
             >
-              {entries.map((entry, idx) => {
+              {sortedEntries.map((entry, idx) => {
                 const isExpanded = expandedId === entry.id;
-                const isLast = idx === entries.length - 1;
+                const isLast = idx === sortedEntries.length - 1;
                 const ChipIcon = entry.filename ? _getChipIcon(entry.filename) : FilePdf;
                 return (
                   <div key={entry.id} style={{ borderBottom: isLast && !isExpanded ? "none" : "1px solid var(--border)" }}>
@@ -164,7 +169,7 @@ export function GlossaryView({
                           className="inline-flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 rounded-full font-medium shrink-0 chip-cite cursor-pointer"
                           style={{ backgroundColor: "rgba(var(--kb-rgb),0.12)", color: "var(--kb)" }}
                         >
-                          <ChipIcon size={8} weight="bold" /> {entry.filename ? _chunkLabel(entry.filename, entry.page_number!, entry.start_time) : t("glossary.pageShort", { page: entry.page_number })}
+                          <ChipIcon size={8} weight="bold" /> {entry.filename ? _chunkLabel(entry.filename, entry.page_number!, entry.start_time, (key, vals) => tChip(key, vals)) : t("glossary.pageShort", { page: entry.page_number })}
                         </span>
                       )}
                       {isExpanded
@@ -183,7 +188,7 @@ export function GlossaryView({
                           </div>
                         )}
                         <div>
-                          <span className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: "var(--kb)" }}>{t("glossary.explanationB1")}</span>
+                          <span className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: "var(--kb)" }}>{t("glossary.explanation")}</span>
                           <p className="text-sm leading-relaxed mt-0.5" style={{ color: "var(--foreground)", opacity: 0.8 }}>
                             {entry.definition}
                           </p>

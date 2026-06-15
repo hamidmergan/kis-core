@@ -1,7 +1,7 @@
 """i18n message fragments for tool/job routes.
 
 Auto-loaded by `src.i18n._load_fragments()`. Keys group by the route area
-(`translate`, `tts`, `image`, `summary`, `screencast`, `screencastDemo`,
+(`translate`, `tts`, `image`, `summary`, `screencast`,
 `job`, `auth`).
 """
 
@@ -32,6 +32,16 @@ MESSAGES: dict[str, dict[str, str]] = {
         "en": "Document too long ({chars} characters). Please split (max {maxChars} characters).",
     },
 
+    # ── glossary (terminology, per user) ──────────────────────────────────────
+    "glossary.tooMany": {
+        "de": "Maximal {max} Glossare pro Person erlaubt.",
+        "en": "At most {max} glossaries per user allowed.",
+    },
+    "glossary.notFound": {
+        "de": "Glossar nicht gefunden.",
+        "en": "Glossary not found.",
+    },
+
     # ── transcription ────────────────────────────────────────────────────────
     "transcription.unsupportedFormat": {
         "de": "Nur {formats} erlaubt",
@@ -45,15 +55,15 @@ MESSAGES: dict[str, dict[str, str]] = {
         "de": "Ungültiges Format: {format}",
         "en": "Invalid format: {format}",
     },
+    "transcription.invalidProvider": {
+        "de": "Ungültiger Anbieter ausgewählt",
+        "en": "Invalid provider selected",
+    },
 
     # ── tts ──────────────────────────────────────────────────────────────────
     "tts.unsupportedFormat": {
         "de": "Nur .docx, .md oder .txt erlaubt",
         "en": "Only .docx, .md or .txt allowed",
-    },
-    "tts.invalidPausePreset": {
-        "de": "Ungültiges Pausen-Preset",
-        "en": "Invalid pause preset",
     },
     "tts.unsupportedFileType": {
         "de": "Dateityp wird nicht unterstützt",
@@ -63,27 +73,30 @@ MESSAGES: dict[str, dict[str, str]] = {
         "de": "Dokument zu lang ({chars} Zeichen). Bitte aufteilen (max. {maxChars} Zeichen).",
         "en": "Document too long ({chars} characters). Please split (max {maxChars} characters).",
     },
-    "kokoro.notActive": {
-        "de": "Kokoro nicht aktiv",
-        "en": "Kokoro not active",
+    "tts.textTooLong": {
+        "de": "Text zu lang ({chars} Zeichen). Bitte kürzen (max. {maxChars} Zeichen).",
+        "en": "Text too long ({chars} characters). Please shorten (max {maxChars} characters).",
     },
-    "kokoro.notEnabled": {
-        "de": "Kokoro TTS ist nicht aktiviert",
-        "en": "Kokoro TTS is not enabled",
+    "tts.textEmpty": {
+        "de": "Bitte Text eingeben.",
+        "en": "Please enter some text.",
     },
-    "mylab.notActive": {
-        "de": "myLab TTS nicht aktiv",
-        "en": "myLab TTS not active",
+    "tts.noInput": {
+        "de": "Bitte Text eingeben oder Datei hochladen.",
+        "en": "Please enter text or upload a file.",
     },
-    "mylab.notEnabled": {
-        "de": "myLab TTS ist nicht aktiviert",
-        "en": "myLab TTS is not enabled",
+    "tts.bothInputs": {
+        "de": "Bitte entweder Text eingeben oder eine Datei hochladen, nicht beides.",
+        "en": "Please provide either text or a file, not both.",
     },
-    "elevenlabs.notEnabled": {
-        "de": "ElevenLabs ist nicht aktiviert",
-        "en": "ElevenLabs is not enabled",
+    "tts.providerUnavailable": {
+        "de": "TTS-Anbieter ist nicht verfügbar.",
+        "en": "TTS provider is not available.",
     },
-
+    "tts.providerNotFound": {
+        "de": "TTS-Anbieter nicht gefunden oder nicht konfiguriert.",
+        "en": "TTS provider not found or not configured.",
+    },
     # ── summary ──────────────────────────────────────────────────────────────
     "summary.unsupportedFormat": {
         "de": "Nur {formats} erlaubt",
@@ -92,6 +105,10 @@ MESSAGES: dict[str, dict[str, str]] = {
     "summary.invalidOutputFormat": {
         "de": "output_format muss 'txt', 'md' oder 'html' sein",
         "en": "output_format must be 'txt', 'md' or 'html'",
+    },
+    "summary.invalidProvider": {
+        "de": "Ungültiger Anbieter ausgewählt",
+        "en": "Invalid provider selected",
     },
     "summary.fileTooLarge": {
         "de": "Datei zu groß",
@@ -106,6 +123,10 @@ MESSAGES: dict[str, dict[str, str]] = {
     "image.invalidSize": {
         "de": "Ungültige Bildgröße",
         "en": "Invalid image size",
+    },
+    "image.invalidProvider": {
+        "de": "Ungültiger Anbieter ausgewählt",
+        "en": "Invalid provider selected",
     },
     "image.empty": {
         "de": "Bild ist leer",
@@ -176,6 +197,10 @@ MESSAGES: dict[str, dict[str, str]] = {
     "job.demoParamsExpired": {
         "de": "Demo-Parameter nicht mehr vorhanden (abgelaufen)",
         "en": "Demo parameters no longer available (expired)",
+    },
+    "job.featureNotConfigured": {
+        "de": "Diese Funktion ist nicht konfiguriert. Bitte Admin kontaktieren.",
+        "en": "This feature is not configured. Please contact your admin.",
     },
 
     # ── screencast ───────────────────────────────────────────────────────────
@@ -252,9 +277,5 @@ MESSAGES: dict[str, dict[str, str]] = {
     "screencastDemo.videoMissing": {
         "de": "Kein Demo-Video gefunden (output.mp4 fehlt in demo/)",
         "en": "No demo video found (output.mp4 missing in demo/)",
-    },
-    "screencastDemo.videoReadFailed": {
-        "de": "Demo-Video konnte nicht aus S3 gelesen werden",
-        "en": "Demo video could not be read from S3",
     },
 }

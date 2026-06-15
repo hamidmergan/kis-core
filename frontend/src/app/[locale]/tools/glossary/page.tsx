@@ -28,9 +28,9 @@ export default function GlossaryPage() {
 
   const selectedGlossary = glossaries.find(g => g.id === selectedId) ?? null;
 
-  const handleCreate = () => {
+  const handleCreate = async () => {
     if (!newName.trim()) return;
-    const id = createGlossary(newName.trim());
+    const id = await createGlossary(newName.trim());
     setSelectedId(id);
     setNewName("");
     setCreatingNew(false);
@@ -41,20 +41,21 @@ export default function GlossaryPage() {
     setRenameValue(currentName);
   };
 
-  const handleRename = (id: string) => {
+  const handleRename = async (id: string) => {
     if (!renameValue.trim()) return;
-    updateGlossary(id, { name: renameValue.trim() });
+    await updateGlossary(id, { name: renameValue.trim() });
     setRenamingId(null);
   };
 
-  const handleDeleteConfirmed = () => {
+  const handleDeleteConfirmed = async () => {
     if (!confirmDeleteId) return;
-    deleteGlossary(confirmDeleteId);
-    if (selectedId === confirmDeleteId) setSelectedId(null);
+    const deletedId = confirmDeleteId;
+    await deleteGlossary(deletedId);
+    if (selectedId === deletedId) setSelectedId(null);
     setConfirmDeleteId(null);
   };
 
-  const handleAddEntry = () => {
+  const handleAddEntry = async () => {
     if (!newEntryDe.trim() || !newEntryEn.trim()) return;
     if (!selectedGlossary) return;
     const key = newEntryDe.trim();
@@ -62,7 +63,7 @@ export default function GlossaryPage() {
       setEntryError(t("duplicateEntry", { key }));
       return;
     }
-    updateGlossary(selectedGlossary.id, {
+    await updateGlossary(selectedGlossary.id, {
       entries: { ...selectedGlossary.entries, [key]: newEntryEn.trim() },
     });
     setNewEntryDe("");
@@ -70,11 +71,11 @@ export default function GlossaryPage() {
     setEntryError("");
   };
 
-  const handleRemoveEntry = (key: string) => {
+  const handleRemoveEntry = async (key: string) => {
     if (!selectedGlossary) return;
     const updated = { ...selectedGlossary.entries };
     delete updated[key];
-    updateGlossary(selectedGlossary.id, { entries: updated });
+    await updateGlossary(selectedGlossary.id, { entries: updated });
   };
 
   const handleExport = (id: string) => {
@@ -97,7 +98,7 @@ export default function GlossaryPage() {
     if (!file) return;
     setImportError("");
     const reader = new FileReader();
-    reader.onload = (ev) => {
+    reader.onload = async (ev) => {
       try {
         const parsed = JSON.parse(ev.target?.result as string);
         if (typeof parsed !== "object" || Array.isArray(parsed)) {
@@ -129,8 +130,7 @@ export default function GlossaryPage() {
           entries[k] = v;
         }
 
-        const id = createGlossary(name);
-        updateGlossary(id, { entries });
+        const id = await createGlossary(name, entries);
         setSelectedId(id);
       } catch {
         setImportError(tImport("readFailed"));

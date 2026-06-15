@@ -1,11 +1,23 @@
+"""Shared FastAPI dependencies + legacy provider-resolver façade.
+
+All client resolvers in this module are thin shims over
+``src.services.feature_router``. Existing call-sites (chat, whisper, TTS,
+deepl, ...) keep their public signatures so they don't need to be touched
+individually. The router reads from the ``providers`` + ``feature_routes``
+tables managed by the admin tab; legacy ``*_enabled`` settings rows are no
+longer consulted anywhere.
+"""
+
 from functools import lru_cache
+from typing import Optional
 
 from fastapi import Depends, HTTPException, Request
 from loguru import logger
 
+from src import database as db
 from src.config import Settings
 from src.i18n import get_locale, t
-from src.services.elevenlabs_client import ElevenLabsClient
+from src.services import feature_router
 from src.services.openai_compat_llm import OpenAICompatLLMClient
 
 
@@ -17,9 +29,22 @@ def get_settings() -> Settings:
 async def get_current_user(request: Request) -> dict:
     """Return session data for the authenticated user.
 
-    verify_auth already confirmed the session is valid, so this just
-    reads the data. Falls back to defaults if something unexpected happens.
+    In local mode: always returns the local admin user from DB.
     """
+    settings = get_settings()
+    if settings.is_local_mode:
+        from src import database as _db
+        local_user = _db.get_user_by_username("local")
+        if local_user:
+            return {
+                "user_id": local_user["id"],
+                "username": "local",
+                "display_name": "Admin",
+                "email": "",
+                "role": "admin",
+                "custom_role_id": None,
+            }
+
     token = request.cookies.get("session")
     if token:
         store = get_session_store()
@@ -61,110 +86,62 @@ def get_session_store():
     )
 
 
-def _llm_provider_config(provider: str) -> tuple[str, str, str]:
-    """Return (api_key, base_url, default_model) for a named provider.
+# ─── Legacy provider resolvers (now backed by feature_router) ──────────────
 
-    Raises RuntimeError if the provider is not configured (missing API key / base URL).
-    Used by both `_resolve_llm_provider` (active provider) and the translation override.
-    """
-    settings = get_settings()
-    from src.services.runtime_models import get_model
+def _ensure_v1(base_url: str) -> str:
+    url = base_url.rstrip("/")
+    if url.endswith("/v1"):
+        return url
+    return f"{url}/v1"
 
-    if provider == "primary":
-        if not settings.primary_provider_api_key:
-            raise RuntimeError("Primary LLM not configured (PRIMARY_PROVIDER_API_KEY missing).")
-        if not settings.primary_provider_base_url:
-            raise RuntimeError("Primary LLM not configured (PRIMARY_PROVIDER_BASE_URL missing).")
-        return settings.primary_provider_api_key, settings.primary_provider_base_url, get_model("primary_llm_model")
-    if provider == "fallback":
-        fallback_url = settings.fallback_provider_base_url or settings.mylab_tts_base_url
-        if not fallback_url:
-            raise RuntimeError("Secondary LLM not configured (SECONDARY_PROVIDER_BASE_URL missing).")
-        return "ignored", f"{fallback_url.rstrip('/')}/v1", get_model("fallback_llm_model")
-    if provider == "local":
-        if not settings.local_provider_base_url:
-            raise RuntimeError("Local LLM not configured (OLLAMA_BASE_URL missing).")
-        return "ignored", settings.local_provider_base_url, get_model("local_llm_model")
-    raise ValueError(f"Unknown LLM provider: {provider!r}")
+
+def _binding_tuple(binding: feature_router.FeatureBinding) -> tuple[str, str, str, str]:
+    """Flatten a binding into the (api_key, base_url, model, provider_name)
+    tuple shape that the legacy resolvers used to return."""
+    p = binding.provider
+    return (
+        p.get("api_key") or "not-needed",
+        _ensure_v1(p["base_url"]),
+        binding.model or "",
+        p["name"],
+    )
 
 
 def _resolve_llm_provider() -> tuple[str, str, str, str]:
-    """Resolve LLM provider based on admin toggles -> (api_key, base_url, model, provider_name).
-
-    Exactly one provider may be active at a time (radio logic in routes/admin/settings.py).
-    If none is active, raises RuntimeError with a clear instruction.
-    """
-    from src import database as db
-
-    for key, name in (
-        ("primary_llm_enabled", "primary"),
-        ("fallback_llm_enabled", "fallback"),
-        ("local_llm_enabled", "local"),
-    ):
-        if db.get_setting(key, "false").lower() == "true":
-            api_key, base_url, model = _llm_provider_config(name)
-            return api_key, base_url, model, name
-
-    raise RuntimeError(
-        "No LLM provider active. Enable exactly one in the admin panel under 'LLM Chat'."
-    )
+    """Resolve the active chat LLM. Raises ``FeatureNotConfigured`` (a
+    ``RuntimeError`` subclass) when no chat route is set."""
+    binding = feature_router.resolve("chat")
+    return _binding_tuple(binding)
 
 
 def _resolve_translation_llm_provider() -> tuple[str, str, str, str]:
-    """Like _resolve_llm_provider, but with optional provider+model override for /translate.
+    """LLM resolver used by ``/translate``. Prefers the doc_translate route;
+    falls back to the chat route when doc_translate is unconfigured or
+    points at a non-LLM protocol like DeepL."""
+    try:
+        binding = feature_router.resolve("doc_translate")
+        if binding.protocol != "deepl":
+            return _binding_tuple(binding)
+    except feature_router.FeatureNotConfigured:
+        pass
+    return _resolve_llm_provider()
 
-    DB-backed (no env). Mirrors the LLM Chat pattern with per-provider model slots:
-      - `translation_llm_provider`: "" | "primary" | "fallback" | "local"
-      - `translation_primary_model`, `translation_fallback_model`, `translation_local_model`
 
-    Empty provider → identical to _resolve_llm_provider.
-    Set provider + empty per-provider model → that provider's default LLM model.
-    Set provider + non-empty per-provider model → that exact model.
+def resolve_whisper_client(provider_id: Optional[int] = None) -> OpenAICompatLLMClient:
+    """Resolve a Whisper client for the ``stt`` feature.
+
+    ``provider_id`` lets the end-user pick one of the STT providers the admin
+    configured a model for (capability-based, same as the TTS picker); when
+    omitted the admin default route is used. Lets ``FeatureNotConfigured``
+    propagate so Celery tasks can surface a localized error message instead of
+    the internal English text.
     """
-    from src import database as db
-    provider = db.get_setting("translation_llm_provider", "").strip()
-    if not provider:
-        return _resolve_llm_provider()
-
-    from src.services.runtime_models import get_model
-    api_key, base_url, _ = _llm_provider_config(provider)
-    return api_key, base_url, get_model(f"translation_{provider}_model"), provider
-
-
-def resolve_whisper_client() -> OpenAICompatLLMClient:
-    """Resolve a Whisper client based on admin toggles.
-
-    Whisper providers are a radio group: exactly one of
-    ``primary_whisper_enabled`` / ``fallback_whisper_enabled`` is active.
-    """
-    from src import database as db
-    settings = get_settings()
-
-    from src.services.runtime_models import get_model
-
-    if db.get_setting("fallback_whisper_enabled", "false").lower() == "true":
-        secondary_url = settings.fallback_provider_base_url or settings.mylab_tts_base_url
-        if not secondary_url:
-            raise RuntimeError("Secondary Whisper enabled but SECONDARY_PROVIDER_BASE_URL not configured")
-        return OpenAICompatLLMClient(
-            api_key="not-needed",
-            base_url=f"{secondary_url.rstrip('/')}/v1",
-            model=get_model("fallback_llm_model"),
-            provider="fallback",
-            whisper_model="whisper-3-large",
-        )
-    if db.get_setting("primary_whisper_enabled", "true").lower() == "true":
-        if not settings.primary_provider_api_key:
-            raise RuntimeError("Primary Whisper enabled but PRIMARY_PROVIDER_API_KEY not configured")
-        return OpenAICompatLLMClient(
-            api_key=settings.primary_provider_api_key,
-            base_url=settings.primary_provider_base_url,
-            model=get_model("primary_llm_model"),
-            provider="primary",
-        )
-    raise RuntimeError(
-        "No Whisper provider active. Enable exactly one in the admin panel under 'Transcription'."
-    )
+    if provider_id is not None:
+        from src.services import feature_provider_choices
+        binding = feature_provider_choices.resolve_binding("stt", provider_id)
+    else:
+        binding = feature_router.resolve("stt")
+    return feature_router.make_whisper_client(binding)
 
 
 def get_llm_client(locale: str = Depends(get_locale)) -> OpenAICompatLLMClient:
@@ -177,73 +154,149 @@ def get_llm_client(locale: str = Depends(get_locale)) -> OpenAICompatLLMClient:
         api_key=api_key,
         base_url=base_url,
         model=model,
+        whisper_model=model,
         provider=provider,
     )
 
 
-def get_elevenlabs_client(locale: str = Depends(get_locale)) -> ElevenLabsClient:
-    settings = get_settings()
-    if not settings.elevenlabs_api_key:
-        raise HTTPException(status_code=500, detail=t("elevenlabs.notConfigured", locale))
-    return ElevenLabsClient(settings.elevenlabs_api_key)
+# ─── TTS resolvers ─────────────────────────────────────────────────────────
 
-
-def get_kokoro_client():
-    from src.services.kokoro_client import KokoroClient
-    settings = get_settings()
-    if not settings.kokoro_base_url:
-        return None
-    return KokoroClient(settings.kokoro_base_url)
-
-
-def is_elevenlabs_enabled() -> bool:
-    """Return True when ElevenLabs is configured AND enabled by the admin."""
+def get_tts_providers_with_voices() -> list[dict]:
+    """All enabled openai_compat providers that have the tts capability,
+    including their voices list from the DB."""
     from src import database as db
-    settings = get_settings()
-    if not settings.elevenlabs_api_key:
-        return False
-    return db.get_setting("elevenlabs_enabled", "true").lower() == "true"
+    providers = db.list_providers_with_capability("tts")
+    return [p for p in providers if p.get("protocol") == "openai_compat"]
 
 
-def is_kokoro_enabled() -> bool:
-    """Return True when Kokoro is configured AND enabled by the admin."""
+def get_tts_client_for_provider(provider_id: int):
+    """Return an OpenAICompatTTSClient for the given provider_id, or None."""
     from src import database as db
-    settings = get_settings()
-    if not settings.kokoro_base_url:
-        return False
-    return db.get_setting("kokoro_enabled", "true").lower() == "true"
-
-
-def get_mylab_client():
     from src.services.openai_compat_tts import OpenAICompatTTSClient
-    from src.services.runtime_models import get_model
-    settings = get_settings()
-    if not settings.mylab_tts_base_url:
+    provider = db.get_provider(provider_id)
+    if not provider or not provider.get("enabled"):
         return None
-    return OpenAICompatTTSClient(settings.mylab_tts_base_url, model=get_model("mylab_tts_model"))
+    route = db.get_route("tts")
+    provider_models = (route.get("provider_models") if route else None) or {}
+    model = provider_models.get(str(provider_id)) or (route.get("model_name") if route else None) or ""
+    if not model:
+        raise feature_router.FeatureNotConfigured(
+            "tts route has no model_name — set it in the admin KI panel"
+        )
+    api_key = provider.get("api_key") or "not-needed"
+    return OpenAICompatTTSClient(provider["base_url"], model=model, api_key=api_key)
 
 
-def is_mylab_enabled() -> bool:
-    """Return True when myLab TTS is configured AND enabled by the admin."""
+def _voice_language_for(provider_id: int, voice_id: str) -> str:
+    """Look up the language for a (provider_id, voice_id) pair from the DB voices list.
+
+    Returns empty string if not found — callers should treat '' as 'unknown'.
+    """
     from src import database as db
-    settings = get_settings()
-    if not settings.mylab_tts_base_url:
-        return False
-    return db.get_setting("mylab_enabled", "true").lower() == "true"
+    provider = db.get_provider(provider_id)
+    if not provider:
+        return ""
+    for v in provider.get("voices", []):
+        if v.get("voice_id") == voice_id:
+            return v.get("language", "")
+    return ""
+
+
+# ─── Translation resolvers ──────────────────────────────────────────────────
+
+def get_translation_providers() -> list[dict]:
+    """All enabled providers that can serve translation (translation or chat capability).
+
+    DeepL providers have 'translation' capability; OpenAI-compat LLM providers
+    have 'chat' and can translate via prompt. Returns a deduplicated list.
+    """
+    seen_ids: set[int] = set()
+    result: list[dict] = []
+    for cap in ("translation", "chat"):
+        for p in db.list_providers_with_capability(cap):
+            if p["id"] not in seen_ids:
+                seen_ids.add(p["id"])
+                result.append(p)
+    return result
+
+
+def get_translate_client_for_provider(
+    provider_id: Optional[int], *, glossary_entries: dict | None = None, feature: str = "doc_translate"
+):
+    """Return (translation_client, GlossaryService) for use with TranslationService.
+
+    When provider_id is None, falls back to the first available translation provider.
+    Returns (None, GlossaryService()) if no provider can be found.
+
+    ``feature`` is the route the per-provider model name is read from. It defaults to
+    ``doc_translate`` (document tool) but transcript translation passes
+    ``transcript_translate`` so its model can be configured independently.
+
+    Protocol dispatch:
+      deepl         -> DeepLClient + GlossaryService with entries
+      openai_compat -> LLMTranslationClient (glossary passed in constructor)
+
+    Note: for LLM providers the returned GlossaryService is intentionally empty;
+    the glossary is embedded in the LLM system prompt instead.
+    """
+    from src.services.glossary import GlossaryService
+
+    if provider_id is None:
+        providers = get_translation_providers()
+        if not providers:
+            return None, GlossaryService()
+        provider_id = providers[0]["id"]
+
+    provider = db.get_provider(provider_id)
+    if not provider or not provider.get("enabled"):
+        return None, GlossaryService()
+
+    route = db.get_route(feature)
+    provider_models = (route.get("provider_models") if route else None) or {}
+    model = provider_models.get(str(provider_id)) or (route.get("model_name") if route else None) or ""
+
+    glossary = GlossaryService()
+    if provider.get("protocol") == "deepl":
+        from src.services.deepl_client import DeepLClient
+        if glossary_entries:
+            glossary.set_entries(glossary_entries)
+        return DeepLClient(provider.get("api_key") or ""), glossary
+    else:
+        from src.services.llm_translation_client import LLMTranslationClient
+        base_url = _ensure_v1(provider["base_url"])
+        client = LLMTranslationClient(
+            api_key=provider.get("api_key") or "not-needed",
+            base_url=base_url,
+            model=model,
+            provider=provider["name"],
+            glossary=glossary_entries or None,
+        )
+        return client, glossary
+
+
+# ─── DeepL resolvers ───────────────────────────────────────────────────────
+
+def _deepl_provider() -> Optional[dict]:
+    """First enabled DeepL provider on the doc_translate route (or
+    screencast_translate as a secondary lookup)."""
+    for feature in ("doc_translate", "screencast_translate"):
+        for p in feature_router.providers_for_feature(feature):
+            if p.get("protocol") == "deepl":
+                return p
+    return None
 
 
 def resolve_deepl_api_key() -> str | None:
-    """Return the active DeepL API key, or None if nothing usable is configured.
+    """Return the active DeepL API key, or None if no DeepL provider is configured.
 
-    Admin override (settings.deepl_api_key_override) wins over the env var
-    DEEPL_API_KEY. Empty / missing override -> env fallback.
+    Historical .env fallback (``DEEPL_API_KEY``) is gone — the provider table
+    is now the only source of truth, with the admin entering the key when they
+    add a DeepL provider in the UI.
     """
-    from src import database as db
-    override = db.get_setting("deepl_api_key_override", "").strip()
-    if override:
-        return override
-    settings = get_settings()
-    return settings.deepl_api_key or None
+    provider = _deepl_provider()
+    if not provider:
+        return None
+    return provider.get("api_key") or None
 
 
 def get_deepl_client():

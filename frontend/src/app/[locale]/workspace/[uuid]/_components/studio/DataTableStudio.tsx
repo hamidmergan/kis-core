@@ -255,7 +255,7 @@ export function DataTableStudio({
                                 const sourceNum = sources.find((sl) => sl.filename === rs.source_label)?.number ?? (si + 1);
                                 return (
                                   <span key={si} role="button" tabIndex={0}
-                                    onClick={() => src && onPillClick?.(src.uuid, pageNum, src.filename, rs.highlight, startTime)}
+                                    onClick={() => src && onPillClick?.(src.uuid, pageNum, src.filename, undefined, startTime)}
                                     onKeyDown={(e) => { if (e.key === "Enter") e.currentTarget.click(); }}
                                     className="inline-flex items-center gap-0.5 text-xs px-1.5 py-0.5 rounded-full font-medium chip-cite whitespace-nowrap cursor-pointer"
                                     style={{ backgroundColor: "rgba(var(--kb-rgb),0.12)", color: "var(--kb)" }}>

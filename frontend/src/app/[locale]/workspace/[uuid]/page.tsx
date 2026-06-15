@@ -14,9 +14,10 @@ import type {
   LanguageTrainingView,
   TranscriptTranslationMode,
   TranscriptDefaultLang,
-  SummaryMode,
+  StaffNoteLink,
 } from "./_types";
 import { _isMediaFile } from "./_utils";
+import { NOTE_BODY_MAX } from "./_constants";
 import { usePanelLayout } from "./_hooks/usePanelLayout";
 import { useSources } from "./_hooks/useSources";
 import { useMindmap } from "./_hooks/useMindmap";
@@ -67,7 +68,6 @@ export default function KiTutorWorkspacePage() {
   const {
     sources, setSources,
     selectedSourceIds, setSelectedSourceIds,
-    prevSelectedSourceIds, setPrevSelectedSourceIds,
     uploadProgress,
     uploadErrors, setUploadErrors,
     toggleSource: handleToggleSource,
@@ -158,20 +158,31 @@ export default function KiTutorWorkspacePage() {
       body: JSON.stringify({ transcript_default_lang: lang }),
     }).catch(() => { /* ignore */ });
   };
-  const [summaryMode, setSummaryMode] = useState<SummaryMode>("manual");
+  const [transcriptTargetLang, setTranscriptTargetLang] = useState<string>("en");
   useEffect(() => {
-    if (moduleDetail?.summary_mode) {
-      setSummaryMode(moduleDetail.summary_mode);
+    if (moduleDetail?.transcript_target_lang) {
+      setTranscriptTargetLang(moduleDetail.transcript_target_lang);
     }
-  }, [moduleDetail?.summary_mode]);
-  const handleChangeSummaryMode = (mode: SummaryMode) => {
-    setSummaryMode(mode);
+  }, [moduleDetail?.transcript_target_lang]);
+  const handleChangeTranscriptTargetLang = (lang: string) => {
+    setTranscriptTargetLang(lang);
     fetch(`/api/ai-assistant/workspaces/${uuid}`, {
       method: "PATCH",
       credentials: "include",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ summary_mode: mode }),
+      body: JSON.stringify({ transcript_target_lang: lang }),
     }).catch(() => { /* ignore */ });
+  };
+
+  const handleStaffNoteSave = async (text: string | null, links: StaffNoteLink[]) => {
+    const res = await fetch(`/api/ai-assistant/workspaces/${uuid}`, {
+      method: "PATCH",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ staff_note_text: text, staff_note_links: links }),
+    });
+    if (!res.ok) throw new Error("save failed");
+    setWorkspaceDetail((prev) => (prev ? { ...prev, staff_note_text: text, staff_note_links: links } : prev));
   };
   // popupActions from useChat
 
@@ -262,8 +273,7 @@ export default function KiTutorWorkspacePage() {
     customQuestion: handleCustomQuestion,
     pillClick: handlePillClick,
   } = useViewerActions({
-    sources, selectedSourceIds, setSelectedSourceIds,
-    prevSelectedSourceIds, setPrevSelectedSourceIds,
+    sources,
     setViewerSource, setPanels, panels,
     isMobile, activeTab, setActiveTab,
     chatSetInputRef, chatTextareaRef, sendChatMessage,
@@ -278,6 +288,23 @@ export default function KiTutorWorkspacePage() {
     await extractGlossary(text, sourceUuid, page);
   }
 
+  // Wrapper: save PDF selection as a new note with source chip
+  // Appends a citation marker so wrapCitations renders an inline, clickable source chip
+  // that jumps back to the original page and highlights the selected text.
+  async function handleAddToNote(text: string, sourceUuid: string, page: number) {
+    const citation = ` [Q1:${sourceUuid}, S. ${page}]`;
+    const bodyBudget = NOTE_BODY_MAX - citation.length;
+    const truncated = text.length > bodyBudget ? text.slice(0, bodyBudget - 1) + "…" : text;
+    setStudioTabRequest({ tab: "notes", nonce: Date.now() });
+    if (isMobile) setActiveTab("studio");
+    else setPanels((prev) => ({ ...prev, studio: true }));
+    await addNote(
+      truncated + citation,
+      [sourceUuid],
+      { popupSelection: { uuid: sourceUuid, page, text: truncated } },
+    );
+  }
+
   // ─── Language training functions (from useLanguageTraining) ──────────────
   const langTrainingActiveIds = selectedSourceIds.slice(0, 3);
   const spr = useLanguageTraining({
@@ -288,11 +315,11 @@ export default function KiTutorWorkspacePage() {
   });
   const {
     langTrainingView, setSprachView,
-    glossary, glossaryLoading, glossaryCount, glossaryExtracting, glossaryFeedback,
+    glossary, glossaryCount, glossaryExtracting, glossaryFeedback,
     clozeExercises, clozeLoading,
     vocabQuestions, vocabLoading,
     deleteGlossaryEntry, deleteAllGlossaryEntries,
-    generateGlossary, generateCloze, generateVocabTest,
+    generateCloze, generateVocabTest,
     loadGlossary, loadGlossaryCount,
     extractGlossary, dismissFeedback,
   } = spr;
@@ -354,21 +381,18 @@ export default function KiTutorWorkspacePage() {
   const glossaryContent = (
     <GlossaryView
       entries={glossary}
-      loading={glossaryLoading}
       extracting={glossaryExtracting}
-      onGenerate={generateGlossary}
-      sourceCount={selectedSourceIds.length}
       onOpenSource={(filename, page, highlightText, startTime) => {
         const src = (filename && sources.find((s) => s.filename === filename))
           || sources.find((s) => selectedSourceIds.includes(s.uuid));
         if (!src) return;
         if (_isMediaFile(src.filename) && startTime != null) {
-          setPrevSelectedSourceIds(selectedSourceIds);
-          setSelectedSourceIds([src.uuid]);
+          // Don't narrow the selection (chat scopes to the viewer source anyway);
+          // narrowing here used to persist a stuck single source on reload.
           setViewerSource({ uuid: src.uuid, filename: src.filename, page: 0, startTime, nonce: Date.now() });
           setPanels((prev) => ({ ...prev, quellen: true }));
         } else {
-          handleOpenViewer(src, page, highlightText);
+          handleOpenViewer(src, page, highlightText, true);
         }
       }}
       onDelete={deleteGlossaryEntry}
@@ -456,7 +480,7 @@ export default function KiTutorWorkspacePage() {
       return _isMediaFile(viewerSource.filename) ? (
         <MediaPlayer source={viewerSource} onClose={handleCloseViewer} workspaceUuid={uuid} onMinimize={onMinimize} canDownload={isLecturer || isAdmin} canManage={isLecturer || isAdmin} onSaveNote={addNote} defaultTranscriptLang={transcriptDefaultLang} />
       ) : (
-        <PdfViewer source={viewerSource} onClose={handleCloseViewer} workspaceUuid={uuid} onAskWithSelection={handleAskWithSelection} onCustomQuestion={handleCustomQuestion} popupActions={popupActions} onAddToGlossary={handleAddToGlossary} onMinimize={onMinimize} isOwner={moduleDetail?.is_owner ?? false} summaryMode={summaryMode} />
+        <PdfViewer source={viewerSource} onClose={handleCloseViewer} workspaceUuid={uuid} onAskWithSelection={handleAskWithSelection} onCustomQuestion={handleCustomQuestion} popupActions={popupActions} onAddToGlossary={handleAddToGlossary} onAddToNote={handleAddToNote} onMinimize={onMinimize} isOwner={moduleDetail?.is_owner ?? false} />
       );
     }
     return (
@@ -474,6 +498,9 @@ export default function KiTutorWorkspacePage() {
         isLecturer={isLecturer}
         onMinimize={onMinimize}
         workspaceUuid={uuid}
+        staffNoteText={moduleDetail?.staff_note_text ?? null}
+        staffNoteLinks={moduleDetail?.staff_note_links ?? []}
+        onStaffNoteSave={handleStaffNoteSave}
         {...(hh ? { hideHeader: true } : {})}
       />
     );
@@ -504,6 +531,7 @@ export default function KiTutorWorkspacePage() {
         messages={messages}
         activeSourceIds={activeSourceIds}
         sources={sources}
+        popupActions={popupActions}
         loading={chatLoading}
         onSend={(v) => sendChatMessage(v)}
         onStop={stopChat}
@@ -560,8 +588,8 @@ export default function KiTutorWorkspacePage() {
           onChangeTranslationMode={handleChangeTranslationMode}
           transcriptDefaultLang={transcriptDefaultLang}
           onChangeTranscriptDefaultLang={handleChangeTranscriptDefaultLang}
-          summaryMode={summaryMode}
-          onChangeSummaryMode={handleChangeSummaryMode}
+          transcriptTargetLang={transcriptTargetLang}
+          onChangeTranscriptTargetLang={handleChangeTranscriptTargetLang}
           activeTab={activeTab}
           setActiveTab={setActiveTab}
           languageLevel={me?.language_level ?? null}

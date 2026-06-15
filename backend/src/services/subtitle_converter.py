@@ -1,4 +1,4 @@
-"""Convert ElevenLabs character-level alignment data to SRT / VTT / TXT subtitles."""
+"""Convert character-level alignment data to SRT / VTT / TXT subtitles."""
 
 from __future__ import annotations
 
@@ -10,7 +10,7 @@ def alignment_to_words(alignment: dict) -> list[dict]:
 
     Args:
         alignment: Dict with 'characters', 'character_start_times_seconds',
-                   'character_end_times_seconds' lists (from ElevenLabs).
+                   'character_end_times_seconds' lists.
 
     Returns:
         List of ``{"word": str, "start": float, "end": float}`` dicts.
@@ -181,7 +181,7 @@ def build_subtitles(
 
     Args:
         per_slide_data: List of dicts, each with:
-            - ``alignment``: ElevenLabs alignment dict (or None for empty slides)
+            - ``alignment``: alignment dict (or None for empty slides)
             - ``audio_duration``: duration of that slide's audio in seconds
         slide_pause: pause between slides in seconds
 

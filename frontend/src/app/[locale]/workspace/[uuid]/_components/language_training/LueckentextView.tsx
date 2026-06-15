@@ -19,6 +19,15 @@ export function LueckentextView({
   const total = exercises.length;
   const ex = exercises[current];
 
+  function normalizeClozeSentence(s: string): string {
+    const parts = s.split(/[_＿]+/);
+    if (parts.length <= 1) return s;
+    const gap = "_".repeat(10);
+    return (parts[0] + " " + gap + " " + parts.slice(1).join(" "))
+      .replace(/\s+/g, " ")
+      .trim();
+  }
+
   function handleSelect(optIdx: number) {
     if (answers[current] !== undefined) return;
     setAnswers({ ...answers, [current]: optIdx });
@@ -101,7 +110,7 @@ export function LueckentextView({
 
               <div className="rounded-xl p-4" style={{ backgroundColor: "var(--surface)", border: "1px solid var(--border)" }}>
                 <p className="text-sm leading-relaxed font-semibold mb-4" style={{ color: "var(--foreground)" }}>
-                  {ex.sentence}
+                  {normalizeClozeSentence(ex.sentence)}
                 </p>
                 <div className="flex flex-col gap-2">
                   {ex.options.map((opt, oi) => {

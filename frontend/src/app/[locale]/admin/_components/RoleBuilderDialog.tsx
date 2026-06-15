@@ -1,12 +1,15 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
+import { useWorkspaceLabel } from "@/hooks/useWorkspaceLabel";
+
+type AiaAccess = "none" | "read" | "edit";
 
 interface CustomRole {
   id?: number;
   name: string;
-  allow_aia: boolean;
+  aia_access?: AiaAccess;
   allowed_tools: string[];
 }
 
@@ -17,10 +20,23 @@ interface Props {
   onSaved: () => void;
 }
 
+// Link-based read access is a universal baseline now, so a tools-only "none"
+// role is no longer distinct from "read". Offer only read vs edit; legacy
+// "none" roles in the DB are normalized to "read" below.
+const AIA_OPTIONS: { value: Exclude<AiaAccess, "none">; labelKey: "aiaRead" | "aiaEdit" }[] = [
+  { value: "read", labelKey: "aiaRead" },
+  { value: "edit", labelKey: "aiaEdit" },
+];
+
+const normalizeAia = (a?: AiaAccess): Exclude<AiaAccess, "none"> =>
+  a === "edit" ? "edit" : "read";
+
 export default function RoleBuilderDialog({ initial, availableTools, onClose, onSaved }: Props) {
   const t = useTranslations("admin.roles");
+  const tTools = useTranslations("toolsSidebar.items");
+  const ws = useWorkspaceLabel();
   const [name, setName] = useState(initial?.name ?? "");
-  const [allowAia, setAllowAia] = useState(initial?.allow_aia ?? false);
+  const [aiaAccess, setAiaAccess] = useState<AiaAccess>(normalizeAia(initial?.aia_access));
   const [tools, setTools] = useState<Set<string>>(new Set(initial?.allowed_tools ?? []));
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -31,10 +47,27 @@ export default function RoleBuilderDialog({ initial, availableTools, onClose, on
     setTools(next);
   }
 
+  const allToolsCount = availableTools.length;
+  const selectedToolsCount = availableTools.filter((k) => tools.has(k)).length;
+  const allSelected = allToolsCount > 0 && selectedToolsCount === allToolsCount;
+  const someSelected = selectedToolsCount > 0 && !allSelected;
+  const toggleAllRef = useRef<HTMLInputElement>(null);
+  useEffect(() => {
+    if (toggleAllRef.current) toggleAllRef.current.indeterminate = someSelected;
+  }, [someSelected]);
+
+  function toggleAllTools() {
+    setTools(allSelected ? new Set() : new Set(availableTools));
+  }
+
   async function save() {
     setSaving(true);
     setError(null);
-    const payload = { name: name.trim(), allow_aia: allowAia, allowed_tools: Array.from(tools) };
+    const payload = {
+      name: name.trim(),
+      aia_access: aiaAccess,
+      allowed_tools: Array.from(tools),
+    };
     const url = initial?.id ? `/api/admin/roles/${initial.id}` : `/api/admin/roles`;
     const method = initial?.id ? "PUT" : "POST";
     try {
@@ -58,65 +91,84 @@ export default function RoleBuilderDialog({ initial, availableTools, onClose, on
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4"
-      style={{ backgroundColor: "rgba(0, 0, 0, 0.5)" }}
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
       onClick={onClose}
       role="dialog"
       aria-modal="true"
     >
       <div
-        className="w-full max-w-md rounded-xl p-6 space-y-4"
-        style={{ background: "var(--background)", border: "1px solid var(--border)" }}
+        className="bg-background border border-border rounded-xl shadow-xl w-full max-w-md p-6 space-y-4"
         onClick={(e) => e.stopPropagation()}
       >
-        <h3 className="text-lg font-semibold">{initial?.id ? t("edit") : t("newRole")}</h3>
+        <h2 className="text-lg font-semibold">{initial?.id ? t("edit") : t("newRole")}</h2>
 
-        <label className="block">
-          <span className="text-sm font-medium">{t("name")}</span>
+        <div className="space-y-1">
+          <label className="text-xs uppercase tracking-wide text-muted">{t("name")}</label>
           <input
             type="text"
             value={name}
             onChange={(e) => setName(e.target.value)}
-            className="mt-1 w-full rounded-md border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-kb"
-            style={{ borderColor: "var(--border)", background: "var(--surface)" }}
+            className="w-full text-sm border border-border rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-kb"
           />
-        </label>
+        </div>
 
-        <label className="flex items-center gap-2">
-          <input
-            type="checkbox"
-            checked={allowAia}
-            onChange={(e) => setAllowAia(e.target.checked)}
-          />
-          <span className="text-sm">{t("allowAia")}</span>
-        </label>
-
-        <fieldset>
-          <legend className="text-sm font-medium mb-2">{t("tools")}</legend>
+        <fieldset className="space-y-1">
+          <legend className="text-xs uppercase tracking-wide text-muted">
+            {t("aiaAccess", { label: ws.singular })}
+          </legend>
           <div className="flex flex-col gap-1">
-            {availableTools.map((key) => (
-              <label key={key} className="flex items-center gap-2 text-sm">
+            {AIA_OPTIONS.map((opt) => (
+              <label key={opt.value} className="flex items-center gap-2 text-sm py-1">
                 <input
-                  type="checkbox"
-                  checked={tools.has(key)}
-                  onChange={() => toggleTool(key)}
+                  type="radio"
+                  name="aia_access"
+                  value={opt.value}
+                  checked={aiaAccess === opt.value}
+                  onChange={() => setAiaAccess(opt.value)}
+                  className="w-4 h-4 accent-kb"
                 />
-                <span>{key}</span>
+                <span>{t(opt.labelKey, { label: ws.singular, plural: ws.plural })}</span>
               </label>
             ))}
           </div>
         </fieldset>
 
-        {error && (
-          <p className="text-sm" style={{ color: "var(--error)" }}>{error}</p>
-        )}
+        <fieldset className="space-y-1">
+          <legend className="text-xs uppercase tracking-wide text-muted">{t("tools")}</legend>
+          <div className="flex flex-col gap-1">
+            <label className="flex items-center gap-2 text-sm py-1 border-b border-border-soft pb-2">
+              <input
+                ref={toggleAllRef}
+                type="checkbox"
+                checked={allSelected}
+                onChange={toggleAllTools}
+                className="w-4 h-4 accent-kb"
+              />
+              <span className="font-medium">{t("toolsSelectAll")}</span>
+              <span className="text-xs text-muted-soft">({selectedToolsCount}/{allToolsCount})</span>
+            </label>
+            {availableTools.map((key) => (
+              <label key={key} className="flex items-center gap-2 text-sm py-1">
+                <input
+                  type="checkbox"
+                  checked={tools.has(key)}
+                  onChange={() => toggleTool(key)}
+                  className="w-4 h-4 accent-kb"
+                />
+                <span>{tTools(key as Parameters<typeof tTools>[0])}</span>
+              </label>
+            ))}
+          </div>
+        </fieldset>
+
+        {error && <p className="text-sm text-error">{error}</p>}
 
         <div className="flex justify-end gap-2 pt-2">
           <button
             type="button"
             onClick={onClose}
             disabled={saving}
-            className="px-4 py-2 rounded-md text-sm border border-border hover:bg-surface-dim"
+            className="px-4 py-2 text-sm border-2 border-border rounded-md hover:border-[var(--kb)] hover:text-[var(--kb)] disabled:opacity-60"
           >
             {t("cancel")}
           </button>
@@ -124,7 +176,7 @@ export default function RoleBuilderDialog({ initial, availableTools, onClose, on
             type="button"
             onClick={save}
             disabled={saving || !name.trim()}
-            className="px-4 py-2 rounded-md text-sm font-medium btn-primary disabled:opacity-50"
+            className="px-4 py-2 text-sm bg-kb text-white rounded-md disabled:opacity-60"
           >
             {t("save")}
           </button>

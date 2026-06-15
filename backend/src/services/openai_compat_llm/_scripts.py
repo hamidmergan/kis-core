@@ -134,7 +134,7 @@ class _ScriptsMixin:
             "You are an expert at creating spoken narration scripts for presentations. "
             f"Generate a spoken script for EACH of the {batch_size} content blocks below. "
             "The blocks are separated by ===. "
-            f"The slide content is in {source_lang}. Output MUST be in {target_lang}.\n"
+            f"The slide content may be in any language. Output MUST be in {target_lang}.\n"
             "Rules:\n"
             "- Do NOT add any new information.\n"
             "- Do NOT hallucinate.\n"

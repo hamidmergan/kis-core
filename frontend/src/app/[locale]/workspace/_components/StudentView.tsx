@@ -3,28 +3,63 @@
 import { useCallback, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
-import { Link } from "@/i18n/navigation";
+import { useRouter } from "@/i18n/navigation";
 import { CalendarBlank } from "@phosphor-icons/react";
 import Spinner from "@/components/ui/Spinner";
 import ExpandableText from "@/components/ui/ExpandableText";
 import UpcomingDeadlinesWidget from "./UpcomingDeadlinesWidget";
+import HomeNotice from "./HomeNotice";
 import { useWorkspaceLabel } from "@/hooks/useWorkspaceLabel";
 import type { StudentWorkspace } from "../_shared";
+
+interface LinkPreview {
+  workspace_uuid: string;
+  title: string;
+}
 
 export default function StudentView() {
   const t = useTranslations("workspace.list");
   const locale = useLocale();
   const labels = useWorkspaceLabel();
+  const router = useRouter();
   const searchParams = useSearchParams();
   const [workspaces, setModules] = useState<StudentWorkspace[]>([]);
   const [loading, setLoading] = useState(true);
-  const [enrollCode, setEnrollCode] = useState("");
   const [enrolling, setEnrolling] = useState(false);
   const [enrollError, setEnrollError] = useState<string | null>(null);
+  const [linkPreview, setLinkPreview] = useState<LinkPreview | null>(null);
+  const [previewLoading, setPreviewLoading] = useState(false);
+  const [previewCode, setPreviewCode] = useState<string | null>(null);
+  const [previewInvalid, setPreviewInvalid] = useState(false);
 
   useEffect(() => {
     const code = searchParams.get("code");
-    if (code) setEnrollCode(code);
+    if (!code) {
+      setLinkPreview(null);
+      setPreviewCode(null);
+      setPreviewInvalid(false);
+      return;
+    }
+    setPreviewCode(code);
+    setPreviewLoading(true);
+    setPreviewInvalid(false);
+    fetch(`/api/ai-assistant/access-link/preview?code=${encodeURIComponent(code)}`, {
+      credentials: "include",
+    })
+      .then(async (res) => {
+        if (!res.ok) {
+          setLinkPreview(null);
+          setPreviewInvalid(true);
+          return;
+        }
+        const data = (await res.json()) as LinkPreview;
+        setLinkPreview(data);
+      })
+      .catch(() => {
+        setLinkPreview(null);
+        setPreviewInvalid(true);
+      })
+      .finally(() => setPreviewLoading(false));
   }, [searchParams]);
 
   const loadModules = useCallback(async () => {
@@ -47,9 +82,8 @@ export default function StudentView() {
     return () => clearInterval(id);
   }, [workspaces, loadModules]);
 
-  async function handleEnroll(e: React.FormEvent) {
-    e.preventDefault();
-    if (!enrollCode.trim()) return;
+  async function handleEnrollLink() {
+    if (!previewCode) return;
     setEnrolling(true);
     setEnrollError(null);
     try {
@@ -57,14 +91,14 @@ export default function StudentView() {
         method: "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ enroll_code: enrollCode.trim() }),
+        body: JSON.stringify({ enroll_code: previewCode }),
       });
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
         throw new Error(err.detail ?? t("enrollInvalidCode"));
       }
-      setEnrollCode("");
-      await loadModules();
+      const data = (await res.json()) as { workspace_uuid?: string };
+      if (data.workspace_uuid) router.replace(`/workspace/${data.workspace_uuid}`);
     } catch (err: unknown) {
       setEnrollError(err instanceof Error ? err.message : t("unknownError"));
     } finally {
@@ -72,78 +106,92 @@ export default function StudentView() {
     }
   }
 
+  const showLinkCard = !!linkPreview;
+  const previewPending = !!previewCode && previewLoading;
+
   return (
     <div className="px-4 sm:px-6 md:px-8 pt-10 pb-20 lg:pt-15 lg:pb-30">
       <div className="max-w-5xl mx-auto">
-      <h1 className="text-3xl font-bold mb-10">{t("welcomeTitle")}</h1>
+      {!showLinkCard && !previewPending && (
+        <h1 className="text-3xl font-bold mb-10">{t("welcomeTitle")}</h1>
+      )}
 
-      <div className="mb-12">
-        <UpcomingDeadlinesWidget />
-      </div>
-
-      <h2 className="text-xl font-semibold mb-8">{t("myWorkspaces", { label: labels.plural })}</h2>
-
-      <section
-        className="rounded-xl p-5 mb-8"
-        style={{ backgroundColor: "var(--surface)", boxShadow: "var(--shadow)" }}
-      >
-        <p className="text-sm font-medium mb-3" style={{ color: "var(--foreground)" }}>
-          {t("enrollPrompt")}
-        </p>
-        <form onSubmit={handleEnroll} className="flex gap-2">
-          <input
-            type="text"
-            value={enrollCode}
-            onChange={(e) => {
-              setEnrollCode(e.target.value);
-              setEnrollError(null);
-            }}
-            placeholder={t("enrollPlaceholder")}
-            className="flex-1 rounded-lg border px-3 py-2 text-sm focus:outline-none font-mono"
-            style={{
-              backgroundColor: "var(--background)",
-              borderColor: enrollError ? "var(--error)" : "var(--border)",
-              color: "var(--foreground)",
-            }}
-          />
+      {previewPending ? (
+        <div className="flex items-center justify-center min-h-[40vh]">
+          <Spinner size="lg" />
+        </div>
+      ) : showLinkCard ? (
+        <section
+          className="rounded-xl p-10 mb-12 flex flex-col items-center text-center"
+          style={{ backgroundColor: "var(--surface)", boxShadow: "var(--shadow)" }}
+        >
+          <h2 className="text-2xl font-semibold mb-6" style={{ color: "var(--foreground)" }}>
+            {linkPreview!.title}
+          </h2>
           <button
-            type="submit"
-            disabled={enrolling || !enrollCode.trim()}
-            className="btn-primary px-4 py-2 rounded-lg text-sm font-medium disabled:opacity-50 whitespace-nowrap"
+            type="button"
+            onClick={handleEnrollLink}
+            disabled={enrolling}
+            className="btn-primary px-8 py-3 rounded-lg text-base font-medium disabled:opacity-50"
           >
             {enrolling ? "…" : t("enroll")}
           </button>
-        </form>
-        {enrollError && (
-          <p className="mt-2 text-sm" style={{ color: "var(--error)" }}>
-            {enrollError}
-          </p>
-        )}
-      </section>
-
-      {loading ? (
-        <div className="flex items-center justify-center min-h-[60vh]">
-          <Spinner size="lg" />
-        </div>
-      ) : workspaces.length === 0 ? (
-        <p className="text-center py-10 text-sm" style={{ color: "var(--muted)" }}>
-          {t("noEnrollments")}
-        </p>
+          {enrollError && (
+            <p className="mt-4 text-sm" style={{ color: "var(--error)" }}>
+              {enrollError}
+            </p>
+          )}
+        </section>
       ) : (
-        <ul className="divide-y divide-border-soft border border-border-soft rounded-xl overflow-hidden">
-          {workspaces.map((m, i) => {
-            const href = m.enrollment_id ? `/workspace/${m.uuid}?eid=${m.enrollment_id}` : `/workspace/${m.uuid}`;
-            const untilDate = m.enrolled_until
-              ? new Date(m.enrolled_until).toLocaleDateString(locale === "en" ? "en-US" : "de-DE", {
-                  day: "2-digit",
-                  month: "2-digit",
-                  year: "numeric",
-                  timeZone: "Europe/Berlin",
-                })
-              : null;
-            return (
-              <li key={`${m.uuid}-${m.enrollment_id ?? i}`} className="px-5 py-4 bg-background hover:bg-surface">
-                <div className="flex items-center justify-between gap-4">
+        <>
+          {previewInvalid && (
+            <div
+              className="rounded-xl p-4 mb-8 text-sm"
+              style={{ backgroundColor: "var(--error-bg)", color: "var(--error)" }}
+            >
+              {t("enrollInvalidCode")}
+            </div>
+          )}
+
+          <HomeNotice />
+
+          <div className="mb-12">
+            <UpcomingDeadlinesWidget />
+          </div>
+
+          <h2 className="text-xl font-semibold mb-8">{t("myWorkspaces", { label: labels.plural })}</h2>
+        </>
+      )}
+
+      {!showLinkCard && !previewPending && (
+        loading ? (
+          <div className="flex items-center justify-center min-h-[60vh]">
+            <Spinner size="lg" />
+          </div>
+        ) : workspaces.length === 0 ? (
+          <p className="text-center py-10 text-sm" style={{ color: "var(--muted)" }}>
+            {t("noEnrollments")}
+          </p>
+        ) : (
+          <ul className="divide-y divide-border-soft border border-border-soft rounded-xl overflow-hidden">
+            {workspaces.map((m, i) => {
+              const href = m.enrollment_id ? `/workspace/${m.uuid}?eid=${m.enrollment_id}` : `/workspace/${m.uuid}`;
+              const untilDate = m.enrolled_until
+                ? new Date(m.enrolled_until).toLocaleDateString(locale === "en" ? "en-US" : "de-DE", {
+                    day: "2-digit",
+                    month: "2-digit",
+                    year: "numeric",
+                    timeZone: "Europe/Berlin",
+                  })
+                : null;
+              return (
+                <li
+                  key={`${m.uuid}-${m.enrollment_id ?? i}`}
+                  className="px-5 py-4 bg-background hover:bg-surface cursor-pointer"
+                  onClick={() => router.push(href)}
+                  onMouseEnter={() => router.prefetch(href)}
+                  onMouseDown={(e) => { if (e.button === 1) { e.preventDefault(); window.open(`/${locale}${href}`, "_blank"); } }}
+                >
                   <div className="min-w-0">
                     <h3 className="text-sm font-medium truncate">{m.title}</h3>
                     <div className="flex items-center gap-2 mt-0.5">
@@ -160,17 +208,11 @@ export default function StudentView() {
                       )}
                     </div>
                   </div>
-                  <Link
-                    href={href}
-                    className="flex-shrink-0 px-3 py-1.5 rounded-lg text-xs font-medium text-white bg-kb"
-                  >
-                    {t("open")}
-                  </Link>
-                </div>
-              </li>
-            );
-          })}
-        </ul>
+                </li>
+              );
+            })}
+          </ul>
+        )
       )}
       </div>
     </div>

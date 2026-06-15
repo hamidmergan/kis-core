@@ -94,21 +94,30 @@ def _resolve_base_permissions(
         if cr is None:
             # Custom role was deleted concurrently; degrade gracefully to 'user'.
             return permissions_for_system_role("user")
-        return custom_role_permissions(cr["allow_aia"], cr["allowed_tools"])
+        return custom_role_permissions(cr["aia_access"], cr["allowed_tools"])
     # Unknown / corrupt role -> safest fallback
     return permissions_for_system_role("user")
 
 
-def custom_role_permissions(allow_aia: bool, tool_keys: list[str]) -> Permissions:
+def custom_role_permissions(aia_access: str, tool_keys: list[str]) -> Permissions:
     """Permissions for a DB-backed custom role.
 
-    Custom roles never grant admin or workspace-create rights.
+    Custom roles never grant admin panel or LDAP-user-create. Link-based read
+    access (following a shared link to read an enrolled workspace) is a
+    universal baseline that every authenticated user has, so `allow_aia` is
+    always granted. `aia_access` only controls the OWN-workspace dimension:
+      'none' -> tools-only role: no workspaces of their own, but may still
+                follow a link and read an enrolled workspace (student view)
+      'read' -> student view (currently identical to 'none')
+      'edit' -> lecturer view: create + manage own workspaces
+    `tool_keys` adds global tool access on top.
     """
     valid_tools = tuple(k for k in tool_keys if k in ALL_TOOL_KEYS)
+    is_edit = aia_access == "edit"
     return Permissions(
         allow_admin_panel=False,
-        allow_aia=allow_aia,
-        allow_workspace_create=False,
+        allow_aia=True,  # link read is universal; create is gated below
+        allow_workspace_create=is_edit,
         allow_ldap_user_create=False,
         tools=valid_tools,
     )

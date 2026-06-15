@@ -107,3 +107,54 @@ def test_env_admin_gets_ldap_user_create_when_flag_on(monkeypatch):
         assert perms.allow_ldap_user_create is True
     finally:
         get_settings.cache_clear()
+
+
+from src.permissions import custom_role_permissions
+
+
+def test_custom_role_aia_none_still_grants_link_read():
+    # Link-based read access is a universal baseline: even a tools-only
+    # role ('none') may follow a shared link and read an enrolled workspace.
+    # It just cannot create or own workspaces.
+    perms = custom_role_permissions(aia_access="none", tool_keys=[])
+    assert perms.allow_aia is True
+    assert perms.allow_workspace_create is False
+    assert perms.allow_admin_panel is False
+
+
+def test_custom_role_aia_read_grants_link_access_only():
+    perms = custom_role_permissions(aia_access="read", tool_keys=[])
+    assert perms.allow_aia is True
+    assert perms.allow_workspace_create is False
+    assert perms.allow_admin_panel is False
+    assert perms.allow_ldap_user_create is False
+
+
+def test_custom_role_aia_edit_grants_lecturer_view():
+    perms = custom_role_permissions(aia_access="edit", tool_keys=[])
+    assert perms.allow_aia is True
+    assert perms.allow_workspace_create is True
+    assert perms.allow_admin_panel is False
+    assert perms.allow_ldap_user_create is False
+
+
+def test_custom_role_unknown_aia_access_defaults_to_link_read():
+    # Unknown/corrupt values degrade to the safe baseline: link read only,
+    # never workspace creation.
+    perms = custom_role_permissions(aia_access="ninja", tool_keys=[])
+    assert perms.allow_aia is True
+    assert perms.allow_workspace_create is False
+
+
+def test_custom_role_tools_are_layered_on_user_base():
+    valid_tool = next(iter(ALL_TOOL_KEYS))
+    perms = custom_role_permissions(aia_access="read", tool_keys=[valid_tool])
+    assert valid_tool in perms.tools
+    assert perms.allow_workspace_create is False
+
+
+def test_custom_role_edit_with_tools_combines_both():
+    valid_tool = next(iter(ALL_TOOL_KEYS))
+    perms = custom_role_permissions(aia_access="edit", tool_keys=[valid_tool])
+    assert perms.allow_workspace_create is True
+    assert valid_tool in perms.tools

@@ -1,6 +1,50 @@
 import React from "react";
-import { _chunkLabel, _getChipIcon } from "../../_utils";
+import { CaretRight, CaretLeft } from "@phosphor-icons/react";
+import { _chunkLabel, type ChipLabelT } from "../../_utils";
 import type { ChatMessage } from "../../_types";
+import { citationPattern, citationsAreAdjacentSameTarget, stripCitations, type CitationFields } from "./_citation_parse";
+import { CITATION_HL_COLOR } from "../viewer/_highlight";
+
+
+// The single citation target (source + page/timestamp) currently framed in the viewer,
+// i.e. the last clicked chip. Mirrors the viewer's one-frame-at-a-time behaviour so the
+// active chip wears the SAME yellow border as the page frame. Module scope (like
+// _openChipGroups below) so the active state survives the remount churn of streaming /
+// the 15s poll. Chips subscribe individually, so a click re-renders only the
+// previously- and newly-active chip, not the whole message tree.
+let _activeChipTarget: string | null = null;
+const _activeChipSubs = new Set<() => void>();
+
+// A chip's identity for "active" matching: source + page (PDF) or source + seconds
+// (media). Two chips for the same target light up together — consistent, since the
+// viewer frames exactly that one page either way.
+function chipTargetKey(uuid: string, page: number, seconds: number | undefined): string {
+  return seconds != null ? `${uuid}@t${seconds}` : `${uuid}@p${page}`;
+}
+
+function setActiveChipTarget(key: string): void {
+  if (_activeChipTarget === key) return;
+  _activeChipTarget = key;
+  _activeChipSubs.forEach((fn) => fn());
+}
+
+// Drop the active chip's yellow border. Called when the viewer's page frame is
+// dismissed (the X button bottom-right of the PDF), so the chip in the chat loses its
+// frame in lock-step with the page. No-op when no chip is active.
+export function clearActiveChipTarget(): void {
+  if (_activeChipTarget === null) return;
+  _activeChipTarget = null;
+  _activeChipSubs.forEach((fn) => fn());
+}
+
+function useIsActiveChip(key: string): boolean {
+  const subscribe = React.useCallback((cb: () => void) => {
+    _activeChipSubs.add(cb);
+    return () => { _activeChipSubs.delete(cb); };
+  }, []);
+  const getSnapshot = React.useCallback(() => _activeChipTarget === key, [key]);
+  return React.useSyncExternalStore(subscribe, getSnapshot, getSnapshot);
+}
 
 
 export type CitationChipClickHandler = (
@@ -13,10 +57,10 @@ export type CitationChipClickHandler = (
 ) => void;
 
 
-// Renders a single citation chip that links back to the source viewer.
-function CitationChip({
-  filename, displayQNum, label, clickUuid, clickPage, clickSeconds, clickHighlight, isExactSelection, onChipClick,
-}: {
+// Resolved, render-ready data for one chip. A chip may stand for several merged
+// citations of the same source+page (collapsed into one during parsing).
+interface ChipDesc {
+  key: string;
   filename: string;
   displayQNum: number | null;
   label: string;
@@ -25,34 +69,104 @@ function CitationChip({
   clickSeconds: number | undefined;
   clickHighlight: string | undefined;
   isExactSelection: boolean;
-  onChipClick: CitationChipClickHandler;
-}) {
-  const ChipIcon = _getChipIcon(filename);
+  start: number;   // token span start in the answer text
+  end: number;     // token span end in the answer text
+}
+
+
+// Renders a single citation chip that links back to the source viewer.
+// Clicking a chip only scrolls to the page/timestamp — no highlight — UNLESS it is a
+// popup/action-bar exact selection, which still passes its verbatim text to highlight.
+function CitationChip({ desc, onChipClick }: { desc: ChipDesc; onChipClick: CitationChipClickHandler }) {
+  const { filename, displayQNum, label, clickUuid, clickPage, clickSeconds, clickHighlight, isExactSelection } = desc;
+  const targetKey = chipTargetKey(clickUuid, clickSeconds ? 0 : clickPage, clickSeconds);
+  const isActive = useIsActiveChip(targetKey);
   // onPointerDown (not onClick) so chips remain clickable during active token stream:
   // with onClick, react-markdown often unmounts the chip between down and up, so the
   // native click lands on an ancestor. Pointer (not Mouse) so touch devices trigger it.
-  const activate = () => onChipClick(
-    clickUuid,
-    clickSeconds ? 0 : clickPage,
-    filename,
-    clickSeconds ? undefined : clickHighlight,
-    clickSeconds,
-    isExactSelection,
-  );
+  const activate = () => {
+    // Mark this chip as the active one so it wears the same yellow border as the page
+    // frame the click is about to draw in the viewer.
+    setActiveChipTarget(targetKey);
+    onChipClick(
+      clickUuid,
+      clickSeconds ? 0 : clickPage,
+      filename,
+      clickSeconds ? undefined : clickHighlight,
+      clickSeconds,
+      isExactSelection,
+    );
+  };
   return (
     <span role="button" tabIndex={0}
       onPointerDown={(e) => { if (e.button === 0) activate(); }}
       onKeyDown={(e) => { if (e.key === "Enter") activate(); }}
-      className="inline-flex items-center gap-0.5 text-xs px-1.5 py-0.5 rounded-full font-medium chip-cite align-middle mx-0.5 cursor-pointer"
-      style={{ backgroundColor: "rgba(var(--kb-rgb),0.12)", color: "var(--kb)" }}
+      className="inline-flex items-center whitespace-nowrap text-xs px-1.5 py-0.5 rounded-full font-medium chip-cite align-middle mx-0.5 cursor-pointer"
+      // Transparent border by default so the active state adds the yellow frame without
+      // shifting layout. Yellow matches the viewer page frame (CITATION_HL_COLOR).
+      style={{
+        backgroundColor: "rgba(var(--kb-rgb),0.12)",
+        color: "var(--kb)",
+        border: `2px solid ${isActive ? CITATION_HL_COLOR : "transparent"}`,
+      }}
       title={`${filename}, ${label}`}
-    ><ChipIcon size={8} weight="bold" />{displayQNum ? `[${displayQNum}] ` : ""}{label}</span>
+    >{displayQNum ? `[${displayQNum}] ` : ""}{label}</span>
   );
 }
 
 
-// Parses inline citations like [Q1, S. 2 | keyword], [1, 05:32], [S. 2] and
-// replaces them with CitationChip elements. Text outside matches is returned as-is.
+// Expanding is a TOGGLE: a group opens to show all chips and can be collapsed back to
+// just the first chip + chevron. The user's explicit open/closed choice lives at module
+// scope so it survives the re-render/remount churn from streaming tokens or the 15s
+// workspace poll (a fresh mount resets local state, then restores it from the stable
+// groupId): NOT in the set == collapsed (default), opened groups are added, re-collapsed
+// groups are removed.
+const _openChipGroups = new Set<string>();
+
+// A run of directly-adjacent chips (only whitespace between them). The first chip is
+// always shown; the rest stay behind a minimal chevron until the user opens the group.
+// Open shows every chip plus a back-chevron that folds the extras away again.
+function CitationChipGroup({ groupId, chips, onChipClick }: { groupId: string; chips: ChipDesc[]; onChipClick: CitationChipClickHandler }) {
+  const [open, setOpen] = React.useState(() => _openChipGroups.has(groupId));
+  const reveal = () => { _openChipGroups.add(groupId); setOpen(true); };
+  const collapse = () => { _openChipGroups.delete(groupId); setOpen(false); };
+  const hidden = chips.length - 1;
+  // The toggle is a chip-sized hit area (easy click/tap target) carrying the hidden
+  // count, but WITHOUT the chip's filled pill background — just caret + count in the
+  // brand colour. `chip-toggle` keeps the hover outline (.chip-cite) yet opts out of the
+  // dark-mode chip background (see globals.css).
+  const toggleCls = "chip-cite chip-toggle inline-flex items-center gap-0.5 whitespace-nowrap text-xs px-2 py-0.5 rounded-full font-medium align-middle mx-0.5 cursor-pointer select-none";
+  const toggleStyle = { color: "var(--kb)" } as const;
+  if (open) {
+    return (
+      // flex-wrap + max-w-full so a long row of chips wraps onto multiple lines instead of
+      // overflowing the message width; gap-y keeps the wrapped rows legible.
+      <span className="inline-flex flex-wrap items-center align-middle max-w-full gap-y-1">
+        {chips.map(c => <CitationChip key={c.key} desc={c} onChipClick={onChipClick} />)}
+        <span role="button" tabIndex={0}
+          onPointerDown={(e) => { if (e.button === 0) { e.stopPropagation(); collapse(); } }}
+          onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.stopPropagation(); collapse(); } }}
+          aria-label={`−${hidden}`} className={toggleCls} style={toggleStyle}
+        ><CaretLeft size={12} weight="bold" />{hidden}</span>
+      </span>
+    );
+  }
+  return (
+    <span className="inline-flex items-center align-middle">
+      <CitationChip desc={chips[0]} onChipClick={onChipClick} />
+      <span role="button" tabIndex={0}
+        onPointerDown={(e) => { if (e.button === 0) { e.stopPropagation(); reveal(); } }}
+        onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.stopPropagation(); reveal(); } }}
+        aria-label={`+${hidden}`} className={toggleCls} style={toggleStyle}
+      ><CaretRight size={12} weight="bold" />{hidden}</span>
+    </span>
+  );
+}
+
+
+// Parses inline citations like [Q1, S. 2], [1, 05:32], [S. 2] and replaces them with
+// CitationChip elements. Text outside matches is returned as-is. Chips are nav-only;
+// legacy tokens with a trailing offset/keyword still parse to their page/timestamp.
 export function parseCitations(
   text: string,
   msg: ChatMessage,
@@ -60,39 +174,61 @@ export function parseCitations(
   getFilename: (uuid: string) => string,
   onChipClick: CitationChipClickHandler,
   keyPrefix: string = "c",
+  tChip?: ChipLabelT,
 ): React.ReactNode[] {
   const msgSourcePages = msg.source_pages ?? [];
   const msgQmap = msg.source_qmap ?? [];
-  // Matches [1, S. 2 | kw], [Q1, S. 2 | kw], [S. 2], [1, 05:32 | kw] (Q prefix optional for backwards compat).
-  // Optional :uuid suffix on Q-prefix lets notes embed source UUIDs verbatim, so they survive even when
-  // the active source selection changes after the note was saved.
-  // Also accept CJK lenticular brackets 【】 (U+3010/U+3011): some LLMs emit those instead of [] despite
-  // the prompt — render them as chips rather than raw text.
-  const pattern = /[[【](?:Q?(\d+)(?::([a-f0-9]{6,64}))?,\s*)?(?:S\.\s*(\d+)|(\d{1,2}:\d{2}(?::\d{2})?))(?:\s*[|❘]\s*([^\]】]+))?\s*[\]】]/g;
-  const nodes: React.ReactNode[] = [];
-  let last = 0;
+  // With a single source the [n] prefix is redundant — the chip is just "S. X".
+  const singleSource = msgQmap.length === 1;
+  // Matches [1, S. 2], [Q1, S. 2], [S. 2], [1, 05:32] (Q prefix optional for backwards
+  // compat). Optional :uuid suffix on Q-prefix lets notes embed source UUIDs verbatim,
+  // so they survive even when the active source selection changes after the note was
+  // saved. Legacy trailing "@..|.." tokens are tolerated and discarded. Also accepts
+  // CJK lenticular brackets 【】 (U+3010/U+3011): some LLMs emit those despite the prompt.
+  // Groups: 1=qnum 2=uuid 3=page 4=timestamp (see _citation_parse).
+  const pattern = citationPattern();
+
+  // Resolved per-token data, kept with the raw parsed fields so adjacent tokens of
+  // the same source+page can be merged into one chip afterwards.
+  interface Parsed {
+    fields: CitationFields;
+    sourceUuid: string;
+    filename: string;
+    displayQNum: number | null;
+    label: string;
+    clickSeconds: number | undefined;
+    clickHighlight: string | undefined;
+    isExactSelection: boolean;
+  }
+
+  const parsed: Parsed[] = [];
   let m: RegExpExecArray | null;
-  let chipKeyCounter = 0;
   while ((m = pattern.exec(text)) !== null) {
-    if (m.index > last) nodes.push(text.slice(last, m.index));
     const qNum = m[1] ? parseInt(m[1]) : null;
     const embeddedUuid = m[2] || null;
     const pageNum = m[3] ? parseInt(m[3]) : 0;
     const timestamp = m[4] || null;
-    const keywords = m[5]?.trim().replace(/^["']+|["']+$/g, "").trim() || null;
     const qEntry = qNum ? msgQmap.find(q => q.qnum === qNum) : null;
     const sourceUuid = embeddedUuid ?? qEntry?.uuid ?? msgSourcePages[0]?.source_uuid ?? activeSourceIds[0] ?? "";
     const filename = qEntry?.filename ?? getFilename(sourceUuid);
     // Fallback: qnum from qmap via sourceUuid (e.g. popup actions without Q-prefix)
-    const displayQNum = qNum ?? msgQmap.find(q => q.uuid === sourceUuid)?.qnum ?? null;
-    const label = timestamp || _chunkLabel(filename, pageNum);
-    const ck = `${keyPrefix}${chipKeyCounter++}`;
+    const displayQNum = singleSource ? null : (qNum ?? msgQmap.find(q => q.uuid === sourceUuid)?.qnum ?? null);
+    const label = timestamp || _chunkLabel(filename, pageNum, undefined, tChip);
     let seconds = 0;
     if (timestamp) {
       const tp = timestamp.split(":").map(Number);
       seconds = tp.length === 3 ? tp[0] * 3600 + tp[1] * 60 + tp[2] : tp[0] * 60 + tp[1];
+      // The MM:SS token is the chunk start floored to whole seconds (backend int()). Recover
+      // the EXACT float start from source_pages, so the viewer pins the precise transcript
+      // cue instead of re-deriving from the lossy second. Matched by source + same floored
+      // second; chunks of one source are seconds apart, so that floor is unique.
+      const exact = msgSourcePages.find(
+        (s) => s.source_uuid === sourceUuid && s.start_time != null && Math.floor(s.start_time) === seconds,
+      );
+      if (exact?.start_time != null) seconds = exact.start_time;
     }
-    // Popup action: use marked text as highlight
+    // Popup/action-bar exact selection: the user marked this verbatim text, so the
+    // chip still highlights it exactly (the ONLY remaining chip-driven highlight).
     const popupEntry = msgSourcePages.find(s => s.is_popup_selection && s.source_uuid === sourceUuid && s.page_number === pageNum);
     const popupSel = msg.popup_selection;
     const matchesPopupSel = popupSel && popupSel.uuid === sourceUuid && popupSel.page === pageNum;
@@ -100,24 +236,96 @@ export function parseCitations(
       ? popupEntry.source_text
       : matchesPopupSel
         ? popupSel!.text
-        : (keywords || undefined);
+        : undefined;
     const isExactSelection = !!(popupEntry?.source_text || matchesPopupSel);
-    const clickSeconds = timestamp ? seconds : undefined;
+    parsed.push({
+      fields: {
+        qNum, uuid: embeddedUuid, page: pageNum, timestamp,
+        index: m.index, length: m[0].length,
+      },
+      sourceUuid, filename, displayQNum, label,
+      clickSeconds: timestamp ? seconds : undefined,
+      clickHighlight, isExactSelection,
+    });
+  }
+
+  // Phase 1: merge directly-adjacent citations of the same source+page into one chip
+  // (e.g. "[1] S. 15 [1] S. 15"). Popup (exact) selections keep their own chip — they
+  // carry verbatim user bounds for the kept highlight.
+  const chips: ChipDesc[] = [];
+  let chipKeyCounter = 0;
+  let i = 0;
+  while (i < parsed.length) {
+    const head = parsed[i];
+    const merged = [head];
+    let j = i + 1;
+    while (
+      j < parsed.length
+      && !merged[merged.length - 1].isExactSelection
+      && !parsed[j].isExactSelection
+      && citationsAreAdjacentSameTarget(
+        text, merged[merged.length - 1].fields, parsed[j].fields,
+        merged[merged.length - 1].sourceUuid, parsed[j].sourceUuid,
+      )
+    ) {
+      merged.push(parsed[j]);
+      j++;
+    }
+    const tail = merged[merged.length - 1].fields;
+    chips.push({
+      key: `${keyPrefix}${chipKeyCounter++}`,
+      filename: head.filename,
+      displayQNum: head.displayQNum,
+      label: head.label,
+      clickUuid: head.sourceUuid,
+      clickPage: head.fields.page,
+      clickSeconds: head.clickSeconds,
+      clickHighlight: head.clickHighlight,
+      isExactSelection: head.isExactSelection,
+      start: head.fields.index,
+      end: tail.index + tail.length,
+    });
+    i = j;
+  }
+
+  // Phase 2: emit text + chips. A maximal run of chips separated only by whitespace
+  // collapses into a CitationChipGroup (first chip shown, rest behind a chevron); lone
+  // chips render directly. Exact (popup) chips never fold into a group.
+  const nodes: React.ReactNode[] = [];
+  let last = 0;
+  let k = 0;
+  while (k < chips.length) {
+    const first = chips[k];
+    if (first.start > last) nodes.push(text.slice(last, first.start));
+
+    const run = [first];
+    let n = k + 1;
+    while (
+      n < chips.length
+      && !run[run.length - 1].isExactSelection
+      && !chips[n].isExactSelection
+      && /^\s*$/u.test(text.slice(chips[n - 1].end, chips[n].start))
+    ) {
+      run.push(chips[n]);
+      n++;
+    }
+
     nodes.push(
-      <CitationChip
-        key={ck}
-        filename={filename}
-        displayQNum={displayQNum}
-        label={label}
-        clickUuid={sourceUuid}
-        clickPage={pageNum}
-        clickSeconds={clickSeconds}
-        clickHighlight={clickHighlight}
-        isExactSelection={isExactSelection}
-        onChipClick={onChipClick}
-      />,
+      run.length > 1
+        ? <CitationChipGroup
+            key={first.key}
+            // Content-based id (source+pages, not text position) so the open state is
+            // restored after ANY remount. A collision just re-opens an identical group,
+            // which is exactly what the user wants anyway.
+            groupId={`${msg.id ?? keyPrefix}#${run.map(c => `${c.clickUuid}:${c.clickPage}`).join(",")}`}
+            chips={run}
+            onChipClick={onChipClick}
+          />
+        : <CitationChip key={first.key} desc={first} onChipClick={onChipClick} />,
     );
-    last = pattern.lastIndex;
+
+    last = run[run.length - 1].end;
+    k = n;
   }
   if (last < text.length) nodes.push(text.slice(last));
   return nodes;
@@ -130,11 +338,12 @@ export function withCitations(
   activeSourceIds: string[],
   getFilename: (uuid: string) => string,
   onChipClick: CitationChipClickHandler,
+  tChip?: ChipLabelT,
 ): React.ReactNode {
   const arr: React.ReactNode[] = Array.isArray(children) ? children : [children];
   return arr.flatMap((child, idx) =>
     typeof child === "string"
-      ? parseCitations(child, msg, activeSourceIds, getFilename, onChipClick, `c${idx}-`)
+      ? parseCitations(child, msg, activeSourceIds, getFilename, onChipClick, `c${idx}-`, tChip)
       : [child],
   );
 }
@@ -143,7 +352,7 @@ export function withCitations(
 // Strips citation markers and copies the cleaned text to the clipboard.
 // Falls back to a hidden textarea for non-secure contexts.
 export async function copyMessageText(content: string): Promise<void> {
-  const text = content.replace(/[[【](?:Q?\d+(?::[a-f0-9]{6,64})?,\s*)?(?:S\.\s*\d+|\d{1,2}:\d{2}(?::\d{2})?)(?:\s*\|[^\]】]+)?[\]】]/g, "").trim();
+  const text = stripCitations(content).trim();
   if (navigator.clipboard?.writeText && window.isSecureContext) {
     await navigator.clipboard.writeText(text);
     return;

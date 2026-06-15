@@ -61,31 +61,23 @@ export function ScheduleEntryCardGlobal({
     >
       <button
         type="button"
-        aria-label={
-          isPast
-            ? t("pastLockedAria")
-            : entry.is_checked
-            ? t("uncheckAria")
-            : t("checkAria")
-        }
-        title={isPast ? t("pastLockedTitle") : undefined}
+        aria-label={entry.is_checked ? t("uncheckAria") : t("checkAria")}
         onClick={(e) => {
           e.preventDefault();
           e.stopPropagation();
-          if (isPast) return;
           onToggleChecked?.(!entry.is_checked);
         }}
-        disabled={isPast || !onToggleChecked}
+        disabled={!onToggleChecked}
         className={`flex-shrink-0 w-5 h-5 rounded-md flex items-center justify-center transition-colors mt-0.5 border-2 ${
           entry.is_checked
             ? "border-[var(--success)] bg-[var(--success)]"
-            : !isPast && onToggleChecked
+            : onToggleChecked
             ? "border-[var(--border)] bg-background hover:border-[var(--success)]"
             : "border-[var(--border)] bg-background"
         }`}
         style={{
           color: "#fff",
-          cursor: isPast || !onToggleChecked ? "not-allowed" : "pointer",
+          cursor: !onToggleChecked ? "not-allowed" : "pointer",
         }}
       >
         {entry.is_checked && <Check size={11} weight="bold" />}

@@ -13,7 +13,6 @@ export function useSources({ uuid, onModuleUpdate }: UseSourcesOptions) {
   const t = useTranslations("workspace.detail.errors");
   const [sources, setSources] = useState<Source[]>([]);
   const [selectedSourceIds, setSelectedSourceIds] = useState<string[]>([]);
-  const [prevSelectedSourceIds, setPrevSelectedSourceIds] = useState<string[]>([]);
   const [uploadProgress, setUploadProgress] = useState<{ current: number; total: number; percent: number } | null>(null);
   const [uploadErrors, setUploadErrors] = useState<{ filename: string; message: string }[]>([]);
 
@@ -24,9 +23,14 @@ export function useSources({ uuid, onModuleUpdate }: UseSourcesOptions) {
     }
   }, [selectedSourceIds, uuid]);
 
-  // Poll pending/indexing sources
+  // Poll while any source is still processing (status pending/indexing, or
+  // "ready" with a progress field still set), so we keep polling until
+  // indexing is fully done.
   useEffect(() => {
-    const pendingIds = sources.filter((s) => s.status === "indexing" || s.status === "pending").map((s) => s.uuid);
+    const isProcessing = (s: Source) =>
+      s.status === "pending" || s.status === "indexing" || (s.status === "ready" && !!s.progress);
+    const isFullyReady = (s: Source) => s.status === "ready" && !s.progress;
+    const pendingIds = sources.filter(isProcessing).map((s) => s.uuid);
     if (pendingIds.length === 0) return;
     const id = setInterval(async () => {
       const res = await fetch(`/api/ai-assistant/workspaces/${uuid}`, { credentials: "include" });
@@ -36,7 +40,7 @@ export function useSources({ uuid, onModuleUpdate }: UseSourcesOptions) {
       setSources(srcs);
       onModuleUpdate?.(mod);
       setSelectedSourceIds((prev) => {
-        const justBecameReady = srcs.filter((s) => s.status === "ready" && pendingIds.includes(s.uuid) && !prev.includes(s.uuid)).map((s) => s.uuid);
+        const justBecameReady = srcs.filter((s) => isFullyReady(s) && pendingIds.includes(s.uuid) && !prev.includes(s.uuid)).map((s) => s.uuid);
         return justBecameReady.length > 0 ? [...prev, ...justBecameReady] : prev;
       });
     }, 3000);
@@ -70,7 +74,11 @@ export function useSources({ uuid, onModuleUpdate }: UseSourcesOptions) {
 
   const uploadFiles = useCallback(async (files: File[]) => {
     if (files.length === 0) return;
-    const MAX_BATCH = 10;
+    // Matches the per-workspace source ceiling (AIA_WORKSPACE_MAX_SOURCES).
+    // The backend no longer rejects on concurrency — extra uploads queue as
+    // `pending` and Celery drains them — so this only chops absurdly large
+    // single drops; the per-workspace and hourly caps do the real enforcing.
+    const MAX_BATCH = 30;
     const skipped = files.length > MAX_BATCH ? files.slice(MAX_BATCH) : [];
     const toUpload = files.length > MAX_BATCH ? files.slice(0, MAX_BATCH) : files;
     const errors: { filename: string; message: string }[] = skipped.map((f) => ({
@@ -78,8 +86,27 @@ export function useSources({ uuid, onModuleUpdate }: UseSourcesOptions) {
       message: t("uploadSkippedMax", { max: MAX_BATCH }),
     }));
     setUploadErrors(errors);
+    let rateLimitHit = false;
+    // Names already present (case-insensitive) so a re-uploaded file is skipped
+    // before hitting the network. The backend stays authoritative — it also
+    // catches office files whose stored name changes (e.g. .docx -> .pdf).
+    const existingNames = new Set(sources.map((s) => (s.filename ?? "").trim().toLowerCase()));
     for (let i = 0; i < toUpload.length; i++) {
       const file = toUpload[i];
+      if (rateLimitHit) {
+        // First 429 from the backend means the upload limit is full; trying
+        // the remaining files in this batch would just bounce the same way
+        // and waste bandwidth, so we mark them as skipped immediately.
+        errors.push({ filename: file.name, message: t("uploadSkippedLimit") });
+        continue;
+      }
+      const nameKey = file.name.trim().toLowerCase();
+      if (existingNames.has(nameKey)) {
+        errors.push({ filename: file.name, message: t("uploadDuplicate") });
+        continue;
+      }
+      // Guard against duplicates within the same drop too.
+      existingNames.add(nameKey);
       setUploadProgress({ current: i + 1, total: toUpload.length, percent: 0 });
       try {
         await new Promise<void>((resolve, reject) => {
@@ -95,10 +122,17 @@ export function useSources({ uuid, onModuleUpdate }: UseSourcesOptions) {
               setSources((prev) => [newSrc, ...prev]);
               resolve();
             } else {
-              let detail = t("uploadFailed");
+              if (xhr.status === 429) rateLimitHit = true;
+              let detail: string = t("uploadFailed");
               try {
                 const body = JSON.parse(xhr.responseText);
-                if (body?.detail) detail = body.detail;
+                // Rate-limit / quota errors return a structured detail object;
+                // plain errors return a string. Pick the message either way.
+                if (typeof body?.detail === "string") {
+                  detail = body.detail;
+                } else if (body?.detail?.message) {
+                  detail = body.detail.message;
+                }
               } catch { /* ignore */ }
               reject(new Error(detail));
             }
@@ -114,12 +148,11 @@ export function useSources({ uuid, onModuleUpdate }: UseSourcesOptions) {
     }
     setUploadProgress(null);
     if (errors.length > 0) setUploadErrors(errors);
-  }, [uuid]);
+  }, [uuid, sources, t]);
 
   return {
     sources, setSources,
     selectedSourceIds, setSelectedSourceIds,
-    prevSelectedSourceIds, setPrevSelectedSourceIds,
     uploadProgress,
     uploadErrors, setUploadErrors,
     toggleSource, deleteSource, retrySource, uploadFiles,

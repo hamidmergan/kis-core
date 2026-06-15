@@ -149,6 +149,42 @@ def get_file(file_path: str) -> bytes:
     return Path(file_path).read_bytes()
 
 
+def get_range(file_path: str, start: int, length: int) -> bytes:
+    """Read up to ``length`` bytes from ``start`` of a stored object.
+
+    HTTP Range for S3, ``seek`` locally. Returns fewer bytes near EOF, or ``b""`` if the
+    range starts past EOF. Lets callers classify a large object (e.g. detect fragmented
+    MP4 from its box headers) without downloading the whole body.
+    """
+    if USE_S3:
+        from botocore.exceptions import ClientError
+        end = start + length - 1
+        try:
+            resp = _s3().get_object(
+                Bucket=_S3_BUCKET, Key=file_path, Range=f"bytes={start}-{end}"
+            )
+            return resp["Body"].read()
+        except ClientError as e:
+            if e.response.get("Error", {}).get("Code") in ("InvalidRange", "416"):
+                return b""
+            raise
+    with open(Path(file_path), "rb") as f:
+        f.seek(start)
+        return f.read(length)
+
+
+def put_file(file_path: str, local_path: str) -> None:
+    """Overwrite a stored object with the contents of a local file.
+
+    Streamed (boto3 multipart for S3, ``shutil.copyfile`` locally) so it stays low-RAM
+    even for multi-GB media. Used to write back a normalised/remuxed media file.
+    """
+    if USE_S3:
+        _s3().upload_file(local_path, _S3_BUCKET, file_path)
+    else:
+        shutil.copyfile(local_path, Path(file_path))
+
+
 def stream_s3_object(file_path: str, range_header: str | None = None):
     """Stream an S3 object chunk-by-chunk, honouring an optional HTTP Range header.
 

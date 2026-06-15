@@ -35,7 +35,7 @@ def run_screencast_render(
     slide_pause: float,
     original_filename: str = "screencast",
     dpi: int = 100,
-    provider: str = "elevenlabs",
+    provider_id: int = 0,
     voice_label: str = "",
     is_admin: bool = False,
 ):
@@ -48,7 +48,7 @@ def run_screencast_render(
     from fastapi import HTTPException
     try:
         db.update_job_status(translate_job_uuid, "running", progress={
-            "step": "render", "voice_id": voice_id, "voice_label": voice_label, "provider": provider,
+            "step": "render", "voice_id": voice_id, "voice_label": voice_label, "provider_id": provider_id,
         })
         job_row = db.get_job(translate_job_uuid)
         if not job_row:
@@ -62,7 +62,7 @@ def run_screencast_render(
                 speed=speed,
                 slide_pause=slide_pause,
                 dpi=dpi,
-                provider=provider,
+                provider_id=provider_id,
                 is_admin=is_admin,
             )
 

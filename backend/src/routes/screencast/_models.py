@@ -46,7 +46,7 @@ class RenderRequest(BaseModel):
     speed: float = 1.0
     slide_pause: float = 0.5
     dpi: int = 100
-    provider: str = "elevenlabs"
+    provider_id: int
 
 
 class PrerenderRequest(BaseModel):

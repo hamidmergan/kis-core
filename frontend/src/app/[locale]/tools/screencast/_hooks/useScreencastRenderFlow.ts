@@ -4,7 +4,7 @@ import { useCallback, useEffect, type Dispatch, type MutableRefObject } from "re
 import { downloadJobAsBlob, parseDetail, pollJob, type JobStatus } from "@/lib/api";
 import { notifyJobsChanged } from "@/lib/jobs-events";
 import type { SlideData } from "@/types";
-import type { ElevenLabsVoice, KokoroVoice, TtsProvider } from "@/hooks/useVoices";
+import type { ProviderWithVoices } from "@/hooks/useVoices";
 import type { useFailedRender } from "@/hooks/useFailedRender";
 import type { useRenderResult } from "@/hooks/useRenderResult";
 import { computeVoiceLabel, renderProgress, type RenderProgress } from "../_utils";
@@ -37,9 +37,8 @@ interface UseScreencastRenderFlowOptions {
   slidePause: number;
   dpi: number;
   voiceId: string;
-  ttsProvider: TtsProvider;
-  kokoroVoices: KokoroVoice[];
-  voices: ElevenLabsVoice[];
+  providerId: number;
+  providers: ProviderWithVoices[];
 
   // Sub-hooks
   failedRender: ReturnType<typeof useFailedRender>;
@@ -68,9 +67,8 @@ export function useScreencastRenderFlow(opts: UseScreencastRenderFlowOptions) {
     slidePause,
     dpi,
     voiceId,
-    ttsProvider,
-    kokoroVoices,
-    voices,
+    providerId,
+    providers,
     failedRender,
     renderResult,
     checkBeforeSubmit,
@@ -129,11 +127,11 @@ export function useScreencastRenderFlow(opts: UseScreencastRenderFlowOptions) {
           scripts: slides.map((s) => s.script),
           translate_job_uuid: translateJobUuid,
           voice_id: voiceId,
-          voice_label: computeVoiceLabel(ttsProvider, voiceId, kokoroVoices, voices),
+          voice_label: computeVoiceLabel(providerId, voiceId, providers),
           speed,
           slide_pause: slidePause,
           dpi,
-          provider: ttsProvider,
+          provider_id: providerId,
         }),
         credentials: "include",
       });
@@ -176,7 +174,7 @@ export function useScreencastRenderFlow(opts: UseScreencastRenderFlowOptions) {
       goError(err instanceof Error ? err.message : messages.unknownError);
     }
   }, [
-    slides, translateJobUuid, voiceId, ttsProvider, kokoroVoices, voices,
+    slides, translateJobUuid, voiceId, providerId, providers,
     speed, slidePause, dpi,
     newSignal, onRenderProgress, setRenderProgressLabel, setTtsSettingsError,
     failedRender, processRenderResultFromJob,

@@ -2,7 +2,31 @@
 
 from typing import Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
+
+from src.limits import AIA_QUESTION_MAX_CHARS
+
+
+class StaffNoteLink(BaseModel):
+    url: str = Field(..., max_length=500)
+    label: str = Field(..., max_length=100)
+
+    @field_validator("url")
+    @classmethod
+    def _validate_url(cls, v: str) -> str:
+        v = v.strip()
+        lower = v.lower()
+        if not (lower.startswith("http://") or lower.startswith("https://") or lower.startswith("mailto:")):
+            raise ValueError("url must start with http(s):// or mailto:")
+        return v
+
+    @field_validator("label")
+    @classmethod
+    def _validate_label(cls, v: str) -> str:
+        v = v.strip()
+        if not v:
+            raise ValueError("label must not be empty")
+        return v
 
 class CreateWorkspaceForm(BaseModel):
     title: str = Field(..., max_length=100)
@@ -16,7 +40,9 @@ class PatchWorkspaceBody(BaseModel):
     is_active: Optional[bool] = None
     transcript_translation_mode: Optional[str] = None
     transcript_default_lang: Optional[str] = None
-    summary_mode: Optional[str] = None
+    transcript_target_lang: Optional[str] = None
+    staff_note_text: Optional[str] = Field(None, max_length=2000)
+    staff_note_links: Optional[list[StaffNoteLink]] = Field(None, max_length=30)
 
 
 class RenewCodeBody(BaseModel):
@@ -32,13 +58,14 @@ class EnrollBody(BaseModel):
 
 
 class ChatBody(BaseModel):
-    question: str
+    question: str = Field(..., min_length=1, max_length=AIA_QUESTION_MAX_CHARS)
     active_source_ids: Optional[list[str]] = None
     direct_text: Optional[bool] = False  # True = no RAG, call LLM directly
     source_uuid: Optional[str] = None  # Source PDF UUID (for popup actions)
     source_filename: Optional[str] = None
     source_page: Optional[int] = None
     source_text: Optional[str] = None  # Selected text (for highlight on pill click)
+    action_key: Optional[str] = None  # Popup action key (e.g. "translate", "simplify")
     enrollment_id: Optional[int] = None  # For per-link chat separation
 
 
@@ -63,10 +90,6 @@ class NoteTitleBody(BaseModel):
 
 
 # ─── Lecturer endpoints ───────────────────────────────────────────────────────
-
-class GlossaryGenerateBody(BaseModel):
-    active_source_ids: list[str]  # max 3 source UUIDs
-
 
 class ExerciseGenerateBody(BaseModel):
     active_source_ids: list[str]

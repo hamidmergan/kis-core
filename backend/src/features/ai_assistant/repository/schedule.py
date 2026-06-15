@@ -64,7 +64,8 @@ def get_schedule_entries_for_user(
                    AS module_relation
           FROM aia_schedule_entries s
           JOIN aia_workspaces m ON m.id = s.workspace_id
-         WHERE s.workspace_id IN (
+         WHERE s.user_id = %(uid)s
+           AND s.workspace_id IN (
                  SELECT id FROM aia_workspaces WHERE user_id = %(uid)s
                  UNION
                  SELECT m2.id
@@ -102,6 +103,27 @@ def get_schedule_entries(workspace_id: int, user_id: int) -> list[dict]:
                  ORDER BY due_date NULLS LAST, due_time NULLS LAST, id
                 """,
                 (workspace_id, user_id),
+            )
+            return [dict(r) for r in cur.fetchall()]
+
+
+def get_schedule_entries_for_workspace(workspace_id: int) -> list[dict]:
+    """All entries across every user in a workspace.
+    Used by the schedule pipeline as anchor titles for cross-user
+    title harmonization: when user A already extracted an event,
+    user B's new candidate for the same event aligns to A's wording
+    instead of producing a duplicate entry.
+    """
+    with get_connection() as conn:
+        with conn.cursor(cursor_factory=RealDictCursor) as cur:
+            cur.execute(
+                f"""
+                SELECT {_ENTRY_COLS}, user_id
+                  FROM aia_schedule_entries
+                 WHERE workspace_id = %s
+                 ORDER BY due_date NULLS LAST, due_time NULLS LAST, id
+                """,
+                (workspace_id,),
             )
             return [dict(r) for r in cur.fetchall()]
 
@@ -277,19 +299,24 @@ def delete_all_schedule_entries(workspace_id: int, user_id: int) -> int:
         return count
 
 
-def prune_old_entries(months: int = 1) -> int:
+def prune_old_entries(days: int) -> int:
     """System-wide cleanup: delete schedule entries (checked or not) whose
-    due_date is older than N months. Future entries are never touched, even
+    due_date is older than N days. Future entries are never touched, even
     if they are already checked. Idempotent - safe to call repeatedly.
+
+    Passing days <= 0 disables pruning entirely (returns 0 without touching
+    the table).
     """
+    if days <= 0:
+        return 0
     with get_connection() as conn:
         with conn.cursor() as cur:
             cur.execute(
                 "DELETE FROM aia_schedule_entries "
                 "WHERE due_date IS NOT NULL "
                 "  AND due_date < (NOW() AT TIME ZONE 'Europe/Berlin')::date "
-                "                 - (%s || ' months')::interval",
-                (str(months),),
+                "                 - (%s || ' days')::interval",
+                (str(days),),
             )
             count = cur.rowcount
         conn.commit()
@@ -401,4 +428,52 @@ def update_schedule_job(
     with get_connection() as conn:
         with conn.cursor() as cur:
             cur.execute(sql, params)
+        conn.commit()
+
+
+# ─── Source Extractions (workspace-shared) ──────────────────────────────────
+
+def get_source_extraction(source_id: int) -> Optional[dict]:
+    """Return the stored regex + LLM output for a source, or None.
+
+    Shape: {"candidates": [...], "classifications": [...], "extracted_at": ...}.
+    The two lists are index-aligned (each classification belongs to the
+    candidate at the same index), as produced by the schedule pipeline.
+    """
+    with get_connection() as conn:
+        with conn.cursor(cursor_factory=RealDictCursor) as cur:
+            cur.execute(
+                """
+                SELECT candidates, classifications, extracted_at
+                  FROM aia_schedule_source_extractions
+                 WHERE source_id = %s
+                """,
+                (source_id,),
+            )
+            row = cur.fetchone()
+            return dict(row) if row else None
+
+
+def upsert_source_extraction(
+    source_id: int,
+    candidates: list[dict],
+    classifications: list[dict],
+) -> None:
+    """Persist the regex + LLM output for a source. Idempotent.
+
+    INSERT ... ON CONFLICT DO NOTHING: if two users trigger extraction
+    concurrently on the same source, only one row sticks. The duplicate
+    LLM call is wasted work but never causes an error.
+    """
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                INSERT INTO aia_schedule_source_extractions
+                       (source_id, candidates, classifications)
+                VALUES (%s, %s, %s)
+                ON CONFLICT (source_id) DO NOTHING
+                """,
+                (source_id, json.dumps(candidates), json.dumps(classifications)),
+            )
         conn.commit()

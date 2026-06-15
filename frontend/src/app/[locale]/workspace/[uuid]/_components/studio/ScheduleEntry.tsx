@@ -32,6 +32,7 @@ export function ScheduleEntryCard({
   onPillClick?: (sourceUuid: string, page: number, filename: string, sourceText?: string, startTime?: number, isExact?: boolean) => void;
 }) {
   const t = useTranslations("workspace.detail.studio.schedule.entry");
+  const tChip = useTranslations("sourceChip");
   const baseStyle: React.CSSProperties = {
     border: "1px solid var(--border)",
     // Dim whenever the deadline has passed — including today's entries whose
@@ -69,26 +70,16 @@ export function ScheduleEntryCard({
         {/* Checkbox */}
         <button
           type="button"
-          aria-label={
-            isPast
-              ? t("pastLockedAria")
-              : entry.is_checked
-              ? t("uncheckAria")
-              : t("checkAria")
-          }
-          title={isPast ? t("pastLockedTitle") : undefined}
-          onClick={() => { if (!isPast) onToggleChecked(!entry.is_checked); }}
-          disabled={isPast}
+          aria-label={entry.is_checked ? t("uncheckAria") : t("checkAria")}
+          onClick={() => onToggleChecked(!entry.is_checked)}
           className={`flex-shrink-0 w-5 h-5 rounded-md flex items-center justify-center transition-colors mt-0.5 border-2 ${
             entry.is_checked
               ? "border-[var(--success)] bg-[var(--success)]"
-              : !isPast
-              ? "border-[var(--border)] bg-background hover:border-[var(--success)]"
-              : "border-[var(--border)] bg-background"
+              : "border-[var(--border)] bg-background hover:border-[var(--success)]"
           }`}
           style={{
             color: "#fff",
-            cursor: isPast ? "not-allowed" : "pointer",
+            cursor: "pointer",
           }}
         >
           {entry.is_checked && <Check size={11} weight="bold" />}
@@ -139,9 +130,9 @@ export function ScheduleEntryCard({
                 const startTime = ref.start_time ?? undefined;
                 const label =
                   startTime != null
-                    ? _chunkLabel(filename, 0, startTime)
+                    ? _chunkLabel(filename, 0, startTime, (key, vals) => tChip(key, vals))
                     : page > 0
-                    ? _chunkLabel(filename, page)
+                    ? _chunkLabel(filename, page, undefined, (key, vals) => tChip(key, vals))
                     : null;
                 const num = sourceNumByUuid.get(ref.source_uuid);
                 return (
@@ -151,10 +142,10 @@ export function ScheduleEntryCard({
                     tabIndex={0}
                     onClick={(e) => {
                       e.stopPropagation();
-                      // Same path as Chat-LLM chips: non-exact → trim + fuzzy.
-                      // raw_quote is the ±80 char backend window; viewer
-                      // handles normalization.
-                      onPillClick?.(ref.source_uuid, page, filename, ref.raw_quote ?? undefined, startTime, false);
+                      // Nav-only wie die anderen Studio-Tools (Datentabelle, Mindmap): nur zur
+                      // Seite oder zum Zeitstempel springen, kein Highlight. raw_quote wird
+                      // bewusst nicht mehr uebergeben.
+                      onPillClick?.(ref.source_uuid, page, filename, undefined, startTime);
                     }}
                     onKeyDown={(e) => { if (e.key === "Enter") (e.currentTarget as HTMLElement).click(); }}
                     className="inline-flex items-center gap-0.5 text-xs px-1.5 py-0.5 rounded-full font-medium chip-cite whitespace-nowrap cursor-pointer"

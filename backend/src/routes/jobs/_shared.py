@@ -28,7 +28,6 @@ _CONTENT_TYPES = {
 
 
 _TOOL_KEYS = (
-    "screencast_demo_render",
     "screencast_render",
     "screencast_translate",
     "tts",
@@ -45,16 +44,16 @@ def _tool_label(tool: str, locale: str) -> str:
     return t(f"tool.{tool}", locale)
 
 
-_META_TOOLS = {"screencast_translate", "screencast_render", "screencast_demo_render"}
+_META_TOOLS = {"screencast_translate", "screencast_render"}
 
 
 _TOOL_FILTER_GROUPS: dict[str, list[str]] = {
-    "screencast": ["screencast_translate", "screencast_render", "screencast_demo_render"],
+    "screencast": ["screencast_translate", "screencast_render"],
     "image": ["image_generate", "image_edit", "image_analyze"],
 }
 
 
-_SCREENCAST_TOOLS = {"screencast_translate", "screencast_render", "screencast_demo_render"}
+_SCREENCAST_TOOLS = {"screencast_translate", "screencast_render"}
 
 
 def _tools_matching_query(q: str, locale: str = DEFAULT_LOCALE) -> list[str]:
@@ -94,15 +93,14 @@ def _format_job_rows(jobs: list[dict], locale: str = DEFAULT_LOCALE) -> list[dic
         tts_params: dict = {}
         is_generating_scripts = False
         tool = job["tool"]
-        if tool in ("tts", "screencast_render", "screencast_translate",
-                    "screencast_demo_render"):
+        if tool in ("tts", "screencast_render", "screencast_translate"):
             try:
                 progress = json_lib.loads(job["progress"] or "{}")
                 if tool == "tts":
                     tts_params = progress.get("tts_params", {})
                 else:
                     tts_params = {k: progress[k] for k in ("voice_id", "voice_label", "provider") if k in progress}
-                if tool in ("screencast_translate", "screencast_demo_render"):
+                if tool == "screencast_translate":
                     is_generating_scripts = bool(progress.get("generating_scripts"))
             except Exception:
                 pass

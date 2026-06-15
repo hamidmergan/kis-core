@@ -9,12 +9,11 @@ import Select from "@/components/ui/Select";
 const ACCEPTED_EXTENSIONS = [".pptx"];
 
 interface UploadStepProps {
-  showDemoLink: boolean;
   hasActiveJob: boolean | null;
   file: File | null;
   fileError: string | null;
   dragOver: boolean;
-  sourceLang: string;
+  skipTranslation: boolean;
   targetLang: string;
   languages: { id: string; label: string }[];
   glossaryIds: string[];
@@ -23,20 +22,22 @@ interface UploadStepProps {
   onDragLeave: (e: DragEvent) => void;
   onDrop: (e: DragEvent) => void;
   onFileSelect: (f: File) => void;
-  onSourceLangChange: (v: string) => void;
+  onSkipTranslationChange: (v: boolean) => void;
   onTargetLangChange: (v: string) => void;
   onGlossaryIdsChange: (v: string[]) => void;
+  translationProviders: { id: number; name: string }[];
+  translationProviderId: number | null;
+  onTranslationProviderChange: (id: number | null) => void;
   onUploadNext: () => void;
 }
 
 export default function UploadStep(props: UploadStepProps) {
   const {
-    showDemoLink,
     hasActiveJob,
     file,
     fileError,
     dragOver,
-    sourceLang,
+    skipTranslation,
     targetLang,
     languages,
     glossaryIds,
@@ -45,9 +46,12 @@ export default function UploadStep(props: UploadStepProps) {
     onDragLeave,
     onDrop,
     onFileSelect,
-    onSourceLangChange,
+    onSkipTranslationChange,
     onTargetLangChange,
     onGlossaryIdsChange,
+    translationProviders,
+    translationProviderId,
+    onTranslationProviderChange,
     onUploadNext,
   } = props;
 
@@ -57,15 +61,13 @@ export default function UploadStep(props: UploadStepProps) {
     <section className="animate-[fadeIn_0.3s_ease-out]">
       <div className="flex items-baseline justify-between mb-1">
         <h1 className="text-xl font-bold">{t("title")}</h1>
-        {showDemoLink && (
-          <Link
-            href="/tools/screencast-demo"
-            className="text-xs font-semibold px-3.5 py-1.5 rounded border-2 border-transparent hover:border-black transition-colors"
-            style={{ backgroundColor: "rgb(245, 158, 11)", color: "rgb(0, 0, 0)" }}
-          >
-            {t("demoBadge")}
-          </Link>
-        )}
+        <Link
+          href="/tools/screencast-demo"
+          className="text-xs font-semibold px-3.5 py-1.5 rounded border-2 border-transparent hover:border-black transition-colors"
+          style={{ backgroundColor: "rgb(245, 158, 11)", color: "rgb(0, 0, 0)" }}
+        >
+          {t("demoBadge")}
+        </Link>
       </div>
       <p className="text-sm text-muted mb-6">{t("intro")}</p>
 
@@ -145,11 +147,8 @@ export default function UploadStep(props: UploadStepProps) {
       <label className="flex items-start gap-3 mb-4 cursor-pointer select-none">
         <input
           type="checkbox"
-          checked={sourceLang === targetLang}
-          onChange={(e) => {
-            if (e.target.checked) onSourceLangChange(targetLang);
-            else onSourceLangChange("DE");
-          }}
+          checked={skipTranslation}
+          onChange={(e) => onSkipTranslationChange(e.target.checked)}
           className="mt-0.5 h-4 w-4 rounded border-border text-kb focus:ring-kb"
         />
         <span className="text-sm font-medium text-foreground-soft">
@@ -157,32 +156,34 @@ export default function UploadStep(props: UploadStepProps) {
         </span>
       </label>
 
-      {sourceLang !== targetLang && (
+      {!skipTranslation && (
         <>
           {languages.length > 0 && (
-            <div className="flex gap-3 mb-4">
-              <div className="flex-1">
-                <label className="block text-xs font-medium text-muted mb-1">{t("upload.sourceLang")}</label>
-                <Select
-                  value={sourceLang}
-                  onChange={onSourceLangChange}
-                  options={languages.map((l) => ({ value: l.id, label: l.label }))}
-                  disabled
-                />
-              </div>
-              <div className="flex-1">
-                <label className="block text-xs font-medium text-muted mb-1">{t("upload.targetLang")}</label>
-                <Select
-                  value={targetLang}
-                  onChange={onTargetLangChange}
-                  options={languages.map((l) => ({ value: l.id, label: l.label }))}
-                  disabled
-                />
-              </div>
+            <div className="mb-4">
+              <label className="block text-xs font-medium text-muted mb-1">{t("upload.targetLang")}</label>
+              <Select
+                value={targetLang}
+                onChange={onTargetLangChange}
+                options={languages.map((l) => ({ value: l.id, label: l.label }))}
+              />
+              <p className="mt-1 text-xs text-muted">{t("upload.autoDetectHint")}</p>
             </div>
           )}
 
           <GlossarySelector values={glossaryIds} onChange={onGlossaryIdsChange} />
+
+          {translationProviders.length > 1 && (
+            <div className="mb-4">
+              <label className="block text-xs font-medium text-muted mb-1">
+                {t("upload.translationProvider")}
+              </label>
+              <Select
+                value={translationProviderId != null ? String(translationProviderId) : ""}
+                onChange={(v) => onTranslationProviderChange(v ? Number(v) : null)}
+                options={translationProviders.map((p) => ({ value: String(p.id), label: p.name }))}
+              />
+            </div>
+          )}
         </>
       )}
 

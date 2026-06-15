@@ -130,9 +130,11 @@ export function StudioPanelContent(props: StudioPanelContentProps) {
 
   const { activeSet, setActiveSet, exerciseSets, loadExerciseSet, deleteExerciseSet, downloadExerciseSet, setCreateSetTool, setShowCreateModal, submitSingleAnswer } = ex;
 
-  const onSourceClick = (filename: string, page: number, startTime?: number, highlightText?: string) => {
+  const onSourceClick = (filename: string, page: number, startTime?: number) => {
+    // Tool chips are nav-only, exactly like chat citations: jump to the page/timestamp,
+    // never highlight. (Highlight stays only for the user's own text selection.)
     const src = sources.find((s) => s.filename === filename);
-    if (src) onPillClick(src.uuid, page, filename, highlightText, startTime);
+    if (src) onPillClick(src.uuid, page, filename, undefined, startTime, false);
   };
 
   if (activeSet && activeSet.tool === "karteikarten") {

@@ -40,4 +40,9 @@ def ui_labels():
         "workspace_singular_en": db.get_setting("workspace_label_singular_en", "Workspace"),
         "workspace_plural_en": db.get_setting("workspace_label_plural_en", "Workspaces"),
         "mascot_enabled": db.get_setting("mascot_enabled", "true").lower() == "true",
+        # Home-page notice banner: shown to all users on the start page above
+        # "Nächste Termine". Read here (public) so the home page renders it
+        # without admin rights.
+        "home_notice_enabled": db.get_setting("home_notice_enabled", "false").lower() == "true",
+        "home_notice_text": db.get_setting("home_notice_text", ""),
     }

@@ -1,13 +1,46 @@
+export type IndexingStage =
+  | "parsing"
+  | "ocr"
+  | "chunking"
+  | "embedding";
+
+export interface IndexingProgress {
+  stage: IndexingStage;
+  page?: number;
+  total?: number;
+}
+
 export interface Source {
   uuid: string;
   filename: string;
   status: "pending" | "indexing" | "ready" | "failed";
   error_message?: string | null;
+  progress?: IndexingProgress | null;
 }
 
 export type TranscriptTranslationMode = "off" | "auto" | "manual";
-export type TranscriptDefaultLang = "de" | "en" | "both";
-export type SummaryMode = "off" | "auto" | "manual";
+// Default transcript view is role-based now (the concrete target is owner-chosen):
+// "source" = original media language, "target" = the translation, "both" = stacked.
+export type TranscriptDefaultLang = "source" | "target" | "both";
+
+// The list of target languages comes from the backend (GET /ai-assistant/
+// transcript-languages, single source: i18n.TRANSCRIPT_LANGUAGES). Viewer tabs
+// label arbitrary detected source codes via langLabel below.
+
+// Human label for an ISO language code in the user's locale, e.g. langLabel("fr","de")
+// -> "Französisch". Falls back to the upper-cased code when the runtime can't resolve it.
+export function langLabel(code: string, locale: string): string {
+  try {
+    const name = new Intl.DisplayNames([locale], { type: "language" }).of(code);
+    if (name) return name.charAt(0).toUpperCase() + name.slice(1);
+  } catch { /* Intl.DisplayNames unavailable or bad code */ }
+  return code.toUpperCase();
+}
+
+export interface StaffNoteLink {
+  url: string;
+  label: string;
+}
 
 export interface WorkspaceDetail {
   uuid: string;
@@ -18,7 +51,9 @@ export interface WorkspaceDetail {
   is_owner?: boolean;
   transcript_translation_mode?: TranscriptTranslationMode;
   transcript_default_lang?: TranscriptDefaultLang;
-  summary_mode?: SummaryMode;
+  transcript_target_lang?: string;
+  staff_note_text?: string | null;
+  staff_note_links?: StaffNoteLink[];
   sources: Source[];
 }
 
@@ -30,6 +65,8 @@ export interface SourceRef {
   start_time?: number;
   end_time?: number;
   is_popup_selection?: boolean;
+  action_key?: string;
+  action_icon?: string;
 }
 
 export interface SourceQmap {
@@ -46,7 +83,7 @@ export interface ChatMessage {
   source_pages?: SourceRef[];
   source_qmap?: SourceQmap[];
   sourceCount?: number;
-  popup_selection?: { uuid: string; page: number; text: string };
+  popup_selection?: { uuid: string; page: number; text: string; action_key?: string; action_icon?: string };
   aborted?: boolean;
 }
 
@@ -65,11 +102,17 @@ export interface ViewerState {
   uuid: string;
   filename: string;
   page: number;
+  // Verbatim text to highlight on the page. Only set by a popup/action-bar exact
+  // selection (the user marked this text). Citation chips never set it — a chip
+  // click only scrolls to the page/timestamp.
   highlightText?: string;
   // True when highlightText is a verbatim user-popup selection (highlight it
-  // exactly, no line/sentence expansion). False/omitted for LLM-suggested
-  // citations (expand to bullet/line for readable context).
+  // exactly, no line/sentence expansion). Always true when highlightText is set,
+  // since the only remaining highlight source is the popup exact selection.
   exactSelection?: boolean;
+  // True when the viewer was opened by clicking a citation chip (pill / source
+  // reference) — used only to distinguish a chip nav from a plain document open.
+  isCitation?: boolean;
   nonce?: number;
   startTime?: number;
 }

@@ -4,111 +4,69 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import ProtectedRoute from "@/components/auth/ProtectedRoute";
 import TtsFileUpload from "@/components/jobs/TtsFileUpload";
+import TtsTextInput from "@/components/jobs/TtsTextInput";
 import TtsStatus from "@/components/jobs/TtsStatus";
-import { api, pollJob, downloadJobAsBlob, parseDetail } from "@/lib/api";
+import { pollJob, downloadJobAsBlob, parseDetail } from "@/lib/api";
+import { TTS_MAX_CHARS } from "@/lib/constants";
 import type { TTSState } from "@/types";
 import BackLink from "@/components/ui/BackLink";
 import Select from "@/components/ui/Select";
+import Tabs from "@/components/ui/Tabs";
+import type { ProviderWithVoices } from "@/hooks/useVoices";
 
-interface Voice {
-  voice_id: string;
-  label: string;
-  description?: string | null;
-  use_case?: string | null;
-}
+type InputMode = "text" | "file";
 
-const KOKORO_ACCENT_LABEL: Record<string, string> = {
-  "American": "🇺🇸",
-  "British": "🇬🇧",
-  "Deutsch": "🇩🇪",
+const LANGUAGE_FLAG: Record<string, string> = {
+  de: "🇩🇪", en: "🇺🇸", fr: "🇫🇷", es: "🇪🇸",
+  it: "🇮🇹", nl: "🇳🇱", pt: "🇵🇹", pl: "🇵🇱",
+  tr: "🇹🇷", zh: "🇨🇳", ja: "🇯🇵", ko: "🇰🇷",
 };
-
-const PAUSE_KEYS = ["short", "medium", "long", "very_long"] as const;
 
 export default function TtsPage() {
   const t = useTranslations("tools.tts");
-  const tDesc = useTranslations("tools.tts.voiceDescription");
   const tProgress = useTranslations("tools.tts.progress");
   const tCommon = useTranslations("common");
 
-  const translateDesc = useCallback((description?: string | null): string | null => {
-    if (!description) return null;
-    return description.split(",").map(d => {
-      const key = d.trim();
-      // tDesc.has() is not available; use try-catch via has check using raw keys.
-      const known = ["Laid-Back","Casual","Formal","Friendly","Warm","Authoritative","Confident","Calm","Energetic","Upbeat","Serious","Raspy","Smooth","Deep","Resonant","Crisp","Soft","Husky","Clear","Conversational","Narrative","Expressive","Melodic","Mature","Powerful","Bright","Grounded","Soothing","Professional"];
-      return known.includes(key) ? tDesc(key) : key;
-    }).join(" · ");
-  }, [tDesc]);
-
   const [ttsState, setTtsState] = useState<TTSState>("idle");
+  const [inputMode, setInputMode] = useState<InputMode>("text");
+  const [pendingText, setPendingText] = useState<string>("");
   const [pendingFile, setPendingFile] = useState<File | null>(null);
   const [ttsSelectedFile, setTtsSelectedFile] = useState<string>("");
   const [ttsDownloadBlob, setTtsDownloadBlob] = useState<Blob | null>(null);
+  const [ttsAudioUrl, setTtsAudioUrl] = useState<string>("");
   const [ttsDownloadName, setTtsDownloadName] = useState<string>("");
   const [ttsErrorMessage, setTtsErrorMessage] = useState<string>("");
   const [ttsProgressLabel, setTtsProgressLabel] = useState<string>("");
 
-  // Provider
-  const [provider, setProvider] = useState<"elevenlabs" | "kokoro" | "mylab">("elevenlabs");
-  const [elevenlabsEnabled, setElevenlabsEnabled] = useState(false);
-  const [kokoroEnabled, setKokoroEnabled] = useState(false);
-  const [mylabEnabled, setMylabEnabled] = useState(false);
+  // Providers loaded from /api/tts/providers-with-voices
+  const [providers, setProviders] = useState<ProviderWithVoices[]>([]);
+  const [providerId, setProviderId] = useState<number>(0);
   const [providersLoaded, setProvidersLoaded] = useState(false);
 
   // Voice selection
-  const [voices, setVoices] = useState<Voice[]>([]);
-  const [kokoroVoices, setKokoroVoices] = useState<Array<{voice_id: string; name: string; language?: string; accent: string; gender: string}>>([]);
-  const [mylabVoices, setMylabVoices] = useState<Array<{voice_id: string; name: string; description: string}>>([]);
   const [voiceId, setVoiceId] = useState("");
 
   // Audio settings
   const [speed, setSpeed] = useState(1.0);
-  const [pausePreset, setPausePreset] = useState("medium");
 
   useEffect(() => {
-    api.getJson<{ elevenlabs_enabled: boolean; kokoro_enabled: boolean; mylab_enabled: boolean }>("/api/tts/providers").then((data) => {
-      setElevenlabsEnabled(data.elevenlabs_enabled);
-      setKokoroEnabled(data.kokoro_enabled ?? false);
-      setMylabEnabled(data.mylab_enabled ?? false);
-      if (data.elevenlabs_enabled) setProvider("elevenlabs");
-      else if (data.kokoro_enabled) setProvider("kokoro");
-      else if (data.mylab_enabled) setProvider("mylab");
-      if (data.elevenlabs_enabled) {
-        api.getJson<{ voices: Voice[] }>("/api/voices").then((vData) => {
-          setVoices(vData.voices);
-          if (vData.voices.length > 0) setVoiceId(vData.voices[0].voice_id);
-        }).catch(() => {});
-      }
-      if (data.kokoro_enabled) {
-        api.getJson<{ voices: Array<{voice_id: string; name: string; accent: string; gender: string}> }>("/api/kokoro/voices")
-          .then((d) => {
-            setKokoroVoices(d.voices);
-          }).catch(() => {});
-      }
-      if (data.mylab_enabled) {
-        api.getJson<{ voices: Array<{voice_id: string; name: string; description: string}> }>("/api/mylab/voices")
-          .then((d) => {
-            setMylabVoices(d.voices);
-          }).catch(() => {});
-      }
-    }).catch(() => {
-      // Provider check failed — leave all disabled, noProvider message will show.
-    }).finally(() => {
-      setProvidersLoaded(true);
-    });
+    fetch("/api/tts/providers-with-voices", { credentials: "include" })
+      .then((r) => r.json())
+      .then((data) => {
+        const list: ProviderWithVoices[] = data.providers ?? [];
+        setProviders(list);
+        if (list.length > 0) {
+          setProviderId(list[0].id);
+          if (list[0].voices.length > 0) setVoiceId(list[0].voices[0].voice_id);
+        }
+      })
+      .catch(() => {
+        // Provider check failed — leave all disabled, noProvider message will show.
+      })
+      .finally(() => {
+        setProvidersLoaded(true);
+      });
   }, []);
-
-  // When provider changes, preselect a matching voice
-  useEffect(() => {
-    if (provider === "kokoro") {
-      if (kokoroVoices.length > 0) setVoiceId(kokoroVoices[0].voice_id);
-    } else if (provider === "mylab") {
-      if (mylabVoices.length > 0) setVoiceId(mylabVoices[0].voice_id);
-    } else {
-      if (voices.length > 0) setVoiceId(voices[0].voice_id);
-    }
-  }, [provider, voices, kokoroVoices, mylabVoices]);
 
   const abortControllerRef = useRef<AbortController | null>(null);
   const currentJobUuidRef = useRef<string | null>(null);
@@ -117,8 +75,16 @@ export default function TtsPage() {
     return () => { abortControllerRef.current?.abort(); setTtsState("idle"); };
   }, []);
 
+  // Expose the finished audio as a playable object URL (created/revoked with the blob).
+  useEffect(() => {
+    if (!ttsDownloadBlob) { setTtsAudioUrl(""); return; }
+    const url = URL.createObjectURL(ttsDownloadBlob);
+    setTtsAudioUrl(url);
+    return () => URL.revokeObjectURL(url);
+  }, [ttsDownloadBlob]);
+
   const isProcessing = ttsState === "uploading" || ttsState === "processing";
-  const noProvider = providersLoaded && !elevenlabsEnabled && !kokoroEnabled && !mylabEnabled;
+  const noProvider = providersLoaded && providers.length === 0;
 
   const handleTtsFileSelected = useCallback((file: File) => {
     setPendingFile(file);
@@ -129,8 +95,16 @@ export default function TtsPage() {
     setTtsState("idle");
   }, []);
 
+  const trimmedText = pendingText.trim();
+  const textOverLimit = pendingText.length > TTS_MAX_CHARS;
+  const canSubmit = inputMode === "file"
+    ? !!pendingFile
+    : trimmedText.length > 0 && !textOverLimit;
+
+  const activeProvider = providers.find((p) => p.id === providerId);
+
   const handleSubmit = async () => {
-    if (!pendingFile || isProcessing) return;
+    if (!canSubmit || isProcessing) return;
 
     abortControllerRef.current?.abort();
     abortControllerRef.current = new AbortController();
@@ -138,19 +112,21 @@ export default function TtsPage() {
     setTtsState("uploading");
     setTtsProgressLabel(tProgress("uploading"));
     try {
-      const voiceLabel = provider === "kokoro"
-        ? (() => { const v = kokoroVoices.find(x => x.voice_id === voiceId); return v ? `${KOKORO_ACCENT_LABEL[v.accent] ?? ""} ${v.name}`.trim() : voiceId; })()
-        : provider === "mylab"
-        ? (mylabVoices.find(x => x.voice_id === voiceId)?.name ?? voiceId)
-        : (voices.find(x => x.voice_id === voiceId)?.label ?? voiceId);
+      const activeVoice = activeProvider?.voices.find((v) => v.voice_id === voiceId);
+      const voiceLabel = activeVoice
+        ? `${LANGUAGE_FLAG[activeVoice.language] ?? ""} ${activeVoice.name}`.trim()
+        : voiceId;
 
       const formData = new FormData();
-      formData.append("file", pendingFile);
+      if (inputMode === "file" && pendingFile) {
+        formData.append("file", pendingFile);
+      } else {
+        formData.append("text", pendingText);
+      }
       formData.append("voice_id", voiceId);
       formData.append("voice_label", voiceLabel);
       formData.append("speed", String(speed));
-      formData.append("pause_preset", pausePreset);
-      formData.append("provider", provider);
+      formData.append("provider_id", String(providerId));
 
       const uploadRes = await fetch("/api/tts", {
         method: "POST",
@@ -187,9 +163,12 @@ export default function TtsPage() {
 
       window.dispatchEvent(new CustomEvent("kis-jobs-changed"));
       setTtsProgressLabel(tProgress("downloading"));
+      const fallbackStem = inputMode === "file" && pendingFile
+        ? pendingFile.name.replace(/\.[^.]+$/, "")
+        : "text";
       const { blob, filename } = await downloadJobAsBlob(
         jobResult.job_uuid,
-        `${pendingFile.name.replace(/\.[^.]+$/, "")}.mp3`,
+        `${fallbackStem}.mp3`,
       );
       setTtsDownloadBlob(blob);
       setTtsDownloadName(filename);
@@ -218,11 +197,19 @@ export default function TtsPage() {
   const handleTtsReset = () => {
     setTtsState("idle");
     setPendingFile(null);
+    setPendingText("");
     setTtsSelectedFile("");
     setTtsDownloadBlob(null);
     setTtsDownloadName("");
     setTtsErrorMessage("");
     setTtsProgressLabel("");
+  };
+
+  const handleModeChange = (mode: InputMode) => {
+    if (isProcessing) return;
+    setInputMode(mode);
+    setTtsErrorMessage("");
+    if (ttsState === "error") setTtsState("idle");
   };
 
   return (
@@ -235,60 +222,74 @@ export default function TtsPage() {
             {t("intro")}
           </p>
 
-          <TtsFileUpload
-            onFileSelected={handleTtsFileSelected}
-            disabled={isProcessing || noProvider}
-            selectedFilename={ttsSelectedFile || undefined}
-          />
+          <div className="mb-4">
+            <Tabs
+              variant="pill"
+              active={inputMode}
+              onChange={(key) => handleModeChange(key as InputMode)}
+              items={[
+                { key: "text", label: t("inputMode.text"), disabled: isProcessing || noProvider },
+                { key: "file", label: t("inputMode.file"), disabled: isProcessing || noProvider },
+              ]}
+            />
+          </div>
+
+          {inputMode === "text" ? (
+            <TtsTextInput
+              value={pendingText}
+              onChange={setPendingText}
+              disabled={isProcessing || noProvider}
+            />
+          ) : (
+            <TtsFileUpload
+              onFileSelected={handleTtsFileSelected}
+              disabled={isProcessing || noProvider}
+              selectedFilename={ttsSelectedFile || undefined}
+            />
+          )}
           {noProvider && (
             <p className="mt-3 text-sm text-muted-soft">{t("noProvider")}</p>
           )}
 
           {/* Provider */}
-          {providersLoaded && (elevenlabsEnabled || kokoroEnabled || mylabEnabled) && (
-          <div className="mt-6 mb-2">
-            <label htmlFor="provider-select" className="block text-sm font-medium text-foreground-soft mb-2">
-              {t("providerLabel")}
-            </label>
-            <Select
-              id="provider-select"
-              value={provider}
-              onChange={(v) => setProvider(v as "elevenlabs" | "kokoro" | "mylab")}
-              disabled={isProcessing}
-              options={[
-                ...(elevenlabsEnabled ? [{ value: "elevenlabs", label: "ElevenLabs" }] : []),
-                ...(kokoroEnabled ? [{ value: "kokoro", label: "Kokoro TTS" }] : []),
-                ...(mylabEnabled ? [{ value: "mylab", label: "THL myLab (XTTS-v2)" }] : []),
-              ]}
-            />
-          </div>
+          {providersLoaded && providers.length > 1 && (
+            <div className="mt-6 mb-2">
+              <label htmlFor="provider-select" className="block text-sm font-medium text-foreground-soft mb-2">
+                {t("providerLabel")}
+              </label>
+              <Select
+                id="provider-select"
+                value={String(providerId)}
+                onChange={(v) => {
+                  const newId = Number(v);
+                  setProviderId(newId);
+                  const p = providers.find((x) => x.id === newId);
+                  if (p && p.voices.length > 0) setVoiceId(p.voices[0].voice_id);
+                }}
+                disabled={isProcessing}
+                options={providers.map((p) => ({ value: String(p.id), label: p.name }))}
+              />
+            </div>
           )}
 
           {/* Voice */}
-          {providersLoaded && (elevenlabsEnabled || kokoroEnabled || mylabEnabled) && (
-          <div className="mt-4 mb-6 space-y-3">
-            <div>
-              <label htmlFor="voice-select" className="block text-sm font-medium text-foreground-soft mb-2">
-                {t("voiceLabel")}
-              </label>
-              <Select
-                id="voice-select"
-                value={voiceId}
-                onChange={setVoiceId}
-                disabled={isProcessing}
-                options={
-                  provider === "kokoro"
-                    ? kokoroVoices.map((v) => ({ value: v.voice_id, label: `${KOKORO_ACCENT_LABEL[v.accent] ?? ""} ${v.name}`.trim() }))
-                    : provider === "mylab"
-                    ? mylabVoices.map((v) => ({ value: v.voice_id, label: `${v.name} - ${v.description}` }))
-                    : voices.map((v) => {
-                        const desc = translateDesc(v.description);
-                        return { value: v.voice_id, label: desc ? `${v.label} - ${desc}` : v.label };
-                      })
-                }
-              />
-            </div>
-            {provider === "elevenlabs" && (
+          {providersLoaded && providers.length > 0 && (
+            <div className="mt-4 mb-6 space-y-3">
+              <div>
+                <label htmlFor="voice-select" className="block text-sm font-medium text-foreground-soft mb-2">
+                  {t("voiceLabel")}
+                </label>
+                <Select
+                  id="voice-select"
+                  value={voiceId}
+                  onChange={setVoiceId}
+                  disabled={isProcessing}
+                  options={(activeProvider?.voices ?? []).map((v) => ({
+                    value: v.voice_id,
+                    label: `${LANGUAGE_FLAG[v.language] ?? ""} ${v.name}${v.description ? ` — ${v.description}` : ""}`.trim(),
+                  }))}
+                />
+              </div>
               <a
                 href="/tools/tts/voices"
                 target="_blank"
@@ -297,28 +298,7 @@ export default function TtsPage() {
               >
                 {t("previewVoices")}
               </a>
-            )}
-            {provider === "kokoro" && (
-              <a
-                href="/tools/tts/voices?tab=kokoro"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-sm text-kb hover:underline"
-              >
-                {t("previewVoices")}
-              </a>
-            )}
-            {provider === "mylab" && (
-              <a
-                href="/tools/tts/voices?tab=mylab"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-sm text-kb hover:underline"
-              >
-                {t("previewVoices")}
-              </a>
-            )}
-          </div>
+            </div>
           )}
 
 
@@ -344,27 +324,11 @@ export default function TtsPage() {
             </div>
           </div>
 
-          {/* Pauses (ElevenLabs only) */}
-          {provider === "elevenlabs" && (
-            <div className="mb-6">
-              <label htmlFor="pause-select" className="block text-sm font-medium text-foreground-soft mb-2">
-                {t("pauses")}
-              </label>
-              <Select
-                id="pause-select"
-                value={pausePreset}
-                onChange={setPausePreset}
-                disabled={isProcessing}
-                options={PAUSE_KEYS.map((k) => ({ value: k, label: t(`pause.${k}`) }))}
-              />
-            </div>
-          )}
-
           {ttsState !== "done" && (
             <div className="mb-6 flex items-center gap-3">
               <button
                 onClick={handleSubmit}
-                disabled={!pendingFile || isProcessing || noProvider}
+                disabled={!canSubmit || isProcessing || noProvider}
                 className="self-start px-5 py-2 btn-primary text-sm font-medium rounded-md  focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-kb transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {t("submit")}
@@ -392,6 +356,7 @@ export default function TtsPage() {
           <TtsStatus
             state={ttsState}
             fileName={ttsDownloadName}
+            audioUrl={ttsAudioUrl}
             errorMessage={ttsErrorMessage}
             onDownload={handleTtsDownload}
             onReset={handleTtsReset}

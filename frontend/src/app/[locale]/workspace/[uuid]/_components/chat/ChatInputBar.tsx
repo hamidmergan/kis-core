@@ -48,7 +48,7 @@ export function ChatInputBar({
       className="flex-shrink-0 px-6 pt-2 pb-0"
       style={{ borderTop: "1px solid var(--border)" }}
     >
-      <div className="mx-auto w-full" style={{ maxWidth: 720 }}>
+      <div className="mx-auto w-full" style={{ maxWidth: 920 }}>
         <div className="flex justify-end px-1 mb-1">
           <span className="text-xs leading-none" style={{ color: "var(--muted)" }}>
             {t("sourcesActive", { n: activeSourceIds.length })}
@@ -66,6 +66,9 @@ export function ChatInputBar({
               if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); if (!loading) submit(); }
             }}
             placeholder={t("inputPlaceholder")}
+            // Hard cap mirrors the backend ChatBody.max_length (AIA_QUESTION_MAX_CHARS):
+            // bound the paste so an oversized question can't overflow embedding / context.
+            maxLength={8000}
             rows={1}
             className="flex-1 text-base resize-none focus:outline-none disabled:opacity-50 bg-transparent"
             style={{ color: "var(--foreground)", maxHeight: 160, overflowY: "auto" }}

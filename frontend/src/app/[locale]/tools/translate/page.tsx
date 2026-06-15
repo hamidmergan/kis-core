@@ -24,10 +24,9 @@ export default function UebersetzungPage() {
   const [stallMessage, setStallMessage] = useState<string>("");
   const [doneJobUuid, setDoneJobUuid] = useState<string | null>(null);
 
-  const [providers, setProviders] = useState<{ id: string; label: string }[]>([]);
+  const [providers, setProviders] = useState<{ id: number; label: string }[]>([]);
   const [languages, setLanguages] = useState<{ id: string; label: string }[]>([]);
-  const [translationProvider, setTranslationProvider] = useState<string>("");
-  const [sourceLang, setSourceLang] = useState<string>("DE");
+  const [translationProviderId, setTranslationProviderId] = useState<number | null>(null);
   const [targetLang, setTargetLang] = useState<string>("");
 
   useEffect(() => {
@@ -35,10 +34,10 @@ export default function UebersetzungPage() {
       .fetch("/translate/config")
       .then((r) => r.json())
       .then((data) => {
-        setProviders(data.providers ?? []);
+        const provs: { id: number; label: string }[] = data.providers ?? [];
+        setProviders(provs);
         setLanguages(data.languages ?? []);
-        setTranslationProvider(data.default_provider ?? "");
-        setSourceLang(data.default_source ?? "DE");
+        if (provs.length > 0) setTranslationProviderId(provs[0].id);
         setTargetLang(data.default_target ?? "");
       })
       .catch(() => {});
@@ -62,8 +61,8 @@ export default function UebersetzungPage() {
       const formData = new FormData();
       formData.append("file", pendingFile);
       if (glossaryJson) formData.append("glossary", glossaryJson);
-      if (translationProvider) formData.append("translation_provider", translationProvider);
-      if (sourceLang && sourceLang !== "auto") formData.append("source_lang", sourceLang);
+      if (translationProviderId != null) formData.append("provider_id", String(translationProviderId));
+      // Source language is always auto-detected (no source_lang sent).
       if (targetLang) formData.append("target_lang", targetLang);
       const response = await api.fetch("/translate", { method: "POST", body: formData });
       if (!response.ok) {
@@ -119,62 +118,33 @@ export default function UebersetzungPage() {
 
           <FileUpload onFileSelected={handleFileSelected} disabled={processing} selectedFilename={selectedFile || undefined} />
 
-          <div className="mt-6">
-            <GlossarySelector values={glossaryIds} onChange={setGlossaryIds} />
-          </div>
-
           {languages.length > 0 && (
-            <div className="mb-4 flex items-center gap-3">
-              <div className="flex-1">
-                <label className="block text-sm font-medium text-foreground-soft mb-1">
-                  {t("sourceLang")}
-                </label>
-                <Select
-                  value={sourceLang}
-                  onChange={(val) => {
-                    setSourceLang(val);
-                    if (val !== "auto" && val === targetLang) {
-                      const other = languages.find((l) => l.id !== val);
-                      if (other) setTargetLang(other.id);
-                    }
-                  }}
-                  disabled
-                  options={[{ value: "auto", label: t("autoDetect") }, ...languages.map((l) => ({ value: l.id, label: l.label }))]}
-                />
-              </div>
-
-              <div className="mt-5 text-muted-soft shrink-0">→</div>
-
-              <div className="flex-1">
-                <label className="block text-sm font-medium text-foreground-soft mb-1">
-                  {t("targetLang")}
-                </label>
-                <Select
-                  value={targetLang}
-                  onChange={(val) => {
-                    setTargetLang(val);
-                    if (sourceLang !== "auto" && val === sourceLang) {
-                      const other = languages.find((l) => l.id !== val && l.id !== "auto");
-                      if (other) setSourceLang(other.id);
-                    }
-                  }}
-                  disabled
-                  options={languages.map((l) => ({ value: l.id, label: l.label }))}
-                />
-              </div>
+            <div className="mb-4 mt-6">
+              <label className="block text-sm font-medium text-foreground-soft mb-1">
+                {t("targetLang")}
+              </label>
+              <Select
+                value={targetLang}
+                onChange={setTargetLang}
+                disabled={processing}
+                options={languages.map((l) => ({ value: l.id, label: l.label }))}
+              />
+              <p className="mt-1 text-xs text-muted">{t("autoDetectHint")}</p>
             </div>
           )}
 
-          {providers.length > 0 && (
+          <GlossarySelector values={glossaryIds} onChange={setGlossaryIds} />
+
+          {providers.length > 1 && (
             <div className="mb-4">
               <label className="block text-sm font-medium text-foreground-soft mb-1">
                 {t("engine")}
               </label>
               <Select
-                value={translationProvider}
-                onChange={setTranslationProvider}
+                value={translationProviderId != null ? String(translationProviderId) : ""}
+                onChange={(v) => setTranslationProviderId(v ? Number(v) : null)}
                 disabled={processing}
-                options={providers.map((p) => ({ value: p.id, label: p.label }))}
+                options={providers.map((p) => ({ value: String(p.id), label: p.label }))}
               />
             </div>
           )}

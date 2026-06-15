@@ -1,8 +1,12 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { useTranslations } from "next-intl";
-import { ArrowsClockwise, Check, NavigationArrow, NotePencil } from "@phosphor-icons/react";
+import { useLocale, useTranslations } from "next-intl";
+import { ArrowDown, ArrowsClockwise, ArrowUp, Check, NavigationArrow, NotePencil, X } from "@phosphor-icons/react";
 import Spinner from "@/components/ui/Spinner";
+import { langLabel, type TranscriptDefaultLang } from "../../_types";
 import type { AddNoteExtras } from "../../_hooks/useNotes";
+import { cueIndexAtTime } from "./_transcript";
+import { CITATION_HL_COLOR } from "./_highlight";
+import { clearActiveChipTarget } from "../chat/_citations";
 
 interface Cue {
   start: number;
@@ -10,8 +14,15 @@ interface Cue {
   text: string;
 }
 
-type Lang = "de" | "en";
-type ViewMode = "de" | "en" | "both";
+// Which transcript spurs are shown. "source" = original media language,
+// "target" = the owner-chosen translation, "both" = stacked.
+type ViewMode = "source" | "target" | "both";
+
+interface LangInfo {
+  source_lang: string | null;
+  target_lang: string | null;
+  available: string[];
+}
 
 function parseVtt(raw: string): Cue[] {
   const cues: Cue[] = [];
@@ -62,102 +73,151 @@ export function TranscriptPanel({
   canManage = false,
   onSaveNote,
   defaultLang = "both",
+  citationTime,
+  citationNonce,
 }: {
   mediaRef: React.RefObject<HTMLVideoElement | HTMLAudioElement | null>;
   workspaceUuid: string;
   sourceUuid: string;
   canManage?: boolean;
   onSaveNote?: (content: string, sourceUuids?: string[], extras?: AddNoteExtras) => void | Promise<void>;
-  defaultLang?: ViewMode;
+  defaultLang?: TranscriptDefaultLang;
+  // The cited segment's start time (set only on a citation-chip jump) and the jump's
+  // nonce, used to pin a navigable "citation highlight" the way the PDF viewer frames
+  // the cited page.
+  citationTime?: number;
+  citationNonce?: number;
 }) {
   const t = useTranslations("workspace.detail.viewer");
-  const [deCues, setDeCues] = useState<Cue[] | null>(null);
-  const [enCues, setEnCues] = useState<Cue[] | null>(null);
+  const locale = useLocale();
+  // Cues keyed by ISO language code (e.g. { de: [...], en: [...] }).
+  const [cues, setCues] = useState<Record<string, Cue[]>>({});
+  const [sourceLang, setSourceLang] = useState<string | null>(null);
+  const [targetLang, setTargetLang] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [mode, setMode] = useState<ViewMode>(defaultLang);
   const [currentIdx, setCurrentIdx] = useState<number>(-1);
-  const [followCurrent, setFollowCurrent] = useState(true);
+  // Follow-mode (auto-scroll the transcript to the playing cue) is OFF by default: playback
+  // runs without the list jumping around on every cue change. The user opts in via the
+  // jump-to-current button.
+  const [followCurrent, setFollowCurrent] = useState(false);
   const [jumpHover, setJumpHover] = useState(false);
+  // Pinned citation segment: index of the cue a citation chip jumped to (-1 = none),
+  // whether it is currently scrolled into view, and which way it lies relative to the
+  // viewport (so the jump-back button can point an arrow at it).
+  const [citationIdx, setCitationIdx] = useState<number>(-1);
+  const [citationInView, setCitationInView] = useState(true);
+  const [citationDir, setCitationDir] = useState<"up" | "down">("down");
+  const citationNonceRef = useRef<number | undefined>(undefined);
+  // Which source the loaded cues belong to. On a document switch the cues briefly still hold
+  // the OLD source's data; this lets the citation pin ignore those stale cues so it does not
+  // scroll to a wrong position (and burn the one-shot scroll) before the new cues arrive.
+  const cuesUuidRef = useRef<string | null>(null);
   const [savedCueIdx, setSavedCueIdx] = useState<number | null>(null);
   const [savingCueIdx, setSavingCueIdx] = useState<number | null>(null);
-  const [regenEn, setRegenEn] = useState<"idle" | "running" | "error">("idle");
+  const [regen, setRegen] = useState<"idle" | "running" | "error">("idle");
   const [regenError, setRegenError] = useState<string | null>(null);
   const listRef = useRef<HTMLDivElement>(null);
   const itemRefs = useRef<Record<number, HTMLDivElement | null>>({});
+  const lastScrolledIdx = useRef<number>(-1);
 
   // Persist a "translation dispatched at" marker so the running state survives
   // reloads / source switches. Backend Celery task is idempotent, so re-mounting
   // and resuming the poll is safe even if the task has already finished.
-  const regenStorageKey = `kis:en-translate:${sourceUuid}`;
+  const regenStorageKey = `kis:transcript-translate:${sourceUuid}`;
   const REGEN_TTL_MS = 10 * 60 * 1000;
+
+  const transcriptUrl = (lang: string) =>
+    `/api/ai-assistant/workspaces/${workspaceUuid}/sources/${sourceUuid}/transcript?lang=${lang}`;
 
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
-    setDeCues(null);
-    setEnCues(null);
-    const fetchLang = async (lang: Lang): Promise<Cue[] | null> => {
+    setCues({});
+    setSourceLang(null);
+    setTargetLang(null);
+    cuesUuidRef.current = null; // cues are now stale until this source's transcript loads
+
+    const fetchVtt = async (lang: string): Promise<Cue[] | null> => {
       try {
-        const res = await fetch(
-          `/api/ai-assistant/workspaces/${workspaceUuid}/sources/${sourceUuid}/transcript?lang=${lang}`,
-          { credentials: "include" },
-        );
+        const res = await fetch(transcriptUrl(lang), { credentials: "include" });
         if (!res.ok) return null;
         return parseVtt(await res.text());
       } catch {
         return null;
       }
     };
-    Promise.all([fetchLang("de"), fetchLang("en")]).then(([de, en]) => {
+
+    (async () => {
+      let info: LangInfo = { source_lang: null, target_lang: null, available: [] };
+      try {
+        const res = await fetch(
+          `/api/ai-assistant/workspaces/${workspaceUuid}/sources/${sourceUuid}/transcript/langs`,
+          { credentials: "include" },
+        );
+        if (res.ok) info = await res.json();
+      } catch { /* no transcript */ }
       if (cancelled) return;
-      setDeCues(de);
-      setEnCues(en);
+
+      const entries = await Promise.all(
+        info.available.map(async (lang) => [lang, await fetchVtt(lang)] as const),
+      );
+      if (cancelled) return;
+
+      const map: Record<string, Cue[]> = {};
+      for (const [lang, c] of entries) if (c) map[lang] = c;
+      setCues(map);
+      cuesUuidRef.current = sourceUuid; // cues now belong to this source
+      setSourceLang(info.source_lang);
+      setTargetLang(info.target_lang);
       setLoading(false);
-      // Default mode: workspace setting if the requested track exists, else whatever is available
-      if (de && en) setMode(defaultLang);
-      else if (de) setMode("de");
-      else if (en) setMode("en");
-      // Resume "running" state if a translation was dispatched recently and EN
-      // is still missing — the backend task may still be working in the background.
-      if (!en) {
+
+      const hasSource = !!(info.source_lang && map[info.source_lang]);
+      const hasTarget = !!(info.target_lang && map[info.target_lang] && info.target_lang !== info.source_lang);
+      if (hasSource && hasTarget) setMode(defaultLang);
+      else if (hasSource) setMode("source");
+      else if (hasTarget) setMode("target");
+
+      // Resume "running" state if a translation was dispatched recently and the
+      // target is still missing — the backend task may still be working.
+      if (!hasTarget && info.target_lang && info.target_lang !== info.source_lang) {
         const tsRaw = typeof window !== "undefined" ? window.localStorage.getItem(regenStorageKey) : null;
         const ts = Number(tsRaw || 0);
-        if (ts > 0) {
-          if (Date.now() - ts <= REGEN_TTL_MS) {
-            setRegenEn("running");
-          } else {
-            window.localStorage.removeItem(regenStorageKey);
-          }
-        }
-      } else {
-        // EN already arrived — clear any stale marker.
-        if (typeof window !== "undefined") window.localStorage.removeItem(regenStorageKey);
+        if (ts > 0 && Date.now() - ts <= REGEN_TTL_MS) setRegen("running");
+        else if (ts > 0) window.localStorage.removeItem(regenStorageKey);
+      } else if (typeof window !== "undefined") {
+        window.localStorage.removeItem(regenStorageKey);
       }
-    });
+    })();
+
     return () => { cancelled = true; };
   }, [workspaceUuid, sourceUuid, regenStorageKey, defaultLang]);
 
-  // Use the DE track as the timing master when available (identical timestamps
-  // to EN because both come from Whisper on the same audio).
-  const masterCues = useMemo(() => deCues ?? enCues ?? [], [deCues, enCues]);
+  // Source-language track is the timing master (identical timestamps to the
+  // translation — both derive from Whisper on the same audio).
+  const masterCues = useMemo(() => {
+    if (sourceLang && cues[sourceLang]) return cues[sourceLang];
+    const first = Object.values(cues)[0];
+    return first ?? [];
+  }, [cues, sourceLang]);
 
   // Drive currentIdx from the media element's time updates.
   useEffect(() => {
     const media = mediaRef.current;
     if (!media || masterCues.length === 0) return;
     const onTime = () => {
-      const t = media.currentTime;
+      const time = media.currentTime;
       let lo = 0, hi = masterCues.length - 1, idx = -1;
       while (lo <= hi) {
         const mid = (lo + hi) >> 1;
         const c = masterCues[mid];
-        if (t < c.start) hi = mid - 1;
-        else if (t > c.end) lo = mid + 1;
+        if (time < c.start) hi = mid - 1;
+        else if (time > c.end) lo = mid + 1;
         else { idx = mid; break; }
       }
       if (idx === -1 && masterCues.length > 0) {
         for (let j = masterCues.length - 1; j >= 0; j--) {
-          if (masterCues[j].start <= t) { idx = j; break; }
+          if (masterCues[j].start <= time) { idx = j; break; }
         }
       }
       setCurrentIdx((prev) => (prev === idx ? prev : idx));
@@ -172,9 +232,62 @@ export function TranscriptPanel({
     if (!followCurrent) return;
     const el = itemRefs.current[currentIdx];
     if (el && listRef.current) {
-      el.scrollIntoView({ block: "center", behavior: "smooth" });
+      const prev = lastScrolledIdx.current;
+      const isJump = prev < 0 || Math.abs(currentIdx - prev) > 1;
+      el.scrollIntoView({ block: "center", behavior: isJump ? "instant" : "smooth" });
+      lastScrolledIdx.current = currentIdx;
     }
   }, [currentIdx, followCurrent]);
+
+  // A new source clears any pinned citation before its cues load.
+  useEffect(() => { setCitationIdx(-1); }, [sourceUuid]);
+
+  // Pin the cited segment and scroll to it once per jump.
+  //
+  // The MARK (setCitationIdx) runs UNCONDITIONALLY whenever there is a citation time and the
+  // cues are loaded — no consumable guard in front of it — so it can never be "eaten": it
+  // re-pins on the FIRST click even when the media is already open, and re-pins the same chip
+  // after a dismiss (the nonce is a dep, so an identical re-click still re-evaluates).
+  //
+  // The SCROLL is gated to once per jump via the nonce ref, but uses the LOCALLY computed
+  // `idx` — never the `citationIdx` state, which lags a render behind and previously made the
+  // scroll race to a stale/old cue (e.g. jumping to the top) while consuming the nonce.
+  useEffect(() => {
+    // Ignore cues that still belong to the previous source (mid document-switch): acting on
+    // them would scroll to the wrong place and consume the one-shot scroll before the new
+    // cues load. We act once the loaded cues match the current source.
+    if (cuesUuidRef.current !== sourceUuid) return;
+    if (citationTime == null || masterCues.length === 0) { setCitationIdx(-1); return; }
+    const idx = cueIndexAtTime(masterCues, citationTime);
+    setCitationIdx(idx);
+    if (idx >= 0 && citationNonceRef.current !== citationNonce) {
+      citationNonceRef.current = citationNonce;
+      requestAnimationFrame(() => {
+        itemRefs.current[idx]?.scrollIntoView({ block: "center", behavior: "instant" });
+      });
+    }
+  }, [citationNonce, citationTime, masterCues, sourceUuid]);
+
+  // Track whether the pinned cue is on-screen so the jump-back button only shows once
+  // it has scrolled out of view (like the PDF jump button appearing after you page away).
+  // Programmatic follow-scrolls fire scroll events too, so this stays in sync with both.
+  useEffect(() => {
+    if (citationIdx < 0) { setCitationInView(true); return; }
+    const list = listRef.current;
+    if (!list) return;
+    const check = () => {
+      const el = itemRefs.current[citationIdx];
+      if (!el) return;
+      const er = el.getBoundingClientRect();
+      const lr = list.getBoundingClientRect();
+      const inView = er.bottom > lr.top && er.top < lr.bottom;
+      setCitationInView(inView);
+      if (!inView) setCitationDir(er.top >= lr.bottom ? "down" : "up");
+    };
+    check();
+    list.addEventListener("scroll", check, { passive: true });
+    return () => list.removeEventListener("scroll", check);
+  }, [citationIdx]);
 
   // User-initiated scroll disables follow mode until jump button is pressed.
   useEffect(() => {
@@ -197,11 +310,20 @@ export function TranscriptPanel({
     setFollowCurrent(true);
   };
 
-  // Poll for the EN VTT to appear after a translation task was dispatched.
-  // The Celery task can take ~30 s for short videos up to several minutes for long
-  // ones, so we poll gently and give up after the timeout instead of blocking forever.
+  // Jump back to the pinned citation: ONLY scroll the transcript to the marking. The play
+  // head and ongoing playback are left exactly where they are — no seek, no pause, no play.
+  const jumpToCitation = () => {
+    if (citationIdx < 0) return;
+    itemRefs.current[citationIdx]?.scrollIntoView({ block: "center", behavior: "smooth" });
+  };
+
+  // Drop the pin AND the cited chip's yellow border in lockstep, exactly like the PDF
+  // viewer's dismiss button (clearActiveChipTarget), so the chat chip stops looking active.
+  const dismissCitation = () => { setCitationIdx(-1); clearActiveChipTarget(); };
+
+  // Poll for the target VTT to appear after a translation task was dispatched.
   useEffect(() => {
-    if (regenEn !== "running") return;
+    if (regen !== "running" || !targetLang) return;
     const started = Date.now();
     const TIMEOUT_MS = 5 * 60 * 1000;
     const INTERVAL_MS = 5000;
@@ -209,57 +331,52 @@ export function TranscriptPanel({
       if (Date.now() - started > TIMEOUT_MS) {
         clearInterval(timer);
         if (typeof window !== "undefined") window.localStorage.removeItem(regenStorageKey);
-        setRegenEn("error");
+        setRegen("error");
         setRegenError(t("regenEnTimeout"));
         return;
       }
       try {
         const probe = await fetch(
-          `/api/ai-assistant/workspaces/${workspaceUuid}/sources/${sourceUuid}/transcript/exists?lang=en`,
+          `/api/ai-assistant/workspaces/${workspaceUuid}/sources/${sourceUuid}/transcript/exists?lang=${targetLang}`,
           { credentials: "include" },
         );
         if (!probe.ok) return;
         const { exists } = (await probe.json()) as { exists: boolean };
         if (!exists) return;
-        const res = await fetch(
-          `/api/ai-assistant/workspaces/${workspaceUuid}/sources/${sourceUuid}/transcript?lang=en`,
-          { credentials: "include" },
-        );
+        const res = await fetch(transcriptUrl(targetLang), { credentials: "include" });
         if (res.ok) {
-          const cues = parseVtt(await res.text());
+          const parsed = parseVtt(await res.text());
           clearInterval(timer);
           if (typeof window !== "undefined") window.localStorage.removeItem(regenStorageKey);
-          setEnCues(cues);
-          if (deCues) setMode("both");
-          setRegenEn("idle");
+          setCues((prev) => ({ ...prev, [targetLang]: parsed }));
+          if (sourceLang && cues[sourceLang]) setMode("both");
+          setRegen("idle");
         }
       } catch {
         /* keep polling */
       }
     }, INTERVAL_MS);
     return () => clearInterval(timer);
-  }, [regenEn, workspaceUuid, sourceUuid, deCues, regenStorageKey]);
+  }, [regen, workspaceUuid, sourceUuid, targetLang, sourceLang, cues, regenStorageKey, t]);
 
-  const regenerateEnTranscript = async () => {
-    if (regenEn === "running") return;
-    setRegenEn("running");
+  const regenerateTranscript = async () => {
+    if (regen === "running") return;
+    setRegen("running");
     setRegenError(null);
     try {
       const res = await fetch(
-        `/api/ai-assistant/workspaces/${workspaceUuid}/sources/${sourceUuid}/regenerate-en-transcript`,
+        `/api/ai-assistant/workspaces/${workspaceUuid}/sources/${sourceUuid}/regenerate-transcript`,
         { method: "POST", credentials: "include" },
       );
       if (!res.ok) {
         const detail = (await res.json().catch(() => null))?.detail;
         throw new Error(detail || `HTTP ${res.status}`);
       }
-      // Persist marker so reload / source-switch can resume the running state.
       if (typeof window !== "undefined") {
         window.localStorage.setItem(regenStorageKey, String(Date.now()));
       }
-      // Task was dispatched; polling effect takes over.
     } catch (e) {
-      setRegenEn("error");
+      setRegen("error");
       setRegenError(e instanceof Error ? e.message : t("regenEnUnknownError"));
     }
   };
@@ -275,16 +392,16 @@ export function TranscriptPanel({
     if (!onSaveNote || savingCueIdx !== null) return;
     const master = masterCues[idx];
     if (!master) return;
-    const deText = deCues?.[idx]?.text;
-    const enText = enCues?.[idx]?.text;
-    const wantDe = (mode === "de" || mode === "both") && !!deText;
-    const wantEn = (mode === "en" || mode === "both") && !!enText;
+    const srcText = sourceLang ? cues[sourceLang]?.[idx]?.text : undefined;
+    const tgtText = targetLang ? cues[targetLang]?.[idx]?.text : undefined;
+    const wantSource = (mode === "source" || mode === "both") && !!srcText;
+    const wantTarget = (mode === "target" || mode === "both") && !!tgtText;
     const parts: string[] = [];
-    if (wantDe) parts.push(deText!);
-    if (wantEn) parts.push(`*${enText!}*`);
+    if (wantSource) parts.push(srcText!);
+    if (wantTarget) parts.push(`*${tgtText!}*`);
     const body = parts.join("\n\n");
     if (!body) return;
-    const primary = wantDe ? deText! : enText!;
+    const primary = wantSource ? srcText! : tgtText!;
     const keyword = primary.slice(0, 40).replace(/\s+/g, " ").trim();
     const citation = `[Q1:${sourceUuid}, ${fmtTs(master.start)} | ${keyword}]`;
     setSavingCueIdx(idx);
@@ -305,15 +422,21 @@ export function TranscriptPanel({
     );
   }
 
-  if (!deCues && !enCues) return null;
+  const sourceCues = sourceLang ? cues[sourceLang] : undefined;
+  const targetCues = targetLang ? cues[targetLang] : undefined;
+  if (!sourceCues && !targetCues) return null;
 
-  const showDe = (mode === "de" || mode === "both") && !!deCues;
-  const showEn = (mode === "en" || mode === "both") && !!enCues;
-  const hasBoth = !!deCues && !!enCues;
+  const hasBoth = !!sourceCues && !!targetCues && sourceLang !== targetLang;
+  const showSource = (mode === "source" || mode === "both") && !!sourceCues;
+  const showTarget = (mode === "target" || mode === "both") && !!targetCues;
+  // The single visible language label when only one spur exists.
+  const soleLang = sourceCues ? sourceLang : targetLang;
+  const canTranslate = canManage && !!sourceCues && !!sourceLang
+    && !!targetLang && targetLang !== sourceLang && !targetCues;
 
   return (
     <div
-      className="flex flex-col min-h-0"
+      className="flex flex-col min-h-0 relative"
       style={{ borderTop: "1px solid var(--border)" }}
     >
       {/* Toolbar */}
@@ -346,41 +469,41 @@ export function TranscriptPanel({
         <div className="flex-1" />
         {hasBoth ? (
           <div className="flex gap-1">
-            <TabButton active={mode === "de"} onClick={() => setMode("de")}>{t("tabDe")}</TabButton>
-            <TabButton active={mode === "en"} onClick={() => setMode("en")}>{t("tabEn")}</TabButton>
+            <TabButton active={mode === "source"} onClick={() => setMode("source")}>{langLabel(sourceLang!, locale)}</TabButton>
+            <TabButton active={mode === "target"} onClick={() => setMode("target")}>{langLabel(targetLang!, locale)}</TabButton>
             <TabButton active={mode === "both"} onClick={() => setMode("both")}>{t("tabBoth")}</TabButton>
           </div>
         ) : (
           <div className="flex items-center gap-2">
             <span className="text-xs" style={{ color: "var(--muted)" }}>
-              {deCues ? t("tabDe") : t("tabEn")}
+              {soleLang ? langLabel(soleLang, locale) : ""}
             </span>
-            {canManage && deCues && !enCues && (
+            {canTranslate && (
               <button
                 type="button"
-                onClick={regenerateEnTranscript}
-                disabled={regenEn === "running"}
+                onClick={regenerateTranscript}
+                disabled={regen === "running"}
                 title={
-                  regenEn === "error"
+                  regen === "error"
                     ? t("regenEnErrorTitle", { error: regenError ?? "" })
-                    : regenEn === "running"
+                    : regen === "running"
                     ? t("regenEnRunningTitle")
                     : t("regenEnIdleTitle")
                 }
                 className="flex-shrink-0 h-6 px-2 flex items-center gap-1 rounded-full transition-colors disabled:opacity-60 disabled:cursor-wait"
                 style={{
-                  backgroundColor: regenEn === "error" ? "rgba(239, 68, 68, 0.12)" : "var(--surface-dim)",
-                  color: regenEn === "error" ? "rgb(239, 68, 68)" : "var(--muted)",
+                  backgroundColor: regen === "error" ? "rgba(239, 68, 68, 0.12)" : "var(--surface-dim)",
+                  color: regen === "error" ? "rgb(239, 68, 68)" : "var(--muted)",
                   border: "1px solid var(--border)",
                   fontSize: "10px",
                 }}
               >
-                {regenEn === "running" ? (
+                {regen === "running" ? (
                   <Spinner size="xs" color="current" />
                 ) : (
                   <ArrowsClockwise size={10} weight="bold" />
                 )}
-                <span>{regenEn === "running" ? t("regenEnRunning") : t("regenEnButton")}</span>
+                <span>{regen === "running" ? t("regenEnRunning") : t("regenEnButton")}</span>
               </button>
             )}
           </div>
@@ -391,28 +514,39 @@ export function TranscriptPanel({
       <div ref={listRef} className="flex-1 overflow-y-auto px-4 py-3">
         {masterCues.map((c, idx) => {
           const isCurrent = idx === currentIdx;
+          const isCitation = idx === citationIdx;
           const isPast = currentIdx >= 0 && idx < currentIdx;
-          const deText = deCues?.[idx]?.text;
-          const enText = enCues?.[idx]?.text;
+          const citationTint = `${CITATION_HL_COLOR}33`;  // ~20% amber, the pinned-segment tint
+          const srcText = sourceLang ? cues[sourceLang]?.[idx]?.text : undefined;
+          const tgtText = targetLang ? cues[targetLang]?.[idx]?.text : undefined;
           return (
             <div
               key={idx}
               ref={(el) => { itemRefs.current[idx] = el; }}
               className="group mb-2"
-              style={{ opacity: !isCurrent && isPast ? 0.55 : 1 }}
+              style={{ opacity: !isCurrent && !isCitation && isPast ? 0.55 : 1 }}
             >
               <div
                 onClick={() => onCueClick(c)}
                 className="px-3 py-2 rounded-md cursor-pointer transition-colors"
                 style={{
-                  backgroundColor: isCurrent ? "rgba(var(--kb-rgb), 0.12)" : "transparent",
-                  borderLeft: isCurrent ? "3px solid var(--kb)" : "3px solid transparent",
+                  // The amber citation pin ALWAYS wins the background so the yellow marking is
+                  // reliably visible even while that same cue is the one playing (which would
+                  // otherwise paint it blue and hide the pin behind a thin border). Once
+                  // playback moves on, the pinned cue stays amber and the new current cue
+                  // takes the blue.
+                  backgroundColor: isCitation
+                    ? citationTint
+                    : isCurrent ? "rgba(var(--kb-rgb), 0.12)" : "transparent",
+                  borderLeft: isCitation
+                    ? `3px solid ${CITATION_HL_COLOR}`
+                    : isCurrent ? "3px solid var(--kb)" : "3px solid transparent",
                 }}
                 onMouseEnter={(e) => {
-                  if (!isCurrent) e.currentTarget.style.backgroundColor = "var(--surface-dim)";
+                  if (!isCurrent && !isCitation) e.currentTarget.style.backgroundColor = "var(--surface-dim)";
                 }}
                 onMouseLeave={(e) => {
-                  if (!isCurrent) e.currentTarget.style.backgroundColor = "transparent";
+                  if (!isCurrent && !isCitation) e.currentTarget.style.backgroundColor = "transparent";
                 }}
               >
                 <div
@@ -421,7 +555,7 @@ export function TranscriptPanel({
                 >
                   {fmtTs(c.start)} - {fmtTs(c.end)}
                 </div>
-                {showDe && deText && (
+                {showSource && srcText && (
                   <div
                     className="text-sm leading-snug"
                     style={{
@@ -429,15 +563,15 @@ export function TranscriptPanel({
                       fontWeight: isCurrent ? 600 : 400,
                     }}
                   >
-                    {deText}
+                    {srcText}
                   </div>
                 )}
-                {showEn && enText && (
+                {showTarget && tgtText && (
                   <div
                     className="text-sm italic leading-snug mt-0.5"
                     style={{ color: "var(--muted)" }}
                   >
-                    {enText}
+                    {tgtText}
                   </div>
                 )}
               </div>
@@ -461,6 +595,38 @@ export function TranscriptPanel({
           );
         })}
       </div>
+
+      {/* Citation pin controls — same corner + pill design as the PDF viewer's page-frame
+          bar. Icon-only with full text in title/aria. Shown while a citation is pinned. */}
+      {citationIdx >= 0 && masterCues[citationIdx] && (
+        <div className="absolute bottom-6 right-4 z-10 flex items-center gap-1.5">
+          {/* Jump-back: only after the pinned cue scrolled off-screen. Arrow points toward
+              it, label is its timestamp. Click replays from there. */}
+          {!citationInView && (
+            <button
+              type="button"
+              onClick={jumpToCitation}
+              className="flex items-center gap-1 pl-2 pr-2.5 py-1.5 rounded-full text-xs font-medium shadow-md btn-icon"
+              style={{ backgroundColor: "var(--surface)", color: "var(--kb)", border: "1px solid var(--kb)" }}
+              title={t("jumpToHighlightTime", { time: fmtTs(masterCues[citationIdx].start) })}
+              aria-label={t("jumpToHighlightTime", { time: fmtTs(masterCues[citationIdx].start) })}
+            >
+              {citationDir === "down" ? <ArrowDown size={13} weight="bold" /> : <ArrowUp size={13} weight="bold" />}
+              <span className="tabular-nums">{fmtTs(masterCues[citationIdx].start)}</span>
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={dismissCitation}
+            className="flex items-center justify-center w-7 h-7 rounded-full shadow-md btn-icon"
+            style={{ backgroundColor: "var(--surface)", color: "var(--foreground)", border: "1px solid var(--border)" }}
+            title={t("dismissHighlight")}
+            aria-label={t("dismissHighlight")}
+          >
+            <X size={13} weight="bold" />
+          </button>
+        </div>
+      )}
     </div>
   );
 }

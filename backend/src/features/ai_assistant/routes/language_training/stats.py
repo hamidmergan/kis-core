@@ -127,9 +127,10 @@ async def get_glossary_count_endpoint(
     current_user: dict = Depends(get_current_user),
     locale: str = Depends(get_locale),
 ):
+    user_id = current_user["user_id"]
     workspace = db.get_aia_workspace(workspace_uuid)
     if not workspace:
         raise HTTPException(status_code=404, detail=t("workspace.notFound", locale))
-    count = db.get_glossary_count(workspace["id"])
+    count = db.get_glossary_count(workspace["id"], user_id)
     return {"count": count, "limit": GLOSSARY_LIMIT}
 

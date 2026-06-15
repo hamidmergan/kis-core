@@ -8,10 +8,6 @@ from src.tool_prompts import (
     AIA_SYSTEM_DIRECT as _PROMPT_TUTOR_SYSTEM_DIRECT,
     AIA_SYSTEM_RAG as _PROMPT_TUTOR_SYSTEM_RAG,
     AIA_POPUP_ACTIONS as _TUTOR_POPUP_ACTIONS,
-    AIA_SUMMARY_PAGE_SYSTEM as _PROMPT_TUTOR_SUMMARY_PAGE_SYSTEM,
-    AIA_SUMMARY_PAGE_USER_SMALL as _PROMPT_TUTOR_SUMMARY_PAGE_USER_SMALL,
-    AIA_SUMMARY_PAGE_USER_LARGE as _PROMPT_TUTOR_SUMMARY_PAGE_USER_LARGE,
-    AIA_SUMMARY_PAGE_BATCH_USER as _PROMPT_TUTOR_SUMMARY_PAGE_BATCH_USER,
 )
 
 PROMPT_REGISTRY = [
@@ -57,34 +53,6 @@ PROMPT_REGISTRY = [
         "editable": False,
         "default": _PROMPT_TUTOR_SYSTEM_RAG,
     },
-    {
-        "key": "prompt_tutor_summary_page_system",
-        "label": "KI-Assistent: Seitenzusammenfassung System",
-        "description": "System-Prompt für Seitenzusammenfassungen (alle Modelle). Platzhalter {lang}.",
-        "editable": False,
-        "default": _PROMPT_TUTOR_SUMMARY_PAGE_SYSTEM,
-    },
-    {
-        "key": "prompt_tutor_summary_page_user_small",
-        "label": "KI-Assistent: Seitenzusammenfassung User (kleine Modelle)",
-        "description": "User-Prompt mit Platzhaltern {lang} und {content}. Enthält /no_think für qwen3.",
-        "editable": False,
-        "default": _PROMPT_TUTOR_SUMMARY_PAGE_USER_SMALL,
-    },
-    {
-        "key": "prompt_tutor_summary_page_user_large",
-        "label": "KI-Assistent: Seitenzusammenfassung User (große Modelle)",
-        "description": "User-Prompt für große Modelle. Platzhalter {content}.",
-        "editable": False,
-        "default": _PROMPT_TUTOR_SUMMARY_PAGE_USER_LARGE,
-    },
-    {
-        "key": "prompt_tutor_summary_page_batch_user",
-        "label": "KI-Assistent: Seitenzusammenfassung User (Batch, große Modelle)",
-        "description": "User-Prompt für Batch-Verarbeitung (mehrere Seiten pro Request). Platzhalter {n} und {pages}.",
-        "editable": False,
-        "default": _PROMPT_TUTOR_SUMMARY_PAGE_BATCH_USER,
-    },
     *[
         {
             "key": f"prompt_tutor_popup_{action['key']}",
@@ -100,7 +68,6 @@ PROMPT_REGISTRY = [
 
 TOOLS_CONFIG = [
     {"key": "screencast",      "label": "Screencast"},
-    {"key": "screencast-demo", "label": "Screencast-Demo"},
     {"key": "translation",   "label": "Dokumentenübersetzung"},
     {"key": "tts",           "label": "Text in Sprache"},
     {"key": "transcription", "label": "Transkription"},
@@ -111,7 +78,6 @@ TOOLS_CONFIG = [
 
 
 TOOL_LABELS = {
-    "screencast_demo_render": "Demo-Screencast",
     "screencast_render": "Screencast",
     "screencast_translate": "Screencast-Übersetzung",
     "tts": "Text in Sprache",

@@ -87,13 +87,15 @@ def _classify_candidates_batch(client, model, batch: list[dict], today_d: date) 
         r = by_id.get(i) or {}
         keep = bool(r.get("keep"))
         is_footer = bool(r.get("is_footer"))
+        is_header = bool(r.get("is_header"))
         is_historical = bool(r.get("is_historical"))
-        # Hard-drop footers and historical references
-        if is_footer or is_historical:
+        # Hard-drop header/footer page chrome and historical references
+        if is_footer or is_header or is_historical:
             keep = False
         out.append({
             "keep": keep,
             "is_footer": is_footer,
+            "is_header": is_header,
             "is_historical": is_historical,
             "type": r.get("type") or "termin",
             "title": (r.get("title") or "").strip(),

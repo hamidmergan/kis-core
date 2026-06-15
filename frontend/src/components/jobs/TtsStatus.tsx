@@ -1,12 +1,14 @@
 "use client";
 
 import { useTranslations } from "next-intl";
+import { SpeakerHigh } from "@phosphor-icons/react";
 import type { TTSState } from "@/types";
 import Spinner from "@/components/ui/Spinner";
 
 interface TtsStatusProps {
   state: TTSState;
   fileName?: string;
+  audioUrl?: string;
   errorMessage?: string;
   onDownload?: () => void;
   onReset?: () => void;
@@ -15,6 +17,7 @@ interface TtsStatusProps {
 export default function TtsStatus({
   state,
   fileName,
+  audioUrl,
   errorMessage,
   onDownload,
   onReset,
@@ -35,14 +38,28 @@ export default function TtsStatus({
       )}
 
       {state === "done" && (
-        <div className="space-y-3">
+        <div className="flex flex-col items-center gap-4 text-center">
           <div className="flex items-center gap-2">
             <svg className="h-5 w-5 text-success" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
             </svg>
-            <span className="text-sm font-medium text-foreground">{tCommon("downloadReady")}</span>
+            <span className="text-sm font-medium text-foreground">{t("readyToPlay")}</span>
           </div>
-          {fileName && <p className="text-xs text-muted">{fileName}</p>}
+
+          {/* Audio player — consistent with the AIA media player */}
+          {audioUrl && (
+            <div className="w-full max-w-md flex flex-col items-center gap-4">
+              <div
+                className="w-24 h-24 rounded-full flex items-center justify-center"
+                style={{ backgroundColor: "rgba(var(--kb-rgb),0.1)" }}
+              >
+                <SpeakerHigh size={40} weight="bold" style={{ color: "var(--kb)" }} />
+              </div>
+              {fileName && <span className="text-sm font-medium truncate max-w-full">{fileName}</span>}
+              <audio src={audioUrl} controls className="w-full" />
+            </div>
+          )}
+
           <div className="flex gap-3">
             <button
               onClick={onDownload}

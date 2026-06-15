@@ -12,7 +12,7 @@ def list_custom_roles() -> list[dict[str, Any]]:
     with get_connection() as conn:
         with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
             cur.execute(
-                "SELECT id, name, allow_aia, allowed_tools, created_at, updated_at "
+                "SELECT id, name, aia_access, allowed_tools, created_at, updated_at "
                 "FROM custom_roles ORDER BY name"
             )
             rows = cur.fetchall()
@@ -20,7 +20,7 @@ def list_custom_roles() -> list[dict[str, Any]]:
         {
             "id": r["id"],
             "name": r["name"],
-            "allow_aia": r["allow_aia"],
+            "aia_access": r["aia_access"],
             "allowed_tools": r["allowed_tools"] or [],
             "created_at": r["created_at"],
             "updated_at": r["updated_at"],
@@ -32,7 +32,8 @@ def get_custom_role(role_id: int) -> dict[str, Any] | None:
     with get_connection() as conn:
         with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
             cur.execute(
-                "SELECT id, name, allow_aia, allowed_tools FROM custom_roles WHERE id = %s",
+                "SELECT id, name, aia_access, allowed_tools "
+                "FROM custom_roles WHERE id = %s",
                 (role_id,),
             )
             row = cur.fetchone()
@@ -41,29 +42,31 @@ def get_custom_role(role_id: int) -> dict[str, Any] | None:
     return {
         "id": row["id"],
         "name": row["name"],
-        "allow_aia": row["allow_aia"],
+        "aia_access": row["aia_access"],
         "allowed_tools": row["allowed_tools"] or [],
     }
 
-def create_custom_role(name: str, allow_aia: bool, allowed_tools: list[str]) -> int:
+def create_custom_role(name: str, aia_access: str, allowed_tools: list[str]) -> int:
     with get_connection() as conn:
         with conn.cursor() as cur:
             cur.execute(
-                "INSERT INTO custom_roles (name, allow_aia, allowed_tools) "
+                "INSERT INTO custom_roles (name, aia_access, allowed_tools) "
                 "VALUES (%s, %s, %s::jsonb) RETURNING id",
-                (name, allow_aia, json.dumps(allowed_tools)),
+                (name, aia_access, json.dumps(allowed_tools)),
             )
             new_id = cur.fetchone()[0]
         conn.commit()
     return new_id
 
-def update_custom_role(role_id: int, name: str, allow_aia: bool, allowed_tools: list[str]) -> None:
+def update_custom_role(
+    role_id: int, name: str, aia_access: str, allowed_tools: list[str],
+) -> None:
     with get_connection() as conn:
         with conn.cursor() as cur:
             cur.execute(
-                "UPDATE custom_roles SET name = %s, allow_aia = %s, "
+                "UPDATE custom_roles SET name = %s, aia_access = %s, "
                 "allowed_tools = %s::jsonb, updated_at = NOW() WHERE id = %s",
-                (name, allow_aia, json.dumps(allowed_tools), role_id),
+                (name, aia_access, json.dumps(allowed_tools), role_id),
             )
         conn.commit()
 

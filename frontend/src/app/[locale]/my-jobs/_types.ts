@@ -23,14 +23,12 @@ export interface MyJob {
 export const SCREENCAST_RENDER_TOOLS = new Set([
   "screencast_render",
   "screencast_auto",
-  "screencast_demo_render",
 ]);
 
 export const SCREENCAST_TOOLS = new Set([
   "screencast_translate",
   "screencast_render",
   "screencast_auto",
-  "screencast_demo_render",
 ]);
 
 

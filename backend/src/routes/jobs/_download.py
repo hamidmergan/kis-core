@@ -71,8 +71,7 @@ async def download_job_pptx(
     if not job:
         raise HTTPException(status_code=404, detail=t("job.notFound", locale))
 
-    # Works for both screencast_translate (has result_path)
-    # and screencast_demo_render (result_path is NULL, but translated.pptx is in folder).
+    # Works for screencast_translate (has result_path); translated.pptx is in the job folder.
     try:
         data = get_job_file(job["user_id"], job_uuid, "translated.pptx")
     except Exception as e:

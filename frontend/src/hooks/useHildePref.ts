@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 const STORAGE_KEY = "ki-assistent-hilde-enabled";
 const CHANGE_EVENT = "ki-assistent-hilde-pref:change";
@@ -52,6 +52,8 @@ export function notifyMascotGlobalChanged() {
 export function useHildePref(): { enabled: boolean; toggle: () => void; globalEnabled: boolean } {
   const [localEnabled, setLocalEnabled] = useState(true);
   const [globalEnabled, setGlobalEnabled] = useState(globalCache ?? true);
+  const localEnabledRef = useRef(localEnabled);
+  localEnabledRef.current = localEnabled;
 
   useEffect(() => {
     setLocalEnabled(readLocalPref());
@@ -82,13 +84,15 @@ export function useHildePref(): { enabled: boolean; toggle: () => void; globalEn
     };
   }, []);
 
+  // Side effects run in the event handler, not inside the setLocalEnabled
+  // updater — an updater runs during render, where dispatching would trigger
+  // setState in other listeners mid-render (React's "Cannot update a component
+  // while rendering a different component" warning).
   const toggle = useCallback(() => {
-    setLocalEnabled((prev) => {
-      const next = !prev;
-      try { localStorage.setItem(STORAGE_KEY, next ? "1" : "0"); } catch { /* ignore */ }
-      try { window.dispatchEvent(new CustomEvent(CHANGE_EVENT, { detail: next })); } catch { /* ignore */ }
-      return next;
-    });
+    const next = !localEnabledRef.current;
+    setLocalEnabled(next);
+    try { localStorage.setItem(STORAGE_KEY, next ? "1" : "0"); } catch { /* ignore */ }
+    try { window.dispatchEvent(new CustomEvent(CHANGE_EVENT, { detail: next })); } catch { /* ignore */ }
   }, []);
 
   return { enabled: globalEnabled && localEnabled, toggle, globalEnabled };

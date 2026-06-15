@@ -5,53 +5,32 @@ import { useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
 import ProtectedRoute from "@/components/auth/ProtectedRoute";
 import BackLink from "@/components/ui/BackLink";
-import ElevenLabsTab from "./_tabs/ElevenLabsTab";
-import KokoroTab from "./_tabs/KokoroTab";
-import MylabTab from "./_tabs/MylabTab";
-import type { VoicesTab } from "./_utils";
+import ProviderTab from "./_tabs/ProviderTab";
+import type { ProviderWithVoices } from "./_utils";
 
 
-interface TabConfig {
-  id: VoicesTab;
-  label: string;
-  enabled: boolean;
-}
-
-
-function StimmenPageInner() {
+function VoicesPageInner() {
   const t = useTranslations("tools.tts.voices");
   const searchParams = useSearchParams();
-  const [elevenlabsEnabled, setElevenlabsEnabled] = useState(true);
-  const [kokoroEnabled, setKokoroEnabled] = useState(false);
-  const [mylabEnabled, setMylabEnabled] = useState(false);
-  const [activeTab, setActiveTab] = useState<VoicesTab>(
-    (searchParams.get("tab") as VoicesTab | null) ?? "elevenlabs",
-  );
+  const [providers, setProviders] = useState<ProviderWithVoices[]>([]);
+  const [activeId, setActiveId] = useState<number | null>(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const tabFromUrl = searchParams.get("tab") as VoicesTab | null;
-    fetch("/api/tts/providers", { credentials: "include" })
+    fetch("/api/tts/providers-with-voices", { credentials: "include" })
       .then((r) => r.json())
-      .then((d) => {
-        const el = d.elevenlabs_enabled ?? true;
-        const ko = d.kokoro_enabled ?? false;
-        const ml = d.mylab_enabled ?? false;
-        setElevenlabsEnabled(el);
-        setKokoroEnabled(ko);
-        setMylabEnabled(ml);
-        if (tabFromUrl === "mylab" && ml) setActiveTab("mylab");
-        else if (tabFromUrl === "kokoro" && ko) setActiveTab("kokoro");
-        else if (tabFromUrl === "elevenlabs" && el) setActiveTab("elevenlabs");
-        else if (!el) setActiveTab(ko ? "kokoro" : ml ? "mylab" : "elevenlabs");
+      .then((data) => {
+        const list: ProviderWithVoices[] = data.providers ?? [];
+        setProviders(list);
+        const tabParam = searchParams.get("provider");
+        const fromUrl = tabParam ? list.find((p) => p.id === Number(tabParam)) : null;
+        setActiveId(fromUrl?.id ?? list[0]?.id ?? null);
       })
-      .catch(() => {});
+      .catch(() => {})
+      .finally(() => setLoading(false));
   }, []);
 
-  const tabs: TabConfig[] = [
-    { id: "elevenlabs", label: "ElevenLabs", enabled: elevenlabsEnabled },
-    { id: "kokoro", label: "Kokoro TTS", enabled: kokoroEnabled },
-    { id: "mylab", label: "THL myLab", enabled: mylabEnabled },
-  ];
+  const activeProvider = providers.find((p) => p.id === activeId);
 
   return (
     <ProtectedRoute>
@@ -59,35 +38,49 @@ function StimmenPageInner() {
         <BackLink />
         <h1 className="text-xl font-bold mb-1">{t("title")}</h1>
 
-        <div className="flex gap-1 border-b border-border-soft mb-6">
-          {tabs.filter((t) => t.enabled).map(({ id, label }) => (
-            <button
-              key={id}
-              onClick={() => setActiveTab(id)}
-              className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
-                activeTab === id
-                  ? "border-kb text-kb"
-                  : "border-transparent text-muted hover:text-foreground-soft"
-              }`}
-            >
-              {label}
-            </button>
-          ))}
-        </div>
+        {loading && <p className="text-sm text-muted mt-4">{t("loading")}</p>}
 
-        {activeTab === "elevenlabs" && <ElevenLabsTab enabled={elevenlabsEnabled} />}
-        {activeTab === "kokoro" && <KokoroTab active={activeTab === "kokoro"} />}
-        {activeTab === "mylab" && <MylabTab active={activeTab === "mylab"} />}
+        {!loading && providers.length === 0 && (
+          <p className="text-sm text-muted-soft mt-4">{t("noProviders")}</p>
+        )}
+
+        {providers.length > 0 && (
+          <>
+            <div className="flex gap-1 border-b border-border-soft mb-6">
+              {providers.map((p) => (
+                <button
+                  key={p.id}
+                  onClick={() => setActiveId(p.id)}
+                  className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+                    activeId === p.id
+                      ? "border-kb text-kb"
+                      : "border-transparent text-muted hover:text-foreground-soft"
+                  }`}
+                >
+                  {p.name}
+                </button>
+              ))}
+            </div>
+
+            {activeProvider && (
+              <ProviderTab
+                key={activeProvider.id}
+                providerId={activeProvider.id}
+                voices={activeProvider.voices}
+              />
+            )}
+          </>
+        )}
       </div>
     </ProtectedRoute>
   );
 }
 
 
-export default function StimmenPage() {
+export default function VoicesPage() {
   return (
     <Suspense>
-      <StimmenPageInner />
+      <VoicesPageInner />
     </Suspense>
   );
 }

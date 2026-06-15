@@ -14,6 +14,7 @@ export function ChatPanel({
   messages,
   activeSourceIds,
   sources,
+  popupActions,
   loading,
   onSend,
   onStop,
@@ -29,6 +30,7 @@ export function ChatPanel({
   messages: ChatMessageType[];
   activeSourceIds: string[];
   sources: Source[];
+  popupActions?: { key: string; label: string; icon: string; prompt: string; min_words: number }[];
   loading: boolean;
   onSend: (value: string) => void;
   onStop?: () => void;
@@ -121,6 +123,8 @@ export function ChatPanel({
   // Captures scrollTop before the click and restores it across a few frames
   // while the panel layout settles.
   const handleChipClick = useCallback(
+    // Chips are nav-only: a click scrolls to the page/timestamp. Only a popup/action-
+    // bar exact selection (isExact + sourceText) carries text to highlight.
     (sourceUuid: string, page: number, filename: string, sourceText?: string, startTime?: number, isExact?: boolean) => {
       const el = scrollContainerRef.current;
       const savedTop = el?.scrollTop ?? 0;
@@ -157,7 +161,7 @@ export function ChatPanel({
 
       {/* Messages */}
       <div ref={scrollContainerRef} className="flex-1 overflow-y-auto">
-        <div className="mx-auto w-full p-3 flex flex-col gap-5" style={{ maxWidth: 720 }}>
+        <div data-testid="chat-messages" className="mx-auto w-full p-3 flex flex-col gap-5" style={{ maxWidth: 920 }}>
           {messages.length === 0 && !loading && (
             <ChatEmptyState
               activeSourceIds={activeSourceIds}
@@ -185,6 +189,7 @@ export function ChatPanel({
                 hildeEnabled={hildeEnabled}
                 isLatest={i === messages.length - 1}
                 collapseByDefault={msg.role === "assistant" && !recentAssistantIdx.has(i)}
+                popupActions={popupActions}
               />
             ));
           })()}
@@ -199,10 +204,10 @@ export function ChatPanel({
         externalTextareaRef={externalTextareaRef}
         registerSetInput={registerSetInput}
       />
-      <p className="hide-on-short w-full text-center mt-3 pb-0 text-xs" style={{ color: "var(--muted)" }}>
+      <p className="hide-on-short w-full text-center mt-1 pb-0 text-xs" style={{ color: "var(--muted)" }}>
         {t("aiNotice")}
       </p>
-      <p className="hide-on-short w-full text-center mt-1 pb-2 text-xs" style={{ color: "var(--muted)" }}>
+      <p className="hide-on-short w-full text-center mt-0 pb-0 text-xs" style={{ color: "var(--muted)" }}>
         {t("feedbackQuestion")}{" "}
         <a href="mailto:hamid.mergan@th-luebeck.de" className="hover:underline hover:text-[var(--kb)] transition-colors">
           hamid.mergan@th-luebeck.de

@@ -69,8 +69,8 @@ def get_aia_messages(
     enrollment_id: int | None = None,
     include_aborted: bool = True,
 ) -> list[dict]:
-    """Fetch chat history. Pass include_aborted=False on the query-rewriter path
-    so cancelled half-answers cannot poison the standalone-question rewrite."""
+    """Fetch chat history (for the chat UI). Pass include_aborted=False to drop
+    cancelled half-answers from the result."""
     aborted_filter = "" if include_aborted else " AND aborted = FALSE"
     with get_connection() as conn:
         with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
@@ -106,7 +106,8 @@ def get_aia_user_settings(workspace_id: int, user_id: int) -> dict:
     return {"chat_lang": "de", "studio_enabled": True, "language_training_active": False}
 
 def upsert_aia_user_settings(
-    workspace_id: int, user_id: int, chat_lang: str, studio_enabled: bool, language_training_active: bool
+    workspace_id: int, user_id: int, chat_lang: str, studio_enabled: bool,
+    language_training_active: bool,
 ) -> None:
     with get_connection() as conn:
         with conn.cursor() as cur:

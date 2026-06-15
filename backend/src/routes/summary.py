@@ -1,4 +1,4 @@
-"""Summary route: generate a text summary from various file formats via KISSKI LLM."""
+"""Summary route: generate a text summary from various file formats via the admin-configured LLM."""
 
 import uuid
 from pathlib import Path
@@ -11,6 +11,7 @@ from src.dependencies import get_current_user, is_admin_user
 from src.i18n import get_locale, t
 from src.quotas import enforce_quota
 from src.security.rate_limit import enforce_tool_burst
+from src.services import feature_provider_choices
 from src.storage import save_queue_file
 from src.utils.file_validation import (
     MAX_UPLOAD_BYTES,
@@ -33,17 +34,30 @@ _OUTPUT_MIME = {
 }
 
 
+@router.get("/summary/providers")
+async def list_summary_providers(_user: dict = Depends(get_current_user)):
+    """Reachable chat-capable providers the admin configured a model for. The
+    summary tool runs on the chat LLM, so the picker mirrors the chat route."""
+    return await feature_provider_choices.list_reachable_choices("chat")
+
+
 @router.post("/summary")
 async def summarize(
     request: Request,
     file: UploadFile = File(...),
     output_format: str = Form("txt"),
+    provider_id: int | None = Form(None),
     current_user: dict = Depends(get_current_user),
     locale: str = Depends(get_locale),
 ):
-    """Generate a summary of the uploaded file using KISSKI LLM."""
+    """Generate a summary of the uploaded file using the admin-configured LLM."""
     if not file.filename:
         raise HTTPException(status_code=400, detail=t("file.nameMissing", locale))
+
+    # A user-picked provider must be one the admin configured a chat model for.
+    # Omitting provider_id keeps the admin default chat route.
+    if provider_id is not None and not feature_provider_choices.is_eligible("chat", provider_id):
+        raise HTTPException(status_code=400, detail=t("summary.invalidProvider", locale))
 
     ext = Path(file.filename).suffix.lower()
     if ext not in SUMMARY_EXTENSIONS:
@@ -97,7 +111,7 @@ async def summarize(
     db.set_job_input_path(job_uuid, input_path)
 
     from src.tasks.general_tasks import run_summary
-    run_summary.delay(job_uuid, input_path, file.filename, output_format)
+    run_summary.delay(job_uuid, input_path, file.filename, output_format, provider_id)
 
     logger.info("Summary job {} queued for '{}'", job_uuid, file.filename)
     return {"job_uuid": job_uuid, "status": "pending"}

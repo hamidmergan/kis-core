@@ -21,6 +21,11 @@ def init_db(admin_email: Optional[str] = None) -> None:
     with get_connection() as conn:
         with conn.cursor() as cur:
             cur.execute("CREATE EXTENSION IF NOT EXISTS vector")
+            # pg_trgm powers the typo-tolerant keyword anchor in hybrid_search_chunks:
+            # a misspelled query word ("authoren") still matches a similar word in the
+            # text ("Autoren") via trigram word-similarity, so the answer-bearing chunk
+            # is still retrieved. Language-agnostic (character trigrams, no word lists).
+            cur.execute("CREATE EXTENSION IF NOT EXISTS pg_trgm")
 
             # Migration: rename legacy table prefixes to aia_*. All entries are
             # idempotent (no-op on fresh DBs and on already-migrated DBs).
@@ -31,7 +36,6 @@ def init_db(admin_email: Optional[str] = None) -> None:
                 ("ki_tutor_enrollments", "aia_enrollments"),
                 ("ki_tutor_sources", "aia_sources"),
                 ("ki_tutor_chunks", "aia_chunks"),
-                ("ki_tutor_paragraph_summaries", "aia_paragraph_summaries"),
                 ("ki_tutor_mindmaps", "aia_mindmaps"),
                 ("ki_tutor_data_tables", "aia_data_tables"),
                 ("ki_tutor_messages", "aia_messages"),
@@ -48,7 +52,6 @@ def init_db(admin_email: Optional[str] = None) -> None:
                 ("kia_enrollments", "aia_enrollments"),
                 ("kia_sources", "aia_sources"),
                 ("kia_chunks", "aia_chunks"),
-                ("kia_paragraph_summaries", "aia_paragraph_summaries"),
                 ("kia_mindmaps", "aia_mindmaps"),
                 ("kia_data_tables", "aia_data_tables"),
                 ("kia_messages", "aia_messages"),
@@ -287,6 +290,25 @@ def init_db(admin_email: Optional[str] = None) -> None:
                     reset_at TIMESTAMP NOT NULL
                 )
             """)
+            # Per-user terminology glossaries for the translation tool. The id is
+            # a client-visible opaque string (uuid hex) generated server-side, so
+            # the frontend Glossary.id stays a plain string. entries is a flat
+            # {source_term: target_term} map. Deleting a user removes their
+            # glossaries.
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS user_glossaries (
+                    id         TEXT PRIMARY KEY,
+                    user_id    INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                    name       TEXT NOT NULL,
+                    entries    JSONB NOT NULL DEFAULT '{}'::jsonb,
+                    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+                    updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
+                )
+            """)
+            cur.execute(
+                "CREATE INDEX IF NOT EXISTS idx_user_glossaries_user "
+                "ON user_glossaries(user_id, created_at)"
+            )
             if admin_email and admin_email.strip():
                 cur.execute(
                     "INSERT INTO whitelist (email) VALUES (%s) ON CONFLICT DO NOTHING",
@@ -319,14 +341,30 @@ def init_db(admin_email: Optional[str] = None) -> None:
             cur.execute(
                 "ALTER TABLE aia_workspaces ADD COLUMN IF NOT EXISTS transcript_translation_mode TEXT NOT NULL DEFAULT 'manual'"
             )
-            # Per-workspace setting: default transcript language pill (de/en/both). Owner-controlled.
+            # Per-workspace setting: default transcript view (source/target/both). Owner-controlled.
             cur.execute(
                 "ALTER TABLE aia_workspaces ADD COLUMN IF NOT EXISTS transcript_default_lang TEXT NOT NULL DEFAULT 'both'"
             )
-            # Per-workspace setting: PDF page-summary mode (off/auto/manual). Owner-controlled.
+            # Per-workspace setting: the ONE language the owner translates transcripts into
+            # (short ISO code, see i18n.TRANSCRIPT_LANGUAGES). Source is the Whisper-detected
+            # media language; English is the default target.
             cur.execute(
-                "ALTER TABLE aia_workspaces ADD COLUMN IF NOT EXISTS summary_mode TEXT NOT NULL DEFAULT 'manual'"
+                "ALTER TABLE aia_workspaces ADD COLUMN IF NOT EXISTS transcript_target_lang TEXT NOT NULL DEFAULT 'en'"
             )
+            # Migrate legacy default-view values: the pill used to be language-specific
+            # (de/en) but the target is now owner-chosen, so it became role-based.
+            cur.execute("UPDATE aia_workspaces SET transcript_default_lang = 'source' WHERE transcript_default_lang = 'de'")
+            cur.execute("UPDATE aia_workspaces SET transcript_default_lang = 'target' WHERE transcript_default_lang = 'en'")
+            # Owner-managed pinned note shown above the sources list. Plain text + structured links.
+            cur.execute(
+                "ALTER TABLE aia_workspaces ADD COLUMN IF NOT EXISTS staff_note_text TEXT"
+            )
+            cur.execute(
+                "ALTER TABLE aia_workspaces ADD COLUMN IF NOT EXISTS staff_note_links JSONB NOT NULL DEFAULT '[]'::jsonb"
+            )
+            # Legacy per-workspace summary toggle: summaries were removed entirely
+            # (pgvector-only retrieval), so drop the now-meaningless column.
+            cur.execute("ALTER TABLE aia_workspaces DROP COLUMN IF EXISTS summary_mode")
             cur.execute("""
                 CREATE TABLE IF NOT EXISTS aia_access_links (
                     id           SERIAL PRIMARY KEY,
@@ -419,10 +457,6 @@ def init_db(admin_email: Optional[str] = None) -> None:
             cur.execute("""
                 ALTER TABLE aia_sources ADD COLUMN IF NOT EXISTS toc JSONB
             """)
-            # Migration: add summaries_status column if missing
-            cur.execute("""
-                ALTER TABLE aia_sources ADD COLUMN IF NOT EXISTS summaries_status TEXT NOT NULL DEFAULT 'none'
-            """)
             # Migration: add duration column for audio/video sources
             cur.execute("""
                 ALTER TABLE aia_sources ADD COLUMN IF NOT EXISTS duration REAL
@@ -434,6 +468,19 @@ def init_db(admin_email: Optional[str] = None) -> None:
             # Migration: add language column (Whisper-detected source language, e.g. 'de', 'en')
             cur.execute("""
                 ALTER TABLE aia_sources ADD COLUMN IF NOT EXISTS language TEXT
+            """)
+            # Migration: fine-grained progress info during indexing. NULL when the
+            # source is at rest (ready/failed/pending). JSON shape is
+            # ``{"stage": str, "page": int?, "total": int?}`` so the UI can render
+            # a stage label plus an optional page counter without inventing keys.
+            cur.execute("""
+                ALTER TABLE aia_sources ADD COLUMN IF NOT EXISTS progress JSONB
+            """)
+            # Migration: per-source DOC SUMMARY (one compact summary built at ingest,
+            # map-reduce over chunks). Used for GENERIC/overview answers. NULL until
+            # built; a source is only set 'ready' once its summary exists.
+            cur.execute("""
+                ALTER TABLE aia_sources ADD COLUMN IF NOT EXISTS summary TEXT
             """)
             cur.execute("""
                 CREATE TABLE IF NOT EXISTS aia_chunks (
@@ -468,22 +515,20 @@ def init_db(admin_email: Optional[str] = None) -> None:
                 CREATE INDEX IF NOT EXISTS idx_chunks_search
                 ON aia_chunks USING gin(search_vector)
             """)
+            # Trigram index on content for the fuzzy (typo-tolerant) keyword fallback
+            # in hybrid_search_chunks — lets the `<%` word-similarity operator use an
+            # index instead of scanning every chunk.
             cur.execute("""
-                CREATE TABLE IF NOT EXISTS aia_paragraph_summaries (
-                    id          SERIAL PRIMARY KEY,
-                    source_id   INTEGER NOT NULL
-                                  REFERENCES aia_sources(id) ON DELETE CASCADE,
-                    page_number INTEGER NOT NULL,
-                    block_index INTEGER NOT NULL,
-                    bbox_x0     REAL NOT NULL,
-                    bbox_y0     REAL NOT NULL,
-                    bbox_x1     REAL NOT NULL,
-                    bbox_y1     REAL NOT NULL,
-                    content     TEXT NOT NULL,
-                    summary     TEXT NOT NULL,
-                    created_at  TIMESTAMP NOT NULL DEFAULT NOW()
-                )
+                CREATE INDEX IF NOT EXISTS idx_chunks_content_trgm
+                ON aia_chunks USING gin(content gin_trgm_ops)
             """)
+            # Migration: legacy page/paragraph summary TABLES were removed
+            # (pgvector-only retrieval). NOTE: the per-source ``summary`` column is
+            # BACK (added above) for the DOC SUMMARY feature (GENERIC answers) — do
+            # NOT re-add a DROP for it. Idempotent.
+            cur.execute("DROP TABLE IF EXISTS aia_page_summaries")
+            cur.execute("DROP TABLE IF EXISTS aia_paragraph_summaries")
+            cur.execute("ALTER TABLE aia_sources DROP COLUMN IF EXISTS summaries_status")
             cur.execute("""
                 CREATE TABLE IF NOT EXISTS aia_mindmaps (
                     id           SERIAL PRIMARY KEY,
@@ -514,6 +559,29 @@ def init_db(admin_email: Optional[str] = None) -> None:
                     updated_at   TIMESTAMP NOT NULL DEFAULT NOW()
                 )
             """)
+            # AIA-owned orchestration queue. Decouples AIA background work from the
+            # global-tools `jobs` table (which is being split into its own project).
+            # area = 'ingest' | 'studio'. status = 'queued' | 'running' | 'done' | 'failed'.
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS aia_jobs (
+                    id             SERIAL PRIMARY KEY,
+                    job_uuid       TEXT NOT NULL UNIQUE,
+                    user_id        INTEGER NOT NULL,
+                    area           TEXT NOT NULL,
+                    task_name      TEXT NOT NULL,
+                    payload        JSONB NOT NULL DEFAULT '{}'::jsonb,
+                    status         TEXT NOT NULL DEFAULT 'queued',
+                    celery_task_id TEXT,
+                    error          TEXT,
+                    created_at     TIMESTAMP NOT NULL DEFAULT NOW(),
+                    started_at     TIMESTAMP,
+                    finished_at    TIMESTAMP
+                )
+            """)
+            cur.execute(
+                "CREATE INDEX IF NOT EXISTS idx_aia_jobs_area_status "
+                "ON aia_jobs(area, status, created_at)"
+            )
             cur.execute("""
                 CREATE TABLE IF NOT EXISTS aia_messages (
                     id           SERIAL PRIMARY KEY,
@@ -562,6 +630,7 @@ def init_db(admin_email: Optional[str] = None) -> None:
             cur.execute("""
                 CREATE TABLE IF NOT EXISTS aia_glossary_entries (
                     id               SERIAL PRIMARY KEY,
+                    user_id          INTEGER NOT NULL,
                     source_id        INTEGER NOT NULL
                                        REFERENCES aia_sources(id) ON DELETE CASCADE,
                     term_de          TEXT NOT NULL,
@@ -574,13 +643,48 @@ def init_db(admin_email: Optional[str] = None) -> None:
                     created_at       TIMESTAMP NOT NULL DEFAULT NOW()
                 )
             """)
-            cur.execute("""
-                CREATE INDEX IF NOT EXISTS idx_glossary_source
-                ON aia_glossary_entries(source_id)
-            """)
             # Migration: add English columns to glossary
             cur.execute("ALTER TABLE aia_glossary_entries ADD COLUMN IF NOT EXISTS definition_en TEXT")
             cur.execute("ALTER TABLE aia_glossary_entries ADD COLUMN IF NOT EXISTS example_sentence_en TEXT")
+
+            # ─── Glossary: back to a plain per-user glossary ──────────────────
+            # The glossary used to be a workspace-shared pool (aia_glossary_entries)
+            # with an M:N per-user pick list (aia_user_glossary_picks), fed by an
+            # auto-extraction task. That is gone: the glossary is now built only
+            # via the PDF popup action bar, one private glossary per user. This
+            # one-time reset drops the pool machinery and discards the old shared
+            # entries. Guarded so it fires only while old structures still exist —
+            # afterwards every condition is false, so it never truncates again.
+            cur.execute("""
+                SELECT
+                  to_regclass('public.aia_user_glossary_picks') IS NOT NULL
+                  OR EXISTS (SELECT 1 FROM information_schema.columns
+                             WHERE table_schema = 'public'
+                               AND table_name = 'aia_glossary_entries'
+                               AND column_name = 'chunk_id')
+                  OR NOT EXISTS (SELECT 1 FROM information_schema.columns
+                                 WHERE table_schema = 'public'
+                                   AND table_name = 'aia_glossary_entries'
+                                   AND column_name = 'user_id')
+            """)
+            if cur.fetchone()[0]:
+                cur.execute("DROP TABLE IF EXISTS aia_user_glossary_picks CASCADE")
+                cur.execute("TRUNCATE aia_glossary_entries")
+                cur.execute("ALTER TABLE aia_glossary_entries DROP COLUMN IF EXISTS chunk_id")
+                cur.execute("ALTER TABLE aia_glossary_entries ADD COLUMN IF NOT EXISTS user_id INTEGER")
+                cur.execute("ALTER TABLE aia_glossary_entries ALTER COLUMN user_id SET NOT NULL")
+                cur.execute("ALTER TABLE aia_chunks DROP COLUMN IF EXISTS glossary_processed")
+                cur.execute("DROP INDEX IF EXISTS idx_glossary_source_chunk")
+                cur.execute("DROP INDEX IF EXISTS idx_glossary_source")
+
+            cur.execute(
+                "CREATE INDEX IF NOT EXISTS idx_glossary_user_source "
+                "ON aia_glossary_entries(user_id, source_id)"
+            )
+            cur.execute(
+                "CREATE UNIQUE INDEX IF NOT EXISTS uq_glossary_user_source_term "
+                "ON aia_glossary_entries(user_id, source_id, lower(term_de))"
+            )
             # ─── Exercise Sets ──────────────────────────────────
             cur.execute("""
                 CREATE TABLE IF NOT EXISTS aia_exercise_sets (
@@ -730,6 +834,71 @@ def init_db(admin_email: Optional[str] = None) -> None:
                 CREATE INDEX IF NOT EXISTS idx_schedule_jobs_workspace_user
                 ON aia_schedule_jobs(workspace_id, user_id)
             """)
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS aia_schedule_source_extractions (
+                    source_id        INTEGER PRIMARY KEY
+                                       REFERENCES aia_sources(id) ON DELETE CASCADE,
+                    candidates       JSONB NOT NULL,
+                    classifications  JSONB NOT NULL,
+                    extracted_at     TIMESTAMP NOT NULL DEFAULT NOW()
+                )
+            """)
+
+            # ─── AI Providers ─────────────────────────────────────────────────
+            # Provider-centric admin model: each row is an endpoint the admin
+            # registered (Name + Protocol + URL + Key). Capabilities are filled
+            # by probe (openai_compat) or by protocol definition (deepl/docling).
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS providers (
+                    id             SERIAL PRIMARY KEY,
+                    name           TEXT NOT NULL UNIQUE,
+                    protocol       TEXT NOT NULL,
+                    base_url       TEXT NOT NULL,
+                    api_key        TEXT,
+                    capabilities   JSONB NOT NULL DEFAULT '[]'::jsonb,
+                    enabled        BOOLEAN NOT NULL DEFAULT TRUE,
+                    last_probed_at TIMESTAMP WITH TIME ZONE,
+                    probe_status   TEXT,
+                    probe_error    TEXT,
+                    created_at     TIMESTAMP NOT NULL DEFAULT NOW(),
+                    updated_at     TIMESTAMP NOT NULL DEFAULT NOW()
+                )
+            """)
+            cur.execute("""
+                CREATE INDEX IF NOT EXISTS idx_providers_protocol
+                ON providers(protocol)
+            """)
+            cur.execute("""
+                CREATE INDEX IF NOT EXISTS idx_providers_enabled
+                ON providers(enabled) WHERE enabled = TRUE
+            """)
+            # Migration: add voices column (provider-specific voice catalogue)
+            cur.execute("""
+                ALTER TABLE providers
+                ADD COLUMN IF NOT EXISTS voices JSONB NOT NULL DEFAULT '[]'::jsonb
+            """)
+
+            # ─── Feature Routes ───────────────────────────────────────────────
+            # One row per feature (chat, embedding, ocr, ...). Maps a feature to
+            # a chosen provider + model. user_choices is the multi-pill list of
+            # provider IDs the user may pick from in the tool UI (used for tts,
+            # doc_translate, screencast_translate). Unset feature row means the
+            # feature is unconfigured and not available.
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS feature_routes (
+                    id              SERIAL PRIMARY KEY,
+                    feature         TEXT NOT NULL UNIQUE,
+                    provider_id     INTEGER REFERENCES providers(id) ON DELETE SET NULL,
+                    model_name      TEXT,
+                    user_choices    JSONB NOT NULL DEFAULT '[]'::jsonb,
+                    provider_models JSONB NOT NULL DEFAULT '{}'::jsonb,
+                    updated_at      TIMESTAMP NOT NULL DEFAULT NOW()
+                )
+            """)
+            cur.execute("""
+                ALTER TABLE feature_routes
+                ADD COLUMN IF NOT EXISTS provider_models JSONB NOT NULL DEFAULT '{}'::jsonb
+            """)
 
             # ─── LLM Usage Log ────────────────────────────────────────────────
             # One row per request: for daily alerts (anomaly detection) and
@@ -759,130 +928,43 @@ def init_db(admin_email: Optional[str] = None) -> None:
             """)
         conn.commit()
 
-    # Backfill tsvector for existing chunks (separate transaction)
+    # Backfill / migrate tsvector (separate transaction).
+    # Switched from 'german' to 'simple' tokenizer so non-German content
+    # (English, Turkish, Spanish slides/transcripts) also gets useful keyword
+    # search hits. Vector search still handles semantic matches; the keyword
+    # side just needs language-agnostic exact-token matching.
     from loguru import logger as _log
     with get_connection() as conn:
         with conn.cursor() as cur:
+            migration_key = "search_vector_simple_migration_done"
+            cur.execute("SELECT value FROM settings WHERE key = %s", (migration_key,))
+            row = cur.fetchone()
+            already_migrated = bool(row and row[0] == "true")
+
             cur.execute("SELECT COUNT(*) FROM aia_chunks WHERE search_vector IS NULL")
             null_count = cur.fetchone()[0]
-            if null_count > 0:
+
+            if not already_migrated:
+                _log.info("Rewriting search_vector with 'simple' tokenizer for ALL chunks...")
+                cur.execute("UPDATE aia_chunks SET search_vector = to_tsvector('simple', content)")
+                cur.execute(
+                    """INSERT INTO settings (key, value) VALUES (%s, 'true')
+                       ON CONFLICT (key) DO UPDATE SET value = 'true'""",
+                    (migration_key,),
+                )
+                _log.info("search_vector simple-migration done.")
+            elif null_count > 0:
                 _log.info("Backfilling search_vector for {} chunks...", null_count)
                 cur.execute("""
                     UPDATE aia_chunks
-                    SET search_vector = to_tsvector('german', content)
+                    SET search_vector = to_tsvector('simple', content)
                     WHERE search_vector IS NULL
                 """)
                 _log.info("search_vector backfill done.")
             else:
                 _log.info("search_vector: all chunks already populated.")
 
-            # Stage 5: rename provider-specific settings keys to generic slot names
-            # (kisski_* → primary_*, mylab_* → fallback_*, ollama_* → local_*).
-            # Idempotent: if the new key already exists, the legacy row is dropped.
-            # TTS keys (mylab_enabled, mylab_tts_model, elevenlabs_*, kokoro_*)
-            # are intentionally NOT renamed - TTS providers are a flat list, not
-            # a primary/fallback/local hierarchy.
-            for old_key, new_key in (
-                ("kisski_llm_enabled",            "primary_llm_enabled"),
-                ("kisski_llm_model",              "primary_llm_model"),
-                ("kisski_embedding_enabled",      "primary_embedding_enabled"),
-                ("kisski_embedding_model",        "primary_embedding_model"),
-                ("kisski_whisper_enabled",        "primary_whisper_enabled"),
-                ("kisski_ocr_enabled",            "primary_ocr_enabled"),
-                ("kisski_ocr_model",              "primary_ocr_model"),
-                ("kisski_image_gen_enabled",      "primary_image_gen_enabled"),
-                ("kisski_image_analyze_enabled",  "primary_image_analyze_enabled"),
-                ("kisski_image_edit_enabled",     "primary_image_edit_enabled"),
-                ("mylab_llm_enabled",             "fallback_llm_enabled"),
-                ("mylab_llm_model",               "fallback_llm_model"),
-                ("mylab_embedding_enabled",       "fallback_embedding_enabled"),
-                ("mylab_embedding_model",         "fallback_embedding_model"),
-                ("mylab_whisper_enabled",         "fallback_whisper_enabled"),
-                ("mylab_ocr_enabled",             "fallback_ocr_enabled"),
-                ("mylab_ocr_model",               "fallback_ocr_model"),
-                ("mylab_image_gen_enabled",       "fallback_image_gen_enabled"),
-                ("mylab_image_gen_model",         "fallback_image_gen_model"),
-                ("mylab_image_edit_enabled",      "fallback_image_edit_enabled"),
-                ("mylab_image_edit_model",        "fallback_image_edit_model"),
-                ("ollama_llm_enabled",            "local_llm_enabled"),
-                ("ollama_llm_model",              "local_llm_model"),
-                ("ollama_embedding_enabled",      "local_embedding_enabled"),
-                ("ollama_embedding_model",        "local_embedding_model"),
-            ):
-                # Insert under the new key only if it does not already exist
-                # (otherwise the new key wins, keeping the most recent admin edit).
-                cur.execute(
-                    """
-                    INSERT INTO settings (key, value, updated_at)
-                    SELECT %s, value, updated_at FROM settings WHERE key = %s
-                    ON CONFLICT (key) DO NOTHING
-                    """,
-                    (new_key, old_key),
-                )
-                cur.execute("DELETE FROM settings WHERE key = %s", (old_key,))
-
-            # Provider radio groups: exactly one provider per group may be active.
-            # Switching is a manual admin action — there is no automatic failover.
-            for keys, default, label in (
-                (("primary_embedding_enabled", "fallback_embedding_enabled", "local_embedding_enabled"),
-                    "primary_embedding_enabled", "Embedding"),
-                (("primary_llm_enabled", "fallback_llm_enabled", "local_llm_enabled"),
-                    "primary_llm_enabled", "LLM"),
-                (("primary_whisper_enabled", "fallback_whisper_enabled"),
-                    "primary_whisper_enabled", "Whisper"),
-                (("primary_image_gen_enabled", "fallback_image_gen_enabled"),
-                    "primary_image_gen_enabled", "Image generation"),
-                (("primary_image_edit_enabled", "fallback_image_edit_enabled"),
-                    "primary_image_edit_enabled", "Image editing"),
-                (("primary_image_analyze_enabled", "fallback_image_analyze_enabled"),
-                    "primary_image_analyze_enabled", "Image analysis"),
-                (("primary_ocr_enabled", "fallback_ocr_enabled"),
-                    "primary_ocr_enabled", "OCR"),
-            ):
-                _enforce_radio_group(cur, _log, keys=keys, default=default, label=label)
-
-            # Runtime-tunable model names: seed only the explicitly-listed keys
-            # (SEEDED_MODEL_KEYS). Other keys live as pure code-side defaults so
-            # bumping a default in code rolls out to every install automatically;
-            # DB stores user overrides only. Existing seeded values are never
-            # overwritten — admin edits are preserved.
-            from src.services.runtime_models import MODEL_DEFAULTS, SEEDED_MODEL_KEYS
-            for key in SEEDED_MODEL_KEYS:
-                cur.execute("""
-                    INSERT INTO settings (key, value) VALUES (%s, %s)
-                    ON CONFLICT (key) DO NOTHING
-                """, (key, MODEL_DEFAULTS[key]))
         conn.commit()
-
-
-def _enforce_radio_group(cur, _log, *, keys: tuple[str, ...], default: str, label: str) -> None:
-    """Ensure exactly one key in the group is "true"; seed default if none set."""
-    placeholders = ",".join(["%s"] * len(keys))
-    cur.execute(f"SELECT key, value FROM settings WHERE key IN ({placeholders})", keys)
-    state = {row[0]: row[1].lower() for row in cur.fetchall()}
-    active = [k for k in keys if state.get(k) == "true"]
-
-    if len(active) == 1:
-        return
-
-    if len(active) == 0:
-        cur.execute("""
-            INSERT INTO settings (key, value) VALUES (%s, 'true')
-            ON CONFLICT (key) DO UPDATE SET value = 'true', updated_at = NOW()
-        """, (default,))
-        _log.info("{} radio group: no provider active - seeded default {}", label, default)
-        return
-
-    # Multiple active: keep the highest-priority one (order in keys)
-    winner = next(k for k in keys if k in active)
-    for k in active:
-        if k == winner:
-            continue
-        cur.execute("""
-            INSERT INTO settings (key, value) VALUES (%s, 'false')
-            ON CONFLICT (key) DO UPDATE SET value = 'false', updated_at = NOW()
-        """, (k,))
-    _log.warning("{} radio group violated - kept {} active, disabled others.", label, winner)
 
 
 # --- Users ---

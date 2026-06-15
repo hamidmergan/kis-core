@@ -3,7 +3,6 @@
 import { useEffect, useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import {
-  Brain,
   Cpu,
   Database,
   Files,
@@ -40,7 +39,6 @@ interface SystemInfo {
     image_analyze: ModelInfo;
     whisper: ModelInfo;
     tts_active: string[];
-    tts_mylab_model: string | null;
   };
   rate_limits: Record<string, number>;
   quotas: QuotaEntry[];
@@ -48,18 +46,11 @@ interface SystemInfo {
   char_limits: Record<string, number>;
   workspace_limits: Record<string, number>;
   rag: Record<string, number>;
-  summaries: Record<string, number>;
   jobs: Record<string, number>;
   celery_timeouts: Record<string, number>;
   parallelism: Record<string, number>;
   database: Record<string, number>;
 }
-
-const PROVIDER_LABEL: Record<string, string> = {
-  kisski: "KISSKI",
-  mylab: "myLab",
-  ollama: "Ollama (local)",
-};
 
 function Section({
   icon,
@@ -113,14 +104,13 @@ function ModelRow({ label, info, dash }: { label: string; info: ModelInfo; dash:
   if (!info.provider) {
     return <Row label={label} value={<span className="text-muted">{dash}</span>} />;
   }
-  const provider = PROVIDER_LABEL[info.provider] ?? info.provider;
   return (
     <div className="py-2 border-b border-border-soft last:border-b-0">
       <div className="flex items-baseline justify-between gap-3">
         <p className="text-sm text-foreground-soft">{label}</p>
         <span className="text-xs font-medium text-kb bg-kb/8 px-2 py-0.5 rounded-full"
               style={{ backgroundColor: "rgba(var(--kb-rgb), 0.08)" }}>
-          {provider}
+          {info.provider}
         </span>
       </div>
       {info.model && (
@@ -162,7 +152,7 @@ export default function SystemInfoTab() {
   if (error) return <p className="text-sm text-error">{t("loadErrorDetail", { error })}</p>;
   if (!data) return <Spinner className="flex justify-center py-12" />;
 
-  const { models, rate_limits, quotas, uploads, char_limits, workspace_limits, rag, summaries, jobs, celery_timeouts, parallelism, database } = data;
+  const { models, rate_limits, quotas, uploads, char_limits, workspace_limits, rag, jobs, celery_timeouts, parallelism, database } = data;
 
   return (
     <div className="space-y-4">
@@ -194,9 +184,6 @@ export default function SystemInfoTab() {
               )
             }
           />
-          {models.tts_mylab_model && (
-            <Row label={t("systemInfo.ttsMylabModel")} value={<span className="text-xs">{models.tts_mylab_model}</span>} />
-          )}
         </Section>
 
         <Section
@@ -279,23 +266,6 @@ export default function SystemInfoTab() {
           <Row label={t("systemInfo.ragRrfK")} value={fmtNumber(rag.rrf_k)} hint={t("systemInfo.ragRrfKHint")} />
           <Row label={t("systemInfo.ragFinalChunks")} value={fmtNumber(rag.final_chunks_used)} hint={t("systemInfo.ragFinalChunksHint")} />
           <Row label={t("systemInfo.ragEmbedBatch")} value={fmtNumber(rag.embed_batch_size)} hint={t("systemInfo.ragEmbedBatchHint")} />
-        </Section>
-
-        <Section
-          icon={<Brain size={18} weight="bold" />}
-          title={t("systemInfo.summariesTitle")}
-          subtitle={t("systemInfo.summariesSubtitle")}
-        >
-          <Row label={t("systemInfo.sumMaxRetries")} value={fmtNumber(summaries.max_retries)} />
-          <Row label={t("systemInfo.sumTimeoutSmall")} value={fmtSeconds(summaries.timeout_small_seconds)} />
-          <Row label={t("systemInfo.sumTimeoutLarge")} value={fmtSeconds(summaries.timeout_large_seconds)} />
-          <Row label={t("systemInfo.sumMaxTokensSmall")} value={fmtNumber(summaries.max_tokens_small)} />
-          <Row label={t("systemInfo.sumMaxTokensLarge")} value={fmtNumber(summaries.max_tokens_large)} />
-          <Row label={t("systemInfo.sumMaxTokensBatch")} value={fmtNumber(summaries.max_tokens_batch)} />
-          <Row label={t("systemInfo.sumMaxCharsPerPage")} value={fmtNumber(summaries.content_max_chars_per_page)} />
-          <Row label={t("systemInfo.sumParallelSmall")} value={fmtNumber(summaries.parallel_workers_small)} hint={t("systemInfo.sumParallelSmallHint")} />
-          <Row label={t("systemInfo.sumParallelLarge")} value={fmtNumber(summaries.parallel_workers_large)} hint={t("systemInfo.sumParallelLargeHint")} />
-          <Row label={t("systemInfo.sumBatchSize")} value={fmtNumber(summaries.batch_size_pages)} hint={t("systemInfo.sumBatchSizeHint")} />
         </Section>
 
         <Section

@@ -1,11 +1,11 @@
 "use client";
 
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
 import Modal from "@/components/ui/Modal";
 import Select from "@/components/ui/Select";
 import { useHildePref } from "@/hooks/useHildePref";
-import type { TranscriptTranslationMode, TranscriptDefaultLang, SummaryMode } from "../../_types";
+import type { TranscriptTranslationMode, TranscriptDefaultLang } from "../../_types";
 
 interface SettingsMenuProps {
   open: boolean;
@@ -19,8 +19,8 @@ interface SettingsMenuProps {
   onChangeTranslationMode: (mode: TranscriptTranslationMode) => void;
   transcriptDefaultLang: TranscriptDefaultLang;
   onChangeTranscriptDefaultLang: (lang: TranscriptDefaultLang) => void;
-  summaryMode: SummaryMode;
-  onChangeSummaryMode: (mode: SummaryMode) => void;
+  transcriptTargetLang: string;
+  onChangeTranscriptTargetLang: (lang: string) => void;
   languageLevel?: string | null;
   onResetLanguageLevel?: () => void | Promise<void>;
 }
@@ -75,14 +75,31 @@ export function SettingsMenu({
   onChangeTranslationMode,
   transcriptDefaultLang,
   onChangeTranscriptDefaultLang,
-  summaryMode,
-  onChangeSummaryMode,
+  transcriptTargetLang,
+  onChangeTranscriptTargetLang,
   languageLevel,
   onResetLanguageLevel,
 }: SettingsMenuProps) {
   const t = useTranslations("workspace.detail.settings");
   const tDiag = useTranslations("workspace.detail.languageTraining.diagnosis");
   const { enabled: hildeEnabled, toggle: toggleHilde, globalEnabled: mascotGlobalEnabled } = useHildePref();
+
+  // Target-language options come from the backend (single source of truth).
+  const [targetLangOptions, setTargetLangOptions] = useState<{ value: string; label: string }[]>([]);
+  useEffect(() => {
+    if (!isOwner) return;
+    let cancelled = false;
+    fetch("/api/ai-assistant/transcript-languages", { credentials: "include" })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (cancelled || !data?.languages) return;
+        setTargetLangOptions(
+          data.languages.map((l: { id: string; label: string }) => ({ value: l.id, label: l.label })),
+        );
+      })
+      .catch(() => { /* picker stays empty */ });
+    return () => { cancelled = true; };
+  }, [isOwner]);
 
   const handleResetLanguageLevel = () => {
     if (!onResetLanguageLevel) return;
@@ -94,12 +111,6 @@ export function SettingsMenu({
     { value: "off" as const, label: t("translationModeOff") },
     { value: "auto" as const, label: t("translationModeAuto") },
     { value: "manual" as const, label: t("translationModeManual") },
-  ];
-
-  const SUMMARY_MODE_OPTIONS = [
-    { value: "off" as const, label: t("summaryModeOff") },
-    { value: "auto" as const, label: t("summaryModeAuto") },
-    { value: "manual" as const, label: t("summaryModeManual") },
   ];
 
   return (
@@ -164,6 +175,21 @@ export function SettingsMenu({
             </div>
           </div>
         )}
+        {isOwner && translationMode !== "off" && (
+          <div className="mt-3">
+            <p className="text-sm font-medium" style={{ color: "var(--foreground)" }}>{t("transcriptTargetLangTitle")}</p>
+            <p className="text-xs mt-1" style={{ color: "var(--muted)" }}>
+              {t("transcriptTargetLangDescription")}
+            </p>
+            <div className="mt-3">
+              <Select<string>
+                value={transcriptTargetLang}
+                onChange={onChangeTranscriptTargetLang}
+                options={targetLangOptions}
+              />
+            </div>
+          </div>
+        )}
         {isOwner && (
           <div className="mt-3">
             <p className="text-sm font-medium" style={{ color: "var(--foreground)" }}>{t("transcriptDefaultLangTitle")}</p>
@@ -171,10 +197,10 @@ export function SettingsMenu({
               {t("transcriptDefaultLangDescription")}
             </p>
             <div className="mt-3 flex gap-1">
-              {(["de", "en", "both"] as const).map((lang) => {
+              {(["source", "target", "both"] as const).map((lang) => {
                 const active = transcriptDefaultLang === lang;
-                const label = lang === "de" ? t("transcriptDefaultLangDe")
-                  : lang === "en" ? t("transcriptDefaultLangEn")
+                const label = lang === "source" ? t("transcriptDefaultLangSource")
+                  : lang === "target" ? t("transcriptDefaultLangTarget")
                   : t("transcriptDefaultLangBoth");
                 return (
                   <button
@@ -193,26 +219,6 @@ export function SettingsMenu({
                   </button>
                 );
               })}
-            </div>
-          </div>
-        )}
-        {isOwner && (
-          <div className="mt-3">
-            <p className="text-sm font-medium" style={{ color: "var(--foreground)" }}>{t("summaryModeTitle")}</p>
-            <p className="text-xs mt-1" style={{ color: "var(--muted)" }}>
-              {t("summaryModeDescription")}
-            </p>
-            <ul className="text-xs mt-2 space-y-1 pl-4 list-disc" style={{ color: "var(--muted)" }}>
-              <li><strong>{t("summaryModeOff")}</strong> {t("summaryModeOffHint")}</li>
-              <li><strong>{t("summaryModeAuto")}</strong> {t("summaryModeAutoHint")}</li>
-              <li><strong>{t("summaryModeManual")}</strong> {t("summaryModeManualHint")}</li>
-            </ul>
-            <div className="mt-3">
-              <Select<SummaryMode>
-                value={summaryMode}
-                onChange={onChangeSummaryMode}
-                options={SUMMARY_MODE_OPTIONS}
-              />
             </div>
           </div>
         )}

@@ -8,6 +8,7 @@ import { EmptyState } from "@/components/ui/EmptyState";
 import CreateWorkspaceModal from "./CreateWorkspaceModal";
 import WorkspaceTable from "./WorkspaceTable";
 import UpcomingDeadlinesWidget from "./UpcomingDeadlinesWidget";
+import HomeNotice from "./HomeNotice";
 import { useWorkspaceLabel } from "@/hooks/useWorkspaceLabel";
 import { checkAuthStatus } from "@/lib/auth";
 import type { AccessLink, KiTutorWorkspace } from "../_shared";
@@ -119,6 +120,8 @@ export default function LecturerView() {
               })}
             </p>
           </div>
+
+          <HomeNotice />
 
           <div className="mb-12">
             <UpcomingDeadlinesWidget />

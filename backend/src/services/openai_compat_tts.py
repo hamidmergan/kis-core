@@ -4,16 +4,12 @@ Endpoints used (OpenAI Audio spec):
     POST /v1/audio/speech   -> audio bytes (mp3)
     GET  /v1/models         -> health probe
 
-Currently configured against TH Luebeck's myLab deployment of Coqui XTTS-v2
-(``models.mylab.th-luebeck.dev``); any other openedai-speech / OpenAI-compat
-TTS server with the same surface area works as a drop-in replacement.
+Works with any OpenAI-compatible TTS server. Voices are managed in the
+providers.voices DB column, not hardcoded here.
 """
 from __future__ import annotations
 
 import httpx
-
-_DEFAULT_VOICE = "alloy"
-_DEFAULT_MODEL = "xtts-v2"
 
 _CHUNK_MAX = 10_000
 _CHUNK_MIN = 9_500
@@ -45,31 +41,27 @@ def _split_text(text: str) -> list[str]:
     return chunks
 
 
-# Known voices of the OpenAI-compatible TTS API (openedai-speech)
-_BUILTIN_VOICES = [
-    {"voice_id": "alloy",   "name": "Alloy",   "description": "Neutral, vielseitig"},
-    {"voice_id": "echo",    "name": "Echo",     "description": "Warm, klar"},
-    {"voice_id": "fable",   "name": "Fable",    "description": "Erzählerisch, ausdrucksstark"},
-    {"voice_id": "onyx",    "name": "Onyx",     "description": "Tief, autoritär"},
-    {"voice_id": "nova",    "name": "Nova",     "description": "Freundlich, energetisch"},
-    {"voice_id": "shimmer", "name": "Shimmer",  "description": "Sanft, beruhigend"},
-]
-
-
 class OpenAICompatTTSClient:
     """Client for any OpenAI-compatible TTS endpoint (POST /v1/audio/speech)."""
 
-    def __init__(self, base_url: str, model: str = _DEFAULT_MODEL):
-        self._base_url = base_url.rstrip("/")
+    def __init__(self, base_url: str, model: str, api_key: str = "not-needed"):
+        url = base_url.rstrip("/")
+        if url.endswith("/v1"):
+            url = url[:-3]
+        self._base_url = url
         self._model = model
+        self._api_key = api_key or "not-needed"
 
     def _headers(self) -> dict:
-        return {"Content-Type": "application/json"}
+        return {
+            "Content-Type": "application/json",
+            "Authorization": f"Bearer {self._api_key}",
+        }
 
     def synthesize(
         self,
         text: str,
-        language: str = "DE",
+        language: str = "de",
         *,
         voice_id: str = "default",
         speed: float = 1.0,
@@ -91,6 +83,7 @@ class OpenAICompatTTSClient:
         *,
         voice_id: str = "default",
         speed: float = 1.0,
+        language: str = "de",
         **kwargs,
     ) -> bytes:
         """Synthesize a single chunk (for crash recovery in tts_tasks)."""
@@ -106,14 +99,19 @@ class OpenAICompatTTSClient:
         speed: float = 1.0,
     ) -> bytes:
         text = " ".join(line.strip() for line in text.splitlines() if line.strip())
-        voice = _DEFAULT_VOICE if voice_id in ("default", "") else voice_id
-        payload = {
-            "model": self._model,
+        if not voice_id or voice_id == "default":
+            raise ValueError(
+                "voice_id must be set — configure voices for this provider in the admin KI panel"
+            )
+        voice = voice_id
+        payload: dict = {
             "input": text,
             "voice": voice,
             "speed": speed,
             "response_format": "mp3",
         }
+        if self._model:
+            payload["model"] = self._model
         response = client.post(
             f"{self._base_url}/v1/audio/speech",
             json=payload,
@@ -125,23 +123,18 @@ class OpenAICompatTTSClient:
             )
         return response.content
 
-    def get_voices(self) -> list[dict]:
-        """Return the available voices."""
-        return list(_BUILTIN_VOICES)
-
     def synthesize_with_timestamps(
         self,
         text: str,
-        language: str = "DE",
+        language: str = "de",
         *,
         voice_id: str = "default",
         speed: float = 1.0,
         **kwargs,
     ) -> dict:
-        """Drop-in for ElevenLabsClient.synthesize_with_timestamps().
+        """Synthesize with optional alignment data.
 
-        Returns {"audio_bytes": bytes, "alignment": None},
-        since XTTS-v2 does not provide word timestamps.
+        Returns {"audio_bytes": bytes, "alignment": None} — no timestamp support.
         """
         audio_bytes = self.synthesize(text, language, voice_id=voice_id, speed=speed)
         return {"audio_bytes": audio_bytes, "alignment": None}

@@ -172,6 +172,28 @@ def get_existing_exercise_fronts(
             )
             return [row[0] for row in cur.fetchall() if row[0]]
 
+def get_recent_exercise_pages(
+    workspace_id: int, tool: str, limit: int = 150,
+) -> list[int]:
+    """Page numbers cited by recent items of this workspace+tool.
+
+    Used to rotate the generation context AWAY from pages that were just questioned, so a new
+    set draws from other parts of the document (variation) instead of rehashing the same
+    salient pages every run."""
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """SELECT i.page_number
+                   FROM aia_exercise_items i
+                   JOIN aia_exercise_sets s ON i.set_id = s.id
+                   WHERE s.workspace_id = %s AND s.tool = %s AND s.status = 'ready'
+                     AND i.page_number IS NOT NULL
+                   ORDER BY s.created_at DESC, i.position ASC
+                   LIMIT %s""",
+                (workspace_id, tool, limit),
+            )
+            return [row[0] for row in cur.fetchall() if row[0] is not None]
+
 def get_exercise_set_with_items(set_id: int) -> dict | None:
     """Get a single set with all its items, enriching with chunk start_time where missing."""
     with get_connection() as conn:
@@ -329,15 +351,15 @@ def get_streak(workspace_id: int, user_id: int) -> dict:
                 return {"current_streak": 0, "max_streak": 0, "last_active_date": None}
             return dict(row)
 
-def get_glossary_count(workspace_id: int) -> int:
-    """Get total glossary entry count for a workspace."""
+def get_glossary_count(workspace_id: int, user_id: int) -> int:
+    """Get the user's glossary entry count for a workspace."""
     with get_connection() as conn:
         with conn.cursor() as cur:
             cur.execute(
                 """SELECT COUNT(*) FROM aia_glossary_entries g
                    JOIN aia_sources s ON s.id = g.source_id
-                   WHERE s.workspace_id = %s""",
-                (workspace_id,),
+                   WHERE s.workspace_id = %s AND g.user_id = %s""",
+                (workspace_id, user_id),
             )
             return cur.fetchone()[0]
 
