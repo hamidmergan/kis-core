@@ -32,15 +32,18 @@ export function MediaPlayer({
   // <track> elements — works for any source/target language pair, not just de/en.
   const [availableLangs, setAvailableLangs] = useState<string[]>([]);
   useEffect(() => {
-    let cancelled = false;
+    // Abort (not just ignore) on source switch: an in-flight request that is never
+    // cancelled keeps holding one of the browser's few per-origin connections, and a
+    // few rapid source switches exhaust them and freeze the page.
+    const ac = new AbortController();
     fetch(
       `/api/ai-assistant/workspaces/${workspaceUuid}/sources/${source.uuid}/transcript/langs`,
-      { credentials: "include" },
+      { credentials: "include", signal: ac.signal },
     )
       .then((res) => (res.ok ? res.json() : null))
-      .then((data) => { if (!cancelled && data) setAvailableLangs(data.available ?? []); })
-      .catch(() => { /* no tracks */ });
-    return () => { cancelled = true; };
+      .then((data) => { if (data) setAvailableLangs(data.available ?? []); })
+      .catch(() => { /* aborted or no tracks */ });
+    return () => ac.abort();
   }, [workspaceUuid, source.uuid]);
 
   // Seek to the cited timestamp when the source changes — robust against Safari, which is the

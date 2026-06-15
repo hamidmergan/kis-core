@@ -132,6 +132,10 @@ export function TranscriptPanel({
 
   useEffect(() => {
     let cancelled = false;
+    // Abort the in-flight langs + VTT requests on a source switch. Without this they keep
+    // holding scarce per-origin browser connections; a few quick switches exhaust the pool
+    // and the whole page freezes while every new request waits for a free slot.
+    const ac = new AbortController();
     setLoading(true);
     setCues({});
     setSourceLang(null);
@@ -140,7 +144,7 @@ export function TranscriptPanel({
 
     const fetchVtt = async (lang: string): Promise<Cue[] | null> => {
       try {
-        const res = await fetch(transcriptUrl(lang), { credentials: "include" });
+        const res = await fetch(transcriptUrl(lang), { credentials: "include", signal: ac.signal });
         if (!res.ok) return null;
         return parseVtt(await res.text());
       } catch {
@@ -153,10 +157,10 @@ export function TranscriptPanel({
       try {
         const res = await fetch(
           `/api/ai-assistant/workspaces/${workspaceUuid}/sources/${sourceUuid}/transcript/langs`,
-          { credentials: "include" },
+          { credentials: "include", signal: ac.signal },
         );
         if (res.ok) info = await res.json();
-      } catch { /* no transcript */ }
+      } catch { /* no transcript or aborted */ }
       if (cancelled) return;
 
       const entries = await Promise.all(
@@ -190,7 +194,7 @@ export function TranscriptPanel({
       }
     })();
 
-    return () => { cancelled = true; };
+    return () => { cancelled = true; ac.abort(); };
   }, [workspaceUuid, sourceUuid, regenStorageKey, defaultLang]);
 
   // Source-language track is the timing master (identical timestamps to the
