@@ -25,9 +25,11 @@ router = APIRouter(
 
 @router.get("/tts/providers-with-voices")
 async def get_tts_providers_with_voices():
-    """Return all enabled openai_compat TTS providers with their voice catalogues."""
-    from src.dependencies import get_tts_providers_with_voices
-    providers = get_tts_providers_with_voices()
+    """Return enabled openai_compat TTS providers (with voice catalogues) that
+    are reachable right now. An unreachable provider (e.g. Kokoro while its
+    tunnel is down) is hidden and reappears automatically once it answers."""
+    from src.dependencies import get_reachable_tts_providers_with_voices
+    providers = await get_reachable_tts_providers_with_voices()
     # Strip sensitive fields before sending to frontend
     return {
         "providers": [

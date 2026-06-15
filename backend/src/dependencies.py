@@ -169,6 +169,52 @@ def get_tts_providers_with_voices() -> list[dict]:
     return [p for p in providers if p.get("protocol") == "openai_compat"]
 
 
+# In-process TTL cache so a dead TTS provider does not block every voices-page
+# load with a 5 s timeout, and reachable ones are not re-probed on every request.
+_TTS_REACH_TTL_SEC = 30.0
+_tts_reach_cache: dict[int, tuple[float, bool]] = {}
+
+
+def _tts_provider_reachable(provider: dict) -> bool:
+    """Live /v1/models reachability probe for a TTS provider, cached briefly.
+
+    True if the endpoint answered (HTTP < 500) within the timeout. Down
+    providers return False so callers can hide them; once the endpoint is back,
+    the next probe after the TTL flips it to True again."""
+    import time
+    from src.services.openai_compat_tts import OpenAICompatTTSClient
+
+    pid = provider.get("id")
+    now = time.monotonic()
+    hit = _tts_reach_cache.get(pid)
+    if hit and (now - hit[0]) < _TTS_REACH_TTL_SEC:
+        return hit[1]
+    client = OpenAICompatTTSClient(
+        provider["base_url"], model="", api_key=provider.get("api_key") or "not-needed"
+    )
+    ok = client.is_available()
+    _tts_reach_cache[pid] = (now, ok)
+    return ok
+
+
+async def get_reachable_tts_providers_with_voices() -> list[dict]:
+    """Like get_tts_providers_with_voices, but only providers reachable right now.
+
+    Probes run concurrently so one slow/dead provider does not serialise the
+    others. Lets the voices UI hide an unreachable provider (e.g. Kokoro while
+    its SSH tunnel is down) and show it again automatically once it answers."""
+    import asyncio
+
+    providers = get_tts_providers_with_voices()
+    if not providers:
+        return []
+    loop = asyncio.get_running_loop()
+    flags = await asyncio.gather(
+        *(loop.run_in_executor(None, _tts_provider_reachable, p) for p in providers)
+    )
+    return [p for p, ok in zip(providers, flags) if ok]
+
+
 def get_tts_client_for_provider(provider_id: int):
     """Return an OpenAICompatTTSClient for the given provider_id, or None."""
     from src import database as db
