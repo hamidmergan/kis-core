@@ -32,8 +32,13 @@ FEATURES: tuple[str, ...] = (
 
 # Features that support user-choice multi-pill selection (admin enables a set
 # of providers, end-user picks one inside the tool).
+#
+# STT is deliberately NOT here: it has a single global default (admin picks one
+# Whisper provider in a dropdown, used everywhere — AIA media ingestion and the
+# transcription tool). The tool's optional per-job provider picker stays working
+# because it is capability-based (see ``feature_provider_choices``), independent
+# of this set.
 USER_CHOICE_FEATURES: frozenset[str] = frozenset({
-    "stt",
     "tts",
     "vision",
     "image_gen",

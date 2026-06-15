@@ -65,8 +65,9 @@ const FEATURE_ORDER: Feature[] = [
 
 // Split user-choice features test each eligible provider individually
 // (per-provider model). Other features test the row's resolved provider once.
+// STT is a single global-default feature (provider dropdown + model field), so
+// it is not listed here — its "test" runs once on the resolved route.
 const SPLIT_USER_CHOICE_FEATURES: ReadonlySet<Feature> = new Set([
-  "stt",
   "tts",
   "vision",
   "image_gen",
