@@ -12,6 +12,7 @@ from src.features.ai_assistant.routes.chat import (
     _time_intervals_to_seconds,
     _retrieve_time_scoped_context,
     _first_source_kind,
+    _servable_scope_intervals,
 )
 
 
@@ -72,6 +73,31 @@ def test_reversed_interval_normalised():
 
 def test_absurd_span_collapses():
     assert _expand_page_intervals([[1, 9999]], max_page=10000) == [1]
+
+
+# ── _servable_scope_intervals (a date is not a page scope) ───────────────────
+# "was ist ab dritten juli" → the extractor returns unit="unknown", [[3, None]]. Left in,
+# that opportunistically scopes a PDF to (the collapsed) Seite 3 and yields a misleading
+# "not in the sources" answer + a spurious S. 3 chip. The open unknown range must be dropped.
+
+def test_open_unknown_range_dropped():
+    # "ab dritten juli" → [[3, None]]: a date, not a page the user pointed at.
+    assert _servable_scope_intervals("unknown", [[3, None]]) == []
+
+
+def test_closed_unknown_range_kept():
+    # "alles zwischen 12 und 13" → [[12, 13]]: a genuine "between X and Y" scope.
+    assert _servable_scope_intervals("unknown", [[12, 13]]) == [[12, 13]]
+
+
+def test_explicit_open_page_range_untouched():
+    # "ab Seite 10" stays unit="page" → a real open scope, never dropped.
+    assert _servable_scope_intervals("page", [[10, None]]) == [[10, None]]
+    assert _servable_scope_intervals("time", [[40, None]]) == [[40, None]]
+
+
+def test_unknown_mixed_keeps_only_closed():
+    assert _servable_scope_intervals("unknown", [[3, None], [12, 13]]) == [[12, 13]]
 
 
 # ── _page_scope_too_large (whole-doc range -> route to GENERIC) ───────────────

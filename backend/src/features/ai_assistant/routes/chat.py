@@ -340,6 +340,22 @@ def _expand_page_intervals(intervals: list[list], max_page: Optional[int]) -> li
     return sorted(p for p in pages if p >= 1)
 
 
+def _servable_scope_intervals(unit: Optional[str], intervals: list[list]) -> list[list]:
+    """Drop scope intervals that are almost certainly NOT a real page/time scope.
+
+    A bare-number ("unknown") OPEN range — "ab 3", "from 3 on" — is overwhelmingly content
+    or a date ("ab dritten Juli" → the model returns ``[[3, None]]``), not a page the user
+    pointed at. Left in, it gets opportunistically mapped to a PDF page and the open end
+    collapses to a single page (e.g. Seite 3), producing a misleading "not in the sources"
+    answer scoped to the wrong page. So for ``unit="unknown"`` we keep only CLOSED ranges
+    ("zwischen 12 und 13" → ``[[12, 13]]``), which carry a genuine "between X and Y" intent.
+    An EXPLICIT page/time ask keeps ``unit`` "page"/"time" and is untouched (an open
+    "ab Seite 10" stays a real scope)."""
+    if unit != "unknown":
+        return intervals
+    return [iv for iv in intervals if iv[1] is not None]
+
+
 def _page_scope_too_large(intervals: list[list], max_page: Optional[int], limit: int) -> bool:
     """True when the requested page scope spans more than ``limit`` pages — i.e. it
     covers (most of) the document. That is an overview request, not a precise scope:
@@ -962,6 +978,7 @@ from src.features.ai_assistant.routes._helpers import (
     _needs_attribution,
     _clauses,
     _refusal_lines,
+    is_refusal_answer,
     _append_scope_anchor,
     _ALLOWED_EXTENSIONS,
     _MEDIA_EXTENSIONS,
@@ -1129,6 +1146,9 @@ async def chat(
     if not body.source_text:
         unit = scope_raw["unit"] if scope_raw else None
         intervals = scope_raw["intervals"] if scope_raw else []
+        # Drop a bare-number OPEN range ("ab dritten Juli" → unit="unknown", [[3, None]]):
+        # it is a date/content, not a page — left in it would scope a PDF to the wrong page.
+        intervals = _servable_scope_intervals(unit, intervals)
         # Regex fallback: if the pre-call (or the skipped-pre-call case) produced no
         # structured scope, still catch a simple "Seite 5" page reference in the text.
         if not intervals:
@@ -1711,10 +1731,21 @@ async def chat(
                 answer = _clean_answer
             elif scope_single_page:
                 # Single-page scope: skip per-line chips (they'd all repeat the named
-                # page) and append ONE click-to-page anchor at the bottom.
+                # page) and append ONE click-to-page anchor at the bottom — UNLESS the
+                # answer is an honest "not in the sources" refusal. A refusal must never
+                # carry a citation (the scoped page simply did not contain the answer), so
+                # the anchor is suppressed via the same sentinel-proximity check the per-line
+                # path uses. Embedding runs in a worker thread so the event loop stays free.
                 _aqn = source_id_to_qnum.get(scope_chunks[0]["source_id"]) if scope_chunks else None
                 _apg = next(iter(_scope_pages), None)
-                answer = _append_scope_anchor(_clean_answer, _aqn, _apg) if (_aqn and _apg is not None) else _clean_answer
+                if _aqn and _apg is not None:
+                    from src.services.aia_embeddings import get_embedding_provider
+                    _refused = await asyncio.to_thread(
+                        is_refusal_answer, _clean_answer,
+                        get_embedding_provider().embed, list(RAG_NO_INFO_SENTINEL.values()))
+                    answer = _clean_answer if _refused else _append_scope_anchor(_clean_answer, _aqn, _apg)
+                else:
+                    answer = _clean_answer
             else:
                 from src.services.aia_embeddings import get_embedding_provider
                 _prov = get_embedding_provider()

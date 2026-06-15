@@ -68,6 +68,15 @@ describe("stripCitations", () => {
     expect(out).toContain("Hallo");
     expect(out).toContain("Welt");
   });
+
+  it("removes a stray 【source】 placeholder (no page/time) next to a real chip", () => {
+    const out = stripCitations("Die Abgabe ist am 03.07.2026【source】 [1, S. 6] fertig");
+    expect(out).not.toContain("source");
+    expect(out).not.toContain("【");
+    expect(out).not.toContain("[1");      // real chip also gone on copy
+    expect(out).toContain("Die Abgabe ist am 03.07.2026");
+    expect(out).toContain("fertig");
+  });
 });
 
 describe("sanitizeCitationsForMarkdown", () => {
@@ -111,6 +120,18 @@ describe("sanitizeCitationsForMarkdown", () => {
   it("does not touch a citation trailing a non-table line", () => {
     expect(sanitizeCitationsForMarkdown("Ein Satz mit Quelle [1, S. 2]"))
       .toBe("Ein Satz mit Quelle [1, S. 2]");
+  });
+
+  it("drops a stray 【source】 placeholder but keeps the real chip", () => {
+    const out = sanitizeCitationsForMarkdown("Abgabe am 03.07.2026【source】 [1, S. 6]");
+    expect(out).not.toContain("source");
+    expect(out).not.toContain("【");
+    expect(out).toContain("[1, S. 6]");        // real chip survives for the parser
+  });
+
+  it("keeps a valid lenticular 【1, S. 6】 citation (has a page inside)", () => {
+    const out = sanitizeCitationsForMarkdown("Text 【1, S. 6】 mehr");
+    expect(out).toContain("【1, S. 6】");
   });
 
   it("lifts a table nested+indented under a bullet to column 0 with a blank line before", () => {

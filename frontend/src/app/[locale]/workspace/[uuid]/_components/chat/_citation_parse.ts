@@ -79,11 +79,22 @@ export function citationsAreAdjacentSameTarget(
 //      back into the last cell so every row keeps its pipe-defined column count.
 // Language-agnostic; chips already inside a cell stay untouched.
 export function sanitizeCitationsForMarkdown(text: string): string {
-  let out = normalizeTableBlocks(text);
+  let out = stripStrayCitations(normalizeTableBlocks(text));
   out = out.replace(/^(\s{0,3}(?:[-*_]\s*){3,})(?:\s*\[[^\]\n]*\])+\s*$/gm, "$1");
   out = out.replace(_TABLE_TRAIL_CHIP, (_m, row: string, chips: string) =>
     row.replace(/\s*\|\s*$/, ` ${chips.trim()} |`));
   return out;
+}
+
+// Lenticular brackets 【】 never occur in real prose — only LLMs emit them. The prompt
+// forbids the model from citing sources (chips are attached post-hoc), yet some models
+// (Qwen-family especially) still leak a bare 【source】 / 【Quelle】 placeholder. A 【…】
+// with NO page ("S. 6") or timestamp ("MM:SS") locator inside is not a real citation:
+// it would render as dead text and survive the copy-strip. Drop it (with one leading
+// space). Valid 【1, S. 6】 / 【1, 08:58】 citations are kept by the negative lookahead.
+const _STRAY_LENTICULAR = /\s?【(?![^】]*(?:S\.\s*\d|\d{1,2}:\d{2}))[^】]*】/g;
+export function stripStrayCitations(text: string): string {
+  return text.replace(_STRAY_LENTICULAR, "");
 }
 
 // The model often nests a Markdown table under a bullet ("- Termine:\n | a | b |\n |---|")
@@ -137,8 +148,10 @@ const _TABLE_TRAIL_CHIP =
 // Remove every citation chip (nav-only; legacy trailing offset/keyword tolerated) —
 // used when copying an answer to the clipboard.
 export function stripCitations(text: string): string {
-  return text.replace(
-    /[[【](?:Q?\d+(?::[a-f0-9]{6,64})?,\s*)?(?:S\.\s*\d+|\d{1,2}:\d{2}(?::\d{2})?)[^\]】]*[\]】]/g,
-    "",
-  );
+  return text
+    .replace(
+      /[[【](?:Q?\d+(?::[a-f0-9]{6,64})?,\s*)?(?:S\.\s*\d+|\d{1,2}:\d{2}(?::\d{2})?)[^\]】]*[\]】]/g,
+      "",
+    )
+    .replace(_STRAY_LENTICULAR, "");   // also drop bare 【source】 placeholders
 }

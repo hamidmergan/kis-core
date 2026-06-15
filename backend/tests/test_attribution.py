@@ -14,6 +14,7 @@ from src.features.ai_assistant.routes._helpers import (
     _enum_chip_unbacked,
     _cos_dist,
     _refusal_lines,
+    is_refusal_answer,
 )
 
 
@@ -334,6 +335,45 @@ def test_refusal_lines_skips_lines_without_vectors():
 def test_cos_dist_degenerate_vector_is_max():
     # A zero vector never falsely reads as "near" a sentinel.
     assert _cos_dist([0.0, 0.0], [1.0, 0.0]) == 1.0
+
+
+# ── is_refusal_answer (whole-answer refusal for the single-page-scope anchor) ─
+# The single-page-scope path appends ONE nav anchor without per-line attribution, so it
+# must itself detect an honest "not in the sources" answer and suppress the chip.
+
+def _fake_embed(mapping, fallback):
+    # Returns the mapped vector per text (sentinels + the answer), else a fallback vector.
+    return lambda texts: [mapping.get(t, fallback) for t in texts]
+
+
+def test_refusal_answer_near_sentinel_is_flagged():
+    sentinel = "Diese Information ist nicht in den bereitgestellten Quellen enthalten."
+    answer = sentinel  # the model emits the sentinel verbatim
+    embed = _fake_embed({sentinel: [1.0, 0.0, 0.0]}, fallback=[1.0, 0.0, 0.0])
+    assert is_refusal_answer(answer, embed, [sentinel], max_dist=0.40) is True
+
+
+def test_real_answer_far_from_sentinel_keeps_anchor():
+    sentinel = "Diese Information ist nicht in den bereitgestellten Quellen enthalten."
+    answer = "Ab dem dritten Juli gilt die neue Prüfungsordnung mit verkürzten Fristen."
+    embed = _fake_embed({sentinel: [1.0, 0.0, 0.0], answer: [0.0, 1.0, 0.0]},
+                        fallback=[0.0, 1.0, 0.0])
+    assert is_refusal_answer(answer, embed, [sentinel], max_dist=0.40) is False
+
+
+def test_refusal_answer_no_sentinels_is_false():
+    # Embed batch failed upstream / no sentinels -> never strip the anchor.
+    assert is_refusal_answer("anything", lambda t: [[1.0]], [], max_dist=0.40) is False
+
+
+def test_refusal_answer_embed_failure_is_false():
+    def _boom(texts):
+        raise RuntimeError("embed down")
+    assert is_refusal_answer("x", _boom, ["s"], max_dist=0.40) is False
+
+
+def test_refusal_answer_empty_text_is_false():
+    assert is_refusal_answer("   ", lambda t: [[1.0]], ["s"], max_dist=0.40) is False
 
 
 def test_long_dash_delimiter_row_never_cited():

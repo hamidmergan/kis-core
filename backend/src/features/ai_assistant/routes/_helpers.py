@@ -23,11 +23,21 @@ from src.storage import USE_S3
 _CITATION_FIX_TIME_RE = re.compile(r"\[(\d+)\]\s+(\d{1,2}:\d{2}(?::\d{2})?)")
 _CITATION_FIX_PAGE_RE = re.compile(r"\[(\d+)\]\s+(S\.\s*\d+(?:[-,–]\s*\d+)*)")
 
+# Lenticular brackets 【】 never occur in real prose — only LLMs emit them. The prompt
+# forbids the model from citing sources at all (chips are attached post-hoc), yet some
+# models (Qwen-family especially) still leak a bare 【source】 / 【Quelle】 placeholder.
+# A 【…】 with NO page ("S. 6") or timestamp ("08:58") locator inside is not a real
+# citation: it renders as dead text AND survives the copy-strip. Drop it (with one
+# leading space) before attribution runs. Valid 【1, S. 6】 / 【1, 08:58】 are kept by
+# the negative lookahead.
+_STRAY_LENTICULAR_RE = re.compile(r"\s?【(?![^】]*(?:S\.\s*\d|\d{1,2}:\d{2}))[^】]*】")
+
 
 def _sanitize_citations(text: str) -> str:
-    """Repair malformed `[N] pos` citations into the chip-renderable `[N, pos]` form."""
+    """Repair malformed `[N] pos` citations and drop stray 【…】 placeholders."""
     text = _CITATION_FIX_TIME_RE.sub(r"[\1, \2]", text)
     text = _CITATION_FIX_PAGE_RE.sub(r"[\1, \2]", text)
+    text = _STRAY_LENTICULAR_RE.sub("", text)
     return text
 
 
@@ -441,6 +451,30 @@ def _refusal_lines(cands: list[str], vec_by_line: dict, sentinel_vecs: list,
         if any(_cos_dist(v, sv) <= max_dist for sv in sentinel_vecs):
             flagged.add(ln)
     return flagged
+
+
+def is_refusal_answer(text: str, embed_fn, sentinels: list[str],
+                      max_dist: float = _REFUSAL_MAX_DIST) -> bool:
+    """True if the WHOLE answer is a "not in the sources" refusal, by embedding proximity
+    to a canonical no-info ``sentinel`` (see ``RAG_NO_INFO_SENTINEL``).
+
+    Mirrors ``_refusal_lines`` but for a single complete answer instead of per-line, used by
+    the single-page-scope path: that path appends ONE nav anchor without running per-line
+    attribution, so it would otherwise anchor an honest refusal to the scoped page. Language-
+    agnostic: the model writes the refusal in the question's language and a multilingual
+    embedding places it near the de/en sentinel — no word lists. Any embed failure → False
+    (anchor stays), so a transient error never silently strips a legitimate citation."""
+    cleaned = (text or "").strip()
+    if not cleaned or not sentinels:
+        return False
+    try:
+        vecs = embed_fn([cleaned] + sentinels)
+    except Exception:
+        return False
+    if len(vecs) != 1 + len(sentinels):
+        return False
+    answer_vec, sentinel_vecs = vecs[0], vecs[1:]
+    return any(_cos_dist(answer_vec, sv) <= max_dist for sv in sentinel_vecs)
 
 
 def _is_seen(chunk: dict, seen_pages_by_source: Optional[dict]) -> bool:
