@@ -72,7 +72,7 @@ export default function HomeNotice() {
       >
         <div
           ref={textRef}
-          className="text-center whitespace-pre-line overflow-hidden transition-[max-height] duration-300 ease-in-out"
+          className="text-center whitespace-pre-line break-words overflow-hidden transition-[max-height] duration-300 ease-in-out"
           style={{
             maxHeight: expanded ? `${fullHeight}px` : COLLAPSED_MAX_HEIGHT,
             maskImage: collapsed ? FADE_MASK : undefined,
