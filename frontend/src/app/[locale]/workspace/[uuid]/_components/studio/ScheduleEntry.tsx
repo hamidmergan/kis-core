@@ -142,10 +142,10 @@ export function ScheduleEntryCard({
                     tabIndex={0}
                     onClick={(e) => {
                       e.stopPropagation();
-                      // Same path as Chat-LLM chips: non-exact → trim + fuzzy.
-                      // raw_quote is the ±80 char backend window; viewer
-                      // handles normalization.
-                      onPillClick?.(ref.source_uuid, page, filename, ref.raw_quote ?? undefined, startTime, false);
+                      // Nav-only wie die anderen Studio-Tools (Datentabelle, Mindmap): nur zur
+                      // Seite oder zum Zeitstempel springen, kein Highlight. raw_quote wird
+                      // bewusst nicht mehr uebergeben.
+                      onPillClick?.(ref.source_uuid, page, filename, undefined, startTime);
                     }}
                     onKeyDown={(e) => { if (e.key === "Enter") (e.currentTarget as HTMLElement).click(); }}
                     className="inline-flex items-center gap-0.5 text-xs px-1.5 py-0.5 rounded-full font-medium chip-cite whitespace-nowrap cursor-pointer"
