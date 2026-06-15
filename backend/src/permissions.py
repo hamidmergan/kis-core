@@ -102,18 +102,21 @@ def _resolve_base_permissions(
 def custom_role_permissions(aia_access: str, tool_keys: list[str]) -> Permissions:
     """Permissions for a DB-backed custom role.
 
-    Custom roles never grant admin panel or LDAP-user-create. `aia_access`
-    controls the workspace dimension independently of the user base:
-      'none' -> no AIA, tools-only role
-      'read' -> link access to assigned workspaces (student view)
-      'edit' -> lecturer view: create + manage workspaces (staff-level AIA)
+    Custom roles never grant admin panel or LDAP-user-create. Link-based read
+    access (following a shared link to read an enrolled workspace) is a
+    universal baseline that every authenticated user has, so `allow_aia` is
+    always granted. `aia_access` only controls the OWN-workspace dimension:
+      'none' -> tools-only role: no workspaces of their own, but may still
+                follow a link and read an enrolled workspace (student view)
+      'read' -> student view (currently identical to 'none')
+      'edit' -> lecturer view: create + manage own workspaces
     `tool_keys` adds global tool access on top.
     """
     valid_tools = tuple(k for k in tool_keys if k in ALL_TOOL_KEYS)
     is_edit = aia_access == "edit"
     return Permissions(
         allow_admin_panel=False,
-        allow_aia=aia_access in ("read", "edit"),
+        allow_aia=True,  # link read is universal; create is gated below
         allow_workspace_create=is_edit,
         allow_ldap_user_create=False,
         tools=valid_tools,

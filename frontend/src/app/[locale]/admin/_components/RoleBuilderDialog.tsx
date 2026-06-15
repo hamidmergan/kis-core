@@ -20,18 +20,23 @@ interface Props {
   onSaved: () => void;
 }
 
-const AIA_OPTIONS: { value: AiaAccess; labelKey: "aiaNone" | "aiaRead" | "aiaEdit" }[] = [
-  { value: "none", labelKey: "aiaNone" },
+// Link-based read access is a universal baseline now, so a tools-only "none"
+// role is no longer distinct from "read". Offer only read vs edit; legacy
+// "none" roles in the DB are normalized to "read" below.
+const AIA_OPTIONS: { value: Exclude<AiaAccess, "none">; labelKey: "aiaRead" | "aiaEdit" }[] = [
   { value: "read", labelKey: "aiaRead" },
   { value: "edit", labelKey: "aiaEdit" },
 ];
+
+const normalizeAia = (a?: AiaAccess): Exclude<AiaAccess, "none"> =>
+  a === "edit" ? "edit" : "read";
 
 export default function RoleBuilderDialog({ initial, availableTools, onClose, onSaved }: Props) {
   const t = useTranslations("admin.roles");
   const tTools = useTranslations("toolsSidebar.items");
   const ws = useWorkspaceLabel();
   const [name, setName] = useState(initial?.name ?? "");
-  const [aiaAccess, setAiaAccess] = useState<AiaAccess>(initial?.aia_access ?? "none");
+  const [aiaAccess, setAiaAccess] = useState<AiaAccess>(normalizeAia(initial?.aia_access));
   const [tools, setTools] = useState<Set<string>>(new Set(initial?.allowed_tools ?? []));
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);

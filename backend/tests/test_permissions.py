@@ -112,9 +112,12 @@ def test_env_admin_gets_ldap_user_create_when_flag_on(monkeypatch):
 from src.permissions import custom_role_permissions
 
 
-def test_custom_role_aia_none_blocks_workspace_access():
+def test_custom_role_aia_none_still_grants_link_read():
+    # Link-based read access is a universal baseline: even a tools-only
+    # role ('none') may follow a shared link and read an enrolled workspace.
+    # It just cannot create or own workspaces.
     perms = custom_role_permissions(aia_access="none", tool_keys=[])
-    assert perms.allow_aia is False
+    assert perms.allow_aia is True
     assert perms.allow_workspace_create is False
     assert perms.allow_admin_panel is False
 
@@ -135,9 +138,11 @@ def test_custom_role_aia_edit_grants_lecturer_view():
     assert perms.allow_ldap_user_create is False
 
 
-def test_custom_role_unknown_aia_access_blocks_workspace_access():
+def test_custom_role_unknown_aia_access_defaults_to_link_read():
+    # Unknown/corrupt values degrade to the safe baseline: link read only,
+    # never workspace creation.
     perms = custom_role_permissions(aia_access="ninja", tool_keys=[])
-    assert perms.allow_aia is False
+    assert perms.allow_aia is True
     assert perms.allow_workspace_create is False
 
 

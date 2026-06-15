@@ -103,9 +103,7 @@ export default function RolesTab() {
                     <td className="px-4 py-3 text-foreground-soft">
                       {r.aia_access === "edit"
                         ? t("aiaEdit", { label: ws.singular, plural: ws.plural })
-                        : r.aia_access === "read"
-                          ? t("aiaRead", { label: ws.singular, plural: ws.plural })
-                          : t("aiaNone", { label: ws.singular, plural: ws.plural })}
+                        : t("aiaRead", { label: ws.singular, plural: ws.plural })}
                     </td>
                     <td className="px-4 py-3 text-xs text-muted-soft">
                       {r.allowed_tools.length
