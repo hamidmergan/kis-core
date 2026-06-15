@@ -59,6 +59,10 @@ MESSAGES: dict[str, dict[str, str]] = {
         "de": "Dokument hat {pages} Seiten - max. {max} Seiten erlaubt. Bitte teile das Dokument in kleinere Abschnitte auf.",
         "en": "Document has {pages} pages - max. {max} pages allowed. Please split the document into smaller sections.",
     },
+    "ai.source.serverBusy": {
+        "de": "Der Server verarbeitet gerade zu viele Uploads gleichzeitig. Bitte in einem Moment erneut versuchen.",
+        "en": "The server is handling too many uploads at once. Please try again in a moment.",
+    },
     "ai.source.retryFailedOnly": {
         "de": "Nur fehlgeschlagene Sources können neu indexiert werden",
         "en": "Only failed sources can be re-indexed",

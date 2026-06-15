@@ -18,6 +18,7 @@ from src.limits import (
     AIA_TOOL_CONTEXT_MAX_CHARS,
     AIA_TOOL_CONTEXT_HARD_CAP,
     AIA_PARALLEL_SLOTS,
+    AIA_MAX_CONCURRENT_UPLOADS,
     AIA_SUMMARY_BATCH_MAX_CHARS,
     AIA_EMBEDDING_BATCH_SIZE,
     AIA_SOURCE_MAX_PAGES,
@@ -88,6 +89,11 @@ async def get_settings(_admin=Depends(get_admin_user)):
         "aia_scheduler_enabled": _enabled("aia_scheduler_enabled", "false"),
         "aia_parallel_slots": int(
             db.get_setting("aia_parallel_slots", str(AIA_PARALLEL_SLOTS))
+        ),
+        # Max simultaneous uploads in the HTTP layer (0 = unlimited). Protects the
+        # small box from RAM/CPU spikes when many people upload large media at once.
+        "aia_max_concurrent_uploads": int(
+            db.get_setting("aia_max_concurrent_uploads", str(AIA_MAX_CONCURRENT_UPLOADS))
         ),
     }
 
@@ -248,5 +254,16 @@ async def update_settings(
                 detail=t("admin.settings.parallelSlotsOutOfRange", locale, min=0, max=100),
             )
         db.set_setting("aia_parallel_slots", str(value))
+
+    # Max simultaneous uploads. 0 = unlimited; upper bound keeps a typo from
+    # letting the small box accept a runaway number of in-flight uploads.
+    if body.aia_max_concurrent_uploads is not None:
+        value = body.aia_max_concurrent_uploads
+        if value < 0 or value > 100:
+            raise HTTPException(
+                status_code=400,
+                detail=t("admin.settings.maxConcurrentUploadsOutOfRange", locale, min=0, max=100),
+            )
+        db.set_setting("aia_max_concurrent_uploads", str(value))
 
     return {"ok": True}

@@ -55,6 +55,9 @@ class UpdateSettingsRequest(BaseModel):
     # Background dispatcher: master switch + size of the shared parallel-slot pool.
     aia_scheduler_enabled: bool | None = None
     aia_parallel_slots: int | None = None
+    # Max simultaneous uploads in the HTTP layer (0 = unlimited). Caps RAM/CPU on
+    # the small box when several people upload large media at once.
+    aia_max_concurrent_uploads: int | None = None
 
 
 class ToggleToolRequest(BaseModel):

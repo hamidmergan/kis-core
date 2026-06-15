@@ -188,3 +188,8 @@ GLOSSARY_LIMIT                        = 150     # max glossary entries per works
 # the parallelism no longer needs rationing.
 AIA_PARALLEL_SLOTS                     = 2       # total background jobs in flight (0 = unlimited)
 AIA_AREA_WEIGHTS                       = {"studio": 2, "ingest": 1}
+
+# Max simultaneous source uploads in the HTTP layer (the streaming + convert +
+# store phase). Caps RAM/CPU when several people upload large media at once on
+# the small box. 0 = unlimited. Admin-tunable at runtime (aia_max_concurrent_uploads).
+AIA_MAX_CONCURRENT_UPLOADS             = 3

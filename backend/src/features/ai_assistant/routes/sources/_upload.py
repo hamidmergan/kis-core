@@ -1,4 +1,6 @@
 """Source upload / retry / delete."""
+import asyncio
+import tempfile
 import uuid
 
 from src.security.rate_limit import check_upload_limit, record_upload
@@ -7,13 +9,52 @@ from src.utils.file_validation import validate_or_raise
 from ._shared import (
     Path, APIRouter, Depends, File, HTTPException, UploadFile, logger, db,
     get_current_user, get_locale, t,
-    AIA_SOURCE_MAX_PAGES, AIA_WORKSPACE_MAX_SOURCES,
-    delete_file, _convert_office_to_pdf, _mp4_faststart, _count_pages,
-    _require_own_workspace, _save_source_file,
+    AIA_MAX_CONCURRENT_UPLOADS, AIA_SOURCE_MAX_PAGES, AIA_WORKSPACE_MAX_SOURCES,
+    delete_file, _convert_office_to_pdf_path, _mp4_faststart_path, _count_pages_path,
+    _require_own_workspace, _save_source_file_path,
     _ALLOWED_EXTENSIONS, _MAX_UPLOAD_BYTES,
 )
 
 router = APIRouter(tags=["ki-assistent: sources"])
+
+# Global cap on simultaneous uploads in the heavy (stream + convert + store)
+# phase. One uvicorn worker = one event loop, so a plain int is race-free as long
+# as the check and the increment run with no await between them (they do, below).
+_uploads_in_flight = 0
+
+_UPLOAD_CHUNK = 1024 * 1024  # 1 MiB per stream chunk
+
+
+def _max_concurrent_uploads() -> int:
+    """Admin-tunable upload concurrency cap (0 = unlimited)."""
+    try:
+        return max(0, int(db.get_setting("aia_max_concurrent_uploads", str(AIA_MAX_CONCURRENT_UPLOADS))))
+    except (TypeError, ValueError):
+        return AIA_MAX_CONCURRENT_UPLOADS
+
+
+async def _stream_to_tempfile(file: UploadFile, dest_path: str, max_bytes: int, locale: str) -> tuple[int, bytes]:
+    """Stream the request body to ``dest_path`` in chunks so a large upload never
+    sits fully in RAM. Returns ``(total_bytes, head)`` where ``head`` is the first
+    64 KiB (enough for magic-byte / UTF-8 content validation). Raises 413 as soon
+    as the body exceeds ``max_bytes``."""
+    total = 0
+    head = bytearray()
+    with open(dest_path, "wb") as out:
+        while True:
+            chunk = await file.read(_UPLOAD_CHUNK)
+            if not chunk:
+                break
+            total += len(chunk)
+            if total > max_bytes:
+                raise HTTPException(
+                    status_code=413,
+                    detail=t("file.tooLargeMb", locale, max=max_bytes // (1024 * 1024)),
+                )
+            if len(head) < 65536:
+                head.extend(chunk[: 65536 - len(head)])
+            out.write(chunk)
+    return total, bytes(head)
 
 
 @router.post("/ai-assistant/workspaces/{workspace_uuid}/sources")
@@ -74,68 +115,85 @@ async def upload_source(
             detail=t("ai.source.duplicateName", locale, name=file.filename, label=_ws_label()),
         )
 
-    data = await file.read()
-    if not data:
-        raise HTTPException(status_code=400, detail=t("file.empty", locale))
-    if len(data) > _MAX_UPLOAD_BYTES:
-        raise HTTPException(status_code=413, detail=t("file.tooLargeMb", locale, max=_MAX_UPLOAD_BYTES // (1024 * 1024)))
-    validate_or_raise(data, ext, locale)
-
-    stored_filename = file.filename
-    if ext in (".docx", ".pptx"):
-        logger.info("KI Tutor: converting {} to PDF ({})", ext, file.filename)
-        data = _convert_office_to_pdf(data, ext, locale=locale)
-        stored_filename = Path(file.filename).stem + ".pdf"
-        ext = ".pdf"
-        # The converted name (e.g. lecture.docx -> lecture.pdf) may now collide
-        # with an existing source even though the original name did not.
-        if stored_filename.strip().lower() in existing_names:
-            raise HTTPException(
-                status_code=409,
-                detail=t("ai.source.duplicateName", locale, name=stored_filename, label=_ws_label()),
-            )
-    elif ext == ".mp4":
-        logger.info("KI Tutor: applying MP4 faststart ({})", file.filename)
-        data = _mp4_faststart(data)
-
-    page_count = _count_pages(ext, data)
-    # Max pages per source is admin-tunable at runtime (settings tab); fall back to
-    # the code constant when the DB setting is missing or unparseable.
+    # Global concurrency gate. Race-free: the limit read + the check + the
+    # increment run with no await between them (single event loop). A rejected
+    # caller gets a 503 so the client can retry instead of overloading the box.
+    global _uploads_in_flight
+    limit = _max_concurrent_uploads()
+    if 0 < limit <= _uploads_in_flight:
+        raise HTTPException(status_code=503, detail=t("ai.source.serverBusy", locale))
+    _uploads_in_flight += 1
     try:
-        max_pages = int(db.get_setting("aia_source_max_pages", str(AIA_SOURCE_MAX_PAGES)))
-    except (TypeError, ValueError):
-        max_pages = AIA_SOURCE_MAX_PAGES
-    if page_count is not None and page_count > max_pages:
-        raise HTTPException(
-            status_code=413,
-            detail=t("ai.source.tooManyPages", locale, pages=page_count, max=max_pages),
-        )
+        # Stream the body to a temp file on disk, then run every heavy step
+        # (validate, convert, faststart, page-count, store) off the event loop so
+        # one upload can't freeze the single-worker backend for everyone else.
+        with tempfile.TemporaryDirectory(prefix="aia_upload_") as tmpdir:
+            raw_path = str(Path(tmpdir) / f"input{ext}")
+            total, head = await _stream_to_tempfile(file, raw_path, _MAX_UPLOAD_BYTES, locale)
+            if total == 0:
+                raise HTTPException(status_code=400, detail=t("file.empty", locale))
+            validate_or_raise(head, ext, locale)
 
-    source_uuid = uuid.uuid4().hex
-    file_path = _save_source_file(current_user["user_id"], workspace_uuid, source_uuid, ext, data)
-    file_type = ext.lstrip(".")
+            stored_filename = file.filename
+            final_path = raw_path
+            if ext in (".docx", ".pptx"):
+                logger.info("KI Tutor: converting {} to PDF ({})", ext, file.filename)
+                final_path = await asyncio.to_thread(_convert_office_to_pdf_path, raw_path, ext, tmpdir, locale)
+                stored_filename = Path(file.filename).stem + ".pdf"
+                ext = ".pdf"
+                # The converted name (e.g. lecture.docx -> lecture.pdf) may now
+                # collide with an existing source even though the original did not.
+                if stored_filename.strip().lower() in existing_names:
+                    raise HTTPException(
+                        status_code=409,
+                        detail=t("ai.source.duplicateName", locale, name=stored_filename, label=_ws_label()),
+                    )
+            elif ext == ".mp4":
+                logger.info("KI Tutor: applying MP4 faststart ({})", file.filename)
+                final_path = await asyncio.to_thread(_mp4_faststart_path, raw_path, tmpdir)
 
-    db.create_aia_source(
-        workspace_id=workspace["id"],
-        uuid=source_uuid,
-        filename=stored_filename,
-        file_path=file_path,
-        file_type=file_type,
-    )
+            page_count = await asyncio.to_thread(_count_pages_path, ext, final_path)
+            # Max pages per source is admin-tunable at runtime (settings tab); fall
+            # back to the code constant when the DB setting is missing or unparseable.
+            try:
+                max_pages = int(db.get_setting("aia_source_max_pages", str(AIA_SOURCE_MAX_PAGES)))
+            except (TypeError, ValueError):
+                max_pages = AIA_SOURCE_MAX_PAGES
+            if page_count is not None and page_count > max_pages:
+                raise HTTPException(
+                    status_code=413,
+                    detail=t("ai.source.tooManyPages", locale, pages=page_count, max=max_pages),
+                )
 
-    from src.features.ai_assistant.scheduling.service import scheduler_enabled, enqueue_task
-    if scheduler_enabled():
-        enqueue_task("aia.index_source", current_user["user_id"], args=[source_uuid, locale])
-    else:
-        from src.tasks.aia_tasks import run_index_source
-        run_index_source.delay(source_uuid, locale)
+            source_uuid = uuid.uuid4().hex
+            file_type = ext.lstrip(".")
+            file_path = await asyncio.to_thread(
+                _save_source_file_path, current_user["user_id"], workspace_uuid, source_uuid, ext, final_path
+            )
 
-    # Count toward the hourly cap ONLY now that the upload is fully accepted —
-    # every reject path above returned before here, so errors don't burn a slot.
-    record_upload(current_user["user_id"])
+            db.create_aia_source(
+                workspace_id=workspace["id"],
+                uuid=source_uuid,
+                filename=stored_filename,
+                file_path=file_path,
+                file_type=file_type,
+            )
 
-    logger.info("KI Tutor: source {} ({}) uploaded to workspace {}", source_uuid, stored_filename, workspace_uuid)
-    return {"uuid": source_uuid, "filename": stored_filename, "status": "pending"}
+            from src.features.ai_assistant.scheduling.service import scheduler_enabled, enqueue_task
+            if scheduler_enabled():
+                enqueue_task("aia.index_source", current_user["user_id"], args=[source_uuid, locale])
+            else:
+                from src.tasks.aia_tasks import run_index_source
+                run_index_source.delay(source_uuid, locale)
+
+            # Count toward the hourly cap ONLY now that the upload is fully accepted —
+            # every reject path above returned before here, so errors don't burn a slot.
+            record_upload(current_user["user_id"])
+
+            logger.info("KI Tutor: source {} ({}) uploaded to workspace {}", source_uuid, stored_filename, workspace_uuid)
+            return {"uuid": source_uuid, "filename": stored_filename, "status": "pending"}
+    finally:
+        _uploads_in_flight -= 1
 
 
 @router.post("/ai-assistant/workspaces/{workspace_uuid}/sources/{source_uuid}/retry")

@@ -1,9 +1,9 @@
 """Upload rate-limit behaviour.
 
 Locks in two design decisions:
-- source uploads have NO concurrent in-flight cap (backpressure lives in the
-  Celery worker); the only HTTP-level throttle is the hourly window, and the
-  per-workspace ceiling is enforced separately in the route, not here.
+- the HTTP-level concurrency cap (``aia_max_concurrent_uploads``) is enforced in
+  the route itself, not here; this file only covers the hourly window. The
+  per-workspace ceiling is enforced separately in the route too.
 - the hourly counter is split into a READ-ONLY ``check_upload_limit`` (gate at
   the door) and ``record_upload`` (bump on success), so a REJECTED upload —
   duplicate name, workspace full, too many pages, bad file — never consumes a

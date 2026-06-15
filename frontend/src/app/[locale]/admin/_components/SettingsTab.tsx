@@ -1119,6 +1119,72 @@ function DispatcherCard() {
   );
 }
 
+function UploadConcurrencyCard() {
+  const [value, setValue] = useState<number | null>(null);
+  const [draft, setDraft] = useState<string>("");
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    fetch("/api/admin/settings", { credentials: "include" })
+      .then((r) => r.json())
+      .then((d) => {
+        const n = typeof d.aia_max_concurrent_uploads === "number" ? d.aia_max_concurrent_uploads : 3;
+        setValue(n);
+        setDraft(String(n));
+      });
+  }, []);
+
+  const commit = async () => {
+    if (value === null) return;
+    const parsed = Number.parseInt(draft, 10);
+    if (!Number.isFinite(parsed) || parsed < 0 || parsed > 100) {
+      setError("Wert muss zwischen 0 und 100 liegen (0 = unbegrenzt).");
+      setDraft(String(value));
+      return;
+    }
+    if (parsed === value) return;
+    setSaving(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/admin/settings", {
+        method: "PATCH",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ aia_max_concurrent_uploads: parsed }),
+      });
+      if (res.ok) setValue(parsed);
+      else { setError("Speichern fehlgeschlagen."); setDraft(String(value)); }
+    } finally { setSaving(false); }
+  };
+
+  if (value === null) return null;
+
+  return (
+    <div className="border border-border-soft rounded-xl bg-background p-5">
+      <p className="text-sm font-medium text-foreground">Maximale gleichzeitige Uploads</p>
+      <div className="mt-3 flex items-center gap-3">
+        <input
+          type="number"
+          min={0}
+          max={100}
+          value={draft}
+          onChange={(e) => { setDraft(e.target.value); setError(null); }}
+          onBlur={commit}
+          onKeyDown={(e) => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); }}
+          disabled={saving}
+          className="w-24 rounded-lg border border-border bg-background px-3 py-1.5 text-sm text-foreground focus:outline-none focus:border-kb disabled:opacity-50"
+        />
+        <span className="text-xs text-muted-soft">0 = unbegrenzt</span>
+      </div>
+      {error && <p className="mt-2 text-xs text-red-500">{error}</p>}
+      <p className="mt-3 text-xs text-muted-soft">
+        Wie viele Uploads gleichzeitig verarbeitet werden dürfen. Schützt den Server vor Überlastung, wenn mehrere Leute zugleich große Dateien hochladen. Weitere bekommen kurz eine "gerade ausgelastet"-Meldung und versuchen es erneut.
+      </p>
+    </div>
+  );
+}
+
 function SystemPane() {
   return (
     <div className="space-y-4">
@@ -1140,6 +1206,7 @@ function SystemPane() {
       <HomeNoticeCard />
       <MascotCard />
       <DispatcherCard />
+      <UploadConcurrencyCard />
       <WorkspaceExportImportCard />
     </div>
   );

@@ -115,6 +115,63 @@ def _count_pages(ext: str, data: bytes) -> int | None:
         logger.warning("KI Tutor: page count failed for {}: {}", ext, e)
     return None
 
+
+# ── Path-based variants (low-RAM upload streaming) ───────────────────────────
+# The byte-based helpers above keep their callers untouched. These operate on
+# files on disk so a large upload never has to sit fully in memory: the request
+# body is streamed to a temp file and only the path is passed around.
+
+def _convert_office_to_pdf_path(src_path: str, ext: str, out_dir: str, locale: str = DEFAULT_LOCALE) -> str:
+    """Convert a .docx/.pptx file on disk to PDF via LibreOffice. Returns the
+    PDF path in ``out_dir``. Raises HTTPException on failure."""
+    result = subprocess.run(
+        ["libreoffice", "--headless", "--norestore", "--convert-to", "pdf",
+         "--outdir", out_dir, src_path],
+        capture_output=True, text=True, timeout=180,
+    )
+    pdf_path = Path(out_dir) / (Path(src_path).stem + ".pdf")
+    if not pdf_path.exists():
+        logger.error("LibreOffice conversion failed (rc={}): {}", result.returncode, result.stderr[:300])
+        raise HTTPException(status_code=500, detail=t("ai.source.pdfConversionFailed", locale))
+    return str(pdf_path)
+
+
+def _mp4_faststart_path(src_path: str, out_dir: str) -> str:
+    """Remux an MP4 on disk for progressive playback (moov atom up front).
+    Returns the remuxed path, or the original ``src_path`` on any failure."""
+    dst = Path(out_dir) / "faststart.mp4"
+    try:
+        result = subprocess.run(
+            ["ffmpeg", "-y", "-loglevel", "error", "-i", src_path,
+             "-c", "copy", "-movflags", "+faststart", str(dst)],
+            capture_output=True, text=True, timeout=600,
+        )
+    except Exception as e:
+        logger.warning("KI Tutor: faststart remux exception: {}", e)
+        return src_path
+    if result.returncode != 0 or not dst.exists():
+        logger.warning("KI Tutor: faststart remux failed (rc={}): {}", result.returncode, result.stderr[:200])
+        return src_path
+    return str(dst)
+
+
+def _count_pages_path(ext: str, path: str) -> int | None:
+    """Page/slide count for a PDF/PPTX on disk, None for other formats."""
+    try:
+        if ext == ".pdf":
+            import pypdfium2 as pdfium
+            doc = pdfium.PdfDocument(path)
+            count = len(doc)
+            doc.close()
+            return count
+        if ext == ".pptx":
+            from pptx import Presentation
+            return len(Presentation(path).slides)
+    except Exception as e:
+        logger.warning("KI Tutor: page count failed for {}: {}", ext, e)
+    return None
+
+
 def _format_timestamp(seconds: float) -> str:
     """Format seconds as MM:SS or H:MM:SS for citation references."""
     s = int(seconds)
@@ -1087,6 +1144,25 @@ def _save_source_file(user_id: int, workspace_uuid: str, source_uuid: str, ext: 
     dest = STORAGE_ROOT / key
     dest.parent.mkdir(parents=True, exist_ok=True)
     dest.write_bytes(data)
+    return str(dest)
+
+
+def _save_source_file_path(user_id: int, workspace_uuid: str, source_uuid: str, ext: str, local_path: str) -> str:
+    """Like _save_source_file but streams from a file on disk (low-RAM).
+
+    S3 uses boto3 multipart upload_file; local copies the file. Returns the
+    stored key (S3) or absolute path (local), same as _save_source_file."""
+    import shutil
+    from src.storage import aia_source_key
+    key = aia_source_key(user_id, workspace_uuid, source_uuid, ext)
+    if USE_S3:
+        from src.storage import _s3, _S3_BUCKET  # type: ignore[attr-defined]
+        _s3().upload_file(local_path, _S3_BUCKET, key)
+        return key
+    from src.storage import STORAGE_ROOT
+    dest = STORAGE_ROOT / key
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copyfile(local_path, dest)
     return str(dest)
 
 def _delete_source_files_for_workspace(workspace: dict) -> None:
