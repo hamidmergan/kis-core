@@ -230,6 +230,23 @@ def file_exists(file_path: str) -> bool:
     return Path(file_path).exists()
 
 
+def list_keys(prefix: str) -> list[str]:
+    """List stored keys/paths that begin with ``prefix`` in a single round trip.
+
+    One ``list_objects_v2`` (S3) or directory glob (local) instead of a HEAD probe
+    per candidate file. Mirrors how :func:`file_exists` treats its argument: an S3
+    key in S3 mode, a filesystem path in local mode.
+    """
+    if USE_S3:
+        keys: list[str] = []
+        paginator = _s3().get_paginator("list_objects_v2")
+        for page in paginator.paginate(Bucket=_S3_BUCKET, Prefix=prefix):
+            keys.extend(obj["Key"] for obj in page.get("Contents", []))
+        return keys
+    p = Path(prefix)
+    return [str(f) for f in p.parent.glob(p.name + "*") if f.is_file()]
+
+
 def job_file_exists(user_id: int, job_uuid: str, filename: str) -> bool:
     """Check whether a specific file inside a job's folder still exists."""
     return file_exists(f"{job_prefix(user_id, job_uuid)}/{filename}")

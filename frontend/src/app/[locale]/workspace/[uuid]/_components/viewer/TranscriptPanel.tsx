@@ -18,7 +18,7 @@ interface Cue {
 // "target" = the owner-chosen translation, "both" = stacked.
 type ViewMode = "source" | "target" | "both";
 
-interface LangInfo {
+export interface LangInfo {
   source_lang: string | null;
   target_lang: string | null;
   available: string[];
@@ -70,6 +70,7 @@ export function TranscriptPanel({
   mediaRef,
   workspaceUuid,
   sourceUuid,
+  langInfo,
   canManage = false,
   onSaveNote,
   defaultLang = "both",
@@ -79,6 +80,10 @@ export function TranscriptPanel({
   mediaRef: React.RefObject<HTMLVideoElement | HTMLAudioElement | null>;
   workspaceUuid: string;
   sourceUuid: string;
+  // Available transcript languages, fetched once by the parent MediaPlayer and passed
+  // down so the langs endpoint is hit a single time per source (not once here too).
+  // null = not loaded yet.
+  langInfo: LangInfo | null;
   canManage?: boolean;
   onSaveNote?: (content: string, sourceUuids?: string[], extras?: AddNoteExtras) => void | Promise<void>;
   defaultLang?: TranscriptDefaultLang;
@@ -132,15 +137,20 @@ export function TranscriptPanel({
 
   useEffect(() => {
     let cancelled = false;
-    // Abort the in-flight langs + VTT requests on a source switch. Without this they keep
-    // holding scarce per-origin browser connections; a few quick switches exhaust the pool
-    // and the whole page freezes while every new request waits for a free slot.
+    // Abort the in-flight VTT requests on a source switch. Without this they keep holding
+    // scarce per-origin browser connections; a few quick switches exhaust the pool and the
+    // whole page freezes while every new request waits for a free slot.
     const ac = new AbortController();
     setLoading(true);
     setCues({});
     setSourceLang(null);
     setTargetLang(null);
     cuesUuidRef.current = null; // cues are now stale until this source's transcript loads
+
+    // Languages come from the parent (one shared /transcript/langs fetch). Until they
+    // arrive we stay in loading; once present we pull only the VTT spurs themselves.
+    if (!langInfo) return () => { cancelled = true; ac.abort(); };
+    const info = langInfo;
 
     const fetchVtt = async (lang: string): Promise<Cue[] | null> => {
       try {
@@ -153,16 +163,6 @@ export function TranscriptPanel({
     };
 
     (async () => {
-      let info: LangInfo = { source_lang: null, target_lang: null, available: [] };
-      try {
-        const res = await fetch(
-          `/api/ai-assistant/workspaces/${workspaceUuid}/sources/${sourceUuid}/transcript/langs`,
-          { credentials: "include", signal: ac.signal },
-        );
-        if (res.ok) info = await res.json();
-      } catch { /* no transcript or aborted */ }
-      if (cancelled) return;
-
       const entries = await Promise.all(
         info.available.map(async (lang) => [lang, await fetchVtt(lang)] as const),
       );
@@ -195,7 +195,7 @@ export function TranscriptPanel({
     })();
 
     return () => { cancelled = true; ac.abort(); };
-  }, [workspaceUuid, sourceUuid, regenStorageKey, defaultLang]);
+  }, [workspaceUuid, sourceUuid, langInfo, regenStorageKey, defaultLang]);
 
   // Source-language track is the timing master (identical timestamps to the
   // translation — both derive from Whisper on the same audio).

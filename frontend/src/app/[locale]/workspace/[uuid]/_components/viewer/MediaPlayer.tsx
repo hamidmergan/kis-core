@@ -4,7 +4,11 @@ import { CaretLeft, SidebarSimple, SpeakerHigh } from "@phosphor-icons/react";
 import { langLabel, type ViewerState, type TranscriptDefaultLang } from "../../_types";
 import type { AddNoteExtras } from "../../_hooks/useNotes";
 import { FileIcon } from "../sources/FileIcon";
-import { TranscriptPanel } from "./TranscriptPanel";
+import { TranscriptPanel, type LangInfo } from "./TranscriptPanel";
+
+// "No transcript languages" — used when the langs request is missing or fails so the
+// transcript panel resolves out of its loading state instead of waiting forever.
+const EMPTY_LANGS: LangInfo = { source_lang: null, target_lang: null, available: [] };
 
 export function MediaPlayer({
   source, onClose, workspaceUuid, onMinimize, canDownload = false, canManage = false, onSaveNote, defaultTranscriptLang = "both",
@@ -28,23 +32,27 @@ export function MediaPlayer({
   const transcriptUrl = (lang: string) =>
     `/api/ai-assistant/workspaces/${workspaceUuid}/sources/${source.uuid}/transcript?lang=${lang}`;
 
-  // Ask the backend which transcript languages exist so we only attach available
-  // <track> elements — works for any source/target language pair, not just de/en.
-  const [availableLangs, setAvailableLangs] = useState<string[]>([]);
+  // Ask the backend which transcript languages exist ONCE here, then hand the result to
+  // the TranscriptPanel below so the langs endpoint is hit a single time per source. Used
+  // here to attach only available <track> elements (any source/target pair, not just de/en).
+  const [langInfo, setLangInfo] = useState<LangInfo | null>(null);
   useEffect(() => {
-    // Abort (not just ignore) on source switch: an in-flight request that is never
-    // cancelled keeps holding one of the browser's few per-origin connections, and a
-    // few rapid source switches exhaust them and freeze the page.
+    // Clear on source switch (panel shows loading) and abort the in-flight request: an
+    // uncancelled request keeps holding one of the browser's few per-origin connections,
+    // and a few rapid switches exhaust them and freeze the page.
+    setLangInfo(null);
     const ac = new AbortController();
     fetch(
       `/api/ai-assistant/workspaces/${workspaceUuid}/sources/${source.uuid}/transcript/langs`,
       { credentials: "include", signal: ac.signal },
     )
-      .then((res) => (res.ok ? res.json() : null))
-      .then((data) => { if (data) setAvailableLangs(data.available ?? []); })
-      .catch(() => { /* aborted or no tracks */ });
+      // Non-2xx (e.g. no transcript) resolves to "no languages" so the panel leaves loading.
+      .then((res) => (res.ok ? res.json() : EMPTY_LANGS))
+      .then((data: LangInfo) => setLangInfo(data))
+      .catch((e) => { if (e?.name !== "AbortError") setLangInfo(EMPTY_LANGS); });
     return () => ac.abort();
   }, [workspaceUuid, source.uuid]);
+  const availableLangs = langInfo?.available ?? [];
 
   // Seek to the cited timestamp when the source changes — robust against Safari, which is the
   // only browser that misbehaves here (Chrome seeks fine).
@@ -157,6 +165,7 @@ export function MediaPlayer({
         mediaRef={mediaRef}
         workspaceUuid={workspaceUuid}
         sourceUuid={source.uuid}
+        langInfo={langInfo}
         canManage={canManage}
         onSaveNote={onSaveNote}
         defaultLang={defaultTranscriptLang}

@@ -13,7 +13,7 @@ from src.limits import (
     AIA_SOURCE_MAX_PAGES,
     AIA_WORKSPACE_MAX_SOURCES,
 )
-from src.storage import USE_S3, delete_file, file_exists, get_file, stream_s3_object
+from src.storage import USE_S3, delete_file, file_exists, get_file, list_keys, stream_s3_object
 
 from src.features.ai_assistant.routes._helpers import (
     _convert_office_to_pdf,
@@ -33,7 +33,7 @@ __all__ = [
     "get_current_user",
     "get_locale", "t",
     "AIA_SOURCE_MAX_PAGES", "AIA_WORKSPACE_MAX_SOURCES",
-    "USE_S3", "delete_file", "file_exists", "get_file", "stream_s3_object",
+    "USE_S3", "delete_file", "file_exists", "get_file", "list_keys", "stream_s3_object",
     "_convert_office_to_pdf", "_mp4_faststart", "_count_pages",
     "_require_own_workspace", "_save_source_file",
     "_ALLOWED_EXTENSIONS", "_MAX_UPLOAD_BYTES",

@@ -1,11 +1,12 @@
 """File streaming + transcript retrieval."""
+import asyncio
 import re
 
 from ._shared import (
     Path, Optional, APIRouter, Depends, HTTPException, Request, logger, db,
     get_current_user, get_locale, t,
     FileResponse, Response, StreamingResponse,
-    USE_S3, file_exists, get_file, stream_s3_object,
+    USE_S3, file_exists, get_file, list_keys, stream_s3_object,
     _require_own_workspace,
 )
 
@@ -109,7 +110,6 @@ async def regenerate_transcript(
     configured in the admin KI panel.
     """
     from src.services import feature_router
-    from src.i18n import TRANSCRIPT_LANGUAGES
 
     workspace = _require_own_workspace(workspace_uuid, current_user["user_id"], locale=locale)
     source = db.get_aia_source(source_uuid)
@@ -127,15 +127,11 @@ async def regenerate_transcript(
             detail="transcript_translate not configured — set a translation provider in the admin KI panel",
         )
 
-    # The original-language VTT must exist (detected media language, or any known code
-    # for sources indexed before the language column was populated).
+    # A source-language VTT must exist to translate from. One listing instead of a
+    # HEAD probe per known language, off the event loop.
     base_key = source["file_path"].rsplit(".", 1)[0]
-    source_lang = (source.get("language") or "").lower()
-    has_source = bool(
-        source_lang and source_lang != "unknown"
-        and file_exists(f"{base_key}_transcript.{source_lang}.vtt")
-    ) or any(file_exists(f"{base_key}_transcript.{c}.vtt") for c in TRANSCRIPT_LANGUAGES)
-    if not has_source:
+    keys = await asyncio.to_thread(list_keys, f"{base_key}_transcript.")
+    if not any(k.endswith(".vtt") for k in keys):
         raise HTTPException(status_code=404, detail=t("ai.transcript.sourceMissing", locale))
 
     target_lang = workspace.get("transcript_target_lang") or "en"
@@ -181,10 +177,10 @@ async def get_transcript_vtt(
 
     base_key = source["file_path"].rsplit(".", 1)[0]
     vtt_key = f"{base_key}_transcript.{lang_clean}.vtt"
-    if not file_exists(vtt_key):
+    if not await asyncio.to_thread(file_exists, vtt_key):
         raise HTTPException(status_code=404, detail=t("ai.transcript.notAvailable", locale))
 
-    data = get_file(vtt_key)
+    data = await asyncio.to_thread(get_file, vtt_key)
     return Response(
         content=data,
         media_type="text/vtt; charset=utf-8",
@@ -221,7 +217,7 @@ async def get_transcript_exists(
 
     base_key = source["file_path"].rsplit(".", 1)[0]
     vtt_key = f"{base_key}_transcript.{lang_clean}.vtt"
-    return {"exists": file_exists(vtt_key)}
+    return {"exists": await asyncio.to_thread(file_exists, vtt_key)}
 
 
 @router.get("/ai-assistant/workspaces/{workspace_uuid}/sources/{source_uuid}/transcript/langs")
@@ -257,13 +253,21 @@ async def get_transcript_langs(
     source_lang = (source.get("language") or "").lower() or None
     target_lang = workspace.get("transcript_target_lang") or "en"
 
-    # Candidate codes: the detected source language plus every known target. Filter
-    # to those with an existing VTT so the player only attaches available tracks.
+    # One listing instead of a HEAD probe per candidate language: read which
+    # "<base>_transcript.<lang>.vtt" files actually exist in a single round trip,
+    # off the event loop so the storage call does not block other requests.
+    prefix = f"{base_key}_transcript."
+    keys = await asyncio.to_thread(list_keys, prefix)
+    vtt_re = re.compile(re.escape(prefix) + r"([a-z]{2,5})\.vtt$")
+    found = {m.group(1) for k in keys if (m := vtt_re.search(k))}
+
+    # Order: the detected source language first, then every known target. Keep only
+    # codes whose VTT exists so the player attaches just the available tracks.
     candidates: list[str] = []
     if source_lang and source_lang != "unknown":
         candidates.append(source_lang)
     candidates.extend(c for c in TRANSCRIPT_LANGUAGES if c not in candidates)
-    available = [c for c in candidates if file_exists(f"{base_key}_transcript.{c}.vtt")]
+    available = [c for c in candidates if c in found]
 
     # If the source language was never stored, treat the first available code that
     # is not the target as the original so the UI can still label the tabs.
