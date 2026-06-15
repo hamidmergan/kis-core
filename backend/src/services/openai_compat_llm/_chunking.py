@@ -72,15 +72,22 @@ def split_audio(file_path: str, split_points: list[float], tmpdir: str) -> list[
     Re-encoding (instead of stream-copy) keeps every chunk under typical Whisper
     upload limits regardless of source bitrate or codec (see CHUNK_REENCODE_BITRATE_KBPS).
 
+    ``-ss`` is placed BEFORE ``-i`` (input seeking): ffmpeg jumps near the chunk
+    start via the demuxer instead of decoding the whole file up to that point.
+    With output seeking (``-ss`` after ``-i``) chunk N re-decoded the entire 0..start
+    prefix, so a 7-chunk video decoded the head ~4-5x over — the dominant cost of
+    the split step. Input seek + re-encode stays accurate, and each chunk's output
+    timestamps still start at 0, so the returned ``start`` offset is unchanged.
+
     Returns list of (chunk_path, start_offset_seconds).
     """
     boundaries = [0.0] + split_points + [None]  # None = end of file
     chunks: list[tuple[str, float]] = []
     for i, (start, end) in enumerate(zip(boundaries[:-1], boundaries[1:])):
         chunk_path = str(Path(tmpdir) / f"chunk_{i:03d}.mp3")
-        cmd = ["ffmpeg", "-i", file_path, "-ss", str(start)]
+        cmd = ["ffmpeg", "-ss", str(start), "-i", file_path]
         if end is not None:
-            cmd += ["-to", str(end)]
+            cmd += ["-t", str(end - start)]  # duration, not absolute end (input-seek relative)
         cmd += [
             "-vn",                           # drop video stream
             "-c:a", "libmp3lame",
