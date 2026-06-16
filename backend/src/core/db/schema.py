@@ -187,11 +187,36 @@ def init_db(admin_email: Optional[str] = None) -> None:
                 CREATE TABLE IF NOT EXISTS custom_roles (
                     id            SERIAL PRIMARY KEY,
                     name          TEXT NOT NULL UNIQUE,
-                    allow_aia     BOOLEAN NOT NULL DEFAULT FALSE,
+                    aia_access    TEXT NOT NULL DEFAULT 'none'
+                                  CHECK (aia_access IN ('none','read','edit')),
                     allowed_tools JSONB NOT NULL DEFAULT '[]'::jsonb,
                     created_at    TIMESTAMP NOT NULL DEFAULT NOW(),
                     updated_at    TIMESTAMP NOT NULL DEFAULT NOW()
                 )
+            """)
+            # Migrate the original boolean `allow_aia` to the tri-state `aia_access`
+            # ('none'|'read'|'edit') introduced in commit c2a6bbd. DBs created before
+            # that commit still carry the boolean column, so the role repository's
+            # `SELECT ... aia_access ...` raised "column aia_access does not exist"
+            # (a 500 on /api/admin/roles). Idempotent: the ADD is guarded by
+            # IF NOT EXISTS, the data copy + drop only run while allow_aia survives.
+            cur.execute(
+                "ALTER TABLE custom_roles ADD COLUMN IF NOT EXISTS aia_access "
+                "TEXT NOT NULL DEFAULT 'none' "
+                "CHECK (aia_access IN ('none','read','edit'))"
+            )
+            cur.execute("""
+                DO $$
+                BEGIN
+                    IF EXISTS (
+                        SELECT 1 FROM information_schema.columns
+                        WHERE table_name = 'custom_roles'
+                          AND column_name = 'allow_aia'
+                    ) THEN
+                        UPDATE custom_roles SET aia_access = 'read' WHERE allow_aia = TRUE;
+                        ALTER TABLE custom_roles DROP COLUMN allow_aia;
+                    END IF;
+                END $$;
             """)
             cur.execute(
                 "ALTER TABLE users ADD COLUMN IF NOT EXISTS custom_role_id INTEGER "
