@@ -5,7 +5,7 @@ import { useTranslations } from "next-intl";
 import WorkspaceLabelCard from "./WorkspaceLabelCard";
 import WorkspaceExportImportCard from "./WorkspaceExportImportCard";
 import { useWorkspaceLabel } from "@/hooks/useWorkspaceLabel";
-import { notifyMascotGlobalChanged } from "@/hooks/useHildePref";
+import { notifyMascotGlobalChanged } from "@/hooks/useMascotPref";
 
 export type SettingsSection = "system";
 

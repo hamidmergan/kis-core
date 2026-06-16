@@ -1,12 +1,11 @@
 "use client";
 
 import { useId } from "react";
-
-export type HildeState = "idle" | "thinking" | "found" | "confused" | "wave";
+import type { MascotState } from "./Mascot";
 
 export interface HildeProps {
   size?: number;
-  state?: HildeState;
+  state?: MascotState;
   className?: string;
 }
 

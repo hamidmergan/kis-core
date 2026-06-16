@@ -3,12 +3,12 @@
 import Link from "next/link";
 import { useTranslations } from "next-intl";
 import Header from "@/components/layout/Header";
-import Hilde from "@/components/ui/Hilde";
-import { useHildePref } from "@/hooks/useHildePref";
+import Mascot from "@/components/ui/Mascot";
+import { useMascotPref } from "@/hooks/useMascotPref";
 
 export default function TestphasePage() {
   const t = useTranslations("pending");
-  const { enabled: hildeEnabled } = useHildePref();
+  const { enabled: mascotEnabled, variant: mascotVariant } = useMascotPref();
 
   return (
     <>
@@ -17,8 +17,8 @@ export default function TestphasePage() {
         <div className="w-full max-w-lg">
           <div className="bg-background rounded-xl shadow-sm border border-border-soft p-8 text-center">
             <div className="flex justify-center mb-4">
-              {hildeEnabled ? (
-                <Hilde size={140} state="wave" />
+              {mascotEnabled ? (
+                <Mascot variant={mascotVariant} size={140} state="wave" />
               ) : (
                 <div className="w-16 h-16 bg-warn-bg rounded-full flex items-center justify-center">
                   <svg

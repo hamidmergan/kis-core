@@ -5,13 +5,13 @@ import { useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
 import { Wrench } from "@phosphor-icons/react";
 import Header from "@/components/layout/Header";
-import Hilde from "@/components/ui/Hilde";
-import { useHildePref } from "@/hooks/useHildePref";
+import Mascot from "@/components/ui/Mascot";
+import { useMascotPref } from "@/hooks/useMascotPref";
 import { checkAuthStatus } from "@/lib/auth";
 
 export default function MaintenancePage() {
   const t = useTranslations("wartung");
-  const { enabled: hildeEnabled } = useHildePref();
+  const { enabled: mascotEnabled, variant: mascotVariant } = useMascotPref();
   const [authenticated, setAuthenticated] = useState<boolean | null>(null);
 
   useEffect(() => {
@@ -23,9 +23,9 @@ export default function MaintenancePage() {
       <Header showLogout={authenticated === true} />
       <div className="min-h-[70vh] flex items-center justify-center px-4">
         <div className="max-w-md w-full text-center space-y-4">
-          {hildeEnabled ? (
+          {mascotEnabled ? (
             <div className="flex justify-center">
-              <Hilde size={140} state="idle" />
+              <Mascot variant={mascotVariant} size={140} state="idle" />
             </div>
           ) : (
             <Wrench size={56} weight="bold" className="mx-auto text-muted" />

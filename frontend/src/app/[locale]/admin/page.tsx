@@ -32,6 +32,7 @@ import ProvidersTab from "./_components/providers";
 import PromptsTab from "./_components/PromptsTab";
 import QuotaTab from "./_components/QuotaTab";
 import HildeTab from "./_components/HildeTab";
+import FrancisTab from "./_components/FrancisTab";
 import ToolsTab from "./_components/ToolsTab";
 import RolesTab from "./_components/RolesTab";
 import SystemInfoTab from "./_components/SystemInfoTab";
@@ -50,6 +51,7 @@ type Tab =
   | "ki-stats"
   | "limits"
   | "hilde"
+  | "francis"
   | "quota";
 
 interface NavItem {
@@ -109,7 +111,10 @@ export default function AdminPage() {
     },
     {
       label: t("nav.playground"),
-      items: [{ key: "hilde", label: t("nav.mascot"), icon: <Bird {...ICON_PROPS} /> }],
+      items: [
+        { key: "hilde", label: t("nav.hilde"), icon: <Bird {...ICON_PROPS} /> },
+        { key: "francis", label: t("nav.francis"), icon: <Bird {...ICON_PROPS} /> },
+      ],
     },
   ];
 
@@ -237,6 +242,7 @@ export default function AdminPage() {
           {tab === "ki-stats" && <KiTutorTab />}
           {tab === "limits" && <SystemInfoTab />}
           {tab === "hilde" && <HildeTab />}
+          {tab === "francis" && <FrancisTab />}
           {tab === "quota" && (
             <QuotaTab
               targetUserId={quotaTargetId}

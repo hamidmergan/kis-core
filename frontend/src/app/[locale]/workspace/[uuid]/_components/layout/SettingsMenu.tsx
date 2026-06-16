@@ -4,7 +4,7 @@ import React, { useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
 import Modal from "@/components/ui/Modal";
 import Select from "@/components/ui/Select";
-import { useHildePref } from "@/hooks/useHildePref";
+import { useMascotPref, type MascotMode } from "@/hooks/useMascotPref";
 import type { TranscriptTranslationMode, TranscriptDefaultLang } from "../../_types";
 
 interface SettingsMenuProps {
@@ -82,7 +82,7 @@ export function SettingsMenu({
 }: SettingsMenuProps) {
   const t = useTranslations("workspace.detail.settings");
   const tDiag = useTranslations("workspace.detail.languageTraining.diagnosis");
-  const { enabled: hildeEnabled, toggle: toggleHilde, globalEnabled: mascotGlobalEnabled } = useHildePref();
+  const { mode: mascotMode, setMode: setMascotMode, globalEnabled: mascotGlobalEnabled } = useMascotPref();
 
   // Target-language options come from the backend (single source of truth).
   const [targetLangOptions, setTargetLangOptions] = useState<{ value: string; label: string }[]>([]);
@@ -113,16 +113,27 @@ export function SettingsMenu({
     { value: "manual" as const, label: t("translationModeManual") },
   ];
 
+  const MASCOT_OPTIONS = [
+    { value: "off" as const, label: t("mascotOff") },
+    { value: "hilde" as const, label: t("mascotHilde") },
+    { value: "francis" as const, label: t("mascotFrancis") },
+  ];
+
   return (
     <Modal open={open} onClose={onClose} title={t("title")} size="md">
       <div className="flex flex-col gap-4">
         {mascotGlobalEnabled && (
-          <ToggleRow
-            title={t("hildeTitle")}
-            description={t("hildeDescription")}
-            checked={hildeEnabled}
-            onToggle={toggleHilde}
-          />
+          <div>
+            <p className="text-sm font-medium" style={{ color: "var(--foreground)" }}>{t("mascotTitle")}</p>
+            <p className="text-xs mt-1" style={{ color: "var(--muted)" }}>{t("mascotDescription")}</p>
+            <div className="mt-2">
+              <Select<MascotMode>
+                value={mascotMode}
+                onChange={setMascotMode}
+                options={MASCOT_OPTIONS}
+              />
+            </div>
+          </div>
         )}
         <ToggleRow
           title={t("studioTitle")}

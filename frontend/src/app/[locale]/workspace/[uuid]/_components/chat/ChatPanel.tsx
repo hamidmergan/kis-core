@@ -3,7 +3,7 @@ import { useTranslations } from "next-intl";
 import { CaretDown, CaretUp } from "@phosphor-icons/react";
 import type { ChatMessage as ChatMessageType, Source } from "../../_types";
 import type { AddNoteExtras } from "../../_hooks/useNotes";
-import { useHildePref } from "@/hooks/useHildePref";
+import { useMascotPref } from "@/hooks/useMascotPref";
 import { ChatHeader } from "./ChatHeader";
 import { ChatEmptyState } from "./ChatEmptyState";
 import { ChatMessage } from "./ChatMessage";
@@ -45,7 +45,7 @@ export function ChatPanel({
   hideHeader?: boolean;
 }) {
   const t = useTranslations("workspace.detail.chat");
-  const { enabled: hildeEnabled } = useHildePref();
+  const { enabled: mascotEnabled, variant: mascotVariant } = useMascotPref();
 
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const isFirstRender = useRef(true);
@@ -166,7 +166,8 @@ export function ChatPanel({
             <ChatEmptyState
               activeSourceIds={activeSourceIds}
               onSendPrompt={onSendPrompt}
-              hildeEnabled={hildeEnabled}
+              mascotEnabled={mascotEnabled}
+              variant={mascotVariant}
             />
           )}
 
@@ -186,7 +187,8 @@ export function ChatPanel({
                 onChipClick={handleChipClick}
                 onSaveNote={onSaveNote}
                 loading={loading}
-                hildeEnabled={hildeEnabled}
+                mascotEnabled={mascotEnabled}
+                variant={mascotVariant}
                 isLatest={i === messages.length - 1}
                 collapseByDefault={msg.role === "assistant" && !recentAssistantIdx.has(i)}
                 popupActions={popupActions}

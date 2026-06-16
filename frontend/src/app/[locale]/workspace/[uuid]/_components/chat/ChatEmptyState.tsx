@@ -1,16 +1,17 @@
 import { useTranslations } from "next-intl";
 import { Chat } from "@phosphor-icons/react";
-import Hilde from "@/components/ui/Hilde";
+import Mascot, { type MascotVariant } from "@/components/ui/Mascot";
 
 
 interface ChatEmptyStateProps {
   activeSourceIds: string[];
   onSendPrompt?: (text: string) => void;
-  hildeEnabled?: boolean;
+  mascotEnabled?: boolean;
+  variant?: MascotVariant;
 }
 
 
-export function ChatEmptyState({ activeSourceIds, onSendPrompt, hildeEnabled = true }: ChatEmptyStateProps) {
+export function ChatEmptyState({ activeSourceIds, onSendPrompt, mascotEnabled = true, variant = "francis" }: ChatEmptyStateProps) {
   const t = useTranslations("workspace.detail.chat");
   const disabled = activeSourceIds.length === 0;
   const prompts = [
@@ -20,8 +21,8 @@ export function ChatEmptyState({ activeSourceIds, onSendPrompt, hildeEnabled = t
   ];
   return (
     <div className="flex-1 flex flex-col items-center justify-center gap-4 py-16">
-      {hildeEnabled ? (
-        <Hilde size={120} state="wave" />
+      {mascotEnabled ? (
+        <Mascot variant={variant} size={120} state="wave" />
       ) : (
         <div
           className="w-12 h-12 rounded-full flex items-center justify-center"
@@ -31,10 +32,12 @@ export function ChatEmptyState({ activeSourceIds, onSendPrompt, hildeEnabled = t
         </div>
       )}
       <p className="text-base font-medium" style={{ color: "var(--foreground)" }}>
-        {hildeEnabled ? t("emptyHildeGreeting") : t("emptyAssistantTitle")}
+        {mascotEnabled
+          ? (variant === "hilde" ? t("emptyHildeGreeting") : t("emptyFrancisGreeting"))
+          : t("emptyAssistantTitle")}
       </p>
       <p className="text-sm text-center max-w-xs" style={{ color: "var(--muted)" }}>
-        {hildeEnabled ? t("emptyHildeIntro") : t("emptyAssistantIntro")}
+        {mascotEnabled ? t("emptyHildeIntro") : t("emptyAssistantIntro")}
       </p>
       <div className="flex flex-col gap-2 mt-2 w-full max-w-sm">
         {prompts.map((prompt) => (

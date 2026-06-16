@@ -4,7 +4,7 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { Binoculars, CaretDown, CaretUp, Check, ChatCircle, Copy, FunnelSimple, Lightbulb, ListBullets, NotePencil, Stop, Translate, type Icon as PhosphorIconType } from "@phosphor-icons/react";
 import Spinner from "@/components/ui/Spinner";
-import Hilde, { type HildeState } from "@/components/ui/Hilde";
+import Mascot, { type MascotState, type MascotVariant } from "@/components/ui/Mascot";
 import { _embedQmapIntoCitations, _getChipIcon } from "../../_utils";
 import type { ChatMessage as ChatMessageType } from "../../_types";
 import type { AddNoteExtras } from "../../_hooks/useNotes";
@@ -48,7 +48,8 @@ interface ChatMessageProps {
   onChipClick: CitationChipClickHandler;
   onSaveNote?: (content: string, sourceUuids?: string[], extras?: AddNoteExtras) => void | Promise<void>;
   loading: boolean;
-  hildeEnabled?: boolean;
+  mascotEnabled?: boolean;
+  variant?: MascotVariant;
   isLatest?: boolean;
   collapseByDefault?: boolean;
   popupActions?: { key: string; label: string; icon: string }[];
@@ -57,7 +58,7 @@ interface ChatMessageProps {
 
 function ChatMessageImpl({
   msg, activeSourceIds, getFilename, onChipClick, onSaveNote, loading,
-  hildeEnabled = false, isLatest = false, collapseByDefault = false,
+  mascotEnabled = false, variant = "francis", isLatest = false, collapseByDefault = false,
   popupActions,
 }: ChatMessageProps) {
   const t = useTranslations("workspace.detail.chat");
@@ -105,7 +106,7 @@ function ChatMessageImpl({
     && !isStreaming
     && _isTranslateNoop(msg.content, msg.popup_selection?.text);
 
-  let avatarState: HildeState = "idle";
+  let avatarState: MascotState = "idle";
   if (msg.role === "assistant") {
     // Stay "thinking" for the whole stream — qmap arrives before the stream ends,
     // so switching to "found" on qmap made Hilde look done while still writing.
@@ -189,11 +190,11 @@ function ChatMessageImpl({
       className={`flex flex-col gap-1.5 group ${msg.role === "user" ? "items-end" : "items-start"}`}
     >
       {msg.role === "assistant" && (
-        hildeEnabled ? (
+        mascotEnabled ? (
           isLatest && (
             <div className="flex items-center gap-2 mb-0.5">
-              <Hilde size={80} state={avatarState} />
-              <span className="text-base font-medium">{t("hildeName")}</span>
+              <Mascot variant={variant} size={80} state={avatarState} />
+              <span className="text-base font-medium">{variant === "hilde" ? t("hildeName") : t("francisName")}</span>
             </div>
           )
         ) : (
