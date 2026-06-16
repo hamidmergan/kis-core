@@ -9,8 +9,16 @@
 
 BACKEND_CONTAINER ?= kis-backend
 
+# LDAP user backup/restore (acts on the kis-openldap container where make runs:
+# locally against your dev stack, on the prod box against prod).
+LDAP_CONTAINER ?= kis-openldap
+LDAP_ADMIN_DN  ?= cn=admin,dc=th-luebeck,dc=de
+LDAP_ADMIN_PW  ?= admin
+LDAP_PEOPLE_DN ?= ou=people,dc=th-luebeck,dc=de
+LDAP_BACKUP    ?= private/ldap-users.ldif
+
 .DEFAULT_GOAL := help
-.PHONY: help test test-backend test-frontend test-unit test-e2e test-all
+.PHONY: help test test-backend test-frontend test-unit test-e2e test-all ldap-snapshot ldap-restore
 
 help: ## Show this help
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) \
@@ -36,3 +44,21 @@ test-e2e: ## Run frontend Playwright E2E tests (needs the live stack up)
 test-all: ## Run all unit suites (backend + frontend), then E2E
 	@$(MAKE) test-unit
 	@$(MAKE) test-e2e
+
+ldap-snapshot: ## Save all LDAP users (uid, name, password hash) to $(LDAP_BACKUP)
+	@docker ps --format '{{.Names}}' | grep -qx $(LDAP_CONTAINER) \
+		|| { echo "✗ $(LDAP_CONTAINER) is not running. Start the stack first."; exit 1; }
+	@mkdir -p $(dir $(LDAP_BACKUP))
+	@docker exec $(LDAP_CONTAINER) ldapsearch -x -LLL -H ldap://localhost \
+		-D '$(LDAP_ADMIN_DN)' -w '$(LDAP_ADMIN_PW)' \
+		-b '$(LDAP_PEOPLE_DN)' '(objectClass=*)' > $(LDAP_BACKUP)
+	@echo "✓ Saved $$(grep -c '^dn: uid=' $(LDAP_BACKUP)) users to $(LDAP_BACKUP)"
+
+ldap-restore: ## Re-import users from $(LDAP_BACKUP) into LDAP (existing ones are skipped)
+	@docker ps --format '{{.Names}}' | grep -qx $(LDAP_CONTAINER) \
+		|| { echo "✗ $(LDAP_CONTAINER) is not running. Start the stack first."; exit 1; }
+	@test -f $(LDAP_BACKUP) || { echo "✗ $(LDAP_BACKUP) not found. Run 'make ldap-snapshot' first."; exit 1; }
+	@docker exec -i $(LDAP_CONTAINER) ldapadd -c -x -H ldap://localhost \
+		-D '$(LDAP_ADMIN_DN)' -w '$(LDAP_ADMIN_PW)' < $(LDAP_BACKUP) \
+		|| true
+	@echo "✓ Restore from $(LDAP_BACKUP) done (already-existing entries were skipped)"
