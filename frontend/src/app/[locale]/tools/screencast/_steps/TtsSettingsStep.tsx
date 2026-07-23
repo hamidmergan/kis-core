@@ -4,13 +4,7 @@ import { useFormatter, useTranslations } from "next-intl";
 import type { SlideData } from "@/types";
 import type { ProviderWithVoices } from "@/hooks/useVoices";
 import Select from "@/components/ui/Select";
-
-const LANGUAGE_FLAG: Record<string, string> = {
-  "": "🌐", // universal voice (no language set)
-  de: "🇩🇪", en: "🇺🇸", fr: "🇫🇷", es: "🇪🇸",
-  it: "🇮🇹", nl: "🇳🇱", pt: "🇵🇹", pl: "🇵🇱",
-  tr: "🇹🇷", zh: "🇨🇳", ja: "🇯🇵", ko: "🇰🇷",
-};
+import { LANGUAGE_FLAG } from "@/lib/languageFlags";
 
 interface TtsSettingsStepProps {
   providersLoaded: boolean;

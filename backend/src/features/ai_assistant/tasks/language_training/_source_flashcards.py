@@ -2,7 +2,7 @@
 
 import json
 
-from src.features.ai_assistant.tasks._helpers import _clean_llm_json
+from src.features.ai_assistant.tasks._helpers import _clean_llm_json, _language_label
 from src.tool_prompts import AIA_LERNKARTEN_PROMPT
 
 from src.features.ai_assistant.tasks.language_training._attribution import attach_chips
@@ -18,7 +18,7 @@ def generate_flashcards_from_source(
 ) -> tuple[list[dict], str]:
     # Explanations follow the UI language; the term itself (begriff) stays in the
     # source language for study and highlighting (see prompt LANGUAGE rule).
-    language = "English" if (locale or "").lower().startswith("en") else "German"
+    language = _language_label(locale)
     prompt = AIA_LERNKARTEN_PROMPT.replace("{count}", str(count)).replace("{language}", language)
     # No "avoid these existing cards" block: feeding them back made the model copy them.
     # Variation comes from the rotating page subset in build_source_context.
