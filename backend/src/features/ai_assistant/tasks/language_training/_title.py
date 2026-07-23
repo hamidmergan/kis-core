@@ -1,5 +1,7 @@
 """LLM-backed title generation for exercise sets."""
 
+from loguru import logger
+
 
 def title_from_items(client, model, items_list: list[dict], fallback: str) -> str:
     """Generate a short title from the actual item fronts so sets from the same
@@ -22,11 +24,19 @@ def title_from_items(client, model, items_list: list[dict], fallback: str) -> st
                 {"role": "user", "content": f"Entries:\n{preview}"},
             ],
             temperature=0.7,
-            max_tokens=30,
+            # Generous budget: reasoning models spend tokens on thinking before the first
+            # content token, and a 30-token cap left content empty -> silent filename fallback.
+            max_tokens=400,
         )
-        t = (resp.choices[0].message.content or "").strip().strip('"\'')
+        raw = (resp.choices[0].message.content or "").strip()
+        # First non-empty line only: with the larger budget a chatty model may add a
+        # second line, and the title column is a single short line.
+        t = next((ln.strip().strip('"\'') for ln in raw.splitlines() if ln.strip()), "")[:120]
+        if not t:
+            logger.warning("Exercise-set title: empty LLM response, falling back to {!r}", fallback)
         return t or fallback
-    except Exception:
+    except Exception as e:
+        logger.warning("Exercise-set title generation failed ({}), falling back to {!r}", e, fallback)
         return fallback
 
 

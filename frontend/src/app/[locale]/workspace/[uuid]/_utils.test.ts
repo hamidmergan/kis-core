@@ -6,6 +6,8 @@ import {
   _fileKind,
   _formatTime,
   _md,
+  _guardMathDollars,
+  _mathToUnicode,
   _sourceChipKey,
   _chunkLabel,
   _getChipIcon,
@@ -123,6 +125,10 @@ describe("_md", () => {
   it("escapes HTML inside bold spans", () => {
     expect(_md("**<img>**")).toBe("<strong>&lt;img&gt;</strong>");
   });
+
+  it("flattens LaTeX to Unicode, since flashcards have no KaTeX", () => {
+    expect(_md("Aktiv $\\rightarrow$ Passiv")).toBe("Aktiv → Passiv");
+  });
 });
 
 // ── _sourceChipKey ───────────────────────────────────────────────────────────
@@ -204,5 +210,90 @@ describe("parseQuiz", () => {
     const out = parseQuiz("1. Q?\nA. Right ✓\nB. Other (richtig)");
     expect(out[0].options).toEqual(["Right", "Other"]);
     expect(out[0].correct).toBe(1);
+  });
+});
+
+// ── _guardMathDollars ────────────────────────────────────────────────────────
+describe("_guardMathDollars", () => {
+  it("keeps a LaTeX command untouched so KaTeX can render it", () => {
+    const raw = 'z. B. "Ich bin arbeitslos" $\\rightarrow$ "Wenn ich nicht arbeitslos wäre"';
+    expect(_guardMathDollars(raw)).toBe(raw);
+  });
+
+  it("keeps real formulas untouched", () => {
+    expect(_guardMathDollars("Die Formel $x^2 + y_1$ gilt.")).toBe("Die Formel $x^2 + y_1$ gilt.");
+    expect(_guardMathDollars("Bruch $\\frac{a}{b}$ hier.")).toBe("Bruch $\\frac{a}{b}$ hier.");
+  });
+
+  it("keeps a short symbol-only span untouched", () => {
+    expect(_guardMathDollars("Sei $n$ die Anzahl.")).toBe("Sei $n$ die Anzahl.");
+    expect(_guardMathDollars("Es gilt $a+b$ immer.")).toBe("Es gilt $a+b$ immer.");
+  });
+
+  it("escapes currency pairs so prose does not turn into a formula", () => {
+    expect(_guardMathDollars("Das kostet 5$ und jenes 10$ pro Monat."))
+      .toBe("Das kostet 5\\$ und jenes 10\\$ pro Monat.");
+    expect(_guardMathDollars("Preise: $5 und $10 im Jahr."))
+      .toBe("Preise: \\$5 und \\$10 im Jahr.");
+  });
+
+  it("leaves display math alone", () => {
+    expect(_guardMathDollars("Formel:\n\n$$E = mc^2$$\n")).toBe("Formel:\n\n$$E = mc^2$$\n");
+  });
+
+  it("leaves an unclosed dollar alone while the answer is still streaming", () => {
+    expect(_guardMathDollars("Ich bin arbeitslos $\\right")).toBe("Ich bin arbeitslos $\\right");
+  });
+
+  it("never touches dollars inside code spans or fences", () => {
+    expect(_guardMathDollars("Nutze `echo 5$ und 10$` im Terminal."))
+      .toBe("Nutze `echo 5$ und 10$` im Terminal.");
+    expect(_guardMathDollars("```\nPRICE=5$\nMAX=10$\n```"))
+      .toBe("```\nPRICE=5$\nMAX=10$\n```");
+  });
+
+  it("is idempotent, so re-running it on a growing stream stays stable", () => {
+    const once = _guardMathDollars("Das kostet 5$ und jenes 10$.");
+    expect(_guardMathDollars(once)).toBe(once);
+  });
+
+  it("passes text without dollars straight through", () => {
+    expect(_guardMathDollars("Ein Satz ohne Sonderzeichen.")).toBe("Ein Satz ohne Sonderzeichen.");
+  });
+});
+
+// ── _mathToUnicode ───────────────────────────────────────────────────────────
+describe("_mathToUnicode", () => {
+  it("turns a LaTeX arrow into the plain Unicode character", () => {
+    expect(_mathToUnicode('"Ich bin arbeitslos" $\\rightarrow$ "Wenn ich nicht arbeitslos wäre"'))
+      .toBe('"Ich bin arbeitslos" → "Wenn ich nicht arbeitslos wäre"');
+  });
+
+  it("maps common operators and comparisons", () => {
+    expect(_mathToUnicode("$5 \\times 3$ und $a \\leq b$")).toBe("5 × 3 und a ≤ b");
+    expect(_mathToUnicode("$\\alpha + \\beta$")).toBe("α + β");
+  });
+
+  it("flattens fractions, roots and sub-/superscripts", () => {
+    expect(_mathToUnicode("$\\frac{a}{b}$")).toBe("a/b");
+    expect(_mathToUnicode("$\\sqrt{2}$")).toBe("√(2)");
+    expect(_mathToUnicode("$x^2 + y_1$")).toBe("x² + y₁");
+  });
+
+  it("handles display math", () => {
+    expect(_mathToUnicode("$$E = mc^2$$")).toBe("E = mc²");
+  });
+
+  it("drops the backslash of an unknown command instead of showing it raw", () => {
+    expect(_mathToUnicode("$\\foobar x$")).toBe("foobar x");
+  });
+
+  it("leaves currency alone, same rule as the renderer", () => {
+    expect(_mathToUnicode("Das kostet 5$ und jenes 10$ pro Monat."))
+      .toBe("Das kostet 5$ und jenes 10$ pro Monat.");
+  });
+
+  it("passes text without dollars straight through", () => {
+    expect(_mathToUnicode("Ein Satz ohne Formeln.")).toBe("Ein Satz ohne Formeln.");
   });
 });

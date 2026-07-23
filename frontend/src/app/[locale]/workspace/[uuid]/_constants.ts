@@ -22,3 +22,9 @@ export const NOTE_BODY_WARN_AT = 1800;  // shows char counter when draft length 
 
 export const SCHEDULE_TITLE_MAX = 200;
 export const SCHEDULE_DESCRIPTION_MAX = 2000;
+
+// KaTeX settings for every Markdown surface that renders model output. Models emit
+// LaTeX freely and sometimes malformed, so a broken formula must never blow up the
+// answer: throwOnError false makes KaTeX print the raw snippet in errorColor instead,
+// and strict false accepts the loose notation models like (Unicode inside math, …).
+export const KATEX_OPTIONS = { throwOnError: false, strict: false as const, errorColor: "var(--muted)" };

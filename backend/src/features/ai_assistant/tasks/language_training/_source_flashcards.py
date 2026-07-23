@@ -41,7 +41,12 @@ def generate_flashcards_from_source(
     # actually appears (same pgvector gate as chat), nav-only, no highlight. A card is one
     # atomic fact, so multi=False -> exactly the single best-matching source, never several.
     attach_chips(items, [_card_claim(c) for c in cards], ctx, multi=False)
-    title = title_from_items(client, model, items, ctx.multi_label)
+    # The generation prompt already asks for a "title" (see AIA_LERNKARTEN_PROMPT), so take it
+    # from this same response instead of spending a second call on it. title_from_items stays
+    # as the fallback for models that skip the field.
+    title = (data.get("title") or "").strip()
+    if not title:
+        title = title_from_items(client, model, items, ctx.multi_label)
     return items, title
 
 

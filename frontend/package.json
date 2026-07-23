@@ -16,6 +16,7 @@
   "dependencies": {
     "@embedpdf/react-pdf-viewer": "^2.10.0",
     "@phosphor-icons/react": "^2.1.10",
+    "katex": "^0.16.47",
     "mind-elixir": "^5.9.3",
     "next": "^15.1.0",
     "next-intl": "^4.0.0",
@@ -23,8 +24,10 @@
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "react-markdown": "^10.1.0",
+    "rehype-katex": "^7.0.1",
     "rehype-raw": "^7.0.0",
-    "remark-gfm": "^4.0.0"
+    "remark-gfm": "^4.0.0",
+    "remark-math": "^6.0.0"
   },
   "devDependencies": {
     "@playwright/test": "^1.60.0",

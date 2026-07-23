@@ -27,13 +27,14 @@ def save_aia_message(
     enrollment_id: int | None = None,
     source_qmap: list | None = None,
     aborted: bool = False,
+    failed: bool = False,
 ) -> None:
     with get_connection() as conn:
         with conn.cursor() as cur:
             cur.execute(
                 """INSERT INTO aia_messages
-                   (workspace_id, user_id, role, content, source_pages, enrollment_id, source_qmap, aborted)
-                   VALUES (%s, %s, %s, %s, %s, %s, %s, %s)""",
+                   (workspace_id, user_id, role, content, source_pages, enrollment_id, source_qmap, aborted, failed)
+                   VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)""",
                 (
                     workspace_id,
                     user_id,
@@ -43,6 +44,7 @@ def save_aia_message(
                     enrollment_id,
                     json.dumps(source_qmap) if source_qmap is not None else None,
                     aborted,
+                    failed,
                 ),
             )
         conn.commit()

@@ -15,6 +15,12 @@ _SOURCE_RULE = (
 _PERSONAL_RULE = (
     "IMPORTANT:\n- Do NOT use personal names in questions. Instead of 'laut Prof. X', write 'laut Quelle' (German) or 'according to the source' (English), matching the output language.\n"
 )
+# The title ships with the generation response so no extra LLM call is needed for it
+# (that call used to come back empty on reasoning models and left the raw filename behind).
+_TITLE_RULE = (
+    "- title: a short, concrete topic title in {language} (max 6 words), no quotation marks, "
+    "never a filename.\n"
+)
 
 
 def _language_label(locale: str) -> str:
@@ -41,9 +47,17 @@ def generate_mc_from_source(
     # rotating page subset in build_source_context (different chunks per run). Still JSON-safe.
     response = client.chat.completions.create(model=model, messages=messages, temperature=0.6)
     answer = _clean_llm_json(response.choices[0].message.content or "")
-    exercises = json.loads(answer)
-    if isinstance(exercises, list):
-        exercises = exercises[:count]
+    data = json.loads(answer)
+    # Preferred shape is {"title": ..., "exercises": [...]} so the title comes free with the
+    # generation call. A bare array (older/simpler models) still works, then the title is
+    # derived afterwards from the items.
+    if isinstance(data, dict):
+        exercises = data.get("exercises") or []
+        json_title = (data.get("title") or "").strip()
+    else:
+        exercises = data
+        json_title = ""
+    exercises = list(exercises)[:count]
 
     if tool == "lueckentext":
         items, claims = _build_lueckentext_items(exercises)
@@ -56,7 +70,7 @@ def generate_mc_from_source(
     # multi=False: an MC answer has a single origin, not "every page with the word".
     attach_chips(items, claims, ctx, multi=False)
 
-    title = title_from_items(client, model, items, ctx.multi_label)
+    title = json_title or title_from_items(client, model, items, ctx.multi_label)
     return items, title
 
 
@@ -66,24 +80,27 @@ def _build_prompt(tool: str, count: int, language: str) -> str:
         f"Write ALL questions, sentences, options, and answers in {language}, "
         f"regardless of the source-text language. Translate source content into {language} if needed.\n\n"
     )
+    title_rule = _TITLE_RULE.replace("{language}", language)
     if tool == "lueckentext":
         return base + (
-            "Create cloze (gap-filling) exercises. Respond ONLY with a JSON array:\n"
+            "Create cloze (gap-filling) exercises. Respond ONLY with a JSON object:\n"
+            '{"title": "Short topic title", "exercises": '
             '[{"sentence": "Sentence with ___ as a gap", "answer": "Answer", '
             '"options": ["A", "B", "C", "D"], "correct_idx": 0, '
-            '"source_label": "Filename.pdf", "page_number": 5}]\n'
-            + _PERSONAL_RULE + _SOURCE_RULE +
+            '"source_label": "Filename.pdf", "page_number": 5}]}\n'
+            + _PERSONAL_RULE + _SOURCE_RULE + title_rule +
             f"Create exactly {count} exercises."
         )
     if tool == "quiz":
         return base + (
             "Create multiple-choice comprehension questions for the given text. "
             "The questions should test understanding of the content.\n\n"
-            "Respond ONLY with a JSON array:\n"
+            "Respond ONLY with a JSON object:\n"
+            '{"title": "Short topic title", "exercises": '
             '[{"question": "Comprehension question?", "options": ["A", "B", "C", "D"], '
             '"correct_idx": 0, '
-            '"source_label": "Filename.pdf", "page_number": 5}]\n'
-            + _PERSONAL_RULE + _SOURCE_RULE +
+            '"source_label": "Filename.pdf", "page_number": 5}]}\n'
+            + _PERSONAL_RULE + _SOURCE_RULE + title_rule +
             f"Create exactly {count} questions. Mix easy and hard ones."
         )
     # vokabeltest (default)
@@ -96,11 +113,12 @@ def _build_prompt(tool: str, count: int, language: str) -> str:
         "- Which technical term describes the following: [definition]?\n\n"
         "Pick terms suitable for multiple choice "
         "(clear definition, plausible distractors possible).\n\n"
-        "Respond ONLY with a JSON array:\n"
+        "Respond ONLY with a JSON object:\n"
+        '{"title": "Short topic title", "exercises": '
         '[{"question": "Question about the technical term?", "options": ["A", "B", "C", "D"], '
         '"correct_idx": 0, '
-        '"source_label": "Filename.pdf", "page_number": 5}]\n'
-        + _PERSONAL_RULE + _SOURCE_RULE +
+        '"source_label": "Filename.pdf", "page_number": 5}]}\n'
+        + _PERSONAL_RULE + _SOURCE_RULE + title_rule +
         f"Create exactly {count} questions."
     )
 

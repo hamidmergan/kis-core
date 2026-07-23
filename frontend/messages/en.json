@@ -1600,7 +1600,8 @@
           "sourceHeading": "Source",
           "fromGlossary": "From glossary",
           "glossaryTermsCount": "({count} terms)",
-          "fromSelectedSource": "From selected source",
+          "fromSelectedSource": "{count, plural, =0 {From selected source} =1 {From selected source} other {From selected sources}}",
+          "selectedSourcesCount": "{count} sources",
           "noSourceHint": "Select a source on the left to generate from it.",
           "countHeading": "Count"
         },
@@ -1793,6 +1794,7 @@
         "francisName": "Francis",
         "noAnswer": "(no answer)",
         "aborted": "Stopped",
+        "retry": "Retry",
         "copy": "Copy",
         "saveAsNote": "Save as note",
         "expand": "Show more",
@@ -1800,7 +1802,7 @@
         "sourcesCount": "{n, plural, =1 {1 source} other {# sources}}",
         "indexingInProgress": "{label} is still being indexed. Please wait a moment and try again.",
         "tooManyRequests": "Too many requests. Please wait a moment and try again.",
-        "genericError": "An error occurred. Please try again.",
+        "genericError": "An error occurred.",
         "translateFailed": "This passage could not be translated."
       },
       "sources": {

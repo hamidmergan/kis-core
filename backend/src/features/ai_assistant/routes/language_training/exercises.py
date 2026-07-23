@@ -144,17 +144,24 @@ async def create_exercise_set(
     enforce_aia_burst(user_id, locale)
     enforce_quota(user_id, "aia_generate", is_admin_user(current_user), locale)
 
-    if body.mode == "source" and not body.source_uuid:
-        raise HTTPException(status_code=400, detail=t("ai.source.notSelected", locale))
+    # A set can be generated from every selected source, not just the first one.
+    # source_uuid stays supported for older clients that only send a single UUID.
+    source_uuids = body.source_uuids or ([body.source_uuid] if body.source_uuid else [])
+    if body.mode == "source":
+        if not source_uuids:
+            raise HTTPException(status_code=400, detail=t("ai.source.notSelected", locale))
+        _resolve_source_ids(workspace, source_uuids, max_count=5, locale=locale)
 
     placeholder = db.create_exercise_set_placeholder(
         workspace_id=workspace["id"], user_id=user_id, tool=body.tool,
-        title="Wird generiert…", mode=body.mode, source_uuid=body.source_uuid,
+        title="Wird generiert…", mode=body.mode,
+        source_uuid=source_uuids[0] if source_uuids else None,
     )
 
     from src.tasks.aia_tasks import run_generate_exercise_set
     run_generate_exercise_set.delay(
-        placeholder["id"], workspace["id"], body.tool, body.mode, body.count, body.source_uuid,
+        placeholder["id"], workspace["id"], body.tool, body.mode, body.count,
+        source_uuids=source_uuids or None,
         locale=locale,
     )
 

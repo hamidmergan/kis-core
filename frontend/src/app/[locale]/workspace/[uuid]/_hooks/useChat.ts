@@ -105,6 +105,20 @@ export function useChat({ uuid, enrollmentId, selectedSourceIds, viewerSource, c
     setChatLoading(true);
     setMessages((prev) => [...prev, { role: "assistant", content: "", sourceCount: msgSourceCount, popup_selection: popupSel }]);
 
+    // Safety net for a finished request that left the bubble empty: the backend can
+    // emit `done` with an empty answer (model produced nothing, or the cleanup filters
+    // stripped everything), and the stream can also end without any done/error event.
+    // Both used to leave the message blank, which the UI rendered as an endless
+    // typing indicator. A cancelled message keeps its own "aborted" marker.
+    const failIfEmpty = () =>
+      setMessages((prev) => {
+        const last = prev[prev.length - 1];
+        if (!last || last.role !== "assistant" || last.content || last.aborted) return prev;
+        const updated = [...prev];
+        updated[updated.length - 1] = { ...last, content: tChat("genericError"), failed: true };
+        return updated;
+      });
+
     const updateLast = (patch: Partial<ChatMessage>) =>
       setMessages((prev) => {
         const updated = [...prev];
@@ -190,7 +204,7 @@ export function useChat({ uuid, enrollmentId, selectedSourceIds, viewerSource, c
               if (evt.answer) patch.content = evt.answer;
               updateLast(patch);
             } else if (evt.error) {
-              updateLast({ content: "Es ist ein Fehler aufgetreten. Bitte versuche es erneut." });
+              updateLast({ content: tChat("genericError"), failed: true });
             }
           } catch { /* skip malformed */ }
         };
@@ -220,7 +234,9 @@ export function useChat({ uuid, enrollmentId, selectedSourceIds, viewerSource, c
         } catch { /* ignore */ }
         updateLast({ content: msg });
       } else {
-        updateLast({ content: tChat("genericError") });
+        // 409 and 429 above stay unflagged on purpose: they are "come back later"
+        // states, and an immediate retry would only hit the same lock.
+        updateLast({ content: tChat("genericError"), failed: true });
       }
     } catch {
       // AbortController-triggered cancel: keep partial text + flag aborted.
@@ -228,18 +244,39 @@ export function useChat({ uuid, enrollmentId, selectedSourceIds, viewerSource, c
       // the user sees an actionable error instead of a silent "you cancelled" flag.
       // Other errors (network drop, parse fail) overwrite with generic error text.
       if (timedOut) {
-        updateLast({ content: tChat("genericError") });
+        updateLast({ content: tChat("genericError"), failed: true });
       } else if (ac.signal.aborted) {
         updateLast({ aborted: true });
       } else {
-        updateLast({ content: tChat("genericError") });
+        updateLast({ content: tChat("genericError"), failed: true });
       }
     } finally {
       clearInactivity();
       if (abortControllerRef.current === ac) abortControllerRef.current = null;
+      failIfEmpty();
       setChatLoading(false);
     }
   }, [uuid, enrollmentId, selectedSourceIds, viewerSource, popupActions]);
+
+  // Read through a ref so retryLast keeps a stable identity — it travels down to
+  // the memoized ChatMessage, and a `messages` dependency would re-render every
+  // bubble on every token.
+  const messagesRef = useRef<ChatMessage[]>(messages);
+  messagesRef.current = messages;
+
+  /**
+   * Re-ask the most recent question after a failed turn. The failed bubble stays
+   * in place and the retry appends a new turn, so the panel matches what the
+   * backend persisted (a failed marker, then the new exchange) instead of
+   * quietly rewriting history. Popup/action-bar turns are skipped: replaying one
+   * needs the original selection context, which the retry button does not carry.
+   */
+  const retryLast = useCallback(() => {
+    if (chatLoading) return;
+    const lastUser = [...messagesRef.current].reverse().find((m) => m.role === "user");
+    if (!lastUser || lastUser.popup_selection) return;
+    sendChatMessage(lastUser.content);
+  }, [chatLoading, sendChatMessage]);
 
   useEffect(() => {
     loadPopupActions();
@@ -251,6 +288,6 @@ export function useChat({ uuid, enrollmentId, selectedSourceIds, viewerSource, c
     popupActions, setPopupActions,
     chatTextareaRef, chatSetInputRef,
     registerChatSetInput,
-    loadMessages, sendChatMessage, stopChat,
+    loadMessages, sendChatMessage, stopChat, retryLast,
   };
 }

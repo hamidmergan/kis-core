@@ -46,14 +46,20 @@ export function useExercises({ uuid }: UseExercisesOptions) {
     } catch { /* ignore */ }
   }, [uuid]);
 
-  const createExerciseSet = useCallback(async (tool: string, mode: string, count: number, sourceUuid?: string) => {
+  const createExerciseSet = useCallback(async (tool: string, mode: string, count: number, sourceUuids?: string[]) => {
     try {
       // api.fetch attaches Accept-Language from the NEXT_LOCALE cookie so the
       // backend generates the set in the UI language (raw fetch defaulted to de).
       const res = await api.fetch(`/api/ai-assistant/workspaces/${uuid}/exercise-sets`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ tool, mode, count, source_uuid: sourceUuid }),
+        // source_uuids covers every selected source; source_uuid stays for the older
+        // single-source contract the backend still accepts.
+        body: JSON.stringify({
+          tool, mode, count,
+          source_uuids: sourceUuids,
+          source_uuid: sourceUuids?.[0],
+        }),
       });
       if (res.ok) {
         const data = await res.json();

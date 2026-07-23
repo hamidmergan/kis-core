@@ -3,14 +3,20 @@ import { Sparkle } from "@phosphor-icons/react";
 import { useTranslations } from "next-intl";
 
 export function CreateSetModal({
-  tool, glossaryCount, selectedSource,
+  tool, glossaryCount, selectedSources,
   onClose, onCreate,
 }: {
-  tool: string; glossaryCount: number; selectedSource?: { uuid: string; filename: string } | null;
+  tool: string; glossaryCount: number; selectedSources?: { uuid: string; filename: string }[] | null;
   onClose: () => void;
   onCreate: (mode: string, count: number) => void;
 }) {
   const t = useTranslations("workspace.detail.languageTraining");
+  const pickedSources = selectedSources ?? [];
+  const hasSource = pickedSources.length > 0;
+  // One source shows its filename, several show the count (the full list goes in the tooltip)
+  const sourceHint = pickedSources.length === 1
+    ? pickedSources[0].filename
+    : t("createModal.selectedSourcesCount", { count: pickedSources.length });
   const isQuiz = tool === "quiz";
   const [mode, setMode] = useState<"glossary" | "source">(isQuiz || glossaryCount === 0 ? "source" : "glossary");
   const [count, setCount] = useState(isQuiz ? 5 : 10);
@@ -50,23 +56,23 @@ export function CreateSetModal({
               {t("createModal.fromGlossary")} <span className="text-[10px]" style={{ color: "var(--muted)" }}>{t("createModal.glossaryTermsCount", { count: glossaryCount })}</span>
             </button>
           )}
-          <button type="button" onClick={() => selectedSource && setMode("source")}
+          <button type="button" onClick={() => hasSource && setMode("source")}
             className="flex items-center gap-2 px-3 py-2 rounded-lg text-[11px] font-medium transition-all text-left"
             style={{
               ...(mode === "source"
                 ? { border: "1.5px solid var(--kb)", backgroundColor: "rgba(var(--kb-rgb),0.07)" }
                 : { border: "1.5px solid var(--border)", backgroundColor: "var(--background)" }),
               color: "var(--foreground)",
-              opacity: selectedSource ? 1 : 0.4,
-              pointerEvents: selectedSource ? "auto" : "none",
+              opacity: hasSource ? 1 : 0.4,
+              pointerEvents: hasSource ? "auto" : "none",
             }}>
             <div className="w-3.5 h-3.5 rounded-full border-2 flex items-center justify-center shrink-0"
               style={{ borderColor: mode === "source" ? "var(--kb)" : "var(--border)" }}>
               {mode === "source" && <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: "var(--kb)" }} />}
             </div>
-            {t("createModal.fromSelectedSource")} {selectedSource && <span className="text-[10px] inline-block max-w-[120px] truncate align-bottom" title={selectedSource.filename} style={{ color: "var(--muted)" }}>({selectedSource.filename})</span>}
+            {t("createModal.fromSelectedSource", { count: pickedSources.length })} {hasSource && <span className="text-[10px] inline-block max-w-[120px] truncate align-bottom" title={pickedSources.map((s) => s.filename).join("\n")} style={{ color: "var(--muted)" }}>({sourceHint})</span>}
           </button>
-          {!selectedSource && (
+          {!hasSource && (
             <p className="text-[10px] ml-5" style={{ color: "#c4820e" }}>
               {t("createModal.noSourceHint")}
             </p>

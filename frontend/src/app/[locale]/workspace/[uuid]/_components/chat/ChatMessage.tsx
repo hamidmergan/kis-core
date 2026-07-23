@@ -2,10 +2,13 @@ import { memo, useLayoutEffect, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import { Binoculars, CaretDown, CaretUp, Check, ChatCircle, Copy, FunnelSimple, Lightbulb, ListBullets, NotePencil, Stop, Translate, type Icon as PhosphorIconType } from "@phosphor-icons/react";
+import remarkMath from "remark-math";
+import rehypeKatex from "rehype-katex";
+import { ArrowClockwise, Binoculars, CaretDown, CaretUp, Check, ChatCircle, Copy, FunnelSimple, Lightbulb, ListBullets, NotePencil, Stop, Translate, type Icon as PhosphorIconType } from "@phosphor-icons/react";
 import Spinner from "@/components/ui/Spinner";
 import Mascot, { type MascotState, type MascotVariant } from "@/components/ui/Mascot";
-import { _embedQmapIntoCitations, _getChipIcon } from "../../_utils";
+import { _embedQmapIntoCitations, _getChipIcon, _guardMathDollars } from "../../_utils";
+import { KATEX_OPTIONS } from "../../_constants";
 import type { ChatMessage as ChatMessageType } from "../../_types";
 import type { AddNoteExtras } from "../../_hooks/useNotes";
 import { copyMessageText, withCitations, type CitationChipClickHandler } from "./_citations";
@@ -47,6 +50,7 @@ interface ChatMessageProps {
   getFilename: (uuid: string) => string;
   onChipClick: CitationChipClickHandler;
   onSaveNote?: (content: string, sourceUuids?: string[], extras?: AddNoteExtras) => void | Promise<void>;
+  onRetry?: () => void;
   loading: boolean;
   mascotEnabled?: boolean;
   variant?: MascotVariant;
@@ -57,7 +61,7 @@ interface ChatMessageProps {
 
 
 function ChatMessageImpl({
-  msg, activeSourceIds, getFilename, onChipClick, onSaveNote, loading,
+  msg, activeSourceIds, getFilename, onChipClick, onSaveNote, onRetry, loading,
   mascotEnabled = false, variant = "francis", isLatest = false, collapseByDefault = false,
   popupActions,
 }: ChatMessageProps) {
@@ -157,7 +161,9 @@ function ChatMessageImpl({
     }
   }
 
-  const actionButtons = (
+  // An empty answer (cancelled or failed) has nothing to copy or save, so the
+  // buttons would only offer dead actions.
+  const actionButtons = msg.role === "assistant" && !msg.content ? null : (
     <>
       <button
         type="button"
@@ -218,12 +224,19 @@ function ChatMessageImpl({
               : { backgroundColor: "var(--surface)", color: "var(--foreground)", border: "1px solid var(--border)", borderTopLeftRadius: 6, overflowWrap: "break-word" }
           }
         >
-          {msg.role === "assistant" && !msg.content && !msg.aborted ? (
-            <span className="inline-flex items-center gap-2">{streamingDots}</span>
-          ) : msg.role === "assistant" && !msg.content && msg.aborted ? (
-            <span className="text-xs italic" style={{ color: "var(--muted)" }}>
-              {t("noAnswer")}
-            </span>
+          {msg.role === "assistant" && !msg.content ? (
+            // Dots only while the stream is actually running. An empty message with
+            // no live stream is cancelled or failed, and used to keep "thinking"
+            // forever because the indicator was tied to empty content, not to loading.
+            isStreaming ? (
+              <span className="inline-flex items-center gap-2">{streamingDots}</span>
+            ) : (
+              // A turn that failed is persisted with empty content, so after a reload
+              // it must read the same as it did live: the error, not "(no answer)".
+              <span className="text-xs italic" style={{ color: "var(--muted)" }}>
+                {msg.failed ? t("genericError") : t("noAnswer")}
+              </span>
+            )
           ) : msg.role === "assistant" && translateFailed ? (
             <span className="text-sm italic" style={{ color: "var(--muted)" }}>
               {t("translateFailed")}
@@ -235,7 +248,8 @@ function ChatMessageImpl({
                 style={collapseAssistant ? { maxHeight: "8em", overflow: "hidden" } : undefined}
               >
                 <ReactMarkdown
-                  remarkPlugins={[remarkGfm]}
+                  remarkPlugins={[remarkGfm, remarkMath]}
+                  rehypePlugins={[[rehypeKatex, KATEX_OPTIONS]]}
                   components={{
                     p: ({ children }) => <p className="mb-2 last:mb-0">{wrapCitations(children)}</p>,
                     ul: ({ children }) => <ul className="list-disc pl-4 mb-2 space-y-0.5">{children}</ul>,
@@ -251,7 +265,7 @@ function ChatMessageImpl({
                     td: ({ children }) => <td className="px-2 py-1 border-t border-current/10">{wrapCitations(children)}</td>,
                   }}
                 >
-                  {sanitizeCitationsForMarkdown(msg.content)}
+                  {_guardMathDollars(sanitizeCitationsForMarkdown(msg.content))}
                 </ReactMarkdown>
               </div>
               {isStreaming && <span className="inline-flex mt-1">{streamingDots}</span>}
@@ -323,6 +337,19 @@ function ChatMessageImpl({
             <Stop size={11} weight="bold" />
             <span>{t("aborted")}</span>
           </div>
+        )}
+
+        {/* Only the newest turn can be retried — an older failure is history, and
+            re-asking it would land out of order below the newer conversation. */}
+        {msg.role === "assistant" && msg.failed && isLatest && !loading && onRetry && (
+          <button
+            type="button"
+            onClick={onRetry}
+            className="flex items-center gap-1 mt-1 text-xs text-[var(--muted)] hover:text-[var(--kb)] transition-colors"
+          >
+            <ArrowClockwise size={11} weight="bold" />
+            <span>{t("retry")}</span>
+          </button>
         )}
 
         {msg.role === "assistant" && msgQmap.length > 0 ? (

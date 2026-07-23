@@ -1600,7 +1600,8 @@
           "sourceHeading": "Quelle",
           "fromGlossary": "Aus Glossar",
           "glossaryTermsCount": "({count} Begriffe)",
-          "fromSelectedSource": "Aus ausgewählter Quelle",
+          "fromSelectedSource": "{count, plural, =0 {Aus ausgewählter Quelle} =1 {Aus ausgewählter Quelle} other {Aus ausgewählten Quellen}}",
+          "selectedSourcesCount": "{count} Quellen",
           "noSourceHint": "Wähle links eine Quelle aus, um aus ihr zu generieren.",
           "countHeading": "Anzahl"
         },
@@ -1793,6 +1794,7 @@
         "francisName": "Francis",
         "noAnswer": "(keine Antwort)",
         "aborted": "Abgebrochen",
+        "retry": "Erneut versuchen",
         "copy": "Kopieren",
         "saveAsNote": "Als Notiz speichern",
         "expand": "Mehr anzeigen",
@@ -1800,7 +1802,7 @@
         "sourcesCount": "{n, plural, =1 {1 Quelle} other {# Quellen}}",
         "indexingInProgress": "{label} wird noch indiziert. Bitte warte einen Moment und versuche es erneut.",
         "tooManyRequests": "Zu viele Anfragen. Bitte einen Moment warten und erneut senden.",
-        "genericError": "Es ist ein Fehler aufgetreten. Bitte versuche es erneut.",
+        "genericError": "Es ist ein Fehler aufgetreten.",
         "translateFailed": "Diese Passage konnte nicht übersetzt werden."
       },
       "sources": {

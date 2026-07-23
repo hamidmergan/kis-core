@@ -99,6 +99,7 @@ async def get_messages(
             "source_pages": m["source_pages"],
             "source_qmap": m.get("source_qmap"),
             "aborted": bool(m.get("aborted")),
+            "failed": bool(m.get("failed")),
             "created_at": m["created_at"].isoformat() + "Z" if m["created_at"] else None,
         }
         for m in messages

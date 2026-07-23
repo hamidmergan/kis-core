@@ -112,7 +112,8 @@ class DataTableGenerateBody(BaseModel):
 class CreateSetBody(BaseModel):
     tool: str  # "flashcards" | "lueckentext" | "vokabeltest"
     mode: str = "glossary"  # "glossary" | "source"
-    source_uuid: Optional[str] = None
+    source_uuid: Optional[str] = None  # legacy single-source clients
+    source_uuids: Optional[list[str]] = None  # preferred: all selected sources
     count: int = 10
 
 

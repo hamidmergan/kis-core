@@ -96,7 +96,7 @@ export default function KiTutorWorkspacePage() {
     chatLoading, popupActions,
     chatTextareaRef,
     registerChatSetInput,
-    loadMessages, sendChatMessage, stopChat,
+    loadMessages, sendChatMessage, stopChat, retryLast,
     chatSetInputRef,
   } = chat;
 
@@ -337,12 +337,13 @@ export default function KiTutorWorkspacePage() {
   });
 
   // Build the language_training content tree
-  // Helper: selected source for create-set modal
-  const selectedSourceForSet = (() => {
-    if (selectedSourceIds.length === 0) return null;
-    const src = sources.find((s) => s.uuid === selectedSourceIds[0]);
-    return src ? { uuid: src.uuid, filename: src.filename } : null;
-  })();
+  // Helper: sources a new exercise set is generated from (all selected ones, same cap of 5
+  // as mindmap/data table, not just the first)
+  const setSourceUuids = selectedSourceIds.slice(0, 5);
+  const selectedSourcesForSet = setSourceUuids
+    .map((id) => sources.find((s) => s.uuid === id))
+    .filter((s): s is NonNullable<typeof s> => Boolean(s))
+    .map((s) => ({ uuid: s.uuid, filename: s.filename }));
 
   const isAdmin = auth?.is_admin ?? false;
 
@@ -545,6 +546,7 @@ export default function KiTutorWorkspacePage() {
         }}
         externalTextareaRef={chatTextareaRef}
         onSaveNote={addNote}
+        onRetry={retryLast}
         onMinimize={onMinimize}
         registerSetInput={registerChatSetInput}
         {...(hh ? { hideHeader: true } : {})}
@@ -626,7 +628,7 @@ export default function KiTutorWorkspacePage() {
         <CreateSetModal
           tool={createSetTool}
           glossaryCount={glossaryCount || glossary.length}
-          selectedSource={selectedSourceForSet}
+          selectedSources={selectedSourcesForSet}
           onClose={() => setShowCreateModal(false)}
           onCreate={async (mode, count) => {
             setShowCreateModal(false);
@@ -639,7 +641,7 @@ export default function KiTutorWorkspacePage() {
             }
             await createExerciseSet(
               createSetTool, mode, count,
-              mode === "source" ? selectedSourceIds[0] : undefined,
+              mode === "source" ? setSourceUuids : undefined,
             );
             const poll = setInterval(() => loadExerciseSets(createSetTool), 3000);
             setTimeout(() => clearInterval(poll), 120000);

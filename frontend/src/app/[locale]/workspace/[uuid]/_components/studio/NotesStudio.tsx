@@ -2,14 +2,16 @@ import React, { useEffect, useRef, useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import remarkMath from "remark-math";
+import rehypeKatex from "rehype-katex";
 import { CaretDown, CaretUp, NotePencil, PencilSimple, Plus, Trash, X } from "@phosphor-icons/react";
 import type { ChatMessage, Source, SourceQmap, SourceRef, StudentStats } from "../../_types";
-import { _getChipIcon } from "../../_utils";
+import { _getChipIcon, _guardMathDollars, _mathToUnicode } from "../../_utils";
 import { withCitations, type CitationChipClickHandler } from "../chat/_citations";
 import { SubviewHeader, type BreadcrumbItem } from "../layout/SubviewHeader";
 import Spinner from "@/components/ui/Spinner";
 import { EmptyState } from "@/components/ui/EmptyState";
-import { NOTE_TITLE_MAX, NOTE_BODY_MAX, NOTE_BODY_WARN_AT } from "../../_constants";
+import { NOTE_TITLE_MAX, NOTE_BODY_MAX, NOTE_BODY_WARN_AT, KATEX_OPTIONS } from "../../_constants";
 
 export interface Note {
   id: number;
@@ -22,7 +24,7 @@ export interface Note {
 }
 
 function _notePreview(content: string, emptyLabel: string, max = 60): string {
-  const stripped = content
+  const stripped = _mathToUnicode(content)
     .replace(/\[[^\]]*\]/g, "")
     .replace(/\*\*([^*]+)\*\*/g, "$1")
     .replace(/\*([^*]+)\*/g, "$1")
@@ -248,7 +250,8 @@ export function NotesStudio({
 
                         <div className="text-base ki-note-content" style={{ color: "var(--foreground)" }}>
                           <ReactMarkdown
-                            remarkPlugins={[remarkGfm]}
+                            remarkPlugins={[remarkGfm, remarkMath]}
+                            rehypePlugins={[[rehypeKatex, KATEX_OPTIONS]]}
                             components={{
                               p: ({ children }) => <p className="mb-2 last:mb-0">{wrapCitations(children)}</p>,
                               ul: ({ children }) => <ul className="list-disc pl-4 mb-2 space-y-0.5">{children}</ul>,
@@ -265,7 +268,7 @@ export function NotesStudio({
                               hr: () => <hr className="my-3" style={{ borderColor: "var(--border)" }} />,
                             }}
                           >
-                            {note.content.replace(/[[\u3010]([^\]\u3011]*\|[^\]\u3011]*)[\]\u3011]/g, (m) => m.replace(/\|/g, "\u2758"))}
+                            {_guardMathDollars(note.content.replace(/[[\u3010]([^\]\u3011]*\|[^\]\u3011]*)[\]\u3011]/g, (m) => m.replace(/\|/g, "\u2758")))}
                           </ReactMarkdown>
                         </div>
 

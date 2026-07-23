@@ -85,6 +85,8 @@ export interface ChatMessage {
   sourceCount?: number;
   popup_selection?: { uuid: string; page: number; text: string; action_key?: string; action_icon?: string };
   aborted?: boolean;
+  /** Stream died on an error (not a user cancellation) — the turn offers a retry. */
+  failed?: boolean;
 }
 
 export interface LernKarte {

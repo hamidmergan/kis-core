@@ -1871,24 +1871,29 @@ async def chat(
             # Send final metadata event - also send corrected answer
             yield f"data: {json.dumps({'done': True, 'answer': answer, 'source_pages': source_pages, 'source_qmap': source_qmap})}\n\n"
         finally:
-            # Fallback: if no save path ran (CancelledError, yield exception on
-            # dead connection, anything else that bypassed the explicit branches)
-            # and we have any partial content, persist it as aborted. Use a sync
-            # DB call so it survives task cancellation - asyncio.to_thread would
-            # re-raise CancelledError here.
-            if not assistant_saved and answer_parts:
+            # Fallback: no save path ran (LLM error, CancelledError, yield exception
+            # on a dead connection, anything else that bypassed the explicit
+            # branches). Persist a marker either way - the user question was already
+            # saved up-front, so skipping this leaves a question with nothing after
+            # it after a reload, with no hint that anything went wrong. A stream that
+            # produced text was cut off (aborted); one that died on an error without
+            # any text is a failure the user can retry. Use a sync DB call so it
+            # survives task cancellation - asyncio.to_thread would re-raise
+            # CancelledError here.
+            if not assistant_saved:
                 partial = "".join(answer_parts).strip()
-                if partial:
-                    try:
-                        db.save_aia_message(
-                            workspace["id"], user_id, "assistant", partial,
-                            source_pages=source_pages, enrollment_id=enrollment_id,
-                            source_qmap=source_qmap, aborted=True,
-                        )
-                        if _log_status == "ok":
-                            _log_status = "aborted"
-                    except Exception as e:
-                        logger.warning("Fallback save of partial answer failed: {}", e)
+                _is_failure = _log_status == "error" and not partial
+                try:
+                    db.save_aia_message(
+                        workspace["id"], user_id, "assistant", partial,
+                        source_pages=source_pages, enrollment_id=enrollment_id,
+                        source_qmap=source_qmap,
+                        aborted=not _is_failure, failed=_is_failure,
+                    )
+                    if _log_status == "ok":
+                        _log_status = "aborted"
+                except Exception as e:
+                    logger.warning("Fallback save of unfinished answer failed: {}", e)
             # Fold SPECIFIC map-call usage into the totals (the reduce stream's
             # usage already landed in tokens_in/out). `or None` keeps the
             # "no usage reported" case as None instead of a misleading 0.

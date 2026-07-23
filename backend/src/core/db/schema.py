@@ -625,6 +625,11 @@ def init_db(admin_email: Optional[str] = None) -> None:
             cur.execute("ALTER TABLE aia_messages ADD COLUMN IF NOT EXISTS source_qmap JSONB")
             # Migration: mark assistant messages whose stream was cancelled by the user
             cur.execute("ALTER TABLE aia_messages ADD COLUMN IF NOT EXISTS aborted BOOLEAN NOT NULL DEFAULT FALSE")
+            # Migration: mark assistant messages whose stream died on an error. Kept
+            # apart from `aborted` on purpose - the UI labels a cancelled turn
+            # "stopped" and a failed one "failed" with a retry button, and calling a
+            # provider outage a user cancellation would be a lie.
+            cur.execute("ALTER TABLE aia_messages ADD COLUMN IF NOT EXISTS failed BOOLEAN NOT NULL DEFAULT FALSE")
             cur.execute("""
                 CREATE TABLE IF NOT EXISTS aia_user_settings (
                     id                   SERIAL PRIMARY KEY,

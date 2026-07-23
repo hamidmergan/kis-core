@@ -22,6 +22,7 @@ export function ChatPanel({
   onClear,
   externalTextareaRef,
   onSaveNote,
+  onRetry,
   onMinimize,
   onSendPrompt,
   registerSetInput,
@@ -39,6 +40,7 @@ export function ChatPanel({
   onClear: () => void;
   externalTextareaRef?: React.RefObject<HTMLTextAreaElement | null>;
   onSaveNote?: (content: string, sourceUuids?: string[], extras?: AddNoteExtras) => void | Promise<void>;
+  onRetry?: () => void;
   onMinimize?: () => void;
   onSendPrompt?: (text: string) => void;
   registerSetInput?: (setter: ((v: string) => void) | null) => void;
@@ -113,6 +115,10 @@ export function ChatPanel({
   sourcesRef.current = sources;
   const onPillClickRef = useRef(onPillClick);
   onPillClickRef.current = onPillClick;
+  const onRetryRef = useRef(onRetry);
+  onRetryRef.current = onRetry;
+
+  const handleRetry = useCallback(() => onRetryRef.current?.(), []);
 
   const getFilename = useCallback(
     (srcUuid: string) => sourcesRef.current.find((s) => s.uuid === srcUuid)?.filename ?? srcUuid,
@@ -186,6 +192,7 @@ export function ChatPanel({
                 getFilename={getFilename}
                 onChipClick={handleChipClick}
                 onSaveNote={onSaveNote}
+                onRetry={onRetry ? handleRetry : undefined}
                 loading={loading}
                 mascotEnabled={mascotEnabled}
                 variant={mascotVariant}

@@ -6,6 +6,7 @@ import { setRequestLocale, getMessages, getTranslations } from "next-intl/server
 import { notFound } from "next/navigation";
 import { routing } from "@/i18n/routing";
 import "../globals.css";
+import "katex/dist/katex.min.css";
 import FooterWrapper from "@/components/layout/FooterWrapper";
 import LayoutShell from "@/components/layout/LayoutShell";
 import MaintenanceGuard from "@/components/auth/MaintenanceGuard";
