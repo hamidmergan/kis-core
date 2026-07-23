@@ -338,8 +338,8 @@ async def delete_access_link(
     current_user: dict = Depends(get_current_user),
     locale: str = Depends(get_locale),
 ):
-    _require_own_workspace(workspace_uuid, current_user["user_id"], locale=locale)
-    db.delete_access_link(link_id)
+    workspace = _require_own_workspace(workspace_uuid, current_user["user_id"], locale=locale)
+    db.delete_access_link(link_id, workspace["id"])
     logger.info("KI Tutor: access link {} deleted from workspace {}", link_id, workspace_uuid)
     return {"deleted": link_id}
 

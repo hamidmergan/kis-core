@@ -43,10 +43,15 @@ def get_access_links_by_workspace(workspace_id: int) -> list[dict]:
             rows = cur.fetchall()
     return [dict(row) for row in rows]
 
-def delete_access_link(link_id: int) -> None:
+def delete_access_link(link_id: int, workspace_id: int) -> None:
+    # Scope the delete to the owning workspace so a link_id from another
+    # workspace cannot be deleted via a workspace the caller happens to own.
     with get_connection() as conn:
         with conn.cursor() as cur:
-            cur.execute("DELETE FROM aia_access_links WHERE id = %s", (link_id,))
+            cur.execute(
+                "DELETE FROM aia_access_links WHERE id = %s AND workspace_id = %s",
+                (link_id, workspace_id),
+            )
         conn.commit()
 
 def get_workspace_by_access_link_code(code: str) -> tuple[dict, dict] | None:

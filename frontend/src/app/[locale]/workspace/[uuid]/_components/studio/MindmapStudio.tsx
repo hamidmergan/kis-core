@@ -198,10 +198,13 @@ export function MindmapStudio({
           const srcNum = sourceIndexMap.get(node.source_label);
           if (srcNum) {
             const isMedia = _isMediaFile(node.source_label);
-            const label = isMedia && typeof node.page_number === "string"
+            const rawLabel = isMedia && typeof node.page_number === "string"
               ? node.page_number
               : tMm("pageLabel", { page: node.page_number ?? 0 });
             const esc = node.topic.replace(/&/g, "&amp;").replace(/</g, "&lt;");
+            // Escape the chip label too (defense in depth, consistent with the
+            // topic above) since it is interpolated into innerHTML below.
+            const label = String(rawLabel).replace(/&/g, "&amp;").replace(/</g, "&lt;");
             const IconComp = _getChipIcon(node.source_label);
             const icon = renderToStaticMarkup(
               React.createElement(IconComp, {
