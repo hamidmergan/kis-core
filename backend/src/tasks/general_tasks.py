@@ -434,7 +434,6 @@ def run_image_analyze(
 
 # -- Summary ------------------------------------------------------------------
 
-_SUMMARY_OUTPUT_EXT = {"txt": ".txt", "md": ".md", "html": ".html"}
 _SUMMARY_MIN_WORDS = 20
 _SUMMARY_CONTEXT_WARN_CHARS = 80_000
 
@@ -445,7 +444,6 @@ def run_summary(
     job_uuid: str,
     input_path: str,
     filename: str,
-    output_format: str,
     provider_id: int | None = None,
 ):
     try:
@@ -473,17 +471,13 @@ def run_summary(
                 )
 
             too_long = len(text) > _SUMMARY_CONTEXT_WARN_CHARS
-            summary = client.generate_summary(
-                text,
-                output_format=output_format,
-            )
+            summary = client.generate_summary(text)
 
         if too_long:
             summary += t("summary.contentTooLongHint", locale)
 
-        out_ext = _SUMMARY_OUTPUT_EXT[output_format]
-        output_name = f"{Path(filename).stem}{out_ext}"
-        result_path = save_result_file(user_id, job_uuid, out_ext, summary.encode("utf-8"))
+        output_name = f"{Path(filename).stem}.txt"
+        result_path = save_result_file(user_id, job_uuid, ".txt", summary.encode("utf-8"))
         save_result_and_evict(user_id, job_uuid, result_path, output_name)
         db.update_job_status(job_uuid, "success")
         delete_file(input_path)

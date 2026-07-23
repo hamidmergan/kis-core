@@ -39,17 +39,35 @@ SCRIPT_BATCH_PREVIEW = (
 
 # -- Summary tool -------------------------------------------------------------
 
+# {language} is filled at runtime with the language detected by SUMMARY_LANGUAGE_PROBE,
+# never with a language the model picks itself. Letting the model judge the dominant
+# language made a German cover page and footer flip an English document to a German
+# summary.
 SUMMARY_DEFAULT = (
-    "You are an expert university lecturer summarizing material for your audience.\n"
-    "Create a spoken summary based EXCLUSIVELY on the provided content.\n"
+    "You are a precise summarizer.\n"
+    "Create a summary based EXCLUSIVELY on the provided content.\n"
     "Follow these rules strictly:\n"
-    "Rule 1: Write the summary in the dominant language of the input. Judge by the majority of words across the entire text, not just the opening. Ignore isolated technical terms, proper nouns, citations, and loanwords in other languages, they do not change the dominant language.\n"
+    "Rule 1: Write the summary in {language}. This is fixed. Other languages may appear in the input, they never change your output language.\n"
     "Rule 2: Base your summary only on the provided text. Do not add new information and do not hallucinate.\n"
     "Rule 3: Do not interpret anything that is not explicitly stated.\n"
-    "Rule 4: Address the audience directly maintaining a professional and formal tone suitable for higher education.\n"
-    "Rule 5: Write in flowing continuous text. Use transition words to make the summary sound natural when spoken.\n"
-    "Rule 6: Output ONLY the summary text. Do not include any introductory phrases, concluding remarks or conversational filler.\n"
-    "Rule 7: Do not use semicolons or any type of dash. Use only periods, commas and question marks."
+    "Rule 4: Ignore cover pages, headers, footers, page numbers, imprints and similar boilerplate. Summarize the actual content.\n"
+    "Rule 5: Keep a neutral factual register suitable for higher education. Do not address the reader and do not present the content as a talk or lecture.\n"
+    "Rule 6: Begin immediately with the first fact. Never open with a framing sentence such as 'Today we will look at' or 'This document describes'. No closing remarks and no conversational filler.\n"
+    "Rule 7: Write plain, well readable text. No Markdown, no HTML, no headings and no bullet lists.\n"
+    "Rule 8: Do not use semicolons or any type of dash. Use only periods, commas and question marks."
+)
+
+# Separate probe call. The sample handed to it is taken from the middle of the
+# document, so edge boilerplate cannot decide the language.
+SUMMARY_LANGUAGE_PROBE = (
+    "Identify the language of the text the user sends.\n"
+    "Answer with the English name of that language and nothing else, for example: English, German, Spanish.\n"
+    "No punctuation, no explanation, no full sentence."
+)
+
+# Used when the probe fails or returns something unusable.
+SUMMARY_LANGUAGE_FALLBACK = (
+    "the language of the main body text, ignoring cover pages, headers and footers"
 )
 
 # -- Screencast single-slide refine -------------------------------------------
@@ -160,6 +178,7 @@ def aia_system_rag(target_locale: str = "de", *, overview: bool = False) -> str:
         "    Do NOT force a table onto non-parallel content, and NEVER make a table with fewer than 3 data rows — a single entry or a one-row 'table' is just a sentence or a bullet, so write it as one and do NOT add a table for it.\n"
         "  - Only add table columns you can actually fill from the sources. NEVER invent a placeholder column (e.g. a 'Note'/'Hinweis' column) whose cells end up empty or '–'. If most cells of a column would be empty, drop that column entirely.\n"
         "  - Do NOT add a separate prose summary paragraph — neither an opening overview nor a closing '## Zusammenfassung' / '## Summary' block. With a bullet-point answer it only repeats the bullets. The bullets themselves ARE the summary.\n"
+        "  - SYMBOLS: write single symbols as the plain Unicode character (→, ×, ≤, ±, °, ², ∞), NEVER as LaTeX ('$\\rightarrow$', '\\times'). Keep LaTeX ($...$ / $$...$$) for REAL formulas that need it (fractions, integrals, sub-/superscripted variables) — a plain arrow between two example sentences is not a formula.\n"
     )
     if overview:
         base += (
@@ -536,8 +555,9 @@ AIA_LERNKARTEN_PROMPT = (
     "CRITICAL LANGUAGE RULE (overrides everything else): Write the explanatory fields "
     "(title, definition, word_parts_explained, example_sentence) ENTIRELY in {language}. "
     "Some examples further down are written in German for illustration only - IGNORE their language and always write in {language}. "
-    "The 'begriff' (the technical term itself) and 'word_parts' (its morphological split) stay VERBATIM in the source-text language "
-    "- they are the term being studied and are matched against the source for highlighting. "
+    "The 'begriff' (the technical term itself) stays VERBATIM in the source-text language, and the parts in "
+    "'word_parts' / the part labels in 'word_parts_explained' stay in that same language "
+    "- they are the term being studied. "
     "So an English card about a German term reads e.g. begriff='Literaturrecherche', definition='Searching for books and articles to gather information.'\n\n"
     "Respond ONLY with a JSON object in exactly this format:\n"
     "{\n"
@@ -558,16 +578,26 @@ AIA_LERNKARTEN_PROMPT = (
     "Rules:\n"
     "- Create exactly {count} flashcards\n"
     "- Cards MUST cover ALL sources, not just one. Distribute evenly.\n"
-    "- begriff: a central German technical term from the text\n"
+    "- begriff: a central technical term from the text, in the source-text language\n"
     "- definition: simple definition in {language}. Write it so a B1-level student understands it immediately. "
     "No technical jargon in the explanation. Explain technical terms with simple language.\n"
     "- word_parts: split into MEANINGFUL word parts (e.g. 'Studien + Abbruch + Quote'). "
-    "ONLY for compound German words made of 2+ meaning-carrying parts. "
-    "NOT for loanwords (Microcredentials, Employability), adjective+noun combinations (Hybride Lehre), or simple words. Leave empty in those cases. "
-    "Linking letters like 's' or 'e' belong to the preceding part, NOT as separate elements.\n"
-    "- word_parts_explained: explain each part as simply as possible, the way you would explain it to a friend. "
-    "Example: 'Studien = wenn man an der Uni lernt | Abbruch = wenn man aufhört | Quote = eine Zahl in Prozent'. "
-    "NOT: 'Studien = Plural von Studium', that does not help a B1 student.\n"
+    "ONLY for a term written as ONE word that is built from 2+ meaning-carrying parts. "
+    "NOT for loanwords (Microcredentials, Employability), multi-word expressions (Hybride Lehre, machine learning), or simple words. Leave empty in those cases. "
+    "Not every language builds such compounds - if the source language does not, leave the field empty rather than forcing a split.\n"
+    "- word_parts SPELLING (applies to word_parts AND to the part labels in word_parts_explained): "
+    "write each part exactly as that word is correctly spelled when it stands ALONE in its language, NOT as a raw slice cut out of the compound. "
+    "This means: apply the language's own capitalisation rules to the standalone form, and drop any linking letters that exist only to glue the compound together. "
+    "German example: 'Flucht + Rettungs + wege' is WRONG (raw slices), correct is 'Flucht + Rettung + Wege'. "
+    "If a slice is still not a real standalone word after this, do NOT split there - merge it into the neighbouring part instead.\n"
+    "- word_parts_explained: explain each part as simply as possible, the way you would explain it to a friend.\n"
+    "- word_parts_explained WORD CLASS: the explanation MUST have the same word class as the part it explains. "
+    "Explain a noun with a noun (or a noun phrase), a verb with a verb, an adjective with an adjective. "
+    "German example: 'Verhütung = Schutz davor, dass etwas passiert' is correct, 'Verhütung = etwas verhindern' is WRONG (noun explained by a verb).\n"
+    "- word_parts_explained MEANING IN CONTEXT: explain the meaning the part carries INSIDE this term and in the given source text, "
+    "not a generic dictionary meaning that ignores the term. "
+    "German example: in 'Rettungswege' write 'Wege = Strecken im Gebäude nach draußen', NOT 'Wege = Straßen oder Flure'. "
+    "Stay B1-simple: 'Studien = die Zeit an der Uni' helps, 'Studien = Plural von Studium' does not.\n"
     "- example_sentence: a SIMPLE example sentence showing how the term is used in everyday student life. "
     "Example for 'Studienabbruchquote': 'Die Studienabbruchquote ist hoch, viele Studenten hören auf, bevor sie fertig sind.' "
     "The sentence should help the student understand the term in context.\n"
@@ -576,7 +606,7 @@ AIA_LERNKARTEN_PROMPT = (
     "- Only use terms from the given text\n"
     "- Focus on central technical terms, NO comprehension questions\n"
     "- REMINDER: title, definition, word_parts_explained and example_sentence MUST be written in {language} "
-    "(only begriff and word_parts keep the source language).\n"
+    "(only begriff, word_parts and the part labels inside word_parts_explained keep the source language).\n"
     "- Respond ONLY with the JSON object, no other text."
 )
 

@@ -27,12 +27,6 @@ router = APIRouter(
     dependencies=[Depends(require_tool_access("summary"))],
 )
 
-_OUTPUT_MIME = {
-    "txt": "text/plain; charset=utf-8",
-    "md": "text/markdown; charset=utf-8",
-    "html": "text/html; charset=utf-8",
-}
-
 
 @router.get("/summary/providers")
 async def list_summary_providers(_user: dict = Depends(get_current_user)):
@@ -45,7 +39,6 @@ async def list_summary_providers(_user: dict = Depends(get_current_user)):
 async def summarize(
     request: Request,
     file: UploadFile = File(...),
-    output_format: str = Form("txt"),
     provider_id: int | None = Form(None),
     current_user: dict = Depends(get_current_user),
     locale: str = Depends(get_locale),
@@ -68,12 +61,6 @@ async def summarize(
                 locale,
                 formats=", ".join(sorted(SUMMARY_EXTENSIONS)),
             ),
-        )
-
-    if output_format not in _OUTPUT_MIME:
-        raise HTTPException(
-            status_code=400,
-            detail=t("summary.invalidOutputFormat", locale),
         )
 
     content_length = request.headers.get("content-length")
@@ -111,7 +98,7 @@ async def summarize(
     db.set_job_input_path(job_uuid, input_path)
 
     from src.tasks.general_tasks import run_summary
-    run_summary.delay(job_uuid, input_path, file.filename, output_format, provider_id)
+    run_summary.delay(job_uuid, input_path, file.filename, provider_id)
 
     logger.info("Summary job {} queued for '{}'", job_uuid, file.filename)
     return {"job_uuid": job_uuid, "status": "pending"}

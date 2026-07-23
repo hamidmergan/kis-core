@@ -26,7 +26,6 @@ export default function ZusammenfassungPage() {
   const [dragActive, setDragActive] = useState(false);
   const [doneJobUuid, setDoneJobUuid] = useState<string | null>(null);
 
-  const outputFormat = "txt";
   const [errorMessage, setErrorMessage] = useState("");
   const [stallMessage, setStallMessage] = useState("");
 
@@ -72,7 +71,6 @@ export default function ZusammenfassungPage() {
     try {
       const formData = new FormData();
       formData.append("file", selectedFile);
-      formData.append("output_format", outputFormat);
       if (providerId != null) formData.append("provider_id", String(providerId));
       const response = await backendApi.fetch("/summary", { method: "POST", body: formData });
       if (!response.ok) {

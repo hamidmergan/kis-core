@@ -102,10 +102,6 @@ MESSAGES: dict[str, dict[str, str]] = {
         "de": "Nur {formats} erlaubt",
         "en": "Only {formats} allowed",
     },
-    "summary.invalidOutputFormat": {
-        "de": "output_format muss 'txt', 'md' oder 'html' sein",
-        "en": "output_format must be 'txt', 'md' or 'html'",
-    },
     "summary.invalidProvider": {
         "de": "Ungültiger Anbieter ausgewählt",
         "en": "Invalid provider selected",

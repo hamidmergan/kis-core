@@ -28,7 +28,7 @@ PROMPT_REGISTRY = [
     {
         "key": "prompt_summary",
         "label": "Zusammenfassung",
-        "description": "Wird vom Zusammenfassungs-Tool verwendet. Platzhalter {format} wird zur Laufzeit durch die gewählte Ausgabeformat-Anweisung ersetzt - nicht entfernen.",
+        "description": "Wird vom Zusammenfassungs-Tool verwendet. Platzhalter {language} wird zur Laufzeit durch die erkannte Sprache des Dokuments ersetzt - nicht entfernen.",
         "editable": False,
         "default": _PROMPT_SUMMARY_DEFAULT,
     },
