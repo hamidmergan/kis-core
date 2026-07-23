@@ -1,12 +1,13 @@
 name: CI
 
-# Fast unit suites on every push and PR to the mainline branches. The live @e2e
-# tests (need a running stack + LLM) are deselected here; they run separately.
+# Runs on every push to any branch, so you get green/red right after a push
+# without opening a PR first. The check is attached to the commit, so an open
+# PR shows the same result. The live @e2e tests (need a running stack + LLM)
+# are deselected here; they run separately.
 on:
   push:
-    branches: [dev, main]
-  pull_request:
-    branches: [dev, main]
+    branches:
+      - '**'
 
 # A newer push to the same ref cancels the in-flight run.
 concurrency:
