@@ -1,21 +1,13 @@
-import json
 import os
-from contextlib import contextmanager
-from datetime import datetime, timedelta, timezone
-from typing import Optional
+from datetime import datetime, timezone
 from zoneinfo import ZoneInfo
 
-import psycopg2
-import psycopg2.extras
-import psycopg2.pool
 from loguru import logger
-from psycopg2.extras import RealDictCursor
 
-from src.limits import MAX_RESULT_FILES, JOB_RETENTION_HOURS
+from src.core.db.pool import get_connection
 
 _TZ_BERLIN = ZoneInfo("Europe/Berlin")
 _REDIS_URL = os.environ.get("REDIS_URL", "redis://kis-redis:6379/0")
-from src.core.db.pool import get_connection
 
 
 def _notify_job_update(job_uuid: str) -> None:
@@ -33,11 +25,6 @@ def _notify_job_update(job_uuid: str) -> None:
     except Exception as e:
         logger.warning("Redis job-update publish failed for {}: {}", job_uuid, e)
 
-_TZ_BERLIN = ZoneInfo("Europe/Berlin")
-
-from src.limits import MAX_RESULT_FILES, JOB_RETENTION_HOURS  # noqa: E402
-
-_pool: psycopg2.pool.ThreadedConnectionPool | None = None
 
 def _de_date_to_utc(date_str: str, end_of_day: bool = False) -> str:
     """Convert a YYYY-MM-DD German local date to a UTC datetime string for DB comparison.
