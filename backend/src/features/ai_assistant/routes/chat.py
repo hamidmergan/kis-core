@@ -604,7 +604,8 @@ async def _retrieve_generic_context(
     # embedding model / blur the vector; the full question still reaches the answer.
     question = _truncate_query_for_embedding(question)
     question_vector = await asyncio.to_thread(provider.embed_one, question)
-    hits = db.hybrid_search_chunks(
+    hits = await asyncio.to_thread(
+        db.hybrid_search_chunks,
         workspace_id, question, question_vector, source_ids=source_ids,
         limit=_GENERIC_RETRIEVE_LIMIT, fuzzy=False,  # no trigram fuzzy: ~3s no-index scan, vector is already typo-robust
     )
@@ -621,13 +622,14 @@ async def _retrieve_generic_context(
     else:
         diverse, remaining, missing = _diversify_by_source(merged, source_ids)
         for sid in missing:
-            per_source = db.hybrid_search_chunks(
+            per_source = await asyncio.to_thread(
+                db.hybrid_search_chunks,
                 workspace_id, question, question_vector, source_ids=[sid], limit=3,
             )
             if per_source:
                 diverse.extend(per_source)
                 continue
-            raw = db.get_aia_chunks_by_source(sid)
+            raw = await asyncio.to_thread(db.get_aia_chunks_by_source, sid)
             if raw:
                 diverse.append(raw[0])
         chunks = diverse + remaining
@@ -637,7 +639,8 @@ async def _retrieve_generic_context(
     # the document; the char budget at the call site truncates the rest.
     if not chunks:
         for sid in source_ids or []:
-            chunks.extend(_sample(db.get_aia_chunks_by_source(sid), _GENERIC_FALLBACK_SAMPLE))
+            _raw = await asyncio.to_thread(db.get_aia_chunks_by_source, sid)
+            chunks.extend(_sample(_raw, _GENERIC_FALLBACK_SAMPLE))
     # Budget top-up: relevance retrieval (max ~32 chunks) typically leaves the
     # overview context budget half-empty, so the summary only sees a fraction of
     # the material and a source can end up with a single chunk. Fill the rest of
@@ -650,7 +653,8 @@ async def _retrieve_generic_context(
         approx = sum(len(c.get("content") or "") + _OVERHEAD for c in chunks)
         pools: list[list[dict]] = []
         for sid in source_ids:
-            rem = [c for c in db.get_aia_chunks_by_source(sid)
+            _raw = await asyncio.to_thread(db.get_aia_chunks_by_source, sid)
+            rem = [c for c in _raw
                    if (c["source_id"], c.get("page_number"), (c.get("content") or "")[:80]) not in seen_keys]
             pools.append(rem)
         progressing = True

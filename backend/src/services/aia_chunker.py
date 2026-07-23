@@ -90,6 +90,30 @@ def _clean(text: str) -> str:
     return text.replace("\x00", "") if text else text
 
 
+def _merge_small_fragments(chunks: list[str], min_chars: int) -> list[str]:
+    """Fold sub-*min_chars* fragments into a neighbour.
+
+    A split page can leave a tiny trailing scrap (a running-header line or the
+    last few overlap chars) as its own chunk; such a fragment carries no real
+    standalone meaning and becomes a "magnet" in vector search that mis-ranks for
+    thin queries. Folding it into the adjacent chunk keeps every character and,
+    since this runs per page, does not affect page attribution. A page that is
+    simply short stays a single chunk (nothing to merge)."""
+    if len(chunks) <= 1:
+        return chunks
+    merged: list[str] = []
+    for c in chunks:
+        if merged and len(c) < min_chars:
+            merged[-1] = (merged[-1] + " " + c).strip()
+        else:
+            merged.append(c)
+    # A tiny leading fragment had no predecessor above; fold it forward instead.
+    if len(merged) > 1 and len(merged[0]) < min_chars:
+        merged[1] = (merged[0] + " " + merged[1]).strip()
+        merged.pop(0)
+    return merged
+
+
 def _split_text(text: str, chunk_size: int, overlap: int) -> list[str]:
     """Split text into overlapping chunks of chunk_size chars, breaking at whitespace."""
     text = text.strip()
@@ -112,7 +136,10 @@ def _split_text(text: str, chunk_size: int, overlap: int) -> list[str]:
         if next_start <= start:
             break
         start = next_start
-    return chunks
+    # Fold away tiny leftover fragments (< 10% of a full chunk) so a split page
+    # does not seed the index with header-scrap magnets. Threshold is relative to
+    # chunk_size so tiny test sizes are unaffected.
+    return _merge_small_fragments(chunks, max(1, chunk_size // 10))
 
 
 ProgressCallback = "Callable[[str, int | None, int | None], None] | None"

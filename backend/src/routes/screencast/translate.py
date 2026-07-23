@@ -56,11 +56,15 @@ async def screencast_translate(
 
     content_length = request.headers.get("content-length")
     if content_length is not None and int(content_length) > MAX_UPLOAD_BYTES:
-        raise HTTPException(status_code=413, detail=t("file.tooLargeMb200", locale))
+        raise HTTPException(status_code=413, detail=t("file.tooLargeMb500", locale))
 
     pptx_bytes = await file.read()
     if not pptx_bytes:
         raise HTTPException(status_code=400, detail=t("file.empty", locale))
+    # Re-check after reading: a chunked upload without a Content-Length header
+    # would otherwise stream the whole body into RAM on the single worker.
+    if len(pptx_bytes) > MAX_UPLOAD_BYTES:
+        raise HTTPException(status_code=413, detail=t("file.tooLargeMb500", locale))
     validate_or_raise(pptx_bytes, ".pptx", locale)
 
     user_id = current_user.get("user_id", 0)
@@ -169,6 +173,10 @@ async def screencast_upload_corrected(
     pptx_bytes = await file.read()
     if not pptx_bytes:
         raise HTTPException(status_code=400, detail=t("file.empty", locale))
+    # This route had no size limit at all: cap it like every other upload so a
+    # multi-GB PPTX cannot be read whole into RAM on the single worker.
+    if len(pptx_bytes) > MAX_UPLOAD_BYTES:
+        raise HTTPException(status_code=413, detail=t("file.tooLargeMb500", locale))
     validate_or_raise(pptx_bytes, ".pptx", locale)
 
     logger.info("Screencast/upload-corrected: '{}' ({} bytes)", file.filename, len(pptx_bytes))

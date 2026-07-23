@@ -10,6 +10,14 @@ def authenticate_user(username: str, password: str) -> dict | None:
     if not settings.ldap_server:
         raise RuntimeError("LDAP not configured")
 
+    # Reject an empty password before binding. A simple bind with a DN and an empty
+    # password is an "unauthenticated bind" (RFC 4513 §5.1.2); many LDAP servers
+    # accept it as anonymous and return success, which would log an attacker in as
+    # any existing user without knowing the password. ldap3 likewise turns an empty
+    # password into an anonymous bind. Treat blank username/password as invalid.
+    if not username or not password:
+        return None
+
     server = Server(
         settings.ldap_server,
         port=settings.ldap_port,

@@ -248,11 +248,29 @@ def get_exercise_set_with_items(set_id: int) -> dict | None:
             ex_set["items"] = items
             return ex_set
 
-def delete_exercise_set(set_id: int) -> bool:
-    """Delete an exercise set and all related data."""
+def get_exercise_set_meta(set_id: int) -> dict | None:
+    """Owner + workspace of a set, without loading its items. For authorization
+    checks on the single-set routes (get/delete/progress) so one user cannot
+    reach another user's set by guessing the serial id."""
+    with get_connection() as conn:
+        with conn.cursor(cursor_factory=RealDictCursor) as cur:
+            cur.execute(
+                "SELECT id, workspace_id, user_id, tool FROM aia_exercise_sets WHERE id = %s",
+                (set_id,),
+            )
+            row = cur.fetchone()
+            return dict(row) if row else None
+
+
+def delete_exercise_set(set_id: int, user_id: int) -> bool:
+    """Delete an exercise set and all related data, scoped to its owner so a set
+    can never be deleted by another user via its serial id."""
     with get_connection() as conn:
         with conn.cursor() as cur:
-            cur.execute("DELETE FROM aia_exercise_sets WHERE id = %s RETURNING id", (set_id,))
+            cur.execute(
+                "DELETE FROM aia_exercise_sets WHERE id = %s AND user_id = %s RETURNING id",
+                (set_id, user_id),
+            )
             deleted = cur.fetchone() is not None
         conn.commit()
     return deleted

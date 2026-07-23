@@ -2,7 +2,7 @@
 from ._shared import (
     Path, APIRouter, Depends, HTTPException, logger, db,
     get_current_user, get_locale, t,
-    get_file,
+    get_file, _load_workspace_source,
 )
 
 router = APIRouter(tags=["ki-assistent: sources"])
@@ -26,9 +26,7 @@ async def get_pdf_toc(
     if not is_owner and not is_enrolled:
         raise HTTPException(status_code=403, detail=t("workspace.accessDenied", locale))
 
-    source = db.get_aia_source(source_uuid)
-    if not source:
-        raise HTTPException(status_code=404, detail=t("source.notFound", locale))
+    source = _load_workspace_source(source_uuid, workspace, locale)
 
     return {"toc": source.get("toc") or []}
 
@@ -51,9 +49,7 @@ async def search_pdf(
     if not is_owner and not is_enrolled:
         raise HTTPException(status_code=403, detail=t("workspace.accessDenied", locale))
 
-    source = db.get_aia_source(source_uuid)
-    if not source:
-        raise HTTPException(status_code=404, detail=t("source.notFound", locale))
+    source = _load_workspace_source(source_uuid, workspace, locale)
 
     ext = Path(source["filename"]).suffix.lower()
     if ext != ".pdf":

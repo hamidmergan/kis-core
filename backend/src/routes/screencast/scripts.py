@@ -49,6 +49,7 @@ async def save_scripts(
 @router.post("/screencast/generate-scripts")
 async def screencast_generate_scripts(
     body: GenerateScriptsRequest,
+    current_user: dict = Depends(get_current_user),
     locale: str = Depends(get_locale),
 ):
     """Generate spoken scripts for each slide via the configured LLM."""
@@ -81,11 +82,14 @@ async def screencast_generate_scripts(
 
     uuid_key = body.translate_job_uuid if (body.translate_job_uuid and re.match(r"^[a-f0-9]{32}$", body.translate_job_uuid)) else None
 
-    # Resolve user_id from DB (no auth dependency on this endpoint, but the job row owns the file).
+    # The endpoint is authenticated (global verify_auth) but must also confirm the
+    # caller OWNS the referenced job. Without it a user could generate into and
+    # overwrite another user's job folder (suggested_scripts.json) via its uuid.
+    # A foreign / missing job both return 410 so ownership is not an oracle.
     uuid_user_id: int | None = None
     if uuid_key:
         job_row = db.get_job(uuid_key)
-        if not job_row:
+        if not job_row or job_row["user_id"] != current_user.get("user_id", 0):
             raise HTTPException(status_code=410, detail=t("job.dataUnavailable", locale))
         uuid_user_id = job_row["user_id"]
 

@@ -191,8 +191,15 @@ async def get_exercise_set(
     current_user: dict = Depends(get_current_user),
     locale: str = Depends(get_locale),
 ):
+    user_id = current_user["user_id"]
+    workspace = db.get_aia_workspace(workspace_uuid)
+    if not workspace:
+        raise HTTPException(status_code=404, detail=t("workspace.notFound", locale))
     ex_set = db.get_exercise_set_with_items(set_id)
-    if not ex_set:
+    # A set belongs to one user in one workspace (the list route is scoped the same
+    # way). Without this check any logged-in user could read another user's set by
+    # counting up the serial id. 404 rather than 403 so it does not leak existence.
+    if not ex_set or ex_set["user_id"] != user_id or ex_set["workspace_id"] != workspace["id"]:
         raise HTTPException(status_code=404, detail=t("set.notFound", locale))
     if ex_set.get("created_at") and hasattr(ex_set["created_at"], "isoformat"):
         ex_set["created_at"] = ex_set["created_at"].isoformat() + "Z"
@@ -205,7 +212,8 @@ async def delete_exercise_set_endpoint(
     current_user: dict = Depends(get_current_user),
     locale: str = Depends(get_locale),
 ):
-    if not db.delete_exercise_set(set_id):
+    # Scoped to the owner: deleting another user's set by its serial id returns 404.
+    if not db.delete_exercise_set(set_id, current_user["user_id"]):
         raise HTTPException(status_code=404, detail=t("set.notFound", locale))
     return {"ok": True}
 
@@ -221,6 +229,11 @@ async def record_set_progress(
     workspace = db.get_aia_workspace(workspace_uuid)
     if not workspace:
         raise HTTPException(status_code=404, detail=t("workspace.notFound", locale))
+    # Without this the serial set_id let any user reset another user's run
+    # (start_new_run) and write progress against a set they do not own.
+    meta = db.get_exercise_set_meta(set_id)
+    if not meta or meta["user_id"] != user_id or meta["workspace_id"] != workspace["id"]:
+        raise HTTPException(status_code=404, detail=t("set.notFound", locale))
     if body.new_run:
         db.start_new_run(set_id)
     db.bulk_record_exercise_progress(set_id, user_id, body.results)

@@ -234,6 +234,10 @@ MESSAGES: dict[str, dict[str, str]] = {
         "de": "Maximale gleichzeitige Uploads muss zwischen {min} und {max} liegen.",
         "en": "Max simultaneous uploads must be between {min} and {max}.",
     },
+    "admin.settings.parallelSlotsOutOfRange": {
+        "de": "Parallele Slots muss zwischen {min} und {max} liegen.",
+        "en": "Parallel slots must be between {min} and {max}.",
+    },
     "admin.providers.requiredFields": {
         "de": "Name und Base-URL sind Pflicht.",
         "en": "Name and base URL are required.",

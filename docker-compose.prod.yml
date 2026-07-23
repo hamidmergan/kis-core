@@ -11,7 +11,9 @@ services:
     environment:
       BACKEND_URL: http://backend:8000
     ports:
-      - "3000:3000"
+      # Nur localhost. nginx erreicht das Frontend intern ueber das Docker-Netz
+      # (frontend:3000). Frueher lag 3000 offen auf 0.0.0.0 und umging so TLS.
+      - "127.0.0.1:3000:3000"
     depends_on:
       - backend
     restart: unless-stopped

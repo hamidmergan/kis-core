@@ -22,7 +22,8 @@ async def retry_job(
 ):
     """Re-queue a failed TTS job. Resumes from already-saved chunks - no double payment."""
     job = db.get_job(job_uuid)
-    if not job:
+    # Owner-only: without this any user could re-queue another user's failed job.
+    if not job or job["user_id"] != current_user.get("user_id", 0):
         raise HTTPException(status_code=404, detail=t("job.notFound", locale))
     if job["tool"] not in ("tts", "screencast_translate", "screencast_render"):
         raise HTTPException(status_code=400, detail=t("job.retryOnlyTtsScreencast", locale))
