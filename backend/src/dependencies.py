@@ -87,20 +87,13 @@ def get_session_store():
 
 # ─── Legacy provider resolvers (now backed by feature_router) ──────────────
 
-def _ensure_v1(base_url: str) -> str:
-    url = base_url.rstrip("/")
-    if url.endswith("/v1"):
-        return url
-    return f"{url}/v1"
-
-
 def _binding_tuple(binding: feature_router.FeatureBinding) -> tuple[str, str, str, str]:
     """Flatten a binding into the (api_key, base_url, model, provider_name)
     tuple shape that the legacy resolvers used to return."""
     p = binding.provider
     return (
         p.get("api_key") or "not-needed",
-        _ensure_v1(p["base_url"]),
+        feature_router._ensure_v1(p["base_url"]),
         binding.model or "",
         p["name"],
     )
@@ -295,7 +288,7 @@ def get_translate_client_for_provider(
         return DeepLClient(provider.get("api_key") or ""), glossary
     else:
         from src.services.llm_translation_client import LLMTranslationClient
-        base_url = _ensure_v1(provider["base_url"])
+        base_url = feature_router._ensure_v1(provider["base_url"])
         client = LLMTranslationClient(
             api_key=provider.get("api_key") or "not-needed",
             base_url=base_url,
