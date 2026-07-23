@@ -53,6 +53,9 @@ class SessionStore:
                 return False
             if time.time() > expiry:
                 del self._sessions[raw_id]
+                # Drop the payload too. cleanup_expired only scans _sessions, so
+                # a data entry orphaned here would never be reclaimed otherwise.
+                self._data.pop(raw_id, None)
                 return False
             return True
 

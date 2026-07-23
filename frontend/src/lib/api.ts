@@ -383,8 +383,13 @@ export async function pollJob(
     if (status.status === "failed") throw new Error(status.error || fallback("jobFailed"));
 
     await new Promise<void>((resolve, reject) => {
-      const timer = setTimeout(resolve, intervalMs);
-      signal?.addEventListener("abort", () => { clearTimeout(timer); reject(new DOMException("Aborted", "AbortError")); }, { once: true });
+      let timer: ReturnType<typeof setTimeout>;
+      const onAbort = () => { clearTimeout(timer); reject(new DOMException("Aborted", "AbortError")); };
+      // Remove the listener on the normal (timer) path too. { once: true } only
+      // detaches it when it fires, so without this every poll iteration would
+      // leave another abort listener on the signal for the job's whole lifetime.
+      timer = setTimeout(() => { signal?.removeEventListener("abort", onAbort); resolve(); }, intervalMs);
+      signal?.addEventListener("abort", onAbort, { once: true });
     });
   }
 }
