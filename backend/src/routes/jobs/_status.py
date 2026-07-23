@@ -23,7 +23,10 @@ async def get_job_status(
 ):
     """Poll job status. Returns progress while running, result when done."""
     job = db.get_job(job_uuid)
-    if not job:
+    # Jobs are personal. Combine not-found and not-owner into one 404 so a foreign
+    # job_uuid cannot be used to poll another user's status/result (translated
+    # document content, render meta).
+    if not job or job["user_id"] != current_user.get("user_id", 0):
         raise HTTPException(status_code=404, detail=t("job.notFound", locale))
 
     response: dict = {

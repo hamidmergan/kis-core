@@ -33,7 +33,8 @@ async def download_job_result(
 ):
     """Download the binary result file (MP4 or MP3) for a completed job."""
     job = db.get_job(job_uuid)
-    if not job:
+    # Owner-only: a foreign job_uuid must not download another user's result file.
+    if not job or job["user_id"] != current_user.get("user_id", 0):
         raise HTTPException(status_code=404, detail=t("job.notFound", locale))
     if job["status"] != "success":
         raise HTTPException(status_code=404, detail=t("job.notCompleted", locale))
@@ -68,7 +69,8 @@ async def download_job_pptx(
 ):
     """Download the translated PPTX for a screencast render job."""
     job = db.get_job(job_uuid)
-    if not job:
+    # Owner-only: a foreign job_uuid must not download another user's PPTX.
+    if not job or job["user_id"] != current_user.get("user_id", 0):
         raise HTTPException(status_code=404, detail=t("job.notFound", locale))
 
     # Works for screencast_translate (has result_path); translated.pptx is in the job folder.
