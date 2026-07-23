@@ -3,11 +3,11 @@ import asyncio
 import re
 
 from ._shared import (
-    Path, Optional, APIRouter, Depends, HTTPException, Request, logger, db,
-    get_current_user, get_locale, t,
-    FileResponse, Response, StreamingResponse,
-    USE_S3, file_exists, get_file, list_keys, stream_s3_object,
-    _require_own_workspace, _load_workspace_source,
+    Path, APIRouter, Depends, HTTPException, Request, logger, db, get_current_user,
+    get_locale, t, FileResponse,
+    Response, StreamingResponse, USE_S3,
+    file_exists, get_file, list_keys, stream_s3_object, _require_own_workspace,
+    _load_workspace_source,
 )
 
 router = APIRouter(tags=["ki-assistent: sources"])

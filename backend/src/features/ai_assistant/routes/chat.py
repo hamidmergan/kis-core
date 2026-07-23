@@ -1,19 +1,15 @@
 """AI assistant routes - chat + RAG."""
 
 import asyncio
-import io
 import json
 import re
-import uuid
-from collections.abc import AsyncGenerator, Generator
-from datetime import datetime, timezone
+from collections.abc import AsyncGenerator
 from pathlib import Path
 from typing import Optional
 
-from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile
-from fastapi.responses import Response, StreamingResponse
+from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi.responses import StreamingResponse
 from loguru import logger
-from pydantic import BaseModel, Field
 
 from langfuse.decorators import langfuse_context, observe
 
@@ -21,17 +17,12 @@ from src import database as db
 from src.dependencies import get_current_user, get_llm_client
 from src.i18n import get_locale, t
 from src.limits import (
-    AIA_SOURCE_MAX_PAGES,
-    AIA_WORKSPACE_MAX_SOURCES,
-    AIA_WORKSPACE_MAX_ACCESS_LINKS,
-    AIA_NOTES_MAX_PER_USER,
     AIA_CONTEXT_MAX_CHARS,
     AIA_CONTEXT_HARD_CAP,
     AIA_EMBED_QUERY_MAX_CHARS,
 )
 from src.security.rate_limit import enforce_burst
 from src.security.usage_log import log_request as _log_usage
-from src.storage import USE_S3, delete_file, file_exists, get_file
 from src.tool_prompts import (
     AIA_SYSTEM_DIRECT,
     AIA_SYSTEM_DIRECT_WITH_CONTEXT,
@@ -40,7 +31,6 @@ from src.tool_prompts import (
     aia_reduce_user_message,
     AIA_POPUP_ACTIONS,
     AIA_INTENT_CLASSIFIER_SYSTEM,
-    AIA_INTENT_CLASSIFIER_FEWSHOT,
     AIA_SCOPE_EXTRACTOR_SYSTEM,
     AIA_QUERY_UNDERSTANDING_SYSTEM,
     RAG_NO_INFO_SENTINEL,
@@ -961,14 +951,7 @@ def _pack_context_batches(
 
 from src.features.ai_assistant.routes._helpers import (
     _trace_llm,
-    _convert_office_to_pdf,
-    _count_pages,
     _format_timestamp,
-    _require_own_workspace,
-    _save_source_file,
-    _delete_source_files_for_workspace,
-    _resolve_source_ids,
-    _term_appears_in_text,
     _load_transcript_segments,
     _enrich_media_content,
     _RepetitionGuard,
@@ -984,9 +967,7 @@ from src.features.ai_assistant.routes._helpers import (
     _refusal_lines,
     is_refusal_answer,
     _append_scope_anchor,
-    _ALLOWED_EXTENSIONS,
     _MEDIA_EXTENSIONS,
-    _MAX_UPLOAD_BYTES,
     _sanitize_citations,
 )
 from src.features.ai_assistant import schemas

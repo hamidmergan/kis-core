@@ -1,9 +1,9 @@
 """PDF-specific operations: TOC, text search."""
 import asyncio
 from ._shared import (
-    Path, APIRouter, Depends, HTTPException, logger, db,
-    get_current_user, get_locale, t,
-    get_file, _load_workspace_source,
+    Path, APIRouter, Depends, HTTPException, db, get_current_user,
+    get_locale, t, get_file,
+    _load_workspace_source,
 )
 
 router = APIRouter(tags=["ki-assistent: sources"])
