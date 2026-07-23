@@ -13,15 +13,9 @@ import BackLink from "@/components/ui/BackLink";
 import Select from "@/components/ui/Select";
 import Tabs from "@/components/ui/Tabs";
 import type { ProviderWithVoices } from "@/hooks/useVoices";
+import { LANGUAGE_FLAG } from "@/lib/languageFlags";
 
 type InputMode = "text" | "file";
-
-const LANGUAGE_FLAG: Record<string, string> = {
-  "": "🌐", // universal voice (no language set)
-  de: "🇩🇪", en: "🇺🇸", fr: "🇫🇷", es: "🇪🇸",
-  it: "🇮🇹", nl: "🇳🇱", pt: "🇵🇹", pl: "🇵🇱",
-  tr: "🇹🇷", zh: "🇨🇳", ja: "🇯🇵", ko: "🇰🇷",
-};
 
 export default function TtsPage() {
   const t = useTranslations("tools.tts");

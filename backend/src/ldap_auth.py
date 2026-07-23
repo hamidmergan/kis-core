@@ -36,8 +36,10 @@ def authenticate_user(username: str, password: str) -> dict | None:
     except LDAPException as e:
         raise RuntimeError(f"LDAP service bind failed: {e}") from e
 
-    # Step 2: Search for user by username attribute
-    search_filter = f"({settings.ldap_attr_username}={username})"
+    # Step 2: Search for user by username attribute. Escape the username so it
+    # cannot inject LDAP filter metacharacters (e.g. "*" or ")(uid=admin)").
+    from ldap3.utils.conv import escape_filter_chars
+    search_filter = f"({settings.ldap_attr_username}={escape_filter_chars(username)})"
     service_conn.search(
         search_base=settings.ldap_base_dn,
         search_filter=search_filter,
@@ -70,7 +72,9 @@ def authenticate_user(username: str, password: str) -> dict | None:
 
     affiliation = attr(settings.ldap_attr_affiliation)
     lecturer_values = [v.strip() for v in settings.ldap_role_lecturer_values.split(",")]
-    if not affiliation or affiliation in lecturer_values:
+    # Fail closed: an empty or unknown affiliation must NOT grant the elevated
+    # lecturer role. Only an explicit match on a configured lecturer value does.
+    if affiliation and affiliation in lecturer_values:
         role = "lecturer"
     else:
         role = "student"

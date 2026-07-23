@@ -30,11 +30,9 @@ celery_app.conf.update(
         "general.image_generate": {"queue": "general"},
         "general.image_edit": {"queue": "general"},
         "general.image_analyze": {"queue": "general"},
-        "general.script": {"queue": "general"},
         "general.summary": {"queue": "general"},
         "screencast.translate": {"queue": "screencast"},
         "screencast.render": {"queue": "screencast"},
-        "screencast.auto": {"queue": "screencast"},
         "watchdog.check": {"queue": "general"},
         # AI tutor: dedicated queue for learning tools and language training
         "aia.index_source": {"queue": "aia"},

@@ -82,6 +82,15 @@ async def _periodic_cleanup() -> None:
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     settings = get_settings()
+    # Fail closed: local mode disables ALL authentication (verify_auth passes
+    # through, every request becomes admin). That must never happen in prod, so
+    # refuse to boot if production is set but no LDAP server is configured
+    # (e.g. an env typo or a forgotten LDAP_SERVER var).
+    if settings.production and settings.is_local_mode:
+        raise RuntimeError(
+            "Refusing to start: production=True but LDAP_SERVER is empty. "
+            "Local mode would disable authentication entirely."
+        )
     init_db(admin_email=settings.admin_email or None)
     logger.info("Database initialised")
     if settings.is_local_mode:

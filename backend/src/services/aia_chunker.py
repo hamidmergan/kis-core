@@ -1,6 +1,5 @@
 """Document chunker for KI Tutor - extracts text chunks from PDF, DOCX, PPTX, TXT, and MD files."""
 
-import re
 import time
 
 from loguru import logger
@@ -181,9 +180,6 @@ def extract_chunks(
     raise ValueError(f"Unsupported file_type: {file_type!r}")
 
 
-def get_page_count(file_path: str, file_type: str) -> int:
-    """Return the number of logical pages / chunks in a document."""
-    return len(extract_chunks(file_path, file_type))
 
 
 # ── Format-specific extractors ────────────────────────────────────────────────
@@ -359,89 +355,6 @@ def _extract_pptx(file_path: str, chunk_size: int, overlap: int) -> list[dict]:
     return chunks
 
 
-_STRUCTURAL_KEYWORDS = re.compile(
-    r"^("
-    r"table of contents|contents|inhaltsverzeichnis"
-    r"|references|bibliography|literaturverzeichnis|quellenverzeichnis|literatur"
-    r"|list of figures|list of tables|abbildungsverzeichnis|tabellenverzeichnis"
-    r")$",
-    re.IGNORECASE,
-)
-
-_TOC_DOTTED = re.compile(r"\.{4,}\s*\d+\s*$")          # "........12"
-def _is_structural_page(blocks: list[dict]) -> bool:
-    """Detect structural pages: TOC, references, list of figures/tables."""
-    first = blocks[0]["content"].strip()
-    if _STRUCTURAL_KEYWORDS.match(first):
-        return True
-    dotted = sum(1 for b in blocks if _TOC_DOTTED.search(b["content"]))
-    if dotted >= 3:
-        return True
-    return False
-
-
-
-def extract_page_texts(file_path: str) -> list[dict]:
-    """Extract the visible text of each page from a PDF.
-
-    Returns one entry per page with meaningful text content.
-    Pages that are TOC, nearly empty, or contain only formulas/images are skipped.
-
-    Returns list of dicts with keys:
-      - page_number (int, 1-indexed)
-      - content     (str)
-    """
-    import pypdfium2 as pdfium
-    doc = pdfium.PdfDocument(file_path)
-    pages: list[dict] = []
-
-    for page_idx in range(len(doc)):
-        page_num = page_idx + 1
-        page = doc[page_idx]
-        textpage = page.get_textpage()
-        raw_text = textpage.get_text_range() or ""
-        textpage.close()
-        page.close()
-
-        # pdfium gives us a single text stream per page rather than typed
-        # blocks/lines/spans like PyMuPDF.  Treating each non-empty newline-
-        # delimited line as a "block" preserves the structural-page heuristic
-        # (TOC keyword on first line, dotted "...12" pattern per line) without
-        # needing a layout-aware grouping pass.
-        page_blocks = [
-            {"content": ln}
-            for ln in (_clean(line).strip() for line in raw_text.splitlines())
-            if ln
-        ]
-
-        if not page_blocks:
-            continue
-
-        # Skip structural pages (TOC, references, list of figures/tables)
-        if _is_structural_page(page_blocks):
-            logger.info("extract_page_texts: skipping structural page {}", page_num)
-            continue
-
-        # Join all text on the page
-        full_text = " ".join(b["content"] for b in page_blocks).strip()
-
-        # Strip leading page number (e.g. "11 Arbeitspaket..." → "Arbeitspaket...")
-        full_text = re.sub(rf'^{page_num}\s+', '', full_text)
-        word_count = len(full_text.split())
-
-        # Skip pages with very little text (e.g. only formulas, images, page numbers)
-        if word_count < 15:
-            logger.info("extract_page_texts: skipping page {} ({} words)", page_num, word_count)
-            continue
-
-        pages.append({
-            "page_number": page_num,
-            "content": full_text,
-        })
-
-    doc.close()
-    logger.info("extract_page_texts: {} pages with text extracted", len(pages))
-    return pages
 
 
 def _extract_text(file_path: str, chunk_size: int, overlap: int) -> list[dict]:

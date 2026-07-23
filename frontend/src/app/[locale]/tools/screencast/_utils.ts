@@ -1,12 +1,6 @@
 import type { JobStatus } from "@/lib/api";
 import type { ProviderWithVoices } from "@/hooks/useVoices";
-
-const LANGUAGE_FLAG: Record<string, string> = {
-  "": "🌐", // universal voice (no language set)
-  de: "🇩🇪", en: "🇺🇸", fr: "🇫🇷", es: "🇪🇸",
-  it: "🇮🇹", nl: "🇳🇱", pt: "🇵🇹", pl: "🇵🇱",
-  tr: "🇹🇷", zh: "🇨🇳", ja: "🇯🇵", ko: "🇰🇷",
-};
+import { LANGUAGE_FLAG } from "@/lib/languageFlags";
 
 export function computeVoiceLabel(
   providerId: number,

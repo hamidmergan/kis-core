@@ -76,11 +76,10 @@ async def download_pptx_file(
     """Download translated/corrected PPTX from job folder."""
     if not re.match(r"^[a-f0-9]{32}$", translate_job_uuid):
         raise HTTPException(status_code=400, detail=t("job.invalidUuid", locale))
+    # Same status for missing and not-owned so job existence cannot be probed.
     job = db.get_job(translate_job_uuid)
-    if not job:
+    if not job or job["user_id"] != current_user.get("user_id", 0):
         raise HTTPException(status_code=404, detail=t("job.notFound", locale))
-    if job["user_id"] != current_user.get("user_id", 0):
-        raise HTTPException(status_code=403, detail=t("job.accessDenied", locale))
     data: bytes | None = None
     for filename in ("corrected.pptx", "translated.pptx"):
         try:

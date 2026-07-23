@@ -4,7 +4,7 @@
 // FontBBox height ~5580 FUnits) inflate this to 2-5x the real line-height,
 // which makes text-selection highlights visually span multiple lines.
 //
-// Self-correcting: only clamps when `loose_height > 2.5 * tight_height`
+// Self-correcting: only clamps when `loose_height > 2.0 * tight_height`
 // (clear FontBBox bug). Normal PDFs have loose/tight ratio ~1.2-1.4, so the
 // guard is a no-op on correctly-behaving fonts.
 // eslint-disable-next-line @typescript-eslint/no-explicit-any

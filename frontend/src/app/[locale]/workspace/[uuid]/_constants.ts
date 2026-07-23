@@ -7,14 +7,6 @@ export const TOOL_COLORS: Record<string, { bg: string; color: string }> = {
   vokabeltest:  { bg: "var(--badge-violet-bg)",  color: "var(--badge-violet-fg)" },
 };
 
-export const TOOL_KEYS = [
-  "flashcards",
-  "karteikarten",
-  "lueckentext",
-  "vokabeltest",
-  "quiz",
-] as const;
-
 // Studio form-input limits (frontend-only UX caps; backend stores TEXT without VARCHAR limit).
 export const NOTE_TITLE_MAX = 200;
 export const NOTE_BODY_MAX = 2000;

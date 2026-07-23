@@ -32,7 +32,6 @@ function fakeRegistry() {
 
 function fakeRefs(): HighlightRefs & { onHighlightActive: ReturnType<typeof vi.fn> } {
   return {
-    prevHighlightRef: { current: null },
     citationHighlightRef: { current: null },
     onHighlightActive: vi.fn(),
   };

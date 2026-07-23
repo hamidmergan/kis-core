@@ -22,6 +22,7 @@ router = APIRouter(tags=["screencast: render"])
 async def prerender_images(
     body: PrerenderRequest,
     background_tasks: BackgroundTasks,
+    current_user: dict = Depends(get_current_user),
     locale: str = Depends(get_locale),
 ):
     """Start background pre-rendering of slide images at 300 DPI.
@@ -31,6 +32,11 @@ async def prerender_images(
     """
     if not re.match(r"^[a-f0-9]{32}$", body.translate_job_uuid):
         raise HTTPException(status_code=400, detail=t("job.invalidUuid", locale))
+    # Ownership check: only the job owner may trigger pre-rendering. Same status
+    # for missing and not-owned so job existence cannot be probed.
+    job = db.get_job(body.translate_job_uuid)
+    if not job or job["user_id"] != current_user.get("user_id", 0):
+        raise HTTPException(status_code=404, detail=t("screencast.translateJobNotFound", locale))
     background_tasks.add_task(prerender_images_task, body.translate_job_uuid)
     logger.info("Pre-render started for job={}", body.translate_job_uuid)
     return {"status": "started"}

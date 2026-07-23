@@ -1,7 +1,5 @@
 """Shared helpers für Screencast-Tasks: Cancel-Check, TTS-Client, Service-Resolver."""
 
-from pathlib import Path
-
 from loguru import logger
 
 from src.storage import get_job_file

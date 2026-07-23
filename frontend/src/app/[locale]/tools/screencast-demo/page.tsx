@@ -37,8 +37,6 @@ interface GenerateScriptsResponse {
   scripts: string[];
 }
 
-const RENDER_SESSION_KEY = "kis_screencast_demo_active_render";
-
 function ScreencastDemoPageInner() {
   const t = useTranslations("tools.screencast");
   const tDemo = useTranslations("tools.screencastDemo");
@@ -95,7 +93,6 @@ function ScreencastDemoPageInner() {
 
   const resetAll = useCallback(() => {
     abortControllerRef.current?.abort();
-    sessionStorage.removeItem(RENDER_SESSION_KEY);
     setStep("upload");
     setSpeed(0.9);
     setSlidePause(0.5);

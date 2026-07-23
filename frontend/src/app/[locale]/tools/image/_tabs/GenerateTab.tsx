@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
 import { backendApi, pollJob, downloadJobAsBlob, parseDetail } from "@/lib/api";
 import Spinner from "@/components/ui/Spinner";
@@ -20,6 +20,13 @@ export default function GenerateTab() {
   const [spinnerLabel, setSpinnerLabel] = useState(t("spinner"));
   const [error, setError] = useState("");
   const [result, setResult] = useState<{ url: string; filename: string } | null>(null);
+
+  // Free the object URL when it is replaced (regenerate) or the tab unmounts.
+  // The cleanup closes over the previous url, so each new result revokes the old one.
+  useEffect(() => {
+    const url = result?.url;
+    return () => { if (url) URL.revokeObjectURL(url); };
+  }, [result?.url]);
 
   const handleGenerate = useCallback(async () => {
     if (!prompt.trim()) return;

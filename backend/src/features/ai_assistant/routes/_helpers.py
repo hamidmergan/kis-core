@@ -1169,6 +1169,7 @@ def _save_source_file_path(user_id: int, workspace_uuid: str, source_uuid: str, 
     return str(dest)
 
 def _delete_source_files_for_workspace(workspace: dict) -> None:
+    from src.storage import delete_file
     sources = db.get_aia_sources_by_workspace(workspace["id"])
     for source in sources:
         try:
@@ -1207,8 +1208,6 @@ def _term_appears_in_text(term: str, text_lower: str) -> bool:
     return bool(re.search(r"\b" + re.escape(stem), text_lower))
 
 
-import re as _re
-
 # A line "already has a citation" if it ends with a chip token — optionally followed
 # by a markdown table cell's closing pipe (the chip can sit inside the last cell).
-_HAS_CITE = _re.compile(r"\[(?:Q?\d+,\s*)?(?:S\.\s*\d+|\d{1,2}:\d{2}(?::\d{2})?)[^\]]*\]\s*\|?\s*$")
+_HAS_CITE = re.compile(r"\[(?:Q?\d+,\s*)?(?:S\.\s*\d+|\d{1,2}:\d{2}(?::\d{2})?)[^\]]*\]\s*\|?\s*$")

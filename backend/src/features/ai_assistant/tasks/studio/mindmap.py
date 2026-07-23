@@ -180,67 +180,6 @@ def run_generate_mindmap(self, mindmap_id: int, source_ids: list[int], source_uu
                 logger.error("KI Tutor: mindmap dispatch on_complete failed: {}", e)
 
 
-# --- Presentation generation (NotebookLM-style + FLUX images) ---------------
-
-# NotebookLM-inspired slide prompt: clean, statement-driven, icon-aware layouts
-_PRES_PROMPT = (
-    "Du erstellst eine professionelle Präsentation im Stil von Google NotebookLM: clean, modern, viel Whitespace, "
-    "große fette Aussagesätze als Titel (KEINE generischen Titel wie 'Überblick' - stattdessen 'Warum dieses Projekt den Unterschied macht.').\n\n"
-    "Antworte NUR mit JSON:\n"
-    "{\n"
-    '  "title": "Präsentationstitel",\n'
-    '  "slides": [\n'
-    '    {"layout": "deckblatt", "title": "Große Aussage als Titel", "subtitle": "Ergänzender Untertitel", "image_prompt": "..."},\n'
-    '    {"layout": "kapitel", "number": "1", "title": "Abschnittstitel", "subtitle": "Kurzbeschreibung"},\n'
-    '    {"layout": "statement", "title": "Eine starke Aussage als ganzer Satz.", "body": "2-3 Sätze Erklärung dazu."},\n'
-    '    {"layout": "content", "title": "Aussage als Titel.", "bullets": ["Punkt 1", "Punkt 2", "Punkt 3"], "image_prompt": "..."},\n'
-    '    {"layout": "icon_grid", "title": "Vier Vorteile auf einen Blick.", "items": [\n'
-    '      {"title": "Punkt A", "body": "Kurze Erklärung in 1-2 Sätzen."},\n'
-    '      {"title": "Punkt B", "body": "Kurze Erklärung."},\n'
-    '      {"title": "Punkt C", "body": "Kurze Erklärung."},\n'
-    '      {"title": "Punkt D", "body": "Kurze Erklärung."}\n'
-    '    ]},\n'
-    '    {"layout": "vergleich", "title": "Vergleich als Aussage.", "left_title": "Option A", "left_bullets": ["..."], "right_title": "Option B", "right_bullets": ["..."]},\n'
-    '    {"layout": "zitat", "title": "Kontextüberschrift", "quote": "Zitattext oder Kernaussage.", "body": "Erklärung dazu."},\n'
-    '    {"layout": "zweispalten", "title": "Gegenüberstellung.", "left_bullets": ["Links 1", "Links 2"], "right_bullets": ["Rechts 1", "Rechts 2"]},\n'
-    '    {"layout": "statistik", "title": "Die Zahlen sprechen für sich.", "stats": [{"value": "42%", "label": "Label", "description": "Beschreibung"}]},\n'
-    '    {"layout": "zeitstrahl", "title": "In drei Schritten zum Ziel.", "steps": [{"label": "Schritt 1", "description": "Beschreibung"}]},\n'
-    '    {"layout": "zusammenfassung", "title": "Kernbotschaft.", "bullets": ["Fazit 1", "Fazit 2", "Fazit 3"]},\n'
-    '    {"layout": "abschluss", "title": "Vielen Dank.", "subtitle": "Kontaktinfo oder Schlusswort"}\n'
-    "  ]\n"
-    "}\n\n"
-    "Layouts (12 verfügbar):\n"
-    "- deckblatt: Titelfolie (1x am Anfang). image_prompt = englischer Prompt für Illustration.\n"
-    "- kapitel: Abschnittstrenner mit großer Zahl (1, 2, 3...) + Titel + Beschreibung. Dunkler Hintergrund.\n"
-    "- content: Aussage-Titel + 3-5 Bullet Points (max 12 Wörter/Punkt) + optional image_prompt.\n"
-    "- statement: Große fette Aussage + Fließtext. Kein Bild, keine Bullets.\n"
-    "- icon_grid: 2x2 Raster mit 4 Punkten (je title + body). Für Vorteile, Features, Übersichten.\n"
-    "- vergleich: Zwei Boxen nebeneinander mit Titel + Bullets pro Seite.\n"
-    "- zitat: Hervorgehobenes Zitat/Kernaussage in Box + erklärende Beschreibung.\n"
-    "- zweispalten: Zwei Spalten nebeneinander mit left_bullets/right_bullets.\n"
-    "- statistik: Große Zahlen/Statistiken (bis 3 stats mit value + label + description).\n"
-    "- zeitstrahl: Nummerierte Schritte/Prozess (steps mit label + description, max 6).\n"
-    "- zusammenfassung: Vorletzte Folie mit Kernaussagen als Bullets.\n"
-    "- abschluss: Letzte Folie (1x am Ende) mit Schlussbotschaft (title + subtitle).\n\n"
-    "Regeln:\n"
-    "- {slide_count} Folien (inkl. Deckblatt + Abschluss)\n"
-    "- Titel sind IMMER vollständige Aussagesätze mit Punkt am Ende.\n"
-    "- Mische die Layouts - NICHT nur 'content' Folien!\n"
-    "- STICHPUNKTE statt Fließtext - max 6-8 Wörter pro Bullet. Keine ganzen Sätze in Bullets.\n"
-    "- Max 5-6 Bullets pro Content-Folie. Lieber eine Folie mehr als zu viele Punkte.\n"
-    "- Verwende kapitel-Folien um größere Abschnitte zu markieren.\n"
-    "- icon_grid für Übersichten mit 4 gleichwertigen Punkten.\n"
-    "- statement für einzelne starke Aussagen.\n"
-    "- zitat für wichtige Zitate oder Kernbotschaften.\n"
-    "- statistik wenn es harte Zahlen/Daten gibt.\n"
-    "- zeitstrahl für Prozesse, Abläufe, Schritte.\n"
-    "- zweispalten für Gegenüberstellungen oder parallele Informationen.\n"
-    "- Erste Folie IMMER 'deckblatt', letzte IMMER 'abschluss'.\n"
-    "- image_prompt: Nur bei deckblatt und content. Englisch. Stil: 'flat vector illustration, people in modern setting, warm muted colors, white background, no text'. Max 3 Bilder total.\n"
-    "- Texte EXAKT aus der Source - keine Umformulierungen, keine Rechtschreibfehler.\n"
-    "- Sprache = Sprache der Source.\n"
-    "- Antworte NUR mit JSON."
-)
 
 
 

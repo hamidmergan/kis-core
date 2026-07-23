@@ -13,6 +13,11 @@ def _format_ts(seconds: float) -> str:
     return f"{s // 60:02d}:{s % 60:02d}"
 
 
+def _language_label(locale: str) -> str:
+    """Map a locale to the target language name used in generation prompts."""
+    return "English" if (locale or "").lower().startswith("en") else "German"
+
+
 def _save_aia_output(user_id: int, workspace_uuid: str, filename: str, data: bytes) -> str:
     """Save an AIA output file (presentation, mindmap, etc.) under users/{user_id}/aia/."""
     from src.storage import USE_S3, aia_output_key

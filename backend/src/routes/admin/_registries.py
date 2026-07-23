@@ -90,15 +90,6 @@ TOOL_LABELS = {
 }
 
 
-TOOL_LABELS_TUTOR = {
-    "flashcards": "Flashcards",
-    "karteikarten": "Karteikarten",
-    "quiz": "Quiz",
-    "lueckentext": "Lückentext",
-    "vokabeltest": "Vokabeltest",
-}
-
-
 DEFAULT_DISABLED_TOOLS: set[str] = set()
 
 

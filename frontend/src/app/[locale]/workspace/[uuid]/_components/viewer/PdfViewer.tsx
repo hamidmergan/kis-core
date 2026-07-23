@@ -82,11 +82,10 @@ export function PdfViewer({
   // nonce changes (pill click on the same document). Citation chips set no text, so
   // they only scroll; a popup/action-bar selection sets `text` and gets highlighted.
   const pendingHighlightRef = useRef<{ page: number; text: string; isCitation?: boolean } | null>(null);
-  const prevHighlightRef = useRef<{ pageIndex: number; ids: string[] } | null>(null);
   const citationHighlightRef = useRef<{ pageIndex: number; ids: string[]; scrollY?: number } | null>(null);
   // Controls the "Markierung aufheben" button shown while a citation highlight is active.
   const [citationActive, setCitationActive] = useState(false);
-  const highlightRefs: HighlightRefs = { prevHighlightRef, citationHighlightRef, onHighlightActive: setCitationActive };
+  const highlightRefs: HighlightRefs = { citationHighlightRef, onHighlightActive: setCitationActive };
 
   // When the document changes, the inner PDFViewer remounts (keyed by uuid) but this
   // outer component does not — so registryRef still points at the previous document's

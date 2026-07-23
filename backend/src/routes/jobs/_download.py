@@ -109,10 +109,17 @@ def _resolve_artifact_filename(job: dict, ext: str) -> str:
 
 
 class _ZipStreamWriter:
-    """File-like object that collects written bytes into chunks for streaming."""
+    """File-like sink for zipfile that can be drained chunk by chunk.
+
+    zipfile records absolute stream offsets, so tell() reports a virtual
+    position (bytes already drained + current buffer). drain() hands back
+    everything written since the last drain and resets the buffer, which keeps
+    peak memory at roughly one archive entry instead of the whole ZIP.
+    """
 
     def __init__(self):
         self._buf = io.BytesIO()
+        self._base = 0  # absolute offset of the buffer start within the archive
 
     def write(self, data: bytes) -> int:
         return self._buf.write(data)
@@ -121,30 +128,35 @@ class _ZipStreamWriter:
         pass
 
     def tell(self) -> int:
-        return self._buf.tell()
+        return self._base + self._buf.tell()
 
     def seek(self, offset: int, whence: int = 0) -> int:
-        return self._buf.seek(offset, whence)
+        # zipfile only seeks to absolute positions inside the current entry
+        # (patching a local header), never back into already-drained bytes.
+        if whence == 0:
+            offset -= self._base
+        self._buf.seek(offset, whence)
+        return self._base + self._buf.tell()
 
-    def read(self, n: int = -1) -> bytes:
-        return self._buf.read(n)
+    def drain(self) -> bytes:
+        """Return everything buffered since the last drain and reset the buffer."""
+        chunk = self._buf.getvalue()
+        self._base += len(chunk)
+        self._buf = io.BytesIO()
+        return chunk
 
     def close(self):
         pass
 
 
 def _streaming_zip_bundle(user_id: int, job_uuid: str, stem: str, audio_count: int):
-    """Generator that yields ZIP data file-by-file without buffering everything first."""
+    """Generator that yields ZIP data entry-by-entry without buffering the whole archive."""
     stream = _ZipStreamWriter()
     zf = zipfile.ZipFile(stream, mode="w", compression=zipfile.ZIP_STORED)
 
     def _add_and_yield(arcname: str, data: bytes):
-        pos_before = stream.tell()
         zf.writestr(arcname, data)
-        pos_after = stream.tell()
-        stream.seek(pos_before)
-        chunk = stream.read(pos_after - pos_before)
-        return chunk
+        return stream.drain()
 
     # MP4
     try:
@@ -180,12 +192,9 @@ def _streaming_zip_bundle(user_id: int, job_uuid: str, stem: str, audio_count: i
         except Exception:
             continue
 
-    # Finalize ZIP (central directory)
-    pos_before = stream.tell()
+    # Finalize ZIP (central directory + end record)
     zf.close()
-    pos_after = stream.tell()
-    stream.seek(pos_before)
-    yield stream.read(pos_after - pos_before)
+    yield stream.drain()
 
 
 @router.get("/{job_uuid}/bundle")

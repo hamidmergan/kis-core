@@ -8,15 +8,11 @@ import json
 
 from loguru import logger
 
-from src.features.ai_assistant.tasks._helpers import _clean_llm_json
+from src.features.ai_assistant.tasks._helpers import _clean_llm_json, _language_label
 from src.tool_prompts import AIA_KARTEIKARTEN_QA_PROMPT
 
 from src.features.ai_assistant.tasks.language_training._attribution import attach_chips
 from src.features.ai_assistant.tasks.language_training._context import QuelleContext
-
-
-def _language_label(locale: str) -> str:
-    return "English" if (locale or "").lower().startswith("en") else "German"
 
 
 def generate_cards_from_source(
