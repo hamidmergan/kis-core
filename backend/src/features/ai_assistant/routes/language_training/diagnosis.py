@@ -8,6 +8,7 @@ DELETE /ai-assistant/language-diagnosis/me clears the level so the user can
 re-take the diagnosis.
 """
 
+import asyncio
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -137,7 +138,7 @@ async def analyze(
     ]
 
     try:
-        response = _call_llm(llm, messages)
+        response = await asyncio.to_thread(_call_llm, llm, messages)
         raw = response.choices[0].message.content
     except Exception as exc:
         logger.error("Language diagnosis LLM call failed for user {}: {}", user_id, exc)

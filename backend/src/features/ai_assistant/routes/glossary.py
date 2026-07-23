@@ -1,5 +1,6 @@
 """KI-Assistent routes - glossary + extraction."""
 
+import asyncio
 import io
 import json
 import re
@@ -218,9 +219,11 @@ async def extract_glossary_from_selection(
                 {"role": "system", "content": _GLOSSARY_SINGLE_PROMPT},
                 {"role": "user", "content": f"Markierter Begriff: {text}"},
             ]
-            response = llm._client.chat.completions.create(
-                model=llm._model, messages=messages, temperature=0.2,
-                **(llm._extra_body and {"extra_body": llm._extra_body} or {}),
+            response = await asyncio.to_thread(
+                lambda: llm._client.chat.completions.create(
+                    model=llm._model, messages=messages, temperature=0.2,
+                    **(llm._extra_body and {"extra_body": llm._extra_body} or {}),
+                )
             )
             answer = response.choices[0].message.content.strip()
             if answer.startswith("```"):
@@ -255,9 +258,11 @@ async def extract_glossary_from_selection(
             {"role": "system", "content": _GLOSSARY_EXTRACT_PROMPT},
             {"role": "user", "content": f"Markierter Text:\n\n{text}"},
         ]
-        response = llm._client.chat.completions.create(
-            model=llm._model, messages=messages, temperature=0.2,
-            **(llm._extra_body and {"extra_body": llm._extra_body} or {}),
+        response = await asyncio.to_thread(
+            lambda: llm._client.chat.completions.create(
+                model=llm._model, messages=messages, temperature=0.2,
+                **(llm._extra_body and {"extra_body": llm._extra_body} or {}),
+            )
         )
         answer = response.choices[0].message.content.strip()
         if answer.startswith("```"):
