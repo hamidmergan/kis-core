@@ -195,9 +195,11 @@ async def extract_glossary_from_selection(
     if not text:
         return {"added": 0, "message": t("ai.glossary.noTextSelected", locale)}
 
-    # Find the source
+    # Find the source. It must belong to this workspace, otherwise a foreign
+    # source_uuid would let a user attach glossary entries (bulk_create_glossary_entries
+    # keys on source["id"]) to another workspace's source.
     source = db.get_aia_source(body.source_uuid)
-    if not source:
+    if not source or source["workspace_id"] != workspace["id"]:
         raise HTTPException(status_code=404, detail=t("source.notFound", locale))
 
     # Get existing terms to avoid duplicates

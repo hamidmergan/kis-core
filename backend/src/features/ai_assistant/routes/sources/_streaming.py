@@ -7,7 +7,7 @@ from ._shared import (
     get_current_user, get_locale, t,
     FileResponse, Response, StreamingResponse,
     USE_S3, file_exists, get_file, list_keys, stream_s3_object,
-    _require_own_workspace,
+    _require_own_workspace, _load_workspace_source,
 )
 
 router = APIRouter(tags=["ki-assistent: sources"])
@@ -46,9 +46,7 @@ async def stream_source_file(
     if not is_owner and not is_enrolled:
         raise HTTPException(status_code=403, detail=t("workspace.accessDenied", locale))
 
-    source = db.get_aia_source(source_uuid)
-    if not source:
-        raise HTTPException(status_code=404, detail=t("source.notFound", locale))
+    source = _load_workspace_source(source_uuid, workspace, locale)
 
     ext = Path(source["filename"]).suffix.lower()
     media_type_map = {
@@ -112,9 +110,7 @@ async def regenerate_transcript(
     from src.services import feature_router
 
     workspace = _require_own_workspace(workspace_uuid, current_user["user_id"], locale=locale)
-    source = db.get_aia_source(source_uuid)
-    if not source:
-        raise HTTPException(status_code=404, detail=t("source.notFound", locale))
+    source = _load_workspace_source(source_uuid, workspace, locale)
 
     if workspace.get("transcript_translation_mode", "manual") == "off":
         raise HTTPException(status_code=403, detail=t("ai.transcript.translationDisabled", locale))
@@ -166,9 +162,7 @@ async def get_transcript_vtt(
     if not is_owner and not is_enrolled:
         raise HTTPException(status_code=403, detail=t("workspace.accessDenied", locale))
 
-    source = db.get_aia_source(source_uuid)
-    if not source:
-        raise HTTPException(status_code=404, detail=t("source.notFound", locale))
+    source = _load_workspace_source(source_uuid, workspace, locale)
 
     # Only allow lowercase ISO-like language codes (2-5 chars)
     lang_clean = (lang or "").strip().lower()
@@ -207,9 +201,7 @@ async def get_transcript_exists(
     if not is_owner and not is_enrolled:
         raise HTTPException(status_code=403, detail=t("workspace.accessDenied", locale))
 
-    source = db.get_aia_source(source_uuid)
-    if not source:
-        raise HTTPException(status_code=404, detail=t("source.notFound", locale))
+    source = _load_workspace_source(source_uuid, workspace, locale)
 
     lang_clean = (lang or "").strip().lower()
     if not re.fullmatch(r"[a-z]{2,5}", lang_clean):
@@ -245,9 +237,7 @@ async def get_transcript_langs(
     if not is_owner and not is_enrolled:
         raise HTTPException(status_code=403, detail=t("workspace.accessDenied", locale))
 
-    source = db.get_aia_source(source_uuid)
-    if not source:
-        raise HTTPException(status_code=404, detail=t("source.notFound", locale))
+    source = _load_workspace_source(source_uuid, workspace, locale)
 
     base_key = source["file_path"].rsplit(".", 1)[0]
     source_lang = (source.get("language") or "").lower() or None
