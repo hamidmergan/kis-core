@@ -19,6 +19,12 @@ from src.routes import admin, auth, glossaries, health, image, jobs, aia, ki_sta
 _MAINTENANCE_OPEN_PATHS = {"/health", "/health/maintenance", "/health/labels"}
 _MAINTENANCE_OPEN_PREFIXES = ("/admin/", "/auth/")
 
+# Cache maintenance_mode: an uncached get_setting per request serializes the whole
+# single-worker app behind a blocking DB round-trip before every dispatch. A few
+# seconds of staleness on a maintenance toggle is harmless.
+_MAINTENANCE_TTL_S = 5.0
+_maintenance_cache: dict = {"enabled": False, "checked_at": -1e9}
+
 
 def _configure_logging() -> None:
     """Configure loguru for stdout-only logging (Docker captures stdout)."""
@@ -156,11 +162,16 @@ def create_app() -> FastAPI:
             return await call_next(request)
         if settings.is_local_mode:
             return await call_next(request)
-        try:
-            enabled = db.get_setting("maintenance_mode", "false").lower() == "true"
-        except Exception:
-            enabled = False
-        if not enabled:
+        loop_now = asyncio.get_running_loop().time()
+        if loop_now - _maintenance_cache["checked_at"] >= _MAINTENANCE_TTL_S:
+            try:
+                _maintenance_cache["enabled"] = (
+                    await asyncio.to_thread(db.get_setting, "maintenance_mode", "false")
+                ).lower() == "true"
+            except Exception:
+                _maintenance_cache["enabled"] = False
+            _maintenance_cache["checked_at"] = loop_now
+        if not _maintenance_cache["enabled"]:
             return await call_next(request)
         # Admin keeps full access during maintenance so they can keep working.
         # Mirrors is_admin_user(): env-admin OR DB-role 'admin' — otherwise a
