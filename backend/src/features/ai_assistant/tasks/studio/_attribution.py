@@ -1,10 +1,11 @@
-"""Post-hoc attribution wiring for the studio tools (data table, mindmap).
+"""Post-hoc attribution wiring for the studio data table tool.
 
-Unlike the language-training tools these build their own context (no ``QuelleContext``),
-so they call the service-level :func:`attribute_claims` directly and convert each nav chip
-into the page field their frontend reads: a page NUMBER for a PDF, or a ``"h:mm:ss"`` timestamp
-STRING for media. Same pgvector gate/selector as the chat, nav-only, seen-clamped — replaces
-the old LLM-guessed page numbers + highlight/keyword strings."""
+Unlike the language-training tools it builds its own context (no ``QuelleContext``),
+so it calls the service-level :func:`attribute_claims` directly and converts each nav chip
+into the page field the frontend reads: a page NUMBER for a PDF, or a ``"h:mm:ss"`` timestamp
+STRING for media. Same pgvector gate/selector as the chat, nav-only, seen-clamped, replaces
+the old LLM-guessed page numbers + highlight/keyword strings. (The mindmap tool deliberately
+keeps its LLM-guessed pages and does not use this path.)"""
 
 from src.services.aia_attribution import attribute_claims, _GENERIC_ATTRIB_MAX_DIST
 

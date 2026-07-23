@@ -203,8 +203,3 @@ async def delete_mindmap(
     db.delete_aia_mindmap(mindmap_id)
     return {"ok": True}
 
-
-# ─── Flashcards generieren ───────────────────────────────────────────────────
-
-# ─── Flashcards generieren ───────────────────────────────────────────────────
-

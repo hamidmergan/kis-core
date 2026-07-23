@@ -64,7 +64,7 @@ MAX_UPLOAD_BYTES           = 500 * 1024 * 1024   # general (500 MB)
 TRANSLATE_MAX_UPLOAD_BYTES = 500 * 1024 * 1024   # translation (500 MB)
 MAX_TRANSCRIPTION_BYTES    = 500 * 1024 * 1024   # audio upload (500 MB)
 MAX_IMAGE_BYTES            = 20  * 1024 * 1024   # image upload (20 MB)
-MAX_OUTPUT_VIDEO_BYTES     = 300 * 1024 * 1024   # output video limit (200 MB)
+MAX_OUTPUT_VIDEO_BYTES     = 300 * 1024 * 1024   # output video limit (300 MB)
 
 # --- Character limits (per request, not per time window) --------------------
 TTS_MAX_CHARS        = 100_000

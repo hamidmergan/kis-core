@@ -1,16 +1,16 @@
-"""Dispatcher engine: ties the fair-share policy and area weighting together.
+"""Dispatcher engine: fair-share scheduling for the shared background pool.
 
 Two pure pieces, no IO:
-
-- ``plan_dispatch`` -- given each lane's queued jobs, running jobs and its own
-  concurrency cap, returns which job ids to start now per lane. Lanes are fully
-  independent (hard isolation: ingest can never eat studio's slots and vice
-  versa). Within a lane, per-user fair-share applies (``select_next_dispatches``).
 
 - ``WeightedAreaSelector`` -- work-conserving weighted picker that distributes a
   shared budget (the rate-gate tokens) across areas by weight. An idle area is
   skipped so its share is lent to others, while a busy area never starves
   because every area with weight > 0 keeps getting turns.
+
+- ``select_shared_pool`` -- fills a single shared pool of background slots: each
+  free slot goes to an area by weighted deficit, then to the fairest user in
+  that area (fewest running jobs, then fewest cumulative grants, then oldest).
+  ``PoolJob`` is the queued-job record it consumes.
 """
 from __future__ import annotations
 

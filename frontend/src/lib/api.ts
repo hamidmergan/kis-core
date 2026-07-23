@@ -231,7 +231,7 @@ class ApiClient {
       }
     }
 
-    // Fallback: use original filename with English extension
+    // Fallback: reuse the original upload filename as-is
     if (!filename) {
       filename = file.name;
     }

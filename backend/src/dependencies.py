@@ -66,8 +66,7 @@ def is_admin_user(user: dict) -> bool:
 async def get_admin_user(request: Request, locale: str = Depends(get_locale)) -> dict:
     """Like get_current_user, but raises 403 if the user is not an admin.
 
-    Kept for backwards compat with existing admin routes; equivalent in effect to
-    require_admin from dependencies_rbac.
+    This is the admin dependency the admin routes actually depend on.
     """
     user = await get_current_user(request)
     if not is_admin_user(user):

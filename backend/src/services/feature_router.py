@@ -42,10 +42,10 @@ class FeatureBinding:
 def resolve(feature: str, *, user_provider_id: Optional[int] = None) -> FeatureBinding:
     """Return the binding for ``feature``.
 
-    For multi-pill features (``tts``, ``doc_translate``, ``screencast_translate``)
-    the caller can pass ``user_provider_id`` to use the user's runtime choice
-    instead of the admin's default; the chosen id must appear in the route's
-    ``user_choices`` list.
+    For user-choice (multi-pill) features -- e.g. ``tts``, ``image_gen``,
+    ``doc_translate`` -- the caller can pass ``user_provider_id`` to use the
+    user's runtime choice instead of the admin's default; the chosen id must
+    appear in the route's ``user_choices`` list.
     """
     route = db.get_route(feature)
     if route is None:
