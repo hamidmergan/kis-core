@@ -132,8 +132,12 @@ def run_index_source(self, source_uuid: str, locale: str = "de", _aia_job_uuid: 
                     db.update_aia_source_progress(source_uuid, stage, page=page, total=total)
                 chunks = aia_chunker.extract_chunks(local_path, file_type, progress_cb=_progress_cb)
 
-            # 6. Save chunks to DB
+            # 6. Save chunks to DB. Delete any chunks from a previous (failed then
+            # retried) attempt first: the whole task body re-runs on retry and
+            # create_aia_chunk does not dedupe, so without this a retry would leave
+            # duplicate chunk rows polluting vector search. No-op on a first run.
             db.update_aia_source_progress(source_uuid, "chunking")
+            db.delete_aia_chunks_by_source(source_id)
             chunk_ids: list[int] = []
             for chunk in chunks:
                 chunk_id = db.create_aia_chunk(
@@ -270,8 +274,10 @@ def run_index_source(self, source_uuid: str, locale: str = "de", _aia_job_uuid: 
         # can re-trigger later via the existing retry button (nothing is lost).
         if not isinstance(e, OcrFailedError):
             # Rate-limit / transient upstream → keep status, requeue task with backoff.
-            # Already-transcribed chunks are cached per source_uuid in Redis, so the
-            # retry skips them and only re-tries the chunk that failed.
+            # Whisper transcription is cached per source_uuid in Redis, so a media
+            # retry does not re-transcribe. Chunking + embedding DO re-run from the
+            # top; step 6 deletes prior chunks first so a retry never duplicates rows
+            # (it does re-embed all batches, bounded by the retry cap).
             msg = str(e).lower()
             is_rate_limit = "429" in msg or "rate limit" in msg
             if is_rate_limit and self.request.retries < 5:
