@@ -37,7 +37,10 @@ services:
       - ./backend/pytest.ini:/app/pytest.ini:ro
       - kis-storage:/app/storage
     ports:
-      - "8000:8000"
+      # Nur an localhost binden, nicht ans oeffentliche Interface. nginx und der
+      # Frontend-Container erreichen das Backend intern ueber das Docker-Netz
+      # (backend:8000); nur lokale Host-Tools brauchen den veroeffentlichten Port.
+      - "127.0.0.1:8000:8000"
     extra_hosts:
       - "host.docker.internal:host-gateway"
     depends_on:
@@ -150,17 +153,24 @@ services:
     environment:
       LDAP_ORGANISATION: TH Luebeck
       LDAP_DOMAIN: th-luebeck.de
-      LDAP_ADMIN_PASSWORD: admin
+      # In prod ueber .env auf ein starkes Passwort setzen. Default nur fuer
+      # lokale Entwicklung. Achtung: osixia/openldap setzt das Admin-Passwort
+      # nur beim ERSTEN Init im Volume, ein spaeterer Wechsel braucht ldappasswd
+      # oder ein frisches Volume.
+      LDAP_ADMIN_PASSWORD: ${LDAP_ADMIN_PASSWORD:-admin}
       LDAP_TLS: "false"
     ports:
-      - "389:389"
+      # Nur localhost. Das Backend erreicht LDAP intern ueber das Docker-Netz
+      # (LDAP_SERVER=kis-openldap), niemand von aussen. Frueher lag 389 offen
+      # auf 0.0.0.0, also am oeffentlichen Interface der Prod-Box.
+      - "127.0.0.1:389:389"
     volumes:
       - ./docker/ldap/seed.ldif:/container/service/slapd/assets/config/bootstrap/ldif/custom/seed.ldif:ro
       - kis-openldap-data:/var/lib/ldap
       - kis-openldap-config:/etc/ldap/slapd.d
     command: --copy-service
     healthcheck:
-      test: ["CMD", "ldapsearch", "-x", "-H", "ldap://localhost", "-D", "cn=admin,dc=th-luebeck,dc=de", "-w", "admin", "-b", "dc=th-luebeck,dc=de"]
+      test: ["CMD", "ldapsearch", "-x", "-H", "ldap://localhost", "-D", "cn=admin,dc=th-luebeck,dc=de", "-w", "${LDAP_ADMIN_PASSWORD:-admin}", "-b", "dc=th-luebeck,dc=de"]
       interval: 10s
       timeout: 5s
       retries: 10
@@ -172,7 +182,7 @@ services:
     command: >
       sh -c "
         apk add --no-cache openldap-clients &&
-        ldapadd -x -H ldap://openldap -D 'cn=admin,dc=th-luebeck,dc=de' -w admin -f /seed/seed.ldif 2>&1 || true
+        ldapadd -x -H ldap://openldap -D 'cn=admin,dc=th-luebeck,dc=de' -w '${LDAP_ADMIN_PASSWORD:-admin}' -f /seed/seed.ldif 2>&1 || true
       "
     volumes:
       - ./docker/ldap/seed.ldif:/seed/seed.ldif:ro
