@@ -52,6 +52,18 @@ export function parseDetail(detail: unknown, fallback: string): string {
   return fallback;
 }
 
+// Extract a filename from a Content-Disposition header: RFC 5987 `filename*=UTF-8''`
+// first, then a plain `filename="..."`; returns `fallback` when neither is present.
+export function filenameFromDisposition(disposition: string | null, fallback: string): string {
+  if (disposition) {
+    const utf8Match = disposition.match(/filename\*=UTF-8''(.+?)(?:;|$)/i);
+    if (utf8Match) return decodeURIComponent(utf8Match[1].trim());
+    const basicMatch = disposition.match(/filename="?([^";\n]+)"?/i);
+    if (basicMatch) return decodeURIComponent(basicMatch[1].trim());
+  }
+  return fallback;
+}
+
 function _parseErrorResponse(errorBody: { detail?: unknown }, fallbackStatus: number): Error {
   const detail = errorBody.detail;
   if (detail && typeof detail === "object" && "quota_type" in (detail as object)) {
@@ -170,24 +182,7 @@ class ApiClient {
     }
 
     const blob = await response.blob();
-    let filename = "";
-
-    const disposition = response.headers.get("Content-Disposition");
-    if (disposition) {
-      const utf8Match = disposition.match(/filename\*=UTF-8''(.+?)(?:;|$)/i);
-      if (utf8Match) {
-        filename = decodeURIComponent(utf8Match[1].trim());
-      } else {
-        const basicMatch = disposition.match(/filename="?([^";\n]+)"?/i);
-        if (basicMatch) {
-          filename = decodeURIComponent(basicMatch[1].trim());
-        }
-      }
-    }
-
-    if (!filename) {
-      filename = file.name;
-    }
+    const filename = filenameFromDisposition(response.headers.get("Content-Disposition"), file.name);
 
     return { blob, filename };
   }
@@ -214,27 +209,7 @@ class ApiClient {
     }
 
     const blob = await response.blob();
-    let filename = "";
-
-    const disposition = response.headers.get("Content-Disposition");
-    if (disposition) {
-      // Try filename*=UTF-8'' first (RFC 5987)
-      const utf8Match = disposition.match(/filename\*=UTF-8''(.+?)(?:;|$)/i);
-      if (utf8Match) {
-        filename = decodeURIComponent(utf8Match[1].trim());
-      } else {
-        // Fallback to filename="..."
-        const basicMatch = disposition.match(/filename="?([^";\n]+)"?/i);
-        if (basicMatch) {
-          filename = decodeURIComponent(basicMatch[1].trim());
-        }
-      }
-    }
-
-    // Fallback: reuse the original upload filename as-is
-    if (!filename) {
-      filename = file.name;
-    }
+    const filename = filenameFromDisposition(response.headers.get("Content-Disposition"), file.name);
 
     return { blob, filename };
   }
@@ -254,24 +229,7 @@ class ApiClient {
     }
 
     const blob = await response.blob();
-    let filename = "";
-
-    const disposition = response.headers.get("Content-Disposition");
-    if (disposition) {
-      const utf8Match = disposition.match(/filename\*=UTF-8''(.+?)(?:;|$)/i);
-      if (utf8Match) {
-        filename = decodeURIComponent(utf8Match[1].trim());
-      } else {
-        const basicMatch = disposition.match(/filename="?([^";\n]+)"?/i);
-        if (basicMatch) {
-          filename = decodeURIComponent(basicMatch[1].trim());
-        }
-      }
-    }
-
-    if (!filename) {
-      filename = "output";
-    }
+    const filename = filenameFromDisposition(response.headers.get("Content-Disposition"), "output");
 
     return { blob, filename };
   }
@@ -300,24 +258,7 @@ class ApiClient {
     }
 
     const blob = await response.blob();
-    let filename = "";
-
-    const disposition = response.headers.get("Content-Disposition");
-    if (disposition) {
-      const utf8Match = disposition.match(/filename\*=UTF-8''(.+?)(?:;|$)/i);
-      if (utf8Match) {
-        filename = decodeURIComponent(utf8Match[1].trim());
-      } else {
-        const basicMatch = disposition.match(/filename="?([^";\n]+)"?/i);
-        if (basicMatch) {
-          filename = decodeURIComponent(basicMatch[1].trim());
-        }
-      }
-    }
-
-    if (!filename) {
-      filename = "output";
-    }
+    const filename = filenameFromDisposition(response.headers.get("Content-Disposition"), "output");
 
     return { blob, filename };
   }
@@ -408,16 +349,6 @@ export async function downloadJobAsBlob(
   }
 
   const blob = await res.blob();
-  let filename = fallbackFilename;
-  const disposition = res.headers.get("Content-Disposition");
-  if (disposition) {
-    const utf8Match = disposition.match(/filename\*=UTF-8''(.+?)(?:;|$)/i);
-    if (utf8Match) {
-      filename = decodeURIComponent(utf8Match[1].trim());
-    } else {
-      const basicMatch = disposition.match(/filename="?([^";\n]+)"?/i);
-      if (basicMatch) filename = decodeURIComponent(basicMatch[1].trim());
-    }
-  }
+  const filename = filenameFromDisposition(res.headers.get("Content-Disposition"), fallbackFilename);
   return { blob, filename };
 }
