@@ -3,7 +3,6 @@
 import React, { useCallback, useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
 import WorkspaceLabelCard from "./WorkspaceLabelCard";
-import WorkspaceExportImportCard from "./WorkspaceExportImportCard";
 import { useWorkspaceLabel } from "@/hooks/useWorkspaceLabel";
 import { notifyMascotGlobalChanged } from "@/hooks/useMascotPref";
 
@@ -1207,7 +1206,6 @@ function SystemPane() {
       <MascotCard />
       <DispatcherCard />
       <UploadConcurrencyCard />
-      <WorkspaceExportImportCard />
     </div>
   );
 }

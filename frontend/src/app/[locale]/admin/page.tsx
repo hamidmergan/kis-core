@@ -13,7 +13,6 @@ import {
   IdentificationCard,
   Lightning,
   List,
-  ListMagnifyingGlass,
   NotePencil,
   Sparkle,
   Toolbox,
@@ -35,7 +34,6 @@ import HildeTab from "./_components/HildeTab";
 import FrancisTab from "./_components/FrancisTab";
 import ToolsTab from "./_components/ToolsTab";
 import RolesTab from "./_components/RolesTab";
-import SystemInfoTab from "./_components/SystemInfoTab";
 
 type Tab =
   | "system"
@@ -49,7 +47,6 @@ type Tab =
   | "jobs"
   | "stats"
   | "ki-stats"
-  | "limits"
   | "hilde"
   | "francis"
   | "quota";
@@ -106,7 +103,6 @@ export default function AdminPage() {
       items: [
         { key: "stats", label: t("nav.jobStats"), icon: <ChartBar {...ICON_PROPS} /> },
         { key: "ki-stats", label: t("nav.kiStats"), icon: <ChartLineUp {...ICON_PROPS} /> },
-        { key: "limits", label: t("nav.systemValues"), icon: <ListMagnifyingGlass {...ICON_PROPS} /> },
       ],
     },
     {
@@ -240,7 +236,6 @@ export default function AdminPage() {
           {tab === "jobs" && <JobsTab />}
           {tab === "stats" && <StatsTab />}
           {tab === "ki-stats" && <KiTutorTab />}
-          {tab === "limits" && <SystemInfoTab />}
           {tab === "hilde" && <HildeTab />}
           {tab === "francis" && <FrancisTab />}
           {tab === "quota" && (
