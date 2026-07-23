@@ -14,6 +14,7 @@ from src.services.aia_chunker import (
     PdfNoReadableTextError,
     _clean,
     _is_structural_page,
+    _merge_small_fragments,
     _split_text,
     extract_chunks,
     get_page_count,
@@ -87,6 +88,35 @@ def test_split_terminates_on_pathological_overlap():
     chunks = _split_text("a" * 50, 10, 10)
     assert isinstance(chunks, list)
     assert len(chunks) >= 1
+
+
+# ── _merge_small_fragments ───────────────────────────────────────────────────
+
+def test_merge_folds_tiny_trailing_fragment_into_previous():
+    out = _merge_small_fragments(["A full sentence of real body text here.", "hdr"], min_chars=10)
+    assert out == ["A full sentence of real body text here. hdr"]
+
+
+def test_merge_folds_tiny_leading_fragment_forward():
+    out = _merge_small_fragments(["hdr", "A full sentence of real body text here."], min_chars=10)
+    assert out == ["hdr A full sentence of real body text here."]
+
+
+def test_merge_keeps_normal_sized_chunks():
+    chunks = ["a" * 50, "b" * 50]
+    assert _merge_small_fragments(chunks, min_chars=10) == chunks
+
+
+def test_merge_single_chunk_untouched_even_if_tiny():
+    assert _merge_small_fragments(["tiny"], min_chars=10) == ["tiny"]
+
+
+def test_split_text_folds_tiny_trailing_scrap():
+    # 205 chars, chunk_size 100, no overlap -> 100/100/5; threshold = 100//10 = 10,
+    # so the 5-char scrap is folded into its neighbour, not left as its own chunk.
+    out = _split_text("a" * 205, 100, 0)
+    assert len(out) == 2
+    assert not any(len(c) < 10 for c in out)
 
 
 # ── segments_to_chunks (Whisper transcript merging) ──────────────────────────
