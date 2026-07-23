@@ -23,14 +23,17 @@ from src.storage import USE_S3
 _CITATION_FIX_TIME_RE = re.compile(r"\[(\d+)\]\s+(\d{1,2}:\d{2}(?::\d{2})?)")
 _CITATION_FIX_PAGE_RE = re.compile(r"\[(\d+)\]\s+(S\.\s*\d+(?:[-,–]\s*\d+)*)")
 
-# Lenticular brackets 【】 never occur in real prose — only LLMs emit them. The prompt
-# forbids the model from citing sources at all (chips are attached post-hoc), yet some
-# models (Qwen-family especially) still leak a bare 【source】 / 【Quelle】 placeholder.
-# A 【…】 with NO page ("S. 6") or timestamp ("08:58") locator inside is not a real
-# citation: it renders as dead text AND survives the copy-strip. Drop it (with one
-# leading space) before attribution runs. Valid 【1, S. 6】 / 【1, 08:58】 are kept by
-# the negative lookahead.
-_STRAY_LENTICULAR_RE = re.compile(r"\s?【(?![^】]*(?:S\.\s*\d|\d{1,2}:\d{2}))[^】]*】")
+# Lenticular brackets 【】 do not occur in real LATIN prose — only LLMs emit them there.
+# The prompt forbids the model from citing sources at all (chips are attached post-hoc),
+# yet some models (Qwen-family especially) still leak a bare 【source】 / 【Quelle】
+# placeholder. A 【…】 with NO page ("S. 6") or timestamp ("08:58") locator inside is not
+# a real citation: it renders as dead text AND survives the copy-strip. Drop it (with one
+# leading space) before attribution runs. Valid 【1, S. 6】 / 【1, 08:58】 are kept by the
+# negative lookahead. In CJK, though, 【】 ARE genuine punctuation, so a span whose
+# content contains a CJK/Hangul/Kana character is kept as real prose (language-agnostic).
+_STRAY_LENTICULAR_RE = re.compile(
+    r"\s?【(?![^】]*(?:S\.\s*\d|\d{1,2}:\d{2}|[぀-鿿가-퟿]))[^】]*】"
+)
 
 
 def _sanitize_citations(text: str) -> str:

@@ -24,8 +24,18 @@ def _language_sample(text: str, sample_chars: int = _LANGUAGE_SAMPLE_CHARS) -> s
     document and are usually written in the institution's language rather than
     the document's. Judging from the opening lines is exactly how an English
     paper ends up summarized in German.
+
+    Only a window around the midpoint is whitespace-normalized, not the whole
+    document: for a large input (80k+ chars) normalizing everything just to keep
+    1500 chars is wasted allocation.
     """
-    body = " ".join(text.split())
+    if len(text) <= sample_chars:
+        return " ".join(text.split())
+    mid = len(text) // 2
+    # A raw window generous enough to still yield sample_chars once whitespace
+    # collapses; normalize and center-slice just that window, not the whole text.
+    window = text[max(0, mid - sample_chars): mid + sample_chars]
+    body = " ".join(window.split())
     if len(body) <= sample_chars:
         return body
     start = (len(body) - sample_chars) // 2
@@ -80,6 +90,10 @@ class _SummaryMixin:
         system_prompt = template.replace("{language}", language)
         if "{language}" not in template:
             system_prompt += f"\nWrite the summary in {language}."
+        # A stale DB override from the old format-based prompt may still carry the
+        # dead {format} placeholder. md/html output is gone, so neutralize it
+        # instead of leaking a literal "{format}" into the system prompt.
+        system_prompt = system_prompt.replace("{format}", "plain text")
 
         try:
             response = self._client.chat.completions.create(
