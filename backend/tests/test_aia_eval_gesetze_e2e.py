@@ -32,6 +32,10 @@ import pytest
 
 httpx = pytest.importorskip("httpx")
 
+# Live E2E: hits the real chat API. Excluded from the default `make test` run
+# (which passes -m "not e2e"); run explicitly via `make test-backend-e2e`.
+pytestmark = pytest.mark.e2e
+
 BASE = os.environ.get("AIA_EVAL_BASE", "http://localhost:8000")
 WS = os.environ.get("AIA_EVAL_WS", "77cc9d61-d65e-45fe-a15a-aeaa86246f2e")
 USER = os.environ.get("AIA_EVAL_USER", "a")

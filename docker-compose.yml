@@ -32,6 +32,9 @@ services:
       - ./backend/src:/app/src:ro
       - ./backend/demo:/app/demo:ro
       - ./backend/tests:/app/tests:ro
+      # pytest config (testpaths + asyncio_mode). Without it, in-container test
+      # runs need `-o asyncio_mode=auto` and 18 async tests fail as "not supported".
+      - ./backend/pytest.ini:/app/pytest.ini:ro
       - kis-storage:/app/storage
     ports:
       - "8000:8000"
