@@ -16,7 +16,6 @@
 //   engine.getPageGeometry, engine.getTextSlices, selection.getState (geometry cache).
 
 export type HighlightRefs = {
-  prevHighlightRef: { current: { pageIndex: number; ids: string[] } | null };
   // Tracks the current ephemeral highlight — a Highlight annotation that is NEVER
   // committed, so it never touches the PDF file — so it can be purged on the next
   // selection or when the user dismisses it. `scrollY` is the topmost region's
@@ -416,7 +415,6 @@ export function doHighlightSearch(
   const selCap = r.getPlugin?.("selection")?.provides?.() as any;
   const activeDocId = docMgr.getActiveDocumentId?.();
   try { selCap?.clear?.(activeDocId); } catch { /* ignore */ }
-  refs.prevHighlightRef.current = null;
 
   if (!text?.trim()) return;
 
