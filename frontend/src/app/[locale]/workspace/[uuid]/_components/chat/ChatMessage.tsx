@@ -340,8 +340,11 @@ function ChatMessageImpl({
         )}
 
         {/* Only the newest turn can be retried — an older failure is history, and
-            re-asking it would land out of order below the newer conversation. */}
-        {msg.role === "assistant" && msg.failed && isLatest && !loading && onRetry && (
+            re-asking it would land out of order below the newer conversation.
+            Popup/action-bar turns are excluded: retryLast refuses to replay them
+            (it needs the original selection context), so a button here would be a
+            dead no-op. This mirrors retryLast's own guard. */}
+        {msg.role === "assistant" && msg.failed && isLatest && !loading && onRetry && !msg.popup_selection && (
           <button
             type="button"
             onClick={onRetry}
