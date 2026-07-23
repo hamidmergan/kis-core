@@ -6,6 +6,17 @@ from src.services.deepl_client import DeepLClient
 from src.services.glossary import GlossaryService
 
 
+def _readable_stem(stem: str) -> str:
+    """Turn a filename stem into human-readable text for translation."""
+    return stem.replace("_", " ").replace("-", " ").strip()
+
+
+def _sanitize_filename_part(translated: str) -> str:
+    """Collapse a translated string back into a safe filename part."""
+    translated = translated.strip().replace(" ", "_")
+    return "".join(c for c in translated if c.isalnum() or c in ("_", "-", "."))
+
+
 def translate_output_filename(filename: str, output_ext: str | None = None, source_lang: str = "DE", target_lang: str = "EN-US") -> str:
     stem = Path(filename).stem
     ext = output_ext if output_ext is not None else Path(filename).suffix
@@ -18,12 +29,11 @@ def translate_output_filename(filename: str, output_ext: str | None = None, sour
         if not api_key:
             return fallback
         deepl = DeepLClient(api_key)
-        readable = stem.replace("_", " ").replace("-", " ").strip()
+        readable = _readable_stem(stem)
         if not readable:
             return fallback
         translated = deepl.translate_text(readable, source_lang, target_lang)
-        translated = translated.strip().replace(" ", "_")
-        translated = "".join(c for c in translated if c.isalnum() or c in ("_", "-", "."))
+        translated = _sanitize_filename_part(translated)
         if not translated:
             return fallback
         return f"{translated}{ext}"
@@ -74,19 +84,11 @@ class TranslationService:
         if not stem.strip():
             return filename
         try:
-            # Replace underscores/hyphens with spaces for better translation
-            readable = stem.replace("_", " ").replace("-", " ")
-            readable = readable.strip()
+            readable = _readable_stem(stem)
             if not readable:
                 return filename
             translated = self.translate_text(readable, source_lang, target_lang)
-            # Clean up: replace spaces with underscores, remove problematic chars
-            translated = translated.strip()
-            translated = translated.replace(" ", "_")
-            # Remove characters that are problematic in filenames
-            translated = "".join(
-                c for c in translated if c.isalnum() or c in ("_", "-", ".")
-            )
+            translated = _sanitize_filename_part(translated)
             if not translated:
                 return filename
             return f"{translated}{ext}"
