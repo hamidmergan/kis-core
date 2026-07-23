@@ -38,6 +38,14 @@ export function useChat({ uuid, enrollmentId, selectedSourceIds, viewerSource, c
     abortControllerRef.current?.abort();
   }, []);
 
+  // Abort any in-flight stream when the panel unmounts (SPA navigation away).
+  // The browser fetch is then cancelled, the route handler's req.signal fires and
+  // the backend stops generating, instead of burning the shared rate-limit budget
+  // on an answer nobody is reading anymore.
+  useEffect(() => {
+    return () => { abortControllerRef.current?.abort(); };
+  }, []);
+
   const registerChatSetInput = useCallback((setter: ((v: string) => void) | null) => {
     chatSetInputRef.current = setter;
   }, []);
