@@ -113,19 +113,6 @@ def _resolve_llm_provider() -> tuple[str, str, str, str]:
     return _binding_tuple(binding)
 
 
-def _resolve_translation_llm_provider() -> tuple[str, str, str, str]:
-    """LLM resolver used by ``/translate``. Prefers the doc_translate route;
-    falls back to the chat route when doc_translate is unconfigured or
-    points at a non-LLM protocol like DeepL."""
-    try:
-        binding = feature_router.resolve("doc_translate")
-        if binding.protocol != "deepl":
-            return _binding_tuple(binding)
-    except feature_router.FeatureNotConfigured:
-        pass
-    return _resolve_llm_provider()
-
-
 def resolve_whisper_client(provider_id: Optional[int] = None) -> OpenAICompatLLMClient:
     """Resolve a Whisper client for the ``stt`` feature.
 

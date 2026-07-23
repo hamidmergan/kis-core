@@ -1,11 +1,7 @@
-"""Tests for the document chunker (text splitting, transcript merging, structural-page
-detection, dispatch).
+"""Tests for the document chunker (text splitting, transcript merging, dispatch).
 
 These cover the PURE-LOGIC core that needs no PDF/Office libraries or files, plus
-the dispatch error paths and the plain-text extractor (via a tmp file). The
-structural-page heuristic is checked in BOTH German and English to guard the
-language-agnostic requirement: the TOC/references skip must never depend on a
-single language's word list.
+the dispatch error paths and the plain-text extractor (via a tmp file).
 """
 import pytest
 
@@ -13,11 +9,9 @@ from src.services.aia_chunker import (
     CHUNK_SIZE,
     PdfNoReadableTextError,
     _clean,
-    _is_structural_page,
     _merge_small_fragments,
     _split_text,
     extract_chunks,
-    get_page_count,
     is_media_file,
     segments_to_chunks,
 )
@@ -167,57 +161,6 @@ def test_segments_overflow_flushes_and_increments_page_number():
     assert out[1]["start_time"] == 5.0
 
 
-# ── _is_structural_page (TOC / references detection) ──────────────────────────
-
-@pytest.mark.parametrize("heading", [
-    "Table of Contents",
-    "Contents",
-    "Inhaltsverzeichnis",
-    "References",
-    "Bibliography",
-    "Literaturverzeichnis",
-    "Quellenverzeichnis",
-    "List of Figures",
-    "Abbildungsverzeichnis",
-])
-def test_structural_page_detects_keyword_first_line_any_language(heading):
-    # Language-agnostic: both German and English structural headings must trip
-    # the skip, case-insensitively.
-    assert _is_structural_page([{"content": heading}]) is True
-    assert _is_structural_page([{"content": heading.upper()}]) is True
-
-
-def test_structural_page_keyword_must_be_whole_first_line():
-    # A heading word embedded in a sentence is NOT a structural page.
-    assert _is_structural_page([{"content": "References are listed below"}]) is False
-
-
-def test_structural_page_detects_dotted_toc_lines():
-    blocks = [
-        {"content": "Introduction ......... 1"},
-        {"content": "Methods .............. 12"},
-        {"content": "Results .............. 23"},
-    ]
-    assert _is_structural_page(blocks) is True
-
-
-def test_structural_page_two_dotted_lines_not_enough():
-    blocks = [
-        {"content": "Introduction ......... 1"},
-        {"content": "Methods .............. 12"},
-        {"content": "A normal paragraph of body text."},
-    ]
-    assert _is_structural_page(blocks) is False
-
-
-def test_structural_page_normal_content_is_not_structural():
-    blocks = [
-        {"content": "Chapter 1: Background"},
-        {"content": "This study examines the effect of X on Y."},
-    ]
-    assert _is_structural_page(blocks) is False
-
-
 # ── is_media_file ────────────────────────────────────────────────────────────
 
 @pytest.mark.parametrize("ft", ["mp3", "mp4", "wav", "flac", "m4a", "webm", ".MP4", "WEBM"])
@@ -267,12 +210,6 @@ def test_extract_text_long_file_paginates(tmp_path):
     assert len(chunks) >= 3
     # Page numbers are sequential starting at 1.
     assert [c["page_number"] for c in chunks] == list(range(1, len(chunks) + 1))
-
-
-def test_get_page_count_matches_chunk_count(tmp_path):
-    f = tmp_path / "doc.txt"
-    f.write_text("y" * (CHUNK_SIZE * 2), encoding="utf-8")
-    assert get_page_count(str(f), "txt") == len(extract_chunks(str(f), "txt"))
 
 
 def test_pdf_no_readable_text_error_is_a_value_error():

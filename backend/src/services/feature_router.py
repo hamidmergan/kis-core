@@ -13,8 +13,6 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Optional
 
-from loguru import logger
-
 from src import database as db
 from src.services.protocols import make_adapter
 
