@@ -76,7 +76,19 @@ export function _md(text: string): string {
 const _CODE_SPANS = /(```[\s\S]*?```|~~~[\s\S]*?~~~|`[^`\n]*`)/g;
 const _DOLLAR_SPANS = /\$\$[\s\S]*?\$\$|(?<!\\)\$([^$\n]{1,200})(?<!\\)\$/g;
 function _looksLikeMath(inner: string): boolean {
+  // A LaTeX command, sub-/superscript or grouping is unambiguous math.
   if (/[\\^_{}]/.test(inner)) return true;
+  // Beyond that, math needs a variable letter. Currency amounts and ranges
+  // ("5", "-10", "5.99", "1,000") are digits and punctuation only, never math —
+  // so "5$-10$" no longer renders as a bogus formula. \p{L} stays language-
+  // agnostic (Greek, Cyrillic, ... also count as variable letters).
+  if (!/\p{L}/u.test(inner)) return false;
+  // With a letter present, a relation or operator makes it a formula and covers
+  // the spaced forms the old length/space rule dropped ("x = 5", "a + b",
+  // "a - b", "n < m"). The hyphen is safe here: letter-free currency ranges were
+  // already rejected above.
+  if (/[=<>+\-*\/−]/.test(inner)) return true;
+  // Otherwise a short, space-free token is a bare variable ("x", "H2O", "v0").
   return !/\s/.test(inner) && inner.length <= 20;
 }
 export function _guardMathDollars(text: string): string {

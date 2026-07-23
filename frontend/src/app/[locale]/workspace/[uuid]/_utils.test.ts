@@ -237,6 +237,20 @@ describe("_guardMathDollars", () => {
       .toBe("Preise: \\$5 und \\$10 im Jahr.");
   });
 
+  it("escapes a numeric currency range instead of reading it as a formula", () => {
+    // "5$-10$" → inner "-10" is digits/punctuation only → currency, must be escaped
+    // (the old heuristic treated the short space-free "-10" as math).
+    expect(_guardMathDollars("Kosten 5$-10$ pro Stunde."))
+      .toBe("Kosten 5\\$-10\\$ pro Stunde.");
+  });
+
+  it("keeps spaced formulas as math (relation/operator with a variable)", () => {
+    // These have no ^_{} and contain spaces, but "=", "+", "-" alongside a letter
+    // make them formulas — the old length/space rule wrongly escaped them.
+    expect(_guardMathDollars("Sei $x = 5$ gegeben.")).toBe("Sei $x = 5$ gegeben.");
+    expect(_guardMathDollars("Dann $a - b$ und $a + b$.")).toBe("Dann $a - b$ und $a + b$.");
+  });
+
   it("leaves display math alone", () => {
     expect(_guardMathDollars("Formel:\n\n$$E = mc^2$$\n")).toBe("Formel:\n\n$$E = mc^2$$\n");
   });
