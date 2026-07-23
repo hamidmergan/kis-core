@@ -1,0 +1,22 @@
+# Coverage config for the backend test suite (used by pytest-cov in CI and
+# locally via `pytest --cov`). Measures the src package only; test files and
+# generated/boilerplate lines are excluded so the number reflects real
+# application code.
+[run]
+source = src
+branch = True
+omit =
+    tests/*
+    */__pycache__/*
+
+[report]
+show_missing = True
+precision = 1
+skip_covered = False
+# Lines that never need coverage: type-only imports, unreachable guards,
+# abstract stubs, and module-run entrypoints.
+exclude_also =
+    if TYPE_CHECKING:
+    raise NotImplementedError
+    if __name__ == .__main__.:
+    \.\.\.
