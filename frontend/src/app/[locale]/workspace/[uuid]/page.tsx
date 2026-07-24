@@ -118,15 +118,15 @@ export default function KiTutorWorkspacePage() {
     return () => { cancelled = true; };
   }, []);
   const diagnosisActive = language_trainingActive && me !== null && me.language_level === null;
-  // While diagnosis runs, force sources & studio minimized so the user focuses
-  // on the diagnosis panel. The MiniStrip buttons are disabled separately, so
-  // the user can't re-expand them until the diagnosis is done or aborted.
-  useEffect(() => {
-    if (!diagnosisActive) return;
-    setPanels((prev) =>
-      prev.quellen || prev.studio ? { ...prev, quellen: false, studio: false } : prev,
-    );
-  }, [diagnosisActive, setPanels]);
+  // While diagnosis runs, sources & studio appear minimized and chat expanded so
+  // the user focuses on the diagnosis panel. The MiniStrip buttons are disabled
+  // separately, so the user can't re-expand them until the diagnosis is done or
+  // aborted. This is a render-time override, not a state change: `panels` (and
+  // its localStorage copy) keeps the user's own layout, so leaving the diagnosis
+  // restores the panels exactly as they were before it started.
+  const effectivePanels = diagnosisActive
+    ? { quellen: false, chat: true, studio: false }
+    : panels;
 
   const [translationMode, setTranslationMode] = useState<TranscriptTranslationMode>("manual");
   useEffect(() => {
@@ -171,6 +171,21 @@ export default function KiTutorWorkspacePage() {
       credentials: "include",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ transcript_target_lang: lang }),
+    }).catch(() => { /* ignore */ });
+  };
+  const [diagnosisLanguage, setDiagnosisLanguage] = useState<string>("de");
+  useEffect(() => {
+    if (moduleDetail?.diagnosis_language) {
+      setDiagnosisLanguage(moduleDetail.diagnosis_language);
+    }
+  }, [moduleDetail?.diagnosis_language]);
+  const handleChangeDiagnosisLanguage = (lang: string) => {
+    setDiagnosisLanguage(lang);
+    fetch(`/api/ai-assistant/workspaces/${uuid}`, {
+      method: "PATCH",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ diagnosis_language: lang }),
     }).catch(() => { /* ignore */ });
   };
 
@@ -423,19 +438,19 @@ export default function KiTutorWorkspacePage() {
   const isLecturer = !!auth?.permissions?.allow_workspace_create;
   const activeSourceIds = viewerSource ? [viewerSource.uuid] : selectedSourceIds;
 
-  const p1Style: React.CSSProperties = panels.quellen
+  const p1Style: React.CSSProperties = effectivePanels.quellen
     ? { flex: `1 1 ${p1Width}px`, minWidth: 200, overflow: "hidden" }
     : { width: 48, flexShrink: 0, flexGrow: 0 };
 
-  const p2Style: React.CSSProperties = panels.chat
+  const p2Style: React.CSSProperties = effectivePanels.chat
     ? { flex: `1 1 ${p2Width}px`, minWidth: 50, overflow: "hidden" }
     : { width: 48, flexShrink: 0, flexGrow: 0 };
 
-  const p3Style: React.CSSProperties = panels.studio
+  const p3Style: React.CSSProperties = effectivePanels.studio
     ? { flex: `1 1 ${p3Width}px`, minWidth: 200, overflow: "hidden" }
     : { width: 48, flexShrink: 0, flexGrow: 0 };
 
-  const openCount = [panels.quellen, panels.chat, panels.studio].filter(Boolean).length;
+  const openCount = [effectivePanels.quellen, effectivePanels.chat, effectivePanels.studio].filter(Boolean).length;
   const canDrag = openCount >= 2;
 
   // Studio panel content (mobile + desktop identical, only the panel context differs)
@@ -515,6 +530,7 @@ export default function KiTutorWorkspacePage() {
       return (
         <LanguageDiagnosisPanel
           userId={me?.id ?? null}
+          workspaceUuid={uuid}
           hideHeader={hh}
           onComplete={() => {
             // Re-fetch /me so language_level reflects the persisted value
@@ -592,6 +608,8 @@ export default function KiTutorWorkspacePage() {
           onChangeTranscriptDefaultLang={handleChangeTranscriptDefaultLang}
           transcriptTargetLang={transcriptTargetLang}
           onChangeTranscriptTargetLang={handleChangeTranscriptTargetLang}
+          diagnosisLanguage={diagnosisLanguage}
+          onChangeDiagnosisLanguage={handleChangeDiagnosisLanguage}
           activeTab={activeTab}
           setActiveTab={setActiveTab}
           languageLevel={me?.language_level ?? null}
@@ -609,7 +627,7 @@ export default function KiTutorWorkspacePage() {
           isMobile={isMobile}
           activeTab={activeTab}
           setActiveTab={setActiveTab}
-          panels={panels}
+          panels={effectivePanels}
           togglePanel={togglePanel}
           panelContainerRef={panelContainerRef}
           p1Ref={p1Ref} p2Ref={p2Ref} p3Ref={p3Ref}

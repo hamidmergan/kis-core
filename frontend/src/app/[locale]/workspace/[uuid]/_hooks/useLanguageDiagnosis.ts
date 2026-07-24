@@ -1,39 +1,37 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
-  DIAGNOSIS_QUESTIONS,
-  type DiagnosisAnswer,
+  toTranscript,
+  type ChatTurn,
   type DiagnosisResult,
-} from "../_components/language_training/_diagnosis_questions";
+  type DiagnosisTurnResponse,
+} from "../_components/language_training/_diagnosis_types";
 
-type Status = "answering" | "submitting" | "done" | "error";
-
-interface DraftStorage {
-  answers: DiagnosisAnswer[];
-  startedAt: string;
-}
+type Status = "loading" | "answering" | "done" | "error";
 
 function storageKey(userId: number | null | undefined) {
-  return userId ? `kis-diagnosis-draft-${userId}` : null;
+  return userId ? `kis-diagnosis-chat-${userId}` : null;
 }
 
-function loadDraft(userId: number | null | undefined): DraftStorage | null {
+function loadDraft(userId: number | null | undefined): ChatTurn[] | null {
   const key = storageKey(userId);
   if (!key || typeof window === "undefined") return null;
   try {
     const raw = localStorage.getItem(key);
-    return raw ? (JSON.parse(raw) as DraftStorage) : null;
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) && parsed.length > 0 ? (parsed as ChatTurn[]) : null;
   } catch {
     return null;
   }
 }
 
-function saveDraft(userId: number | null | undefined, draft: DraftStorage) {
+function saveDraft(userId: number | null | undefined, turns: ChatTurn[]) {
   const key = storageKey(userId);
   if (!key || typeof window === "undefined") return;
   try {
-    localStorage.setItem(key, JSON.stringify(draft));
+    localStorage.setItem(key, JSON.stringify(turns));
   } catch {
     /* ignore quota errors */
   }
@@ -49,97 +47,119 @@ function clearDraft(userId: number | null | undefined) {
   }
 }
 
-export function useLanguageDiagnosis(userId: number | null | undefined) {
-  const [answers, setAnswers] = useState<DiagnosisAnswer[]>([]);
-  const [currentIndex, setCurrentIndex] = useState(0);
-  const [status, setStatus] = useState<Status>("answering");
+/**
+ * Drives the CEFR diagnosis chat.
+ *
+ * The transcript is the whole state: it is posted back to the backend on every
+ * turn and mirrored into localStorage, so a reload lands the learner back where
+ * they left off instead of restarting the interview.
+ */
+export function useLanguageDiagnosis(
+  userId: number | null | undefined,
+  workspaceUuid: string,
+) {
+  const [turns, setTurns] = useState<ChatTurn[]>([]);
+  const [status, setStatus] = useState<Status>("loading");
   const [result, setResult] = useState<DiagnosisResult | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  useEffect(() => {
-    const draft = loadDraft(userId);
-    if (draft) {
-      setAnswers(draft.answers);
-      const next = draft.answers.length < DIAGNOSIS_QUESTIONS.length
-        ? draft.answers.length
-        : DIAGNOSIS_QUESTIONS.length - 1;
-      setCurrentIndex(next);
-    }
-  }, [userId]);
+  // The transcript the next request must send. Kept in a ref so `send` never
+  // captures a stale copy and the kickoff effect can run exactly once.
+  const turnsRef = useRef<ChatTurn[]>([]);
+  const startedRef = useRef(false);
 
-  const submitAnswer = useCallback(
-    (answer: DiagnosisAnswer) => {
-      setAnswers((prev) => {
-        const without = prev.filter((a) => a.questionId !== answer.questionId);
-        const next = [...without, answer].sort((a, b) => a.questionId - b.questionId);
-        saveDraft(userId, {
-          answers: next,
-          startedAt: loadDraft(userId)?.startedAt ?? new Date().toISOString(),
+  const requestTurn = useCallback(
+    async (history: ChatTurn[]) => {
+      setStatus("loading");
+      setErrorMessage(null);
+      try {
+        const res = await fetch("/api/ai-assistant/language-diagnosis/turn", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({
+            workspace_uuid: workspaceUuid,
+            history: toTranscript(history),
+          }),
         });
-        return next;
-      });
-      setCurrentIndex((idx) => Math.min(idx + 1, DIAGNOSIS_QUESTIONS.length - 1));
+        if (!res.ok) {
+          const errBody = await res.json().catch(() => ({}));
+          throw new Error(errBody.detail || `HTTP ${res.status}`);
+        }
+        const data = (await res.json()) as DiagnosisTurnResponse;
+        // The reaction rides along on the same turn. The verdict has none: it is
+        // rendered by the result screen, which has no bubble for it.
+        const reaction = data.done ? undefined : data.reaction?.trim();
+        const next: ChatTurn[] = [
+          ...history,
+          { role: "assistant", content: data.message, ...(reaction ? { reaction } : {}) },
+        ];
+        turnsRef.current = next;
+        setTurns(next);
+
+        if (data.done) {
+          setResult({
+            level: data.level,
+            message: data.message,
+            skill_scores: data.skill_scores,
+          });
+          setStatus("done");
+          clearDraft(userId);
+        } else {
+          saveDraft(userId, next);
+          setStatus("answering");
+        }
+      } catch (err) {
+        setErrorMessage(err instanceof Error ? err.message : String(err));
+        setStatus("error");
+      }
     },
-    [userId],
+    [userId, workspaceUuid],
   );
 
-  const goBack = useCallback(() => {
-    setCurrentIndex((idx) => Math.max(idx - 1, 0));
-  }, []);
-
-  const submit = useCallback(async () => {
-    if (answers.length !== DIAGNOSIS_QUESTIONS.length) {
-      setErrorMessage("Not all questions answered");
-      setStatus("error");
+  // Kickoff: resume a saved transcript, or ask for the opening question.
+  useEffect(() => {
+    if (startedRef.current || !workspaceUuid) return;
+    startedRef.current = true;
+    const draft = loadDraft(userId);
+    if (draft) {
+      turnsRef.current = draft;
+      setTurns(draft);
+      // A draft always ends on an assistant question, so the learner answers next.
+      setStatus("answering");
       return;
     }
-    setStatus("submitting");
-    setErrorMessage(null);
-    try {
-      const res = await fetch("/api/ai-assistant/language-diagnosis/analyze", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({ answers }),
-      });
-      if (!res.ok) {
-        const errBody = await res.json().catch(() => ({}));
-        throw new Error(errBody.detail || `HTTP ${res.status}`);
-      }
-      const data = (await res.json()) as DiagnosisResult;
-      setResult(data);
-      setStatus("done");
-      clearDraft(userId);
-    } catch (err) {
-      setErrorMessage(err instanceof Error ? err.message : String(err));
-      setStatus("error");
-    }
-  }, [answers, userId]);
+    void requestTurn([]);
+  }, [userId, workspaceUuid, requestTurn]);
 
+  const send = useCallback(
+    (text: string) => {
+      const trimmed = text.trim();
+      if (!trimmed || status !== "answering") return;
+      const withAnswer: ChatTurn[] = [...turnsRef.current, { role: "user", content: trimmed }];
+      turnsRef.current = withAnswer;
+      setTurns(withAnswer);
+      // The draft is only written once the next question arrives, so a saved
+      // transcript always ends on an assistant turn. A failed turn therefore
+      // resumes at the last question rather than at a dangling answer.
+      void requestTurn(withAnswer);
+    },
+    [status, userId, requestTurn],
+  );
+
+  /** Re-send the last request after a failure, without losing the transcript. */
   const retry = useCallback(() => {
-    setErrorMessage(null);
-    setStatus("answering");
-  }, []);
+    void requestTurn(turnsRef.current);
+  }, [requestTurn]);
 
+  /** Throw the transcript away, so a later restart begins a fresh interview. */
   const abort = useCallback(() => {
     clearDraft(userId);
-    setAnswers([]);
-    setCurrentIndex(0);
+    turnsRef.current = [];
+    setTurns([]);
     setResult(null);
-    setStatus("answering");
+    setErrorMessage(null);
   }, [userId]);
 
-  return {
-    questions: DIAGNOSIS_QUESTIONS,
-    answers,
-    currentIndex,
-    status,
-    result,
-    errorMessage,
-    submitAnswer,
-    goBack,
-    submit,
-    retry,
-    abort,
-  };
+  return { turns, status, result, errorMessage, send, retry, abort };
 }

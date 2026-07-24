@@ -658,6 +658,7 @@
       "system": "System",
       "ki": "AI",
       "prompts": "Prompts",
+      "languageDiagnosis": "Language diagnosis",
       "pending": "Pending",
       "whitelist": "Whitelist",
       "allUsers": "All users",
@@ -1130,6 +1131,13 @@
       "toggleAria": "Toggle notice",
       "saveFailed": "Save failed."
     },
+    "languageDiagnosisCard": {
+      "title": "Language diagnosis prompt",
+      "description": "Controls how the AI asks, judges and grades in the diagnosis chat. Applies to every workspace and every language.",
+      "hint": "The '{sprache}' placeholder is replaced with the language set on the workspace.",
+      "reset": "Restore default",
+      "saveFailed": "Saving failed"
+    },
     "workspaceLimitsCard": {
       "title": "Max sources per {label}",
       "hint": "How many documents users may upload per {label}. Takes effect immediately for new uploads.",
@@ -1405,7 +1413,6 @@
     "FR": "French",
     "ES": "Spanish",
     "IT": "Italian",
-    "UK": "Ukrainian",
     "TR": "Turkish",
     "AR": "Arabic",
     "RU": "Russian"
@@ -1414,34 +1421,38 @@
     "detail": {
       "languageTraining": {
         "diagnosis": {
-          "title": "Language Diagnosis",
-          "intro": "Hi, I'm Hilde. Let's quickly assess your German level.",
+          "title": "Language Test",
+          "intro": "Hello! I will ask you a few questions. Then I will tell you how well you know the language.",
+          "chatPlaceholder": "Your answer…",
+          "send": "Send",
+          "languageTitle": "Language for the test",
+          "languageDescription": "The AI asks the questions in this language. It also grades in this language. German is the default.",
+          "loading": "I am looking at your answers…",
+          "errorGeneric": "Sorry, that did not work. Please try again.",
+          "retry": "Try again",
           "progress": "Question {current} of {total}",
-          "next": "Next",
-          "back": "Back",
-          "submit": "Submit for evaluation",
-          "readyToSubmit": "All questions answered. Ready for evaluation?",
-          "loading": "Evaluating…",
-          "errorGeneric": "Evaluation failed. Please try again.",
-          "retry": "Retry",
-          "resultTitle": "Your Level",
-          "continue": "Continue to training",
+          "resultTitle": "Your result",
+          "levelAboveB1": "Above B1",
+          "disclaimer": "This result comes from an AI. Experts have not checked it yet.",
+          "continue": "Start practising",
           "abort": "Cancel",
-          "abortConfirmTitle": "Cancel diagnosis?",
-          "abortConfirmBody": "Your answers will be lost. You can restart the diagnosis later.",
+          "abortConfirmTitle": "Stop the test?",
+          "abortConfirmBody": "Your answers will be deleted. You can take the test again later.",
           "abortConfirmKeep": "Keep going",
-          "abortConfirmDiscard": "Cancel anyway",
-          "freeTextPlaceholder": "Write your answer…",
-          "panelDisabledTooltip": "Not available during language diagnosis",
-          "resetSetting": "Reset language level",
-          "resetConfirmTitle": "Reset language level?",
-          "resetConfirmBody": "You'll need to retake the diagnosis next time you enable language training.",
+          "abortConfirmDiscard": "Stop",
+          "panelDisabledTooltip": "You can use this after the test.",
+          "resetSetting": "Delete result",
+          "resetConfirmTitle": "Delete result?",
+          "resetConfirmBody": "Then you have to take the test again. Only after that can you practise again.",
           "skill": {
             "grammar": "Grammar",
-            "vocabulary": "Vocabulary",
+            "vocabulary": "Words",
             "reading": "Reading",
             "writing": "Writing",
-            "pragmatics": "Pragmatics"
+            "pragmatics": "Fitting language"
+          },
+          "skillHelp": {
+            "pragmatics": "Does your language fit the situation? For example polite or casual."
           }
         },
         "tools": {

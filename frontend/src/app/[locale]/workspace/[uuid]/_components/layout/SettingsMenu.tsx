@@ -5,6 +5,7 @@ import { useTranslations } from "next-intl";
 import Modal from "@/components/ui/Modal";
 import Select from "@/components/ui/Select";
 import { useMascotPref, type MascotMode } from "@/hooks/useMascotPref";
+import { levelLabel } from "../language_training/_diagnosis_types";
 import type { TranscriptTranslationMode, TranscriptDefaultLang } from "../../_types";
 
 interface SettingsMenuProps {
@@ -21,6 +22,8 @@ interface SettingsMenuProps {
   onChangeTranscriptDefaultLang: (lang: TranscriptDefaultLang) => void;
   transcriptTargetLang: string;
   onChangeTranscriptTargetLang: (lang: string) => void;
+  diagnosisLanguage: string;
+  onChangeDiagnosisLanguage: (lang: string) => void;
   languageLevel?: string | null;
   onResetLanguageLevel?: () => void | Promise<void>;
 }
@@ -77,6 +80,8 @@ export function SettingsMenu({
   onChangeTranscriptDefaultLang,
   transcriptTargetLang,
   onChangeTranscriptTargetLang,
+  diagnosisLanguage,
+  onChangeDiagnosisLanguage,
   languageLevel,
   onResetLanguageLevel,
 }: SettingsMenuProps) {
@@ -152,7 +157,7 @@ export function SettingsMenu({
           <div className="flex items-center justify-between gap-4">
             <div className="min-w-0 flex-1">
               <p className="text-sm font-medium" style={{ color: "var(--foreground)" }}>
-                {tDiag("resetSetting")} <span className="ml-1 px-1.5 py-0.5 rounded text-xs" style={{ backgroundColor: "var(--kb)", color: "var(--on-accent)" }}>{languageLevel}</span>
+                {tDiag("resetSetting")} <span className="ml-1 px-1.5 py-0.5 rounded text-xs" style={{ backgroundColor: "var(--kb)", color: "var(--on-accent)" }}>{levelLabel(languageLevel, tDiag("levelAboveB1"))}</span>
               </p>
               <p className="text-xs mt-0.5" style={{ color: "var(--muted)" }}>{tDiag("resetConfirmBody")}</p>
             </div>
@@ -230,6 +235,21 @@ export function SettingsMenu({
                   </button>
                 );
               })}
+            </div>
+          </div>
+        )}
+        {isOwner && (
+          <div className="mt-3">
+            <p className="text-sm font-medium" style={{ color: "var(--foreground)" }}>{tDiag("languageTitle")}</p>
+            <p className="text-xs mt-1" style={{ color: "var(--muted)" }}>
+              {tDiag("languageDescription")}
+            </p>
+            <div className="mt-3">
+              <Select<string>
+                value={diagnosisLanguage}
+                onChange={onChangeDiagnosisLanguage}
+                options={targetLangOptions}
+              />
             </div>
           </div>
         )}

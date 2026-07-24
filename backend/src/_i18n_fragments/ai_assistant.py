@@ -14,6 +14,10 @@ MESSAGES: dict[str, dict[str, str]] = {
         "de": "Ungültige Zielsprache für die Übersetzung",
         "en": "Invalid translation target language",
     },
+    "ai.workspace.diagnosisLanguageInvalid": {
+        "de": "Ungültige Sprache für die Sprachdiagnose",
+        "en": "Invalid language for the language diagnosis",
+    },
     "ai.workspace.invalidEnrollCode": {
         "de": "Ungültiger oder abgelaufener Einschreibecode",
         "en": "Invalid or expired enrollment code",
@@ -137,11 +141,7 @@ MESSAGES: dict[str, dict[str, str]] = {
         "de": "Transkript nicht verfügbar",
         "en": "Transcript not available",
     },
-    # Language diagnosis (one-time CEFR self-assessment)
-    "ai.languageDiagnosis.wrongAnswerCount": {
-        "de": "Erwarte {expected} Antworten, erhalten: {got}.",
-        "en": "Expected {expected} answers, got {got}.",
-    },
+    # Language diagnosis (one-time CEFR chat assessment)
     "ai.languageDiagnosis.llmUnavailable": {
         "de": "Auswertung aktuell nicht möglich. Bitte später erneut versuchen.",
         "en": "Evaluation unavailable. Please try again later.",

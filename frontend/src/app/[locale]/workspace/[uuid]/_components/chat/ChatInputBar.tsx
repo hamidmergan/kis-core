@@ -5,16 +5,25 @@ import { PaperPlaneRight, Stop, X } from "@phosphor-icons/react";
 
 interface ChatInputBarProps {
   loading: boolean;
-  activeSourceIds: string[];
+  /** Tutor chat only: shows the "N sources active" line and gates sending on it.
+   *  Omitted by callers without sources, e.g. the language diagnosis. */
+  activeSourceIds?: string[];
   onSend: (value: string) => void;
   onStop?: () => void;
   externalTextareaRef?: React.RefObject<HTMLTextAreaElement | null>;
   registerSetInput?: (setter: ((v: string) => void) | null) => void;
+  /** Defaults to the tutor-chat placeholder. */
+  placeholder?: string;
+  /** Blocks typing entirely, e.g. while a turn is still being answered. */
+  disabled?: boolean;
+  /** Hard cap on one message. Mirror the caller's backend limit. */
+  maxLength?: number;
 }
 
 
 export function ChatInputBar({
   loading, activeSourceIds, onSend, onStop, externalTextareaRef, registerSetInput,
+  placeholder, disabled = false, maxLength = 8000,
 }: ChatInputBarProps) {
   const t = useTranslations("workspace.detail.chat");
   const [input, setInput] = useState("");
@@ -49,11 +58,13 @@ export function ChatInputBar({
       style={{ borderTop: "1px solid var(--border)" }}
     >
       <div className="mx-auto w-full" style={{ maxWidth: 920 }}>
-        <div className="flex justify-end px-1 mb-1">
-          <span className="text-xs leading-none" style={{ color: "var(--muted)" }}>
-            {t("sourcesActive", { n: activeSourceIds.length })}
-          </span>
-        </div>
+        {activeSourceIds && (
+          <div className="flex justify-end px-1 mb-1">
+            <span className="text-xs leading-none" style={{ color: "var(--muted)" }}>
+              {t("sourcesActive", { n: activeSourceIds.length })}
+            </span>
+          </div>
+        )}
         <div
           className="flex items-center gap-2 rounded-2xl px-4 py-3"
           style={{ backgroundColor: "var(--surface)", border: "1px solid var(--border)" }}
@@ -63,12 +74,13 @@ export function ChatInputBar({
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={(e) => {
-              if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); if (!loading) submit(); }
+              if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); if (!loading && !disabled) submit(); }
             }}
-            placeholder={t("inputPlaceholder")}
-            // Hard cap mirrors the backend ChatBody.max_length (AIA_QUESTION_MAX_CHARS):
-            // bound the paste so an oversized question can't overflow embedding / context.
-            maxLength={8000}
+            placeholder={placeholder ?? t("inputPlaceholder")}
+            disabled={disabled}
+            // Hard cap mirrors the caller's backend limit (chat: AIA_QUESTION_MAX_CHARS)
+            // so an oversized paste is bounced here instead of coming back as a 422.
+            maxLength={maxLength}
             rows={1}
             className="flex-1 text-base resize-none focus:outline-none disabled:opacity-50 bg-transparent"
             style={{ color: "var(--foreground)", maxHeight: 160, overflowY: "auto" }}
@@ -97,7 +109,7 @@ export function ChatInputBar({
             <button
               type="button"
               onClick={submit}
-              disabled={loading || !input.trim() || activeSourceIds.length === 0}
+              disabled={loading || disabled || !input.trim() || activeSourceIds?.length === 0}
               className="btn-fill-accent flex-shrink-0 w-9 h-9 flex items-center justify-center rounded-xl disabled:opacity-40 transition-colors"
               title={t("send")}
             >

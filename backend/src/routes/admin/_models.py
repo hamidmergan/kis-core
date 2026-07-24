@@ -58,6 +58,10 @@ class UpdateSettingsRequest(BaseModel):
     # Max simultaneous uploads in the HTTP layer (0 = unlimited). Caps RAM/CPU on
     # the small box when several people upload large media at once.
     aia_max_concurrent_uploads: int | None = None
+    # System prompt for the CEFR chat diagnosis. ONE prompt for every language;
+    # the workspace language is substituted for the {sprache} placeholder. An
+    # empty string restores the shipped default.
+    language_diagnosis_prompt: str | None = None
 
 
 class ToggleToolRequest(BaseModel):

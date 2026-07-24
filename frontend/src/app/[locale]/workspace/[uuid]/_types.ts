@@ -52,6 +52,8 @@ export interface WorkspaceDetail {
   transcript_translation_mode?: TranscriptTranslationMode;
   transcript_default_lang?: TranscriptDefaultLang;
   transcript_target_lang?: string;
+  /** Language the CEFR chat diagnosis is held in (ISO code, default "de"). */
+  diagnosis_language?: string;
   staff_note_text?: string | null;
   staff_note_links?: StaffNoteLink[];
   sources: Source[];

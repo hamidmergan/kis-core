@@ -9,6 +9,7 @@ import {
   ChartLineUp,
   CheckCircle,
   GearSix,
+  GraduationCap,
   HourglassMedium,
   IdentificationCard,
   Lightning,
@@ -34,11 +35,13 @@ import HildeTab from "./_components/HildeTab";
 import FrancisTab from "./_components/FrancisTab";
 import ToolsTab from "./_components/ToolsTab";
 import RolesTab from "./_components/RolesTab";
+import LanguageDiagnosisCard from "./_components/LanguageDiagnosisCard";
 
 type Tab =
   | "system"
   | "ki"
   | "prompts"
+  | "diagnosis"
   | "pending"
   | "whitelist"
   | "users"
@@ -80,6 +83,11 @@ export default function AdminPage() {
         { key: "system", label: t("nav.system"), icon: <GearSix {...ICON_PROPS} /> },
         { key: "ki", label: t("nav.ki"), icon: <Sparkle {...ICON_PROPS} /> },
         { key: "prompts", label: t("nav.prompts"), icon: <NotePencil {...ICON_PROPS} /> },
+        {
+          key: "diagnosis",
+          label: t("nav.languageDiagnosis"),
+          icon: <GraduationCap {...ICON_PROPS} />,
+        },
       ],
     },
     {
@@ -228,6 +236,7 @@ export default function AdminPage() {
           {tab === "system" && <SettingsTab section="system" />}
           {tab === "ki" && <ProvidersTab />}
           {tab === "prompts" && <PromptsTab />}
+          {tab === "diagnosis" && <LanguageDiagnosisCard />}
           {tab === "pending" && <PendingTab />}
           {tab === "whitelist" && <WhitelistTab adminEmail={adminEmail} />}
           {tab === "users" && <UsersTab onOpenQuota={openQuotaForUser} />}

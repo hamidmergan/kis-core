@@ -26,6 +26,10 @@ from src.limits import (
 )
 
 from src.routes.admin._models import UpdateSettingsRequest
+from src.services.aia_diagnosis_chat import (
+    DEFAULT_DIAGNOSIS_PROMPT,
+    MAX_PROMPT_CHARS,
+)
 
 router = APIRouter(tags=["admin: settings"])
 
@@ -95,6 +99,12 @@ async def get_settings(_admin=Depends(get_admin_user)):
         "aia_max_concurrent_uploads": int(
             db.get_setting("aia_max_concurrent_uploads", str(AIA_MAX_CONCURRENT_UPLOADS))
         ),
+        # CEFR chat-diagnosis system prompt. One prompt for all languages; the
+        # workspace language replaces the {sprache} placeholder at request time.
+        "language_diagnosis_prompt": db.get_setting(
+            "language_diagnosis_prompt", DEFAULT_DIAGNOSIS_PROMPT
+        ),
+        "language_diagnosis_prompt_default": DEFAULT_DIAGNOSIS_PROMPT,
     }
 
 
@@ -128,6 +138,18 @@ async def update_settings(
 
     if body.ocr_enabled is not None:
         db.set_setting("ocr_enabled", "true" if body.ocr_enabled else "false")
+
+    # CEFR chat-diagnosis prompt. Empty input is the documented "reset" gesture:
+    # it stores the shipped default rather than an empty prompt, so the diagnosis
+    # can never end up without instructions.
+    if body.language_diagnosis_prompt is not None:
+        stripped = body.language_diagnosis_prompt.strip()
+        if len(stripped) > MAX_PROMPT_CHARS:
+            raise HTTPException(
+                status_code=400,
+                detail=t("admin.settings.diagnosisPromptTooLong", locale, max=MAX_PROMPT_CHARS),
+            )
+        db.set_setting("language_diagnosis_prompt", stripped or DEFAULT_DIAGNOSIS_PROMPT)
 
     # UI label overrides for "Workspace" (per UI locale)
     for label_key in (

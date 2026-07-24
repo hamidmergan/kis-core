@@ -10,7 +10,7 @@ from loguru import logger
 
 from src import database as db
 from src.dependencies import get_current_user
-from src.i18n import get_locale, t, TRANSCRIPT_LANGUAGES
+from src.i18n import get_locale, t, TRANSCRIPT_LANGUAGES, DEFAULT_DIAGNOSIS_LANGUAGE
 from src.limits import (
     AIA_WORKSPACE_MAX_ACCESS_LINKS,
 )
@@ -137,6 +137,7 @@ async def get_workspace(
         "transcript_translation_mode": workspace.get("transcript_translation_mode", "manual"),
         "transcript_default_lang": workspace.get("transcript_default_lang", "both"),
         "transcript_target_lang": workspace.get("transcript_target_lang", "en"),
+        "diagnosis_language": workspace.get("diagnosis_language", DEFAULT_DIAGNOSIS_LANGUAGE),
         "staff_note_text": workspace.get("staff_note_text"),
         "staff_note_links": workspace.get("staff_note_links") or [],
         "access_links": [
@@ -228,6 +229,10 @@ async def patch_workspace(
         # the stale one). Skipped when translation is off or the target is unchanged.
         if body.transcript_target_lang != prev_target:
             _dispatch_transcript_retranslation(workspace, body.transcript_target_lang)
+    if body.diagnosis_language is not None:
+        if body.diagnosis_language not in TRANSCRIPT_LANGUAGES:
+            raise HTTPException(status_code=400, detail=t("ai.workspace.diagnosisLanguageInvalid", locale))
+        db.set_aia_workspace_diagnosis_language(workspace_uuid, body.diagnosis_language)
     if body.staff_note_text is not None or body.staff_note_links is not None:
         new_text = body.staff_note_text if body.staff_note_text is not None else workspace.get("staff_note_text")
         new_links_models = body.staff_note_links if body.staff_note_links is not None else []
