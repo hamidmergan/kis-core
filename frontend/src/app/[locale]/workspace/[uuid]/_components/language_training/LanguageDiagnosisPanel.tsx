@@ -8,7 +8,7 @@ import { useMascotPref } from "@/hooks/useMascotPref";
 import { useLanguageDiagnosis } from "../../_hooks/useLanguageDiagnosis";
 import { ChatInputBar } from "../chat/ChatInputBar";
 import { DiagnosisResultScreen } from "./DiagnosisResultScreen";
-import { DIAGNOSIS_ANSWER_MAX_CHARS, DIAGNOSIS_QUESTION_COUNT, type ChatTurn } from "./_diagnosis_types";
+import { type ChatTurn } from "./_diagnosis_types";
 
 interface Props {
   userId: number | null;
@@ -37,17 +37,15 @@ export function LanguageDiagnosisPanel({
   const [confirmAbort, setConfirmAbort] = useState(false);
   const { enabled: mascotEnabled, variant } = useMascotPref();
 
-  const { turns, status, result, errorMessage, send, retry, abort } = useLanguageDiagnosis(
-    userId,
-    workspaceUuid,
-  );
+  const { turns, status, result, errorMessage, send, retry, abort, questionCount, answerMaxChars } =
+    useLanguageDiagnosis(userId, workspaceUuid);
 
   // Each assistant turn is one question (the reaction rides along on the same
   // turn, so it does not add to the count). Clamped because the forced verdict
-  // turn is also an assistant turn but is not a 13th question.
+  // turn is also an assistant turn but is not an extra question.
   const askedCount = Math.min(
     turns.filter((turn) => turn.role === "assistant").length,
-    DIAGNOSIS_QUESTION_COUNT,
+    questionCount,
   );
 
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -92,7 +90,7 @@ export function LanguageDiagnosisPanel({
             </span>
             {status !== "done" && askedCount > 0 && (
               <span className="text-sm" style={{ color: "var(--muted)" }}>
-                {t("progress", { current: askedCount, total: DIAGNOSIS_QUESTION_COUNT })}
+                {t("progress", { current: askedCount, total: questionCount })}
               </span>
             )}
           </div>
@@ -219,7 +217,7 @@ export function LanguageDiagnosisPanel({
             loading={false}
             disabled={status !== "answering"}
             placeholder={t("chatPlaceholder")}
-            maxLength={DIAGNOSIS_ANSWER_MAX_CHARS}
+            maxLength={answerMaxChars}
             onSend={send}
           />
         </>

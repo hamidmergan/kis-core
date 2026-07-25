@@ -173,22 +173,6 @@ export default function KiTutorWorkspacePage() {
       body: JSON.stringify({ transcript_target_lang: lang }),
     }).catch(() => { /* ignore */ });
   };
-  const [diagnosisLanguage, setDiagnosisLanguage] = useState<string>("de");
-  useEffect(() => {
-    if (moduleDetail?.diagnosis_language) {
-      setDiagnosisLanguage(moduleDetail.diagnosis_language);
-    }
-  }, [moduleDetail?.diagnosis_language]);
-  const handleChangeDiagnosisLanguage = (lang: string) => {
-    setDiagnosisLanguage(lang);
-    fetch(`/api/ai-assistant/workspaces/${uuid}`, {
-      method: "PATCH",
-      credentials: "include",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ diagnosis_language: lang }),
-    }).catch(() => { /* ignore */ });
-  };
-
   const handleStaffNoteSave = async (text: string | null, links: StaffNoteLink[]) => {
     const res = await fetch(`/api/ai-assistant/workspaces/${uuid}`, {
       method: "PATCH",
@@ -548,6 +532,7 @@ export default function KiTutorWorkspacePage() {
         messages={messages}
         activeSourceIds={activeSourceIds}
         sources={sources}
+        isAdmin={isAdmin}
         popupActions={popupActions}
         loading={chatLoading}
         onSend={(v) => sendChatMessage(v)}
@@ -608,8 +593,6 @@ export default function KiTutorWorkspacePage() {
           onChangeTranscriptDefaultLang={handleChangeTranscriptDefaultLang}
           transcriptTargetLang={transcriptTargetLang}
           onChangeTranscriptTargetLang={handleChangeTranscriptTargetLang}
-          diagnosisLanguage={diagnosisLanguage}
-          onChangeDiagnosisLanguage={handleChangeDiagnosisLanguage}
           activeTab={activeTab}
           setActiveTab={setActiveTab}
           languageLevel={me?.language_level ?? null}

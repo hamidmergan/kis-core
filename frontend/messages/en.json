@@ -1131,10 +1131,53 @@
       "toggleAria": "Toggle notice",
       "saveFailed": "Save failed."
     },
+    "diagnosisLanguage": {
+      "label": "Language",
+      "german": "German",
+      "hint": "German only for now. More languages will follow later."
+    },
     "languageDiagnosisCard": {
       "title": "Language diagnosis prompt",
-      "description": "Controls how the AI asks, judges and grades in the diagnosis chat. Applies to every workspace and every language.",
-      "hint": "The '{sprache}' placeholder is replaced with the language set on the workspace.",
+      "description": "Controls how the AI asks, judges and grades in the diagnosis chat. Applies to every workspace. German only for now.",
+      "hint": "The placeholders '{language}' (language), '{grading}' (grading rules) and '{examples}' (language level examples) are filled in.",
+      "reset": "Restore default",
+      "saveFailed": "Saving failed"
+    },
+    "diagnosisPlanCard": {
+      "title": "Question plan",
+      "description": "Defines which questions the diagnosis asks. Each row is one question with a type and a level. The order is the order in the test. A custom question text is optional. When empty, the AI writes the question itself.",
+      "addRow": "Add question",
+      "removeRow": "Remove",
+      "reset": "Restore default",
+      "verbatimPlaceholder": "Custom question text, optional",
+      "answerMaxLabel": "Maximum answer length (characters)",
+      "saveFailed": "Saving failed",
+      "type": {
+        "gap fill": "Gap fill",
+        "multiple choice": "Choice",
+        "error correction": "Correct the error",
+        "reading comprehension": "Read and understand",
+        "situation": "Situation",
+        "free writing": "Free writing"
+      }
+    },
+    "adaptiveBehaviorCard": {
+      "title": "Adaptive answer behaviour",
+      "description": "Controls how the AI answers learners in the normal chat, depending on their level. Only takes effect when a level is stored.",
+      "hint": "'{level}' is replaced with the level, '{example}' with that level's example from the Language level examples card.",
+      "reset": "Restore default",
+      "saveFailed": "Saving failed"
+    },
+    "diagnosisGradingCard": {
+      "title": "Grading rules",
+      "description": "Defines how the AI decides the final level A1, A2, B1 or B1+.",
+      "reset": "Restore default",
+      "saveFailed": "Saving failed"
+    },
+    "diagnosisExamplesCard": {
+      "title": "Language level examples",
+      "description": "Example answers per level. They help the AI place free-text answers, and they tell the normal chat how to answer a given level.",
+      "hint": "Separate several examples per level with -- (double dash), a line break works too. Ideally the same context across all levels, so the AI sees the same idea at rising levels. The B2 example stands for B1+.",
       "reset": "Restore default",
       "saveFailed": "Saving failed"
     },
@@ -1691,6 +1734,9 @@
         "emptyPromptTerms": "Explain the central terms briefly and clearly.",
         "assistantName": "AI assistant",
         "assistantBadge": "AI",
+        "adaptiveLevel": "Level {level}",
+        "adaptiveOff": "adaptive off",
+        "aboveB1": "above B1",
         "hildeName": "Hilde",
         "francisName": "Francis",
         "noAnswer": "(no answer)",

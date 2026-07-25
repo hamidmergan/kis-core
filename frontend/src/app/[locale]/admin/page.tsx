@@ -36,6 +36,10 @@ import FrancisTab from "./_components/FrancisTab";
 import ToolsTab from "./_components/ToolsTab";
 import RolesTab from "./_components/RolesTab";
 import LanguageDiagnosisCard from "./_components/LanguageDiagnosisCard";
+import DiagnosisQuestionPlanCard from "./_components/DiagnosisQuestionPlanCard";
+import DiagnosisGradingCard from "./_components/DiagnosisGradingCard";
+import DiagnosisExamplesCard from "./_components/DiagnosisExamplesCard";
+import DiagnosisAdaptiveBehaviorCard from "./_components/DiagnosisAdaptiveBehaviorCard";
 
 type Tab =
   | "system"
@@ -236,7 +240,30 @@ export default function AdminPage() {
           {tab === "system" && <SettingsTab section="system" />}
           {tab === "ki" && <ProvidersTab />}
           {tab === "prompts" && <PromptsTab />}
-          {tab === "diagnosis" && <LanguageDiagnosisCard />}
+          {tab === "diagnosis" && (
+            <div className="flex flex-col gap-6">
+              <div>
+                <label className="text-sm font-medium text-foreground">
+                  {t("diagnosisLanguage.label")}
+                  <span className="ml-2 text-xs font-mono font-normal text-muted-soft">{"{language}"}</span>
+                </label>
+                <select
+                  value="de"
+                  disabled
+                  aria-label={t("diagnosisLanguage.label")}
+                  className="mt-1 block w-56 rounded-lg border border-border bg-background px-3 py-1.5 text-sm text-foreground disabled:opacity-60 disabled:cursor-not-allowed"
+                >
+                  <option value="de">{t("diagnosisLanguage.german")}</option>
+                </select>
+                <p className="text-xs text-muted mt-1">{t("diagnosisLanguage.hint")}</p>
+              </div>
+              <DiagnosisQuestionPlanCard />
+              <LanguageDiagnosisCard />
+              <DiagnosisGradingCard />
+              <DiagnosisExamplesCard />
+              <DiagnosisAdaptiveBehaviorCard />
+            </div>
+          )}
           {tab === "pending" && <PendingTab />}
           {tab === "whitelist" && <WhitelistTab adminEmail={adminEmail} />}
           {tab === "users" && <UsersTab onOpenQuota={openQuotaForUser} />}

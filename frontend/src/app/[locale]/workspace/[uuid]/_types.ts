@@ -89,6 +89,9 @@ export interface ChatMessage {
   aborted?: boolean;
   /** Stream died on an error (not a user cancellation) — the turn offers a retry. */
   failed?: boolean;
+  /** CEFR level the adaptive tutor applied to this answer, or null when none was
+   *  applied. Shown to admins only as a small grey label. */
+  applied_level?: string | null;
 }
 
 export interface LernKarte {

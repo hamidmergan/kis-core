@@ -9,7 +9,7 @@ method without a code change.
 
 The prompt is language-agnostic. It carries the CEFR anchors, which are the same
 scale for every language, and takes the actual target language through the
-``{sprache}`` placeholder. That is why there is ONE prompt rather than one per
+``{language}`` placeholder. That is why there is ONE prompt rather than one per
 language.
 
 Substitution is a plain ``str.replace``, never ``str.format``: the template
@@ -19,7 +19,7 @@ contains a JSON example full of braces, and it is free text an admin types.
 import json
 
 
-PROMPT_PLACEHOLDER = "{sprache}"
+PROMPT_PLACEHOLDER = "{language}"
 
 # The four outcomes. Everything above B1 collapses into "B1+" ("über B1"): the
 # test exists to find who needs language support, and a learner past B1 needs
@@ -49,6 +49,19 @@ QUESTION_PLAN = [
 QUESTION_COUNT = len(QUESTION_PLAN)
 # Kept as a flat list too, since the difficulty ladder is what most callers read.
 QUESTION_BANDS = [step["band"] for step in QUESTION_PLAN]
+
+# Task types that present labelled options a), b), c), d). For these the backend
+# dictates WHERE the correct option sits, cycling a -> b -> c -> d across the
+# option-bearing questions. Models have a strong bias to put the answer at a),
+# which makes the test feel broken ("the answer is always a"). Error correction
+# and free writing have no options and are skipped.
+OPTION_QUESTION_TYPES = {
+    "gap fill",
+    "multiple choice",
+    "reading comprehension",
+    "situation",
+}
+CORRECT_OPTION_POSITIONS = ["a", "b", "c", "d"]
 # History caps. The client keeps the transcript and posts it back each turn, so
 # these bound how big a single request may grow.
 MAX_HISTORY_MESSAGES = 40
@@ -56,6 +69,69 @@ MAX_MESSAGE_CHARS = 2000
 # Ceiling for the admin-edited prompt, so a paste accident cannot blow up every
 # diagnosis request.
 MAX_PROMPT_CHARS = 20000
+
+# Admin-settings keys (German-scoped, "_de" suffix). An empty stored value always
+# means "use the code default", so the diagnosis can never end up without a plan.
+QUESTION_PLAN_SETTING = "language_diagnosis_question_plan_de"
+ADAPTIVE_BEHAVIOR_SETTING = "language_diagnosis_adaptive_behavior_de"
+ANSWER_MAX_CHARS_SETTING = "language_diagnosis_answer_max_chars_de"
+GRADING_RULES_SETTING = "language_diagnosis_grading_rules_de"
+LEVEL_EXAMPLES_SETTING = "language_diagnosis_level_examples_de"
+
+# Placeholders inside the main prompt. {grading} is filled with the grading rules
+# (the Einstufungs-Regeln field), {examples} with the per-band calibration example
+# list. Both are VISIBLE in the prompt itself, so nothing is merged in secretly.
+# If a custom prompt drops a placeholder, that block is appended at the end.
+GRADING_PLACEHOLDER = "{grading}"
+EXAMPLES_PLACEHOLDER = "{examples}"
+
+# The four bands that carry a calibration example. B1+ needs none of its own: a
+# B2-quality answer IS the signal for B1+ (it means the learner coped past B1).
+EXAMPLE_LEVELS = ["A1", "A2", "B1", "B2"]
+
+# Soft UI limit for the answer length. The hard backend cap stays
+# MAX_MESSAGE_CHARS; this one only drives the counter and maxlength in the client.
+DEFAULT_ANSWER_MAX_CHARS = MAX_MESSAGE_CHARS
+
+VALID_QUESTION_TYPES = {
+    "gap fill",
+    "multiple choice",
+    "error correction",
+    "reading comprehension",
+    "situation",
+    "free writing",
+}
+VALID_BANDS = {"A1", "A2", "B1", "B2"}
+
+
+def parse_question_plan(raw: str) -> list[dict]:
+    """Parse the admin question-plan JSON, falling back to the shipped default.
+
+    Each item is ``{"band": <A1..B2>, "type": <one of VALID_QUESTION_TYPES>}``
+    with an optional ``"text"`` verbatim question. Any structural problem returns
+    the code default, so the diagnosis always has a usable plan.
+    """
+    if not raw or not raw.strip():
+        return QUESTION_PLAN
+    try:
+        data = json.loads(raw)
+    except json.JSONDecodeError:
+        return QUESTION_PLAN
+    if not isinstance(data, list) or not data:
+        return QUESTION_PLAN
+    plan: list[dict] = []
+    for item in data:
+        if not isinstance(item, dict):
+            return QUESTION_PLAN
+        band, qtype = item.get("band"), item.get("type")
+        if band not in VALID_BANDS or qtype not in VALID_QUESTION_TYPES:
+            return QUESTION_PLAN
+        step = {"band": band, "type": qtype}
+        text = item.get("text")
+        if isinstance(text, str) and text.strip():
+            step["text"] = text.strip()
+        plan.append(step)
+    return plan
 
 # Sent as the first user turn so the model always sees a user role before it
 # speaks. Never shown to the learner.
@@ -74,6 +150,20 @@ NEXT_QUESTION_MESSAGE = (
     "before. Do not give any verdict yet: reply with done=false and only this "
     "one question."
 )
+# Used when the admin pinned a verbatim question text for this slot. The model
+# must ask exactly this, only turning the layout into line breaks per the prompt.
+NEXT_QUESTION_VERBATIM_MESSAGE = (
+    "Now ask question {number} of {total}. Ask EXACTLY this question, word for "
+    "word, changing nothing about its wording or its options:\n\n{text}\n\n"
+    "Do not give any verdict yet: reply with done=false and only this one question."
+)
+# Appended for option-bearing questions to break the model's a) bias. The
+# position is dictated, so the model must build the item so the CORRECT answer
+# lands at that letter, with the other options plausible but clearly wrong.
+CORRECT_POSITION_DIRECTIVE = (
+    " Put the CORRECT option at position {letter}), not at a). Arrange the other "
+    "options so only {letter}) is right, and keep them plausible."
+)
 # Sent back when the model tries to close before all questions are answered.
 KEEP_GOING_MESSAGE = (
     "Only {asked} of {total} questions are answered. Do not finish yet and do "
@@ -81,17 +171,48 @@ KEEP_GOING_MESSAGE = (
 )
 
 
-def next_question_message(number: int) -> str:
-    """The per-turn instruction fixing this question's type, number and band."""
-    step = QUESTION_PLAN[number - 1]
-    return NEXT_QUESTION_MESSAGE.format(
-        number=number, total=QUESTION_COUNT, band=step["band"], type=step["type"]
+def correct_option_letter(number: int, plan: list[dict]) -> str | None:
+    """Which letter the correct option should sit at for this question.
+
+    Cycles a -> b -> c across the option-bearing questions in order, so the
+    correct answer is spread evenly instead of always landing at a). Returns
+    ``None`` for questions with no options (error correction, free writing).
+    """
+    step = plan[number - 1]
+    if step["type"] not in OPTION_QUESTION_TYPES:
+        return None
+    # Rank of this question among the option-bearing ones (0-based).
+    rank = sum(1 for s in plan[:number] if s["type"] in OPTION_QUESTION_TYPES) - 1
+    return CORRECT_OPTION_POSITIONS[rank % len(CORRECT_OPTION_POSITIONS)]
+
+
+def next_question_message(number: int, plan: list[dict] | None = None) -> str:
+    """The per-turn instruction fixing this question's number, type and band.
+
+    ``plan`` defaults to the shipped ``QUESTION_PLAN``. When the slot carries a
+    verbatim ``text``, the model is told to ask it word for word instead. For
+    option-bearing questions the correct option's position is dictated too, so it
+    does not always default to a).
+    """
+    steps = plan or QUESTION_PLAN
+    step = steps[number - 1]
+    total = len(steps)
+    if step.get("text"):
+        return NEXT_QUESTION_VERBATIM_MESSAGE.format(
+            number=number, total=total, text=step["text"]
+        )
+    message = NEXT_QUESTION_MESSAGE.format(
+        number=number, total=total, band=step["band"], type=step["type"]
     )
+    letter = correct_option_letter(number, steps)
+    if letter:
+        message += CORRECT_POSITION_DIRECTIVE.format(letter=letter)
+    return message
 
 
-def keep_going_message(asked: int) -> str:
+def keep_going_message(asked: int, total: int) -> str:
     """Nudge for a model that answered done=true before all questions were asked."""
-    return KEEP_GOING_MESSAGE.format(asked=asked, total=QUESTION_COUNT)
+    return KEEP_GOING_MESSAGE.format(asked=asked, total=total)
 
 
 # Sent after an unparseable turn. Measured against the production model, roughly
@@ -108,7 +229,7 @@ class DiagnosisChatError(ValueError):
 
 
 DEFAULT_DIAGNOSIS_PROMPT = """You are a CEFR assessor running a short diagnostic interview with a learner.
-The target language is {sprache}. Conduct the ENTIRE conversation in {sprache}.
+The target language is {language}. Conduct the ENTIRE conversation in {language}.
 
 GOAL
 Sort the learner into one of four levels, A1, A2, B1, or B1+ (anything above
@@ -121,8 +242,8 @@ You ask exactly 8 questions on a rising ladder, two per band: questions 1-2 at
 A1, 3-4 at A2, 5-6 at B1, 7-8 at B2. Both the task type AND the difficulty are
 FIXED by position and do NOT adapt to the answers. Before each question the
 system tells you the number, the task type and the difficulty. Follow it
-exactly. The learner's level is then how high up the ladder they still cope:
-failing the A2 pair means A1, coping with the B2 pair means B1+.
+exactly. How the answers map to a final level is defined in the LEVEL ASSIGNMENT
+section below.
 
 METHOD
 - Ask ONE question per turn. Keep your turn short, at most four sentences.
@@ -141,7 +262,7 @@ METHOD
   you are moving on to the next question. Keep the reaction to one sentence,
   keep it neutral about whether the answer was right, and never repeat the same
   opener twice.
-- Address the learner with the informal second person, wherever {sprache}
+- Address the learner with the informal second person, wherever {language}
   distinguishes formal from informal address. Where it does not, keep a
   friendly everyday register. This is about how YOU speak; you may still set
   tasks that require a formal register and grade the learner on hitting it.
@@ -154,25 +275,26 @@ METHOD
   (Q8). Multiple choice is used three times, at A1, A2 and B2. Write exactly the
   type the system names. Most are closed questions with options, which keeps the
   task readable at a glance:
-  * gap fill: ONE short everyday sentence with a blank, plus three options
-  * multiple choice: a question with three or four options labelled a), b), c), d).
+  * gap fill: ONE short everyday sentence with a blank, plus four options
+  * multiple choice: a question with four options labelled a), b), c), d).
     Say once that the learner may simply reply with the letter, and keep the
     options short and clearly distinct
   * error correction: one faulty sentence the learner has to rewrite correctly,
     no options
   * reading comprehension: one or two sentences of text, then a question on them
-    with three options. Ask what the text MEANS, and make the answer depend on
+    with four options. Ask what the text MEANS, and make the answer depend on
     something only the language carries: a negation, a tense, a conditional, a
     connector, who a pronoun refers to, which of two events happened first.
     NEVER name a grammatical term and never ask which form a word is: the
     learner has to understand the sentence, not label it. Keep the options
-    short, for instance yes, no, and the text does not say. Never ask a question
-    whose answer is a phrase the text already contains, and never let the
-    options be three different objects or topics.
+    short: four brief readings of the sentence, one correct and three that
+    plausibly misread the negation, the tense or the connector. Never ask a
+    question whose answer is a phrase the text already contains, and never let
+    the options differ in content instead of in meaning.
     The shape to aim for: the text says something did not happen because a
     condition failed, and the question asks whether it happened
   * situation: one everyday situation in one sentence, then what the learner
-    would say, with three options
+    would say, with four options
   * free writing: two or three sentences of their own on an everyday topic, no
     options
 - EXACTLY ONE option is correct, and every wrong option must be wrong for a
@@ -180,6 +302,14 @@ METHOD
   a word that does not fit the meaning, the wrong register. Options that all fit
   equally well test nothing. Before you send a task, check that a learner cannot
   defend a second option.
+- A wrong option must be TRULY wrong in {language}, containing a real mistake
+  (wrong verb form, wrong ending, wrong word order, a word that does not fit).
+  NEVER use a natural, fully correct alternative answer as a wrong option. Many
+  questions can be answered correctly in more than one natural way. If a fluent
+  speaker could reasonably give an option as a real, correct answer, it is NOT a
+  valid distractor, even if it is not the phrasing you had in mind. Read each
+  wrong option and ask: could a fluent speaker say this and be right? If yes,
+  replace it with one that has a clear, gradeable mistake.
 - The six task types already spread across the skills (grammar, vocabulary,
   reading, writing, pragmatics), so still give a 0-100 score for each of the
   five at the end, judging from everything you saw.
@@ -195,7 +325,7 @@ ITEM DESIGN
 This is how professionally built placement tests write their items. Follow it.
 - Every task tests ONE named point, decided before you write it: a verb form, a
   tense, an article or other determiner, a case or agreement ending where
-  {sprache} marks one, word order, a preposition, a connector, a relative
+  {language} marks one, word order, a preposition, a connector, a relative
   pronoun, a mood, a fixed expression, a register.
 - ALL options belong to the SAME class as the correct one and differ only in the
   tested feature. Four question words, four articles, four forms of one verb,
@@ -209,13 +339,13 @@ This is how professionally built placement tests write their items. Follow it.
 - The correct answer must never be a word the learner can copy out of the text
   or the setup line. If the text says it, the option has to paraphrase it.
 - Nothing may be answerable from general knowledge, from the length of an
-  option, or by elimination of nonsense. A learner who does not know {sprache}
+  option, or by elimination of nonsense. A learner who does not know {language}
   must have no way in.
 
 DIFFICULTY LADDER
 For each question you are told its band. Pick the point you test from that band.
-These are categories, not {sprache} rules: use whatever realises them in
-{sprache}, and skip a category the language does not have.
+These are categories, not {language} rules: use whatever realises them in
+{language}, and skip a category the language does not have.
 - A1 (questions 1-2): basic present-tense verb forms, question words, determiners,
   plain statement and question word order, everyday nouns
 - A2 (questions 3-4): past tense, compound and separable verbs, prepositions with
@@ -233,7 +363,7 @@ the task out instead of writing one long line.
 - Then an empty line.
 - Then the sentence, the short text or the question, on a line of its own.
 - Then an empty line, then the answer options, ONE PER LINE, each on its own
-  line and labelled a), b), c). Keep that empty line before the first option
+  line and labelled a), b), c), d). Keep that empty line before the first option
   even when the task already has a text and a question above it.
 
 So a task with options looks like this:
@@ -245,6 +375,7 @@ So a task with options looks like this:
 a) <option>
 b) <option>
 c) <option>
+d) <option>
 
 A task without options is the instruction, an empty line, and the sentence.
 
@@ -254,37 +385,154 @@ clue in brackets next to it, and never add such a hint anywhere else in the
 task. The options carry everything the learner needs. Where there are no
 options, the sentence alone has to do the work.
 
-LEVEL ANCHORS
-These describe the four outcomes and apply to {sprache} the same way they apply
-to any other language.
-- A1: isolated words and memorised phrases, present tense only, communication
-  breaks down often. Copes with the A1 block but not the A2 block
-- A2: simple main clauses on everyday topics, past tense attempted but often
-  wrong, very limited vocabulary. Copes with the A2 block but not the B1 block
-- B1: connected sentences with subordination, copes with familiar topics,
-  errors do not block understanding. Copes with the B1 block but not the B2 block
-- B1+: everything above B1, needs no language support. Copes with the B2 block
-  too. Do not try to split this into B2, C1 or C2
+LEVEL ASSIGNMENT
+{grading}
+
+CALIBRATION EXAMPLES
+Use these example answers to judge free-text answers (error correction, free writing). At each band the examples describe the same situations, so compare how the same idea is expressed as the level rises. An answer of similar quality to a band's examples points to that level. A B2-quality answer means the learner copes past B1, so B1+.
+{examples}
 
 OUTPUT FORMAT
 Reply with ONLY a JSON object. No prose, no markdown fences, no explanation.
 The line breaks required by TASK LAYOUT go inside the "message" string as \\n.
 
 While the interview is still running, always use exactly these three keys:
-{"done": false, "reaction": "<one short sentence in {sprache} about the answer you just read>", "message": "<your next question, written in {sprache}, without the reaction>"}
+{"done": false, "reaction": "<one short sentence in {language} about the answer you just read>", "message": "<your next question, written in {language}, without the reaction>"}
 
 "reaction" is REQUIRED on every turn. The only turn where it may be an empty
 string is your very first one, because there is no answer to react to yet.
 Leaving it out later drops your reaction from the conversation entirely.
 
 On the final turn, "level" must be exactly one of "A1", "A2", "B1", "B1+":
-{"done": true, "message": "<two or three very simple sentences in {sprache}, encouraging in tone, naming one strength and one thing to work on. Simple enough for an A1 learner to read>", "level": "B1", "skill_scores": {"grammar": 60, "vocabulary": 55, "reading": 65, "writing": 50, "pragmatics": 60}}
+{"done": true, "message": "<two or three very simple sentences in {language}, encouraging in tone, naming one strength and one thing to work on. Simple enough for an A1 learner to read>", "level": "B1", "skill_scores": {"grammar": 60, "vocabulary": 55, "reading": 65, "writing": 50, "pragmatics": 60}}
 """
+
+
+# Editable grading rules, kept out of the main prompt so a language expert can
+# tune HOW the level is decided in one focused field. Injected at the
+# {grading} placeholder. Language-agnostic: it describes the CEFR scale, not
+# one language's forms.
+DEFAULT_GRADING_RULES = """Decide the final level from how high up the ladder the learner still copes.
+- Copes with the A1 questions but not the A2 questions: A1.
+- Copes with the A2 questions but not the B1 questions: A2.
+- Copes with the B1 questions but not the B2 questions: B1.
+- Copes with the B2 questions too: B1+.
+B1+ is everything above B1, so do not split it into B2, C1 or C2.
+
+These describe a typical learner at each outcome:
+- A1: isolated words and memorised phrases, present tense only, communication breaks down often.
+- A2: simple main clauses on everyday topics, past tense attempted but often wrong, very limited vocabulary.
+- B1: connected sentences with subordination, copes with familiar topics, errors do not block understanding.
+- B1+: everything above B1, needs no language support, copes with the B2 questions too."""
+
+# Shipped calibration examples: TWO per band, one sentence per line. The two
+# contexts are the SAME across all bands (line 1 is always the cinema/weekend
+# situation, line 2 is always the work situation), so the model can compare how
+# the SAME idea is expressed as the level rises. That contrast is what makes the
+# examples calibrate well. An answer of similar quality to a band's examples
+# points to that level. Editable per level by an expert.
+DEFAULT_LEVEL_EXAMPLES = {
+    "A1": (
+        "-- Am Samstag gehe ich ins Kino.\n"
+        "-- Ich arbeite in einem Büro."
+    ),
+    "A2": (
+        "-- Am Samstag bin ich ins Kino gegangen, aber der Film war langweilig.\n"
+        "-- Früher habe ich in einem Restaurant gearbeitet, jetzt arbeite ich in einem Büro."
+    ),
+    "B1": (
+        "-- Am Samstag wollte ich ins Kino gehen, aber weil es stark regnete, bin ich zu Hause geblieben.\n"
+        "-- Obwohl die Arbeit im Restaurant anstrengend war, habe ich viel gelernt, weil ich mit vielen Menschen sprechen musste."
+    ),
+    "B2": (
+        "-- Eigentlich hatte ich vorgehabt, am Samstag ins Kino zu gehen, doch da das Wetter so schlecht war, entschied ich mich, lieber zu Hause zu bleiben.\n"
+        "-- Rückblickend war die Arbeit im Restaurant zwar äußerst fordernd, doch gerade dadurch konnte ich Fähigkeiten entwickeln, die mir heute im Büro zugutekommen."
+    ),
+}
+
+
+def parse_level_examples(raw: str) -> dict:
+    """Parse the admin per-level examples JSON, merged onto the defaults.
+
+    A missing or invalid entry keeps the shipped default, so all four bands are
+    always present for calibration. An empty/invalid setting yields the defaults.
+    """
+    examples = dict(DEFAULT_LEVEL_EXAMPLES)
+    if not raw or not raw.strip():
+        return examples
+    try:
+        data = json.loads(raw)
+    except json.JSONDecodeError:
+        return examples
+    if not isinstance(data, dict):
+        return examples
+    for level in EXAMPLE_LEVELS:
+        value = data.get(level)
+        if isinstance(value, str) and value.strip():
+            examples[level] = value.strip()
+    return examples
+
+
+def example_items(raw: str) -> list[str]:
+    """Split one band's example value into clean example strings.
+
+    Separators are "--" or a line break. "--" is used over a single "-" because
+    a hyphen occurs inside words (E-Mail), so it would split a sentence; "--"
+    practically never appears mid-sentence. Shared by the grading block and the
+    adaptive-chat wiring, so both read the examples the same way.
+    """
+    normalized = (raw or "").replace("--", "\n")
+    return [ln.strip() for ln in normalized.splitlines() if ln.strip()]
+
+
+def build_examples_block(examples: dict) -> str:
+    """Render the per-band calibration examples as a bullet list.
+
+    Only the example lines: the explaining text ("CALIBRATION EXAMPLES ...") lives
+    visibly in the prompt template, so nothing is merged in secretly. An example
+    value may hold several examples (separated by "--" or a line break): one
+    renders inline, several render as sub-items under the band.
+    """
+    lines: list[str] = []
+    for level in EXAMPLE_LEVELS:
+        items = example_items(examples.get(level, ""))
+        if not items:
+            continue
+        if len(items) == 1:
+            lines.append(f"- {level}: {items[0]}")
+        else:
+            lines.append(f"- {level}:")
+            lines.extend(f"  - {item}" for item in items)
+    return "\n".join(lines)
 
 
 def render_system_prompt(template: str, language_name: str) -> str:
     """Substitute the target language into the admin-managed prompt template."""
     return template.replace(PROMPT_PLACEHOLDER, language_name)
+
+
+def assemble_system_prompt(
+    main_prompt: str, grading_rules: str, examples: dict, language_name: str
+) -> str:
+    """Build the full diagnosis system prompt.
+
+    Two visible placeholders are filled: {grading} with the grading rules and
+    {examples} with the per-band example list. Both are just editable content,
+    so the reader sees the whole structure in the prompt. If a customised prompt
+    dropped a placeholder, that block is appended under its own header so the
+    model never loses it. The {language} substitution then runs over the whole.
+    """
+    text = main_prompt
+    if GRADING_PLACEHOLDER in text:
+        text = text.replace(GRADING_PLACEHOLDER, grading_rules.strip())
+    else:
+        text = text.rstrip() + "\n\nLEVEL ASSIGNMENT\n" + grading_rules.strip()
+    block = build_examples_block(examples)
+    if EXAMPLES_PLACEHOLDER in text:
+        text = text.replace(EXAMPLES_PLACEHOLDER, block)
+    else:
+        text = text.rstrip() + "\n\nCALIBRATION EXAMPLES\n" + block
+    return render_system_prompt(text, language_name)
 
 
 def _strip_fence(raw: str) -> str:

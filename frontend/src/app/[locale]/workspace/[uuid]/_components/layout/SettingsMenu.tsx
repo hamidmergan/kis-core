@@ -22,8 +22,6 @@ interface SettingsMenuProps {
   onChangeTranscriptDefaultLang: (lang: TranscriptDefaultLang) => void;
   transcriptTargetLang: string;
   onChangeTranscriptTargetLang: (lang: string) => void;
-  diagnosisLanguage: string;
-  onChangeDiagnosisLanguage: (lang: string) => void;
   languageLevel?: string | null;
   onResetLanguageLevel?: () => void | Promise<void>;
 }
@@ -80,8 +78,6 @@ export function SettingsMenu({
   onChangeTranscriptDefaultLang,
   transcriptTargetLang,
   onChangeTranscriptTargetLang,
-  diagnosisLanguage,
-  onChangeDiagnosisLanguage,
   languageLevel,
   onResetLanguageLevel,
 }: SettingsMenuProps) {
@@ -235,21 +231,6 @@ export function SettingsMenu({
                   </button>
                 );
               })}
-            </div>
-          </div>
-        )}
-        {isOwner && (
-          <div className="mt-3">
-            <p className="text-sm font-medium" style={{ color: "var(--foreground)" }}>{tDiag("languageTitle")}</p>
-            <p className="text-xs mt-1" style={{ color: "var(--muted)" }}>
-              {tDiag("languageDescription")}
-            </p>
-            <div className="mt-3">
-              <Select<string>
-                value={diagnosisLanguage}
-                onChange={onChangeDiagnosisLanguage}
-                options={targetLangOptions}
-              />
             </div>
           </div>
         )}

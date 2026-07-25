@@ -203,8 +203,13 @@ export function useChat({ uuid, enrollmentId, selectedSourceIds, viewerSource, c
               }
             } else if (evt.qmap) {
               // Pre-stream metadata: lets citation chips resolve to the right
-              // source while tokens are still arriving.
-              updateLast({ source_qmap: evt.qmap, source_pages: evt.source_pages });
+              // source while tokens are still arriving. applied_level carries the
+              // CEFR level the adaptive tutor used, for the admin-only badge.
+              updateLast({
+                source_qmap: evt.qmap,
+                source_pages: evt.source_pages,
+                applied_level: evt.applied_level ?? null,
+              });
             } else if (evt.done) {
               if (rafId != null) { cancelAnimationFrame(rafId); rafId = null; }
               flushTokens();

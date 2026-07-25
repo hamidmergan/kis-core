@@ -27,6 +27,7 @@ export function ChatPanel({
   onSendPrompt,
   registerSetInput,
   hideHeader,
+  isAdmin,
 }: {
   messages: ChatMessageType[];
   activeSourceIds: string[];
@@ -45,6 +46,7 @@ export function ChatPanel({
   onSendPrompt?: (text: string) => void;
   registerSetInput?: (setter: ((v: string) => void) | null) => void;
   hideHeader?: boolean;
+  isAdmin?: boolean;
 }) {
   const t = useTranslations("workspace.detail.chat");
   const { enabled: mascotEnabled, variant: mascotVariant } = useMascotPref();
@@ -199,6 +201,7 @@ export function ChatPanel({
                 isLatest={i === messages.length - 1}
                 collapseByDefault={msg.role === "assistant" && !recentAssistantIdx.has(i)}
                 popupActions={popupActions}
+                isAdmin={isAdmin}
               />
             ));
           })()}

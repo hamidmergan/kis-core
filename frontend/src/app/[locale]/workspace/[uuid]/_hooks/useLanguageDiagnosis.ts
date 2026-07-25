@@ -3,6 +3,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   toTranscript,
+  DIAGNOSIS_ANSWER_MAX_CHARS,
+  DIAGNOSIS_QUESTION_COUNT,
   type ChatTurn,
   type DiagnosisResult,
   type DiagnosisTurnResponse,
@@ -62,6 +64,22 @@ export function useLanguageDiagnosis(
   const [status, setStatus] = useState<Status>("loading");
   const [result, setResult] = useState<DiagnosisResult | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  // How many questions the test has, and the soft answer-length cap. Both are
+  // admin-configurable; the backend is the authority. The imported constants are
+  // fallbacks until the config call lands (or if it fails).
+  const [questionCount, setQuestionCount] = useState(DIAGNOSIS_QUESTION_COUNT);
+  const [answerMaxChars, setAnswerMaxChars] = useState(DIAGNOSIS_ANSWER_MAX_CHARS);
+  useEffect(() => {
+    fetch("/api/ai-assistant/language-diagnosis/config", { credentials: "include" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => {
+        if (!d) return;
+        if (typeof d.question_count === "number") setQuestionCount(d.question_count);
+        if (typeof d.answer_max_chars === "number") setAnswerMaxChars(d.answer_max_chars);
+      })
+      .catch(() => { /* keep fallbacks */ });
+  }, []);
 
   // The transcript the next request must send. Kept in a ref so `send` never
   // captures a stale copy and the kickoff effect can run exactly once.
@@ -161,5 +179,5 @@ export function useLanguageDiagnosis(
     setErrorMessage(null);
   }, [userId]);
 
-  return { turns, status, result, errorMessage, send, retry, abort };
+  return { turns, status, result, errorMessage, send, retry, abort, questionCount, answerMaxChars };
 }

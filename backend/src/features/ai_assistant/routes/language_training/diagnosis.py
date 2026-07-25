@@ -30,18 +30,26 @@ from src.i18n import (
 from src.security.rate_limit import enforce_aia_burst
 from src.features.ai_assistant.routes._helpers import _require_workspace_access
 from src.services.aia_diagnosis_chat import (
+    ANSWER_MAX_CHARS_SETTING,
+    DEFAULT_ANSWER_MAX_CHARS,
     DEFAULT_DIAGNOSIS_PROMPT,
+    DEFAULT_GRADING_RULES,
     FORCE_FINISH_MESSAGE,
+    GRADING_RULES_SETTING,
     KICKOFF_MESSAGE,
+    LEVEL_EXAMPLES_SETTING,
     MAX_HISTORY_MESSAGES,
     MAX_MESSAGE_CHARS,
-    QUESTION_COUNT,
+    QUESTION_PLAN,
+    QUESTION_PLAN_SETTING,
     REPAIR_MESSAGE,
     DiagnosisChatError,
+    assemble_system_prompt,
     keep_going_message,
     next_question_message,
+    parse_level_examples,
+    parse_question_plan,
     parse_turn_response,
-    render_system_prompt,
 )
 
 router = APIRouter(tags=["ki-assistent: language-diagnosis"])
@@ -115,19 +123,24 @@ def _diagnosis_language_name(workspace: dict) -> str:
     return entry["name"]
 
 
-def build_turn_messages(system_prompt: str, history: list[dict]) -> list[dict]:
+def build_turn_messages(
+    system_prompt: str, history: list[dict], plan: list[dict] | None = None
+) -> list[dict]:
     """Assemble the message list for one diagnosis turn.
 
-    The number of answers so far decides the turn. Once all 12 are in, a system
-    turn forces the verdict. Otherwise a system turn dictates the next question's
-    number and difficulty, so the fixed staircase does not depend on the model
-    counting the transcript. An empty transcript still gets a kickoff user turn,
-    so the model always sees a user role before it speaks.
+    The number of answers so far decides the turn. Once all questions in ``plan``
+    are answered, a system turn forces the verdict. Otherwise a system turn
+    dictates the next question's number and difficulty (or its verbatim text), so
+    the fixed staircase does not depend on the model counting the transcript. An
+    empty transcript still gets a kickoff user turn, so the model always sees a
+    user role before it speaks. ``plan`` defaults to the shipped ``QUESTION_PLAN``.
     """
+    steps = plan or QUESTION_PLAN
+    total = len(steps)
     messages: list[dict] = [{"role": "system", "content": system_prompt}]
     answered = sum(1 for m in history if m["role"] == "user")
 
-    if answered >= QUESTION_COUNT:
+    if answered >= total:
         messages.extend(history)
         messages.append({"role": "system", "content": FORCE_FINISH_MESSAGE})
         return messages
@@ -137,7 +150,7 @@ def build_turn_messages(system_prompt: str, history: list[dict]) -> list[dict]:
     else:
         messages.append({"role": "user", "content": KICKOFF_MESSAGE})
     # The question we are about to ask is one past the answers we already have.
-    messages.append({"role": "system", "content": next_question_message(answered + 1)})
+    messages.append({"role": "system", "content": next_question_message(answered + 1, steps)})
     return messages
 
 
@@ -209,23 +222,27 @@ async def turn(
 
     enforce_aia_burst(user_id, locale)
 
-    system_prompt = render_system_prompt(
+    system_prompt = assemble_system_prompt(
         db.get_setting("language_diagnosis_prompt", DEFAULT_DIAGNOSIS_PROMPT),
+        db.get_setting(GRADING_RULES_SETTING, DEFAULT_GRADING_RULES),
+        parse_level_examples(db.get_setting(LEVEL_EXAMPLES_SETTING, "")),
         _diagnosis_language_name(workspace),
     )
+    plan = parse_question_plan(db.get_setting(QUESTION_PLAN_SETTING, ""))
+    total = len(plan)
     history = [m.model_dump() for m in body.history]
-    messages = build_turn_messages(system_prompt, history)
+    messages = build_turn_messages(system_prompt, history, plan)
 
     result = await _run_turn(llm, messages, user_id, locale)
 
-    # The test has a fixed length, so a verdict before all 12 answers are in is a
+    # The test has a fixed length, so a verdict before all answers are in is a
     # mistake: nudge once for the next question. One nudge is enough in practice;
     # whatever comes back second is accepted, so a stubborn model cannot stall.
     answered = sum(1 for m in history if m["role"] == "user")
-    if result["done"] and answered < QUESTION_COUNT:
+    if result["done"] and answered < total:
         logger.info("Language diagnosis: verdict after {} of {} answers, asking for more",
-                    answered, QUESTION_COUNT)
-        messages = [*messages, {"role": "system", "content": keep_going_message(answered)}]
+                    answered, total)
+        messages = [*messages, {"role": "system", "content": keep_going_message(answered, total)}]
         result = await _run_turn(llm, messages, user_id, locale)
 
     if not result["done"]:
@@ -236,6 +253,26 @@ async def turn(
     )
     logger.info("Language diagnosis complete: user={} level={}", user_id, result["level"])
     return result
+
+
+@router.get("/ai-assistant/language-diagnosis/config")
+async def config(current_user: dict = Depends(get_current_user)):
+    """Runtime knobs the diagnosis UI needs: how many questions, and the soft
+    answer-length cap. Both come from admin settings, with code defaults.
+
+    The answer cap is clamped to MAX_MESSAGE_CHARS: it is a UI hint (counter and
+    maxlength), while the request body stays hard-capped server-side.
+    """
+    plan = parse_question_plan(db.get_setting(QUESTION_PLAN_SETTING, ""))
+    raw = db.get_setting(ANSWER_MAX_CHARS_SETTING, str(DEFAULT_ANSWER_MAX_CHARS))
+    try:
+        answer_max = int(raw)
+    except (TypeError, ValueError):
+        answer_max = DEFAULT_ANSWER_MAX_CHARS
+    return {
+        "question_count": len(plan),
+        "answer_max_chars": max(1, min(answer_max, MAX_MESSAGE_CHARS)),
+    }
 
 
 @router.delete("/ai-assistant/language-diagnosis/me")

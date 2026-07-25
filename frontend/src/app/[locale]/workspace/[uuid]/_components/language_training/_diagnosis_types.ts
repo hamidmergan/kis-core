@@ -4,14 +4,15 @@
 // model from the admin-managed prompt, so the client only carries the transcript
 // and the final verdict.
 
-/** Mirrors MAX_MESSAGE_CHARS in backend/src/services/aia_diagnosis_chat.py.
- *  Kept in sync by hand: exceeding it comes back as a 422, not a friendly error. */
+/** Fallback answer-length cap. The live value comes from the admin-configurable
+ *  /language-diagnosis/config endpoint; this constant only applies until that
+ *  call lands or if it fails. The backend still hard-caps at MAX_MESSAGE_CHARS. */
 export const DIAGNOSIS_ANSWER_MAX_CHARS = 2000;
 
-/** Mirrors QUESTION_COUNT in backend/src/services/aia_diagnosis_chat.py.
- *  The test is a fixed staircase of this many questions, one per task type; the
- *  UI uses it only for the "question X of N" counter. The backend is the
- *  authority on the length. */
+/** Fallback question count. The live value comes from the admin-configurable
+ *  /language-diagnosis/config endpoint (len of the question plan); this constant
+ *  only applies until that call lands or if it fails. Used for the "question X of
+ *  N" counter. */
 export const DIAGNOSIS_QUESTION_COUNT = 8;
 
 // Four outcomes only. "B1+" is everything above B1 (no language support needed);

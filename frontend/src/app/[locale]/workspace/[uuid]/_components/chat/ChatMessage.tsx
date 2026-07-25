@@ -57,13 +57,14 @@ interface ChatMessageProps {
   isLatest?: boolean;
   collapseByDefault?: boolean;
   popupActions?: { key: string; label: string; icon: string }[];
+  isAdmin?: boolean;
 }
 
 
 function ChatMessageImpl({
   msg, activeSourceIds, getFilename, onChipClick, onSaveNote, onRetry, loading,
   mascotEnabled = false, variant = "francis", isLatest = false, collapseByDefault = false,
-  popupActions,
+  popupActions, isAdmin = false,
 }: ChatMessageProps) {
   const t = useTranslations("workspace.detail.chat");
   const tChip = useTranslations("sourceChip");
@@ -215,6 +216,13 @@ function ChatMessageImpl({
           </div>
         )
       )}
+      {isAdmin && msg.role === "assistant" && msg.content ? (
+        <span className="text-xs mb-0.5" style={{ color: "var(--muted-soft)" }}>
+          {msg.applied_level
+            ? t("adaptiveLevel", { level: msg.applied_level === "B1+" ? t("aboveB1") : msg.applied_level })
+            : t("adaptiveOff")}
+        </span>
+      ) : null}
       <div className="flex flex-col max-w-[96%] w-fit">
         <div
           className="px-4 py-2 rounded-2xl text-base leading-snug break-words"

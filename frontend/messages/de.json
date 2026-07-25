@@ -1131,10 +1131,53 @@
       "toggleAria": "Hinweis umschalten",
       "saveFailed": "Speichern fehlgeschlagen."
     },
+    "diagnosisLanguage": {
+      "label": "Sprache",
+      "german": "Deutsch",
+      "hint": "Aktuell nur Deutsch. Weitere Sprachen folgen später."
+    },
     "languageDiagnosisCard": {
       "title": "Sprachdiagnose-Prompt",
-      "description": "Steuert, wie die KI im Diagnose-Chat fragt, bewertet und einstuft. Gilt für alle Workspaces und alle Sprachen.",
-      "hint": "Der Platzhalter '{sprache}' wird durch die im Workspace eingestellte Sprache ersetzt.",
+      "description": "Steuert, wie die KI im Diagnose-Chat fragt, bewertet und einstuft. Gilt für alle Workspaces. Aktuell nur Deutsch.",
+      "hint": "Die Platzhalter '{language}' (Sprache), '{grading}' (Einstufungs-Regeln) und '{examples}' (Sprachniveau-Beispiele) werden ersetzt.",
+      "reset": "Auf Standard zurücksetzen",
+      "saveFailed": "Speichern fehlgeschlagen"
+    },
+    "diagnosisPlanCard": {
+      "title": "Fragen-Plan",
+      "description": "Legt fest, welche Fragen die Diagnose stellt. Jede Zeile ist eine Frage mit Fragetyp und Stufe. Die Reihenfolge ist die Reihenfolge im Test. Ein eigener Fragetext ist optional. Ist er leer, formuliert die KI die Frage selbst.",
+      "addRow": "Frage hinzufügen",
+      "removeRow": "Entfernen",
+      "reset": "Auf Standard zurücksetzen",
+      "verbatimPlaceholder": "Eigener Fragetext, optional",
+      "answerMaxLabel": "Maximale Antwortlänge (Zeichen)",
+      "saveFailed": "Speichern fehlgeschlagen",
+      "type": {
+        "gap fill": "Lücke füllen",
+        "multiple choice": "Auswahl",
+        "error correction": "Fehler korrigieren",
+        "reading comprehension": "Lesen und verstehen",
+        "situation": "Situation",
+        "free writing": "Frei schreiben"
+      }
+    },
+    "adaptiveBehaviorCard": {
+      "title": "Adaptives Antwortverhalten",
+      "description": "Steuert, wie die KI im normalen Chat auf Lernende antwortet, je nach ihrem Niveau. Wirkt nur, wenn ein Niveau gespeichert ist.",
+      "hint": "'{level}' wird durch das Niveau ersetzt, '{example}' durch das Beispiel dieser Stufe aus der Card Sprachniveau-Beispiele.",
+      "reset": "Auf Standard zurücksetzen",
+      "saveFailed": "Speichern fehlgeschlagen"
+    },
+    "diagnosisGradingCard": {
+      "title": "Einstufungs-Regeln",
+      "description": "Legt fest, wie die KI am Ende die Stufe A1, A2, B1 oder B1+ bestimmt.",
+      "reset": "Auf Standard zurücksetzen",
+      "saveFailed": "Speichern fehlgeschlagen"
+    },
+    "diagnosisExamplesCard": {
+      "title": "Sprachniveau-Beispiele",
+      "description": "Beispielantworten pro Stufe. Sie helfen der KI, freie Antworten einzuordnen, und geben dem normalen Chat vor, wie er auf ein Niveau antwortet.",
+      "hint": "Mehrere Beispiele pro Stufe mit -- (Doppelbindestrich) trennen, ein neuer Zeilenumbruch geht auch. Am besten für alle Stufen der gleiche Kontext, dann sieht die KI dieselbe Aussage auf steigendem Niveau. Das B2-Beispiel steht für B1+.",
       "reset": "Auf Standard zurücksetzen",
       "saveFailed": "Speichern fehlgeschlagen"
     },
@@ -1691,6 +1734,9 @@
         "emptyPromptTerms": "Erkläre zentrale Begriffe kurz und verständlich.",
         "assistantName": "KI-Assistent",
         "assistantBadge": "KI",
+        "adaptiveLevel": "Niveau {level}",
+        "adaptiveOff": "adaptiv aus",
+        "aboveB1": "über B1",
         "hildeName": "Hilde",
         "francisName": "Francis",
         "noAnswer": "(keine Antwort)",

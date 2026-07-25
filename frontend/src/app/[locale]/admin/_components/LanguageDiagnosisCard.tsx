@@ -6,7 +6,7 @@ import { useTranslations } from "next-intl";
 /**
  * The system prompt behind the CEFR chat diagnosis.
  *
- * One prompt covers every language: `{sprache}` is replaced with the workspace's
+ * One prompt covers every language: `{language}` is replaced with the workspace's
  * diagnosis language at request time. Saving an empty field restores the shipped
  * default, so the diagnosis can never end up without instructions.
  */
