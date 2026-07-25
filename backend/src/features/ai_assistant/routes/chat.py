@@ -35,6 +35,16 @@ from src.tool_prompts import (
     AIA_QUERY_UNDERSTANDING_SYSTEM,
     RAG_NO_INFO_SENTINEL,
 )
+from src.services.aia_adaptive_chat import (
+    adaptive_chat_appendix,
+    example_for_level,
+    DEFAULT_ADAPTIVE_BEHAVIOR,
+)
+from src.services.aia_diagnosis_chat import (
+    ADAPTIVE_BEHAVIOR_SETTING,
+    LEVEL_EXAMPLES_SETTING,
+    parse_level_examples,
+)
 
 # Upper bound on the question length we hand to the LLM intent classifier.
 # Longer questions are nearly always topic-specific (no need for an LLM round-trip)
@@ -1059,6 +1069,20 @@ async def chat(
     _user_settings = db.get_aia_user_settings(workspace["id"], user_id) or {}
     chat_lang = _user_settings.get("chat_lang", "de")
 
+    # Adaptive tutor behaviour: a learner with a stored CEFR level gets answers
+    # pitched at that level, calibrated with a sample of that level's language (the
+    # same per-level examples the diagnosis uses). Empty setting or no level -> no
+    # change. Computed once here; appended to the USER message in each path below,
+    # right next to the question, which is where the model weights it most.
+    _level = db.get_user_language_level(user_id)["language_level"]
+    _examples = parse_level_examples(db.get_setting(LEVEL_EXAMPLES_SETTING, ""))
+    _example = example_for_level(_level, _examples)
+    _adaptive_suffix, _applied_level = adaptive_chat_appendix(
+        _level,
+        db.get_setting(ADAPTIVE_BEHAVIOR_SETTING, DEFAULT_ADAPTIVE_BEHAVIOR),
+        _example,
+    )
+
     # Resolve enrollment_id for per-link chat separation (needed for history fetch)
     enrollment_id = body.enrollment_id if not is_owner else None
 
@@ -1459,7 +1483,7 @@ async def chat(
             user_message = f"{body.question}\n\nText (aus {body.source_filename or 'Dokument'}{page_ref}):\n{body.source_text}"
         messages = [
             {"role": "system", "content": system_prompt},
-            {"role": "user", "content": user_message},
+            {"role": "user", "content": user_message + _adaptive_suffix},
         ]
     elif len(batches) <= 1:
         # OVERVIEW MODE only for a broad GENERIC ask (not a page/time SCOPE summary):
@@ -1467,13 +1491,13 @@ async def chat(
         _overview = intent == "GENERIC" and not scope_chunks
         messages = [
             {"role": "system", "content": aia_system_rag(chat_lang, overview=_overview)},
-            {"role": "user", "content": aia_rag_user_message(context, rewritten_question)},
+            {"role": "user", "content": aia_rag_user_message(context, rewritten_question) + _adaptive_suffix},
         ]
     else:
         _map_messages = [
             [
                 {"role": "system", "content": aia_system_rag(chat_lang)},
-                {"role": "user", "content": aia_rag_user_message(b, rewritten_question)},
+                {"role": "user", "content": aia_rag_user_message(b, rewritten_question) + _adaptive_suffix},
             ]
             for b in batches
         ]
@@ -1555,7 +1579,7 @@ async def chat(
         try:
             # Send qmap upfront so the frontend can resolve [Q1], [Q2] chips
             # during streaming instead of falling back to activeSourceIds[0].
-            yield f"data: {json.dumps({'qmap': source_qmap, 'source_pages': source_pages})}\n\n"
+            yield f"data: {json.dumps({'qmap': source_qmap, 'source_pages': source_pages, 'applied_level': _applied_level})}\n\n"
 
             # Resolve the messages for the streamed (final) call. Single-call paths
             # (popup / one context batch) already have `messages`. SPECIFIC overflow
@@ -1601,14 +1625,14 @@ async def chat(
                 if _partials:
                     _final_messages = [
                         {"role": "system", "content": aia_system_rag(chat_lang)},
-                        {"role": "user", "content": aia_reduce_user_message(rewritten_question, _partials)},
+                        {"role": "user", "content": aia_reduce_user_message(rewritten_question, _partials) + _adaptive_suffix},
                     ]
                 else:
                     # Every map call empty/failed → single call over the first batch
                     # so the user still gets an answer rather than nothing.
                     _final_messages = [
                         {"role": "system", "content": aia_system_rag(chat_lang)},
-                        {"role": "user", "content": aia_rag_user_message(context, rewritten_question)},
+                        {"role": "user", "content": aia_rag_user_message(context, rewritten_question) + _adaptive_suffix},
                     ]
             _line_buf = ""
             aborted = False

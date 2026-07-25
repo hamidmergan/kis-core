@@ -52,6 +52,8 @@ export interface WorkspaceDetail {
   transcript_translation_mode?: TranscriptTranslationMode;
   transcript_default_lang?: TranscriptDefaultLang;
   transcript_target_lang?: string;
+  /** Language the CEFR chat diagnosis is held in (ISO code, default "de"). */
+  diagnosis_language?: string;
   staff_note_text?: string | null;
   staff_note_links?: StaffNoteLink[];
   sources: Source[];
@@ -87,6 +89,9 @@ export interface ChatMessage {
   aborted?: boolean;
   /** Stream died on an error (not a user cancellation) — the turn offers a retry. */
   failed?: boolean;
+  /** CEFR level the adaptive tutor applied to this answer, or null when none was
+   *  applied. Shown to admins only as a small grey label. */
+  applied_level?: string | null;
 }
 
 export interface LernKarte {

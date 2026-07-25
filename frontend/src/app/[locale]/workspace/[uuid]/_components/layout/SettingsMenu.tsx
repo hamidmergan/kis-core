@@ -5,6 +5,7 @@ import { useTranslations } from "next-intl";
 import Modal from "@/components/ui/Modal";
 import Select from "@/components/ui/Select";
 import { useMascotPref, type MascotMode } from "@/hooks/useMascotPref";
+import { levelLabel } from "../language_training/_diagnosis_types";
 import type { TranscriptTranslationMode, TranscriptDefaultLang } from "../../_types";
 
 interface SettingsMenuProps {
@@ -152,7 +153,7 @@ export function SettingsMenu({
           <div className="flex items-center justify-between gap-4">
             <div className="min-w-0 flex-1">
               <p className="text-sm font-medium" style={{ color: "var(--foreground)" }}>
-                {tDiag("resetSetting")} <span className="ml-1 px-1.5 py-0.5 rounded text-xs" style={{ backgroundColor: "var(--kb)", color: "var(--on-accent)" }}>{languageLevel}</span>
+                {tDiag("resetSetting")} <span className="ml-1 px-1.5 py-0.5 rounded text-xs" style={{ backgroundColor: "var(--kb)", color: "var(--on-accent)" }}>{levelLabel(languageLevel, tDiag("levelAboveB1"))}</span>
               </p>
               <p className="text-xs mt-0.5" style={{ color: "var(--muted)" }}>{tDiag("resetConfirmBody")}</p>
             </div>

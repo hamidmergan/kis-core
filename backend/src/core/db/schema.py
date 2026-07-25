@@ -172,11 +172,19 @@ def init_db(admin_email: Optional[str] = None) -> None:
             # UI locale preference (DE default, EN supported). Cookie + URL prefix are authoritative
             # for unauthenticated requests; this column is the cross-device source of truth after login.
             cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS locale TEXT NOT NULL DEFAULT 'de' CHECK (locale IN ('de', 'en'))")
-            # Language level diagnosis (one-time CEFR self-assessment for Fachsprachentrainer).
+            # Language level diagnosis (one-time self-assessment for Fachsprachentrainer).
             # All three columns nullable: NULL means "diagnosis not yet completed".
-            cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS language_level TEXT CHECK (language_level IN ('A1','A2','B1','B2','C1','C2'))")
+            # Only four outcomes: A1, A2, B1, and B1+ (anything above B1 needs no support).
+            cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS language_level TEXT CHECK (language_level IN ('A1','A2','B1','B1+'))")
             cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS language_level_set_at TIMESTAMP WITH TIME ZONE")
             cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS language_level_skill_scores JSONB")
+            # Migration: the level set shrank from six CEFR bands to four outcomes.
+            # The inline CHECK above only fires on fresh installs, so rewrite the
+            # constraint on existing DBs. Any stored B2/C1/C2 folds into B1+ first,
+            # so the new CHECK cannot fail validation.
+            cur.execute("UPDATE users SET language_level = 'B1+' WHERE language_level IN ('B2','C1','C2')")
+            cur.execute("ALTER TABLE users DROP CONSTRAINT IF EXISTS users_language_level_check")
+            cur.execute("ALTER TABLE users ADD CONSTRAINT users_language_level_check CHECK (language_level IN ('A1','A2','B1','B1+'))")
             # === Role system migration ===
             # System roles: 'admin', 'staff', 'user' (fixed, code-defined permissions).
             # Custom roles live in the custom_roles table; users.custom_role_id is set
@@ -380,6 +388,13 @@ def init_db(admin_email: Optional[str] = None) -> None:
             # (de/en) but the target is now owner-chosen, so it became role-based.
             cur.execute("UPDATE aia_workspaces SET transcript_default_lang = 'source' WHERE transcript_default_lang = 'de'")
             cur.execute("UPDATE aia_workspaces SET transcript_default_lang = 'target' WHERE transcript_default_lang = 'en'")
+            # Per-workspace setting: the language the CEFR chat diagnosis is held in
+            # (short ISO code, see i18n.TRANSCRIPT_LANGUAGES). Independent of the
+            # transcript target — a workspace can hold French sources while the
+            # diagnosis stays in the language the course is taught in.
+            cur.execute(
+                "ALTER TABLE aia_workspaces ADD COLUMN IF NOT EXISTS diagnosis_language TEXT NOT NULL DEFAULT 'de'"
+            )
             # Owner-managed pinned note shown above the sources list. Plain text + structured links.
             cur.execute(
                 "ALTER TABLE aia_workspaces ADD COLUMN IF NOT EXISTS staff_note_text TEXT"

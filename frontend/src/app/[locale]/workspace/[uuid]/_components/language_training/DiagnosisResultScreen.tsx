@@ -1,7 +1,8 @@
 "use client";
 
 import { useTranslations } from "next-intl";
-import type { DiagnosisResult, Skill } from "./_diagnosis_questions";
+import HelpTooltip from "@/components/ui/HelpTooltip";
+import { levelLabel, type DiagnosisResult, type Skill } from "./_diagnosis_types";
 
 const SKILL_ORDER: Skill[] = ["grammar", "vocabulary", "reading", "writing", "pragmatics"];
 
@@ -21,12 +22,12 @@ export function DiagnosisResultScreen({
           {t("resultTitle")}
         </p>
         <p className="mt-2 text-6xl font-bold" style={{ color: "var(--kb)" }}>
-          {result.level}
+          {levelLabel(result.level, t("levelAboveB1"))}
         </p>
       </div>
 
       <p className="text-center" style={{ color: "var(--foreground)" }}>
-        {result.feedback}
+        {result.message}
       </p>
 
       <div className="w-full flex flex-col gap-2 mt-2">
@@ -34,8 +35,9 @@ export function DiagnosisResultScreen({
           const score = result.skill_scores[skill];
           return (
             <div key={skill} className="flex items-center gap-3">
-              <span className="w-28 text-sm" style={{ color: "var(--muted)" }}>
+              <span className="w-32 flex items-center gap-1 text-sm" style={{ color: "var(--muted)" }}>
                 {t(`skill.${skill}`)}
+                {skill === "pragmatics" && <HelpTooltip text={t("skillHelp.pragmatics")} />}
               </span>
               <div
                 className="flex-1 h-2 rounded-full overflow-hidden"
@@ -54,9 +56,16 @@ export function DiagnosisResultScreen({
         })}
       </div>
 
+      {/* The level is a model estimate, not a certified test result. The note sits
+          with the number rather than before the chat, so it qualifies the result
+          without making the entry look like an exam. */}
+      <p className="text-xs text-center max-w-md" style={{ color: "var(--muted)" }}>
+        {t("disclaimer")}
+      </p>
+
       <button
         onClick={onContinue}
-        className="mt-4 px-6 py-2 rounded-lg"
+        className="mt-2 px-6 py-2 rounded-lg"
         style={{ backgroundColor: "var(--kb)", color: "var(--on-accent)" }}
       >
         {t("continue")}

@@ -27,6 +27,22 @@ MESSAGES: dict[str, dict[str, str]] = {
         "de": "Hinweistext ist zu lang (max {max} Zeichen)",
         "en": "Notice text is too long (max {max} characters)",
     },
+    "admin.settings.diagnosisPromptTooLong": {
+        "de": "Diagnose-Prompt ist zu lang (max {max} Zeichen)",
+        "en": "Diagnosis prompt is too long (max {max} characters)",
+    },
+    "admin.settings.diagnosisPlanInvalid": {
+        "de": "Fragen-Plan ist ungültig. Jede Zeile braucht eine Stufe und einen Fragetyp.",
+        "en": "Question plan is invalid. Each row needs a level and a question type.",
+    },
+    "admin.settings.answerMaxCharsOutOfRange": {
+        "de": "Antwortlänge muss zwischen {min} und {max} Zeichen liegen",
+        "en": "Answer length must be between {min} and {max} characters",
+    },
+    "admin.settings.diagnosisExamplesInvalid": {
+        "de": "Beispiele sind ungültig. Erlaubt sind nur die Stufen A1, A2, B1, B2 mit Text.",
+        "en": "Examples are invalid. Only the levels A1, A2, B1, B2 with text are allowed.",
+    },
     "admin.settings.unknownModelKeys": {
         "de": "Unbekannte Model-Keys: {unknown}",
         "en": "Unknown model keys: {unknown}",

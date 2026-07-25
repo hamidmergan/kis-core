@@ -658,6 +658,7 @@
       "system": "System",
       "ki": "KI",
       "prompts": "Prompts",
+      "languageDiagnosis": "Sprachdiagnose",
       "pending": "Ausstehend",
       "whitelist": "Whitelist",
       "allUsers": "Alle User",
@@ -1130,6 +1131,56 @@
       "toggleAria": "Hinweis umschalten",
       "saveFailed": "Speichern fehlgeschlagen."
     },
+    "diagnosisLanguage": {
+      "label": "Sprache",
+      "german": "Deutsch",
+      "hint": "Aktuell nur Deutsch. Weitere Sprachen folgen später."
+    },
+    "languageDiagnosisCard": {
+      "title": "Sprachdiagnose-Prompt",
+      "description": "Steuert, wie die KI im Diagnose-Chat fragt, bewertet und einstuft. Gilt für alle Workspaces. Aktuell nur Deutsch.",
+      "hint": "Die Platzhalter '{language}' (Sprache), '{grading}' (Einstufungs-Regeln) und '{examples}' (Sprachniveau-Beispiele) werden ersetzt.",
+      "reset": "Auf Standard zurücksetzen",
+      "saveFailed": "Speichern fehlgeschlagen"
+    },
+    "diagnosisPlanCard": {
+      "title": "Fragen-Plan",
+      "description": "Legt fest, welche Fragen die Diagnose stellt. Jede Zeile ist eine Frage mit Fragetyp und Stufe. Die Reihenfolge ist die Reihenfolge im Test. Ein eigener Fragetext ist optional. Ist er leer, formuliert die KI die Frage selbst.",
+      "addRow": "Frage hinzufügen",
+      "removeRow": "Entfernen",
+      "reset": "Auf Standard zurücksetzen",
+      "verbatimPlaceholder": "Eigener Fragetext, optional",
+      "answerMaxLabel": "Maximale Antwortlänge (Zeichen)",
+      "saveFailed": "Speichern fehlgeschlagen",
+      "type": {
+        "gap fill": "Lücke füllen",
+        "multiple choice": "Auswahl",
+        "error correction": "Fehler korrigieren",
+        "reading comprehension": "Lesen und verstehen",
+        "situation": "Situation",
+        "free writing": "Frei schreiben"
+      }
+    },
+    "adaptiveBehaviorCard": {
+      "title": "Adaptives Antwortverhalten",
+      "description": "Steuert, wie die KI im normalen Chat auf Lernende antwortet, je nach ihrem Niveau. Wirkt nur, wenn ein Niveau gespeichert ist.",
+      "hint": "'{level}' wird durch das Niveau ersetzt, '{example}' durch das Beispiel dieser Stufe aus der Card Sprachniveau-Beispiele.",
+      "reset": "Auf Standard zurücksetzen",
+      "saveFailed": "Speichern fehlgeschlagen"
+    },
+    "diagnosisGradingCard": {
+      "title": "Einstufungs-Regeln",
+      "description": "Legt fest, wie die KI am Ende die Stufe A1, A2, B1 oder B1+ bestimmt.",
+      "reset": "Auf Standard zurücksetzen",
+      "saveFailed": "Speichern fehlgeschlagen"
+    },
+    "diagnosisExamplesCard": {
+      "title": "Sprachniveau-Beispiele",
+      "description": "Beispielantworten pro Stufe. Sie helfen der KI, freie Antworten einzuordnen, und geben dem normalen Chat vor, wie er auf ein Niveau antwortet.",
+      "hint": "Mehrere Beispiele pro Stufe mit -- (Doppelbindestrich) trennen, ein neuer Zeilenumbruch geht auch. Am besten für alle Stufen der gleiche Kontext, dann sieht die KI dieselbe Aussage auf steigendem Niveau. Das B2-Beispiel steht für B1+.",
+      "reset": "Auf Standard zurücksetzen",
+      "saveFailed": "Speichern fehlgeschlagen"
+    },
     "workspaceLimitsCard": {
       "title": "Maximale Quellen pro {label}",
       "hint": "Wie viele Dokumente Nutzer pro {label} hochladen dürfen. Greift sofort für neue Uploads.",
@@ -1405,7 +1456,6 @@
     "FR": "Französisch",
     "ES": "Spanisch",
     "IT": "Italienisch",
-    "UK": "Ukrainisch",
     "TR": "Türkisch",
     "AR": "Arabisch",
     "RU": "Russisch"
@@ -1414,34 +1464,38 @@
     "detail": {
       "languageTraining": {
         "diagnosis": {
-          "title": "Sprachdiagnose",
-          "intro": "Hi, ich bin Hilde. Lass uns kurz dein Sprachniveau einschätzen.",
+          "title": "Sprach-Test",
+          "intro": "Hallo! Ich stelle dir ein paar Fragen. Danach sage ich dir, wie gut du die Sprache schon kannst.",
+          "chatPlaceholder": "Deine Antwort…",
+          "send": "Senden",
+          "languageTitle": "Sprache für den Test",
+          "languageDescription": "In dieser Sprache stellt die KI die Fragen. In dieser Sprache prüft sie auch. Voreinstellung ist Deutsch.",
+          "loading": "Ich schaue mir deine Antworten an…",
+          "errorGeneric": "Das hat leider nicht geklappt. Bitte versuche es noch einmal.",
+          "retry": "Noch einmal versuchen",
           "progress": "Frage {current} von {total}",
-          "next": "Weiter",
-          "back": "Zurück",
-          "submit": "Auswertung starten",
-          "readyToSubmit": "Alle Fragen beantwortet. Bereit für die Auswertung?",
-          "loading": "Auswertung läuft…",
-          "errorGeneric": "Auswertung fehlgeschlagen. Bitte erneut versuchen.",
-          "retry": "Erneut versuchen",
-          "resultTitle": "Dein Niveau",
-          "continue": "Weiter zum Training",
+          "resultTitle": "Dein Ergebnis",
+          "levelAboveB1": "Über B1",
+          "disclaimer": "Das Ergebnis kommt von einer KI. Fach-Leute haben es noch nicht geprüft.",
+          "continue": "Weiter zum Üben",
           "abort": "Abbrechen",
-          "abortConfirmTitle": "Diagnose abbrechen?",
-          "abortConfirmBody": "Deine Antworten gehen verloren. Du kannst die Diagnose später erneut starten.",
+          "abortConfirmTitle": "Test abbrechen?",
+          "abortConfirmBody": "Deine Antworten werden gelöscht. Du kannst den Test später noch einmal machen.",
           "abortConfirmKeep": "Weitermachen",
           "abortConfirmDiscard": "Abbrechen",
-          "freeTextPlaceholder": "Schreibe deine Antwort…",
-          "panelDisabledTooltip": "Während der Sprachdiagnose nicht verfügbar",
-          "resetSetting": "Sprachniveau zurücksetzen",
-          "resetConfirmTitle": "Sprachniveau zurücksetzen?",
-          "resetConfirmBody": "Du musst die Diagnose erneut machen, wenn du wieder Fachsprachentraining nutzt.",
+          "panelDisabledTooltip": "Das geht erst nach dem Test.",
+          "resetSetting": "Ergebnis löschen",
+          "resetConfirmTitle": "Ergebnis löschen?",
+          "resetConfirmBody": "Dann musst du den Test noch einmal machen. Erst danach kannst du wieder üben.",
           "skill": {
             "grammar": "Grammatik",
-            "vocabulary": "Wortschatz",
-            "reading": "Leseverständnis",
+            "vocabulary": "Wörter",
+            "reading": "Lesen",
             "writing": "Schreiben",
-            "pragmatics": "Pragmatik"
+            "pragmatics": "Passende Sprache"
+          },
+          "skillHelp": {
+            "pragmatics": "Passt deine Sprache zur Situation? Zum Beispiel höflich oder locker."
           }
         },
         "tools": {
@@ -1680,6 +1734,9 @@
         "emptyPromptTerms": "Erkläre zentrale Begriffe kurz und verständlich.",
         "assistantName": "KI-Assistent",
         "assistantBadge": "KI",
+        "adaptiveLevel": "Niveau {level}",
+        "adaptiveOff": "adaptiv aus",
+        "aboveB1": "über B1",
         "hildeName": "Hilde",
         "francisName": "Francis",
         "noAnswer": "(keine Antwort)",

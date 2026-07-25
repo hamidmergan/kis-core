@@ -58,6 +58,24 @@ class UpdateSettingsRequest(BaseModel):
     # Max simultaneous uploads in the HTTP layer (0 = unlimited). Caps RAM/CPU on
     # the small box when several people upload large media at once.
     aia_max_concurrent_uploads: int | None = None
+    # System prompt for the CEFR chat diagnosis. ONE prompt for every language;
+    # the workspace language is substituted for the {language} placeholder. An
+    # empty string restores the shipped default.
+    language_diagnosis_prompt: str | None = None
+    # Question plan as a JSON string (list of {"band","type","text"?}). Empty
+    # string restores the shipped default plan.
+    language_diagnosis_question_plan_de: str | None = None
+    # Soft UI cap for the diagnosis answer length (chars). Hard-capped server-side
+    # to MAX_MESSAGE_CHARS.
+    language_diagnosis_answer_max_chars: int | None = None
+    # Adaptive answer behaviour for the existing workspace chat. Empty string
+    # restores the shipped default.
+    language_diagnosis_adaptive_behavior: str | None = None
+    # Grading rules (LEVEL ASSIGNMENT). Empty string restores the shipped default.
+    language_diagnosis_grading_rules: str | None = None
+    # Per-level calibration examples as a JSON object {"A1":..,"A2":..,"B1":..,"B2":..}.
+    # Empty string restores the shipped defaults.
+    language_diagnosis_level_examples: str | None = None
 
 
 class ToggleToolRequest(BaseModel):

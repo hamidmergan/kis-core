@@ -20,7 +20,7 @@ DEFAULT_LOCALE = "de"
 
 # Translate-tool language codes (DeepL format).
 TRANSLATE_LANGUAGES: tuple[str, ...] = (
-    "DE", "EN-US", "FR", "ES", "IT", "UK", "TR", "AR", "RU",
+    "DE", "EN-US", "FR", "ES", "IT", "TR", "AR", "RU",
 )
 DEFAULT_TRANSLATE_SOURCE = "DE"
 DEFAULT_TRANSLATE_TARGET = "EN-US"
@@ -29,7 +29,7 @@ DEFAULT_TRANSLATE_TARGET = "EN-US"
 # workspace owner may translate media transcripts into. Keyed by the short ISO
 # code used both for the VTT filename (`_transcript.<code>.vtt`) and the player
 # <track srclang>. Each entry maps to the DeepL target code and the English
-# language name embedded in the LLM-translation prompt. Mirrors the 9
+# language name embedded in the LLM-translation prompt. Mirrors the 8
 # TRANSLATE_LANGUAGES above; `lang.<deepl>` i18n keys supply display labels.
 TRANSCRIPT_LANGUAGES: dict[str, dict[str, str]] = {
     "de": {"deepl": "DE",    "name": "German"},
@@ -37,12 +37,14 @@ TRANSCRIPT_LANGUAGES: dict[str, dict[str, str]] = {
     "fr": {"deepl": "FR",    "name": "French"},
     "es": {"deepl": "ES",    "name": "Spanish"},
     "it": {"deepl": "IT",    "name": "Italian"},
-    "uk": {"deepl": "UK",    "name": "Ukrainian"},
     "tr": {"deepl": "TR",    "name": "Turkish"},
     "ar": {"deepl": "AR",    "name": "Arabic"},
     "ru": {"deepl": "RU",    "name": "Russian"},
 }
 DEFAULT_TRANSCRIPT_TARGET = "en"
+# Language a workspace holds its CEFR chat diagnosis in. Same code set as above;
+# German is the default because that is what the courses are taught in today.
+DEFAULT_DIAGNOSIS_LANGUAGE = "de"
 
 
 # All user-facing backend strings live here. Keys follow `area.key` convention.
@@ -335,7 +337,6 @@ MESSAGES: dict[str, dict[str, str]] = {
     "lang.FR": {"de": "Französisch", "en": "French"},
     "lang.ES": {"de": "Spanisch", "en": "Spanish"},
     "lang.IT": {"de": "Italienisch", "en": "Italian"},
-    "lang.UK": {"de": "Ukrainisch", "en": "Ukrainian"},
     "lang.TR": {"de": "Türkisch", "en": "Turkish"},
     "lang.AR": {"de": "Arabisch", "en": "Arabic"},
     "lang.RU": {"de": "Russisch", "en": "Russian"},

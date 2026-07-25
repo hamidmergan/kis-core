@@ -25,7 +25,27 @@ from src.limits import (
     AIA_WORKSPACE_MAX_SOURCES,
 )
 
+import json
+
 from src.routes.admin._models import UpdateSettingsRequest
+from src.services.aia_diagnosis_chat import (
+    ADAPTIVE_BEHAVIOR_SETTING,
+    ANSWER_MAX_CHARS_SETTING,
+    DEFAULT_ANSWER_MAX_CHARS,
+    DEFAULT_DIAGNOSIS_PROMPT,
+    DEFAULT_GRADING_RULES,
+    DEFAULT_LEVEL_EXAMPLES,
+    EXAMPLE_LEVELS,
+    GRADING_RULES_SETTING,
+    LEVEL_EXAMPLES_SETTING,
+    MAX_MESSAGE_CHARS,
+    MAX_PROMPT_CHARS,
+    QUESTION_PLAN,
+    QUESTION_PLAN_SETTING,
+    VALID_BANDS,
+    VALID_QUESTION_TYPES,
+)
+from src.services.aia_adaptive_chat import DEFAULT_ADAPTIVE_BEHAVIOR
 
 router = APIRouter(tags=["admin: settings"])
 
@@ -95,6 +115,31 @@ async def get_settings(_admin=Depends(get_admin_user)):
         "aia_max_concurrent_uploads": int(
             db.get_setting("aia_max_concurrent_uploads", str(AIA_MAX_CONCURRENT_UPLOADS))
         ),
+        # CEFR chat-diagnosis system prompt. One prompt for all languages; the
+        # workspace language replaces the {language} placeholder at request time.
+        "language_diagnosis_prompt": db.get_setting(
+            "language_diagnosis_prompt", DEFAULT_DIAGNOSIS_PROMPT
+        ),
+        "language_diagnosis_prompt_default": DEFAULT_DIAGNOSIS_PROMPT,
+        # Question plan. Empty stored string means "default active"; the frontend
+        # falls back to the default plan for its table.
+        "language_diagnosis_question_plan_de": db.get_setting(QUESTION_PLAN_SETTING, ""),
+        "language_diagnosis_question_plan_default": QUESTION_PLAN,
+        "language_diagnosis_answer_max_chars": int(
+            db.get_setting(ANSWER_MAX_CHARS_SETTING, str(DEFAULT_ANSWER_MAX_CHARS))
+        ),
+        "language_diagnosis_adaptive_behavior": db.get_setting(
+            ADAPTIVE_BEHAVIOR_SETTING, DEFAULT_ADAPTIVE_BEHAVIOR
+        ),
+        "language_diagnosis_adaptive_behavior_default": DEFAULT_ADAPTIVE_BEHAVIOR,
+        # LEVEL ASSIGNMENT: grading rules + per-level calibration examples.
+        "language_diagnosis_grading_rules": db.get_setting(
+            GRADING_RULES_SETTING, DEFAULT_GRADING_RULES
+        ),
+        "language_diagnosis_grading_rules_default": DEFAULT_GRADING_RULES,
+        "language_diagnosis_level_examples": db.get_setting(LEVEL_EXAMPLES_SETTING, ""),
+        "language_diagnosis_level_examples_default": DEFAULT_LEVEL_EXAMPLES,
+        "language_diagnosis_example_levels": EXAMPLE_LEVELS,
     }
 
 
@@ -128,6 +173,108 @@ async def update_settings(
 
     if body.ocr_enabled is not None:
         db.set_setting("ocr_enabled", "true" if body.ocr_enabled else "false")
+
+    # CEFR chat-diagnosis prompt. Empty input is the documented "reset" gesture:
+    # it stores the shipped default rather than an empty prompt, so the diagnosis
+    # can never end up without instructions.
+    if body.language_diagnosis_prompt is not None:
+        stripped = body.language_diagnosis_prompt.strip()
+        if len(stripped) > MAX_PROMPT_CHARS:
+            raise HTTPException(
+                status_code=400,
+                detail=t("admin.settings.diagnosisPromptTooLong", locale, max=MAX_PROMPT_CHARS),
+            )
+        db.set_setting("language_diagnosis_prompt", stripped or DEFAULT_DIAGNOSIS_PROMPT)
+
+    # Question plan (JSON). Empty string is the reset gesture (default plan). A
+    # non-empty value must be a valid plan: a list of {band, type} with an
+    # optional text. Muck is rejected with a 400 so a typo cannot silently store
+    # something the diagnosis then falls back away from.
+    if body.language_diagnosis_question_plan_de is not None:
+        stripped = body.language_diagnosis_question_plan_de.strip()
+        if not stripped:
+            db.set_setting(QUESTION_PLAN_SETTING, "")
+        else:
+            try:
+                items = json.loads(stripped)
+            except json.JSONDecodeError:
+                items = None
+            valid = (
+                isinstance(items, list)
+                and bool(items)
+                and all(
+                    isinstance(it, dict)
+                    and it.get("band") in VALID_BANDS
+                    and it.get("type") in VALID_QUESTION_TYPES
+                    for it in items
+                )
+            )
+            if not valid:
+                raise HTTPException(
+                    status_code=400,
+                    detail=t("admin.settings.diagnosisPlanInvalid", locale),
+                )
+            db.set_setting(QUESTION_PLAN_SETTING, stripped)
+
+    # Soft answer-length cap (chars). Bounded 1..MAX_MESSAGE_CHARS: it only drives
+    # the UI counter and maxlength; the request body stays hard-capped server-side.
+    if body.language_diagnosis_answer_max_chars is not None:
+        value = body.language_diagnosis_answer_max_chars
+        if value < 1 or value > MAX_MESSAGE_CHARS:
+            raise HTTPException(
+                status_code=400,
+                detail=t("admin.settings.answerMaxCharsOutOfRange", locale, min=1, max=MAX_MESSAGE_CHARS),
+            )
+        db.set_setting(ANSWER_MAX_CHARS_SETTING, str(value))
+
+    # Adaptive answer behaviour. Empty input restores the shipped default, so the
+    # chat is never left without behaviour text when the setting exists.
+    if body.language_diagnosis_adaptive_behavior is not None:
+        stripped = body.language_diagnosis_adaptive_behavior.strip()
+        if len(stripped) > MAX_PROMPT_CHARS:
+            raise HTTPException(
+                status_code=400,
+                detail=t("admin.settings.diagnosisPromptTooLong", locale, max=MAX_PROMPT_CHARS),
+            )
+        db.set_setting(ADAPTIVE_BEHAVIOR_SETTING, stripped or DEFAULT_ADAPTIVE_BEHAVIOR)
+
+    # Grading rules (LEVEL ASSIGNMENT). Empty input restores the shipped default,
+    # so the diagnosis is never left without leveling logic.
+    if body.language_diagnosis_grading_rules is not None:
+        stripped = body.language_diagnosis_grading_rules.strip()
+        if len(stripped) > MAX_PROMPT_CHARS:
+            raise HTTPException(
+                status_code=400,
+                detail=t("admin.settings.diagnosisPromptTooLong", locale, max=MAX_PROMPT_CHARS),
+            )
+        db.set_setting(GRADING_RULES_SETTING, stripped or DEFAULT_GRADING_RULES)
+
+    # Per-level calibration examples (JSON object). Empty input = reset to
+    # defaults. Otherwise it must be a JSON object whose keys are known bands and
+    # whose values are strings, so a typo cannot store something unusable.
+    if body.language_diagnosis_level_examples is not None:
+        stripped = body.language_diagnosis_level_examples.strip()
+        if not stripped:
+            db.set_setting(LEVEL_EXAMPLES_SETTING, "")
+        else:
+            try:
+                data = json.loads(stripped)
+            except json.JSONDecodeError:
+                data = None
+            valid = (
+                isinstance(data, dict)
+                and bool(data)
+                and all(
+                    k in EXAMPLE_LEVELS and isinstance(v, str)
+                    for k, v in data.items()
+                )
+            )
+            if not valid:
+                raise HTTPException(
+                    status_code=400,
+                    detail=t("admin.settings.diagnosisExamplesInvalid", locale),
+                )
+            db.set_setting(LEVEL_EXAMPLES_SETTING, stripped)
 
     # UI label overrides for "Workspace" (per UI locale)
     for label_key in (
