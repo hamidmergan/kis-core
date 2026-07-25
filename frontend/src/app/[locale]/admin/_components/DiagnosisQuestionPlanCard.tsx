@@ -231,7 +231,7 @@ export default function DiagnosisQuestionPlanCard() {
             <textarea
               value={r.text}
               placeholder={t("verbatimPlaceholder")}
-              rows={2}
+              rows={4}
               onChange={(e) => setRows(rows.map((x, j) => (j === i ? { ...x, text: e.target.value } : x)))}
               onBlur={() => saveRows(rows)}
               disabled={saving}
@@ -292,7 +292,7 @@ export default function DiagnosisQuestionPlanCard() {
                 <textarea
                   value={r.example}
                   placeholder={t("examplePlaceholder")}
-                  rows={2}
+                  rows={4}
                   onChange={(e) => setRows(rows.map((x, j) => (j === i ? { ...x, example: e.target.value } : x)))}
                   onBlur={() => saveRows(rows)}
                   disabled={saving}
