@@ -17,6 +17,7 @@ contains a JSON example full of braces, and it is free text an admin types.
 """
 
 import json
+import random
 
 
 PROMPT_PLACEHOLDER = "{language}"
@@ -51,10 +52,12 @@ QUESTION_COUNT = len(QUESTION_PLAN)
 QUESTION_BANDS = [step["band"] for step in QUESTION_PLAN]
 
 # Task types that present labelled options a), b), c), d). For these the backend
-# dictates WHERE the correct option sits, cycling a -> b -> c -> d across the
-# option-bearing questions. Models have a strong bias to put the answer at a),
-# which makes the test feel broken ("the answer is always a"). Error correction
-# and free writing have no options and are skipped.
+# dictates WHERE the correct option sits, picking a RANDOM position each time.
+# Models have a strong bias to put the answer at a), which makes the test feel
+# broken ("the answer is always a"); a fixed rotation fixed that but was itself
+# predictable (a learner could pick by position without reading), so the position
+# is now drawn at random. Error correction and free writing have no options and
+# are skipped.
 OPTION_QUESTION_TYPES = {
     "gap fill",
     "multiple choice",
@@ -174,16 +177,19 @@ KEEP_GOING_MESSAGE = (
 def correct_option_letter(number: int, plan: list[dict]) -> str | None:
     """Which letter the correct option should sit at for this question.
 
-    Cycles a -> b -> c across the option-bearing questions in order, so the
-    correct answer is spread evenly instead of always landing at a). Returns
-    ``None`` for questions with no options (error correction, free writing).
+    Drawn at RANDOM from a, b, c, d for each option-bearing question, so the
+    correct answer is unpredictable rather than always at a) or on a learnable
+    fixed rotation. Returns ``None`` for questions with no options (error
+    correction, free writing).
+
+    Random per call is safe: a turn asks exactly one question and bakes this
+    letter into that turn, and questions already asked keep the letter they were
+    given (they live in the client transcript), so nothing drifts across turns.
     """
     step = plan[number - 1]
     if step["type"] not in OPTION_QUESTION_TYPES:
         return None
-    # Rank of this question among the option-bearing ones (0-based).
-    rank = sum(1 for s in plan[:number] if s["type"] in OPTION_QUESTION_TYPES) - 1
-    return CORRECT_OPTION_POSITIONS[rank % len(CORRECT_OPTION_POSITIONS)]
+    return random.choice(CORRECT_OPTION_POSITIONS)
 
 
 def next_question_message(number: int, plan: list[dict] | None = None) -> str:

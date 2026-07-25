@@ -7,6 +7,7 @@ a half-filled verdict must never reach ``set_user_language_level``.
 """
 
 import json
+import re
 
 import pytest
 
@@ -315,7 +316,10 @@ def test_empty_history_gets_a_kickoff_then_the_first_question_hint():
     messages = build_turn_messages("SYS", [])
     assert [m["role"] for m in messages] == ["system", "user", "system"]
     assert messages[1]["content"] == KICKOFF_MESSAGE
-    assert next_question_message(1) in messages[2]["content"]
+    # Question 1's hint sits in the trailing system turn. The correct-option
+    # position is randomised, so match the stable band/type parts, not the letter.
+    assert "question 1 of" in messages[2]["content"]
+    assert "gap fill" in messages[2]["content"]
 
 
 def test_history_is_passed_through_with_a_question_hint_appended():
@@ -323,7 +327,10 @@ def test_history_is_passed_through_with_a_question_hint_appended():
     messages = build_turn_messages("SYS", history)
     # System prompt, the untouched transcript, then the hint for question 2.
     assert messages[: 1 + len(history)] == [{"role": "system", "content": "SYS"}, *history]
-    assert messages[-1] == {"role": "system", "content": next_question_message(2)}
+    # The trailing turn is the system hint for question 2. Its correct-option
+    # position is randomised, so assert the role and the stable "question 2" part.
+    assert messages[-1]["role"] == "system"
+    assert "question 2 of" in messages[-1]["content"]
 
 
 def test_last_question_still_gets_a_hint_not_a_verdict():
@@ -483,24 +490,35 @@ def test_next_question_message_uses_type_and_band_without_text():
     assert "A2" in msg
 
 
-def test_correct_option_letter_cycles_over_option_questions():
-    """The correct answer must not always sit at a). It rotates a, b, c, d across
-    the option-bearing questions; the option-less ones return None."""
-    from src.services.aia_diagnosis_chat import correct_option_letter
+def test_correct_option_letter_is_a_valid_position_or_none():
+    """Option-bearing questions get one of a, b, c, d; the two free-text slots
+    (error correction, free writing) get None."""
+    from src.services.aia_diagnosis_chat import (
+        correct_option_letter,
+        CORRECT_OPTION_POSITIONS,
+    )
     # Default plan option questions in order: Q1, Q2, Q4, Q5, Q6, Q7.
-    assert correct_option_letter(1, QUESTION_PLAN) == "a"   # gap fill
-    assert correct_option_letter(2, QUESTION_PLAN) == "b"   # multiple choice
-    assert correct_option_letter(3, QUESTION_PLAN) is None  # error correction (no options)
-    assert correct_option_letter(4, QUESTION_PLAN) == "c"   # multiple choice
-    assert correct_option_letter(5, QUESTION_PLAN) == "d"   # reading comprehension
-    assert correct_option_letter(6, QUESTION_PLAN) == "a"   # situation
-    assert correct_option_letter(7, QUESTION_PLAN) == "b"   # multiple choice
-    assert correct_option_letter(8, QUESTION_PLAN) is None  # free writing (no options)
+    for number in (1, 2, 4, 5, 6, 7):
+        assert correct_option_letter(number, QUESTION_PLAN) in CORRECT_OPTION_POSITIONS
+    assert correct_option_letter(3, QUESTION_PLAN) is None  # error correction
+    assert correct_option_letter(8, QUESTION_PLAN) is None  # free writing
 
 
-def test_next_question_message_dictates_correct_position_for_option_types():
-    msg = next_question_message(2, QUESTION_PLAN)  # multiple choice -> position b
-    assert "position b)" in msg
+def test_correct_option_letter_is_random_not_a_fixed_pattern():
+    """Regression for the predictable-pattern fix: the position must not settle
+    onto one letter or a learnable rotation. Over many draws for the same slot,
+    every position shows up."""
+    from src.services.aia_diagnosis_chat import (
+        correct_option_letter,
+        CORRECT_OPTION_POSITIONS,
+    )
+    seen = {correct_option_letter(1, QUESTION_PLAN) for _ in range(200)}
+    assert seen == set(CORRECT_OPTION_POSITIONS)
+
+
+def test_next_question_message_dictates_a_correct_position_for_option_types():
+    msg = next_question_message(2, QUESTION_PLAN)  # multiple choice -> some position
+    assert re.search(r"position [abcd]\)", msg)
 
 
 def test_next_question_message_has_no_position_for_optionless_types():
