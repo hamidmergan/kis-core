@@ -105,12 +105,19 @@ export function useLanguageDiagnosis(
           throw new Error(errBody.detail || `HTTP ${res.status}`);
         }
         const data = (await res.json()) as DiagnosisTurnResponse;
-        // The reaction rides along on the same turn. The verdict has none: it is
-        // rendered by the result screen, which has no bubble for it.
-        const reaction = data.done ? undefined : data.reaction?.trim();
+        // A running turn is one question. Option questions carry their shuffled
+        // values and a multi flag so the client renders radio vs checkbox; the
+        // verdict has neither and is shown by the result screen.
         const next: ChatTurn[] = [
           ...history,
-          { role: "assistant", content: data.message, ...(reaction ? { reaction } : {}) },
+          data.done
+            ? { role: "assistant", content: data.message }
+            : {
+                role: "assistant",
+                content: data.message,
+                ...(data.options ? { options: data.options } : {}),
+                ...(data.multi ? { multi: data.multi } : {}),
+              },
         ];
         turnsRef.current = next;
         setTurns(next);
@@ -151,10 +158,17 @@ export function useLanguageDiagnosis(
   }, [userId, workspaceUuid, requestTurn]);
 
   const send = useCallback(
-    (text: string) => {
+    (text: string, selected?: string[]) => {
       const trimmed = text.trim();
       if (!trimmed || status !== "answering") return;
-      const withAnswer: ChatTurn[] = [...turnsRef.current, { role: "user", content: trimmed }];
+      const answer: ChatTurn = {
+        role: "user",
+        content: trimmed,
+        // Clicked options ride in `selected` so the server grades them in code;
+        // a free-typed answer has none and the final call interprets it.
+        ...(selected && selected.length ? { selected } : {}),
+      };
+      const withAnswer: ChatTurn[] = [...turnsRef.current, answer];
       turnsRef.current = withAnswer;
       setTurns(withAnswer);
       // The draft is only written once the next question arrives, so a saved
@@ -162,7 +176,7 @@ export function useLanguageDiagnosis(
       // resumes at the last question rather than at a dangling answer.
       void requestTurn(withAnswer);
     },
-    [status, userId, requestTurn],
+    [status, requestTurn],
   );
 
   /** Re-send the last request after a failure, without losing the transcript. */

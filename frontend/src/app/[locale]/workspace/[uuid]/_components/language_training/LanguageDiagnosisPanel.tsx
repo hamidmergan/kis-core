@@ -6,7 +6,6 @@ import { GraduationCap, X } from "@phosphor-icons/react";
 import Mascot from "@/components/ui/Mascot";
 import { useMascotPref } from "@/hooks/useMascotPref";
 import { useLanguageDiagnosis } from "../../_hooks/useLanguageDiagnosis";
-import { ChatInputBar } from "../chat/ChatInputBar";
 import { DiagnosisResultScreen } from "./DiagnosisResultScreen";
 import { type ChatTurn } from "./_diagnosis_types";
 
@@ -58,17 +57,37 @@ export function LanguageDiagnosisPanel({
   // itself runs in another one. The prompt tells the model not to greet again.
   const visibleTurns: ChatTurn[] = [{ role: "assistant", content: t("intro") }, ...turns];
 
-  // One assistant turn carries two things: the reaction to the last answer and
-  // the new task. They go into separate bubbles, the way a person would send two
-  // short messages instead of one long one.
-  const bubbles: { role: ChatTurn["role"]; text: string }[] = visibleTurns.flatMap((turn) =>
-    turn.reaction
-      ? [
-          { role: turn.role, text: turn.reaction },
-          { role: turn.role, text: turn.content },
-        ]
-      : [{ role: turn.role, text: turn.content }],
-  );
+  // Each turn is one bubble. Reactions are gone: a turn is a question or an answer.
+  const bubbles: { role: ChatTurn["role"]; text: string }[] = visibleTurns.map((turn) => ({
+    role: turn.role,
+    text: turn.content,
+  }));
+
+  // The current question is the last assistant turn while answering. Its options
+  // (if any) are rendered as clickable buttons; the answer key stays server-side.
+  const current =
+    status === "answering" && turns.length > 0 && turns[turns.length - 1].role === "assistant"
+      ? turns[turns.length - 1]
+      : undefined;
+  const options = current?.options;
+  const multi = current?.multi ?? false;
+  // A free-text question is one being answered that carries no options. It gets a
+  // real textbox with a submit button, not the chat-style composer.
+  const isFreeText = !!current && !(options && options.length > 0);
+
+  // Checkbox picks for a multi-correct question, and the free-text draft. Both
+  // reset whenever a new question arrives, so nothing leaks between questions.
+  const [picked, setPicked] = useState<string[]>([]);
+  const [draft, setDraft] = useState("");
+  useEffect(() => {
+    setPicked([]);
+    setDraft("");
+  }, [turns.length]);
+
+  const togglePick = (value: string) =>
+    setPicked((prev) =>
+      prev.includes(value) ? prev.filter((v) => v !== value) : [...prev, value],
+    );
 
   // The avatar heads the newest block of assistant bubbles. Anchoring it to the
   // last bubble alone would strand the intro above a nameless bubble, since the
@@ -96,11 +115,11 @@ export function LanguageDiagnosisPanel({
           </div>
           <button
             onClick={() => setConfirmAbort(true)}
-            className="p-1 rounded hover:bg-[var(--surface-dim)]"
-            style={{ color: "var(--muted)" }}
+            className="w-7 h-7 inline-flex items-center justify-center rounded-full btn-icon transition-colors"
+            style={{ backgroundColor: "var(--surface-dim)" }}
             aria-label={t("abort")}
           >
-            <X weight="bold" size={18} />
+            <X weight="bold" size={16} />
           </button>
         </div>
       )}
@@ -211,15 +230,86 @@ export function LanguageDiagnosisPanel({
             </div>
           </div>
 
-          {/* Same composer as the tutor chat, so the diagnosis does not look like
-              a different product. No source line here, the diagnosis has none. */}
-          <ChatInputBar
-            loading={false}
-            disabled={status !== "answering"}
-            placeholder={t("chatPlaceholder")}
-            maxLength={answerMaxChars}
-            onSend={send}
-          />
+          {/* Option questions: the values arrive shuffled and the answer key is
+              server-side. Click only, no typing. A single-choice option submits on
+              click; multi-choice toggles and submits together. */}
+          {options && options.length > 0 && (
+            <div className="px-4 pt-3 pb-4">
+              <div className="max-w-2xl mx-auto w-full flex flex-col gap-2">
+                {options.map((opt, i) => {
+                  const active = multi && picked.includes(opt);
+                  // Letter is a display label from the shuffled position; the value
+                  // sent back is still the option text, so grading stays value-based.
+                  const letter = String.fromCharCode(97 + i);
+                  return (
+                    <button
+                      key={`${opt}-${i}`}
+                      type="button"
+                      onClick={() => (multi ? togglePick(opt) : send(opt, [opt]))}
+                      className={`text-left px-4 py-2.5 rounded-xl text-base border-2 transition-colors ${
+                        active
+                          ? "border-kb text-white"
+                          : "border-border text-foreground hover:border-kb"
+                      }`}
+                      style={{ backgroundColor: active ? "var(--kb)" : "var(--surface)" }}
+                    >
+                      <span style={{ color: active ? "white" : "var(--muted)" }}>{letter})</span> {opt}
+                    </button>
+                  );
+                })}
+                {multi && (
+                  <button
+                    type="button"
+                    onClick={() => picked.length && send(picked.join(", "), picked)}
+                    disabled={picked.length === 0}
+                    className="mt-1 self-start px-5 py-2 rounded-xl text-base font-medium disabled:opacity-40"
+                    style={{ backgroundColor: "var(--kb)", color: "white" }}
+                  >
+                    {t("submitAnswer")}
+                  </button>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Free-text tasks (error correction, free writing) get a real textbox
+              and an explicit submit button, since the learner writes whole
+              sentences. Cmd/Ctrl+Enter submits too. */}
+          {isFreeText && (
+            <div className="px-4 pt-3 pb-4">
+              <div className="max-w-2xl mx-auto w-full flex flex-col gap-2">
+                <textarea
+                  value={draft}
+                  onChange={(e) => setDraft(e.target.value)}
+                  maxLength={answerMaxChars}
+                  rows={4}
+                  autoFocus
+                  placeholder={t("chatPlaceholder")}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && (e.metaKey || e.ctrlKey) && draft.trim()) {
+                      e.preventDefault();
+                      send(draft);
+                    }
+                  }}
+                  className="w-full rounded-xl px-4 py-3 text-base resize-y"
+                  style={{
+                    backgroundColor: "var(--surface)",
+                    color: "var(--foreground)",
+                    border: "1px solid var(--border)",
+                  }}
+                />
+                <button
+                  type="button"
+                  onClick={() => draft.trim() && send(draft)}
+                  disabled={!draft.trim()}
+                  className="self-end px-5 py-2 rounded-xl text-base font-medium disabled:opacity-40"
+                  style={{ backgroundColor: "var(--kb)", color: "white" }}
+                >
+                  {t("submitAnswer")}
+                </button>
+              </div>
+            </div>
+          )}
         </>
       )}
 
