@@ -17,7 +17,7 @@ from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException
 from loguru import logger
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 from src import database as db
 from src.dependencies import get_current_user, get_llm_client
@@ -40,16 +40,22 @@ from src.services.aia_diagnosis_chat import (
     LEVEL_EXAMPLES_SETTING,
     MAX_HISTORY_MESSAGES,
     MAX_MESSAGE_CHARS,
-    QUESTION_PLAN,
+    MAX_OPTIONS,
+    OPTION_QUESTION_TYPES,
     QUESTION_PLAN_SETTING,
     REPAIR_MESSAGE,
     DiagnosisChatError,
     assemble_system_prompt,
-    keep_going_message,
+    auto_question_payload,
+    build_final_messages,
+    manual_question_payload,
     next_question_message,
+    parse_auto_question,
     parse_level_examples,
     parse_question_plan,
     parse_turn_response,
+    question_mode,
+    resolve_question_plan,
 )
 
 router = APIRouter(tags=["ki-assistent: language-diagnosis"])
@@ -58,6 +64,18 @@ router = APIRouter(tags=["ki-assistent: language-diagnosis"])
 class TurnMessage(BaseModel):
     role: Literal["assistant", "user"]
     content: str = Field(max_length=MAX_MESSAGE_CHARS)
+    # Assistant turns of an option question carry the shown option values; user
+    # turns carry the values the learner clicked. Both are bounded so a crafted
+    # request cannot grow without limit. Free text answers leave ``selected`` unset.
+    options: list[str] | None = Field(default=None, max_length=MAX_OPTIONS)
+    selected: list[str] | None = Field(default=None, max_length=MAX_OPTIONS)
+
+    @field_validator("options", "selected")
+    @classmethod
+    def _cap_option_strings(cls, value: list[str] | None) -> list[str] | None:
+        if value and any(len(s) > MAX_MESSAGE_CHARS for s in value):
+            raise ValueError("option value too long")
+        return value
 
 
 class TurnBody(BaseModel):
@@ -123,49 +141,20 @@ def _diagnosis_language_name(workspace: dict) -> str:
     return entry["name"]
 
 
-def build_turn_messages(
-    system_prompt: str, history: list[dict], plan: list[dict] | None = None
-) -> list[dict]:
-    """Assemble the message list for one diagnosis turn.
+def build_auto_messages(system_prompt: str, number: int, plan: list[dict]) -> list[dict]:
+    """Messages that ask the model to GENERATE question ``number`` (1-based).
 
-    The number of answers so far decides the turn. Once all questions in ``plan``
-    are answered, a system turn forces the verdict. Otherwise a system turn
-    dictates the next question's number and difficulty (or its verbatim text), so
-    the fixed staircase does not depend on the model counting the transcript. An
-    empty transcript still gets a kickoff user turn, so the model always sees a
-    user role before it speaks. ``plan`` defaults to the shipped ``QUESTION_PLAN``.
+    Only used for auto slots: an expert-authored question is served straight from
+    the plan with no model call. The staircase is fixed and there is no reaction,
+    so the transcript is not needed here; the trailing system turn dictates the
+    number, band and type (and, for option types, the structured-options shape).
+    A kickoff user turn keeps a user role before the model speaks.
     """
-    steps = plan or QUESTION_PLAN
-    total = len(steps)
-    messages: list[dict] = [{"role": "system", "content": system_prompt}]
-    answered = sum(1 for m in history if m["role"] == "user")
-
-    if answered >= total:
-        messages.extend(history)
-        messages.append({"role": "system", "content": FORCE_FINISH_MESSAGE})
-        return messages
-
-    if history:
-        messages.extend(history)
-    else:
-        messages.append({"role": "user", "content": KICKOFF_MESSAGE})
-    # The question we are about to ask is one past the answers we already have.
-    messages.append({"role": "system", "content": next_question_message(answered + 1, steps)})
-    return messages
-
-
-def running_turn_payload(result: dict) -> dict:
-    """Client shape for a turn that continues the interview.
-
-    Whitelisted rather than passed straight through, so a level the model leaked
-    before the verdict cannot reach the client. The reaction keeps its own field
-    instead of being glued onto the question: the client renders it as a separate
-    chat bubble, the way a person sends the praise and the task as two messages.
-    """
-    payload = {"done": False, "message": result["message"]}
-    if result.get("reaction"):
-        payload["reaction"] = result["reaction"]
-    return payload
+    return [
+        {"role": "system", "content": system_prompt},
+        {"role": "user", "content": KICKOFF_MESSAGE},
+        {"role": "system", "content": next_question_message(number, plan)},
+    ]
 
 
 async def _ask(llm, messages: list[dict], user_id: int, locale: str) -> str:
@@ -179,18 +168,17 @@ async def _ask(llm, messages: list[dict], user_id: int, locale: str) -> str:
 
 
 async def _run_turn(llm, messages: list[dict], user_id: int, locale: str) -> dict:
-    """One diagnosis turn, with a single repair attempt.
+    """The final grading turn, with a single repair attempt.
 
     Measured against the production model, roughly one turn in twelve arrives as
-    the bare question text with no JSON around it. Without the repair that turn
-    would fail the whole request and the learner would see a retry button in the
-    middle of the interview.
+    the bare text with no JSON around it. Without the repair that turn would fail
+    the whole request and the learner would see a retry button after finishing.
     """
     raw = await _ask(llm, messages, user_id, locale)
     try:
         return parse_turn_response(raw)
     except DiagnosisChatError as exc:
-        logger.warning("Language diagnosis turn unparseable for user {}: {} | raw: {!r}",
+        logger.warning("Language diagnosis verdict unparseable for user {}: {} | raw: {!r}",
                        user_id, exc, raw[:500])
 
     repaired = await _ask(
@@ -204,7 +192,39 @@ async def _run_turn(llm, messages: list[dict], user_id: int, locale: str) -> dic
     try:
         return parse_turn_response(repaired)
     except DiagnosisChatError as exc:
-        logger.warning("Language diagnosis repair failed for user {}: {} | raw: {!r}",
+        logger.warning("Language diagnosis verdict repair failed for user {}: {} | raw: {!r}",
+                       user_id, exc, repaired[:500])
+        raise HTTPException(status_code=502,
+                            detail=t("ai.languageDiagnosis.invalidResponse", locale))
+
+
+async def _run_auto(llm, messages: list[dict], want_options: bool,
+                    user_id: int, locale: str) -> dict:
+    """Generate one auto (model-built) question, with a single repair attempt.
+
+    For an option task the model must return a structured ``options`` array with
+    exactly one correct; :func:`parse_auto_question` rejects a two-correct item so
+    the repair fires rather than showing the learner a broken question.
+    """
+    raw = await _ask(llm, messages, user_id, locale)
+    try:
+        return parse_auto_question(raw, want_options)
+    except DiagnosisChatError as exc:
+        logger.warning("Language diagnosis auto question unusable for user {}: {} | raw: {!r}",
+                       user_id, exc, raw[:500])
+
+    repaired = await _ask(
+        llm,
+        [*messages,
+         {"role": "assistant", "content": raw},
+         {"role": "system", "content": REPAIR_MESSAGE}],
+        user_id,
+        locale,
+    )
+    try:
+        return parse_auto_question(repaired, want_options)
+    except DiagnosisChatError as exc:
+        logger.warning("Language diagnosis auto repair failed for user {}: {} | raw: {!r}",
                        user_id, exc, repaired[:500])
         raise HTTPException(status_code=502,
                             detail=t("ai.languageDiagnosis.invalidResponse", locale))
@@ -220,7 +240,13 @@ async def turn(
     user_id = current_user["user_id"]
     workspace = _require_workspace_access(body.workspace_uuid, user_id, locale=locale)
 
-    enforce_aia_burst(user_id, locale)
+    plan = resolve_question_plan(
+        db.get_setting(QUESTION_PLAN_SETTING, ""),
+        workspace.get("diagnosis_language") or DEFAULT_DIAGNOSIS_LANGUAGE,
+    )
+    total = len(plan)
+    history = [m.model_dump(exclude_none=True) for m in body.history]
+    answered = sum(1 for m in history if m["role"] == "user")
 
     system_prompt = assemble_system_prompt(
         db.get_setting("language_diagnosis_prompt", DEFAULT_DIAGNOSIS_PROMPT),
@@ -228,25 +254,34 @@ async def turn(
         parse_level_examples(db.get_setting(LEVEL_EXAMPLES_SETTING, "")),
         _diagnosis_language_name(workspace),
     )
-    plan = parse_question_plan(db.get_setting(QUESTION_PLAN_SETTING, ""))
-    total = len(plan)
-    history = [m.model_dump() for m in body.history]
-    messages = build_turn_messages(system_prompt, history, plan)
 
+    # Still questions to ask: serve the next slot. An expert-authored question is
+    # returned straight from the plan with NO model call; only an auto slot spends
+    # a call. This is the whole point of the redesign, so most turns are instant.
+    if answered < total:
+        step = plan[answered]
+        mode = question_mode(step)
+        if mode in ("manual_options", "manual_text"):
+            return manual_question_payload(step)
+        enforce_aia_burst(user_id, locale)
+        messages = build_auto_messages(system_prompt, answered + 1, plan)
+        want_options = step["type"] in OPTION_QUESTION_TYPES
+        parsed = await _run_auto(llm, messages, want_options, user_id, locale)
+        return auto_question_payload(parsed)
+
+    # Every question answered: the ONE grading call. It reads the full record,
+    # uses the code-graded results as they stand, judges the rest, and returns the
+    # level. A model that forgets to finish is forced once more before we give up.
+    enforce_aia_burst(user_id, locale)
+    messages = build_final_messages(system_prompt, plan, history)
     result = await _run_turn(llm, messages, user_id, locale)
-
-    # The test has a fixed length, so a verdict before all answers are in is a
-    # mistake: nudge once for the next question. One nudge is enough in practice;
-    # whatever comes back second is accepted, so a stubborn model cannot stall.
-    answered = sum(1 for m in history if m["role"] == "user")
-    if result["done"] and answered < total:
-        logger.info("Language diagnosis: verdict after {} of {} answers, asking for more",
-                    answered, total)
-        messages = [*messages, {"role": "system", "content": keep_going_message(answered, total)}]
-        result = await _run_turn(llm, messages, user_id, locale)
-
     if not result["done"]:
-        return running_turn_payload(result)
+        logger.info("Language diagnosis: model did not finish, forcing once")
+        messages = [*messages, {"role": "system", "content": FORCE_FINISH_MESSAGE}]
+        result = await _run_turn(llm, messages, user_id, locale)
+    if not result["done"]:
+        raise HTTPException(status_code=502,
+                            detail=t("ai.languageDiagnosis.invalidResponse", locale))
 
     db.set_user_language_level(
         user_id, level=result["level"], skill_scores=result["skill_scores"]

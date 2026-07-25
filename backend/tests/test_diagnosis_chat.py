@@ -1,9 +1,10 @@
-"""Language diagnosis chat: prompt rendering and turn-response validation.
+"""Language diagnosis: prompt rendering, question generation and verdict parsing.
 
-The diagnosis is a short adaptive interview. Per turn the model answers with a
-JSON object that either carries the next question or the final CEFR verdict, so
-the parser has to accept exactly those two shapes and reject everything else -
-a half-filled verdict must never reach ``set_user_language_level``.
+The diagnosis serves expert-authored questions with no model call and grades
+option answers in code; only auto (model-generated) slots and the single final
+grading call touch the LLM. This module pins the shared prompt, the auto-question
+generation messages, the final grading messages and the verdict parser. The
+authoring data model and deterministic grading live in test_diagnosis_authoring.
 """
 
 import json
@@ -13,12 +14,12 @@ import pytest
 
 from src.features.ai_assistant.routes.language_training.diagnosis import (
     _rejects_json_mode,
-    build_turn_messages,
-    running_turn_payload,
+    build_auto_messages,
 )
 from src.services.aia_diagnosis_chat import (
+    AUTO_OPTIONS_DIRECTIVE,
     DEFAULT_DIAGNOSIS_PROMPT,
-    FORCE_FINISH_MESSAGE,
+    FINAL_INSTRUCTION,
     KICKOFF_MESSAGE,
     QUESTION_BANDS,
     QUESTION_COUNT,
@@ -26,7 +27,7 @@ from src.services.aia_diagnosis_chat import (
     PROMPT_PLACEHOLDER,
     REQUIRED_SKILLS,
     DiagnosisChatError,
-    keep_going_message,
+    build_final_messages,
     next_question_message,
     parse_question_plan,
     parse_turn_response,
@@ -77,17 +78,34 @@ def test_default_prompt_defines_all_six_task_types():
         assert task_type in DEFAULT_DIAGNOSIS_PROMPT
     # The type is dictated per question, not chosen by the model.
     assert "THE TASK TYPES, fixed per question" in DEFAULT_DIAGNOSIS_PROMPT
-    # Letter answers only work if the learner is told they may reply with one.
-    assert "a), b), c), d)" in DEFAULT_DIAGNOSIS_PROMPT
+
+
+def test_default_prompt_returns_options_as_structured_data_not_letters():
+    """Options travel in an array so the interface can shuffle them; the old
+    a), b), c), d) layout inside the message is gone."""
+    assert '"options"' in DEFAULT_DIAGNOSIS_PROMPT
+    assert '"correct": true' in DEFAULT_DIAGNOSIS_PROMPT
+    # No letters and no in-message option layout survive.
+    assert "a), b), c), d)" not in DEFAULT_DIAGNOSIS_PROMPT
+    assert "reply with the letter" not in DEFAULT_DIAGNOSIS_PROMPT
+
+
+def test_default_prompt_carries_no_reaction_machinery():
+    """The reaction bubble was removed; the model must not produce one."""
+    assert '"reaction"' not in DEFAULT_DIAGNOSIS_PROMPT
+    assert "two chat bubbles" not in DEFAULT_DIAGNOSIS_PROMPT
+    assert "Do NOT react" in DEFAULT_DIAGNOSIS_PROMPT
+    # The interface already greets, so a second greeting would read as a stutter.
+    assert "Do NOT greet the learner" in DEFAULT_DIAGNOSIS_PROMPT
 
 
 def test_default_prompt_lays_the_task_out_over_lines():
     """One long line is unreadable for the learners this is built for: the
-    instruction, the sentence and every option need their own line."""
+    instruction and the sentence need their own lines, options go in the array."""
     assert "TASK LAYOUT" in DEFAULT_DIAGNOSIS_PROMPT
-    assert "ONE PER LINE" in DEFAULT_DIAGNOSIS_PROMPT
     # The layout is worthless if the model packs it into a single JSON line.
     assert "\\n" in DEFAULT_DIAGNOSIS_PROMPT
+    assert 'options in the "options" array'.split()[0] in DEFAULT_DIAGNOSIS_PROMPT
 
 
 def test_default_prompt_demands_a_single_defensible_answer():
@@ -138,18 +156,22 @@ def test_default_prompt_forbids_bracketed_hints():
     assert "___" in DEFAULT_DIAGNOSIS_PROMPT
 
 
-def test_default_prompt_makes_it_conversational():
-    """The model must react to the answer before moving on, like a person would."""
-    assert "short, warm reaction" in DEFAULT_DIAGNOSIS_PROMPT
-    # The interface already greets, so a second greeting would read as a stutter.
-    assert "Do NOT greet the learner" in DEFAULT_DIAGNOSIS_PROMPT
+def test_default_prompt_names_the_outcomes_and_skills():
     for level in ("A1", "A2", "B1", "B1+"):
         assert level in DEFAULT_DIAGNOSIS_PROMPT
     for skill in REQUIRED_SKILLS:
         assert skill in DEFAULT_DIAGNOSIS_PROMPT
 
 
-# ─── Parsing: interview continues ──────────────────────────────────────────
+def test_grading_rules_read_the_ladder_as_a_ceiling():
+    """A slip on an easy question must not cap a learner who copes higher up."""
+    from src.services.aia_diagnosis_chat import DEFAULT_GRADING_RULES
+    assert "ceiling" in DEFAULT_GRADING_RULES
+    # And a single lucky hit must not promote.
+    assert "lucky" in DEFAULT_GRADING_RULES or "one of a band" in DEFAULT_GRADING_RULES
+
+
+# ─── Parsing: interview continues (final call may still emit a running turn) ─
 
 def test_parse_ongoing_turn():
     raw = json.dumps({"done": False, "message": "Comment vas-tu?"})
@@ -161,37 +183,15 @@ def test_parse_strips_markdown_fence():
     assert parse_turn_response(raw)["message"] == "Wie geht es dir?"
 
 
-def test_parse_ongoing_turn_keeps_the_reaction():
-    """The reaction is its own chat bubble, so it must survive as its own field."""
-    raw = json.dumps({"done": False, "reaction": "Gut erzählt!", "message": "Ergänze: Ich habe dort ___."})
-    assert parse_turn_response(raw) == {
-        "done": False,
-        "message": "Ergänze: Ich habe dort ___.",
-        "reaction": "Gut erzählt!",
-    }
-
-
-@pytest.mark.parametrize("reaction", ["", "   ", None, 42])
-def test_parse_ongoing_turn_drops_unusable_reaction(reaction):
-    """First turn has nothing to react to; an empty bubble must not be rendered."""
-    raw = json.dumps({"done": False, "reaction": reaction, "message": "Wie geht es dir?"})
-    assert parse_turn_response(raw) == {"done": False, "message": "Wie geht es dir?"}
-
-
-def test_parse_final_turn_ignores_reaction():
-    """The verdict is shown on the result screen, which has no bubble for it."""
-    result = parse_turn_response(_final(reaction="Stark!"))
-    assert "reaction" not in result
-
-
-def test_default_prompt_asks_for_a_separate_reaction_field():
-    assert '"reaction"' in DEFAULT_DIAGNOSIS_PROMPT
-    assert "two chat bubbles" in DEFAULT_DIAGNOSIS_PROMPT
-
-
 def test_parse_ongoing_turn_drops_stray_level():
     """A level only counts on the final turn; an early one must not be persisted."""
     raw = json.dumps({"done": False, "message": "Weiter?", "level": "C2"})
+    assert parse_turn_response(raw) == {"done": False, "message": "Weiter?"}
+
+
+def test_parse_ongoing_turn_drops_a_stray_reaction():
+    """The field is gone from the model contract; a leftover one is not rendered."""
+    raw = json.dumps({"done": False, "reaction": "Stark!", "message": "Weiter?"})
     assert parse_turn_response(raw) == {"done": False, "message": "Weiter?"}
 
 
@@ -299,108 +299,201 @@ def test_parse_rejects_final_turn_without_scores():
         parse_turn_response(json.dumps(payload))
 
 
-# ─── Turn assembly ─────────────────────────────────────────────────────────
+# ─── Auto-question generation messages ─────────────────────────────────────
 
-def _history(answers: int) -> list[dict]:
-    """A transcript with `answers` completed question/answer pairs."""
-    history = []
-    for i in range(answers):
-        history.append({"role": "assistant", "content": f"Frage {i}"})
-        history.append({"role": "user", "content": f"Antwort {i}"})
-    return history
-
-
-def test_empty_history_gets_a_kickoff_then_the_first_question_hint():
-    """Without the kickoff the model sees only system turns and may stay silent;
-    the band hint that follows pins question 1 to the bottom of the ladder."""
-    messages = build_turn_messages("SYS", [])
+def test_build_auto_messages_dictates_the_slot_and_keeps_a_user_turn():
+    messages = build_auto_messages("SYS", 1, QUESTION_PLAN)
     assert [m["role"] for m in messages] == ["system", "user", "system"]
+    assert messages[0]["content"] == "SYS"
     assert messages[1]["content"] == KICKOFF_MESSAGE
-    # Question 1's hint sits in the trailing system turn. The correct-option
-    # position is randomised, so match the stable band/type parts, not the letter.
     assert "question 1 of" in messages[2]["content"]
     assert "gap fill" in messages[2]["content"]
 
 
-def test_history_is_passed_through_with_a_question_hint_appended():
-    history = _history(1)
-    messages = build_turn_messages("SYS", history)
-    # System prompt, the untouched transcript, then the hint for question 2.
-    assert messages[: 1 + len(history)] == [{"role": "system", "content": "SYS"}, *history]
-    # The trailing turn is the system hint for question 2. Its correct-option
-    # position is randomised, so assert the role and the stable "question 2" part.
-    assert messages[-1]["role"] == "system"
-    assert "question 2 of" in messages[-1]["content"]
+def test_build_auto_messages_for_a_later_slot():
+    messages = build_auto_messages("SYS", 3, QUESTION_PLAN)
+    assert "question 3 of" in messages[-1]["content"]
+    assert "error correction" in messages[-1]["content"]  # Q3 is error correction
 
 
-def test_last_question_still_gets_a_hint_not_a_verdict():
-    """After 7 answers we still owe question 8, so the turn must ask, not force."""
-    messages = build_turn_messages("SYS", _history(QUESTION_COUNT - 1))
-    assert messages[-1]["content"] == next_question_message(QUESTION_COUNT)
-    assert FORCE_FINISH_MESSAGE not in messages[-1]["content"]
+def test_next_question_message_appends_structured_options_for_option_types():
+    msg = next_question_message(2, QUESTION_PLAN)  # multiple choice
+    assert AUTO_OPTIONS_DIRECTIVE.strip() in msg
+    assert '"options"' in msg
+    assert "EXACTLY ONE" in msg
+    # And no letter-position wording survives.
+    assert not re.search(r"position [abcd]\)", msg)
 
 
-def test_verdict_is_forced_only_after_the_last_answer():
-    messages = build_turn_messages("SYS", _history(QUESTION_COUNT))
-    assert messages[-1] == {"role": "system", "content": FORCE_FINISH_MESSAGE}
-    # And no stray question hint sneaks in on the verdict turn.
-    assert not any("Now ask question" in m["content"]
-                   for m in messages if m["role"] == "system")
+def test_next_question_message_has_no_options_directive_for_free_text():
+    msg = next_question_message(3, QUESTION_PLAN)  # error correction -> no options
+    assert AUTO_OPTIONS_DIRECTIVE.strip() not in msg
+    assert "error correction" in msg
+    assert "A2" in msg
 
 
-def test_each_question_hint_names_its_band_and_type():
-    """The staircase couples both to the slot: Q1 gap fill/A1 up to Q8 free/B2."""
-    expected = {
-        1: ("gap fill", "A1"),
-        3: ("error correction", "A2"),
-        6: ("situation", "B1"),
-        8: ("free writing", "B2"),
-    }
-    for number, (task_type, band) in expected.items():
-        hint = next_question_message(number)
-        assert f"question {number} of {QUESTION_COUNT}" in hint
-        assert task_type in hint
-        assert band in hint
+def test_next_question_message_uses_verbatim_text_when_present():
+    plan = [{"band": "A1", "type": "gap fill", "text": "Fülle die Lücke: Ich ___ Student."}]
+    msg = next_question_message(1, plan)
+    assert "Ich ___ Student." in msg
+    assert "1 of 1" in msg
+    # An option type with text but no answer key still asks for structured options.
+    assert AUTO_OPTIONS_DIRECTIVE.strip() in msg
 
+
+# ─── Final grading messages ────────────────────────────────────────────────
+
+def test_build_final_messages_carries_the_record_to_one_user_turn():
+    plan = [{"band": "A1", "type": "gap fill", "text": "Ich ___ Student.",
+             "options": [{"text": "bin", "correct": True},
+                         {"text": "ist", "correct": False}]}]
+    history = [
+        {"role": "assistant", "content": "Ich ___ Student.", "options": ["ist", "bin"]},
+        {"role": "user", "content": "bin", "selected": ["bin"]},
+    ]
+    messages = build_final_messages("SYS", plan, history)
+    assert [m["role"] for m in messages] == ["system", "user"]
+    assert messages[0]["content"] == "SYS"
+    assert FINAL_INSTRUCTION.split(".")[0] in messages[1]["content"]
+    # The record (with the code-graded RESULT) rides in the user turn.
+    assert "RESULT (already graded" in messages[1]["content"]
+
+
+# ─── Plan shape ────────────────────────────────────────────────────────────
 
 def test_plan_is_eight_rising_steps_two_per_band():
     assert QUESTION_COUNT == 8
     assert QUESTION_BANDS == ["A1", "A1", "A2", "A2", "B1", "B1", "B2", "B2"]
     types = [step["type"] for step in QUESTION_PLAN]
-    # All six task types appear...
     assert set(types) == {"gap fill", "multiple choice", "error correction",
                           "reading comprehension", "situation", "free writing"}
-    # ...and multiple choice fills the two extra quiz slots, so it runs three times.
     assert types.count("multiple choice") == 3
-    # The ladder never steps down.
     order = ["A1", "A2", "B1", "B2"]
     ranks = [order.index(b) for b in QUESTION_BANDS]
     assert ranks == sorted(ranks)
 
 
-# ─── Response shape ────────────────────────────────────────────────────────
+# ─── Admin-configurable question plan (old shapes stay valid) ──────────────
 
-def test_running_turn_payload_forwards_the_reaction():
-    """Regression: the route used to rebuild the response from message alone,
-    which silently swallowed the reaction the model had produced."""
-    payload = running_turn_payload(
-        {"done": False, "message": "Fülle die Lücke: ___", "reaction": "Gut erzählt!"}
+def test_parse_question_plan_empty_returns_default():
+    assert parse_question_plan("") == QUESTION_PLAN
+    assert parse_question_plan("   ") == QUESTION_PLAN
+
+
+def test_parse_question_plan_invalid_json_returns_default():
+    assert parse_question_plan("{not json") == QUESTION_PLAN
+
+
+def test_parse_question_plan_rejects_bad_band_or_type():
+    bad_band = json.dumps([{"band": "C1", "type": "gap fill"}])
+    bad_type = json.dumps([{"band": "A1", "type": "essay"}])
+    assert parse_question_plan(bad_band) == QUESTION_PLAN
+    assert parse_question_plan(bad_type) == QUESTION_PLAN
+
+
+def test_parse_question_plan_accepts_valid_plan_with_optional_text():
+    raw = json.dumps([
+        {"band": "A1", "type": "gap fill"},
+        {"band": "B2", "type": "free writing", "text": "Schreibe drei Sätze über deinen Tag."},
+    ])
+    assert parse_question_plan(raw) == [
+        {"band": "A1", "type": "gap fill"},
+        {"band": "B2", "type": "free writing", "text": "Schreibe drei Sätze über deinen Tag."},
+    ]
+
+
+# ─── Grading rules + calibration examples ──────────────────────────────────
+
+def test_parse_level_examples_empty_returns_defaults():
+    from src.services.aia_diagnosis_chat import parse_level_examples, DEFAULT_LEVEL_EXAMPLES
+    assert parse_level_examples("") == DEFAULT_LEVEL_EXAMPLES
+    assert parse_level_examples("   ") == DEFAULT_LEVEL_EXAMPLES
+
+
+def test_parse_level_examples_merges_partial_override_onto_defaults():
+    from src.services.aia_diagnosis_chat import parse_level_examples, DEFAULT_LEVEL_EXAMPLES
+    out = parse_level_examples(json.dumps({"A2": "Mein eigenes A2 Beispiel."}))
+    assert out["A2"] == "Mein eigenes A2 Beispiel."
+    assert out["A1"] == DEFAULT_LEVEL_EXAMPLES["A1"]
+    assert out["B1"] == DEFAULT_LEVEL_EXAMPLES["B1"]
+    assert out["B2"] == DEFAULT_LEVEL_EXAMPLES["B2"]
+
+
+def test_parse_level_examples_ignores_unknown_keys_and_bad_json():
+    from src.services.aia_diagnosis_chat import parse_level_examples, DEFAULT_LEVEL_EXAMPLES
+    assert parse_level_examples("{oops") == DEFAULT_LEVEL_EXAMPLES
+    out = parse_level_examples(json.dumps({"C1": "nope", "A1": "Ja."}))
+    assert "C1" not in out
+    assert out["A1"] == "Ja."
+
+
+def test_build_examples_block_lists_all_four_examples():
+    from src.services.aia_diagnosis_chat import build_examples_block, DEFAULT_LEVEL_EXAMPLES
+    block = build_examples_block(DEFAULT_LEVEL_EXAMPLES)
+    for level in ("A1", "A2", "B1", "B2"):
+        assert f"- {level}:" in block
+    assert "Am Samstag gehe ich ins Kino." in block
+    assert "Ich arbeite in einem Büro." in block
+    assert "CALIBRATION EXAMPLES" not in block
+
+
+def test_build_examples_block_single_example_renders_inline():
+    from src.services.aia_diagnosis_chat import build_examples_block
+    block = build_examples_block({"A1": "Nur ein Satz."})
+    assert "- A1: Nur ein Satz." in block
+
+
+def test_build_examples_block_multiple_examples_render_as_subitems():
+    from src.services.aia_diagnosis_chat import build_examples_block
+    block = build_examples_block({"A1": "Satz eins.\nSatz zwei."})
+    assert "- A1:" in block
+    assert "  - Satz eins." in block
+    assert "  - Satz zwei." in block
+
+
+def test_example_items_splits_on_dash_and_newline_keeps_hyphen_word():
+    from src.services.aia_diagnosis_chat import example_items
+    assert example_items("-- Satz eins.\n-- Satz zwei.") == ["Satz eins.", "Satz zwei."]
+    assert example_items("Eins. -- Zwei.") == ["Eins.", "Zwei."]
+    assert example_items("Ich schreibe eine E-Mail.") == ["Ich schreibe eine E-Mail."]
+    assert example_items("") == []
+
+
+def test_assemble_system_prompt_fills_both_placeholders():
+    from src.services.aia_diagnosis_chat import (
+        assemble_system_prompt, DEFAULT_DIAGNOSIS_PROMPT, DEFAULT_GRADING_RULES,
+        DEFAULT_LEVEL_EXAMPLES, GRADING_PLACEHOLDER, EXAMPLES_PLACEHOLDER,
     )
-    assert payload == {
-        "done": False,
-        "message": "Fülle die Lücke: ___",
-        "reaction": "Gut erzählt!",
-    }
+    out = assemble_system_prompt(
+        DEFAULT_DIAGNOSIS_PROMPT, DEFAULT_GRADING_RULES, DEFAULT_LEVEL_EXAMPLES, "German"
+    )
+    assert GRADING_PLACEHOLDER not in out
+    assert EXAMPLES_PLACEHOLDER not in out
+    assert "{language}" not in out
+    assert "LEVEL ASSIGNMENT" in out
+    assert "CALIBRATION EXAMPLES" in out
+    assert "Am Samstag gehe ich ins Kino." in out
 
 
-def test_running_turn_payload_omits_absent_reaction():
-    payload = running_turn_payload({"done": False, "message": "Erste Frage?"})
-    assert payload == {"done": False, "message": "Erste Frage?"}
+def test_assemble_system_prompt_appends_when_placeholders_missing():
+    from src.services.aia_diagnosis_chat import (
+        assemble_system_prompt, DEFAULT_GRADING_RULES, DEFAULT_LEVEL_EXAMPLES,
+    )
+    out = assemble_system_prompt(
+        "A custom prompt with no placeholders.", DEFAULT_GRADING_RULES,
+        DEFAULT_LEVEL_EXAMPLES, "German",
+    )
+    assert "LEVEL ASSIGNMENT" in out
+    assert "CALIBRATION EXAMPLES" in out
+    assert "Am Samstag gehe ich ins Kino." in out
 
 
-def test_running_turn_payload_drops_an_early_level():
-    payload = running_turn_payload({"done": False, "message": "Weiter?", "level": "C2"})
-    assert "level" not in payload
+def test_default_prompt_carries_both_placeholders_once():
+    from src.services.aia_diagnosis_chat import (
+        DEFAULT_DIAGNOSIS_PROMPT, GRADING_PLACEHOLDER, EXAMPLES_PLACEHOLDER,
+    )
+    assert DEFAULT_DIAGNOSIS_PROMPT.count(GRADING_PLACEHOLDER) == 1
+    assert DEFAULT_DIAGNOSIS_PROMPT.count(EXAMPLES_PLACEHOLDER) == 1
 
 
 # ─── JSON mode fallback ────────────────────────────────────────────────────
@@ -434,229 +527,6 @@ def test_error_without_status_does_not_disable_json_mode():
 
 def test_question_count_is_eight():
     assert QUESTION_COUNT == 8
-
-
-def test_keep_going_message_names_both_numbers():
-    """The nudge has to be concrete or the model repeats the same verdict."""
-    text = keep_going_message(2, QUESTION_COUNT)
-    assert "2" in text and str(QUESTION_COUNT) in text
-    assert "done=false" in text
-
-
-def test_keep_going_message_takes_total():
-    assert "of 6" in keep_going_message(3, 6)
-
-
-# ─── Admin-configurable question plan ──────────────────────────────────────
-
-def test_parse_question_plan_empty_returns_default():
-    assert parse_question_plan("") == QUESTION_PLAN
-    assert parse_question_plan("   ") == QUESTION_PLAN
-
-
-def test_parse_question_plan_invalid_json_returns_default():
-    assert parse_question_plan("{not json") == QUESTION_PLAN
-
-
-def test_parse_question_plan_rejects_bad_band_or_type():
-    bad_band = json.dumps([{"band": "C1", "type": "gap fill"}])
-    bad_type = json.dumps([{"band": "A1", "type": "essay"}])
-    assert parse_question_plan(bad_band) == QUESTION_PLAN
-    assert parse_question_plan(bad_type) == QUESTION_PLAN
-
-
-def test_parse_question_plan_accepts_valid_plan_with_optional_text():
-    raw = json.dumps([
-        {"band": "A1", "type": "gap fill"},
-        {"band": "B2", "type": "free writing", "text": "Schreibe drei Sätze über deinen Tag."},
-    ])
-    assert parse_question_plan(raw) == [
-        {"band": "A1", "type": "gap fill"},
-        {"band": "B2", "type": "free writing", "text": "Schreibe drei Sätze über deinen Tag."},
-    ]
-
-
-def test_next_question_message_uses_verbatim_text_when_present():
-    plan = [{"band": "A1", "type": "gap fill", "text": "Fülle die Lücke: Ich ___ Student."}]
-    msg = next_question_message(1, plan)
-    assert "Ich ___ Student." in msg
-    assert "1 of 1" in msg
-
-
-def test_next_question_message_uses_type_and_band_without_text():
-    plan = [{"band": "A2", "type": "error correction"}]
-    msg = next_question_message(1, plan)
-    assert "error correction" in msg
-    assert "A2" in msg
-
-
-def test_correct_option_letter_is_a_valid_position_or_none():
-    """Option-bearing questions get one of a, b, c, d; the two free-text slots
-    (error correction, free writing) get None."""
-    from src.services.aia_diagnosis_chat import (
-        correct_option_letter,
-        CORRECT_OPTION_POSITIONS,
-    )
-    # Default plan option questions in order: Q1, Q2, Q4, Q5, Q6, Q7.
-    for number in (1, 2, 4, 5, 6, 7):
-        assert correct_option_letter(number, QUESTION_PLAN) in CORRECT_OPTION_POSITIONS
-    assert correct_option_letter(3, QUESTION_PLAN) is None  # error correction
-    assert correct_option_letter(8, QUESTION_PLAN) is None  # free writing
-
-
-def test_correct_option_letter_is_random_not_a_fixed_pattern():
-    """Regression for the predictable-pattern fix: the position must not settle
-    onto one letter or a learnable rotation. Over many draws for the same slot,
-    every position shows up."""
-    from src.services.aia_diagnosis_chat import (
-        correct_option_letter,
-        CORRECT_OPTION_POSITIONS,
-    )
-    seen = {correct_option_letter(1, QUESTION_PLAN) for _ in range(200)}
-    assert seen == set(CORRECT_OPTION_POSITIONS)
-
-
-def test_next_question_message_dictates_a_correct_position_for_option_types():
-    msg = next_question_message(2, QUESTION_PLAN)  # multiple choice -> some position
-    assert re.search(r"position [abcd]\)", msg)
-
-
-def test_next_question_message_has_no_position_for_optionless_types():
-    msg = next_question_message(3, QUESTION_PLAN)  # error correction -> no options
-    assert "CORRECT option at position" not in msg
-
-
-# ─── Grading rules + calibration examples ──────────────────────────────────
-
-def test_parse_level_examples_empty_returns_defaults():
-    from src.services.aia_diagnosis_chat import parse_level_examples, DEFAULT_LEVEL_EXAMPLES
-    assert parse_level_examples("") == DEFAULT_LEVEL_EXAMPLES
-    assert parse_level_examples("   ") == DEFAULT_LEVEL_EXAMPLES
-
-
-def test_parse_level_examples_merges_partial_override_onto_defaults():
-    from src.services.aia_diagnosis_chat import parse_level_examples, DEFAULT_LEVEL_EXAMPLES
-    out = parse_level_examples(json.dumps({"A2": "Mein eigenes A2 Beispiel."}))
-    assert out["A2"] == "Mein eigenes A2 Beispiel."
-    # The other three stay at the shipped default.
-    assert out["A1"] == DEFAULT_LEVEL_EXAMPLES["A1"]
-    assert out["B1"] == DEFAULT_LEVEL_EXAMPLES["B1"]
-    assert out["B2"] == DEFAULT_LEVEL_EXAMPLES["B2"]
-
-
-def test_parse_level_examples_ignores_unknown_keys_and_bad_json():
-    from src.services.aia_diagnosis_chat import parse_level_examples, DEFAULT_LEVEL_EXAMPLES
-    assert parse_level_examples("{oops") == DEFAULT_LEVEL_EXAMPLES
-    out = parse_level_examples(json.dumps({"C1": "nope", "A1": "Ja."}))
-    assert "C1" not in out
-    assert out["A1"] == "Ja."
-
-
-def test_build_examples_block_lists_all_four_examples():
-    from src.services.aia_diagnosis_chat import build_examples_block, DEFAULT_LEVEL_EXAMPLES
-    block = build_examples_block(DEFAULT_LEVEL_EXAMPLES)
-    for level in ("A1", "A2", "B1", "B2"):
-        assert f"- {level}:" in block
-    # The default ships two examples per band, rendered as sub-items.
-    assert "Am Samstag gehe ich ins Kino." in block
-    assert "Ich arbeite in einem Büro." in block
-    # The explaining text is NOT here: it lives visibly in the prompt template.
-    assert "CALIBRATION EXAMPLES" not in block
-
-
-def test_build_examples_block_single_example_renders_inline():
-    from src.services.aia_diagnosis_chat import build_examples_block
-    block = build_examples_block({"A1": "Nur ein Satz."})
-    assert "- A1: Nur ein Satz." in block
-
-
-def test_build_examples_block_multiple_examples_render_as_subitems():
-    from src.services.aia_diagnosis_chat import build_examples_block
-    block = build_examples_block({"A1": "Satz eins.\nSatz zwei."})
-    assert "- A1:" in block
-    assert "  - Satz eins." in block
-    assert "  - Satz zwei." in block
-
-
-def test_build_examples_block_splits_on_double_dash():
-    """Examples may be separated by '--', including as a leading marker per line."""
-    from src.services.aia_diagnosis_chat import build_examples_block
-    block = build_examples_block({"A1": "-- Satz eins. -- Satz zwei."})
-    assert "  - Satz eins." in block
-    assert "  - Satz zwei." in block
-
-
-def test_build_examples_block_keeps_single_hyphen_inside_a_word():
-    """A single hyphen (E-Mail) must not split the example."""
-    from src.services.aia_diagnosis_chat import build_examples_block
-    block = build_examples_block({"A1": "Ich schreibe eine E-Mail."})
-    assert "- A1: Ich schreibe eine E-Mail." in block
-
-
-def test_example_items_splits_on_dash_and_newline_keeps_hyphen_word():
-    from src.services.aia_diagnosis_chat import example_items
-    assert example_items("-- Satz eins.\n-- Satz zwei.") == ["Satz eins.", "Satz zwei."]
-    assert example_items("Eins. -- Zwei.") == ["Eins.", "Zwei."]
-    assert example_items("Ich schreibe eine E-Mail.") == ["Ich schreibe eine E-Mail."]
-    assert example_items("") == []
-
-
-def test_assemble_system_prompt_fills_both_placeholders():
-    from src.services.aia_diagnosis_chat import (
-        assemble_system_prompt, DEFAULT_DIAGNOSIS_PROMPT, DEFAULT_GRADING_RULES,
-        DEFAULT_LEVEL_EXAMPLES, GRADING_PLACEHOLDER, EXAMPLES_PLACEHOLDER,
-    )
-    out = assemble_system_prompt(
-        DEFAULT_DIAGNOSIS_PROMPT, DEFAULT_GRADING_RULES, DEFAULT_LEVEL_EXAMPLES, "German"
-    )
-    # Both placeholders consumed, language substituted, both sections present.
-    assert GRADING_PLACEHOLDER not in out
-    assert EXAMPLES_PLACEHOLDER not in out
-    assert "{language}" not in out
-    assert "LEVEL ASSIGNMENT" in out
-    assert "CALIBRATION EXAMPLES" in out
-    # The actual example content landed where {examples} was.
-    assert "Am Samstag gehe ich ins Kino." in out
-
-
-def test_assemble_system_prompt_appends_when_placeholders_missing():
-    from src.services.aia_diagnosis_chat import (
-        assemble_system_prompt, DEFAULT_GRADING_RULES, DEFAULT_LEVEL_EXAMPLES,
-    )
-    out = assemble_system_prompt(
-        "A custom prompt with no placeholders.", DEFAULT_GRADING_RULES,
-        DEFAULT_LEVEL_EXAMPLES, "German",
-    )
-    assert "LEVEL ASSIGNMENT" in out
-    assert "CALIBRATION EXAMPLES" in out
-    assert "Am Samstag gehe ich ins Kino." in out
-
-
-def test_default_prompt_carries_both_placeholders_once():
-    from src.services.aia_diagnosis_chat import (
-        DEFAULT_DIAGNOSIS_PROMPT, GRADING_PLACEHOLDER, EXAMPLES_PLACEHOLDER,
-    )
-    assert DEFAULT_DIAGNOSIS_PROMPT.count(GRADING_PLACEHOLDER) == 1
-    assert DEFAULT_DIAGNOSIS_PROMPT.count(EXAMPLES_PLACEHOLDER) == 1
-    # The anchors moved out, so the main prompt no longer defines them itself.
-    assert "LEVEL ANCHORS" not in DEFAULT_DIAGNOSIS_PROMPT
-
-
-def test_build_turn_messages_forces_finish_at_plan_length():
-    plan = [{"band": "A1", "type": "gap fill"}, {"band": "A2", "type": "situation"}]
-    history = [
-        {"role": "assistant", "content": "Q1"}, {"role": "user", "content": "a"},
-        {"role": "assistant", "content": "Q2"}, {"role": "user", "content": "b"},
-    ]
-    messages = build_turn_messages("SYS", history, plan)
-    assert messages[-1]["content"] == FORCE_FINISH_MESSAGE
-
-
-def test_build_turn_messages_injects_next_question_from_plan():
-    plan = [{"band": "A1", "type": "gap fill"}, {"band": "A2", "type": "situation"}]
-    messages = build_turn_messages("SYS", [], plan)
-    assert "gap fill" in messages[-1]["content"]
-    assert "1 of 2" in messages[-1]["content"]
 
 
 def test_diagnosis_config_defaults(monkeypatch):

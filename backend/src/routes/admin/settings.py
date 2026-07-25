@@ -33,6 +33,7 @@ from src.services.aia_diagnosis_chat import (
     ANSWER_MAX_CHARS_SETTING,
     DEFAULT_ANSWER_MAX_CHARS,
     DEFAULT_DIAGNOSIS_PROMPT,
+    DEFAULT_GERMAN_QUESTION_PLAN,
     DEFAULT_GRADING_RULES,
     DEFAULT_LEVEL_EXAMPLES,
     EXAMPLE_LEVELS,
@@ -40,10 +41,8 @@ from src.services.aia_diagnosis_chat import (
     LEVEL_EXAMPLES_SETTING,
     MAX_MESSAGE_CHARS,
     MAX_PROMPT_CHARS,
-    QUESTION_PLAN,
     QUESTION_PLAN_SETTING,
-    VALID_BANDS,
-    VALID_QUESTION_TYPES,
+    question_plan_is_valid,
 )
 from src.services.aia_adaptive_chat import DEFAULT_ADAPTIVE_BEHAVIOR
 
@@ -124,7 +123,10 @@ async def get_settings(_admin=Depends(get_admin_user)):
         # Question plan. Empty stored string means "default active"; the frontend
         # falls back to the default plan for its table.
         "language_diagnosis_question_plan_de": db.get_setting(QUESTION_PLAN_SETTING, ""),
-        "language_diagnosis_question_plan_default": QUESTION_PLAN,
+        # The German config tab prefills and resets to the shipped authored German
+        # set (options, correct flags, examples), which is also what a German
+        # diagnosis runs with when nothing is stored.
+        "language_diagnosis_question_plan_default": DEFAULT_GERMAN_QUESTION_PLAN,
         "language_diagnosis_answer_max_chars": int(
             db.get_setting(ANSWER_MAX_CHARS_SETTING, str(DEFAULT_ANSWER_MAX_CHARS))
         ),
@@ -187,33 +189,20 @@ async def update_settings(
         db.set_setting("language_diagnosis_prompt", stripped or DEFAULT_DIAGNOSIS_PROMPT)
 
     # Question plan (JSON). Empty string is the reset gesture (default plan). A
-    # non-empty value must be a valid plan: a list of {band, type} with an
-    # optional text. Muck is rejected with a 400 so a typo cannot silently store
-    # something the diagnosis then falls back away from.
+    # non-empty value must be a valid plan: a list of {band, type} with optional
+    # text, an option set (with a correct flag) for option types, or an example
+    # for free-text types. Muck is rejected with a 400 so a typo cannot silently
+    # store something the diagnosis then falls back away from.
     if body.language_diagnosis_question_plan_de is not None:
         stripped = body.language_diagnosis_question_plan_de.strip()
         if not stripped:
             db.set_setting(QUESTION_PLAN_SETTING, "")
-        else:
-            try:
-                items = json.loads(stripped)
-            except json.JSONDecodeError:
-                items = None
-            valid = (
-                isinstance(items, list)
-                and bool(items)
-                and all(
-                    isinstance(it, dict)
-                    and it.get("band") in VALID_BANDS
-                    and it.get("type") in VALID_QUESTION_TYPES
-                    for it in items
-                )
+        elif not question_plan_is_valid(stripped):
+            raise HTTPException(
+                status_code=400,
+                detail=t("admin.settings.diagnosisPlanInvalid", locale),
             )
-            if not valid:
-                raise HTTPException(
-                    status_code=400,
-                    detail=t("admin.settings.diagnosisPlanInvalid", locale),
-                )
+        else:
             db.set_setting(QUESTION_PLAN_SETTING, stripped)
 
     # Soft answer-length cap (chars). Bounded 1..MAX_MESSAGE_CHARS: it only drives
