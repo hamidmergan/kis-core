@@ -39,23 +39,43 @@ export function LearnerProfilePanel() {
   const tDiag = useTranslations("workspace.detail.languageTraining.diagnosis");
   const [profile, setProfile] = useState<Profile | null>(null);
   const [busy, setBusy] = useState(false);
+  // A single slot for the last failed action. Every mutation below only
+  // updates local state after the server confirms (res.ok); on a failed or
+  // thrown request the previous state is left untouched and this is set
+  // instead, so the UI never shows a false "done" (a still-tracked weakness
+  // looking deleted, tracking looking off while it is still on server-side).
+  const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     try {
       const res = await fetch("/api/ai-assistant/learner-profile", { credentials: "include" });
-      if (res.ok) setProfile(await res.json());
-    } catch { /* ignore */ }
-  }, []);
+      if (res.ok) {
+        setProfile(await res.json());
+        setError(null);
+      } else {
+        setError(t("loadFailed"));
+      }
+    } catch {
+      setError(t("loadFailed"));
+    }
+  }, [t]);
 
   useEffect(() => { void load(); }, [load]);
 
   const removeOne = async (id: number) => {
     setBusy(true);
     try {
-      await fetch(`/api/ai-assistant/learner-profile/weaknesses/${id}`, {
+      const res = await fetch(`/api/ai-assistant/learner-profile/weaknesses/${id}`, {
         method: "DELETE", credentials: "include",
       });
-      setProfile((prev) => (prev ? { ...prev, weaknesses: prev.weaknesses.filter((w) => w.id !== id) } : prev));
+      if (res.ok) {
+        setProfile((prev) => (prev ? { ...prev, weaknesses: prev.weaknesses.filter((w) => w.id !== id) } : prev));
+        setError(null);
+      } else {
+        setError(t("actionFailed"));
+      }
+    } catch {
+      setError(t("actionFailed"));
     } finally {
       setBusy(false);
     }
@@ -65,10 +85,17 @@ export function LearnerProfilePanel() {
     if (!window.confirm(t("clearAllConfirm"))) return;
     setBusy(true);
     try {
-      await fetch("/api/ai-assistant/learner-profile/weaknesses", {
+      const res = await fetch("/api/ai-assistant/learner-profile/weaknesses", {
         method: "DELETE", credentials: "include",
       });
-      setProfile((prev) => (prev ? { ...prev, weaknesses: [] } : prev));
+      if (res.ok) {
+        setProfile((prev) => (prev ? { ...prev, weaknesses: [] } : prev));
+        setError(null);
+      } else {
+        setError(t("actionFailed"));
+      }
+    } catch {
+      setError(t("actionFailed"));
     } finally {
       setBusy(false);
     }
@@ -77,13 +104,23 @@ export function LearnerProfilePanel() {
   const setEnabled = async (enabled: boolean) => {
     setBusy(true);
     try {
-      await fetch("/api/ai-assistant/learner-profile/enabled", {
+      const res = await fetch("/api/ai-assistant/learner-profile/enabled", {
         method: "PUT",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ enabled }),
       });
-      setProfile((prev) => (prev ? { ...prev, enabled } : prev));
+      // Only reflect the new value once the server confirms it: flipping the
+      // switch optimistically would risk showing tracking as off while it is
+      // still on, which is the one state this control must never fake.
+      if (res.ok) {
+        setProfile((prev) => (prev ? { ...prev, enabled } : prev));
+        setError(null);
+      } else {
+        setError(t("actionFailed"));
+      }
+    } catch {
+      setError(t("actionFailed"));
     } finally {
       setBusy(false);
     }
@@ -94,7 +131,11 @@ export function LearnerProfilePanel() {
   };
 
   if (!profile) {
-    return <p className="text-sm" style={{ color: "var(--muted)" }}>{t("loading")}</p>;
+    return (
+      <p className="text-sm" style={{ color: error ? "var(--error)" : "var(--muted)" }}>
+        {error ?? t("loading")}
+      </p>
+    );
   }
 
   const presentCategories = CATEGORY_ORDER.filter((c) => profile.weaknesses.some((w) => w.category === c));
@@ -203,6 +244,10 @@ export function LearnerProfilePanel() {
           {t("exportMd")}
         </button>
       </div>
+
+      {error && (
+        <p className="text-xs" style={{ color: "var(--error)" }}>{error}</p>
+      )}
     </div>
   );
 }

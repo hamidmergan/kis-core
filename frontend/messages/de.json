@@ -1742,7 +1742,9 @@
         "trackingTitle": "Tracking",
         "trackingDescription": "Speichert, wo du noch Schwierigkeiten hast, damit dir gezielter geholfen wird.",
         "trackingOffHint": "Tracking ist aus. Es werden keine neuen Schwächen mehr gespeichert.",
-        "exportMd": "Als Datei speichern"
+        "exportMd": "Als Datei speichern",
+        "actionFailed": "Aktion fehlgeschlagen. Bitte versuche es noch einmal.",
+        "loadFailed": "Lernprofil konnte nicht geladen werden. Bitte versuche es noch einmal."
       },
       "subviewHeader": {
         "back": "Zurück"

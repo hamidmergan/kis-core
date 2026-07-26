@@ -1742,7 +1742,9 @@
         "trackingTitle": "Tracking",
         "trackingDescription": "Records where you still struggle, so you get more targeted help.",
         "trackingOffHint": "Tracking is off. No new weaknesses are being recorded.",
-        "exportMd": "Save as file"
+        "exportMd": "Save as file",
+        "actionFailed": "Action failed. Please try again.",
+        "loadFailed": "Could not load the learner profile. Please try again."
       },
       "subviewHeader": {
         "back": "Back"
