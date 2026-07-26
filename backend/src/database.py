@@ -25,5 +25,6 @@ from src.features.ai_assistant.repository.glossary import *  # noqa: F401,F403
 from src.features.ai_assistant.repository.exercises import *  # noqa: F401,F403
 from src.features.ai_assistant.repository.stats import *  # noqa: F401,F403
 from src.features.ai_assistant.repository.language_level import *  # noqa: F401,F403
+from src.features.ai_assistant.repository.learner_profile import *  # noqa: F401,F403
 from src.features.ai_providers.repository.providers import *  # noqa: F401,F403
 from src.features.ai_providers.repository.feature_routes import *  # noqa: F401,F403

@@ -142,6 +142,11 @@ async def get_settings(_admin=Depends(get_admin_user)):
         "language_diagnosis_level_examples": db.get_setting(LEVEL_EXAMPLES_SETTING, ""),
         "language_diagnosis_level_examples_default": DEFAULT_LEVEL_EXAMPLES,
         "language_diagnosis_example_levels": EXAMPLE_LEVELS,
+        # Lernprofil: how many days a tracked weakness keeps decaying before it
+        # drops out of the profile entirely.
+        "learner_profile_window_days": int(
+            db.get_setting("learner_profile_window_days", "30")
+        ),
     }
 
 
@@ -264,6 +269,12 @@ async def update_settings(
                     detail=t("admin.settings.diagnosisExamplesInvalid", locale),
                 )
             db.set_setting(LEVEL_EXAMPLES_SETTING, stripped)
+
+    # Lernprofil decay window (days). Bounded to at least 1 so the profile can
+    # never be configured into decaying everything instantly.
+    if body.learner_profile_window_days is not None:
+        days = max(1, int(body.learner_profile_window_days))
+        db.set_setting("learner_profile_window_days", str(days))
 
     # UI label overrides for "Workspace" (per UI locale)
     for label_key in (

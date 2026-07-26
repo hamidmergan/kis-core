@@ -777,6 +777,31 @@ def init_db(admin_email: Optional[str] = None) -> None:
                     answered_at TIMESTAMP NOT NULL DEFAULT NOW()
                 )
             """)
+            # ─── Learner Profile (adaptive weakness tracking) ────
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS aia_learner_weakness (
+                    id            SERIAL PRIMARY KEY,
+                    user_id       INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                    category      TEXT NOT NULL,
+                    key_norm      TEXT NOT NULL,
+                    label         TEXT NOT NULL,
+                    source_id     INTEGER REFERENCES aia_sources(id) ON DELETE SET NULL,
+                    weight        REAL NOT NULL DEFAULT 0,
+                    hit_count     INTEGER NOT NULL DEFAULT 0,
+                    first_seen_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                    last_seen_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                    UNIQUE (user_id, category, key_norm)
+                )
+            """)
+            cur.execute(
+                "CREATE INDEX IF NOT EXISTS idx_learner_weakness_user "
+                "ON aia_learner_weakness(user_id, last_seen_at)"
+            )
+            # Global per-user off-switch for weakness tracking, on by default.
+            cur.execute(
+                "ALTER TABLE users ADD COLUMN IF NOT EXISTS "
+                "learning_profile_enabled BOOLEAN NOT NULL DEFAULT TRUE"
+            )
             # ─── Streak Tracking ────────────────────────────────
             cur.execute("""
                 CREATE TABLE IF NOT EXISTS aia_streaks (
