@@ -46,13 +46,14 @@ def test_default_behavior_carries_both_placeholders():
 
 def test_default_behavior_overrides_and_covers_the_bands():
     """The default must be assertive enough to beat the RAG completeness rules,
-    and it must give a rule for every band. Regression for the fix where the
-    adaptation was present but did not visibly change the answer."""
+    and it must give a rule for every band A1..C2. Regression for the fix where
+    the adaptation was present but did not visibly change the answer."""
     b = DEFAULT_ADAPTIVE_BEHAVIOR
     assert "OVERRIDES" in b
     assert "A1 or A2" in b
-    assert "B1" in b
-    assert "Above B1" in b
+    assert "B1:" in b
+    assert "B2:" in b
+    assert "C1 or C2" in b
     # Consistent informal address, so it does not flip between du and Sie.
     assert '"du"' in b and '"Sie"' in b
 
@@ -64,10 +65,17 @@ def test_example_for_level_picks_the_matching_band():
     assert example_for_level("B1", examples) == "drei"
 
 
-def test_example_for_level_borrows_b2_for_b1plus():
+def test_example_for_level_covers_the_upper_bands():
     from src.services.aia_adaptive_chat import example_for_level
-    examples = {"A1": "eins", "A2": "zwei", "B1": "drei", "B2": "vier"}
-    assert example_for_level("B1+", examples) == "vier"
+    examples = {"A1": "eins", "B2": "vier", "C1": "fuenf", "C2": "sechs"}
+    assert example_for_level("B2", examples) == "vier"
+    assert example_for_level("C1", examples) == "fuenf"
+    assert example_for_level("C2", examples) == "sechs"
+
+
+def test_example_for_level_empty_when_band_has_no_example():
+    from src.services.aia_adaptive_chat import example_for_level
+    assert example_for_level("C2", {"A1": "eins"}) == ""
 
 
 def test_example_for_level_joins_multiple_examples():

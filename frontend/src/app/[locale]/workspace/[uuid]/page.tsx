@@ -585,6 +585,7 @@ export default function KiTutorWorkspacePage() {
           onToggleLanguageTraining={() => setLanguageTrainingActive((v) => !v)}
           isLecturer={isLecturer}
           isOwner={moduleDetail?.is_owner ?? false}
+          isAdmin={isAdmin}
           hideHeader={hideHeader}
           onToggleHideHeader={() => setHideHeader((v) => !v)}
           translationMode={translationMode}

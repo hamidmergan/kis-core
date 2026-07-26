@@ -14,18 +14,12 @@ export const DIAGNOSIS_ANSWER_MAX_CHARS = 2000;
 /** Fallback question count. The live value comes from the admin-configurable
  *  /language-diagnosis/config endpoint (len of the question plan); this constant
  *  only applies until that call lands or if it fails. Used for the "question X of
- *  N" counter. */
-export const DIAGNOSIS_QUESTION_COUNT = 8;
+ *  N" counter. Matches the shipped default plan (A1..C2, two per band). */
+export const DIAGNOSIS_QUESTION_COUNT = 12;
 
-// Four outcomes only. "B1+" is everything above B1 (no language support needed);
-// it renders as "Über B1". See VALID_LEVELS in aia_diagnosis_chat.py.
-export type CEFRLevel = "A1" | "A2" | "B1" | "B1+";
-
-/** Learner-facing label for a stored level. "B1+" has no CEFR glyph, so it uses
- *  the localized "Über B1" string; the plain bands show as themselves. */
-export function levelLabel(level: string, aboveB1Label: string): string {
-  return level === "B1+" ? aboveB1Label : level;
-}
+// The six CEFR outcomes. Every one is a plain CEFR glyph shown as itself. See
+// VALID_LEVELS in aia_diagnosis_chat.py.
+export type CEFRLevel = "A1" | "A2" | "B1" | "B2" | "C1" | "C2";
 export type Skill = "grammar" | "vocabulary" | "reading" | "writing" | "pragmatics";
 
 export interface ChatTurn {

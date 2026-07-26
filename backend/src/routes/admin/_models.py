@@ -62,8 +62,8 @@ class UpdateSettingsRequest(BaseModel):
     # the workspace language is substituted for the {language} placeholder. An
     # empty string restores the shipped default.
     language_diagnosis_prompt: str | None = None
-    # Question plan as a JSON string (list of {"band","type","text"?}). Empty
-    # string restores the shipped default plan.
+    # Question plan as a JSON string (list of {"type","text"?}). Empty string
+    # restores the shipped default plan.
     language_diagnosis_question_plan_de: str | None = None
     # Soft UI cap for the diagnosis answer length (chars). Hard-capped server-side
     # to MAX_MESSAGE_CHARS.
@@ -73,7 +73,7 @@ class UpdateSettingsRequest(BaseModel):
     language_diagnosis_adaptive_behavior: str | None = None
     # Grading rules (LEVEL ASSIGNMENT). Empty string restores the shipped default.
     language_diagnosis_grading_rules: str | None = None
-    # Per-level calibration examples as a JSON object {"A1":..,"A2":..,"B1":..,"B2":..}.
+    # Per-level calibration examples as a JSON object {"A1":..,..,"C1":..,"C2":..}.
     # Empty string restores the shipped defaults.
     language_diagnosis_level_examples: str | None = None
     # Lernprofil: admin-configurable decay window (days) for tracked weaknesses.

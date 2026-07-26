@@ -21,7 +21,6 @@ from src.services.aia_diagnosis_chat import (
     DEFAULT_DIAGNOSIS_PROMPT,
     FINAL_INSTRUCTION,
     KICKOFF_MESSAGE,
-    QUESTION_BANDS,
     QUESTION_COUNT,
     QUESTION_PLAN,
     PROMPT_PLACEHOLDER,
@@ -77,7 +76,7 @@ def test_default_prompt_defines_all_six_task_types():
                       "reading comprehension", "free writing", "situation"):
         assert task_type in DEFAULT_DIAGNOSIS_PROMPT
     # The type is dictated per question, not chosen by the model.
-    assert "THE TASK TYPES, fixed per question" in DEFAULT_DIAGNOSIS_PROMPT
+    assert "THE TASK TYPES are" in DEFAULT_DIAGNOSIS_PROMPT
 
 
 def test_default_prompt_returns_options_as_structured_data_not_letters():
@@ -122,32 +121,41 @@ def test_default_prompt_builds_items_like_a_placement_test():
     assert "paraphrase" in DEFAULT_DIAGNOSIS_PROMPT
 
 
-def test_difficulty_ladder_stays_language_agnostic():
-    """The ladder names categories, so it survives a workspace set to any
-    language; naming a concrete rule would silently make it German-only."""
-    ladder = DEFAULT_DIAGNOSIS_PROMPT[DEFAULT_DIAGNOSIS_PROMPT.find("DIFFICULTY LADDER"):]
-    assert "DIFFICULTY LADDER" in DEFAULT_DIAGNOSIS_PROMPT
-    for band in ("A1 (questions 1-2)", "A2 (questions 3-4)",
-                 "B1 (questions 5-6)", "B2 (questions 7-8)"):
-        assert band in ladder
-    assert PROMPT_PLACEHOLDER in ladder
+def test_difficulty_range_stays_language_agnostic():
+    """The difficulty range names categories, so it survives a workspace set to
+    any language; naming a concrete rule would silently make it German-only."""
+    section = DEFAULT_DIAGNOSIS_PROMPT[DEFAULT_DIAGNOSIS_PROMPT.find("DIFFICULTY RANGE"):]
+    assert "DIFFICULTY RANGE" in DEFAULT_DIAGNOSIS_PROMPT
+    for level in ("A1:", "A2:", "B1:", "B2:", "C1:", "C2:"):
+        assert level in section
+    assert PROMPT_PLACEHOLDER in section
 
 
-def test_default_prompt_is_a_fixed_staircase_not_adaptive():
-    """The whole point of the redesign: fixed length, fixed difficulty per slot."""
-    assert "FIXED STAIRCASE" in DEFAULT_DIAGNOSIS_PROMPT
-    assert "exactly 8 questions" in DEFAULT_DIAGNOSIS_PROMPT
-    assert "fixed staircase, not adaptive" in DEFAULT_DIAGNOSIS_PROMPT
+def test_default_prompt_is_a_fixed_set_not_adaptive():
+    """Fixed length and task types, difficulty rising by position, not adapting to
+    the answers."""
+    assert "RISES FROM EASY TO HARD" in DEFAULT_DIAGNOSIS_PROMPT
+    assert "fixed set of questions" in DEFAULT_DIAGNOSIS_PROMPT
+    assert "not adaptive testing" in DEFAULT_DIAGNOSIS_PROMPT
 
 
-def test_default_prompt_uses_only_the_four_outcomes():
-    """B1+ is the top outcome; the grading rules must not offer C1/C2 as verdicts."""
+def test_default_prompt_places_from_the_learners_answers_not_a_question_label():
+    """The redesign: questions carry no CEFR level, the model reads the answers."""
+    assert "carry no level of their own" in DEFAULT_DIAGNOSIS_PROMPT
+    assert "carry NO CEFR level" in DEFAULT_DIAGNOSIS_PROMPT
+    assert "CALIBRATION EXAMPLES" in DEFAULT_DIAGNOSIS_PROMPT
+
+
+def test_default_prompt_uses_the_full_cefr_ladder():
+    """The scale runs A1..C2; the grading rules and output format must offer all
+    six, and the old collapsed 'B1+' outcome must be gone everywhere."""
     from src.services.aia_diagnosis_chat import DEFAULT_GRADING_RULES
-    assert "B1+" in DEFAULT_GRADING_RULES
-    for gone in ("C1:", "C2:"):
-        assert gone not in DEFAULT_GRADING_RULES
-    # And the OUTPUT FORMAT still constrains the verdict to the four outcomes.
-    assert '"A1", "A2", "B1", "B1+"' in DEFAULT_DIAGNOSIS_PROMPT
+    assert "B1+" not in DEFAULT_GRADING_RULES
+    for level in ("C1:", "C2:"):
+        assert level in DEFAULT_GRADING_RULES
+    # The OUTPUT FORMAT constrains the verdict to the six CEFR levels.
+    assert '"A1", "A2", "B1", "B2", "C1", "C2"' in DEFAULT_DIAGNOSIS_PROMPT
+    assert "B1+" not in DEFAULT_DIAGNOSIS_PROMPT
 
 
 def test_default_prompt_forbids_bracketed_hints():
@@ -157,18 +165,29 @@ def test_default_prompt_forbids_bracketed_hints():
 
 
 def test_default_prompt_names_the_outcomes_and_skills():
-    for level in ("A1", "A2", "B1", "B1+"):
+    for level in ("A1", "A2", "B1", "B2", "C1", "C2"):
         assert level in DEFAULT_DIAGNOSIS_PROMPT
     for skill in REQUIRED_SKILLS:
         assert skill in DEFAULT_DIAGNOSIS_PROMPT
 
 
-def test_grading_rules_read_the_ladder_as_a_ceiling():
-    """A slip on an easy question must not cap a learner who copes higher up."""
+def test_grading_rules_are_holistic_not_a_ladder():
+    """Placement is by overall quality, weighing free-text production most, not a
+    fixed per-question ladder."""
     from src.services.aia_diagnosis_chat import DEFAULT_GRADING_RULES
-    assert "ceiling" in DEFAULT_GRADING_RULES
-    # And a single lucky hit must not promote.
-    assert "lucky" in DEFAULT_GRADING_RULES or "one of a band" in DEFAULT_GRADING_RULES
+    assert "OVERALL quality" in DEFAULT_GRADING_RULES
+    assert "no fixed ladder" in DEFAULT_GRADING_RULES
+    assert "free-text" in DEFAULT_GRADING_RULES
+    # A single answer must not swing the level.
+    assert "Do not over-read a single answer" in DEFAULT_GRADING_RULES
+
+
+def test_grading_rules_require_production_for_high_levels():
+    """Multiple choice is recognition, not production: C1/C2 must rest on the
+    free-text answers, so an all-multiple-choice plan cannot mint a high level."""
+    from src.services.aia_diagnosis_chat import DEFAULT_GRADING_RULES
+    assert "Recognition is not production" in DEFAULT_GRADING_RULES
+    assert "C1 or C2" in DEFAULT_GRADING_RULES
 
 
 # ─── Parsing: interview continues (final call may still emit a running turn) ─
@@ -262,13 +281,14 @@ def test_parse_rejects_empty_message():
         parse_turn_response(json.dumps({"done": False, "message": "   "}))
 
 
-def test_parse_accepts_b1_plus_as_the_top_outcome():
-    assert parse_turn_response(_final(level="B1+"))["level"] == "B1+"
+@pytest.mark.parametrize("level", ["A1", "A2", "B1", "B2", "C1", "C2"])
+def test_parse_accepts_every_cefr_level(level):
+    assert parse_turn_response(_final(level=level))["level"] == level
 
 
-@pytest.mark.parametrize("level", ["B2", "C1", "C2", "B3", "A0"])
-def test_parse_rejects_levels_outside_the_four_outcomes(level):
-    """The set shrank to A1/A2/B1/B1+, so the old CEFR bands must now be refused."""
+@pytest.mark.parametrize("level", ["B1+", "B3", "A0", "D1", "c1", ""])
+def test_parse_rejects_levels_outside_the_ladder(level):
+    """B1+ is gone; only the six canonical CEFR codes are accepted."""
     with pytest.raises(DiagnosisChatError):
         parse_turn_response(_final(level=level))
 
@@ -329,7 +349,7 @@ def test_next_question_message_has_no_options_directive_for_free_text():
     msg = next_question_message(3, QUESTION_PLAN)  # error correction -> no options
     assert AUTO_OPTIONS_DIRECTIVE.strip() not in msg
     assert "error correction" in msg
-    assert "A2" in msg
+    assert "3 of" in msg  # difficulty follows position, not a band
 
 
 def test_next_question_message_uses_verbatim_text_when_present():
@@ -361,16 +381,16 @@ def test_build_final_messages_carries_the_record_to_one_user_turn():
 
 # ─── Plan shape ────────────────────────────────────────────────────────────
 
-def test_plan_is_eight_rising_steps_two_per_band():
-    assert QUESTION_COUNT == 8
-    assert QUESTION_BANDS == ["A1", "A1", "A2", "A2", "B1", "B1", "B2", "B2"]
+def test_plan_is_twelve_type_only_slots():
+    assert QUESTION_COUNT == 12
+    # Questions carry no band any more: only a task type.
+    assert all(set(step) <= {"type"} for step in QUESTION_PLAN)
     types = [step["type"] for step in QUESTION_PLAN]
     assert set(types) == {"gap fill", "multiple choice", "error correction",
                           "reading comprehension", "situation", "free writing"}
-    assert types.count("multiple choice") == 3
-    order = ["A1", "A2", "B1", "B2"]
-    ranks = [order.index(b) for b in QUESTION_BANDS]
-    assert ranks == sorted(ranks)
+    # At least two free-text slots, since free text carries the placement.
+    free_text = sum(t in {"error correction", "free writing"} for t in types)
+    assert free_text >= 2
 
 
 # ─── Admin-configurable question plan (old shapes stay valid) ──────────────
@@ -384,21 +404,29 @@ def test_parse_question_plan_invalid_json_returns_default():
     assert parse_question_plan("{not json") == QUESTION_PLAN
 
 
-def test_parse_question_plan_rejects_bad_band_or_type():
-    bad_band = json.dumps([{"band": "C1", "type": "gap fill"}])
-    bad_type = json.dumps([{"band": "A1", "type": "essay"}])
-    assert parse_question_plan(bad_band) == QUESTION_PLAN
+def test_parse_question_plan_rejects_bad_type():
+    bad_type = json.dumps([{"type": "essay"}])
     assert parse_question_plan(bad_type) == QUESTION_PLAN
+
+
+def test_parse_question_plan_ignores_a_legacy_band():
+    """Older plans carried a CEFR band; it is now stripped, not rejected."""
+    raw = json.dumps([{"band": "A1", "type": "gap fill"},
+                      {"band": "C2", "type": "free writing"}])
+    assert parse_question_plan(raw) == [
+        {"type": "gap fill"},
+        {"type": "free writing"},
+    ]
 
 
 def test_parse_question_plan_accepts_valid_plan_with_optional_text():
     raw = json.dumps([
-        {"band": "A1", "type": "gap fill"},
-        {"band": "B2", "type": "free writing", "text": "Schreibe drei Sätze über deinen Tag."},
+        {"type": "gap fill"},
+        {"type": "free writing", "text": "Schreibe drei Sätze über deinen Tag."},
     ])
     assert parse_question_plan(raw) == [
-        {"band": "A1", "type": "gap fill"},
-        {"band": "B2", "type": "free writing", "text": "Schreibe drei Sätze über deinen Tag."},
+        {"type": "gap fill"},
+        {"type": "free writing", "text": "Schreibe drei Sätze über deinen Tag."},
     ]
 
 
@@ -422,15 +450,15 @@ def test_parse_level_examples_merges_partial_override_onto_defaults():
 def test_parse_level_examples_ignores_unknown_keys_and_bad_json():
     from src.services.aia_diagnosis_chat import parse_level_examples, DEFAULT_LEVEL_EXAMPLES
     assert parse_level_examples("{oops") == DEFAULT_LEVEL_EXAMPLES
-    out = parse_level_examples(json.dumps({"C1": "nope", "A1": "Ja."}))
-    assert "C1" not in out
+    out = parse_level_examples(json.dumps({"D1": "nope", "A1": "Ja."}))
+    assert "D1" not in out
     assert out["A1"] == "Ja."
 
 
-def test_build_examples_block_lists_all_four_examples():
+def test_build_examples_block_lists_every_example():
     from src.services.aia_diagnosis_chat import build_examples_block, DEFAULT_LEVEL_EXAMPLES
     block = build_examples_block(DEFAULT_LEVEL_EXAMPLES)
-    for level in ("A1", "A2", "B1", "B2"):
+    for level in ("A1", "A2", "B1", "B2", "C1", "C2"):
         assert f"- {level}:" in block
     assert "Am Samstag gehe ich ins Kino." in block
     assert "Ich arbeite in einem Büro." in block
@@ -525,8 +553,8 @@ def test_error_without_status_does_not_disable_json_mode():
     assert not _rejects_json_mode(_ProviderError("connection reset"))
 
 
-def test_question_count_is_eight():
-    assert QUESTION_COUNT == 8
+def test_question_count_is_twelve():
+    assert QUESTION_COUNT == 12
 
 
 def test_diagnosis_config_defaults(monkeypatch):

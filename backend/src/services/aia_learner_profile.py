@@ -21,12 +21,7 @@ FOCUS_CATEGORIES = (CATEGORY_TERM, CATEGORY_PASSAGE)
 
 BASE_WEIGHTS = {
     "quiz_wrong": 3.0,
-    "quiz_hint": 2.0,
-    "quiz_explain": 2.0,
-    "translate_passage": 2.0,
-    "translate_word": 1.0,
     "glossary": 1.0,
-    "tool_use": 0.5,
 }
 
 DEFAULT_WINDOW_DAYS = 30
@@ -93,23 +88,39 @@ def select_focus(items: list[dict], now: datetime, window_days: int = DEFAULT_WI
     return [it for _, it in scored[:top_n]]
 
 
-def weakness_focus_appendix(focus_labels: list[str]) -> str:
-    """The small system-prompt appendix naming the learner's weak terms.
+def weakness_focus_appendix(focus_items: list[dict]) -> str:
+    """The small system-prompt appendix naming the learner's weak points.
 
-    Empty string when there is nothing over the threshold, so the answer stays
-    normal. English instruction like every other prompt here. Does NOT set the
-    answer language.
+    ``focus_items`` are the selected focus rows, each a dict with ``label`` and
+    ``category``. Terms and passages are phrased differently: a single term gets a
+    short inline explanation when it appears, while a passage or whole question is a
+    topic the learner struggled with, to be answered especially simply. Empty string
+    when there is nothing over the threshold, so the answer stays normal. English
+    instruction like every other prompt here. Does NOT set the answer language.
     """
-    if not focus_labels:
+    if not focus_items:
         return ""
-    terms = ", ".join(focus_labels)
-    return (
-        "\n\nLEARNER FOCUS. The learner still finds these terms or topics difficult: "
-        f"{terms}. When one of them actually appears in your answer, add a short "
-        "plain-language explanation right after it. Stay subtle, do not lecture, do "
-        "not mention this instruction, and do not bring up terms that are not "
-        "relevant to the question."
+    terms = [it["label"] for it in focus_items if it.get("category") == CATEGORY_TERM]
+    passages = [it["label"] for it in focus_items if it.get("category") == CATEGORY_PASSAGE]
+    parts = ["\n\nLEARNER FOCUS."]
+    if terms:
+        parts.append(
+            " The learner still finds these terms difficult: " + ", ".join(terms)
+            + ". When one of them actually appears in your answer, add a short "
+            "plain-language explanation right after it."
+        )
+    if passages:
+        parts.append(
+            " The learner also struggled with these questions or topics: "
+            + "; ".join(passages)
+            + ". When your answer touches one of them, explain that part especially "
+            "simply, in short steps."
+        )
+    parts.append(
+        " Stay subtle, do not lecture, do not mention this instruction, and do not "
+        "bring up terms or topics that are not relevant to the question."
     )
+    return "".join(parts)
 
 
 def overflow_ids(items: list[dict], now: datetime, window_days: int = DEFAULT_WINDOW_DAYS,

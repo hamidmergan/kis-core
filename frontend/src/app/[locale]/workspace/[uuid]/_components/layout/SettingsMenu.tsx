@@ -5,7 +5,6 @@ import { useTranslations } from "next-intl";
 import Modal from "@/components/ui/Modal";
 import Select from "@/components/ui/Select";
 import { useMascotPref, type MascotMode } from "@/hooks/useMascotPref";
-import { levelLabel } from "../language_training/_diagnosis_types";
 import { LearnerProfilePanel } from "../LearnerProfilePanel";
 import type { TranscriptTranslationMode, TranscriptDefaultLang } from "../../_types";
 
@@ -17,6 +16,7 @@ interface SettingsMenuProps {
   language_trainingActive: boolean;
   onToggleLanguageTraining: () => void;
   isOwner: boolean;
+  isAdmin: boolean;
   translationMode: TranscriptTranslationMode;
   onChangeTranslationMode: (mode: TranscriptTranslationMode) => void;
   transcriptDefaultLang: TranscriptDefaultLang;
@@ -73,6 +73,7 @@ export function SettingsMenu({
   language_trainingActive,
   onToggleLanguageTraining,
   isOwner,
+  isAdmin,
   translationMode,
   onChangeTranslationMode,
   transcriptDefaultLang,
@@ -129,7 +130,7 @@ export function SettingsMenu({
     { value: "francis" as const, label: t("mascotFrancis") },
   ];
 
-  if (showLearnerProfile) {
+  if (showLearnerProfile && isAdmin) {
     return (
       <Modal open={open} onClose={onClose} title={t("learnerProfileTitle")} size="lg">
         <div className="flex flex-col gap-4">
@@ -176,25 +177,32 @@ export function SettingsMenu({
           onToggle={onToggleLanguageTraining}
           disabled={!studioEnabled}
         />
-        <div className="flex items-center justify-between gap-4">
-          <div className="min-w-0 flex-1">
-            <p className="text-sm font-medium" style={{ color: "var(--foreground)" }}>{t("learnerProfileTitle")}</p>
-            <p className="text-xs mt-0.5" style={{ color: "var(--muted)" }}>{t("learnerProfileDescription")}</p>
+        {/* Admin-only: the learner profile is a debugging/insight view. It confuses
+            regular users, so only an admin sees the entry (and can open it). */}
+        {isAdmin && (
+          <div className="flex items-center justify-between gap-4">
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-medium flex items-center gap-1.5" style={{ color: "var(--foreground)" }}>
+                <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold uppercase tracking-wide" style={{ backgroundColor: "var(--kb)", color: "white" }}>{t("learnerProfileAdminOnly")}</span>
+                {t("learnerProfileTitle")}
+              </p>
+              <p className="text-xs mt-0.5" style={{ color: "var(--muted)" }}>{t("learnerProfileDescription")}</p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setShowLearnerProfile(true)}
+              className="px-3 py-1.5 text-xs rounded-md border"
+              style={{ borderColor: "var(--border)", color: "var(--foreground)" }}
+            >
+              {t("learnerProfileOpen")}
+            </button>
           </div>
-          <button
-            type="button"
-            onClick={() => setShowLearnerProfile(true)}
-            className="px-3 py-1.5 text-xs rounded-md border"
-            style={{ borderColor: "var(--border)", color: "var(--foreground)" }}
-          >
-            {t("learnerProfileOpen")}
-          </button>
-        </div>
+        )}
         {languageLevel && onResetLanguageLevel && (
           <div className="flex items-center justify-between gap-4">
             <div className="min-w-0 flex-1">
               <p className="text-sm font-medium" style={{ color: "var(--foreground)" }}>
-                {tDiag("resetSetting")} <span className="ml-1 px-1.5 py-0.5 rounded text-xs" style={{ backgroundColor: "var(--kb)", color: "var(--on-accent)" }}>{levelLabel(languageLevel, tDiag("levelAboveB1"))}</span>
+                {tDiag("resetSetting")} <span className="ml-1 px-1.5 py-0.5 rounded text-xs" style={{ backgroundColor: "var(--kb)", color: "var(--on-accent)" }}>{languageLevel}</span>
               </p>
               <p className="text-xs mt-0.5" style={{ color: "var(--muted)" }}>{tDiag("resetConfirmBody")}</p>
             </div>

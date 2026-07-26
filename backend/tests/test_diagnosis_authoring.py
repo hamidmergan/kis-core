@@ -41,15 +41,16 @@ from src.services.aia_diagnosis_chat import (
 
 # ─── Parsing: options + example, backwards compatible ──────────────────────
 
-def test_parse_keeps_old_band_type_text_plans_working():
-    """The old shape (band/type, optional verbatim text) must still parse 1:1."""
+def test_parse_keeps_type_text_plans_working_and_strips_legacy_band():
+    """The old shape (type, optional verbatim text) still parses; a legacy band is
+    dropped, since questions no longer carry a level."""
     raw = json.dumps([
         {"band": "A1", "type": "gap fill"},
         {"band": "B2", "type": "free writing", "text": "Schreibe drei Sätze."},
     ])
     assert parse_question_plan(raw) == [
-        {"band": "A1", "type": "gap fill"},
-        {"band": "B2", "type": "free writing", "text": "Schreibe drei Sätze."},
+        {"type": "gap fill"},
+        {"type": "free writing", "text": "Schreibe drei Sätze."},
     ]
 
 
@@ -86,14 +87,17 @@ def test_parse_accepts_multiple_correct_options():
     assert correct_values(parse_question_plan(raw)[0]) == {"eins", "zwei"}
 
 
-def test_parse_accepts_free_text_example():
+def test_parse_drops_a_free_text_example():
+    """The per-question example is gone: the model calibrates free-text answers
+    against the global CALIBRATION EXAMPLES, so a stored example is dropped."""
     raw = json.dumps([{
-        "band": "A2", "type": "error correction",
+        "type": "error correction",
         "text": "Verbessere: Ich habe gegangen nach Hause.",
         "example": "Ich bin nach Hause gegangen.",
     }])
     step = parse_question_plan(raw)[0]
-    assert step["example"] == "Ich bin nach Hause gegangen."
+    assert "example" not in step
+    assert step["text"] == "Verbessere: Ich habe gegangen nach Hause."
 
 
 def test_parse_falls_back_to_default_on_options_without_a_correct_one():
@@ -373,17 +377,18 @@ def test_grading_brief_defers_free_worded_pick_to_the_model():
     assert "Correct answer(s): ['bin']" in brief
 
 
-def test_grading_brief_includes_example_for_free_text():
-    plan = [{"band": "A2", "type": "error correction",
-             "text": "Verbessere: Ich habe gegangen.",
-             "example": "Ich bin gegangen."}]
+def test_grading_brief_for_free_text_has_no_example_line():
+    """The per-question example is gone; the brief just asks the model to judge the
+    answer's level (against the global calibration examples in the system prompt)."""
+    plan = [{"type": "error correction", "text": "Verbessere: Ich habe gegangen."}]
     history = [
         {"role": "assistant", "content": "Verbessere: Ich habe gegangen."},
         {"role": "user", "content": "Ich bin gegangen."},
     ]
     brief = build_grading_brief(plan, history)
-    assert "A good answer looks like: Ich bin gegangen." in brief
-    assert "Judge the answer" in brief
+    assert "A good answer looks like" not in brief
+    assert "Judge the answer for its language level" in brief
+    assert "Ich bin gegangen." in brief
 
 
 # ─── Language-aware default resolution ─────────────────────────────────────
@@ -403,9 +408,9 @@ def test_resolve_uses_language_agnostic_default_for_other_languages():
 
 def test_resolve_prefers_a_stored_admin_plan_over_the_defaults():
     import json as _json
-    stored = _json.dumps([{"band": "A1", "type": "free writing", "text": "Schreib was."}])
+    stored = _json.dumps([{"type": "free writing", "text": "Schreib was."}])
     plan = resolve_question_plan(stored, "de")
-    assert plan == [{"band": "A1", "type": "free writing", "text": "Schreib was."}]
+    assert plan == [{"type": "free writing", "text": "Schreib was."}]
 
 
 # ─── Save-path validation ──────────────────────────────────────────────────
@@ -423,20 +428,20 @@ def test_plan_is_valid_rejects_muck():
     import json as _json
     assert not question_plan_is_valid("{not json")
     assert not question_plan_is_valid(_json.dumps([]))
-    assert not question_plan_is_valid(_json.dumps([{"band": "C1", "type": "gap fill"}]))
+    assert not question_plan_is_valid(_json.dumps([{"type": "essay"}]))
     assert not question_plan_is_valid(_json.dumps([{
-        "band": "A1", "type": "gap fill",
+        "type": "gap fill",
         "options": [{"text": "only", "correct": False}, {"text": "b", "correct": False}],
     }]))
 
 
 # ─── The shipped German set is well-formed and fully authored ──────────────
 
-def test_german_default_matches_the_staircase_shape():
-    assert [s["band"] for s in DEFAULT_GERMAN_QUESTION_PLAN] == \
-        [s["band"] for s in QUESTION_PLAN]
+def test_german_default_matches_the_type_sequence():
     assert [s["type"] for s in DEFAULT_GERMAN_QUESTION_PLAN] == \
         [s["type"] for s in QUESTION_PLAN]
+    # No question carries a band any more: level is read from the answers.
+    assert all("band" not in s for s in DEFAULT_GERMAN_QUESTION_PLAN)
 
 
 def test_german_default_has_no_auto_slots():
@@ -460,3 +465,49 @@ def test_german_default_round_trips_through_parse_and_validation():
     raw = _json.dumps(DEFAULT_GERMAN_QUESTION_PLAN)
     assert question_plan_is_valid(raw)
     assert parse_question_plan(raw) == DEFAULT_GERMAN_QUESTION_PLAN
+
+
+# ─── Free-text minimum (save-path policy, separate from structural validity) ─
+
+def test_count_free_text_questions():
+    from src.services.aia_diagnosis_chat import count_free_text_questions
+    plan = [
+        {"band": "A1", "type": "gap fill"},
+        {"band": "A2", "type": "error correction"},
+        {"band": "B2", "type": "free writing"},
+    ]
+    assert count_free_text_questions(plan) == 2
+    assert count_free_text_questions([{"band": "A1", "type": "multiple choice"}]) == 0
+
+
+def test_plan_needs_at_least_two_free_text():
+    import json as _json
+    from src.services.aia_diagnosis_chat import question_plan_has_enough_free_text
+    too_few = _json.dumps([
+        {"band": "A1", "type": "gap fill"},
+        {"band": "A2", "type": "multiple choice"},
+        {"band": "B2", "type": "error correction"},
+    ])
+    enough = _json.dumps([
+        {"band": "A2", "type": "error correction"},
+        {"band": "B2", "type": "free writing"},
+    ])
+    assert not question_plan_has_enough_free_text(too_few)
+    assert question_plan_has_enough_free_text(enough)
+
+
+def test_plan_free_text_check_is_robust_to_muck():
+    from src.services.aia_diagnosis_chat import question_plan_has_enough_free_text
+    assert not question_plan_has_enough_free_text("{not json")
+    assert not question_plan_has_enough_free_text('{"not": "a list"}')
+
+
+def test_shipped_plans_meet_the_free_text_minimum():
+    """Regression: a default must never dip below the enforced floor, or a fresh
+    install would ship a plan the save path would then reject."""
+    import json as _json
+    from src.services.aia_diagnosis_chat import (
+        question_plan_has_enough_free_text, QUESTION_PLAN, DEFAULT_GERMAN_QUESTION_PLAN,
+    )
+    assert question_plan_has_enough_free_text(_json.dumps(QUESTION_PLAN))
+    assert question_plan_has_enough_free_text(_json.dumps(DEFAULT_GERMAN_QUESTION_PLAN))

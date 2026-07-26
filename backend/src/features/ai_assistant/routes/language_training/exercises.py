@@ -104,7 +104,6 @@ async def create_exercise_set(
     is_enrolled = db.is_student_enrolled(workspace["id"], user_id)
     if not is_owner and not is_enrolled:
         raise HTTPException(status_code=403, detail=t("workspace.accessDenied", locale))
-    db.record_weakness(user_id, "tool", "tool_use", "Quiz")
 
     enforce_aia_burst(user_id, locale)
     enforce_quota(user_id, "aia_generate", is_admin_user(current_user), locale)
@@ -219,30 +218,10 @@ async def record_set_progress(
             if not _term:
                 continue
             if _r["correct"]:
-                db.graduate_learner_term(user_id, _term)
+                db.graduate_learner_term(user_id, workspace["id"], _term)
             else:
-                db.record_weakness(user_id, "term", "quiz_wrong", _term)
+                db.record_weakness(user_id, workspace["id"], "term", "quiz_wrong", _term)
 
-    return {"ok": True}
-
-
-@router.post("/ai-assistant/workspaces/{workspace_uuid}/exercises/signal")
-async def record_exercise_signal(
-    workspace_uuid: str,
-    body: schemas.ExerciseSignalBody,
-    current_user: dict = Depends(get_current_user),
-    locale: str = Depends(get_locale),
-):
-    """A hint or explain press on a quiz term is a mild weakness signal."""
-    user_id = current_user["user_id"]
-    workspace = db.get_aia_workspace(workspace_uuid)
-    if not workspace:
-        raise HTTPException(status_code=404, detail=t("workspace.notFound", locale))
-    if workspace["user_id"] != user_id and not db.is_student_enrolled(workspace["id"], user_id):
-        raise HTTPException(status_code=403, detail=t("workspace.accessDenied", locale))
-    if body.kind not in ("quiz_hint", "quiz_explain"):
-        raise HTTPException(status_code=400, detail="bad kind")
-    db.record_weakness(user_id, "term", body.kind, body.term)
     return {"ok": True}
 
 

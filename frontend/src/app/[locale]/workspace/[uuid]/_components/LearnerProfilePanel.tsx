@@ -1,8 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { useParams } from "next/navigation";
 import { useTranslations } from "next-intl";
-import { levelLabel } from "./language_training/_diagnosis_types";
 
 interface Weakness {
   id: number;
@@ -36,7 +36,10 @@ const CATEGORY_ORDER = ["term", "passage", "tool"];
  */
 export function LearnerProfilePanel() {
   const t = useTranslations("workspace.detail.learnerProfile");
-  const tDiag = useTranslations("workspace.detail.languageTraining.diagnosis");
+  // Weaknesses are per workspace, so the profile is fetched and cleared scoped to
+  // the workspace this panel is opened in. Level and tracking stay global per user.
+  const params = useParams();
+  const workspaceUuid = params.uuid as string;
   const [profile, setProfile] = useState<Profile | null>(null);
   const [busy, setBusy] = useState(false);
   // A single slot for the last failed action. Every mutation below only
@@ -48,7 +51,7 @@ export function LearnerProfilePanel() {
 
   const load = useCallback(async () => {
     try {
-      const res = await fetch("/api/ai-assistant/learner-profile", { credentials: "include" });
+      const res = await fetch(`/api/ai-assistant/workspaces/${workspaceUuid}/learner-profile`, { credentials: "include" });
       if (res.ok) {
         setProfile(await res.json());
         setError(null);
@@ -58,7 +61,7 @@ export function LearnerProfilePanel() {
     } catch {
       setError(t("loadFailed"));
     }
-  }, [t]);
+  }, [t, workspaceUuid]);
 
   useEffect(() => { void load(); }, [load]);
 
@@ -85,7 +88,7 @@ export function LearnerProfilePanel() {
     if (!window.confirm(t("clearAllConfirm"))) return;
     setBusy(true);
     try {
-      const res = await fetch("/api/ai-assistant/learner-profile/weaknesses", {
+      const res = await fetch(`/api/ai-assistant/workspaces/${workspaceUuid}/learner-profile/weaknesses`, {
         method: "DELETE", credentials: "include",
       });
       if (res.ok) {
@@ -126,10 +129,6 @@ export function LearnerProfilePanel() {
     }
   };
 
-  const exportMd = () => {
-    window.open("/api/ai-assistant/learner-profile/export?fmt=md", "_blank");
-  };
-
   if (!profile) {
     return (
       <p className="text-sm" style={{ color: error ? "var(--error)" : "var(--muted)" }}>
@@ -153,31 +152,31 @@ export function LearnerProfilePanel() {
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <p className="text-sm font-medium" style={{ color: "var(--foreground)" }}>{t("levelLabel")}</p>
-          <p className="text-sm mt-0.5" style={{ color: "var(--muted)" }}>
-            {profile.level ? levelLabel(profile.level, tDiag("levelAboveB1")) : t("noLevel")}
-          </p>
-        </div>
-        <button
-          type="button"
-          role="switch"
-          aria-checked={profile.enabled}
-          aria-label={t("trackingTitle")}
-          onClick={() => !busy && setEnabled(!profile.enabled)}
-          disabled={busy}
-          className="relative inline-flex h-5 w-9 flex-shrink-0 rounded-full border-2 border-transparent hover:border-[var(--kb)] disabled:hover:border-transparent transition-colors duration-200"
-          style={{ backgroundColor: profile.enabled ? "var(--kb)" : "var(--border)", cursor: busy ? "not-allowed" : "pointer" }}
-        >
-          <span
-            className="pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow transition duration-200"
-            style={{ transform: profile.enabled ? "translateX(16px)" : "translateX(0)" }}
-          />
-        </button>
+      <div>
+        <p className="text-sm font-medium" style={{ color: "var(--foreground)" }}>{t("levelLabel")}</p>
+        <p className="text-sm mt-0.5" style={{ color: "var(--muted)" }}>
+          {profile.level || t("noLevel")}
+        </p>
       </div>
       <div>
-        <p className="text-sm font-medium" style={{ color: "var(--foreground)" }}>{t("trackingTitle")}</p>
+        <div className="flex items-center justify-between gap-4">
+          <p className="text-sm font-medium" style={{ color: "var(--foreground)" }}>{t("trackingTitle")}</p>
+          <button
+            type="button"
+            role="switch"
+            aria-checked={profile.enabled}
+            aria-label={t("trackingTitle")}
+            onClick={() => !busy && setEnabled(!profile.enabled)}
+            disabled={busy}
+            className="relative inline-flex h-5 w-9 flex-shrink-0 rounded-full border-2 border-transparent hover:border-[var(--kb)] disabled:hover:border-transparent transition-colors duration-200"
+            style={{ backgroundColor: profile.enabled ? "var(--kb)" : "var(--border)", cursor: busy ? "not-allowed" : "pointer" }}
+          >
+            <span
+              className="pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow transition duration-200"
+              style={{ transform: profile.enabled ? "translateX(16px)" : "translateX(0)" }}
+            />
+          </button>
+        </div>
         <p className="text-xs mt-0.5" style={{ color: "var(--muted)" }}>
           {profile.enabled ? t("trackingDescription") : t("trackingOffHint")}
         </p>
@@ -202,10 +201,10 @@ export function LearnerProfilePanel() {
                   {profile.weaknesses.filter((w) => w.category === cat).map((w) => (
                     <li
                       key={w.id}
-                      className="flex items-center justify-between gap-3 rounded-lg border px-3 py-2"
+                      className="flex items-start justify-between gap-3 rounded-lg border px-3 py-2"
                       style={{ borderColor: "var(--border)" }}
                     >
-                      <span className="text-sm truncate" style={{ color: "var(--foreground)" }}>{w.label}</span>
+                      <span className="text-sm break-words line-clamp-2" style={{ color: "var(--foreground)" }}>{w.label}</span>
                       <button
                         type="button"
                         onClick={() => removeOne(w.id)}
@@ -233,15 +232,6 @@ export function LearnerProfilePanel() {
           style={{ borderColor: "var(--border)", color: "var(--foreground)" }}
         >
           {t("clearAll")}
-        </button>
-        <button
-          type="button"
-          onClick={exportMd}
-          disabled={busy}
-          className="text-xs px-3 py-1.5 rounded-lg border disabled:opacity-40"
-          style={{ borderColor: "var(--border)", color: "var(--foreground)" }}
-        >
-          {t("exportMd")}
         </button>
       </div>
 

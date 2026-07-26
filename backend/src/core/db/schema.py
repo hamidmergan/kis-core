@@ -174,17 +174,20 @@ def init_db(admin_email: Optional[str] = None) -> None:
             cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS locale TEXT NOT NULL DEFAULT 'de' CHECK (locale IN ('de', 'en'))")
             # Language level diagnosis (one-time self-assessment for Fachsprachentrainer).
             # All three columns nullable: NULL means "diagnosis not yet completed".
-            # Only four outcomes: A1, A2, B1, and B1+ (anything above B1 needs no support).
-            cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS language_level TEXT CHECK (language_level IN ('A1','A2','B1','B1+'))")
+            # The full CEFR ladder A1..C2. An earlier version collapsed everything
+            # above B1 into "B1+"; the scale now runs the whole ladder so the
+            # adaptive chat can pitch every level, not only "needs support" vs not.
+            cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS language_level TEXT CHECK (language_level IN ('A1','A2','B1','B2','C1','C2'))")
             cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS language_level_set_at TIMESTAMP WITH TIME ZONE")
             cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS language_level_skill_scores JSONB")
-            # Migration: the level set shrank from six CEFR bands to four outcomes.
-            # The inline CHECK above only fires on fresh installs, so rewrite the
-            # constraint on existing DBs. Any stored B2/C1/C2 folds into B1+ first,
-            # so the new CHECK cannot fail validation.
-            cur.execute("UPDATE users SET language_level = 'B1+' WHERE language_level IN ('B2','C1','C2')")
+            # Migration: the outcome set grew from the four A1..B1+ values back to
+            # the full ladder. The inline CHECK above only fires on fresh installs,
+            # so rewrite the constraint on existing DBs. Any stored "B1+" (the old
+            # "above B1") maps to B2, the lowest band it stood for, so the new CHECK
+            # cannot fail validation.
+            cur.execute("UPDATE users SET language_level = 'B2' WHERE language_level = 'B1+'")
             cur.execute("ALTER TABLE users DROP CONSTRAINT IF EXISTS users_language_level_check")
-            cur.execute("ALTER TABLE users ADD CONSTRAINT users_language_level_check CHECK (language_level IN ('A1','A2','B1','B1+'))")
+            cur.execute("ALTER TABLE users ADD CONSTRAINT users_language_level_check CHECK (language_level IN ('A1','A2','B1','B2','C1','C2'))")
             # === Role system migration ===
             # System roles: 'admin', 'staff', 'user' (fixed, code-defined permissions).
             # Custom roles live in the custom_roles table; users.custom_role_id is set
@@ -778,10 +781,14 @@ def init_db(admin_email: Optional[str] = None) -> None:
                 )
             """)
             # ─── Learner Profile (adaptive weakness tracking) ────
+            # Weaknesses are scoped to a workspace: a term learned as difficult in one
+            # module must not bleed into another, where it may mean something else or
+            # nothing at all.
             cur.execute("""
                 CREATE TABLE IF NOT EXISTS aia_learner_weakness (
                     id            SERIAL PRIMARY KEY,
                     user_id       INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                    workspace_id  INTEGER NOT NULL REFERENCES aia_workspaces(id) ON DELETE CASCADE,
                     category      TEXT NOT NULL,
                     key_norm      TEXT NOT NULL,
                     label         TEXT NOT NULL,
@@ -789,10 +796,27 @@ def init_db(admin_email: Optional[str] = None) -> None:
                     weight        REAL NOT NULL DEFAULT 0,
                     hit_count     INTEGER NOT NULL DEFAULT 0,
                     first_seen_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-                    last_seen_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-                    UNIQUE (user_id, category, key_norm)
+                    last_seen_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
                 )
             """)
+            # Migration for pre-workspace installs: the old table had no workspace_id
+            # and a user-wide unique key. There is no workspace to backfill onto, so
+            # old rows are dropped (a clean, per-workspace start) and the unique key is
+            # rebuilt to include the workspace.
+            cur.execute(
+                "ALTER TABLE aia_learner_weakness ADD COLUMN IF NOT EXISTS "
+                "workspace_id INTEGER REFERENCES aia_workspaces(id) ON DELETE CASCADE"
+            )
+            cur.execute("DELETE FROM aia_learner_weakness WHERE workspace_id IS NULL")
+            cur.execute("ALTER TABLE aia_learner_weakness ALTER COLUMN workspace_id SET NOT NULL")
+            cur.execute(
+                "ALTER TABLE aia_learner_weakness DROP CONSTRAINT IF EXISTS "
+                "aia_learner_weakness_user_id_category_key_norm_key"
+            )
+            cur.execute(
+                "CREATE UNIQUE INDEX IF NOT EXISTS uq_learner_weakness_ws "
+                "ON aia_learner_weakness(user_id, workspace_id, category, key_norm)"
+            )
             cur.execute(
                 "CREATE INDEX IF NOT EXISTS idx_learner_weakness_user "
                 "ON aia_learner_weakness(user_id, last_seen_at)"

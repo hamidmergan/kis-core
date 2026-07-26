@@ -58,9 +58,11 @@ export function LanguageDiagnosisPanel({
   const visibleTurns: ChatTurn[] = [{ role: "assistant", content: t("intro") }, ...turns];
 
   // Each turn is one bubble. Reactions are gone: a turn is a question or an answer.
+  // A skipped question is stored as an empty user turn; show it as a "skipped"
+  // label so the bubble is not blank.
   const bubbles: { role: ChatTurn["role"]; text: string }[] = visibleTurns.map((turn) => ({
     role: turn.role,
-    text: turn.content,
+    text: turn.role === "user" && !turn.content.trim() ? t("skipped") : turn.content,
   }));
 
   // The current question is the last assistant turn while answering. Its options
@@ -88,6 +90,20 @@ export function LanguageDiagnosisPanel({
     setPicked((prev) =>
       prev.includes(value) ? prev.filter((v) => v !== value) : [...prev, value],
     );
+
+  // Skip: send an empty answer and move on. Always available while answering, so
+  // a hard question never traps an overwhelmed learner. Rendered in every answer
+  // block (options and free text), so there is always a way forward.
+  const skipButton = (
+    <button
+      type="button"
+      onClick={() => send("")}
+      className="self-start text-sm px-3 py-1.5 rounded-lg transition-colors hover:underline"
+      style={{ color: "var(--muted)" }}
+    >
+      {t("skip")}
+    </button>
+  );
 
   // The avatar heads the newest block of assistant bubbles. Anchoring it to the
   // last bubble alone would strand the intro above a nameless bubble, since the
@@ -268,6 +284,7 @@ export function LanguageDiagnosisPanel({
                     {t("submitAnswer")}
                   </button>
                 )}
+                {skipButton}
               </div>
             </div>
           )}
@@ -298,15 +315,18 @@ export function LanguageDiagnosisPanel({
                     border: "1px solid var(--border)",
                   }}
                 />
-                <button
-                  type="button"
-                  onClick={() => draft.trim() && send(draft)}
-                  disabled={!draft.trim()}
-                  className="self-end px-5 py-2 rounded-xl text-base font-medium disabled:opacity-40"
-                  style={{ backgroundColor: "var(--kb)", color: "white" }}
-                >
-                  {t("submitAnswer")}
-                </button>
+                <div className="flex items-center justify-between gap-2">
+                  {skipButton}
+                  <button
+                    type="button"
+                    onClick={() => draft.trim() && send(draft)}
+                    disabled={!draft.trim()}
+                    className="px-5 py-2 rounded-xl text-base font-medium disabled:opacity-40"
+                    style={{ backgroundColor: "var(--kb)", color: "white" }}
+                  >
+                    {t("submitAnswer")}
+                  </button>
+                </div>
               </div>
             </div>
           )}

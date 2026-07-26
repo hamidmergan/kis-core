@@ -1,5 +1,4 @@
 import React, { useContext, useEffect, useRef, useState } from "react";
-import { useParams } from "next/navigation";
 import { CaretLeft, CaretRight, Chat, Check, Lightbulb, Question, SidebarSimple } from "@phosphor-icons/react";
 import { useLocale, useTranslations } from "next-intl";
 import Spinner from "@/components/ui/Spinner";
@@ -37,20 +36,6 @@ export function MCExerciseView({
   const promptTopicDeep = (term: string) => locale === "en"
     ? `Explain the following topic in more detail: "${term}". What are important details, examples, and connections?`
     : `Erkläre mir folgendes Thema genauer: „${term}". Was sind wichtige Details, Beispiele und Zusammenhänge?`;
-  // Workspace uuid comes from the route, same as the other quiz-tool views under
-  // this segment — avoids threading a new prop through every MCExerciseView caller.
-  const params = useParams();
-  const workspaceUuid = params.uuid as string;
-  // Fire-and-forget: a hint or explain press is a mild weakness signal for the
-  // learner profile. Must never block or fail the quiz.
-  function trackSignal(kind: "quiz_hint" | "quiz_explain", term: string) {
-    fetch(`/api/ai-assistant/workspaces/${workspaceUuid}/exercises/signal`, {
-      method: "POST",
-      credentials: "include",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ term, kind }),
-    }).catch(() => {});
-  }
   const minimize = useContext(MinimizeContext);
   const [shuffledItems, setShuffledItems] = useState<ExerciseItem[]>([]);
   const shuffledRef = useRef(false);
@@ -126,7 +111,6 @@ export function MCExerciseView({
     setHintLoading(true);
     try {
       onAskChat(promptTip(card.front));
-      trackSignal("quiz_hint", tool === "lueckentext" ? card.back : card.front);
     } catch { /* ignore */ }
     setHintLoading(false);
   }
@@ -317,7 +301,6 @@ export function MCExerciseView({
                         onAskChat(tool === "vokabeltest" || tool === "lueckentext"
                           ? promptTermDeep(tool === "lueckentext" ? card.back : card.front)
                           : promptTopicDeep(card.front));
-                        trackSignal("quiz_explain", tool === "lueckentext" ? card.back : card.front);
                       }}
                         className="btn-soft-accent flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-full transition-all">
                         <Chat size={13} weight="bold" /> {t("common.learnMore")}

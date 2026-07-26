@@ -159,13 +159,17 @@ export function useLanguageDiagnosis(
 
   const send = useCallback(
     (text: string, selected?: string[]) => {
+      if (status !== "answering") return;
+      // An empty answer is a deliberate skip: the learner clicked "next" without
+      // answering. The backend treats a blank answer as not coping with that
+      // band (see the grading rules), so an overwhelmed learner always has a way
+      // forward instead of getting stuck on a hard question.
       const trimmed = text.trim();
-      if (!trimmed || status !== "answering") return;
       const answer: ChatTurn = {
         role: "user",
         content: trimmed,
         // Clicked options ride in `selected` so the server grades them in code;
-        // a free-typed answer has none and the final call interprets it.
+        // a free-typed answer (or a skip) has none and the final call interprets it.
         ...(selected && selected.length ? { selected } : {}),
       };
       const withAnswer: ChatTurn[] = [...turnsRef.current, answer];

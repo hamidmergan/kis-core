@@ -35,13 +35,17 @@ MESSAGES: dict[str, dict[str, str]] = {
         "de": "Fragen-Plan ist ungültig. Jede Zeile braucht eine Stufe und einen Fragetyp.",
         "en": "Question plan is invalid. Each row needs a level and a question type.",
     },
+    "admin.settings.diagnosisPlanTooFewFreeText": {
+        "de": "Der Plan braucht mindestens {min} Freitext-Fragen (Fehlerkorrektur oder freies Schreiben). Nur so kann die KI das Sprachniveau an einer echten Textprobe einstufen.",
+        "en": "The plan needs at least {min} free-text questions (error correction or free writing). Only then can the AI place the level from real written production.",
+    },
     "admin.settings.answerMaxCharsOutOfRange": {
         "de": "Antwortlänge muss zwischen {min} und {max} Zeichen liegen",
         "en": "Answer length must be between {min} and {max} characters",
     },
     "admin.settings.diagnosisExamplesInvalid": {
-        "de": "Beispiele sind ungültig. Erlaubt sind nur die Stufen A1, A2, B1, B2 mit Text.",
-        "en": "Examples are invalid. Only the levels A1, A2, B1, B2 with text are allowed.",
+        "de": "Beispiele sind ungültig. Erlaubt sind nur die Stufen A1, A2, B1, B2, C1, C2 mit Text.",
+        "en": "Examples are invalid. Only the levels A1, A2, B1, B2, C1, C2 with text are allowed.",
     },
     "admin.settings.unknownModelKeys": {
         "de": "Unbekannte Model-Keys: {unknown}",

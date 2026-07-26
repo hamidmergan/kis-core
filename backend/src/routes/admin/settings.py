@@ -41,7 +41,9 @@ from src.services.aia_diagnosis_chat import (
     LEVEL_EXAMPLES_SETTING,
     MAX_MESSAGE_CHARS,
     MAX_PROMPT_CHARS,
+    MIN_FREE_TEXT_QUESTIONS,
     QUESTION_PLAN_SETTING,
+    question_plan_has_enough_free_text,
     question_plan_is_valid,
 )
 from src.services.aia_adaptive_chat import DEFAULT_ADAPTIVE_BEHAVIOR
@@ -194,10 +196,10 @@ async def update_settings(
         db.set_setting("language_diagnosis_prompt", stripped or DEFAULT_DIAGNOSIS_PROMPT)
 
     # Question plan (JSON). Empty string is the reset gesture (default plan). A
-    # non-empty value must be a valid plan: a list of {band, type} with optional
-    # text, an option set (with a correct flag) for option types, or an example
-    # for free-text types. Muck is rejected with a 400 so a typo cannot silently
-    # store something the diagnosis then falls back away from.
+    # non-empty value must be a valid plan: a list of {type} with optional text
+    # and, for option types, an option set with a correct flag. Muck is rejected
+    # with a 400 so a typo cannot silently store something the diagnosis then
+    # falls back away from.
     if body.language_diagnosis_question_plan_de is not None:
         stripped = body.language_diagnosis_question_plan_de.strip()
         if not stripped:
@@ -206,6 +208,15 @@ async def update_settings(
             raise HTTPException(
                 status_code=400,
                 detail=t("admin.settings.diagnosisPlanInvalid", locale),
+            )
+        elif not question_plan_has_enough_free_text(stripped):
+            # A plan without enough free-text questions could only be graded on
+            # recognition (multiple choice), so the level would rest on nothing
+            # the learner actually produced. Reject it with a specific message.
+            raise HTTPException(
+                status_code=400,
+                detail=t("admin.settings.diagnosisPlanTooFewFreeText", locale,
+                         min=MIN_FREE_TEXT_QUESTIONS),
             )
         else:
             db.set_setting(QUESTION_PLAN_SETTING, stripped)

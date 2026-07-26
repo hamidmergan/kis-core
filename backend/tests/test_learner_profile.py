@@ -3,7 +3,7 @@ from datetime import datetime, timedelta, timezone
 
 from src.services.aia_learner_profile import (
     BASE_WEIGHTS, ACT_THRESHOLD, PROFILE_CAP, DEFAULT_WINDOW_DAYS,
-    CATEGORY_TERM, CATEGORY_TOOL,
+    CATEGORY_TERM, CATEGORY_PASSAGE, CATEGORY_TOOL,
     normalize_key, base_weight, effective_weight, accumulate, graduate,
     select_focus, weakness_focus_appendix, overflow_ids,
 )
@@ -24,6 +24,12 @@ def test_base_weight_known_and_unknown():
     assert base_weight("something_new") == 1.0  # sensible default
 
 
+def test_no_single_event_crosses_the_threshold():
+    # The profile stays gentle: one event alone never reaches the act threshold, so
+    # a single slip stays silent until it accumulates.
+    assert all(w <= ACT_THRESHOLD for w in BASE_WEIGHTS.values())
+
+
 def test_effective_weight_full_at_age_zero():
     assert effective_weight(6.0, NOW, NOW, 30) == 6.0
 
@@ -39,7 +45,7 @@ def test_effective_weight_linear_midpoint():
 
 
 def test_accumulate_adds_base_weight():
-    assert accumulate(4.0, "quiz_hint") == 6.0
+    assert accumulate(2.0, "quiz_wrong") == 5.0
 
 
 def test_graduate_shrinks_weight():
@@ -68,10 +74,45 @@ def test_weakness_appendix_empty_without_labels():
 
 
 def test_weakness_appendix_lists_terms_and_stays_subtle():
-    text = weakness_focus_appendix(["Konjunktiv", "Passiv"])
+    text = weakness_focus_appendix([
+        {"label": "Konjunktiv", "category": CATEGORY_TERM},
+        {"label": "Passiv", "category": CATEGORY_TERM},
+    ])
     assert "Konjunktiv" in text and "Passiv" in text
     assert text.startswith("\n\n")
     assert "subtle" in text.lower()
+    assert "terms" in text.lower()
+
+
+def test_weakness_appendix_separates_passages_from_terms():
+    # A whole question (passage) must be phrased as a topic to keep simple, not as a
+    # term to define inline. Terms and passages appear in their own clauses.
+    text = weakness_focus_appendix([
+        {"label": "Konjunktiv", "category": CATEGORY_TERM},
+        {"label": "Wie läuft eine wissenschaftliche Konferenz ab?", "category": CATEGORY_PASSAGE},
+    ])
+    assert "Konjunktiv" in text
+    assert "Wie läuft eine wissenschaftliche Konferenz ab?" in text
+    assert "questions or topics" in text.lower()  # the passage clause
+    assert "these terms difficult" in text.lower()  # the term clause
+
+
+def test_weakness_appendix_passage_only():
+    text = weakness_focus_appendix([
+        {"label": "Was ist Peer-Review?", "category": CATEGORY_PASSAGE},
+    ])
+    assert "Was ist Peer-Review?" in text
+    assert "questions or topics" in text.lower()
+    assert "these terms difficult" not in text.lower()  # no term clause when no terms
+
+
+def test_passage_over_threshold_enters_focus():
+    # A passage (e.g. accumulated translations of the same text) over the threshold
+    # must reach the prompt, exactly like a term does.
+    items = [{"label": "Wie funktioniert Zitieren?", "weight": 5.0,
+              "last_seen_at": NOW, "category": CATEGORY_PASSAGE}]
+    focus = select_focus(items, NOW, DEFAULT_WINDOW_DAYS)
+    assert [f["label"] for f in focus] == ["Wie funktioniert Zitieren?"]
 
 
 def test_overflow_ids_empty_under_cap():

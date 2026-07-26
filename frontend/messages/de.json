@@ -1141,8 +1141,9 @@
     },
     "diagnosisPlanCard": {
       "title": "Fragen-Plan",
-      "description": "Legt fest, welche Fragen die Diagnose stellt. Jede Zeile ist eine Frage mit Fragetyp und Stufe. Die Reihenfolge ist die Reihenfolge im Test. Fragetext, Optionen und Beispiel sind optional. Ist eine Auswahl-Frage komplett ausgefüllt (Frage plus Optionen mit einer richtigen), erscheint sie sofort ohne KI-Aufruf und wird direkt bewertet. Sonst formuliert die KI die Frage.",
+      "description": "Legt fest, welche Fragen die Diagnose stellt. Jede Zeile ist eine Frage mit Fragetyp. Die Reihenfolge ist die Reihenfolge im Test und geht von leicht nach schwer. Fragetext und Optionen sind optional. Ist eine Auswahl-Frage komplett ausgefüllt (Frage plus Optionen mit einer richtigen), erscheint sie sofort ohne KI-Aufruf und wird direkt bewertet. Sonst formuliert die KI die Frage. Die Stufe A1 bis C2 vergibt die KI am Ende aus den Antworten, nicht pro Frage.",
       "languageHint": "Schreibe Fragen und Optionen in der Sprache, die der Test prüft (Standard Deutsch).",
+      "freeTextHint": "Mindestens 2 Freitext-Fragen (Fehler korrigieren oder frei schreiben) sind Pflicht. Nur so kann die KI das Niveau an einer echten Textprobe einstufen.",
       "questionLabel": "Frage",
       "optionsLabel": "Antwortoptionen",
       "optionsHint": "Genau eine als richtig markieren. Mehrere möglich, dann muss es in der Frage stehen.",
@@ -1150,8 +1151,6 @@
       "correctLabel": "richtig",
       "addOption": "Option hinzufügen",
       "removeOption": "Option entfernen",
-      "exampleLabel": "Beispielantwort (optional)",
-      "examplePlaceholder": "So könnte eine gute Antwort aussehen",
       "addRow": "Frage hinzufügen",
       "removeRow": "Entfernen",
       "reset": "Auf Standard zurücksetzen",
@@ -1178,14 +1177,14 @@
     },
     "diagnosisGradingCard": {
       "title": "Einstufungs-Regeln",
-      "description": "Legt fest, wie die KI am Ende die Stufe A1, A2, B1 oder B1+ bestimmt.",
+      "description": "Legt fest, wie die KI am Ende die Stufe A1 bis C2 bestimmt.",
       "reset": "Auf Standard zurücksetzen",
       "saveFailed": "Speichern fehlgeschlagen"
     },
     "diagnosisExamplesCard": {
       "title": "Sprachniveau-Beispiele",
       "description": "Beispielantworten pro Stufe. Sie helfen der KI, freie Antworten einzuordnen, und geben dem normalen Chat vor, wie er auf ein Niveau antwortet.",
-      "hint": "Mehrere Beispiele pro Stufe mit -- (Doppelbindestrich) trennen, ein neuer Zeilenumbruch geht auch. Am besten für alle Stufen der gleiche Kontext, dann sieht die KI dieselbe Aussage auf steigendem Niveau. Das B2-Beispiel steht für B1+.",
+      "hint": "Mehrere Beispiele pro Stufe mit -- (Doppelbindestrich) trennen, ein neuer Zeilenumbruch geht auch. Am besten für alle Stufen der gleiche Kontext, dann sieht die KI dieselbe Aussage auf steigendem Niveau.",
       "reset": "Auf Standard zurücksetzen",
       "saveFailed": "Speichern fehlgeschlagen"
     },
@@ -1484,7 +1483,8 @@
           "retry": "Noch einmal versuchen",
           "progress": "Frage {current} von {total}",
           "resultTitle": "Dein Ergebnis",
-          "levelAboveB1": "Über B1",
+          "skip": "Überspringen",
+          "skipped": "Übersprungen",
           "disclaimer": "Das Ergebnis kommt von einer KI. Fach-Leute haben es noch nicht geprüft.",
           "continue": "Weiter zum Üben",
           "abort": "Abbrechen",
@@ -1719,7 +1719,8 @@
         "learnerProfileTitle": "Mein Lernprofil",
         "learnerProfileDescription": "Zeigt dein Sprachniveau und deine offenen Schwächen.",
         "learnerProfileOpen": "Öffnen",
-        "learnerProfileBack": "Zurück zu Einstellungen"
+        "learnerProfileBack": "Zurück zu Einstellungen",
+        "learnerProfileAdminOnly": "Nur Admin"
       },
       "learnerProfile": {
         "title": "Mein Lernprofil",
@@ -1738,7 +1739,6 @@
         "trackingTitle": "Tracking",
         "trackingDescription": "Speichert, wo du noch Schwierigkeiten hast, damit dir gezielter geholfen wird.",
         "trackingOffHint": "Tracking ist aus. Es werden keine neuen Schwächen mehr gespeichert.",
-        "exportMd": "Als Datei speichern",
         "actionFailed": "Aktion fehlgeschlagen. Bitte versuche es noch einmal.",
         "loadFailed": "Lernprofil konnte nicht geladen werden. Bitte versuche es noch einmal."
       },
@@ -1770,7 +1770,6 @@
         "assistantBadge": "KI",
         "adaptiveLevel": "Niveau {level}",
         "adaptiveOff": "adaptiv aus",
-        "aboveB1": "über B1",
         "hildeName": "Hilde",
         "francisName": "Francis",
         "noAnswer": "(keine Antwort)",

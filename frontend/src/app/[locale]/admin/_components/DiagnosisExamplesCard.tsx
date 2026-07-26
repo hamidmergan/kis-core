@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
 
 /**
- * Per-level example answers (A1, A2, B1, B2).
+ * Per-level example answers (A1, A2, B1, B2, C1, C2).
  *
  * One source of truth used by TWO features: the diagnosis grading (to place
  * free-text answers) and the adaptive chat behaviour (to calibrate how the tutor
@@ -16,7 +16,7 @@ type Examples = Record<string, string>;
 
 export default function DiagnosisExamplesCard() {
   const t = useTranslations("admin.diagnosisExamplesCard");
-  const [levels, setLevels] = useState<string[]>(["A1", "A2", "B1", "B2"]);
+  const [levels, setLevels] = useState<string[]>(["A1", "A2", "B1", "B2", "C1", "C2"]);
   const [examples, setExamples] = useState<Examples | null>(null);
   const [savedKey, setSavedKey] = useState("");
   const [defaults, setDefaults] = useState<Examples>({});
@@ -36,7 +36,7 @@ export default function DiagnosisExamplesCard() {
       .then((r) => r.json())
       .then((d) => {
         const lvls: string[] = Array.isArray(d.language_diagnosis_example_levels)
-          ? d.language_diagnosis_example_levels : ["A1", "A2", "B1", "B2"];
+          ? d.language_diagnosis_example_levels : ["A1", "A2", "B1", "B2", "C1", "C2"];
         setLevels(lvls);
         const defs: Examples = d.language_diagnosis_level_examples_default ?? {};
         setDefaults(defs);

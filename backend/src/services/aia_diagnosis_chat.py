@@ -22,34 +22,40 @@ import random
 
 PROMPT_PLACEHOLDER = "{language}"
 
-# The four outcomes. Everything above B1 collapses into "B1+" ("über B1"): the
-# test exists to find who needs language support, and a learner past B1 needs
-# none, so telling C1 from C2 would be effort without a consequence. "B1+" is
-# the stored code; the frontend renders it as "Über B1".
-VALID_LEVELS = {"A1", "A2", "B1", "B1+"}
+# The six CEFR outcomes. The test used to collapse everything above B1 into a
+# single "B1+", on the theory that a learner past B1 needs no support. The scale
+# now runs the full ladder A1..C2 so the adaptive chat can pitch a B2, C1 or C2
+# learner as precisely as an A1 one. Telling C1 from C2 is the least reliable
+# split and needs its own C1/C2 questions in the plan; the admin owns the plan,
+# so how deep the test really reaches is the expert's choice, not a code limit.
+VALID_LEVELS = {"A1", "A2", "B1", "B2", "C1", "C2"}
 REQUIRED_SKILLS = {"grammar", "vocabulary", "reading", "writing", "pragmatics"}
 
-# Fixed-length test. Every learner answers the same eight questions, so two
-# results are comparable and the UI can show "question 3 of 8". The six task types
-# each appear (gap fill, multiple choice, error correction, reading, situation,
-# free writing); the two extra slots are quick multiple-choice quizzes, so MC runs
-# three times. Two questions per band give a second signal, so one lucky or unlucky
-# answer cannot flip the level. The bands rise A1 to B2, and the two MC extras sit
-# at A1 and B2 to round each band to two. The OUTCOME set is only four (A1..B1+);
-# coping with the B2 pair is what earns B1+. Index 0 is question 1.
+# Fixed-length test. Every learner answers the same questions, so two results are
+# comparable and the UI can show "question 3 of 12". A question carries only a
+# TASK TYPE, never a CEFR level: the expert does not label a question's level, the
+# model reads the learner's answers and places them A1..C2 holistically, measured
+# against the CALIBRATION EXAMPLES. The difficulty spread comes from POSITION, not
+# a per-question band: the test rises from very easy (first slots) to very
+# demanding (last), so the model varies difficulty by where a slot sits. The six
+# task types spread across the slots; the plan keeps at least
+# MIN_FREE_TEXT_QUESTIONS free-text slots, since free text is what the level
+# actually rests on. The admin owns the plan. Index 0 is Q1.
 QUESTION_PLAN = [
-    {"band": "A1", "type": "gap fill"},
-    {"band": "A1", "type": "multiple choice"},
-    {"band": "A2", "type": "error correction"},
-    {"band": "A2", "type": "multiple choice"},
-    {"band": "B1", "type": "reading comprehension"},
-    {"band": "B1", "type": "situation"},
-    {"band": "B2", "type": "multiple choice"},
-    {"band": "B2", "type": "free writing"},
+    {"type": "gap fill"},
+    {"type": "multiple choice"},
+    {"type": "error correction"},
+    {"type": "multiple choice"},
+    {"type": "reading comprehension"},
+    {"type": "situation"},
+    {"type": "multiple choice"},
+    {"type": "free writing"},
+    {"type": "reading comprehension"},
+    {"type": "error correction"},
+    {"type": "free writing"},
+    {"type": "multiple choice"},
 ]
 QUESTION_COUNT = len(QUESTION_PLAN)
-# Kept as a flat list too, since the difficulty ladder is what most callers read.
-QUESTION_BANDS = [step["band"] for step in QUESTION_PLAN]
 
 # Task types that present labelled options a), b), c), d). For these the backend
 # dictates WHERE the correct option sits, picking a RANDOM position each time.
@@ -67,6 +73,14 @@ OPTION_QUESTION_TYPES = {
 # The two task types that never carry options: the learner writes their own
 # answer, which only the final LLM call can judge.
 FREE_TEXT_QUESTION_TYPES = {"error correction", "free writing"}
+# Every plan must carry at least this many free-text questions. Multiple choice
+# only shows what a learner RECOGNISES; free text is the only production the model
+# can judge for range, complexity and register, and it is what a level above B1
+# has to rest on. Without this floor an all-multiple-choice plan would let the
+# model hand out C1/C2 on recognition alone. Two gives a second signal without
+# overloading a weak learner (who can still skip), and the shipped plans carry
+# four, so the default is never affected.
+MIN_FREE_TEXT_QUESTIONS = 2
 # Bounds for an authored option set. Four is the shipped shape, but an expert may
 # use fewer or a couple more; a single option is not a choice and a runaway count
 # is a paste accident.
@@ -96,9 +110,10 @@ LEVEL_EXAMPLES_SETTING = "language_diagnosis_level_examples_de"
 GRADING_PLACEHOLDER = "{grading}"
 EXAMPLES_PLACEHOLDER = "{examples}"
 
-# The four bands that carry a calibration example. B1+ needs none of its own: a
-# B2-quality answer IS the signal for B1+ (it means the learner coped past B1).
-EXAMPLE_LEVELS = ["A1", "A2", "B1", "B2"]
+# The bands that carry a calibration example, one per CEFR level. Each is a
+# reference answer the final grading call compares free-text answers against, and
+# the adaptive chat reuses the same samples to calibrate how it writes per level.
+EXAMPLE_LEVELS = ["A1", "A2", "B1", "B2", "C1", "C2"]
 
 # Soft UI limit for the answer length. The hard backend cap stays
 # MAX_MESSAGE_CHARS; this one only drives the counter and maxlength in the client.
@@ -112,7 +127,6 @@ VALID_QUESTION_TYPES = {
     "situation",
     "free writing",
 }
-VALID_BANDS = {"A1", "A2", "B1", "B2"}
 
 
 def _parse_options(raw_options) -> list[dict] | None:
@@ -147,17 +161,17 @@ def _parse_options(raw_options) -> list[dict] | None:
 def parse_question_plan(raw: str) -> list[dict]:
     """Parse the admin question-plan JSON, falling back to the shipped default.
 
-    Each item is ``{"band": <A1..B2>, "type": <one of VALID_QUESTION_TYPES>}``.
-    Optional authoring fields:
+    Each item is ``{"type": <one of VALID_QUESTION_TYPES>}``. A question carries no
+    CEFR level: the model places the learner from their answers, not from a label
+    on the question. Optional authoring fields:
       * ``"text"``   the verbatim question shown to the learner.
       * ``"options"`` (option types only) the answer options, each with a
         ``correct`` flag. Graded in code, so no model call. A structurally broken
         option set reverts the whole plan to the default (existing philosophy:
         always run on a usable plan).
-      * ``"example"`` (free-text types only) a sample good answer for the final
-        LLM to calibrate against.
-    Options on a free-text type, or an example on an option type, are simply
-    dropped rather than rejected, so a stray field from the editor is forgiving.
+    A legacy ``"band"`` field from older plans, an ``"example"`` and options on a
+    free-text type are all ignored rather than rejected, so an old or stray field
+    is forgiving.
     """
     if not raw or not raw.strip():
         return QUESTION_PLAN
@@ -171,10 +185,10 @@ def parse_question_plan(raw: str) -> list[dict]:
     for item in data:
         if not isinstance(item, dict):
             return QUESTION_PLAN
-        band, qtype = item.get("band"), item.get("type")
-        if band not in VALID_BANDS or qtype not in VALID_QUESTION_TYPES:
+        qtype = item.get("type")
+        if qtype not in VALID_QUESTION_TYPES:
             return QUESTION_PLAN
-        step = {"band": band, "type": qtype}
+        step = {"type": qtype}
         text = item.get("text")
         if isinstance(text, str) and text.strip():
             step["text"] = text.strip()
@@ -183,26 +197,24 @@ def parse_question_plan(raw: str) -> list[dict]:
             if options is None:
                 return QUESTION_PLAN
             step["options"] = options
-        if qtype in FREE_TEXT_QUESTION_TYPES:
-            example = item.get("example")
-            if isinstance(example, str) and example.strip():
-                step["example"] = example.strip()
         plan.append(step)
     return plan
 
 
-# Shipped German question set. Unlike QUESTION_PLAN (band/type only, one prompt
-# for every language), these are fully authored: real German text, options with a
-# correct flag, and example answers for the free-text slots. A German diagnosis
-# with no admin config uses this, so the common case runs instantly with ZERO
-# model calls. Any OTHER language falls back to QUESTION_PLAN and the model
-# generates the items, so the test stays language-agnostic out of the box. The
-# admin can edit or replace all of it. Each item follows the item-design rules:
-# exactly one correct option, and every distractor a real, gradeable mistake.
+# Shipped German question set. Unlike QUESTION_PLAN (type only, one prompt for
+# every language), these are fully authored: real German text and options with a
+# correct flag. A German diagnosis with no admin config uses this, so the common
+# case runs instantly with ZERO model calls. Any OTHER language falls back to
+# QUESTION_PLAN and the model generates the items, so the test stays
+# language-agnostic out of the box. The admin can edit or replace all of it. The
+# questions are ordered from very easy to very demanding, so the test spans the
+# whole range; the model reads the answers to place the learner, the questions
+# carry no level themselves. Each option item has exactly one correct option and
+# every distractor a real, gradeable mistake.
 GERMAN_LANGUAGE_CODE = "de"
 DEFAULT_GERMAN_QUESTION_PLAN = [
     {
-        "band": "A1", "type": "gap fill",
+        "type": "gap fill",
         "text": "Setze das passende Wort ein.\n\nIch ___ jeden Tag zur Arbeit.",
         "options": [
             {"text": "gehe", "correct": True},
@@ -212,7 +224,7 @@ DEFAULT_GERMAN_QUESTION_PLAN = [
         ],
     },
     {
-        "band": "A1", "type": "multiple choice",
+        "type": "multiple choice",
         "text": "Welches Wort passt?\n\n___ Buch liegt auf dem Tisch.",
         "options": [
             {"text": "Das", "correct": True},
@@ -222,12 +234,11 @@ DEFAULT_GERMAN_QUESTION_PLAN = [
         ],
     },
     {
-        "band": "A2", "type": "error correction",
+        "type": "error correction",
         "text": "Der Satz hat einen Fehler. Schreibe ihn richtig.\n\nGestern ich habe einen Film gesehen.",
-        "example": "Gestern habe ich einen Film gesehen.",
     },
     {
-        "band": "A2", "type": "multiple choice",
+        "type": "multiple choice",
         "text": "Welches Wort passt?\n\nIch fahre mit ___ Bus zur Uni.",
         "options": [
             {"text": "dem", "correct": True},
@@ -237,7 +248,7 @@ DEFAULT_GERMAN_QUESTION_PLAN = [
         ],
     },
     {
-        "band": "B1", "type": "reading comprehension",
+        "type": "reading comprehension",
         "text": ("Lies den Satz und beantworte die Frage.\n\n"
                  "Weil der Zug Verspätung hatte, kam Anna zu spät zur Besprechung.\n\n"
                  "Warum kam Anna zu spät?"),
@@ -249,7 +260,7 @@ DEFAULT_GERMAN_QUESTION_PLAN = [
         ],
     },
     {
-        "band": "B1", "type": "situation",
+        "type": "situation",
         "text": ("Was sagst du in dieser Situation?\n\n"
                  "Du kommst zu spät zu einem Termin und möchtest dich höflich entschuldigen."),
         "options": [
@@ -260,7 +271,7 @@ DEFAULT_GERMAN_QUESTION_PLAN = [
         ],
     },
     {
-        "band": "B2", "type": "multiple choice",
+        "type": "multiple choice",
         "text": "Welche Wörter passen in die Lücken?\n\n___ mehr man übt, ___ besser wird man.",
         "options": [
             {"text": "Je … desto", "correct": True},
@@ -270,11 +281,44 @@ DEFAULT_GERMAN_QUESTION_PLAN = [
         ],
     },
     {
-        "band": "B2", "type": "free writing",
+        "type": "free writing",
         "text": ("Schreibe zwei bis drei Sätze.\n\n"
                  "Beschreibe, was du letztes Wochenende gemacht hast."),
-        "example": ("Am Samstag habe ich lange geschlafen und danach Freunde getroffen. "
-                    "Am Sonntag bin ich spazieren gegangen, weil das Wetter schön war."),
+    },
+    {
+        "type": "reading comprehension",
+        "text": ("Lies den Satz und beantworte die Frage.\n\n"
+                 "Hätte das Unternehmen früher reagiert, wäre der Schaden vermeidbar gewesen.\n\n"
+                 "Was ist tatsächlich passiert?"),
+        "options": [
+            {"text": "Das Unternehmen reagierte zu spät, und der Schaden trat ein.", "correct": True},
+            {"text": "Das Unternehmen reagierte früh und verhinderte den Schaden.", "correct": False},
+            {"text": "Der Schaden war von Anfang an nicht zu verhindern.", "correct": False},
+            {"text": "Das Unternehmen will in Zukunft schneller reagieren.", "correct": False},
+        ],
+    },
+    {
+        "type": "error correction",
+        "text": ("Der Satz hat einen Fehler. Schreibe ihn richtig.\n\n"
+                 "Je länger die Sitzung dauerte, desto ungeduldiger wurden die Teilnehmer, "
+                 "trotz sie sich vorgenommen hatten, ruhig zu bleiben."),
+    },
+    {
+        "type": "free writing",
+        "text": ("Schreibe drei bis vier Sätze.\n\n"
+                 "Nimm Stellung: Sollten Universitäten eine Anwesenheitspflicht in "
+                 "Vorlesungen verlangen? Begründe deine Meinung."),
+    },
+    {
+        "type": "multiple choice",
+        "text": ("Welches Wort passt stilistisch am besten in diesen gehobenen Satz?\n\n"
+                 "Die Kommission hat die Vorwürfe nach eingehender Prüfung ___."),
+        "options": [
+            {"text": "entkräftet", "correct": True},
+            {"text": "kaputtgemacht", "correct": False},
+            {"text": "weggemacht", "correct": False},
+            {"text": "abgesagt", "correct": False},
+        ],
     },
 ]
 
@@ -299,8 +343,9 @@ def question_plan_is_valid(raw: str) -> bool:
 
     The save path uses this to reject a typo with a 400, rather than storing
     something the runtime then silently reverts to a default. Mirrors
-    :func:`parse_question_plan`: band and type must be known, an option set (option
-    types only) must pass ``_parse_options``, and text/example must be strings.
+    :func:`parse_question_plan`: the type must be known, an option set (option
+    types only) must pass ``_parse_options``, and text must be a string. A legacy
+    ``band`` field is ignored.
     """
     try:
         data = json.loads(raw)
@@ -311,16 +356,39 @@ def question_plan_is_valid(raw: str) -> bool:
     for item in data:
         if not isinstance(item, dict):
             return False
-        if item.get("band") not in VALID_BANDS or item.get("type") not in VALID_QUESTION_TYPES:
+        if item.get("type") not in VALID_QUESTION_TYPES:
             return False
         if item.get("text") is not None and not isinstance(item.get("text"), str):
-            return False
-        if item.get("example") is not None and not isinstance(item.get("example"), str):
             return False
         if item["type"] in OPTION_QUESTION_TYPES and item.get("options") is not None:
             if _parse_options(item.get("options")) is None:
                 return False
     return True
+
+
+def count_free_text_questions(plan: list[dict]) -> int:
+    """How many steps in a parsed plan are free-text (error correction / free writing)."""
+    return sum(1 for step in plan if step.get("type") in FREE_TEXT_QUESTION_TYPES)
+
+
+def question_plan_has_enough_free_text(raw: str) -> bool:
+    """True iff the admin plan carries at least MIN_FREE_TEXT_QUESTIONS free-text
+    questions.
+
+    Kept separate from :func:`question_plan_is_valid` (which checks structure) on
+    purpose: a short, structurally fine plan used in isolation still validates.
+    This floor is a save-path policy, enforced by the settings route, so a plan
+    the model could grade well cannot be stored without any production to judge.
+    """
+    try:
+        data = json.loads(raw)
+    except json.JSONDecodeError:
+        return False
+    if not isinstance(data, list):
+        return False
+    return count_free_text_questions(
+        [item for item in data if isinstance(item, dict)]
+    ) >= MIN_FREE_TEXT_QUESTIONS
 
 
 def correct_values(step: dict) -> set[str]:
@@ -489,10 +557,10 @@ def build_grading_brief(plan: list[dict], history: list[dict]) -> str:
     """
     lines: list[str] = []
     for i, item in enumerate(answered_items(history)):
-        step = plan[i] if i < len(plan) else {"band": "?", "type": "?"}
-        band, qtype = step.get("band", "?"), step.get("type", "?")
+        step = plan[i] if i < len(plan) else {"type": "?"}
+        qtype = step.get("type", "?")
         mode = question_mode(step)
-        header = f"Question {i + 1} ({band}, {qtype})"
+        header = f"Question {i + 1} ({qtype})"
         q_text = (step.get("text") or item["question"] or "").strip()
         selected, answer = item["selected"], item["answer"]
 
@@ -512,11 +580,9 @@ def build_grading_brief(plan: list[dict], history: list[dict]) -> str:
                     "Decide which option they meant, then whether it is correct."
                 )
         elif mode == "manual_text":
-            example = step.get("example")
-            extra = f" A good answer looks like: {example}." if example else ""
             lines.append(
                 f"{header}: authored free-text task. Question: {q_text} "
-                f"Learner answered: \"{answer}\".{extra} Judge the answer for this band."
+                f"Learner answered: \"{answer}\". Judge the answer for its language level."
             )
         elif qtype in OPTION_QUESTION_TYPES:  # auto choice
             picked = list(selected) if selected is not None else repr(answer)
@@ -528,7 +594,7 @@ def build_grading_brief(plan: list[dict], history: list[dict]) -> str:
         else:  # auto free-text
             lines.append(
                 f"{header}: model-generated free-text task. Question: {q_text} "
-                f"Learner answered: \"{answer}\". Judge the answer for this band."
+                f"Learner answered: \"{answer}\". Judge the answer for its language level."
             )
     return "\n\n".join(lines)
 
@@ -542,13 +608,16 @@ FORCE_FINISH_MESSAGE = (
     "Reply now with the final JSON object: done=true, level and skill_scores."
 )
 # Injected on every asking turn so the model does not have to count the
-# transcript itself: the backend knows the position and dictates both the task
-# type and the band for this one question.
+# transcript itself: the backend knows the position and dictates the task type.
+# There is no per-question CEFR band; difficulty comes from POSITION, so an early
+# slot is easy and a late one hard, and the whole test spans very easy to very
+# demanding.
 NEXT_QUESTION_MESSAGE = (
-    "Now ask question {number} of {total}. It must be a {type} task at CEFR "
-    "{band} difficulty, no easier and no harder, whatever the learner answered "
-    "before. Do not give any verdict yet: reply with done=false and only this "
-    "one question."
+    "Now ask question {number} of {total}. It must be a {type} task. This test "
+    "rises from very easy at the start to very demanding at the end, so choose a "
+    "difficulty that fits position {number} of {total}, whatever the learner "
+    "answered before. Do not give any verdict yet: reply with done=false and only "
+    "this one question."
 )
 # Used when a slot carries a verbatim question text but no answer key, so the
 # model still has to ask it and (for option types) build the options.
@@ -568,12 +637,13 @@ AUTO_OPTIONS_DIRECTIVE = (
 
 
 def next_question_message(number: int, plan: list[dict] | None = None) -> str:
-    """The per-turn instruction that fixes an auto question's number, type and band.
+    """The per-turn instruction that fixes an auto question's number and type.
 
     ``plan`` defaults to the shipped ``QUESTION_PLAN``. A slot with a verbatim
-    ``text`` is asked word for word; otherwise the band and type are dictated. For
-    option types the structured-options directive is appended so the model returns
-    the options as data, not as a), b), c), d) inside the message.
+    ``text`` is asked word for word; otherwise the type is dictated and the
+    difficulty follows the slot's position (early easy, late hard). For option
+    types the structured-options directive is appended so the model returns the
+    options as data, not as a), b), c), d) inside the message.
     """
     steps = plan or QUESTION_PLAN
     step = steps[number - 1]
@@ -584,7 +654,7 @@ def next_question_message(number: int, plan: list[dict] | None = None) -> str:
         )
     else:
         message = NEXT_QUESTION_MESSAGE.format(
-            number=number, total=total, band=step["band"], type=step["type"]
+            number=number, total=total, type=step["type"]
         )
     if step["type"] in OPTION_QUESTION_TYPES:
         message += AUTO_OPTIONS_DIRECTIVE
@@ -630,18 +700,22 @@ DEFAULT_DIAGNOSIS_PROMPT = """You are a CEFR assessor running a short diagnostic
 The target language is {language}. Conduct the ENTIRE conversation in {language}.
 
 GOAL
-Sort the learner into one of four levels, A1, A2, B1, or B1+ (anything above
-B1), and give a score from 0 to 100 for each of: grammar, vocabulary, reading,
-writing, pragmatics. B1+ means the learner needs no language support, so there
-is no point telling B2 from C1 or C2: they all become B1+.
+Sort the learner into one of the six CEFR levels, A1, A2, B1, B2, C1 or C2, and
+give a score from 0 to 100 for each of: grammar, vocabulary, reading, writing,
+pragmatics. Read the level off the learner's OWN answers, above all their
+free-text writing, measured against the CALIBRATION EXAMPLES below. The questions
+carry no level of their own, you decide the level. It then drives how simply the
+tutor writes back to the learner, so an accurate placement across the whole
+ladder matters, not only telling "needs support" from "does not".
 
-THE TEST IS A FIXED STAIRCASE
-You ask exactly 8 questions on a rising ladder, two per band: questions 1-2 at
-A1, 3-4 at A2, 5-6 at B1, 7-8 at B2. Both the task type AND the difficulty are
-FIXED by position and do NOT adapt to the answers. Before each question the
-system tells you the number, the task type and the difficulty. Follow it
-exactly. How the answers map to a final level is defined in the LEVEL ASSIGNMENT
-section below.
+THE TEST RISES FROM EASY TO HARD
+You ask a fixed set of questions. The task TYPE of each is fixed, but the
+questions carry NO CEFR level. Instead the test as a whole must rise from very
+easy at the start to very demanding at the end, so make an early question simple
+and a late one hard. Before every question the system tells you its number and
+its task type; the difficulty follows from the position. Do not adapt to the
+answers: a learner who fails question 2 still gets question 3 as planned. How the
+answers map to a final level is defined in the LEVEL ASSIGNMENT section below.
 
 METHOD
 - Ask ONE question per turn. Keep your turn short, at most four sentences.
@@ -659,15 +733,15 @@ METHOD
   distinguishes formal from informal address. Where it does not, keep a
   friendly everyday register. This is about how YOU speak; you may still set
   tasks that require a formal register and grade the learner on hitting it.
-- Neither the difficulty NOR the task type is yours to choose. Both are dictated
-  to you before you write each question, and they do not move with the answers.
-  A learner who fails question 2 still gets the question-3 task as assigned. This
-  is a fixed staircase, not adaptive testing.
-- THE TASK TYPES, fixed per question: gap fill (Q1), multiple choice (Q2, Q4, Q7),
-  error correction (Q3), reading comprehension (Q5), situation (Q6), free writing
-  (Q8). Multiple choice is used three times, at A1, A2 and B2. Write exactly the
-  type the system names. Most are closed questions with options, which keeps the
-  task readable at a glance:
+- The task TYPE is dictated to you before each question and does not move with
+  the answers. The difficulty is NOT dictated per question: you set it from the
+  slot's position, easy near the start and hard near the end, so the test spans
+  the whole range. This is a fixed set of questions, not adaptive testing.
+- THE TASK TYPES are gap fill, multiple choice, error correction, reading
+  comprehension, situation and free writing. The system names one type before
+  each question; write exactly that type, at a difficulty that fits its position.
+  Most are closed questions with options, which keeps the task readable at a
+  glance:
   * gap fill: ONE short everyday sentence with a blank, plus four options
   * multiple choice: a question with four short options, clearly distinct
   * error correction: one faulty sentence the learner has to rewrite correctly,
@@ -708,8 +782,9 @@ METHOD
   complexity, fit to the task, and register.
 - An empty, off-topic or incoherent answer is evidence of a LOW level. Never
   skip it and never repeat the question: move on to the next one.
-- Ask exactly 8 questions, then finish. The system tells you when the last
-  answer is in and asks for the verdict. Never finish early on your own.
+- Ask every question you are given, in order, then finish. The system tells you
+  when the last answer is in and asks for the verdict. Never finish early on your
+  own.
 - Never reveal the level, the scores, or your reasoning before the final turn.
 
 ITEM DESIGN
@@ -733,19 +808,25 @@ This is how professionally built placement tests write their items. Follow it.
   option, or by elimination of nonsense. A learner who does not know {language}
   must have no way in.
 
-DIFFICULTY LADDER
-For each question you are told its band. Pick the point you test from that band.
+DIFFICULTY RANGE
+Spread the questions across this range, easiest at the start, hardest at the end.
 These are categories, not {language} rules: use whatever realises them in
-{language}, and skip a category the language does not have.
-- A1 (questions 1-2): basic present-tense verb forms, question words, determiners,
-  plain statement and question word order, everyday nouns
-- A2 (questions 3-4): past tense, compound and separable verbs, prepositions with
-  the form they require, comparatives, modal verbs, common collocations
-- B1 (questions 5-6): subordinate clauses and their connectors, relative clauses,
-  conditionals, reflexives, passive or its equivalent, complex word order
-- B2 (questions 7-8): paired connectors, extended noun phrases, reported speech,
-  nominalisation, less common prepositions in fixed combinations, aspect and
-  tense contrasts. Coping here is what separates B1+ from B1
+{language}, and skip a category the language does not have. Use them to know what
+"easy" and "hard" look like, not as a label you attach to a question.
+- A1: basic present-tense verb forms, question words, determiners, plain
+  statement and question word order, everyday nouns
+- A2: past tense, compound and separable verbs, prepositions with the form they
+  require, comparatives, modal verbs, common collocations
+- B1: subordinate clauses and their connectors, relative clauses, conditionals,
+  reflexives, passive or its equivalent, complex word order
+- B2: paired connectors, extended noun phrases, reported speech, nominalisation,
+  less common prepositions in fixed combinations, aspect and tense contrasts
+- C1: subtle connectors and discourse markers, deep subordination and marked word
+  order, the subjunctive or irrealis and other moods, established collocations,
+  register shifts, meaning that turns on one fine grammatical distinction
+- C2: idiomatic and figurative language, precise register and nuance, dense
+  nominal style, near-native control where only a subtle slip or an unidiomatic
+  choice separates a good answer from a perfect one
 
 TASK LAYOUT
 The message is shown as plain text and line breaks inside it are kept, so lay
@@ -776,7 +857,7 @@ LEVEL ASSIGNMENT
 {grading}
 
 CALIBRATION EXAMPLES
-Use these example answers to judge free-text answers (error correction, free writing). At each band the examples describe the same situations, so compare how the same idea is expressed as the level rises. An answer of similar quality to a band's examples points to that level. A B2-quality answer means the learner copes past B1, so B1+.
+These are your main tool for placing the learner: judge the free-text answers (error correction, free writing) against them. At each level the examples describe the same situations, so compare how the same idea is expressed as the level rises. An answer of similar quality to a level's examples points to that level.
 {examples}
 
 OUTPUT FORMAT
@@ -796,7 +877,7 @@ Every wrong option must contain a real mistake in {language} and must never be a
 valid alternative answer. The interface shuffles the options, so their order in
 the array carries no meaning.
 
-On the final turn, "level" must be exactly one of "A1", "A2", "B1", "B1+":
+On the final turn, "level" must be exactly one of "A1", "A2", "B1", "B2", "C1", "C2":
 {"done": true, "message": "<two or three very simple sentences in {language}, encouraging in tone, naming one strength and one thing to work on. Simple enough for an A1 learner to read>", "level": "B1", "skill_scores": {"grammar": 60, "vocabulary": 55, "reading": 65, "writing": 50, "pragmatics": 60}}
 """
 
@@ -805,25 +886,34 @@ On the final turn, "level" must be exactly one of "A1", "A2", "B1", "B1+":
 # tune HOW the level is decided in one focused field. Injected at the
 # {grading} placeholder. Language-agnostic: it describes the CEFR scale, not
 # one language's forms.
-DEFAULT_GRADING_RULES = """Decide the final level from how high up the ladder the learner still copes.
-- Copes with the A1 questions but not the A2 questions: A1.
-- Copes with the A2 questions but not the B1 questions: A2.
-- Copes with the B1 questions but not the B2 questions: B1.
-- Copes with the B2 questions too: B1+.
-B1+ is everything above B1, so do not split it into B2, C1 or C2.
+DEFAULT_GRADING_RULES = """Decide the level from the OVERALL quality of the learner's language, judged from
+their answers as a whole. There is no fixed ladder of per-question levels: you
+place the learner by how well they actually use the language.
 
-Read the ladder as a ceiling, not a checklist. The level is the HIGHEST band the
-learner still handles SOLIDLY (both of that band's two questions). A single slip
-lower down, when the learner clearly copes higher up, is noise: do not let it cap
-the level. But do NOT promote on a single lucky hit: getting only one of a band's
-two questions is not coping with that band. When the code has already graded an
+Weigh the free-text answers most. They are the only place the learner PRODUCES
+language, so they carry the level. Compare that production to the CALIBRATION
+EXAMPLES and pick the level whose examples it matches best, in range, complexity,
+accuracy and register.
+
+Recognition is not production. A correct multiple-choice answer shows only that
+the learner RECOGNISED the right option, not that they can produce the language,
+so multiple choice is weak, supporting evidence only. Correct multiple-choice
+answers with weak, missing or skipped free-text do NOT establish B2, C1 or C2:
+without matching production, keep the level low. Award C1 or C2 only when the
+free-text writing itself clearly shows that level.
+
+Do not over-read a single answer. One strong sentence does not make a high level,
+and one slip does not cap a learner who writes well elsewhere. A blank, off-topic
+or skipped answer is evidence of a LOW level. When the code has already graded an
 option answer for you (RESULT given), use that result as it stands.
 
 These describe a typical learner at each outcome:
 - A1: isolated words and memorised phrases, present tense only, communication breaks down often.
 - A2: simple main clauses on everyday topics, past tense attempted but often wrong, very limited vocabulary.
 - B1: connected sentences with subordination, copes with familiar topics, errors do not block understanding.
-- B1+: everything above B1, needs no language support, copes with the B2 questions too."""
+- B2: clear, detailed language on many topics, argues a point, errors rarely block understanding.
+- C1: fluent and spontaneous, complex structures used naturally, idiomatic and precise wording.
+- C2: near-native precision and range, full control of register and nuance, only the subtlest slips."""
 
 # Shipped calibration examples: TWO per band, one sentence per line. The two
 # contexts are the SAME across all bands (line 1 is always the cinema/weekend
@@ -848,13 +938,21 @@ DEFAULT_LEVEL_EXAMPLES = {
         "-- Eigentlich hatte ich vorgehabt, am Samstag ins Kino zu gehen, doch da das Wetter so schlecht war, entschied ich mich, lieber zu Hause zu bleiben.\n"
         "-- Rückblickend war die Arbeit im Restaurant zwar äußerst fordernd, doch gerade dadurch konnte ich Fähigkeiten entwickeln, die mir heute im Büro zugutekommen."
     ),
+    "C1": (
+        "-- Eigentlich hatte ich fest vorgehabt, am Samstag ins Kino zu gehen, doch angesichts des miserablen Wetters entschied ich mich letztlich dafür, zu Hause zu bleiben.\n"
+        "-- So fordernd die Arbeit im Restaurant auch war, gerade sie hat mir Fähigkeiten vermittelt, von denen ich heute im Büro in erheblichem Maße profitiere."
+    ),
+    "C2": (
+        "-- Obwohl ich mich eigentlich auf einen Kinobesuch am Samstag gefreut hatte, ließ mich das anhaltend schlechte Wetter dann doch die Behaglichkeit der eigenen vier Wände vorziehen.\n"
+        "-- Rückblickend erweist sich gerade die zermürbende Zeit im Restaurant als prägend, denn sie schulte jene Gelassenheit im Umgang mit Menschen, die mir im Büroalltag heute selbstverständlich zugutekommt."
+    ),
 }
 
 
 def parse_level_examples(raw: str) -> dict:
     """Parse the admin per-level examples JSON, merged onto the defaults.
 
-    A missing or invalid entry keeps the shipped default, so all four bands are
+    A missing or invalid entry keeps the shipped default, so every band is
     always present for calibration. An empty/invalid setting yields the defaults.
     """
     examples = dict(DEFAULT_LEVEL_EXAMPLES)

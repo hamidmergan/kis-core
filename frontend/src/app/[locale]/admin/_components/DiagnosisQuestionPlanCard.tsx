@@ -6,7 +6,8 @@ import { useTranslations } from "next-intl";
 /**
  * Editor for the CEFR diagnosis question plan.
  *
- * Each row is one question with a task type and a CEFR band. Option types (gap
+ * Each row is one question with a task type. Questions carry no level, the AI
+ * reads the learner's answers and places them A1 to C2. Option types (gap
  * fill, multiple choice, reading comprehension, situation) carry their own answer
  * options with a "correct" flag: filled in fully (question plus options with at
  * least one correct), the question is served instantly with no model call and
@@ -18,22 +19,18 @@ import { useTranslations } from "next-intl";
  * back to `question_plan_default` (the authored German set) from settings.
  */
 
-type Band = "A1" | "A2" | "B1" | "B2";
 type QType =
   | "gap fill" | "multiple choice" | "error correction"
   | "reading comprehension" | "situation" | "free writing";
 
 interface Opt { text: string; correct: boolean }
-interface Row { band: Band; type: QType; text: string; options: Opt[]; example: string }
+interface Row { type: QType; text: string; options: Opt[] }
 interface PlanItem {
-  band: Band;
   type: QType;
   text?: string;
   options?: { text: string; correct: boolean }[];
-  example?: string;
 }
 
-const BANDS: Band[] = ["A1", "A2", "B1", "B2"];
 const TYPES: QType[] = [
   "gap fill", "multiple choice", "error correction",
   "reading comprehension", "situation", "free writing",
@@ -57,13 +54,11 @@ export default function DiagnosisQuestionPlanCard() {
 
   const toRows = (items: PlanItem[]): Row[] =>
     items.map((s) => ({
-      band: s.band,
       type: s.type,
       text: s.text ?? "",
       options: s.options?.length
         ? s.options.map((o) => ({ text: o.text, correct: !!o.correct }))
         : (isOptionType(s.type) ? emptyOptions() : []),
-      example: s.example ?? "",
     }));
 
   useEffect(() => {
@@ -108,15 +103,13 @@ export default function DiagnosisQuestionPlanCard() {
   // least two options and at least one correct); otherwise it is dropped and the
   // slot falls back to auto, matching question_mode() on the backend.
   const serialize = (r: Row): PlanItem => {
-    const item: PlanItem = { band: r.band, type: r.type };
+    const item: PlanItem = { type: r.type };
     if (r.text.trim()) item.text = r.text.trim();
     if (isOptionType(r.type)) {
       const opts = r.options
         .map((o) => ({ text: o.text.trim(), correct: o.correct }))
         .filter((o) => o.text);
       if (opts.length >= 2 && opts.some((o) => o.correct)) item.options = opts;
-    } else if (r.example.trim()) {
-      item.example = r.example.trim();
     }
     return item;
   };
@@ -172,7 +165,7 @@ export default function DiagnosisQuestionPlanCard() {
 
   const addRow = () => {
     const next: Row[] = [...rows, {
-      band: "A1", type: "gap fill", text: "", options: emptyOptions(), example: "",
+      type: "gap fill", text: "", options: emptyOptions(),
     }];
     setRows(next);
     saveRows(next);
@@ -195,6 +188,7 @@ export default function DiagnosisQuestionPlanCard() {
       <p className="text-sm font-medium text-foreground">{t("title")}</p>
       <p className="text-xs text-muted mt-1">{t("description")}</p>
       <p className="text-xs text-muted-soft mt-1">{t("languageHint")}</p>
+      <p className="text-xs text-muted-soft mt-1">{t("freeTextHint")}</p>
 
       <div className="mt-3 flex flex-col gap-4">
         {rows.map((r, i) => (
@@ -208,14 +202,6 @@ export default function DiagnosisQuestionPlanCard() {
                 className={inputClass}
               >
                 {TYPES.map((ty) => <option key={ty} value={ty}>{t(`type.${ty}`)}</option>)}
-              </select>
-              <select
-                value={r.band}
-                onChange={(e) => update(i, { band: e.target.value as Band })}
-                disabled={saving}
-                className={inputClass}
-              >
-                {BANDS.map((b) => <option key={b} value={b}>{b}</option>)}
               </select>
               <button
                 type="button"
@@ -238,7 +224,7 @@ export default function DiagnosisQuestionPlanCard() {
               className={`${inputClass} w-full resize-y`}
             />
 
-            {isOptionType(r.type) ? (
+            {isOptionType(r.type) && (
               <div className="flex flex-col gap-1.5">
                 <span className="text-xs text-muted">{t("optionsLabel")}</span>
                 <span className="text-[11px] text-muted-soft">{t("optionsHint")}</span>
@@ -285,19 +271,6 @@ export default function DiagnosisQuestionPlanCard() {
                     {t("addOption")}
                   </button>
                 )}
-              </div>
-            ) : (
-              <div className="flex flex-col gap-1">
-                <label className="text-xs text-muted">{t("exampleLabel")}</label>
-                <textarea
-                  value={r.example}
-                  placeholder={t("examplePlaceholder")}
-                  rows={4}
-                  onChange={(e) => setRows(rows.map((x, j) => (j === i ? { ...x, example: e.target.value } : x)))}
-                  onBlur={() => saveRows(rows)}
-                  disabled={saving}
-                  className={`${inputClass} w-full resize-y`}
-                />
               </div>
             )}
           </div>

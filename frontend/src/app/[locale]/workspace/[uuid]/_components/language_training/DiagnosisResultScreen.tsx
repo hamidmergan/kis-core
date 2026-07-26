@@ -2,7 +2,7 @@
 
 import { useTranslations } from "next-intl";
 import HelpTooltip from "@/components/ui/HelpTooltip";
-import { levelLabel, type DiagnosisResult, type Skill } from "./_diagnosis_types";
+import { type DiagnosisResult, type Skill } from "./_diagnosis_types";
 
 const SKILL_ORDER: Skill[] = ["grammar", "vocabulary", "reading", "writing", "pragmatics"];
 
@@ -22,7 +22,7 @@ export function DiagnosisResultScreen({
           {t("resultTitle")}
         </p>
         <p className="mt-2 text-6xl font-bold" style={{ color: "var(--kb)" }}>
-          {levelLabel(result.level, t("levelAboveB1"))}
+          {result.level}
         </p>
       </div>
 

@@ -1141,8 +1141,9 @@
     },
     "diagnosisPlanCard": {
       "title": "Question plan",
-      "description": "Defines which questions the diagnosis asks. Each row is one question with a type and a level. The order is the order in the test. Question text, options and example are optional. When a choice question is fully filled in (question plus options with one correct), it appears instantly with no AI call and is graded directly. Otherwise the AI writes the question.",
+      "description": "Defines which questions the diagnosis asks. Each row is one question with a type. The order is the order in the test and rises from easy to hard. Question text and options are optional. When a choice question is fully filled in (question plus options with one correct), it appears instantly with no AI call and is graded directly. Otherwise the AI writes the question. The AI assigns the level A1 to C2 at the end from the answers, not per question.",
       "languageHint": "Write questions and options in the language the test assesses (default German).",
+      "freeTextHint": "At least 2 free-text questions (error correction or free writing) are required. Only then can the AI place the level from a real writing sample.",
       "questionLabel": "Question",
       "optionsLabel": "Answer options",
       "optionsHint": "Mark exactly one correct. Several are allowed if the question says so.",
@@ -1150,8 +1151,6 @@
       "correctLabel": "correct",
       "addOption": "Add option",
       "removeOption": "Remove option",
-      "exampleLabel": "Example answer (optional)",
-      "examplePlaceholder": "What a good answer could look like",
       "addRow": "Add question",
       "removeRow": "Remove",
       "reset": "Restore default",
@@ -1178,14 +1177,14 @@
     },
     "diagnosisGradingCard": {
       "title": "Grading rules",
-      "description": "Defines how the AI decides the final level A1, A2, B1 or B1+.",
+      "description": "Defines how the AI decides the final level A1 to C2.",
       "reset": "Restore default",
       "saveFailed": "Saving failed"
     },
     "diagnosisExamplesCard": {
       "title": "Language level examples",
       "description": "Example answers per level. They help the AI place free-text answers, and they tell the normal chat how to answer a given level.",
-      "hint": "Separate several examples per level with -- (double dash), a line break works too. Ideally the same context across all levels, so the AI sees the same idea at rising levels. The B2 example stands for B1+.",
+      "hint": "Separate several examples per level with -- (double dash), a line break works too. Ideally the same context across all levels, so the AI sees the same idea at rising levels.",
       "reset": "Restore default",
       "saveFailed": "Saving failed"
     },
@@ -1484,7 +1483,8 @@
           "retry": "Try again",
           "progress": "Question {current} of {total}",
           "resultTitle": "Your result",
-          "levelAboveB1": "Above B1",
+          "skip": "Skip",
+          "skipped": "Skipped",
           "disclaimer": "This result comes from an AI. Experts have not checked it yet.",
           "continue": "Start practising",
           "abort": "Cancel",
@@ -1719,7 +1719,8 @@
         "learnerProfileTitle": "My learner profile",
         "learnerProfileDescription": "Shows your language level and your open weaknesses.",
         "learnerProfileOpen": "Open",
-        "learnerProfileBack": "Back to settings"
+        "learnerProfileBack": "Back to settings",
+        "learnerProfileAdminOnly": "Admin only"
       },
       "learnerProfile": {
         "title": "My learner profile",
@@ -1738,7 +1739,6 @@
         "trackingTitle": "Tracking",
         "trackingDescription": "Records where you still struggle, so you get more targeted help.",
         "trackingOffHint": "Tracking is off. No new weaknesses are being recorded.",
-        "exportMd": "Save as file",
         "actionFailed": "Action failed. Please try again.",
         "loadFailed": "Could not load the learner profile. Please try again."
       },
@@ -1770,7 +1770,6 @@
         "assistantBadge": "AI",
         "adaptiveLevel": "Level {level}",
         "adaptiveOff": "adaptive off",
-        "aboveB1": "above B1",
         "hildeName": "Hilde",
         "francisName": "Francis",
         "noAnswer": "(no answer)",

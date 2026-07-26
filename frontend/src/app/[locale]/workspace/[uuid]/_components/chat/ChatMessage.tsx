@@ -219,7 +219,7 @@ function ChatMessageImpl({
       {isAdmin && msg.role === "assistant" && msg.content ? (
         <span className="text-xs mb-0.5" style={{ color: "var(--muted-soft)" }}>
           {msg.applied_level
-            ? t("adaptiveLevel", { level: msg.applied_level === "B1+" ? t("aboveB1") : msg.applied_level })
+            ? t("adaptiveLevel", { level: msg.applied_level })
             : t("adaptiveOff")}
         </span>
       ) : null}

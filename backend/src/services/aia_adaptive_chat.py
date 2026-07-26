@@ -32,7 +32,11 @@ DEFAULT_ADAPTIVE_BEHAVIOR = (
     "simple words, or replace it with a simple word. Keep the whole answer short.\n"
     "- B1: you may give more detail and keep technical terms, but still explain "
     "each technical term briefly.\n"
-    "- Above B1: answer normally, no simplification.\n"
+    "- B2: answer normally and in full. Use technical terms where they fit and "
+    "only gloss the less common ones. No deliberate simplification.\n"
+    "- C1 or C2: answer at full depth, with precise wording, idiomatic phrasing "
+    "and technical terms as an expert would use them. Do not simplify and do not "
+    "gloss ordinary technical vocabulary.\n"
     "Never change the facts, only the language, the length and the depth of "
     "explanation.\n"
     "An example of {level} language: {example}"
@@ -42,14 +46,12 @@ DEFAULT_ADAPTIVE_BEHAVIOR = (
 def example_for_level(level: str | None, examples: dict) -> str:
     """The calibration example string for a learner's own level.
 
-    B1+ has no example of its own, so it borrows the B2 sample (a B2-quality
-    answer is exactly what "above B1" sounds like). Several examples for a band
-    are joined with ' / '. Empty when there is no level.
+    Every CEFR level now carries its own example. Several examples for a band are
+    joined with ' / '. Empty when there is no level, or no example stored for it.
     """
     if not level:
         return ""
-    key = "B2" if level == "B1+" else level
-    return " / ".join(example_items(examples.get(key, "")))
+    return " / ".join(example_items(examples.get(level, "")))
 
 
 def adaptive_chat_appendix(
