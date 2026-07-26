@@ -45,6 +45,7 @@ from src.services.aia_diagnosis_chat import (
     LEVEL_EXAMPLES_SETTING,
     parse_level_examples,
 )
+from src.services.aia_learner_profile import weakness_focus_appendix
 
 # Upper bound on the question length we hand to the LLM intent classifier.
 # Longer questions are nearly always topic-specific (no need for an LLM round-trip)
@@ -1081,6 +1082,13 @@ async def chat(
         _level,
         db.get_setting(ADAPTIVE_BEHAVIOR_SETTING, DEFAULT_ADAPTIVE_BEHAVIOR),
         _example,
+    )
+
+    # Weakness-focus help works for EVERY learner, not just those with a CEFR level.
+    # It is folded into the same suffix so all answer paths (popup, single, map,
+    # reduce) pick it up unchanged. Empty when nothing is over the act threshold.
+    _adaptive_suffix = _adaptive_suffix + weakness_focus_appendix(
+        db.get_learner_focus_terms(user_id)
     )
 
     # Resolve enrollment_id for per-link chat separation (needed for history fetch)
