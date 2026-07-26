@@ -10,6 +10,7 @@ from src.features.ai_assistant.routes._helpers import (
     _pick_attribution,
     _attribution_chip,
     _attribute_generic_text,
+    _attribution_subunits,
     _names_many_laws,
     _enum_chip_unbacked,
     _cos_dist,
@@ -77,7 +78,7 @@ def test_attributes_supported_line_nav_only():
     line = "Das Modul behandelt Audio Grafik und Video."
     search = _searcher({"Audio Grafik": [_hit(1, 12, "Audio Grafik und Video Kernmedien", 0.2)]})
     out = _attribute_generic_text(line, search, {1: 2}, max_distance=0.6)
-    assert out == "Das Modul behandelt Audio Grafik und Video. [2, S. 12]"
+    assert out == "Das Modul behandelt Audio Grafik und Video [2, S. 12]."
 
 
 def test_no_chip_when_unsupported():
@@ -110,7 +111,7 @@ def test_offset_fn_positional_ignored():
     dummy_offset_fn = lambda sid, page, ln: [" @5-30 | Audio Grafik und Video"]
     out = _attribute_generic_text(line, search, {1: 2}, dummy_offset_fn, max_distance=0.6)
     # offset_fn is ignored -> nav-only chip, NOT an offset chip
-    assert out == "Das Modul behandelt Audio Grafik und Video. [2, S. 12]"
+    assert out == "Das Modul behandelt Audio Grafik und Video [2, S. 12]."
 
 
 # ── cross-check: only chip when the source/page was actually retrieved ────────
@@ -119,7 +120,7 @@ def test_crosscheck_accepts_retrieved_page():
     line = "Eine inhaltlich substanzielle Aussage zum Thema hier."
     out = _attribute_generic_text(line, _searcher({"substanzielle": [_hit(1, 12, "x", 0.2)]}),
                                   {1: 2}, seen_pages_by_source={1: {12}}, max_distance=0.6)
-    assert out == f"{line} [2, S. 12]"
+    assert out == f"{line[:-1]} [2, S. 12]."
 
 
 def test_crosscheck_drops_unretrieved_page():
@@ -142,7 +143,7 @@ def test_crosscheck_media_passes_when_source_retrieved():
     hit = {"source_id": 3, "page_number": None, "content": "x", "vec_distance": 0.2, "start_time": 92.0}
     out = _attribute_generic_text(line, _searcher({"substanzielle": [hit]}),
                                   {3: 1}, seen_pages_by_source={3: set()}, max_distance=0.6)
-    assert out == f"{line} [1, 01:32]"
+    assert out == f"{line[:-1]} [1, 01:32]."
 
 
 def test_crosscheck_media_with_segment_page_passes():
@@ -154,14 +155,14 @@ def test_crosscheck_media_with_segment_page_passes():
     hit = {"source_id": 3, "page_number": 9, "content": "x", "vec_distance": 0.2, "start_time": 92.0}
     out = _attribute_generic_text(line, _searcher({"substanzielle": [hit]}),
                                   {3: 1}, seen_pages_by_source={3: set()}, max_distance=0.6)
-    assert out == f"{line} [1, 01:32]"
+    assert out == f"{line[:-1]} [1, 01:32]."
 
 
 def test_no_crosscheck_when_not_passed():
     line = "Eine inhaltlich substanzielle Aussage zum Thema hier."
     out = _attribute_generic_text(line, _searcher({"substanzielle": [_hit(1, 7, "x", 0.2)]}),
                                   {1: 2}, max_distance=0.6)
-    assert out == f"{line} [2, S. 7]"
+    assert out == f"{line[:-1]} [2, S. 7]."
 
 
 def test_table_header_not_cited_and_data_chip_inside_cell():
@@ -573,5 +574,147 @@ def test_clause_coverage_no_inflation_when_clauses_share_source():
     out = _attribute_generic_text(line, search, {1: 1}, max_distance=0.6,
                                   seen_pages_by_source={1: {5}})
     assert out.count("[1, S. 5]") == 1
+
+
+# ── per-sentence attribution in PROSE (NotebookLM style) ──────────────────────
+# A prose paragraph attaches a chip AFTER EACH sentence (its own closest source), not one
+# aggregated chip at the paragraph end. Bullets, headings and table rows are unaffected —
+# they keep their end-of-unit chip.
+
+def test_prose_paragraph_chips_each_sentence():
+    line = ("Der Kurs vermittelt die Grundlagen des wissenschaftlichen Arbeitens. "
+            "Die Abgabe der Hausarbeit ist am 03.07.2026 faellig.")
+    search = _searcher({
+        "Grundlagen des wissenschaftlichen": [_hit(1, 4, "Grundlagen wissenschaftliches Arbeiten Methoden", 0.2)],
+        "Abgabe der Hausarbeit": [_hit(1, 8, "Abgabe Hausarbeit Termin 03.07.2026", 0.2)],
+    })
+    out = _attribute_generic_text(line, search, {1: 1}, max_distance=0.6,
+                                  seen_pages_by_source={1: {4, 8}})
+    assert "Arbeitens [1, S. 4]." in out           # chip right after sentence 1
+    assert "faellig [1, S. 8]." in out             # chip right after sentence 2
+    assert out.count("[1, S. 4]") == 1
+    assert out.count("[1, S. 8]") == 1
+
+
+def test_prose_unsupported_sentence_gets_no_chip():
+    line = ("Die Abgabe der Hausarbeit ist am 03.07.2026 faellig. "
+            "Dieser vage Zusatz steht so nicht in den Quellen.")
+    search = _searcher({
+        "Abgabe der Hausarbeit": [_hit(1, 8, "Abgabe Hausarbeit 03.07.2026", 0.2)],
+        "vage Zusatz": [_hit(1, 5, "irrelevant weit weg", 0.9)],   # beyond the gate
+    })
+    out = _attribute_generic_text(line, search, {1: 1}, max_distance=0.6,
+                                  seen_pages_by_source={1: {5, 8}})
+    assert "faellig [1, S. 8]." in out
+    assert "[1, S. 5]" not in out                   # unsupported sentence stays chip-less
+
+
+def test_bullet_two_sentences_not_chipped_per_sentence():
+    # A BULLET with two sentences keeps block behaviour: NO chip after the first sentence's
+    # period (mid-bullet). Per-sentence chipping is prose-only.
+    line = "- Der Kurs vermittelt die Grundlagen. Die Abgabe ist im Juli faellig."
+    search = _searcher({"Grundlagen": [_hit(1, 4, "Grundlagen wissenschaftliches Arbeiten", 0.2)]})
+    out = _attribute_generic_text(line, search, {1: 1}, max_distance=0.6,
+                                  seen_pages_by_source={1: {4}})
+    assert "Grundlagen. [1" not in out              # no chip mid-bullet (not per-sentence)
+    assert "Grundlagen [1" not in out               # nor before the first sentence's period
+    assert out.rstrip().endswith("faellig [1, S. 4].")  # one chip at the end, before the period
+
+
+def test_prose_single_sentence_chip_at_end_unchanged():
+    # One-sentence prose is unchanged: a single chip at the end (routes through the block path).
+    line = "Die Abgabe der Hausarbeit ist am 03.07.2026 faellig und steht so hier."
+    search = _searcher({"Abgabe der Hausarbeit": [_hit(1, 8, "Abgabe Hausarbeit 03.07.2026", 0.2)]})
+    out = _attribute_generic_text(line, search, {1: 1}, max_distance=0.6,
+                                  seen_pages_by_source={1: {8}})
+    assert out == f"{line[:-1]} [1, S. 8]."
+
+
+def test_chip_goes_before_the_sentence_period_notebooklm_style():
+    # NotebookLM order: the source chip sits BEFORE the sentence-ending period, not after it.
+    line = "Die Abgabe der Hausarbeit ist am 03.07.2026 faellig und steht so hier."
+    search = _searcher({"Abgabe der Hausarbeit": [_hit(1, 8, "Abgabe Hausarbeit 03.07.2026", 0.2)]})
+    out = _attribute_generic_text(line, search, {1: 1}, max_distance=0.6,
+                                  seen_pages_by_source={1: {8}})
+    assert out.endswith("[1, S. 8].")          # chip THEN period
+    assert ". [1, S. 8]" not in out            # never period-then-chip
+
+
+def test_bullet_chip_also_before_period():
+    # A bullet ending in a period gets the same NotebookLM order: chip before the period.
+    line = "- Der Kurs vermittelt die wissenschaftlichen Grundlagen im Seminar."
+    search = _searcher({"wissenschaftlichen Grundlagen": [_hit(1, 4, "Grundlagen wissenschaftliches Arbeiten", 0.2)]})
+    out = _attribute_generic_text(line, search, {1: 1}, max_distance=0.6,
+                                  seen_pages_by_source={1: {4}})
+    assert out.endswith("[1, S. 4].")
+    assert ". [1, S. 4]" not in out
+
+
+def test_bullet_ending_in_bold_appends_chip_no_reorder():
+    # A bullet whose period is INSIDE trailing markdown emphasis (**...**) must NOT have the
+    # chip inserted into the markup; it is appended after the emphasis instead.
+    line = "- **Wörtliches Zitat vom Autor.**"
+    search = _searcher({"Wörtliches Zitat": [_hit(1, 3, "Woertliches Zitat Autor Jahr Seite", 0.2)]})
+    out = _attribute_generic_text(line, search, {1: 1}, max_distance=0.6,
+                                  seen_pages_by_source={1: {3}})
+    assert out == "- **Wörtliches Zitat vom Autor.** [1, S. 3]"
+
+
+def test_prose_block_multiline_bold_leadin_chips_per_sentence():
+    # The real NotebookLM-intro shape: a bold lead-in on its OWN line, then a 2-sentence
+    # prose line. The 2-line block must STILL chip per sentence on the prose line; the short
+    # bold lead-in stays chip-free. Regression: the multi-line block skipped per-sentence
+    # chipping and put ONE aggregated chip cluster at the block end.
+    text = ("**Überblick**\n"
+            "Der Kurs vermittelt die Grundlagen des wissenschaftlichen Arbeitens. "
+            "Die Abgabe der Hausarbeit ist am 03.07.2026 faellig.")
+    search = _searcher({
+        "Grundlagen des wissenschaftlichen": [_hit(1, 4, "Grundlagen wissenschaftliches Arbeiten Methoden", 0.2)],
+        "Abgabe der Hausarbeit": [_hit(1, 8, "Abgabe Hausarbeit Termin 03.07.2026", 0.2)],
+    })
+    out = _attribute_generic_text(text, search, {1: 1}, max_distance=0.6,
+                                  seen_pages_by_source={1: {4, 8}})
+    lines = out.split("\n")
+    assert lines[0] == "**Überblick**"            # bold lead-in stays chip-free
+    assert "Arbeitens [1, S. 4]." in out          # sentence 1 gets its own chip
+    assert "faellig [1, S. 8]." in out            # sentence 2 gets its own chip
+    assert out.count("[1, S. 4]") == 1 and out.count("[1, S. 8]") == 1
+
+
+# ── _attribution_subunits (what the caller pre-embeds in ONE batch) ───────────
+# The prose per-sentence path searches each sentence (and its clauses). Those must ride in
+# the same embed batch as the lines/clauses, or search_one falls back to one embed PER
+# sentence and hammers the shared rate limit. This helper enumerates those sub-units.
+
+def test_subunits_prose_multisentence_returns_each_sentence():
+    line = "Der Kurs vermittelt die Grundlagen. Die Abgabe ist im Juli faellig."
+    assert _attribution_subunits(line) == [
+        "Der Kurs vermittelt die Grundlagen.",
+        "Die Abgabe ist im Juli faellig.",
+    ]
+
+
+def test_subunits_prose_sentence_with_comma_includes_its_clauses():
+    line = "Der Kurs deckt Theorie, Methoden und Praxis ab. Die Abgabe folgt spaeter."
+    units = _attribution_subunits(line)
+    assert "Der Kurs deckt Theorie, Methoden und Praxis ab." in units   # sentence 1
+    assert "Die Abgabe folgt spaeter." in units                         # sentence 2
+    assert "Der Kurs deckt Theorie" in units                            # clause of sentence 1
+
+
+def test_subunits_bullet_returns_clauses_not_sentences():
+    # A bullet is NOT split per sentence: only its comma-clauses are extra units.
+    line = "- Die Pruefung umfasst sechs Seiten, sowie eine muendliche Praesentation dazu."
+    units = _attribution_subunits(line)
+    assert "- Die Pruefung umfasst sechs Seiten" in units          # a comma-clause
+    assert "sowie eine muendliche Praesentation dazu." in units    # the other clause
+    # NOT split into sentences (it is a bullet) -> the whole bullet is never an extra unit.
+    assert "- Die Pruefung umfasst sechs Seiten, sowie eine muendliche Praesentation dazu." not in units
+
+
+def test_subunits_single_sentence_prose_has_no_extra_sentence_units():
+    line = "Die Abgabe der Hausarbeit ist am 03.07.2026 faellig und steht so hier."
+    # No comma, single sentence -> no sub-units at all.
+    assert _attribution_subunits(line) == []
 
 

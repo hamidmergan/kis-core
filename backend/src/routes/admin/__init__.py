@@ -9,7 +9,6 @@ from fastapi import APIRouter
 from src.routes.admin.jobs import router as _jobs_router
 from src.routes.admin.ldap_users import router as _ldap_users_router
 from src.routes.admin.maintenance import router as _maintenance_router
-from src.routes.admin.prompts import router as _prompts_router
 from src.routes.admin.providers import router as _providers_router
 from src.routes.admin.quota import router as _quota_router
 from src.routes.admin.roles import router as _roles_router
@@ -26,7 +25,6 @@ router.include_router(_users_router)
 router.include_router(_stats_router)
 router.include_router(_jobs_router)
 router.include_router(_ldap_users_router)
-router.include_router(_prompts_router)
 router.include_router(_providers_router)
 router.include_router(_quota_router)
 router.include_router(_roles_router)

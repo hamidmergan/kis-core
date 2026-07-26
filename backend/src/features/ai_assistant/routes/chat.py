@@ -3,6 +3,7 @@
 import asyncio
 import json
 import re
+import time
 from collections.abc import AsyncGenerator
 from pathlib import Path
 from typing import Optional
@@ -973,7 +974,9 @@ from src.features.ai_assistant.routes._helpers import (
     _strip_inline_citation_chips,
     _attribute_generic_text,
     _needs_attribution,
-    _clauses,
+    _attribution_subunits,
+    _parallel_search,
+    _AttributionPrewarmer,
     _refusal_lines,
     is_refusal_answer,
     _append_scope_anchor,
@@ -1569,6 +1572,11 @@ async def chat(
         stream = None
         answer_parts: list[str] = []
         assistant_saved = False
+        # B2 prewarm (set up before the stream loop when the RAG-attribution path applies);
+        # declared here so the outer finally can always cancel a still-running pump.
+        _prewarmer = None
+        _pump_task = None
+        _pump_stop = None
         tokens_in: Optional[int] = None
         tokens_out: Optional[int] = None
         # Tokens spent by SPECIFIC map calls (the streamed reduce call's usage
@@ -1646,6 +1654,51 @@ async def chat(
             # scan the growing buffer's tail every _INTRA_LINE_CHECK_EVERY chars.
             _last_intra = 0
             _INTRA_LINE_CHECK_EVERY = 1500
+            # B2: warm the post-hoc attribution caches WHILE the answer streams. Only for the
+            # RAG-attribution path (source_ids, not popup, not single-page scope — exactly the
+            # `else` branch that runs _attribute_blocking). A background pump embeds+searches
+            # completed lines every ~0.35s so that when streaming ends most work is already
+            # cached; the final attribution then only computes the misses.
+            _do_prewarm = bool(source_ids) and not is_popup and not scope_single_page
+            if _do_prewarm:
+                from src.services.aia_embeddings import get_embedding_provider as _get_ep
+                _pw_prov = _get_ep()
+
+                def _pw_search(_ln, _vec):
+                    try:
+                        return db.hybrid_search_chunks(
+                            workspace["id"], _ln, _vec or _pw_prov.embed_one(_ln),
+                            source_ids=source_ids, limit=10)
+                    except Exception:
+                        return []
+
+                _prewarmer = _AttributionPrewarmer(_pw_prov.embed, _pw_search)
+                _pump_stop = asyncio.Event()
+
+                async def _prewarm_pump():
+                    # Throttle for the SHARED embed budget (GWDG ~2/s, 15/min across the whole
+                    # university): flush at most every _PREWARM_POLL_SECONDS and at most
+                    # _PREWARM_MAX_FLUSHES times while streaming, so prewarm adds only a handful
+                    # of spaced embed calls per answer (not one-per-line). Whatever is still
+                    # pending after the cap is embedded once by the final attribution. These two
+                    # constants are the throttle knobs — dial down under heavier concurrency.
+                    _PREWARM_POLL_SECONDS = 2.0
+                    _PREWARM_MAX_FLUSHES = 6
+                    while not _pump_stop.is_set():
+                        try:
+                            await asyncio.wait_for(_pump_stop.wait(), timeout=_PREWARM_POLL_SECONDS)
+                        except asyncio.TimeoutError:
+                            pass
+                        if _pump_stop.is_set():
+                            break
+                        if _prewarmer.flushes < _PREWARM_MAX_FLUSHES and _prewarmer.pending_count():
+                            try:
+                                await _prewarmer.flush()
+                            except Exception:
+                                pass
+                    await _prewarmer.flush()  # final drain of whatever is still pending
+
+                _pump_task = asyncio.create_task(_prewarm_pump())
             try:
                 # 90s connect/first-token timeout so an Ollama cold-start model
                 # load can finish before we abort. Once tokens flow the
@@ -1705,6 +1758,8 @@ async def chat(
                         while "\n" in _line_buf:
                             _completed, _line_buf = _line_buf.split("\n", 1)
                             _last_intra = min(_last_intra, len(_line_buf))  # buffer shrank → re-baseline
+                            if _prewarmer is not None:
+                                _prewarmer.feed_line(_completed)
                             if _repeat_guard.is_loop(_completed):
                                 logger.warning("Repetition loop detected, stopping stream")
                                 _loop_detected = True
@@ -1722,6 +1777,18 @@ async def chat(
                         await stream.close()
                     except Exception:
                         pass
+
+            # Streaming finished: feed the trailing newline-less last line, then stop the pump
+            # and await its final flush so the prewarm caches are complete + stable before the
+            # attribution below reads them.
+            if _prewarmer is not None and _pump_task is not None:
+                if _line_buf.strip():
+                    _prewarmer.feed_line(_line_buf)
+                _pump_stop.set()
+                try:
+                    await _pump_task
+                except Exception:
+                    pass
 
             _clean_answer = _dedup_repeated_lines(_collapse_repeats(_sanitize_citations("".join(answer_parts).strip())))
             # Kill redundant structure the model adds on "zeige mir alle Quellen": a
@@ -1769,33 +1836,46 @@ async def chat(
                     # is excluded from attribution, so a compound answer never sources its
                     # "not in the sources" sentence.
                     _cands = [ln for ln in _stripped.split("\n") if _needs_attribution(ln)]
-                    # Clause sub-queries ride in the SAME batch (no extra provider round-trips):
-                    # a multi-fact line is attributed fact-by-fact, each clause searched on its
-                    # own focused vector.
-                    _clause_units: list[str] = []
+                    # Sub-line queries ride in the SAME batch (no extra provider round-trips):
+                    # a PROSE paragraph is attributed per sentence and a multi-fact line
+                    # fact-by-fact, so each sentence/clause is searched on its own focused
+                    # vector. Pre-embedding them here is load-bearing, NOT just an optimisation:
+                    # the shared rate limit (2/s) cannot absorb one embed call per sentence.
+                    _extra_units: list[str] = []
                     for _ln in _cands:
-                        for _cl in _clauses(_ln):
-                            if _cl not in _cands and _cl not in _clause_units:
-                                _clause_units.append(_cl)
-                    _batch_lines = _cands + _clause_units
+                        for _u in _attribution_subunits(_ln):
+                            if _u not in _cands and _u not in _extra_units:
+                                _extra_units.append(_u)
+                    _batch_lines = _cands + _extra_units
                     _sentinels = list(RAG_NO_INFO_SENTINEL.values())
-                    _vec_by_line: dict[str, list] = {}
+                    # Reuse whatever the streaming prewarm (B2) already embedded; embed only the
+                    # misses plus the sentinels. If prewarm covered everything, this is just the
+                    # 2-sentinel embed and the after-answer pause is near zero.
+                    _pw_vecs = _prewarmer.vecs if _prewarmer is not None else {}
+                    _pw_hits = _prewarmer.hits if _prewarmer is not None else {}
+                    _vec_by_line: dict[str, list] = {ln: _pw_vecs[ln] for ln in _batch_lines if ln in _pw_vecs}
                     _sentinel_vecs: list = []
-                    if _batch_lines:
+                    _embed_s = 0.0
+                    _n_prewarmed = len(_vec_by_line)
+                    _miss_lines = [ln for ln in _batch_lines if ln not in _vec_by_line]
+                    _to_embed = _miss_lines + _sentinels
+                    if _to_embed:
                         try:
-                            logger.info("post-hoc attribution: batch-embedding {} candidate lines (+{} clauses, +{} sentinels) in ONE call", len(_cands), len(_clause_units), len(_sentinels))
-                            _batch = _batch_lines + _sentinels
-                            _vecs = _prov.embed(_batch)
-                            if len(_vecs) == len(_batch):
-                                _vec_by_line = dict(zip(_batch_lines, _vecs[:len(_batch_lines)]))
-                                _sentinel_vecs = _vecs[len(_batch_lines):]
+                            logger.info("post-hoc attribution: embedding {} lines ({} prewarmed of {}) + {} sentinels", len(_miss_lines), _n_prewarmed, len(_batch_lines), len(_sentinels))
+                            _t_embed0 = time.perf_counter()
+                            _vecs = _prov.embed(_to_embed)
+                            _embed_s = time.perf_counter() - _t_embed0
+                            if len(_vecs) == len(_to_embed):
+                                for _ln, _v in zip(_miss_lines, _vecs[:len(_miss_lines)]):
+                                    _vec_by_line[_ln] = _v
+                                _sentinel_vecs = _vecs[len(_miss_lines):]
                         except Exception as e:
                             logger.warning("post-hoc batch embedding failed, falling back per-line: {}", e)
                     _refusals = _refusal_lines(_cands, _vec_by_line, _sentinel_vecs)
                     if _refusals:
                         logger.info("post-hoc attribution: {} refusal line(s) excluded from citation", len(_refusals))
 
-                    def _search_one(_line: str):
+                    def _raw_search(_line: str):
                         try:
                             _qv = _vec_by_line.get(_line) or _prov.embed_one(_line)
                             # limit 10 (was 4): the attribution now FILTERS hits to pages
@@ -1808,7 +1888,28 @@ async def chat(
                             logger.warning("post-hoc attribution search failed for a line: {}", e)
                             return []
 
-                    return _attribute_generic_text(_stripped, _search_one, source_id_to_qnum,
+                    # Fan every per-line/-sentence DB search across a thread pool BEFORE the
+                    # sequential attribution walk. These hit LOCAL pgvector (not the rate-limited
+                    # embed API), so concurrency is free speed and was the ~13.7s bulk of the pause
+                    # (measured ~3x faster this way). _batch_lines already mirrors exactly what
+                    # _attribute_generic_text searches (candidate lines + their sentence/clause
+                    # sub-units), so the walk turns into a dict lookup; a line not covered here
+                    # falls back to one inline search. The chip (closest chunk by vec_distance) is
+                    # identical to the serial path — only lower-ranked, non-chip hits reorder.
+                    # Reuse prewarmed search hits; only search the lines the prewarm missed.
+                    _t_search0 = time.perf_counter()
+                    _hits_by_line: dict = {ln: _pw_hits[ln] for ln in _batch_lines if ln in _pw_hits}
+                    _search_miss = [ln for ln in _batch_lines if ln not in _hits_by_line]
+                    if _search_miss:
+                        _hits_by_line.update(_parallel_search(_search_miss, _raw_search))
+                    _search_s = time.perf_counter() - _t_search0
+
+                    def _search_one(_line: str):
+                        if _line in _hits_by_line:
+                            return _hits_by_line[_line]
+                        return _raw_search(_line)
+
+                    _attr_result = _attribute_generic_text(_stripped, _search_one, source_id_to_qnum,
                                                    # Chips may only point at pages the model
                                                    # actually saw (cross-check vs. retrieved pages).
                                                    seen_pages_by_source=seen_pages_by_source,
@@ -1826,6 +1927,14 @@ async def chat(
                                                    # clamp citations to the scoped chunks — otherwise a
                                                    # closer chunk from minute 13 leaks into the summary.
                                                    scope_chunks=scope_chunks)
+                    _pw_flushes = _prewarmer.flushes if _prewarmer is not None else 0
+                    logger.info(
+                        "post-hoc attribution timing: embed {:.1f}s ({}/{} lines prewarmed in "
+                        "{} stream-embed calls) + search {:.1f}s ({} searched inline) over {} "
+                        "lines ({} candidates)",
+                        _embed_s, _n_prewarmed, len(_batch_lines), _pw_flushes, _search_s,
+                        len(_search_miss), len(_hits_by_line), len(_cands))
+                    return _attr_result
 
                 answer = await asyncio.to_thread(_attribute_blocking)
 
@@ -1880,6 +1989,11 @@ async def chat(
             # Send final metadata event - also send corrected answer
             yield f"data: {json.dumps({'done': True, 'answer': answer, 'source_pages': source_pages, 'source_qmap': source_qmap})}\n\n"
         finally:
+            # B2: make sure the prewarm pump never outlives the stream. The success path
+            # already stopped+awaited it before attribution; this cancels it on any early
+            # exit (LLM error, client abort, CancelledError) so no background task leaks.
+            if _pump_task is not None and not _pump_task.done():
+                _pump_task.cancel()
             # Fallback: no save path ran (LLM error, CancelledError, yield exception
             # on a dead connection, anything else that bypassed the explicit
             # branches). Persist a marker either way - the user question was already

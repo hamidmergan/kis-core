@@ -1011,6 +1011,32 @@ def init_db(admin_email: Optional[str] = None) -> None:
 
         conn.commit()
 
+    # hnsw ANN index for vector search (own transaction, so a long build stays out of the
+    # schema transaction and a failure cannot roll schema setup back). Built on the
+    # halfvec(2560) form of embedding: 2560-dim exceeds pgvector's 2000-dim vector-index
+    # limit, halfvec allows up to 4000. PARTIAL on vector_dims=2560 so a future different-dim
+    # model neither breaks inserts nor is wrongly returned (see chunks._vector_search_sql,
+    # which queries in the same form). SET LOCAL keeps the build tuning off the pooled
+    # connection: parallel index build shares memory via DSM in /dev/shm (only 64MB in a
+    # Docker container -> "could not resize shared memory segment"), so parallel maintenance
+    # is disabled. IF NOT EXISTS = built once; on an existing prod DB prefer a manual
+    # CREATE INDEX CONCURRENTLY off-hours before deploy so first startup does not block.
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            try:
+                cur.execute("SET LOCAL max_parallel_maintenance_workers = 0")
+                cur.execute("SET LOCAL maintenance_work_mem = '256MB'")
+                cur.execute("""
+                    CREATE INDEX IF NOT EXISTS idx_chunks_embedding_hnsw
+                    ON aia_chunks USING hnsw ((embedding::halfvec(2560)) halfvec_cosine_ops)
+                    WHERE vector_dims(embedding) = 2560
+                """)
+                conn.commit()
+                _log.info("hnsw vector index ready (idx_chunks_embedding_hnsw).")
+            except Exception as e:
+                conn.rollback()
+                _log.warning("hnsw vector index build skipped/failed (vector search falls back to scan): {}", e)
+
 
 # --- Users ---
 

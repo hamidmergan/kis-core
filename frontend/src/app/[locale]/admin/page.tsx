@@ -14,7 +14,6 @@ import {
   IdentificationCard,
   Lightning,
   List,
-  NotePencil,
   Sparkle,
   Toolbox,
   Users,
@@ -29,7 +28,6 @@ import KiTutorTab from "./_components/KiTutorTab";
 import JobsTab from "./_components/JobsTab";
 import SettingsTab from "./_components/SettingsTab";
 import ProvidersTab from "./_components/providers";
-import PromptsTab from "./_components/PromptsTab";
 import QuotaTab from "./_components/QuotaTab";
 import HildeTab from "./_components/HildeTab";
 import FrancisTab from "./_components/FrancisTab";
@@ -44,7 +42,6 @@ import DiagnosisAdaptiveBehaviorCard from "./_components/DiagnosisAdaptiveBehavi
 type Tab =
   | "system"
   | "ki"
-  | "prompts"
   | "diagnosis"
   | "pending"
   | "whitelist"
@@ -86,7 +83,6 @@ export default function AdminPage() {
       items: [
         { key: "system", label: t("nav.system"), icon: <GearSix {...ICON_PROPS} /> },
         { key: "ki", label: t("nav.ki"), icon: <Sparkle {...ICON_PROPS} /> },
-        { key: "prompts", label: t("nav.prompts"), icon: <NotePencil {...ICON_PROPS} /> },
         {
           key: "diagnosis",
           label: t("nav.languageDiagnosis"),
@@ -239,7 +235,6 @@ export default function AdminPage() {
 
           {tab === "system" && <SettingsTab section="system" />}
           {tab === "ki" && <ProvidersTab />}
-          {tab === "prompts" && <PromptsTab />}
           {tab === "diagnosis" && (
             <div className="flex flex-col gap-6">
               <div>
