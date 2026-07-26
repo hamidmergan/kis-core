@@ -1,13 +1,15 @@
 """Shared helpers for KI-Assistent routes."""
 
+import asyncio
 import html as _html
 import math
 import re
 import subprocess
 import tempfile
 import unicodedata
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
-from typing import Optional
+from typing import Callable, Optional
 
 from fastapi import HTTPException
 from loguru import logger
@@ -711,13 +713,29 @@ def _is_table_delim(line: str) -> bool:
     return bool(s) and set(s) <= set("|-: ")
 
 
+def _attach_chips(text: str, chip_str: str) -> str:
+    """Attach ``chip_str`` NotebookLM-style: BEFORE the sentence-ending punctuation when the
+    text ends in a plain '.', '!' or '?', so ``Satz.`` -> ``Satz [chip].``. If the text does
+    NOT end in bare terminal punctuation (a trailing '**' emphasis marker, a closing quote, a
+    table pipe, or no punctuation at all), the chip is simply appended — never inserted into
+    markup. Language-agnostic; keys only on the trailing character(s)."""
+    s = text.rstrip()
+    i = len(s)
+    while i > 0 and s[i - 1] in ".!?":
+        i -= 1
+    if 0 < i < len(s):                     # a real terminal-punctuation run with text before it
+        return f"{s[:i].rstrip()} {chip_str}{s[i:]}"
+    return f"{s} {chip_str}"
+
+
 def _place_chip(line: str, chip_str: str) -> str:
     """Attach ``chip_str`` to a line. For a table row the chip goes INSIDE the last
     cell (before the closing pipe) so the row keeps its pipe-defined column count and
-    GFM still parses the block as a table; otherwise it is appended after the line."""
+    GFM still parses the block as a table; otherwise it is attached via :func:`_attach_chips`
+    (before the sentence-ending period, NotebookLM-style)."""
     if _is_table_row(line):
         return re.sub(r"\s*\|\s*$", f" {chip_str} |", line.rstrip())
-    return f"{line.rstrip()} {chip_str}"
+    return _attach_chips(line, chip_str)
 
 
 def _in_scope(chunk: dict, scope_ids: Optional[set]) -> bool:
@@ -752,6 +770,79 @@ def _clauses(line: str) -> list[str]:
         p = part.strip()
         if p and p != whole and len(_line_dedup_key(p)) >= _DEDUP_MIN_KEY_LEN and p not in out:
             out.append(p)
+    return out
+
+
+# A sentence boundary: one or more terminal marks, whitespace, then a word char. The
+# lookahead is NOT consumed, so the following letter's case is checked in code (only an
+# UPPERCASE start is a boundary — a lowercase start is a wrapped/continued clause). A mark
+# directly before a DIGIT (a decimal "6.2", a "S. 5" page ref) never matches, since the
+# lookahead excludes digits — decimals need no separate guard.
+_SENT_BOUNDARY_RE = re.compile(r"[.!?]+\s+(?=[^\W\d_])")
+
+
+def _is_abbreviation_end(prefix: str) -> bool:
+    """Whether the terminal ``.`` of ``prefix`` closes an abbreviation / number rather than a
+    sentence — i.e. a split here would drop a chip mid-sentence. Language-agnostic (NO word
+    lists), keyed only on the shape of the last whitespace-token before the mark:
+
+    - a single char ("z. B.", "S.", an initial),
+    - a bare number ("am 3. Juli", an ordinal — favoured over the rare "… Seite 5. Der …",
+      which is locally identical and only costs a missed split),
+    - a short dotted token ("u.a.", "d.h.", "e.g.", "i.e." — internal '.' and <= 4 chars, so
+      a real domain "th-luebeck.de" is NOT caught and the sentence-ending '.' after an email
+      still splits),
+    - a short Capitalised token ("Prof.", "Dr.", "Nr.", "Abb.", "Hrsg." — <= 4 chars).
+
+    Bias is PRECISION: each rule suppresses an ambiguous split. A missed split merely merges
+    two sentences under one chip (the old block behaviour); a false split cannot happen."""
+    tok = prefix.rstrip(".!?").split()
+    if not tok:
+        return False
+    # Strip surrounding brackets/quotes/dashes so an opening "(" or a quote does not hide the
+    # abbreviation inside it ("(z. B. …)", "„z. B."). Internal dots (u.a.) are kept.
+    tok = re.sub(r"^\W+|\W+$", "", tok[-1])
+    if not tok:
+        return False
+    if len(tok) == 1:
+        return True
+    if tok.isdigit():
+        return True
+    if "." in tok and len(tok) <= 4:
+        return True
+    if tok[0].isupper() and len(tok) <= 4:
+        return True
+    return False
+
+
+def _split_sentences(text: str) -> list[str]:
+    """Split prose ``text`` into sentences for per-sentence citation attribution.
+
+    Used only on PROSE blocks (bullets/tables/headings keep their chip at the unit end).
+    Splits at :data:`_SENT_BOUNDARY_RE` boundaries that :func:`_is_abbreviation_end` does not
+    veto. Precision over recall: a MISSED split just leaves two sentences sharing one chip (no
+    regression), a FALSE split would strand a chip inside a sentence. Returns trimmed
+    sentences (each incl. its terminal mark); a single ``" ".join`` reconstructs the prose."""
+    s = text.strip()
+    if not s:
+        return []
+    out: list[str] = []
+    start = 0
+    for m in _SENT_BOUNDARY_RE.finditer(s):
+        nxt = s[m.end()] if m.end() < len(s) else ""
+        if not nxt.isupper():
+            continue
+        # End of the sentence text = end of the terminal marks (before the whitespace).
+        cut = m.end()
+        while cut > start and s[cut - 1].isspace():
+            cut -= 1
+        if _is_abbreviation_end(s[start:cut]):
+            continue
+        out.append(s[start:cut].strip())
+        start = m.end()
+    tail = s[start:].strip()
+    if tail:
+        out.append(tail)
     return out
 
 
@@ -867,6 +958,48 @@ def _attr_blocks(lines: list[str]) -> list[list[int]]:
     return blocks
 
 
+def _is_prose_line(line: str) -> bool:
+    """A plain PROSE paragraph line — NOT a list item, heading, or table row/delimiter.
+
+    Only prose lines get per-sentence citation chips (NotebookLM style); bullets and table
+    rows keep their single end-of-unit chip. Mirrors the exclusions in :func:`_is_continuation`
+    so the two agree on what counts as a bullet/heading. Language-agnostic (structure only)."""
+    ls = line.lstrip()
+    if not ls.strip() or _is_table_row(line) or _is_table_delim(line):
+        return False
+    if ls.startswith("#"):
+        return False
+    if re.match(r"[-*+]\s", ls) or re.match(r"\d+[.)]\s", ls):
+        return False
+    return True
+
+
+def _attribution_subunits(line: str) -> list[str]:
+    """Sub-line text units to pre-embed alongside a candidate ``line``, so ``search_one``
+    reuses a batched vector instead of one embed call PER unit (which would hammer the
+    shared rate limit). Mirrors EXACTLY what attribution searches below the line level:
+
+    - a PROSE paragraph of > 1 sentence is attributed per sentence, so return each sentence
+      AND each sentence's clauses (what :func:`_attribute_prose_line` searches),
+    - any other line (bullet, table row, single-sentence prose) is attributed as ONE unit,
+      so return its clauses (what the block path searches).
+
+    Order preserved, de-duplicated; the whole line is never returned (the caller always
+    embeds it as a candidate on its own)."""
+    if _is_prose_line(line):
+        sents = _split_sentences(line)
+        if len(sents) > 1:
+            out: list[str] = []
+            for s in sents:
+                if s != line and s not in out:
+                    out.append(s)
+                for cl in _clauses(s):
+                    if cl != line and cl not in out:
+                        out.append(cl)
+            return out
+    return _clauses(line)
+
+
 _PAREN_RE = re.compile(r"\(([^)]{1,80})\)")
 # A law abbreviation: ALL-CAPS (ZPO, UWG, SGB, GG) or a word with an INTERNAL capital
 # (UrhG, MarkenG, VwVfG, BImSchG, StBerG, BauGB, FeV). Plain Title-case nouns
@@ -917,6 +1050,142 @@ def _enum_chip_unbacked(text: str, content: str) -> bool:
     low = (content or "").lower()
     present = sum(1 for it in items if it.lower() in low)
     return present < len(items) * _ENUM_BACKED_MIN
+
+
+def _attribute_prose_line(sentences: list[str], search_one, source_id_to_qnum: dict, *,
+                          context_chunks, seen_pages_by_source, scope_ids,
+                          max_distance: float, guarantee: float, overview: bool) -> str:
+    """Rebuild a PROSE paragraph with a citation chip AFTER EACH sentence (NotebookLM style).
+
+    Each sentence is grounded on its OWN vector — whole-sentence closest source plus one
+    coverage chip per distinct clause — reusing the exact block-path selector and gate
+    (:func:`_line_candidates`, :func:`_chips_for_line`). A sentence with no close, seen
+    source stays chip-less, exactly like an unsupported block. Overview suppressions apply
+    per sentence: a many-law synthesis or an unbacked spelled-out enumeration gets no chip.
+    Called ONLY for a grounded answer's single-line prose block, so ``guarantee`` is already
+    resolved by the caller (loose for SPECIFIC, tight = ``max_distance`` for overview)."""
+    parts: list[str] = []
+    for sent in sentences:
+        chips: list[str] = []
+        if _needs_attribution(sent) and not (overview and _names_many_laws(sent)):
+            cands = _line_candidates(sent, search_one, context_chunks,
+                                     seen_pages_by_source, scope_ids)
+            if cands and not (overview and _enum_chip_unbacked(sent, cands[0].get("content") or "")):
+                chips = _chips_for_line(cands, source_id_to_qnum, max_distance,
+                                        guarantee_dist=guarantee)
+                seen_targets = set(chips)
+                for cl in _clauses(sent):
+                    ccands = _line_candidates(cl, search_one, context_chunks,
+                                              seen_pages_by_source, scope_ids)
+                    cchips = _chips_for_line(ccands, source_id_to_qnum, max_distance,
+                                             guarantee_dist=guarantee) if ccands else []
+                    if cchips and cchips[0] not in seen_targets:
+                        chips.append(cchips[0])
+                        seen_targets.add(cchips[0])
+                        if len(chips) >= _COVERAGE_MAX_CHIPS_PER_LINE:
+                            break
+        parts.append(_attach_chips(sent, " ".join(chips)) if chips else sent)
+    return " ".join(parts)
+
+
+# Post-hoc attribution searches LOCAL Postgres once per sentence/clause. Done serially that
+# is the dominant cost of the after-answer pause (~13.7s of ~15.3s measured). The pool is a
+# ThreadedConnectionPool(1, 20), so we fan the searches across a thread pool and keep the
+# sequential attribution walk a pure dict lookup. 8 leaves ample pool headroom for other
+# requests and stays sane on the 4-core prod box (the queries are partly I/O-bound).
+_ATTRIB_SEARCH_CONCURRENCY = 8
+
+
+def _parallel_search(lines: list[str], search_fn: Callable[[str], list],
+                     max_workers: int = _ATTRIB_SEARCH_CONCURRENCY) -> dict[str, list]:
+    """Run ``search_fn`` once per UNIQUE non-blank line across a thread pool.
+
+    Returns ``{line: hits}`` the sequential attribution walk then looks up instead of
+    hitting the DB inline. Correctness is identical to calling ``search_fn(line)`` inline:
+    the map holds exactly that result per line, deduped so a repeated line is searched once.
+    A search that raises maps to ``[]`` (same as the caller's own guarded search), so one
+    bad line never sinks the batch."""
+    uniq = [ln for ln in dict.fromkeys(lines) if ln and ln.strip()]
+    if not uniq:
+        return {}
+
+    def _one(ln: str) -> list:
+        try:
+            return search_fn(ln) or []
+        except Exception as e:  # mirror _search_one: a failed search is just "no hits"
+            logger.warning("parallel attribution search failed for a line: {}", e)
+            return []
+
+    with ThreadPoolExecutor(max_workers=min(max_workers, len(uniq))) as ex:
+        results = list(ex.map(_one, uniq))
+    return dict(zip(uniq, results))
+
+
+class _AttributionPrewarmer:
+    """Warm the post-hoc attribution caches WHILE the answer is still streaming, so the
+    after-answer pause shrinks toward zero.
+
+    The stream calls :meth:`feed_line` with each COMPLETED answer line as it arrives; a
+    candidate line (``_needs_attribution``) and its sentence/clause sub-units
+    (``_attribution_subunits`` — exactly what attribution later searches) are queued,
+    deduped by exact text. A background pump calls :meth:`flush`, which embeds the queued
+    batch in ONE provider call and parallel-searches it, filling ``vecs`` and ``hits``.
+    Attribution then reads those caches and only computes the misses.
+
+    Rate-limit safe: a single flush runs at a time (``_lock``), so bursts coalesce into a
+    few batched embed calls rather than one-per-line — the shared 2/s embed budget holds.
+    Correctness safe: everything is keyed by exact text and a miss is just recomputed
+    inline at attribution, so a failed or stale prewarm can never change the answer."""
+
+    def __init__(self, embed_batch: Callable[[list], list],
+                 search_with_vec: Callable[[str, Optional[list]], list]):
+        # embed_batch: (list[str]) -> list[vector]  (ONE call for the whole batch)
+        # search_with_vec: (line, vector|None) -> list[hit dicts]  (the same search
+        #   attribution does, given a precomputed vector)
+        self._embed_batch = embed_batch
+        self._search_with_vec = search_with_vec
+        self.vecs: dict[str, list] = {}
+        self.hits: dict[str, list] = {}
+        self.flushes = 0            # embed calls actually spent (visibility for the rate budget)
+        self._seen: set[str] = set()
+        self._pending: list[str] = []
+        self._lock = asyncio.Lock()
+
+    def feed_line(self, line: str) -> None:
+        """Queue a completed answer line and its sub-units for prewarming, if it is a
+        candidate. No-op for headings/labels/blank/already-seen text."""
+        if not line or not _needs_attribution(line):
+            return
+        for unit in [line, *_attribution_subunits(line)]:
+            if unit and unit.strip() and unit not in self._seen:
+                self._seen.add(unit)
+                self._pending.append(unit)
+
+    def pending_count(self) -> int:
+        return len(self._pending)
+
+    async def flush(self) -> None:
+        """Embed + parallel-search whatever is queued (one batch), into ``vecs``/``hits``.
+        Single in-flight; a concurrent call finds the queue already drained and no-ops."""
+        async with self._lock:
+            batch = self._pending
+            self._pending = []
+            if not batch:
+                return
+            try:
+                vecs = await asyncio.to_thread(self._embed_batch, batch)
+            except Exception as e:
+                logger.warning("attribution prewarm embed failed (recomputed at attribution): {}", e)
+                return
+            if not vecs or len(vecs) != len(batch):
+                return
+            self.flushes += 1
+            for unit, vec in zip(batch, vecs):
+                self.vecs[unit] = vec
+            searched = await asyncio.to_thread(
+                _parallel_search, batch,
+                lambda ln: self._search_with_vec(ln, self.vecs.get(ln)))
+            self.hits.update(searched)
 
 
 def _attribute_generic_text(text: str, search_one, source_id_to_qnum: dict, offset_fn=None, *,
@@ -1016,6 +1285,24 @@ def _attribute_generic_text(text: str, search_one, source_id_to_qnum: dict, offs
         # upstream — duplicate lines by _dedup_repeated_lines, redundant one-row tables /
         # model source-lists by answer-cleanup — so a citation is never sacrificed for tidiness.
         for blk in _attr_blocks(lines):
+            # NotebookLM-style per-sentence chips for a PROSE block — a block whose FIRST line
+            # is prose (not a bullet, heading, or table row). EACH line's sentences get their
+            # OWN chip after the sentence, so a two-line intro ("**Überblick**\n<prose>") or a
+            # multi-sentence paragraph is chipped sentence-by-sentence, not once at the end.
+            # Bullets and table rows keep the aggregating block path below. A refusal line
+            # carries no candidates from Pass 1 and is left verbatim here.
+            if _is_prose_line(lines[blk[0]]):
+                for _i in blk:
+                    if refusal_lines and lines[_i] in refusal_lines:
+                        continue
+                    _sents = _split_sentences(lines[_i])
+                    if _sents:
+                        out[_i] = _attribute_prose_line(
+                            _sents, search_one, source_id_to_qnum,
+                            context_chunks=context_chunks, seen_pages_by_source=seen_pages_by_source,
+                            scope_ids=scope_ids, max_distance=max_distance,
+                            guarantee=guarantee, overview=overview)
+                continue
             block_text = " ".join(lines[i] for i in blk)
             if overview and _names_many_laws(block_text):
                 continue

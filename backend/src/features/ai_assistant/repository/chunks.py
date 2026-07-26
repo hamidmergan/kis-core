@@ -19,6 +19,45 @@ _REDIS_URL = os.environ.get("REDIS_URL", "redis://kis-redis:6379/0")
 _FUZZY_WORD_SIM = 0.45
 from src.core.db.pool import get_connection
 
+# aia_chunks.embedding is 2560-dim (current global model qwen3-embedding-4b). That is over
+# pgvector's 2000-dim limit for a `vector` ANN index, so the hnsw index is built on the
+# halfvec(2560) form (halfvec indexes up to 4000 dims) as a PARTIAL index with predicate
+# vector_dims=2560. Both the index and every query that wants it must use this exact dim.
+# Changing the embedding model means re-embedding all chunks AND rebuilding the index.
+_EMBED_INDEX_DIM = 2560
+# hnsw scan tuning for the FILTERED workspace query: a selective source filter drops many of
+# the global nearest neighbours, so iterative scan keeps pulling until it has a full top-80.
+# relaxed_order is safe because callers re-sort candidates by vec_distance. This guarantees
+# recall on the MAIN retrieval too (hybrid_search feeds context, not just chips). A plain scan
+# with a big ef_search is ~10x faster on LARGE workspaces (~114ms -> ~10ms) at identical top-1,
+# but can under-fill on very selective filters, so recall robustness wins over the ~10%
+# end-to-end (vector search is only ~10% of a hybrid_search call anyway — the rest is the
+# keyword/substring queries + RRF fusion).
+_HNSW_EF_SEARCH = 100
+
+
+def _vector_search_sql(source_filter: str) -> str:
+    """Top-80 cosine vector search in the form that uses idx_chunks_embedding_hnsw.
+
+    Casts to halfvec(2560) (the indexed expression) and carries the partial-index predicate
+    vector_dims=2560 so the planner picks the hnsw index; without the cast it would full-scan.
+    The predicate also means a future different-dim model neither breaks this query nor the
+    index (those rows are simply not indexed and not returned). ``source_filter`` is a trusted
+    fragment built by the caller, never user input."""
+    d = _EMBED_INDEX_DIM
+    return f"""SELECT c.id, c.page_number,
+                    c.embedding::halfvec({d}) <=> %s::halfvec({d}) AS distance,
+                    ROW_NUMBER() OVER (
+                        ORDER BY c.embedding::halfvec({d}) <=> %s::halfvec({d})
+                    ) AS rank
+                FROM aia_chunks c
+                JOIN aia_sources s ON s.id = c.source_id
+                WHERE s.workspace_id = %s {source_filter}
+                  AND c.embedding IS NOT NULL
+                  AND vector_dims(c.embedding) = {d}
+                ORDER BY c.embedding::halfvec({d}) <=> %s::halfvec({d})
+                LIMIT 80"""
+
 
 def create_aia_chunk(
     source_id: int,
@@ -130,23 +169,18 @@ def hybrid_search_chunks(
 
     with get_connection() as conn:
         with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
+            # Iterative hnsw scan so the FILTERED workspace query still gets a full top-80
+            # (harmless no-op on the keyword/substring queries below and when no hnsw index
+            # exists yet — the vector query then just full-scans).
+            cur.execute("SET hnsw.iterative_scan = relaxed_order")
+            cur.execute("SET hnsw.ef_search = %s", (_HNSW_EF_SEARCH,))
             # 1) Vector search (top 80). Keep the raw cosine distance: it is the
             # stopword-immune relevance signal (embeddings capture meaning, so a
             # conversational query like "erkläre mir bitte die X" still focuses on
             # X). Callers use it to tell a genuinely on-topic source from one that
-            # only shares filler words.
+            # only shares filler words. Uses the halfvec hnsw index (see _vector_search_sql).
             cur.execute(
-                f"""SELECT c.id, c.page_number,
-                        c.embedding <=> %s::vector AS distance,
-                        ROW_NUMBER() OVER (
-                            ORDER BY c.embedding <=> %s::vector
-                        ) AS rank
-                    FROM aia_chunks c
-                    JOIN aia_sources s ON s.id = c.source_id
-                    WHERE s.workspace_id = %s {source_filter}
-                      AND c.embedding IS NOT NULL
-                    ORDER BY c.embedding <=> %s::vector
-                    LIMIT 80""",
+                _vector_search_sql(source_filter),
                 [str(query_embedding), str(query_embedding), workspace_id] + source_param + [str(query_embedding)],
             )
             vec_rows = cur.fetchall()

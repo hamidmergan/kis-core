@@ -37,23 +37,35 @@ def test_system_prompt_enforces_source_terminology():
     assert "CITATION FORMAT" not in sp
 
 
-def test_system_prompt_defaults_to_bullets_no_prose_summary():
+def test_system_prompt_defaults_to_mixed_prose_and_bullets():
     sp = aia_system_rag("de")
-    # Option B: bullets are the default; no separate prose summary block is added
-    # (it only repeats the bullets). Prose is reserved for explicit user requests.
-    assert "DEFAULT TO BULLET POINTS" in sp
-    assert "Do NOT add a separate prose summary paragraph" in sp
+    # NotebookLM style: the default is a MIX of short prose and bullets, decided from the
+    # request in ANY language (no keyword list), NOT bullets-only. Pure bullets or pure
+    # prose only when the request itself calls for it.
+    assert "MIX OF SHORT PROSE AND BULLETS" in sp
+    assert "PURE bullets" in sp and "PURE continuous prose" in sp
+    # The atomic-fact-per-unit rule survives so each sentence/bullet gets its own chip.
+    assert "ONE ATOMIC FACT PER SENTENCE AND PER BULLET" in sp
+    # No separate, redundant summary block; the old bullets-only default is gone.
+    assert "SEPARATE, redundant summary" in sp
+    assert "DEFAULT TO BULLET POINTS" not in sp
 
 
-def test_overview_mode_adds_thematic_plus_per_document_block():
-    # GENERIC overview asks ("what are these about") must get the OVERVIEW MODE block:
-    # a short thematic lead-in PLUS document-by-document coverage of ALL sources.
+def test_overview_mode_is_prose_first_not_a_bullet_dump():
+    # NotebookLM style: a GENERIC overview must be a FLOWING PROSE briefing that weaves the
+    # sources together, with bullets/tables only for genuine lists — NOT reduced to a
+    # per-document bullet list. The old bullet-forcing wording ("2-4 bullets", "1-2 bullets
+    # per source", "document by document") is what made "Überblick" come out as pure bullets.
     sp = aia_system_rag("de", overview=True)
     assert "OVERVIEW MODE" in sp
     low = sp.lower()
-    assert "thematic overview" in low          # the lead-in
-    assert "document by document" in low        # per-source coverage
-    assert "all provided documents" in low      # breadth: do not skip sources
+    assert "prose" in low                                   # prose is the lead
+    assert "narrative" in low or "weave" in low             # woven together, not listed
+    assert "every source" in low or "all sources" in low    # breadth: cover every source
+    # the bullet-forcing instructions are gone
+    assert "2-4 bullets" not in sp
+    assert "1-2 bullets" not in sp
+    assert "document by document" not in sp.lower()
 
 
 def test_overview_mode_still_forbids_numbering_sources():
