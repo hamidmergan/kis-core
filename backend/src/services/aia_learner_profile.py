@@ -30,9 +30,14 @@ BASE_WEIGHTS = {
 }
 
 DEFAULT_WINDOW_DAYS = 30
-# Above the largest single base weight (3.0) on purpose: one slip alone never
-# triggers the answer hint. Repetition or several signals on the same term do.
-ACT_THRESHOLD = 5.0
+# Strictly below the wrong+hint sum (3.0 + 2.0 = 5.0), the canonical trigger from
+# the spec, so continuous time-decay does not immediately push a just-accumulated
+# 5.0 term back under the line: it is read a moment later with a tiny positive age,
+# so its effective weight is a hair under 5.0. At 4.5 it stays in focus for about
+# 3 days on the default 30-day window instead of vanishing at once. Still strictly
+# above the largest single base weight (3.0), so one event alone never triggers,
+# and above the wrong+glossary / two-hint sum (4.0), which should stay quiet.
+ACT_THRESHOLD = 4.5
 FOCUS_TOP_N = 5
 PROFILE_CAP = 40
 GRADUATE_FACTOR = 0.3   # a later correct answer shrinks a term's weight

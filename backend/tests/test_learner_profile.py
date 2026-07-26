@@ -83,3 +83,18 @@ def test_overflow_ids_evicts_weakest_over_cap():
     items = [{"id": i, "weight": float(i + 1), "last_seen_at": NOW} for i in range(PROFILE_CAP + 2)]
     # two weakest ids (0 and 1) must be evicted
     assert set(overflow_ids(items, NOW, DEFAULT_WINDOW_DAYS)) == {0, 1}
+
+
+def test_focus_survives_small_decay_at_trigger_sum():
+    # Regression: a term accumulated to the wrong+hint sum (5.0) is read a moment
+    # later, so its effective weight is a hair below 5.0 due to continuous decay.
+    # It MUST still be in focus. (This is the exact bug live testing caught.)
+    items = [{"label": "Konjunktiv", "weight": 5.0,
+              "last_seen_at": NOW - timedelta(hours=1), "category": CATEGORY_TERM}]
+    assert [f["label"] for f in select_focus(items, NOW, DEFAULT_WINDOW_DAYS)] == ["Konjunktiv"]
+
+
+def test_wrong_plus_glossary_stays_below_threshold():
+    # wrong(3.0)+glossary(1.0)=4.0 is below the 4.5 threshold and must stay quiet.
+    items = [{"label": "Ellipse", "weight": 4.0, "last_seen_at": NOW, "category": CATEGORY_TERM}]
+    assert select_focus(items, NOW, DEFAULT_WINDOW_DAYS) == []
