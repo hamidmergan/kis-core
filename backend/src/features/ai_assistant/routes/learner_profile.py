@@ -2,7 +2,7 @@
 path. The student sees the profile, deletes single entries or all, toggles tracking
 and exports. This is the transparency and control the data-protection choice needs."""
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import PlainTextResponse
 from pydantic import BaseModel
 
@@ -77,3 +77,25 @@ async def export_profile(fmt: str = "json", current_user: dict = Depends(get_cur
         "level": ll["language_level"],
         "weaknesses": weaknesses,
     }
+
+
+@router.get("/ai-assistant/workspaces/{workspace_uuid}/learner-profiles/export")
+async def export_enrolled_profiles(
+    workspace_uuid: str, current_user: dict = Depends(get_current_user),
+):
+    """Owner exports the profiles of students enrolled in this workspace. Access is
+    gated by ownership, the profile content itself stays global per user."""
+    ws = db.get_aia_workspace(workspace_uuid)
+    if not ws:
+        raise HTTPException(status_code=404, detail="workspace not found")
+    if ws["user_id"] != current_user["user_id"]:
+        raise HTTPException(status_code=403, detail="owner only")
+    profiles = []
+    for uid in db.get_enrolled_user_ids(ws["id"]):
+        ll = db.get_user_language_level(uid)
+        profiles.append({
+            "user_id": uid,
+            "level": ll["language_level"],
+            "weaknesses": db.get_learner_weaknesses(uid),
+        })
+    return {"workspace_uuid": workspace_uuid, "profiles": profiles}
