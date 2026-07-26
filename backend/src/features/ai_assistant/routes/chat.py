@@ -1493,6 +1493,15 @@ async def chat(
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": user_message + _adaptive_suffix},
         ]
+        if body.action_key == "translate":
+            _txt = (body.source_text or "").strip()
+            _src = db.get_aia_source(body.source_uuid) if body.source_uuid else None
+            _is_passage = len(_txt) > 60
+            _cat = "passage" if _is_passage else "term"
+            _kind = "translate_passage" if _is_passage else "translate_word"
+            _label = _txt if len(_txt) <= 80 else _txt[:77] + "..."
+            db.record_weakness(user_id, _cat, _kind, _label,
+                               _src["id"] if _src else None)
     elif len(batches) <= 1:
         # OVERVIEW MODE only for a broad GENERIC ask (not a page/time SCOPE summary):
         # thematic lead-in + document-by-document coverage so all sources are touched.
