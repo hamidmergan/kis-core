@@ -657,7 +657,6 @@
       "francis": "Francis",
       "system": "System",
       "ki": "KI",
-      "prompts": "Prompts",
       "languageDiagnosis": "Sprachdiagnose",
       "pending": "Ausstehend",
       "whitelist": "Whitelist",
@@ -796,9 +795,6 @@
       "colCorrect": "Richtig",
       "colLerntools": "Lerntools",
       "colLanguageTraining": "Sprachtr."
-    },
-    "prompts": {
-      "readonly": "Schreibgeschützt"
     },
     "quota": {
       "promptUser": "Bitte einen User über",

@@ -86,10 +86,6 @@ class MaintenanceToggleRequest(BaseModel):
     enabled: bool
 
 
-class UpdatePromptRequest(BaseModel):
-    value: str
-
-
 class SetQuotaOverrideRequest(BaseModel):
     limit_value: int  # -1 = unlimited
 

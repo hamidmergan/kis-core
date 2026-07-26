@@ -94,19 +94,6 @@ MESSAGES: dict[str, dict[str, str]] = {
         "de": "Reindex läuft bereits",
         "en": "Reindex already running",
     },
-    # Prompts
-    "admin.prompt.notFound": {
-        "de": "Prompt nicht gefunden",
-        "en": "Prompt not found",
-    },
-    "admin.prompt.readOnly": {
-        "de": "Dieser Prompt ist schreibgeschützt",
-        "en": "This prompt is read-only",
-    },
-    "admin.prompt.notAllowed": {
-        "de": "Nicht erlaubt",
-        "en": "Not allowed",
-    },
     # Users
     "admin.user.notFound": {
         "de": "User nicht gefunden",

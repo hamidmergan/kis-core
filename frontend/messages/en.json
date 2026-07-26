@@ -657,7 +657,6 @@
       "francis": "Francis",
       "system": "System",
       "ki": "AI",
-      "prompts": "Prompts",
       "languageDiagnosis": "Language diagnosis",
       "pending": "Pending",
       "whitelist": "Whitelist",
@@ -796,9 +795,6 @@
       "colCorrect": "Correct",
       "colLerntools": "Learning tools",
       "colLanguageTraining": "Lang. tr."
-    },
-    "prompts": {
-      "readonly": "Read-only"
     },
     "quota": {
       "promptUser": "Please select a user via",
