@@ -36,6 +36,7 @@ async def generate_flashcards(
     is_enrolled = db.is_student_enrolled(workspace["id"], user_id)
     if not is_owner and not is_enrolled:
         raise HTTPException(status_code=403, detail=t("workspace.accessDenied", locale))
+    db.record_weakness(user_id, "tool", "tool_use", "Lernkarten")
 
     enforce_aia_burst(user_id, locale)
     enforce_quota(user_id, "aia_generate", is_admin_user(current_user), locale)
