@@ -15,6 +15,7 @@ export default function DiagnosisAdaptiveBehaviorCard() {
   const [saved, setSaved] = useState<string | null>(null);
   const [draft, setDraft] = useState("");
   const [fallback, setFallback] = useState("");
+  const [windowDays, setWindowDays] = useState<number>(30);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -30,6 +31,9 @@ export default function DiagnosisAdaptiveBehaviorCard() {
           typeof d.language_diagnosis_adaptive_behavior_default === "string"
             ? d.language_diagnosis_adaptive_behavior_default : "",
         );
+        if (typeof d.learner_profile_window_days === "number") {
+          setWindowDays(d.learner_profile_window_days);
+        }
       })
       .catch(() => setSaved(""));
   }, []);
@@ -63,6 +67,29 @@ export default function DiagnosisAdaptiveBehaviorCard() {
     }
   };
 
+  const commitWindowDays = async (days: number) => {
+    setSaving(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/admin/settings", {
+        method: "PATCH",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ learner_profile_window_days: days }),
+      });
+      if (!res.ok) {
+        let detail = t("saveFailed");
+        try {
+          const body = await res.json();
+          if (typeof body?.detail === "string") detail = body.detail;
+        } catch { /* ignore */ }
+        setError(detail);
+      }
+    } finally {
+      setSaving(false);
+    }
+  };
+
   if (saved === null) return null;
 
   const isDefault = draft.trim() === fallback.trim();
@@ -89,6 +116,17 @@ export default function DiagnosisAdaptiveBehaviorCard() {
         >
           {t("reset")}
         </button>
+      </div>
+      <div className="mt-4 pt-4 border-t border-border-soft">
+        <label className="text-xs text-muted">{t("windowDaysLabel")}</label>
+        <input
+          type="number" min={1} max={3650} value={windowDays}
+          onChange={(e) => setWindowDays(Number(e.target.value))}
+          onBlur={() => void commitWindowDays(windowDays)}
+          disabled={saving}
+          className="ml-2 w-24 rounded-lg border border-border bg-background px-2 py-1 text-xs text-foreground"
+        />
+        <p className="text-xs text-muted-soft mt-1">{t("windowDaysHint")}</p>
       </div>
       {error && (
         <p className="mt-2 text-xs text-warn bg-warn-bg border border-warn-border rounded-md px-3 py-2">

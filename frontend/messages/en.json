@@ -1172,7 +1172,9 @@
       "description": "Controls how the AI answers learners in the normal chat, depending on their level. Only takes effect when a level is stored.",
       "hint": "'{level}' is replaced with the level, '{example}' with that level's example from the Language level examples card.",
       "reset": "Restore default",
-      "saveFailed": "Saving failed"
+      "saveFailed": "Saving failed",
+      "windowDaysLabel": "Weakness time window in days",
+      "windowDaysHint": "How many days a weakness stays visible in the learner profile before it automatically drops out again."
     },
     "diagnosisGradingCard": {
       "title": "Grading rules",
@@ -1713,7 +1715,32 @@
         "transcriptDefaultLangDescription": "Which track is preselected when an audio/video source is opened. Students can switch any time in the transcript panel.",
         "transcriptDefaultLangSource": "Original",
         "transcriptDefaultLangTarget": "Translation",
-        "transcriptDefaultLangBoth": "Both"
+        "transcriptDefaultLangBoth": "Both",
+        "learnerProfileTitle": "My learner profile",
+        "learnerProfileDescription": "Shows your language level and your open weaknesses.",
+        "learnerProfileOpen": "Open",
+        "learnerProfileBack": "Back to settings"
+      },
+      "learnerProfile": {
+        "title": "My learner profile",
+        "loading": "Loading…",
+        "levelLabel": "Language level",
+        "noLevel": "No level set",
+        "progressHint": "Progress means the list of weaknesses gets shorter. It does not automatically mean a higher level.",
+        "countLine": "{n, plural, =1 {1 open weakness} other {# open weaknesses}}",
+        "empty": "No open weaknesses right now.",
+        "categoryTerm": "Words and terms",
+        "categoryPassage": "Passages",
+        "categoryTool": "Tools",
+        "knowItAlready": "I already know this",
+        "clearAll": "Clear all",
+        "clearAllConfirm": "Really delete all weaknesses? This cannot be undone.",
+        "trackingTitle": "Tracking",
+        "trackingDescription": "Records where you still struggle, so you get more targeted help.",
+        "trackingOffHint": "Tracking is off. No new weaknesses are being recorded.",
+        "exportMd": "Save as file",
+        "actionFailed": "Action failed. Please try again.",
+        "loadFailed": "Could not load the learner profile. Please try again."
       },
       "subviewHeader": {
         "back": "Back"

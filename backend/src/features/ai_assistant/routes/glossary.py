@@ -218,6 +218,7 @@ async def extract_glossary_from_selection(
                 "page_number": body.page_number,
             }
             db.bulk_create_glossary_entries(source["id"], user_id, [entry])
+            db.record_weakness(user_id, "term", "glossary", entry["term_de"], source["id"])
             return {
                 "added": 1,
                 "message": t("ai.glossary.added", locale, count=1),
@@ -273,6 +274,8 @@ async def extract_glossary_from_selection(
             return {"added": 0, "message": t("ai.glossary.noNewTerms", locale)}
 
         db.bulk_create_glossary_entries(source["id"], user_id, new_entries)
+        for _e in new_entries:
+            db.record_weakness(user_id, "term", "glossary", _e["term_de"], source["id"])
         count = len(new_entries)
         return {
             "added": count,

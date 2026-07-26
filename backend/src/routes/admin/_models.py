@@ -76,6 +76,8 @@ class UpdateSettingsRequest(BaseModel):
     # Per-level calibration examples as a JSON object {"A1":..,"A2":..,"B1":..,"B2":..}.
     # Empty string restores the shipped defaults.
     language_diagnosis_level_examples: str | None = None
+    # Lernprofil: admin-configurable decay window (days) for tracked weaknesses.
+    learner_profile_window_days: int | None = None
 
 
 class ToggleToolRequest(BaseModel):

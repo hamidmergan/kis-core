@@ -68,6 +68,17 @@ def get_enrollment_by_id(enrollment_id: int) -> dict | None:
             row = cur.fetchone()
     return dict(row) if row else None
 
+def get_enrolled_user_ids(workspace_id: int) -> list[int]:
+    """Distinct user ids of students currently enrolled in a workspace (active only)."""
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                "SELECT DISTINCT user_id FROM aia_enrollments "
+                "WHERE workspace_id = %s AND (enrolled_until IS NULL OR enrolled_until > NOW())",
+                (workspace_id,),
+            )
+            return [r[0] for r in cur.fetchall()]
+
 def get_workspace_by_enroll_code(code: str) -> dict | None:
     """Legacy: check both access_links and workspaces table."""
     result = get_workspace_by_access_link_code(code)

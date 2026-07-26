@@ -123,6 +123,11 @@ class ExerciseProgressBody(BaseModel):
     new_run: bool = False
 
 
+class ExerciseSignalBody(BaseModel):
+    term: str
+    kind: str  # "quiz_hint" | "quiz_explain"
+
+
 # ─── Schedule ─────────────────────────────────────────────────────────────────
 
 class ScheduleGenerateBody(BaseModel):

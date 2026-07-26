@@ -104,6 +104,7 @@ async def create_exercise_set(
     is_enrolled = db.is_student_enrolled(workspace["id"], user_id)
     if not is_owner and not is_enrolled:
         raise HTTPException(status_code=403, detail=t("workspace.accessDenied", locale))
+    db.record_weakness(user_id, "tool", "tool_use", "Quiz")
 
     enforce_aia_burst(user_id, locale)
     enforce_quota(user_id, "aia_generate", is_admin_user(current_user), locale)
@@ -202,6 +203,46 @@ async def record_set_progress(
         db.start_new_run(set_id)
     db.bulk_record_exercise_progress(set_id, user_id, body.results)
     db.update_streak(workspace["id"], user_id)
+
+    # Feed the learner profile: a wrong item is a weakness on that term, a correct
+    # one graduates it. The term follows the same rule the quiz UI uses to label a
+    # card: the answer side (back) for lueckentext, otherwise the prompt (front).
+    _detail = db.get_exercise_set_with_items(set_id)
+    if _detail:
+        _tool = _detail.get("tool")
+        _term_by_id = {
+            it["id"]: ((it.get("back") if _tool == "lueckentext" else it.get("front")) or "").strip()
+            for it in _detail.get("items", [])
+        }
+        for _r in body.results:
+            _term = _term_by_id.get(_r["item_id"])
+            if not _term:
+                continue
+            if _r["correct"]:
+                db.graduate_learner_term(user_id, _term)
+            else:
+                db.record_weakness(user_id, "term", "quiz_wrong", _term)
+
+    return {"ok": True}
+
+
+@router.post("/ai-assistant/workspaces/{workspace_uuid}/exercises/signal")
+async def record_exercise_signal(
+    workspace_uuid: str,
+    body: schemas.ExerciseSignalBody,
+    current_user: dict = Depends(get_current_user),
+    locale: str = Depends(get_locale),
+):
+    """A hint or explain press on a quiz term is a mild weakness signal."""
+    user_id = current_user["user_id"]
+    workspace = db.get_aia_workspace(workspace_uuid)
+    if not workspace:
+        raise HTTPException(status_code=404, detail=t("workspace.notFound", locale))
+    if workspace["user_id"] != user_id and not db.is_student_enrolled(workspace["id"], user_id):
+        raise HTTPException(status_code=403, detail=t("workspace.accessDenied", locale))
+    if body.kind not in ("quiz_hint", "quiz_explain"):
+        raise HTTPException(status_code=400, detail="bad kind")
+    db.record_weakness(user_id, "term", body.kind, body.term)
     return {"ok": True}
 
 
