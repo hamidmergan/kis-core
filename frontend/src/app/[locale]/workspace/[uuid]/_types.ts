@@ -190,6 +190,9 @@ export interface ExerciseItemExtras {
   word_parts?: string;
   word_parts_explained?: string;
   example_sentence?: string;
+  word_class?: string;
+  singular?: string;
+  plural?: string;
 }
 
 export interface ExerciseItem {

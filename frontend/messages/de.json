@@ -1590,6 +1590,10 @@
           "finishAnyway": "Trotzdem abschließen",
           "definition": "Definition",
           "wordParts": "Wortzerlegung",
+          "forms": "Einzahl und Mehrzahl",
+          "wordClass": "Wortart:",
+          "singular": "Einzahl:",
+          "plural": "Mehrzahl:",
           "example": "Beispiel",
           "translationPrefix": "EN:",
           "nextTerm": "Nächster Begriff"

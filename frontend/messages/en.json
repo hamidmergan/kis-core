@@ -1590,6 +1590,10 @@
           "finishAnyway": "Finish anyway",
           "definition": "Definition",
           "wordParts": "Word parts",
+          "forms": "Singular and plural",
+          "wordClass": "Word class:",
+          "singular": "Singular:",
+          "plural": "Plural:",
           "example": "Example",
           "translationPrefix": "EN:",
           "nextTerm": "Next term"

@@ -218,6 +218,9 @@ export function FlashcardsLearnView({
           const wordParts = card.extras?.word_parts?.trim() || "";
           const wordPartsExplained = card.extras?.word_parts_explained?.trim() || "";
           const exampleSentence = card.extras?.example_sentence?.trim() || "";
+          const wordClass = card.extras?.word_class?.trim() || "";
+          const singular = card.extras?.singular?.trim() || "";
+          const plural = card.extras?.plural?.trim() || "";
           return <>
             <div className="flex-1 overflow-y-auto px-3 sm:px-4 pt-4 sm:pt-6 pb-3">
               <div className="mx-auto w-full flex flex-col gap-3" style={{ maxWidth: 560 }}>
@@ -262,6 +265,32 @@ export function FlashcardsLearnView({
                         </div>
                       );
                     })()}
+                    {/* Word class + singular/plural */}
+                    {(wordClass || singular || plural) && (
+                      <div className="px-3 py-2.5 rounded-xl" style={{ backgroundColor: "var(--surface-dim)" }}>
+                        <span className="text-[10px] font-bold uppercase tracking-widest" >{t("flashcardsLearn.forms")}</span>
+                        <div className="flex flex-col gap-1 mt-1.5">
+                          {wordClass && (
+                            <div className="flex items-baseline gap-1.5 text-sm">
+                              <span className="font-semibold shrink-0" style={{ color: "var(--foreground)" }}>{t("flashcardsLearn.wordClass")}</span>
+                              <span >{wordClass}</span>
+                            </div>
+                          )}
+                          {singular && (
+                            <div className="flex items-baseline gap-1.5 text-sm">
+                              <span className="font-semibold shrink-0" style={{ color: "var(--foreground)" }}>{t("flashcardsLearn.singular")}</span>
+                              <span >{singular}</span>
+                            </div>
+                          )}
+                          {plural && (
+                            <div className="flex items-baseline gap-1.5 text-sm">
+                              <span className="font-semibold shrink-0" style={{ color: "var(--foreground)" }}>{t("flashcardsLearn.plural")}</span>
+                              <span >{plural}</span>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )}
                     {/* Context sentence */}
                     {exampleSentence && (
                       <div className="px-3 py-2.5 rounded-xl" style={{ border: "1px solid var(--border)" }}>

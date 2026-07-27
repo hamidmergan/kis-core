@@ -577,10 +577,10 @@ AIA_LERNKARTEN_PROMPT = (
     "IMPORTANT: All explanations MUST be easy to understand: simple words, short sentences, no nested clauses. "
     "When an adaptive block below states the learner's CEFR level, pitch the wording at that level instead.\n\n"
     "CRITICAL LANGUAGE RULE (overrides everything else): Write the explanatory fields "
-    "(title, definition, word_parts_explained, example_sentence) ENTIRELY in {language}. "
+    "(title, definition, word_parts_explained, example_sentence, word_class) ENTIRELY in {language}. "
     "Some examples further down are written in German for illustration only - IGNORE their language and always write in {language}. "
     "The 'begriff' (the technical term itself) stays VERBATIM in the source-text language, and the parts in "
-    "'word_parts' / the part labels in 'word_parts_explained' stay in that same language "
+    "'word_parts' / the part labels in 'word_parts_explained' / the forms in 'singular' and 'plural' stay in that same language "
     "- they are the term being studied. "
     "So an English card about a German term reads e.g. begriff='Literaturrecherche', definition='Searching for books and articles to gather information.'\n\n"
     "Respond ONLY with a JSON object in exactly this format:\n"
@@ -593,6 +593,9 @@ AIA_LERNKARTEN_PROMPT = (
     '      "word_parts": "Teil1 + Teil2 + Teil3",\n'
     '      "word_parts_explained": "Teil1 = einfache Erklärung | Teil2 = einfache Erklärung",\n'
     '      "example_sentence": "Ein einfacher Beispielsatz mit dem Begriff, wie man ihn im Studienalltag benutzt.",\n'
+    '      "word_class": "part of speech, in {language}",\n'
+    '      "singular": "singular form of the term with its article, or empty",\n'
+    '      "plural": "plural form of the term with its article, or empty",\n'
     '      "begriff_en": "English translation",\n'
     '      "source_label": "Filename.pdf",\n'
     '      "page_number": 5\n'
@@ -609,10 +612,14 @@ AIA_LERNKARTEN_PROMPT = (
     "ONLY for a term written as ONE word that is built from 2+ meaning-carrying parts. "
     "NOT for loanwords (Microcredentials, Employability), multi-word expressions (Hybride Lehre, machine learning), or simple words. Leave empty in those cases. "
     "Not every language builds such compounds - if the source language does not, leave the field empty rather than forcing a split.\n"
-    "- word_parts SPELLING (applies to word_parts AND to the part labels in word_parts_explained): "
-    "write each part exactly as that word is correctly spelled when it stands ALONE in its language, NOT as a raw slice cut out of the compound. "
-    "This means: apply the language's own capitalisation rules to the standalone form, and drop any linking letters that exist only to glue the compound together. "
-    "German example: 'Flucht + Rettungs + wege' is WRONG (raw slices), correct is 'Flucht + Rettung + Wege'. "
+    "- word_parts BASE FORM (applies to word_parts AND to the part labels in word_parts_explained): "
+    "write each part in its DICTIONARY BASE FORM as it stands ALONE in its language, NOT as the raw slice cut out of the compound. "
+    "Base form means: nouns in the singular nominative, verbs in the infinitive, adjectives uninflected. "
+    "So turn a plural slice into its singular, drop any linking letters that only glue the compound together, "
+    "and apply the language's own capitalisation rules to the standalone form. "
+    "German examples: 'Passivsätze' -> 'Passiv + Satz' (NOT 'Passiv + Sätze', the plural becomes singular); "
+    "'Hilfsverb' -> 'Hilfe + Verb' (NOT 'Hilfs + Verb', the linking -s is dropped); "
+    "'Brandverhütung' -> 'Brand + Verhütung' (NOT 'Brand + verhütung', a noun part is capitalised). "
     "If a slice is still not a real standalone word after this, do NOT split there - merge it into the neighbouring part instead.\n"
     "- word_parts_explained: explain each part as simply as possible, the way you would explain it to a friend.\n"
     "- word_parts_explained WORD CLASS: the explanation MUST have the same word class as the part it explains. "
@@ -625,12 +632,18 @@ AIA_LERNKARTEN_PROMPT = (
     "- example_sentence: a SIMPLE example sentence showing how the term is used in everyday student life. "
     "Example for 'Studienabbruchquote': 'Die Studienabbruchquote ist hoch, viele Studenten hören auf, bevor sie fertig sind.' "
     "The sentence should help the student understand the term in context.\n"
+    "- word_class: the part of speech of the begriff, written in {language} (e.g. Nomen / Verb / Adjektiv, or noun / verb / adjective). Always fill this.\n"
+    "- singular and plural: ONLY for a term that is a single inflectable word (typically a noun). "
+    "Give the term's singular form and its plural form in the source language, each WITH its definite article if that language uses one "
+    "(German: singular='der Fluchtweg', plural='die Fluchtwege'). "
+    "Leave BOTH empty for multi-word terms, loanwords without a normal plural, verbs, adjectives, or languages that do not mark number this way. "
+    "Never invent a plural that does not really exist.\n"
     "- begriff_en: English translation of the term\n"
     "- source_label and page_number: the primary source from the [SourceName, S. X] tags\n"
     "- Only use terms from the given text\n"
     "- Focus on central technical terms, NO comprehension questions\n"
-    "- REMINDER: title, definition, word_parts_explained and example_sentence MUST be written in {language} "
-    "(only begriff, word_parts and the part labels inside word_parts_explained keep the source language).\n"
+    "- REMINDER: title, definition, word_parts_explained, example_sentence and word_class MUST be written in {language} "
+    "(only begriff, word_parts, the part labels inside word_parts_explained, and the singular/plural forms keep the source language).\n"
     "- Respond ONLY with the JSON object, no other text."
 )
 
@@ -949,11 +962,20 @@ AIA_POPUP_ACTIONS: list[dict[str, str | int]] = [
     },
     {
         "key": "simplify",
+        # B1 is the DEFAULT register, not a hard cap (same "B1 by default, adaptive
+        # block overrides" pattern as the glossary prompts). When the learner has the
+        # Fachsprachentrainer on, chat.py appends the adaptive suffix to this same user
+        # message; the prompt below and the suffix's "OVERRIDES ... terminology rules
+        # above" clause both re-pitch the explanation to the learner's own CEFR level
+        # (down for A1/A2, up for B2-C2). Without the trainer, B1 stands.
         "label_de": "Erklären",
         "label_en": "Explain",
         "icon": "Lightbulb",
         "prompt_de": (
             "Erkläre diese Passage so, dass jemand ohne Vorwissen sie versteht. "
+            "Erkläre standardmäßig auf Niveau B1. Wenn am Ende ein adaptiver Block das "
+            "CEFR-Niveau der lernenden Person nennt, erkläre stattdessen auf DIESEM Niveau "
+            "statt B1 und richte danach aus, wie stark du vereinfachst. "
             "Ersetze Fachbegriffe durch alltagssprachliche Umschreibungen oder, wo das nicht geht, "
             "definiere den Begriff in einem Halbsatz. "
             "Nutze kurze Sätze und eine konkrete Alltagsanalogie, falls hilfreich. "
@@ -962,6 +984,9 @@ AIA_POPUP_ACTIONS: list[dict[str, str | int]] = [
         ),
         "prompt_en": (
             "Explain this passage so someone without prior knowledge understands it. "
+            "Explain at B1 level BY DEFAULT. If an adaptive block at the end names the "
+            "learner's CEFR level, explain at THAT level instead of B1 and let it decide "
+            "how much you simplify. "
             "Replace jargon with everyday wording or, where that isn't possible, "
             "define the term in a half-sentence. "
             "Use short sentences and a concrete everyday analogy if it helps. "

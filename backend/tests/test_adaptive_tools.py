@@ -155,6 +155,25 @@ def test_flashcards_empty_suffix_is_noop(monkeypatch):
     assert "ADAPT-MARKER" not in _system_of(calls)
 
 
+def test_flashcards_carry_grammar_extras(monkeypatch):
+    """word_class / singular / plural from the model land in the card's extras,
+    so the frontend can show the Einzahl/Mehrzahl block."""
+    from src.features.ai_assistant.tasks.language_training import _source_flashcards as mod
+    monkeypatch.setattr(mod, "attach_chips", lambda *a, **k: None)
+    content = json.dumps({"title": "T", "cards": [{
+        "begriff": "Brandverhütung", "definition": "Y",
+        "word_parts": "Brand + Verhütung",
+        "word_class": "Nomen", "singular": "die Brandverhütung", "plural": "die Brandverhütungen",
+    }]})
+    client, _ = _make_client(content)
+    ctx = types.SimpleNamespace(source_hint="Quelle", context="ctx", multi_label="T")
+    items, _ = mod.generate_flashcards_from_source(client, "m", ctx, 1, locale="de", adaptive_suffix="")
+    extras = items[0]["extras"]
+    assert extras["word_class"] == "Nomen"
+    assert extras["singular"] == "die Brandverhütung"
+    assert extras["plural"] == "die Brandverhütungen"
+
+
 def test_karteikarten_system_prompt_carries_suffix(monkeypatch):
     from src.features.ai_assistant.tasks.language_training import _source_cards as mod
     monkeypatch.setattr(mod, "attach_chips", lambda *a, **k: None)

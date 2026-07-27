@@ -63,7 +63,8 @@ def _format_lernkarte(c: dict) -> dict:
     }
     extras = {
         k: (c.get(k) or "").strip()
-        for k in ("word_parts", "word_parts_explained", "example_sentence")
+        for k in ("word_parts", "word_parts_explained", "example_sentence",
+                  "word_class", "singular", "plural")
         if (c.get(k) or "").strip()
     }
     if extras:
