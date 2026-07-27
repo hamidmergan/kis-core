@@ -43,13 +43,30 @@ def set_learning_profile_enabled(user_id: int, enabled: bool) -> None:
         conn.commit()
 
 
+def is_language_training_active(workspace_id: int, user_id: int) -> bool:
+    """Whether the learner has the Fachsprachentrainer toggled on for this workspace.
+    All weakness tracking and adaptive help is coupled to this switch, so national
+    students who never enable it stay untouched. Off by default (no settings row)."""
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                "SELECT language_training_active FROM aia_user_settings "
+                "WHERE workspace_id = %s AND user_id = %s",
+                (workspace_id, user_id),
+            )
+            row = cur.fetchone()
+            return bool(row[0]) if row else False
+
+
 def record_weakness(user_id: int, workspace_id: int, category: str, kind: str,
                     label: str, source_id: int | None = None) -> None:
-    """Upsert one weakness event, scoped to a workspace. Skips silently when tracking
-    is off or the label is empty. Applies decay to the prior weight, adds this kind's
-    base weight, then enforces the per-workspace cap."""
+    """Upsert one weakness event, scoped to a workspace. Skips silently when the
+    Fachsprachentrainer is off for this workspace, tracking is disabled, or the label
+    is empty. Applies decay to the prior weight, adds this kind's base weight, then
+    enforces the per-workspace cap."""
     label = (label or "").strip()
-    if not label or not is_learning_profile_enabled(user_id):
+    if (not label or not is_learning_profile_enabled(user_id)
+            or not is_language_training_active(workspace_id, user_id)):
         return
     key = lp.normalize_key(label)
     now = datetime.now(timezone.utc)

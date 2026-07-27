@@ -16,6 +16,7 @@ def generate_from_glossary(
     tool: str,
     count: int,
     locale: str = "de",
+    adaptive_suffix: str = "",
 ) -> tuple[list[dict], str] | None:
     """Returns (items, title) oder None wenn kein Glossary vorhanden."""
     glossary = db.get_aia_glossary_by_workspace(workspace_id, user_id)
@@ -58,9 +59,9 @@ def generate_from_glossary(
             for e in selected
         ]
     elif tool == "lueckentext":
-        items = _generate_lueckentext(client, model, selected, count, language)
+        items = _generate_lueckentext(client, model, selected, count, language, adaptive_suffix)
     elif tool == "vokabeltest":
-        items = _generate_vokabeltest(client, model, selected, count, language)
+        items = _generate_vokabeltest(client, model, selected, count, language, adaptive_suffix)
 
     title = title_from_glossary_terms(client, model, [e["term_de"] for e in selected])
     return items, title
@@ -92,27 +93,29 @@ def _build_term_lookup(selected: list[dict]):
     return find
 
 
-def _generate_lueckentext(client, model, selected: list[dict], count: int, language: str) -> list[dict]:
+def _generate_lueckentext(client, model, selected: list[dict], count: int, language: str,
+                          adaptive_suffix: str = "") -> list[dict]:
     terms_text = "\n".join(f"- {e['term_de']} ({e['term_en']}): {e['definition']}" for e in selected)
+    system = (
+        "You create cloze (gap-filling) exercises. For every term, build a sentence "
+        "with a gap that must be filled by the term. "
+        f"Write ALL sentences, options, and answers in {language}. "
+        f"If the input term is not in {language}, use its {language} equivalent in the sentence and options "
+        "(but keep term_de exactly as given so the source page can be looked up).\n\n"
+        "Respond ONLY with a JSON array:\n"
+        '[{"sentence": "Der Prozess der ___ reduziert Redundanz.", '
+        '"answer": "Normalisierung", '
+        '"options": ["Indexierung", "Normalisierung", "Partitionierung", "Denormalisierung"], '
+        '"correct_idx": 1, "term_de": "Normalisierung"}]\n\n'
+        "Rules:\n- Exactly 4 options per question, one of them correct\n"
+        "- correct_idx = index of the correct option (0-3)\n"
+        "- ___ as the gap placeholder\n"
+        "- term_de MUST exactly match the input term (used to look up the source page)\n"
+        "- Do NOT use personal names in questions. Instead of 'laut Prof. X', write 'laut Quelle' (German) or 'according to the source' (English), matching the output language\n"
+        "- Respond ONLY with the JSON array."
+    ) + adaptive_suffix
     messages = [
-        {"role": "system", "content": (
-            "You create cloze (gap-filling) exercises. For every term, build a sentence "
-            "with a gap that must be filled by the term. "
-            f"Write ALL sentences, options, and answers in {language}. "
-            f"If the input term is not in {language}, use its {language} equivalent in the sentence and options "
-            "(but keep term_de exactly as given so the source page can be looked up).\n\n"
-            "Respond ONLY with a JSON array:\n"
-            '[{"sentence": "Der Prozess der ___ reduziert Redundanz.", '
-            '"answer": "Normalisierung", '
-            '"options": ["Indexierung", "Normalisierung", "Partitionierung", "Denormalisierung"], '
-            '"correct_idx": 1, "term_de": "Normalisierung"}]\n\n'
-            "Rules:\n- Exactly 4 options per question, one of them correct\n"
-            "- correct_idx = index of the correct option (0-3)\n"
-            "- ___ as the gap placeholder\n"
-            "- term_de MUST exactly match the input term (used to look up the source page)\n"
-            "- Do NOT use personal names in questions. Instead of 'laut Prof. X', write 'laut Quelle' (German) or 'according to the source' (English), matching the output language\n"
-            "- Respond ONLY with the JSON array."
-        )},
+        {"role": "system", "content": system},
         {"role": "user", "content": f"Create cloze exercises in {language}:\n\n{terms_text}"},
     ]
     response = client.chat.completions.create(model=model, messages=messages, temperature=0.3)
@@ -145,27 +148,29 @@ def _generate_lueckentext(client, model, selected: list[dict], count: int, langu
     return items
 
 
-def _generate_vokabeltest(client, model, selected: list[dict], count: int, language: str) -> list[dict]:
+def _generate_vokabeltest(client, model, selected: list[dict], count: int, language: str,
+                          adaptive_suffix: str = "") -> list[dict]:
     terms_text = "\n".join(f"- {e['term_de']} ({e['term_en']}): {e['definition']}" for e in selected)
+    system = (
+        "You create a vocabulary quiz on technical terms (multiple choice). "
+        f"Write ALL questions and explanations in {language}. "
+        "Translation questions (e.g. 'What is the English translation of X?' / "
+        "'Was ist die deutsche Übersetzung von X?') are allowed and keep their target term in "
+        "the other language — but the question wording itself is in the output language.\n\n"
+        "Respond ONLY with a JSON array:\n"
+        '[{"question": "Was ist die englische Übersetzung von Normalisierung?", '
+        '"options": ["Indexing", "Normalization", "Partitioning", "Denormalization"], '
+        '"correct_idx": 1, "explanation": "Normalization ist...", '
+        '"term_de": "Normalisierung"}]\n\n'
+        "Rules:\n- Mix DE -> EN, EN -> DE, and definition questions\n"
+        "- Pick terms suitable for MC (clear definition, plausible distractors)\n"
+        "- Exactly 4 options, one correct\n- correct_idx = 0-3\n"
+        "- term_de MUST exactly match the input term (used to look up the source page)\n"
+        "- Do NOT use personal names in questions. Instead of 'laut Prof. X', write 'laut Quelle' (German) or 'according to the source' (English), matching the output language\n"
+        "- Respond ONLY with the JSON array."
+    ) + adaptive_suffix
     messages = [
-        {"role": "system", "content": (
-            "You create a vocabulary quiz on technical terms (multiple choice). "
-            f"Write ALL questions and explanations in {language}. "
-            "Translation questions (e.g. 'What is the English translation of X?' / "
-            "'Was ist die deutsche Übersetzung von X?') are allowed and keep their target term in "
-            "the other language — but the question wording itself is in the output language.\n\n"
-            "Respond ONLY with a JSON array:\n"
-            '[{"question": "Was ist die englische Übersetzung von Normalisierung?", '
-            '"options": ["Indexing", "Normalization", "Partitioning", "Denormalization"], '
-            '"correct_idx": 1, "explanation": "Normalization ist...", '
-            '"term_de": "Normalisierung"}]\n\n'
-            "Rules:\n- Mix DE -> EN, EN -> DE, and definition questions\n"
-            "- Pick terms suitable for MC (clear definition, plausible distractors)\n"
-            "- Exactly 4 options, one correct\n- correct_idx = 0-3\n"
-            "- term_de MUST exactly match the input term (used to look up the source page)\n"
-            "- Do NOT use personal names in questions. Instead of 'laut Prof. X', write 'laut Quelle' (German) or 'according to the source' (English), matching the output language\n"
-            "- Respond ONLY with the JSON array."
-        )},
+        {"role": "system", "content": system},
         {"role": "user", "content": f"Create vocabulary-quiz questions in {language} for these technical terms:\n\n{terms_text}"},
     ]
     response = client.chat.completions.create(model=model, messages=messages, temperature=0.3)

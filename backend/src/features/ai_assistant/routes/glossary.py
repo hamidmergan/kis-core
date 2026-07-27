@@ -21,6 +21,7 @@ from src.features.ai_assistant.routes._helpers import (
     _term_appears_in_text,
 )
 from src.features.ai_assistant import schemas
+from src.services.aia_adaptive_tools import build_adaptive_tool_suffix
 
 router = APIRouter(tags=["ki-assistent: glossary"])
 
@@ -86,7 +87,7 @@ async def delete_all_glossary_endpoint(
 
 # ─── Glossary: Aus Markierung extrahieren ─────────────────────────────────────
 
-_GLOSSARY_SINGLE_PROMPT = """You are a language expert for international students at B1 level. The user has manually selected ONE specific term/phrase to add to their glossary.
+_GLOSSARY_SINGLE_PROMPT = """You are a language expert for international students. Write the definitions at B1 level BY DEFAULT. If an adaptive block at the very end of this prompt names the learner's CEFR level, write the definitions at THAT level instead of B1. The user has manually selected ONE specific term/phrase to add to their glossary.
 
 Respond ONLY with a JSON object describing this exact term. Do NOT split compounds, do NOT decompose, do NOT extract sub-words. Return exactly one entry for the term AS GIVEN.
 
@@ -104,7 +105,7 @@ Rules:
 - definition_en: simple explanation in English, understandable at B1 level
 - Respond ONLY with the JSON object, no array, no markdown fences."""
 
-_GLOSSARY_EXTRACT_PROMPT = """You are a language expert for international students at B1 level. Analyze the highlighted text and extract words/phrases that a B1 learner should learn for university study.
+_GLOSSARY_EXTRACT_PROMPT = """You are a language expert for international students. Write the definitions at B1 level BY DEFAULT. If an adaptive block at the very end of this prompt names the learner's CEFR level, write the definitions at THAT level instead of B1. Analyze the highlighted text and extract words/phrases that a B1 learner should learn for university study.
 
 Respond ONLY with a JSON array:
 [
@@ -133,6 +134,20 @@ Rules:
 - At most 5 terms per selection; prioritize the ones most difficult at B1
 - If the text really only contains function words / trivial vocabulary, respond with: []
 - Respond ONLY with the JSON array."""
+
+
+def _glossary_system_prompt(is_single_term: bool, adaptive_suffix: str = "") -> str:
+    """The glossary-creation system prompt, level-adapted for this learner.
+
+    The base prompt writes definitions at B1 by default. ``adaptive_suffix`` is
+    the appendix from :func:`build_adaptive_tool_suffix`: empty when the learner
+    has no stored CEFR level (so B1 stands), otherwise a block that overrides the
+    B1 default with the learner's own level. Kept as a tiny pure helper so the
+    adaptation is unit-testable without the route's DB/LLM dependencies.
+    """
+    base = _GLOSSARY_SINGLE_PROMPT if is_single_term else _GLOSSARY_EXTRACT_PROMPT
+    return base + adaptive_suffix
+
 
 @router.post("/ai-assistant/workspaces/{workspace_uuid}/glossary/extract")
 async def extract_glossary_from_selection(
@@ -183,10 +198,15 @@ async def extract_glossary_from_selection(
     tokens = [w for w in re.split(r"\s+", text) if w]
     is_single_term_selection = len(tokens) <= 3 and len(text) <= 60
 
+    # Write the definition at the learner's CEFR level when they have one; empty
+    # string falls back to the prompt's B1 default. The glossary is private per
+    # user, so the level is known here and the stored definition is theirs.
+    adaptive_suffix = build_adaptive_tool_suffix(user_id)
+
     try:
         if is_single_term_selection:
             messages = [
-                {"role": "system", "content": _GLOSSARY_SINGLE_PROMPT},
+                {"role": "system", "content": _glossary_system_prompt(True, adaptive_suffix)},
                 {"role": "user", "content": f"Markierter Begriff: {text}"},
             ]
             response = await asyncio.to_thread(
@@ -226,7 +246,7 @@ async def extract_glossary_from_selection(
             }
 
         messages = [
-            {"role": "system", "content": _GLOSSARY_EXTRACT_PROMPT},
+            {"role": "system", "content": _glossary_system_prompt(False, adaptive_suffix)},
             {"role": "user", "content": f"Markierter Text:\n\n{text}"},
         ]
         response = await asyncio.to_thread(

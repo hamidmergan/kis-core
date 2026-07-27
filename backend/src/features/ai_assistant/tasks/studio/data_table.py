@@ -16,14 +16,17 @@ from src.features.ai_assistant.tasks._helpers import (
 @observe(name="aia-data_table")
 def run_generate_data_table(self, data_table_id: int, source_ids: list[int],
                               source_uuids: list[str], source_map: dict,
-                              locale: str = "de"):
+                              locale: str = "de", user_id: int | None = None):
     """Generate a data table from source chunks as a background job.
 
     `locale` controls the output language (title/headers/values); 'highlight'
     stays verbatim in the source language. Defaults to 'de' for older queued tasks.
+    `user_id` drives the adaptive language level (cell wording pitched at the
+    learner's CEFR level); None for older queued tasks keeps the shipped register.
     """
     import json as _json
     from src.tool_prompts import AIA_DATENTABELLE_PROMPT
+    from src.services.aia_adaptive_tools import build_adaptive_tool_suffix
 
     language = "English" if (locale or "").lower().startswith("en") else "German"
 
@@ -73,8 +76,9 @@ def run_generate_data_table(self, data_table_id: int, source_ids: list[int],
         context = "\n\n---\n\n".join(context_parts)
 
         client, model, _ = _get_llm_client()
+        adaptive_suffix = build_adaptive_tool_suffix(user_id)
         messages = [
-            {"role": "system", "content": AIA_DATENTABELLE_PROMPT.replace("{language}", language)},
+            {"role": "system", "content": AIA_DATENTABELLE_PROMPT.replace("{language}", language) + adaptive_suffix},
             {"role": "user", "content": (
                 f"Create a structured data table from the following text (write it in {language}):\n\n{context}"
             )},

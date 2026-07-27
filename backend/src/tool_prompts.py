@@ -572,9 +572,10 @@ AIA_MINDMAP_PROMPT = (
 )
 
 AIA_LERNKARTEN_PROMPT = (
-    "You are a language teacher for international students at CEFR level B1. "
+    "You are a language teacher for international students. "
     "Create flashcards for technical terms from the given text.\n\n"
-    "IMPORTANT: All explanations MUST be understandable at B1 level: simple words, short sentences, no nested clauses.\n\n"
+    "IMPORTANT: All explanations MUST be easy to understand: simple words, short sentences, no nested clauses. "
+    "When an adaptive block below states the learner's CEFR level, pitch the wording at that level instead.\n\n"
     "CRITICAL LANGUAGE RULE (overrides everything else): Write the explanatory fields "
     "(title, definition, word_parts_explained, example_sentence) ENTIRELY in {language}. "
     "Some examples further down are written in German for illustration only - IGNORE their language and always write in {language}. "
@@ -602,7 +603,7 @@ AIA_LERNKARTEN_PROMPT = (
     "- Create exactly {count} flashcards\n"
     "- Cards MUST cover ALL sources, not just one. Distribute evenly.\n"
     "- begriff: a central technical term from the text, in the source-text language\n"
-    "- definition: simple definition in {language}. Write it so a B1-level student understands it immediately. "
+    "- definition: simple definition in {language}. Write it so a student understands it immediately. "
     "No technical jargon in the explanation. Explain technical terms with simple language.\n"
     "- word_parts: split into MEANINGFUL word parts (e.g. 'Studien + Abbruch + Quote'). "
     "ONLY for a term written as ONE word that is built from 2+ meaning-carrying parts. "
@@ -620,7 +621,7 @@ AIA_LERNKARTEN_PROMPT = (
     "- word_parts_explained MEANING IN CONTEXT: explain the meaning the part carries INSIDE this term and in the given source text, "
     "not a generic dictionary meaning that ignores the term. "
     "German example: in 'Rettungswege' write 'Wege = Strecken im Gebäude nach draußen', NOT 'Wege = Straßen oder Flure'. "
-    "Stay B1-simple: 'Studien = die Zeit an der Uni' helps, 'Studien = Plural von Studium' does not.\n"
+    "Stay simple and concrete: 'Studien = die Zeit an der Uni' helps, 'Studien = Plural von Studium' does not.\n"
     "- example_sentence: a SIMPLE example sentence showing how the term is used in everyday student life. "
     "Example for 'Studienabbruchquote': 'Die Studienabbruchquote ist hoch, viele Studenten hören auf, bevor sie fertig sind.' "
     "The sentence should help the student understand the term in context.\n"
@@ -952,7 +953,7 @@ AIA_POPUP_ACTIONS: list[dict[str, str | int]] = [
         "label_en": "Explain",
         "icon": "Lightbulb",
         "prompt_de": (
-            "Erkläre diese Passage so, dass jemand ohne Vorwissen sie versteht (Niveau B1). "
+            "Erkläre diese Passage so, dass jemand ohne Vorwissen sie versteht. "
             "Ersetze Fachbegriffe durch alltagssprachliche Umschreibungen oder, wo das nicht geht, "
             "definiere den Begriff in einem Halbsatz. "
             "Nutze kurze Sätze und eine konkrete Alltagsanalogie, falls hilfreich. "
@@ -960,7 +961,7 @@ AIA_POPUP_ACTIONS: list[dict[str, str | int]] = [
             "Antworte in der Sprache des Originaltexts:"
         ),
         "prompt_en": (
-            "Explain this passage so someone without prior knowledge understands it (B1 level). "
+            "Explain this passage so someone without prior knowledge understands it. "
             "Replace jargon with everyday wording or, where that isn't possible, "
             "define the term in a half-sentence. "
             "Use short sentences and a concrete everyday analogy if it helps. "

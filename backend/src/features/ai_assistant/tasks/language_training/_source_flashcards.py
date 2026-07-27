@@ -15,11 +15,14 @@ def generate_flashcards_from_source(
     ctx: QuelleContext,
     count: int,
     locale: str = "de",
+    adaptive_suffix: str = "",
 ) -> tuple[list[dict], str]:
     # Explanations follow the UI language; the term itself (begriff) stays in the
     # source language for study and highlighting (see prompt LANGUAGE rule).
     language = _language_label(locale)
-    prompt = AIA_LERNKARTEN_PROMPT.replace("{count}", str(count)).replace("{language}", language)
+    # adaptive_suffix pitches the definitions at the learner's CEFR level (empty
+    # when they have no level); it OVERRIDES the prompt's default register.
+    prompt = AIA_LERNKARTEN_PROMPT.replace("{count}", str(count)).replace("{language}", language) + adaptive_suffix
     # No "avoid these existing cards" block: feeding them back made the model copy them.
     # Variation comes from the rotating page subset in build_source_context.
     messages = [

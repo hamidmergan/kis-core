@@ -55,11 +55,12 @@ async def generate_mindmap(
     if scheduler_enabled():
         enqueue_task(
             "aia.generate_mindmap", user_id,
-            args=[mindmap_id, source_ids, source_uuids], kwargs={"locale": locale},
+            args=[mindmap_id, source_ids, source_uuids],
+            kwargs={"locale": locale, "user_id": user_id},
         )
     else:
         from src.tasks.aia_tasks import run_generate_mindmap
-        run_generate_mindmap.delay(mindmap_id, source_ids, source_uuids, locale=locale)
+        run_generate_mindmap.delay(mindmap_id, source_ids, source_uuids, locale=locale, user_id=user_id)
 
     return {"mindmap_id": mindmap_id, "status": "pending"}
 

@@ -29,9 +29,12 @@ def generate_mc_from_source(
     tool: str,
     count: int,
     locale: str = "de",
+    adaptive_suffix: str = "",
 ) -> tuple[list[dict], str]:
     language = _language_label(locale)
-    tool_prompt = _build_prompt(tool, count, language)
+    # adaptive_suffix pitches questions/options at the learner's CEFR level; it
+    # explicitly must not change the item count, the options or the correct answer.
+    tool_prompt = _build_prompt(tool, count, language) + adaptive_suffix
     # No "already exists, avoid these" block: feeding the old questions back made the model
     # COPY them verbatim (it even reproduced a "laut Seite 7" question for a page no longer in
     # context). Variation comes instead from the rotating page subset in build_source_context.

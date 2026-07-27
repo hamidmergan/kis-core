@@ -20,13 +20,15 @@ def generate_cards_from_source(
     ctx: QuelleContext,
     count: int,
     locale: str = "de",
+    adaptive_suffix: str = "",
 ) -> tuple[list[dict], str]:
     language = _language_label(locale)
+    # adaptive_suffix pitches question + answer at the learner's CEFR level.
     prompt = (
         AIA_KARTEIKARTEN_QA_PROMPT
         .replace("{count}", str(count))
         .replace("{language}", language)
-    )
+    ) + adaptive_suffix
     # No "avoid these existing cards" block: feeding them back made the model copy them.
     # Variation comes from the rotating page subset in build_source_context.
     messages = [

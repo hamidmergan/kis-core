@@ -10,6 +10,7 @@ from loguru import logger
 from src import database as db
 from src.celery_app import celery_app
 from src.features.ai_assistant.tasks._helpers import _get_llm_client
+from src.services.aia_adaptive_tools import build_adaptive_tool_suffix
 
 from src.features.ai_assistant.tasks.language_training._context import build_source_context
 from src.features.ai_assistant.tasks.language_training._glossary import generate_from_glossary
@@ -49,11 +50,17 @@ def run_generate_exercise_set(self, set_id: int, workspace_id: int, tool: str,
 
         client, model, _ = _get_llm_client()
 
+        # Pitch the generated items at the learner's stored CEFR level, exactly as
+        # the chat does. Empty string when the learner has no level yet, so the
+        # tools keep their shipped register.
+        adaptive_suffix = build_adaptive_tool_suffix(user_id)
+
         items: list[dict] = []
         title = "Wird generiert…"
 
         if mode == "glossary":
-            result = generate_from_glossary(client, model, workspace_id, user_id, tool, count, locale=locale)
+            result = generate_from_glossary(client, model, workspace_id, user_id, tool, count,
+                                            locale=locale, adaptive_suffix=adaptive_suffix)
             if result is None:
                 db.fail_exercise_set(set_id)
                 return
@@ -70,11 +77,14 @@ def run_generate_exercise_set(self, set_id: int, workspace_id: int, tool: str,
                 return
 
             if tool == "flashcards":
-                items, title = generate_flashcards_from_source(client, model, ctx, count, locale=locale)
+                items, title = generate_flashcards_from_source(client, model, ctx, count,
+                                                               locale=locale, adaptive_suffix=adaptive_suffix)
             elif tool == "karteikarten":
-                items, title = generate_cards_from_source(client, model, ctx, count, locale=locale)
+                items, title = generate_cards_from_source(client, model, ctx, count,
+                                                          locale=locale, adaptive_suffix=adaptive_suffix)
             else:
-                items, title = generate_mc_from_source(client, model, ctx, tool, count, locale=locale)
+                items, title = generate_mc_from_source(client, model, ctx, tool, count,
+                                                       locale=locale, adaptive_suffix=adaptive_suffix)
 
         if not items:
             db.fail_exercise_set(set_id)

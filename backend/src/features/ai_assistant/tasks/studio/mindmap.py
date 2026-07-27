@@ -6,18 +6,22 @@ from loguru import logger
 from src.celery_app import celery_app
 from src import database as db
 from src.tool_prompts import AIA_MINDMAP_PROMPT
+from src.services.aia_adaptive_tools import build_adaptive_tool_suffix
 
 @celery_app.task(bind=True, name="aia.generate_mindmap", queue="aia",
                  soft_time_limit=300, time_limit=360)
 @observe(name="aia-mindmap")
 def run_generate_mindmap(self, mindmap_id: int, source_ids: list[int], source_uuids: list[str],
-                          locale: str = "de", _aia_job_uuid: str | None = None):
+                          locale: str = "de", _aia_job_uuid: str | None = None,
+                          user_id: int | None = None):
     """Generate a mindmap from source chunks as a background job.
 
     `locale` controls the label language (topic/labels); 'keyword' stays verbatim
     in the source language for highlighting. Defaults to 'de' for older queued tasks.
     `_aia_job_uuid` is set by the shared-pool dispatcher; when present we report
     completion so the freed slot is filled.
+    `user_id` drives the adaptive language level (topic/labels pitched at the
+    learner's CEFR level); None for older queued tasks keeps the shipped register.
     """
     import json as _json
 
@@ -97,8 +101,9 @@ def run_generate_mindmap(self, mindmap_id: int, source_ids: list[int], source_uu
             metadata={"provider": _provider, "base_url": _base_url, "model": model},
         )
 
+        adaptive_suffix = build_adaptive_tool_suffix(user_id)
         messages = [
-            {"role": "system", "content": AIA_MINDMAP_PROMPT.replace("{language}", language)},
+            {"role": "system", "content": AIA_MINDMAP_PROMPT.replace("{language}", language) + adaptive_suffix},
             {"role": "user", "content": f"/no_think\nCreate a mind map from the following sources. Write topic and labels in {language}:\n\n{context}"},
         ]
 

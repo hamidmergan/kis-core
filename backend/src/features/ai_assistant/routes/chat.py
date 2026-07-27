@@ -1073,26 +1073,33 @@ async def chat(
     _user_settings = db.get_aia_user_settings(workspace["id"], user_id) or {}
     chat_lang = _user_settings.get("chat_lang", "de")
 
-    # Adaptive tutor behaviour: a learner with a stored CEFR level gets answers
-    # pitched at that level, calibrated with a sample of that level's language (the
-    # same per-level examples the diagnosis uses). Empty setting or no level -> no
-    # change. Computed once here; appended to the USER message in each path below,
-    # right next to the question, which is where the model weights it most.
-    _level = db.get_user_language_level(user_id)["language_level"]
-    _examples = parse_level_examples(db.get_setting(LEVEL_EXAMPLES_SETTING, ""))
-    _example = example_for_level(_level, _examples)
-    _adaptive_suffix, _applied_level = adaptive_chat_appendix(
-        _level,
-        db.get_setting(ADAPTIVE_BEHAVIOR_SETTING, DEFAULT_ADAPTIVE_BEHAVIOR),
-        _example,
-    )
+    # Adaptive tutor behaviour is coupled to the Fachsprachentrainer: only learners
+    # who have the trainer toggled on for THIS workspace get CEFR-pitched answers and
+    # the weakness focus. National students who leave it off get plain answers. The
+    # CEFR level is stored globally per user, so this per-workspace gate is also what
+    # stops it leaking into workspaces where the trainer is off.
+    _adaptive_suffix, _applied_level = "", None
+    if _user_settings.get("language_training_active"):
+        # A learner with a stored CEFR level gets answers pitched at that level,
+        # calibrated with a sample of that level's language (the same per-level
+        # examples the diagnosis uses). Empty setting or no level -> no change.
+        # Computed once here; appended to the USER message in each path below, right
+        # next to the question, which is where the model weights it most.
+        _level = db.get_user_language_level(user_id)["language_level"]
+        _examples = parse_level_examples(db.get_setting(LEVEL_EXAMPLES_SETTING, ""))
+        _example = example_for_level(_level, _examples)
+        _adaptive_suffix, _applied_level = adaptive_chat_appendix(
+            _level,
+            db.get_setting(ADAPTIVE_BEHAVIOR_SETTING, DEFAULT_ADAPTIVE_BEHAVIOR),
+            _example,
+        )
 
-    # Weakness-focus help works for EVERY learner, not just those with a CEFR level.
-    # It is folded into the same suffix so all answer paths (popup, single, map,
-    # reduce) pick it up unchanged. Empty when nothing is over the act threshold.
-    _adaptive_suffix = _adaptive_suffix + weakness_focus_appendix(
-        db.get_learner_focus_items(user_id, workspace["id"])
-    )
+        # Weakness-focus help is folded into the same suffix so all answer paths
+        # (popup, single, map, reduce) pick it up unchanged. Empty when nothing is
+        # over the act threshold.
+        _adaptive_suffix = _adaptive_suffix + weakness_focus_appendix(
+            db.get_learner_focus_items(user_id, workspace["id"])
+        )
 
     # Resolve enrollment_id for per-link chat separation (needed for history fetch)
     enrollment_id = body.enrollment_id if not is_owner else None
