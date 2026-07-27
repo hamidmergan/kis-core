@@ -694,6 +694,10 @@ def init_db(admin_email: Optional[str] = None) -> None:
             # Migration: add English columns to glossary
             cur.execute("ALTER TABLE aia_glossary_entries ADD COLUMN IF NOT EXISTS definition_en TEXT")
             cur.execute("ALTER TABLE aia_glossary_entries ADD COLUMN IF NOT EXISTS example_sentence_en TEXT")
+            # Migration: dictionary base form (lemma) of the marked term, e.g. the
+            # marked "läuft" carries base_form "laufen". Empty when the term is
+            # already in its base form or cannot be lemmatised (phrase, loanword).
+            cur.execute("ALTER TABLE aia_glossary_entries ADD COLUMN IF NOT EXISTS base_form TEXT")
 
             # ─── Glossary: back to a plain per-user glossary ──────────────────
             # The glossary used to be a workspace-shared pool (aia_glossary_entries)

@@ -179,6 +179,14 @@ export function GlossaryView({
 
                     {isExpanded && (
                       <div className="px-3 pb-3 pt-1" onClick={(e) => e.stopPropagation()}>
+                        {entry.base_form && entry.base_form.trim().toLowerCase() !== entry.term_de.trim().toLowerCase() && (
+                          <div className="mb-2">
+                            <span className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: "var(--kb)" }}>{t("glossary.baseForm")}</span>
+                            <p className="text-sm leading-relaxed mt-0.5" style={{ color: "var(--foreground)" }}>
+                              {entry.base_form}
+                            </p>
+                          </div>
+                        )}
                         {showTranslation && entry.example_sentence && (
                           <div className="mb-2">
                             <span className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: "var(--kb)" }}>{t("glossary.context")}</span>

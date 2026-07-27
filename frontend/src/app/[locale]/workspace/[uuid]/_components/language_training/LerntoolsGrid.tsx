@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
 
 export function LerntoolsGrid({ tiles, onSelect }: {
-  tiles: { key: string; Icon: React.ComponentType<any>; label: string; iconBg: string; iconColor: string }[];
+  tiles: { key: string; Icon: React.ComponentType<any>; label: string; description?: string; iconBg: string; iconColor: string }[];
   onSelect: (key: string) => void;
 }) {
   const ref = useRef<HTMLDivElement>(null);
@@ -32,7 +32,7 @@ export function LerntoolsGrid({ tiles, onSelect }: {
               ["--tile-color" as string]: tile.iconColor,
               ["--tile-border" as string]: `color-mix(in srgb, ${tile.iconColor} 20%, transparent)`,
             }}
-            title={tile.label}
+            title={tile.description ? `${tile.label}\n${tile.description}` : tile.label}
           >
             <tile.Icon size={compact ? 18 : 20} color={tile.iconColor} weight="bold" />
             {!compact && (

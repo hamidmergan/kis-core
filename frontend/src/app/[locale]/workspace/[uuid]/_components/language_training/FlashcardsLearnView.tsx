@@ -265,30 +265,27 @@ export function FlashcardsLearnView({
                         </div>
                       );
                     })()}
-                    {/* Word class + singular/plural */}
+                    {/* Word class first, then singular/plural only when present, no box */}
                     {(wordClass || singular || plural) && (
-                      <div className="px-3 py-2.5 rounded-xl" style={{ backgroundColor: "var(--surface-dim)" }}>
-                        <span className="text-[10px] font-bold uppercase tracking-widest" >{t("flashcardsLearn.forms")}</span>
-                        <div className="flex flex-col gap-1 mt-1.5">
-                          {wordClass && (
-                            <div className="flex items-baseline gap-1.5 text-sm">
-                              <span className="font-semibold shrink-0" style={{ color: "var(--foreground)" }}>{t("flashcardsLearn.wordClass")}</span>
-                              <span >{wordClass}</span>
-                            </div>
-                          )}
-                          {singular && (
-                            <div className="flex items-baseline gap-1.5 text-sm">
-                              <span className="font-semibold shrink-0" style={{ color: "var(--foreground)" }}>{t("flashcardsLearn.singular")}</span>
-                              <span >{singular}</span>
-                            </div>
-                          )}
-                          {plural && (
-                            <div className="flex items-baseline gap-1.5 text-sm">
-                              <span className="font-semibold shrink-0" style={{ color: "var(--foreground)" }}>{t("flashcardsLearn.plural")}</span>
-                              <span >{plural}</span>
-                            </div>
-                          )}
-                        </div>
+                      <div className="flex flex-col gap-1 px-1">
+                        {wordClass && (
+                          <div className="flex items-baseline gap-1.5 text-sm">
+                            <span className="font-semibold shrink-0" style={{ color: "var(--foreground)" }}>{t("flashcardsLearn.wordClass")}</span>
+                            <span >{wordClass}</span>
+                          </div>
+                        )}
+                        {singular && (
+                          <div className="flex items-baseline gap-1.5 text-sm">
+                            <span className="font-semibold shrink-0" style={{ color: "var(--foreground)" }}>{t("flashcardsLearn.singular")}</span>
+                            <span >{singular}</span>
+                          </div>
+                        )}
+                        {plural && (
+                          <div className="flex items-baseline gap-1.5 text-sm">
+                            <span className="font-semibold shrink-0" style={{ color: "var(--foreground)" }}>{t("flashcardsLearn.plural")}</span>
+                            <span >{plural}</span>
+                          </div>
+                        )}
                       </div>
                     )}
                     {/* Context sentence */}

@@ -18,6 +18,7 @@ from src.limits import (
 )
 
 from src.features.ai_assistant.routes._helpers import (
+    _context_snippet,
     _term_appears_in_text,
 )
 from src.features.ai_assistant import schemas
@@ -93,6 +94,7 @@ Respond ONLY with a JSON object describing this exact term. Do NOT split compoun
 
 {
   "term_en": "Translation (see rules)",
+  "base_form": "Dictionary base form of the term (see rules), or empty string",
   "definition": "Short explanation in German (B1 level, 1-2 sentences)",
   "definition_en": "Short explanation in English (B1 level, 1-2 sentences)",
   "example_sentence": "Example sentence using the term in its source language",
@@ -101,8 +103,9 @@ Respond ONLY with a JSON object describing this exact term. Do NOT split compoun
 
 Rules:
 - term_en: if the input term is German, translate to English. If English, translate to German. Never the same language as the input.
-- definition: simple explanation in German, understandable at B1 level
-- definition_en: simple explanation in English, understandable at B1 level
+- base_form: the dictionary base form (lemma) of the marked term, in the SAME language as the term (NOT a translation). Base form means: nouns in the singular nominative, verbs in the infinitive, adjectives uninflected. Return an EMPTY string when the term is already in its base form, is a multi-word phrase, or the language does not inflect it this way. Example: term "läuft" -> base_form "laufen"; term "Häusern" -> base_form "Haus"; term "Arbeitsmarkt" -> base_form "".
+- definition: a simple but ACCURATE explanation in German at B1 level. First name what the term IS (its category), then add the one or two features that truly distinguish it. If a CONTEXT excerpt from the document is provided below, base the definition on how the term is actually used THERE and stay consistent with it. Do NOT invent specifics the context does not support, do NOT narrow a general term down to one special case, and do NOT pad it with vague filler sentences.
+- definition_en: the same explanation in English at B1 level.
 - Respond ONLY with the JSON object, no array, no markdown fences."""
 
 _GLOSSARY_EXTRACT_PROMPT = """You are a language expert for international students. Write the definitions at B1 level BY DEFAULT. If an adaptive block at the very end of this prompt names the learner's CEFR level, write the definitions at THAT level instead of B1. Analyze the highlighted text and extract words/phrases that a B1 learner should learn for university study.
@@ -112,6 +115,7 @@ Respond ONLY with a JSON array:
   {
     "term_de": "Term in the source language",
     "term_en": "Translation (see rules)",
+    "base_form": "Dictionary base form of term_de (see rules), or empty string",
     "definition": "Short explanation in German (B1 level, 1-2 sentences)",
     "definition_en": "Short explanation in English (B1 level, 1-2 sentences)",
     "example_sentence": "Example sentence using the term (source language)",
@@ -128,12 +132,29 @@ Rules:
 - CRITICAL for term_de: the term must appear VERBATIM as a contiguous word or phrase in the text. If the text says "in den deutschen Arbeitsmarkt zu integrieren", you may NOT turn that into "Arbeitsmarktintegration". Take "Arbeitsmarkt" or "integrieren" instead. Do NOT invent compounds or nominalizations that are not exactly in the text.
 - For inflected verbs/adjectives: the base form as term_de is allowed when the form in the text is clearly recognizable (e.g. text "zu erhöhen" -> term_de "erhöhen" is fine).
 - term_en: if the source text is NOT English, translate to English. If the source text is English, translate to German. Never the same language as term_de.
-- definition: simple explanation in German, understandable at B1 level
-- definition_en: simple explanation in English, understandable at B1 level
+- base_form: the dictionary base form (lemma) of term_de, in the SAME language as term_de (NOT a translation). Base form means: nouns in the singular nominative, verbs in the infinitive, adjectives uninflected. Return an EMPTY string when term_de is already in its base form, is a multi-word phrase, or the language does not inflect it this way. Example: term_de "läuft" -> base_form "laufen"; term_de "Arbeitsmarkt" -> base_form "".
+- definition: a simple but ACCURATE explanation in German at B1 level. First name what the term IS (its category), then add the one or two features that truly distinguish it. Base it on how the term is used in the marked text. Do NOT invent specifics the text does not support, do NOT narrow a general term down to one special case, and do NOT pad it with vague filler sentences.
+- definition_en: the same explanation in English at B1 level.
 - example_sentence_en: English translation of the example sentence
 - At most 5 terms per selection; prioritize the ones most difficult at B1
 - If the text really only contains function words / trivial vocabulary, respond with: []
 - Respond ONLY with the JSON array."""
+
+
+def _base_form(raw: str | None, term: str) -> str:
+    """The learner-facing base form (Grundform / lemma) for a marked glossary term.
+
+    Returns the stripped base form only when it is present AND actually differs
+    from the marked word (case-insensitive): an inflected verb or declined noun is
+    worth showing ("läuft" -> "laufen"), an already-base-form or unchanged word
+    would just be noise, so it collapses to "". Multi-word phrases the model can't
+    lemmatise come back empty from the model and stay empty here. Kept as a tiny
+    pure helper so the guard is unit-testable without the route's DB/LLM deps.
+    """
+    bf = (raw or "").strip()
+    if not bf or bf.lower() == (term or "").strip().lower():
+        return ""
+    return bf
 
 
 def _glossary_system_prompt(is_single_term: bool, adaptive_suffix: str = "") -> str:
@@ -205,9 +226,19 @@ async def extract_glossary_from_selection(
 
     try:
         if is_single_term_selection:
+            # Ground the definition in how the term is used on its page, not the bare
+            # word: a 1-2 word mark ("Wissenschaftliches Seminar") carries no context on
+            # its own, so the model would fall back to a generic dictionary definition.
+            context = _context_snippet(db.get_page_text(source["id"], body.page_number), text)
+            user_content = f"Markierter Begriff: {text}"
+            if context:
+                user_content += (
+                    "\n\nCONTEXT (so wird der Begriff im Dokument verwendet, "
+                    f"nutze ihn für eine passende Definition):\n{context}"
+                )
             messages = [
                 {"role": "system", "content": _glossary_system_prompt(True, adaptive_suffix)},
-                {"role": "user", "content": f"Markierter Begriff: {text}"},
+                {"role": "user", "content": user_content},
             ]
             response = await asyncio.to_thread(
                 lambda: llm._client.chat.completions.create(
@@ -231,6 +262,7 @@ async def extract_glossary_from_selection(
             entry = {
                 "term_de": text,
                 "term_en": parsed.get("term_en", ""),
+                "base_form": _base_form(parsed.get("base_form"), text),
                 "definition": parsed.get("definition", ""),
                 "definition_en": parsed.get("definition_en", ""),
                 "example_sentence": parsed.get("example_sentence", ""),
@@ -278,6 +310,7 @@ async def extract_glossary_from_selection(
             new_entries.append({
                 "term_de": term_obj["term_de"],
                 "term_en": term_obj.get("term_en", ""),
+                "base_form": _base_form(term_obj.get("base_form"), term_obj["term_de"]),
                 "definition": term_obj.get("definition", ""),
                 "definition_en": term_obj.get("definition_en", ""),
                 "example_sentence": term_obj.get("example_sentence", ""),

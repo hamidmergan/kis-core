@@ -109,16 +109,16 @@ export function StudioOverview({
   }, [studioTab, workspaceUuid, refreshStats, statsVersion]);
 
   const lerntoolsTiles = [
-    { key: "karteikarten" as const, Icon: Cards, label: t("tiles.karteikarten"), iconBg: "var(--badge-emerald-bg)", iconColor: "var(--badge-emerald-fg)" },
-    { key: "quiz" as const, Icon: Question, label: t("tiles.quiz"), iconBg: "var(--badge-yellow-bg)", iconColor: "var(--badge-yellow-fg)" },
-    { key: "data_table" as const, Icon: Table, label: t("tiles.dataTable"), iconBg: "var(--badge-orange-bg)", iconColor: "var(--badge-orange-fg)" },
-    { key: "mindmap" as const, Icon: TreeStructure, label: t("tiles.mindmap"), iconBg: "var(--badge-teal-bg)", iconColor: "var(--badge-teal-fg)" },
+    { key: "karteikarten" as const, Icon: Cards, label: t("tiles.karteikarten"), description: t("tileDescriptions.karteikarten"), iconBg: "var(--badge-emerald-bg)", iconColor: "var(--badge-emerald-fg)" },
+    { key: "quiz" as const, Icon: Question, label: t("tiles.quiz"), description: t("tileDescriptions.quiz"), iconBg: "var(--badge-yellow-bg)", iconColor: "var(--badge-yellow-fg)" },
+    { key: "data_table" as const, Icon: Table, label: t("tiles.dataTable"), description: t("tileDescriptions.dataTable"), iconBg: "var(--badge-orange-bg)", iconColor: "var(--badge-orange-fg)" },
+    { key: "mindmap" as const, Icon: TreeStructure, label: t("tiles.mindmap"), description: t("tileDescriptions.mindmap"), iconBg: "var(--badge-teal-bg)", iconColor: "var(--badge-teal-fg)" },
   ];
 
   const langTrainingTiles = [
-    { key: "lk-sets" as const, Icon: BookOpenText, label: t("tiles.lernkarten"), iconBg: "var(--badge-amber-bg)", iconColor: "var(--badge-amber-fg)" },
-    { key: "cl-sets" as const, Icon: TextAa, label: t("tiles.lueckentext"), iconBg: "var(--badge-red-bg)", iconColor: "var(--badge-red-fg)" },
-    { key: "vt-sets" as const, Icon: Exam, label: t("tiles.begriffeQuiz"), iconBg: "var(--badge-violet-bg)", iconColor: "var(--badge-violet-fg)" },
+    { key: "lk-sets" as const, Icon: BookOpenText, label: t("tiles.lernkarten"), description: t("tileDescriptions.lernkarten"), iconBg: "var(--badge-amber-bg)", iconColor: "var(--badge-amber-fg)" },
+    { key: "cl-sets" as const, Icon: TextAa, label: t("tiles.lueckentext"), description: t("tileDescriptions.lueckentext"), iconBg: "var(--badge-red-bg)", iconColor: "var(--badge-red-fg)" },
+    { key: "vt-sets" as const, Icon: Exam, label: t("tiles.begriffeQuiz"), description: t("tileDescriptions.begriffeQuiz"), iconBg: "var(--badge-violet-bg)", iconColor: "var(--badge-violet-fg)" },
   ];
 
   void activeSourceCount;

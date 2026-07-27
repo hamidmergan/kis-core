@@ -92,6 +92,23 @@ def get_aia_chunks_by_source(source_id: int) -> list[dict]:
             )
             return [dict(row) for row in cur.fetchall()]
 
+def get_page_text(source_id: int, page_number: int | None) -> str:
+    """Concatenated chunk text of ONE page of a source (ordered), or "" when the
+    page has no text chunk. Used to give the glossary definition prompt the real
+    surrounding context of a marked term instead of the bare word."""
+    if page_number is None:
+        return ""
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """SELECT content FROM aia_chunks
+                   WHERE source_id = %s AND page_number = %s
+                   ORDER BY id""",
+                (source_id, page_number),
+            )
+            return "\n".join(r[0] for r in cur.fetchall() if r[0])
+
+
 def get_source_page_numbers(source_id: int) -> set[int]:
     """Return the set of REAL page numbers for a source: the pages that have a
     text/OCR chunk. Used to validate citation pages against pages that actually

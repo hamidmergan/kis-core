@@ -12,7 +12,7 @@ def get_aia_glossary(source_id: int, user_id: int) -> list[dict]:
     with get_connection() as conn:
         with conn.cursor(cursor_factory=RealDictCursor) as cur:
             cur.execute(
-                """SELECT g.id, g.term_de, g.term_en, g.definition, g.definition_en,
+                """SELECT g.id, g.term_de, g.term_en, g.base_form, g.definition, g.definition_en,
                           g.example_sentence, g.example_sentence_en, g.page_number,
                           MIN(c.start_time) AS start_time
                    FROM aia_glossary_entries g
@@ -31,7 +31,7 @@ def get_aia_glossary_by_workspace(workspace_id: int, user_id: int) -> list[dict]
     with get_connection() as conn:
         with conn.cursor(cursor_factory=RealDictCursor) as cur:
             cur.execute(
-                """SELECT g.id, g.term_de, g.term_en, g.definition, g.definition_en,
+                """SELECT g.id, g.term_de, g.term_en, g.base_form, g.definition, g.definition_en,
                           g.example_sentence, g.example_sentence_en, g.page_number,
                           s.filename,
                           MIN(c.start_time) AS start_time
@@ -67,9 +67,9 @@ def bulk_create_glossary_entries(
                     continue
                 cur.execute(
                     """INSERT INTO aia_glossary_entries
-                       (user_id, source_id, term_de, term_en, definition,
+                       (user_id, source_id, term_de, term_en, base_form, definition,
                         definition_en, example_sentence, example_sentence_en, page_number)
-                       VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+                       VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                        ON CONFLICT (user_id, source_id, lower(term_de)) DO NOTHING
                        RETURNING id, term_de""",
                     (
@@ -77,6 +77,7 @@ def bulk_create_glossary_entries(
                         source_id,
                         term,
                         e.get("term_en", ""),
+                        e.get("base_form", ""),
                         e.get("definition", ""),
                         e.get("definition_en", ""),
                         e.get("example_sentence", ""),

@@ -1480,6 +1480,39 @@ def _resolve_source_ids(
         raise HTTPException(status_code=400, detail=t("ai.source.noValidSelected", locale))
     return ids
 
+def _context_snippet(page_text: str, term: str, max_chars: int = 700) -> str:
+    """A short excerpt of ``page_text`` centred on the marked ``term``, for grounding
+    a glossary definition in how the term is actually used in the document.
+
+    Finds the first case-insensitive occurrence of the term and returns a window of
+    at most ``max_chars`` around it, trimmed at whitespace so words are not cut mid-way
+    (an ellipsis marks a trimmed edge). If the term is not found literally (an inflected
+    or multi-word mark), the leading ``max_chars`` of the page are returned instead, so
+    there is always *some* context. Empty input → "". Pure so it is unit-testable without
+    the route's DB/LLM dependencies."""
+    text = re.sub(r"\s+", " ", (page_text or "")).strip()
+    if not text:
+        return ""
+    if len(text) <= max_chars:
+        return text
+    low = text.lower()
+    pos = low.find((term or "").lower().strip()) if term else -1
+    if pos < 0:
+        head = text[:max_chars].rsplit(" ", 1)[0]
+        return head + " …"
+    half = max_chars // 2
+    start = max(0, pos - half)
+    end = min(len(text), pos + len(term) + half)
+    if start > 0:
+        start = text.find(" ", start) + 1 or start
+    if end < len(text):
+        cut = text.rfind(" ", start, end)
+        if cut > start:
+            end = cut
+    snippet = text[start:end].strip()
+    return ("… " if start > 0 else "") + snippet + (" …" if end < len(text) else "")
+
+
 def _term_appears_in_text(term: str, text_lower: str) -> bool:
     """Check if term appears literally or as a lemma/stem prefix in the text.
     Allows LLM to return Grundform (e.g. "erhöhen") when text has inflected

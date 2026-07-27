@@ -148,6 +148,7 @@ export interface GlossaryEntry {
   id: number;
   term_de: string;
   term_en: string;
+  base_form?: string;
   definition: string;
   definition_en?: string;
   example_sentence?: string;

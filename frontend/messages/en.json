@@ -1590,7 +1590,6 @@
           "finishAnyway": "Finish anyway",
           "definition": "Definition",
           "wordParts": "Word parts",
-          "forms": "Singular and plural",
           "wordClass": "Word class:",
           "singular": "Singular:",
           "plural": "Plural:",
@@ -1608,6 +1607,7 @@
           "deleteAll": "Delete all terms",
           "extractingMarkup": "Extracting terms from highlight…",
           "emptyTitle": "No terms in your glossary yet. Highlight words in a PDF and add them via the selection bar.",
+          "baseForm": "Base form",
           "context": "Context",
           "explanation": "Explanation",
           "pageShort": "p. {page}",
@@ -1912,6 +1912,15 @@
           "lernkarten": "Vocab cards",
           "lueckentext": "Cloze",
           "begriffeQuiz": "Term quiz"
+        },
+        "tileDescriptions": {
+          "karteikarten": "Question and answer to test yourself.",
+          "quiz": "Questions to tick the right answer.",
+          "dataTable": "Facts from the document as a table.",
+          "mindmap": "Topics shown as a tree.",
+          "lernkarten": "Technical terms with base form and example.",
+          "lueckentext": "Text with gaps to fill in.",
+          "begriffeQuiz": "Match terms to their definitions."
         },
         "recent": {
           "heading": "Recent activity",

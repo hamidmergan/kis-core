@@ -1590,7 +1590,6 @@
           "finishAnyway": "Trotzdem abschließen",
           "definition": "Definition",
           "wordParts": "Wortzerlegung",
-          "forms": "Einzahl und Mehrzahl",
           "wordClass": "Wortart:",
           "singular": "Einzahl:",
           "plural": "Mehrzahl:",
@@ -1608,6 +1607,7 @@
           "deleteAll": "Alle Begriffe löschen",
           "extractingMarkup": "Begriffe werden aus Markierung extrahiert…",
           "emptyTitle": "Noch keine Begriffe im Glossar. Markiere Wörter in einer PDF und füge sie über die Auswahlleiste hinzu.",
+          "baseForm": "Grundform",
           "context": "Kontext",
           "explanation": "Erklärung",
           "pageShort": "S. {page}",
@@ -1912,6 +1912,15 @@
           "lernkarten": "Lernkarten",
           "lueckentext": "Lückentext",
           "begriffeQuiz": "Begriffe-Quiz"
+        },
+        "tileDescriptions": {
+          "karteikarten": "Frage und Antwort zum Abfragen.",
+          "quiz": "Fragen zum Ankreuzen.",
+          "dataTable": "Fakten aus dem Dokument als Tabelle.",
+          "mindmap": "Themen als Baum dargestellt.",
+          "lernkarten": "Fachwörter mit Grundform und Beispiel.",
+          "lueckentext": "Text mit Lücken zum Ausfüllen.",
+          "begriffeQuiz": "Begriffe den Definitionen zuordnen."
         },
         "recent": {
           "heading": "Letzte Aktivitäten",
