@@ -4,7 +4,7 @@ from docx import Document
 from loguru import logger
 
 from src.services.translation import TranslationService
-from src.utils.text import _RunRef, apply_translations, collect_paragraph_runs
+from src.utils.text import _RunRef, collect_paragraph_runs, translate_refs
 
 
 def _iter_docx_paragraphs(container):
@@ -42,9 +42,7 @@ def translate_docx(
                 collect_paragraph_runs(para, refs)
 
         if refs:
-            texts = [r.encoded for r in refs]
-            translated = service.translate_batch(texts, source_lang, target_lang)
-            apply_translations(refs, translated)
+            translate_refs(refs, source_lang, target_lang, service)
 
         output = BytesIO()
         doc.save(output)

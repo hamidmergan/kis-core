@@ -236,6 +236,10 @@ MESSAGES: dict[str, dict[str, str]] = {
         "de": "Maximale gleichzeitige Uploads muss zwischen {min} und {max} liegen.",
         "en": "Max simultaneous uploads must be between {min} and {max}.",
     },
+    "admin.settings.ttsParallelismOutOfRange": {
+        "de": "Gleichzeitig vertonte Folien muss zwischen {min} und {max} liegen.",
+        "en": "Slides voiced at once must be between {min} and {max}.",
+    },
     "admin.settings.parallelSlotsOutOfRange": {
         "de": "Parallele Slots muss zwischen {min} und {max} liegen.",
         "en": "Parallel slots must be between {min} and {max}.",

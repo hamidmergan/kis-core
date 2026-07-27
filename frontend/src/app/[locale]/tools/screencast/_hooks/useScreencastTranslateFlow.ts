@@ -13,6 +13,8 @@ interface TranslateResponse {
   slide_images: string[];
   translate_job_uuid?: string;
   user_prompt?: string;
+  /** Folien, an denen die Übersetzung nichts geändert hat (0-basiert). */
+  unchanged_slides?: number[];
 }
 
 interface GenerateScriptsResponse {
@@ -157,6 +159,7 @@ export function useScreencastTranslateFlow(opts: UseScreencastTranslateFlowOptio
       currentJobUuidRef.current = null;
       const data = (jobResult.result ?? {}) as unknown as TranslateResponse;
 
+      const unchanged = new Set(data.unchanged_slides ?? []);
       dispatch({
         type: "SET_SLIDES",
         slides: (data.slide_texts || []).map((text, i) => ({
@@ -164,13 +167,14 @@ export function useScreencastTranslateFlow(opts: UseScreencastTranslateFlowOptio
           imageBase64: (data.slide_images || [])[i] || "",
           extractedText: text,
           script: "",
+          unchanged: unchanged.has(i),
         })),
       });
       dispatch({ type: "SET_LOADING", loading: false });
       dispatch({ type: "SET_STEP", step: "translation-review" });
     } catch (err) {
       if (err instanceof Error && err.name === "AbortError") return;
-      goError(err instanceof Error ? err.message : "Unbekannter Fehler");
+      goError(err instanceof Error ? err.message : messages.unknownError);
     }
   }, [
     file, skipTranslation, targetLang, glossaryIds, translationProviderId, mergeToApiJson,
@@ -179,18 +183,22 @@ export function useScreencastTranslateFlow(opts: UseScreencastTranslateFlowOptio
   ]);
 
   // ── Download translated PPTX ──
-  const handleDownloadTranslatedPptx = useCallback(async () => {
-    if (!translateJobUuid) return;
+  // Gibt zurück, ob es geklappt hat. Vorher landete ein Fehlschlag nur in der
+  // Konsole und der Nutzer stand vor einem Knopf, der scheinbar nichts tut.
+  const handleDownloadTranslatedPptx = useCallback(async (): Promise<boolean> => {
+    if (!translateJobUuid) return false;
     try {
       const res = await fetch(`/api/screencast/pptx/${translateJobUuid}`, { credentials: "include" });
-      if (!res.ok) throw new Error("Download fehlgeschlagen");
+      if (!res.ok) throw new Error(messages.downloadFailed);
       const blob = await res.blob();
       const stem = file?.name?.replace(/\.pptx$/i, "") || "presentation";
       triggerBlobDownload(blob, `${stem}.pptx`);
+      return true;
     } catch (err) {
       console.error("PPTX download failed:", err);
+      return false;
     }
-  }, [translateJobUuid, file]);
+  }, [translateJobUuid, file, messages]);
 
   // ── Upload corrected PPTX (re-extract from fixed slides) ──
   const handleUploadCorrectedPptx = useCallback(
@@ -208,8 +216,8 @@ export function useScreencastTranslateFlow(opts: UseScreencastTranslateFlowOptio
           signal,
         });
         if (!response.ok) {
-          const err = await response.json().catch(() => ({ detail: "Fehler beim Hochladen" }));
-          throw new Error(parseDetail(err.detail, `Fehler: ${response.status}`));
+          const err = await response.json().catch(() => ({ detail: messages.uploadError }));
+          throw new Error(parseDetail(err.detail, messages.errorWithCode(response.status)));
         }
         const data: { slide_texts: string[]; slide_images: string[] } = await response.json();
         dispatch({
@@ -286,7 +294,7 @@ export function useScreencastTranslateFlow(opts: UseScreencastTranslateFlowOptio
       isGeneratingScriptsRef.current = false;
       notifyJobsChanged();
       if (err instanceof Error && err.name === "AbortError") return;
-      goError(err instanceof Error ? err.message : "Unbekannter Fehler");
+      goError(err instanceof Error ? err.message : messages.unknownError);
     }
   }, [
     slides, glossaryIds, mergeToApiJson, targetLang,

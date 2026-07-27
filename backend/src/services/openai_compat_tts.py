@@ -11,27 +11,61 @@ from __future__ import annotations
 
 import httpx
 
-_CHUNK_MAX = 10_000
-_CHUNK_MIN = 9_500
+from src.limits import TTS_MAX_CHARS_PER_REQUEST
+
+# Ab welchem Anteil der Obergrenze nach einem Satzende gesucht wird. Darunter
+# würden die Stücke unnötig kurz und die Zahl der Anfragen unnötig groß.
+_SEARCH_FROM = 0.6
+
+_SENTENCE_ENDS = (". ", "! ", "? ", ".\n", "!\n", "?\n")
 
 
-def _split_text(text: str) -> list[str]:
-    """Split long text at sentence boundaries."""
-    if len(text) <= _CHUNK_MAX:
+def _resolve_chunk_limit() -> int:
+    """Obergrenze je Anfrage, zur Laufzeit über die Admin-Einstellung änderbar.
+
+    Die Grenze hängt am Anbieter, nicht am Text. Sie muss sich ohne neuen Build
+    verschieben lassen, wenn ein anderer Anbieter mehr oder weniger verträgt.
+    """
+    try:
+        from src import database as db
+        value = int(db.get_setting("tts_max_chars_per_request", str(TTS_MAX_CHARS_PER_REQUEST)))
+        return value if value > 0 else TTS_MAX_CHARS_PER_REQUEST
+    except Exception:
+        return TTS_MAX_CHARS_PER_REQUEST
+
+
+def _split_text(text: str, max_chars: int | None = None) -> list[str]:
+    """Langen Text in Stücke zerlegen, bevorzugt an Satzenden.
+
+    Der Anbieter bricht nach einer festen Zeit ab, nicht nach einer festen
+    Länge. Deshalb ist die Obergrenze bewusst klein: ein Screencast-Skript mit
+    1800 Zeichen ging vorher als eine Anfrage raus und lief immer in den
+    Timeout. Reihenfolge der Schnittstellen: Satzende, sonst Wortgrenze, sonst
+    harter Schnitt. Ein harter Schnitt ist in der Aufnahme hörbar, aber immer
+    noch besser als gar keine Aufnahme.
+    """
+    limit = max_chars or _resolve_chunk_limit()
+    if len(text) <= limit:
         return [text]
 
-    chunks = []
+    search_from = max(1, int(limit * _SEARCH_FROM))
+    chunks: list[str] = []
     remaining = text
 
-    while len(remaining) > _CHUNK_MAX:
+    while len(remaining) > limit:
         split_at = -1
-        for punct in (". ", "! ", "? ", ".\n", "!\n", "?\n"):
-            pos = remaining.rfind(punct, _CHUNK_MIN, _CHUNK_MAX)
+        for punct in _SENTENCE_ENDS:
+            pos = remaining.rfind(punct, search_from, limit)
             if pos != -1:
                 split_at = pos + len(punct)
                 break
         if split_at == -1:
-            split_at = _CHUNK_MAX
+            # Kein Satzende in Reichweite: an der letzten Wortgrenze trennen.
+            pos = remaining.rfind(" ", search_from, limit)
+            if pos != -1:
+                split_at = pos + 1
+        if split_at == -1:
+            split_at = limit  # ein einzelnes Wort ist länger als die Grenze
         chunks.append(remaining[:split_at])
         remaining = remaining[split_at:]
 

@@ -48,7 +48,7 @@ def test_parse_numbered_unparseable():
 
 def test_translate_chunk_retranslates_only_missing(monkeypatch):
     c = _client()
-    monkeypatch.setattr(c, "_completion_with_retry", lambda system, user: "1. A\n3. C")
+    monkeypatch.setattr(c, "_completion_with_retry", lambda system, user, **kw: ("1. A\n3. C", "stop"))
     seen = {}
 
     def fake_each(texts, src, tgt):
@@ -63,7 +63,7 @@ def test_translate_chunk_retranslates_only_missing(monkeypatch):
 
 def test_translate_chunk_unparseable_falls_back_whole(monkeypatch):
     c = _client()
-    monkeypatch.setattr(c, "_completion_with_retry", lambda system, user: "garbage, no numbers")
+    monkeypatch.setattr(c, "_completion_with_retry", lambda system, user, **kw: ("garbage, no numbers", "stop"))
     seen = {}
 
     def fake_each(texts, src, tgt):
@@ -78,7 +78,7 @@ def test_translate_chunk_unparseable_falls_back_whole(monkeypatch):
 
 def test_translate_chunk_clean_makes_no_extra_calls(monkeypatch):
     c = _client()
-    monkeypatch.setattr(c, "_completion_with_retry", lambda system, user: "1. A\n2. B\n3. C")
+    monkeypatch.setattr(c, "_completion_with_retry", lambda system, user, **kw: ("1. A\n2. B\n3. C", "stop"))
 
     def boom(*a, **k):
         raise AssertionError("_translate_each must not be called on a clean parse")

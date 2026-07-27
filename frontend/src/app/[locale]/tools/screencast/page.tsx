@@ -7,6 +7,7 @@ import { useGlossaries } from "@/hooks/useGlossaries";
 
 
 import BackLink from "@/components/ui/BackLink";
+import Modal from "@/components/ui/Modal";
 import Spinner from "@/components/ui/Spinner";
 import type { ScreencastStep } from "@/types";
 import ScreencastStepper from "@/components/screencast/ScreencastStepper";
@@ -52,6 +53,9 @@ function ScreencastPageInner() {
   const { mergeToApiJson } = useGlossaries();
 
   const [renderProgressLabel, setRenderProgressLabel] = useState("");
+  // Beide Knöpfe oben löschen den Job samt Dateien. Vorher passierte das ohne
+  // Rückfrage bei einem einzigen Klick, und beide taten exakt dasselbe.
+  const [pendingExit, setPendingExit] = useState<"restart" | "cancel" | null>(null);
   const failedRender = useFailedRender();
   const { jobUuid: failedRenderJobUuid } = failedRender;
   const [ttsSettingsError, setTtsSettingsError] = useState("");
@@ -160,7 +164,7 @@ function ScreencastPageInner() {
   }, []);
 
 
-  const { resumeLoading } = useScreencastResume((payload) => {
+  const { resumeLoading, resumeFailed } = useScreencastResume((payload) => {
     dispatch({ type: "RESUME", jobUuid: payload.jobUuid, slides: payload.slides, step: payload.step, stepIdx: payload.stepIdx });
   });
 
@@ -193,7 +197,7 @@ function ScreencastPageInner() {
 
     dispatch({ type: "RESET" });
     resetFile();
-    setSpeed(0.9);
+    setSpeed(1.0);  // gleicher Startwert wie beim frischen Aufruf der Seite
     setSlidePause(0.5);
     setGlossaryIds(["", "", ""]);
     clearRenderResult();
@@ -337,14 +341,15 @@ function ScreencastPageInner() {
     autosaveScripts(slides.map((s) => s.script), true); // save accepted_scripts.json
     dispatch({ type: "SET_STEP", step: "tts-settings" });
     if (translateJobUuid) {
+      // dpi muss mitgeschickt werden, sonst passt das Vorgerenderte nicht zum Render.
       fetch("/api/screencast/prerender-images", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ translate_job_uuid: translateJobUuid }),
+        body: JSON.stringify({ translate_job_uuid: translateJobUuid, dpi }),
         credentials: "include",
       }).catch(() => {}); // fire and forget
     }
-  }, [translateJobUuid, slides, autosaveScripts]);
+  }, [translateJobUuid, slides, autosaveScripts, dpi]);
 
   const handleDownload = () => {
     if (!downloadBlob) return;
@@ -411,22 +416,22 @@ function ScreencastPageInner() {
             />
             <div className="flex justify-between mb-6">
               <button
-                onClick={() => resetAll(step !== "done")}
+                onClick={() => setPendingExit("restart")}
                 className="inline-flex items-center gap-1 px-2 py-1 text-xs text-muted-soft hover:text-kb rounded transition-colors"
               >
                 <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
                 </svg>
-                Neu starten
+                {t("exit.restart")}
               </button>
               <button
-                onClick={() => resetAll(step !== "done")}
+                onClick={() => setPendingExit("cancel")}
                 className="inline-flex items-center gap-1 px-2 py-1 text-xs text-error border-2 border-error-border hover:border-error rounded transition-colors"
               >
                 <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                 </svg>
-                Screencast abbrechen
+                {t("exit.cancel")}
               </button>
             </div>
           </>
@@ -436,8 +441,15 @@ function ScreencastPageInner() {
         {resumeLoading && (
           <section className="animate-[fadeIn_0.2s_ease-out] text-center py-16" role="status" aria-live="polite">
             <Spinner size="lg" className="justify-center mb-4" />
-            <p className="text-sm text-foreground-soft">Screencast wird wiederhergestellt…</p>
+            <p className="text-sm text-foreground-soft">{t("resuming")}</p>
           </section>
+        )}
+
+        {/* Fortsetzen ist fehlgeschlagen: sagen statt schweigend beim Upload landen */}
+        {!resumeLoading && resumeFailed && step === "upload" && (
+          <p className="mb-4 rounded-md border border-warn-border bg-warn-bg px-3 py-2 text-sm text-warn-strong" role="alert">
+            {t("error.resumeFailed")}
+          </p>
         )}
 
         {/* ── Step: Upload ── */}
@@ -634,6 +646,36 @@ function ScreencastPageInner() {
             onReset={() => resetAll()}
           />
         )}
+        <Modal
+          open={pendingExit !== null}
+          onClose={() => setPendingExit(null)}
+          title={t(pendingExit === "cancel" ? "exit.cancelTitle" : "exit.restartTitle")}
+          size="sm"
+          footer={
+            <>
+              <button
+                onClick={() => setPendingExit(null)}
+                className="btn-cancel px-3 py-1.5 text-sm text-foreground-soft border border-border rounded transition-colors"
+              >
+                {t("common.cancel")}
+              </button>
+              <button
+                onClick={() => {
+                  const mode = pendingExit;
+                  setPendingExit(null);
+                  resetAll(step !== "done");
+                  if (mode === "cancel") window.location.href = "/my-jobs";
+                }}
+                className="px-3 py-1.5 text-sm font-medium text-error-strong border border-error-border rounded hover:bg-error-bg transition-colors"
+              >
+                {t("exit.confirm")}
+              </button>
+            </>
+          }
+        >
+          <p className="text-sm text-foreground-soft">{t("exit.body")}</p>
+        </Modal>
+
         {lightboxIndex !== null && (
           <Lightbox
             index={lightboxIndex}

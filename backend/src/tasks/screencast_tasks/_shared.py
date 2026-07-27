@@ -1,5 +1,6 @@
 """Shared helpers für Screencast-Tasks: Cancel-Check, TTS-Client, Service-Resolver."""
 
+import os
 from loguru import logger
 
 from src.storage import get_job_file
@@ -14,7 +15,7 @@ def _assert_not_cancelled(job_uuid: str) -> None:
     cancelled = False
     try:
         import redis as _redis
-        _r = _redis.from_url("redis://kis-redis:6379/0")
+        _r = _redis.from_url(os.environ.get("REDIS_URL", "redis://kis-redis:6379/0"))
         cancelled = bool(_r.exists(f"job:cancel:{job_uuid}"))
     except Exception as e:
         logger.warning("Cancel check Redis error: {}", e)

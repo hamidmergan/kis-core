@@ -9,10 +9,22 @@ from loguru import logger
 from openai import APIError, OpenAI, RateLimitError
 
 
-_CHUNK_SIZE = 40
+_CHUNK_SIZE = 20
 _BATCH_PARALLELISM = 4
 _RETRY_ATTEMPTS = 3
 _RETRY_BASE_DELAY = 2.0  # seconds, exponential: 2, 4, 8 plus jitter
+
+# Reasoning-Modelle verbrauchen den Großteil ihrer Ausgabe fürs Denken, bevor
+# ein einziges Zeichen Übersetzung erscheint, und der Aufwand wächst mit der
+# Zahl der Einträge, nicht mit deren Länge. Gemessen an qwen3.5-122b-a10b über
+# KISSKI: 1 kurzer Satz kostet rund 1000 Token, 6 kurze Sätze kosten 6856.
+#
+# max_tokens ist eine Obergrenze, keine Reservierung. Großzügig ansetzen kostet
+# nichts, zu knapp ansetzen dagegen viel: jeder Abriss löst eine Teilung und
+# damit einen weiteren Aufruf von ungefähr 80 Sekunden aus.
+_TOKENS_BASE = 4096
+_TOKENS_PER_ITEM = 1500
+_MAX_OUTPUT_TOKENS = 32768
 
 
 _SYSTEM_PROMPT = (
@@ -76,8 +88,26 @@ class LLMTranslationClient:
     def _extra_body(self) -> dict:
         return {}
 
-    def _completion_with_retry(self, system: str, user: str) -> str:
-        """Chat completion with exponential backoff on 429 / transient API errors."""
+    @staticmethod
+    def _max_tokens_for(user: str, item_count: int = 1) -> int:
+        """Token-Budget: Sockel plus Anteil je Eintrag plus Anteil für die Länge.
+
+        Die feste 4096 von früher reichte weder für einen großen Block noch
+        verlässlich für einen einzelnen Satz, sobald das Modell denkt. Ganz
+        verhindern lässt sich ein Abriss nicht, dafür gibt es die Prüfung auf
+        finish_reason.
+        """
+        budget = _TOKENS_BASE + _TOKENS_PER_ITEM * max(1, item_count) + len(user) // 2
+        return min(_MAX_OUTPUT_TOKENS, budget)
+
+    def _completion_with_retry(
+        self, system: str, user: str, max_tokens: int | None = None, item_count: int = 1
+    ) -> tuple[str, str]:
+        """Chat completion with exponential backoff on 429 / transient API errors.
+
+        Liefert (Inhalt, finish_reason). finish_reason == "length" heißt, die
+        Antwort wurde an der Token-Grenze abgeschnitten und ist unvollständig.
+        """
         last_exc: Exception | None = None
         for attempt in range(_RETRY_ATTEMPTS):
             try:
@@ -88,10 +118,11 @@ class LLMTranslationClient:
                         {"role": "user", "content": user},
                     ],
                     temperature=0.1,
-                    max_tokens=4096,
+                    max_tokens=max_tokens or self._max_tokens_for(user, item_count),
                     extra_body=self._extra_body() or None,
                 )
-                return response.choices[0].message.content or ""
+                choice = response.choices[0]
+                return choice.message.content or "", getattr(choice, "finish_reason", "stop") or "stop"
             except RateLimitError as e:
                 last_exc = e
                 if attempt == _RETRY_ATTEMPTS - 1:
@@ -123,7 +154,26 @@ class LLMTranslationClient:
             instruction=instruction,
             glossary=_format_glossary(self._glossary),
         )
-        return self._completion_with_retry(system, text)
+        translated, finish_reason = self._completion_with_retry(system, text)
+        if finish_reason == "length":
+            # Ein einzelner Text lässt sich nicht weiter teilen, also mehr
+            # Platz geben. Bei Reasoning-Modellen liegt das fast immer am
+            # Denkanteil, nicht an der Länge der Übersetzung.
+            logger.warning(
+                "Übersetzung abgeschnitten ({} Zeichen), zweiter Anlauf mit {} Token.",
+                len(text), _MAX_OUTPUT_TOKENS,
+            )
+            translated, finish_reason = self._completion_with_retry(
+                system, text, max_tokens=_MAX_OUTPUT_TOKENS
+            )
+        if finish_reason == "length":
+            # Auch mit vollem Budget abgeschnitten. Lieber laut abbrechen als
+            # eine halbe Übersetzung in die Datei schreiben.
+            raise RuntimeError(
+                f"Übersetzung wurde abgeschnitten ({len(text)} Zeichen Vorlage). "
+                "Text ist zu lang für das eingestellte Modell."
+            )
+        return translated
 
     @staticmethod
     def _parse_numbered(raw: str, n: int) -> tuple[list[str | None], list[int]]:
@@ -165,7 +215,27 @@ class LLMTranslationClient:
             glossary=_format_glossary(self._glossary),
         )
 
-        raw = self._completion_with_retry(system, numbered)
+        raw, finish_reason = self._completion_with_retry(system, numbered, item_count=len(texts))
+
+        if finish_reason == "length":
+            # Der Block wurde an der Token-Grenze abgeschnitten. Die fehlenden
+            # Einträge würde _parse_numbered finden, den angefangenen nicht:
+            # der sieht aus wie ein fertiger Eintrag. Deshalb wird der ganze
+            # Block halbiert und neu übersetzt, notfalls bis auf einen Eintrag.
+            # Bei einem einzigen Eintrag hilft Teilen nicht mehr, dann versucht
+            # es translate_text mit dem vollen Token-Budget.
+            if len(texts) == 1:
+                return [self.translate_text(texts[0], source_lang, target_lang)]
+            half = len(texts) // 2
+            logger.warning(
+                "LLM chunk abgeschnitten ({} Einträge), teile in {} und {}.",
+                len(texts), half, len(texts) - half,
+            )
+            return (
+                self._translate_chunk(texts[:half], source_lang, target_lang)
+                + self._translate_chunk(texts[half:], source_lang, target_lang)
+            )
+
         results, missing = self._parse_numbered(raw, len(texts))
 
         if not missing:

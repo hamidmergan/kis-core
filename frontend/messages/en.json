@@ -499,7 +499,10 @@
         "uploadCorrected": "Upload corrected PPTX (optional)",
         "uploading": "Processing...",
         "uploaded": "{name} was uploaded",
-        "acceptAndNext": "Accept translation and continue"
+        "acceptAndNext": "Accept translation and continue",
+        "unchangedTitle": "{n, plural, one {# slide looks untranslated} other {# slides look untranslated}}",
+        "unchangedBody": "The text on these slides did not change. That can be correct, for example for names or numbers. Please take a quick look.",
+        "unchangedBadge": "unchanged"
       },
       "generatingScripts": {
         "title": "Generating speech scripts...",
@@ -587,7 +590,8 @@
         "jobFolderMissing": "Job data no longer available - please start a new screencast",
         "uploadError": "Upload failed",
         "downloadFailed": "Download failed",
-        "previousRenderBusy": "The previous render is still finishing. Please wait a moment and try again."
+        "previousRenderBusy": "The previous render is still finishing. Please wait a moment and try again.",
+        "resumeFailed": "This screencast can no longer be resumed. It has expired, was deleted, or is running in another tab. You can start over here."
       },
       "regenChat": {
         "headerTitle": "AI assistant · Slide {n}",
@@ -612,7 +616,15 @@
       "selectJsonFirst": "Please select a JSON file first.",
       "jobUnavailable": "Job data no longer available - please start a new screencast.",
       "jobDeleted": "The job was deleted or cancelled. Please start a new screencast.",
-      "demoBadge": "View demo →"
+      "demoBadge": "View demo →",
+      "exit": {
+        "restart": "Start over",
+        "cancel": "Cancel screencast",
+        "restartTitle": "Discard screencast and start over?",
+        "cancelTitle": "Discard screencast and close?",
+        "body": "The current screencast will be deleted, including the uploaded file, the translation and the scripts. This cannot be undone.",
+        "confirm": "Discard"
+      }
     },
     "screencastDemo": {
       "backToScreencast": "Back",
@@ -1075,7 +1087,8 @@
         "clear": "Remove override",
         "saving": "Saving…",
         "saved": "Saved"
-      }
+      },
+      "ttsMaxCharsOutOfRange": "Characters per speech request must be between {min} and {max}."
     },
     "whitelistCard": {
       "title": "Whitelist mode",

@@ -144,6 +144,7 @@ async def screencast_generate_scripts(
 @router.post("/screencast/regenerate-slide-script")
 async def screencast_regenerate_slide_script(
     body: RegenerateSlideScriptRequest,
+    current_user: dict = Depends(get_current_user),
     locale: str = Depends(get_locale),
 ):
     """Regenerate the narration script for a single slide via the configured LLM.

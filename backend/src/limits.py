@@ -88,17 +88,43 @@ MAX_QUEUED_SCREENCAST_JOBS     = 5  # max jobs in user queue (including running)
 # Rule of thumb: half the core count, leaves enough CPU for Uvicorn + OS
 RENDER_MAX_WORKERS = 2  # ThreadPoolExecutor limit for PDF->PNG and FFmpeg
 
-# Per-provider TTS concurrency for screencast batch generation.
-# Conservative default (1) — providers are identified by numeric ID now;
-# parallelism can be tuned per-provider in the admin panel if needed.
-SCREENCAST_TTS_DEFAULT_PARALLELISM = 1
+# Wie viele Folien gleichzeitig vertont werden.
+#
+# Die Vertonung ist reine Wartezeit am Anbieter, sie kostet keine eigene CPU.
+# Sie ist trotzdem der Flaschenhals: gemessen an einem Screencast mit 34 Folien
+# entfielen 713 von 734 Sekunden auf die Vertonung, alles andere zusammen auf
+# 21 Sekunden.
+#
+# Durchsatz gegen THL myLab, gemessen 2026-07-27, keine einzige Absage:
+#   1 gleichzeitig ->  5,4 Anfragen/min
+#   2 gleichzeitig ->  6,8
+#   4 gleichzeitig ->  8,2
+#   8 gleichzeitig -> 13,0
+# Der Anbieter staut ab 8 spürbar (11 s je Anfrage werden zu 32 s), unterm
+# Strich bleibt es schneller. Über 8 lohnt es nicht mehr.
+#
+# Der Standard ist bewusst 4 und nicht 8: mehrere Nutzer können gleichzeitig
+# rendern, dann liegt die Last beim Anbieter entsprechend höher. Wer allein
+# arbeitet und Tempo braucht, stellt im Admin auf 8.
+# Admin-Einstellung zur Laufzeit: screencast_tts_parallelism.
+SCREENCAST_TTS_DEFAULT_PARALLELISM = 4
+SCREENCAST_TTS_MAX_PARALLELISM = 16
 
 # --- Celery task timeouts (in seconds) --------------------------------------
 TTS_SOFT_TIME_LIMIT             = 5400   # 90 min, SoftTimeLimitExceeded -> graceful DB update
 TTS_TIME_LIMIT                  = 5520   # 92 min, SIGKILL fallback
 
-SCREENCAST_SOFT_TIME_LIMIT      = 3600   # 60 min
-SCREENCAST_TIME_LIMIT           = 3720   # 62 min
+# Diese Grenze fängt nur noch Ausreißer. Einen echten Hänger erkennt der Wächter
+# schon nach JOB_WATCHDOG_MINUTES ohne Lebenszeichen, dafür braucht es keine
+# Gesamtlaufzeit-Grenze. Die zählt nämlich auch bei gesunder Arbeit mit.
+#
+# Rechnung: die Vertonung kostet gemessen 4,9 s je 100 Zeichen (THL myLab,
+# 2026-07-27). Das erlaubte Maximum von SCRIPT_MAX_CHARS entspricht damit rund
+# 82 Minuten reiner Sprechzeit, also mehr als die alten 60 Minuten. Eine
+# 90-Minuten-Vorlesung als Screencast lief mit dem alten Wert garantiert ins
+# Zeitlimit, nach einer Stunde Wartezeit und ohne Ergebnis.
+SCREENCAST_SOFT_TIME_LIMIT      = 7200   # 120 min, SoftTimeLimitExceeded -> Job sauber auf failed
+SCREENCAST_TIME_LIMIT           = 7320   # 122 min, SIGKILL als letzte Instanz
 
 # --- AI tutor source limits -------------------------------------------------
 AIA_SOURCE_MAX_PAGES                = 200     # max pages per PDF/DOCX/PPTX upload;
@@ -193,3 +219,18 @@ AIA_AREA_WEIGHTS                       = {"studio": 2, "ingest": 1}
 # store phase). Caps RAM/CPU when several people upload large media at once on
 # the small box. 0 = unlimited. Admin-tunable at runtime (aia_max_concurrent_uploads).
 AIA_MAX_CONCURRENT_UPLOADS             = 3
+
+# Zeichen je Sprachausgabe-Anfrage. Nicht die Grenze des Modells, sondern die
+# Zeitgrenze davor: gemessen an THL myLab (2026-07-27) bricht jede Anfrage nach
+# genau 60 Sekunden mit HTTP 500 ab, unabhängig vom Inhalt.
+#
+#   100 Zeichen ->  6,0 s   OK
+#   300 Zeichen -> 19,3 s   OK
+#   600 Zeichen -> 59,9 s   gerade noch
+#  1000 Zeichen -> 60,1 s   HTTP 500
+#
+# Der Aufwand wächst überproportional, deshalb liegt der Standard deutlich
+# unter der gemessenen Kante. Ein Screencast-Skript hat 1500 bis 2000 Zeichen
+# und ging vorher als eine einzige Anfrage raus, also immer in den Timeout.
+# Admin-Einstellung zur Laufzeit: tts_max_chars_per_request.
+TTS_MAX_CHARS_PER_REQUEST              = 400

@@ -58,6 +58,10 @@ class UpdateSettingsRequest(BaseModel):
     # Max simultaneous uploads in the HTTP layer (0 = unlimited). Caps RAM/CPU on
     # the small box when several people upload large media at once.
     aia_max_concurrent_uploads: int | None = None
+    tts_max_chars_per_request: int | None = None
+    # Wie viele Folien eines Screencasts gleichzeitig vertont werden. Reine
+    # Wartezeit am Anbieter, kostet keine eigene CPU.
+    screencast_tts_parallelism: int | None = None
     # System prompt for the CEFR chat diagnosis. ONE prompt for every language;
     # the workspace language is substituted for the {language} placeholder. An
     # empty string restores the shipped default.

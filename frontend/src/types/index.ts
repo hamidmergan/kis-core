@@ -72,4 +72,6 @@ export interface SlideData {
   imageBase64: string;
   extractedText: string;
   script: string;
+  /** Übersetzung hat den Text dieser Folie nicht verändert. Hinweis, kein Fehler. */
+  unchanged?: boolean;
 }

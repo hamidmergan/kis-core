@@ -31,14 +31,13 @@ def _load_scripts_from_job(user_id: int, translate_job_uuid: str) -> tuple[list[
     return [], None
 
 
-def _load_slide_images(result_path: str | None) -> list[str]:
+def _load_translate_result(result_path: str | None) -> dict:
     if not result_path:
-        return []
+        return {}
     try:
-        result_data = load_result_json(result_path)
-        return result_data.get("slide_images", [])
+        return load_result_json(result_path) or {}
     except Exception:
-        return []
+        return {}
 
 
 @router.get("/screencast/resume/{translate_job_uuid}")
@@ -77,7 +76,9 @@ async def get_resume_data(
         except Exception:
             raise HTTPException(status_code=404, detail=t("job.dataUnavailable", locale))
 
-    slide_images = _load_slide_images(job.get("result_path"))
+    translate_result = _load_translate_result(job.get("result_path"))
+    slide_images = translate_result.get("slide_images", [])
+    unchanged_slides = translate_result.get("unchanged_slides", [])
     scripts, resolved_step = _load_scripts_from_job(user_id, translate_job_uuid)
 
     if scripts:
@@ -91,6 +92,7 @@ async def get_resume_data(
         "slide_texts": slide_texts,
         "scripts": scripts,
         "slide_images": slide_images,
+        "unchanged_slides": unchanged_slides,
         "original_filename": job["original_filename"] or "",
         "user_prompt": user_prompt,
     }

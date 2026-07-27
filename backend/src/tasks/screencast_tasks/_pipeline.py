@@ -2,6 +2,7 @@
 
 import asyncio
 import json
+import os
 import tempfile
 import threading
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -84,7 +85,7 @@ def _run_render_pipeline(
     def _cancel_watcher() -> None:
         try:
             import redis as _redis
-            _r = _redis.from_url("redis://kis-redis:6379/0")
+            _r = _redis.from_url(os.environ.get("REDIS_URL", "redis://kis-redis:6379/0"))
             while not _stop_watcher.wait(0.5):
                 exists = bool(_r.exists(f"job:cancel:{job_uuid}"))
                 if exists:
@@ -103,14 +104,20 @@ def _run_render_pipeline(
         tmp = Path(tmpdir)
 
         # ── Slide images ──────────────────────────────────────────────────
+        # Vorgerendert wird je Auflösung in einen eigenen Unterordner. Passt die
+        # Auflösung nicht, ist der Vorrat wertlos und es wird neu gerendert.
+        prerendered_dir = IMAGE_TMP_DIR / job_uuid
         if slide_images_override is not None:
             slide_images = slide_images_override
         else:
-            prerendered_dir = IMAGE_TMP_DIR / job_uuid
-            prerendered_images = sorted(prerendered_dir.glob("slide-*.png")) if prerendered_dir.exists() else []
+            dpi_dir = prerendered_dir / f"dpi{dpi}"
+            prerendered_images = sorted(dpi_dir.glob("slide-*.png")) if dpi_dir.exists() else []
 
-            if prerendered_images and dpi == 100:
-                logger.info("Render {}: using {} pre-rendered images (100 DPI)", job_uuid, len(prerendered_images))
+            if prerendered_images:
+                logger.info(
+                    "Render {}: using {} pre-rendered images ({} DPI)",
+                    job_uuid, len(prerendered_images), dpi,
+                )
                 slide_images = prerendered_images
             else:
                 pptx_data = _get_pptx_for_render(user_id, job_uuid)
@@ -140,6 +147,14 @@ def _run_render_pipeline(
         num_slides = min(len(slide_images), len(audio_paths))
         if num_slides == 0:
             raise RuntimeError("Keine Slides verarbeitet")
+        if len(slide_images) != len(audio_paths):
+            # Darf nicht mehr vorkommen, seit ausgeblendete Folien auf beiden
+            # Seiten gleich behandelt werden. Falls doch, muss es im Log stehen:
+            # ab der Abweichung liegt der Ton unter dem falschen Bild.
+            logger.error(
+                "Render {}: {} Bilder, aber {} Skripte. Video wird auf {} Folien gekürzt.",
+                job_uuid, len(slide_images), len(audio_paths), num_slides,
+            )
 
         _assert_not_cancelled(job_uuid)
         if _cancelled_by_watcher.is_set():
@@ -217,9 +232,8 @@ def _run_render_pipeline(
         _stop_watcher.set()
 
     # Save slide images to bucket for admin before cleanup
-    prerendered_dir = IMAGE_TMP_DIR / job_uuid
     if is_admin and prerendered_dir.exists():
-        img_paths = sorted(prerendered_dir.glob("slide-*.png"))
+        img_paths = sorted(prerendered_dir.glob("dpi*/slide-*.png"))
         for img_path in img_paths:
             save_job_file(user_id, job_uuid, f"images/{img_path.name}", img_path.read_bytes())
         logger.info("Screencast render {}: saved {} slide images to bucket/images/", job_uuid, len(img_paths))
