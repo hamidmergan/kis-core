@@ -37,8 +37,8 @@ async def prerender_images(
     job = db.get_job(body.translate_job_uuid)
     if not job or job["user_id"] != current_user.get("user_id", 0):
         raise HTTPException(status_code=404, detail=t("screencast.translateJobNotFound", locale))
-    background_tasks.add_task(prerender_images_task, body.translate_job_uuid)
-    logger.info("Pre-render started for job={}", body.translate_job_uuid)
+    background_tasks.add_task(prerender_images_task, body.translate_job_uuid, body.dpi)
+    logger.info("Pre-render started for job={} at {} DPI", body.translate_job_uuid, body.dpi)
     return {"status": "started"}
 
 

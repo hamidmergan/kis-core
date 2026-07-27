@@ -3,10 +3,6 @@
 from pydantic import BaseModel
 
 
-class ExtractTextsRequest(BaseModel):
-    pptx_b64: str
-
-
 class GenerateScriptsRequest(BaseModel):
     slide_texts: list[str]
     glossary_json: str = ""
@@ -33,10 +29,6 @@ class RegenerateSlideScriptRequest(BaseModel):
     target_lang: str = "EN-US"
 
 
-class PrepareRequest(BaseModel):
-    translated_pptx_b64: str
-
-
 class RenderRequest(BaseModel):
     scripts: list[str]
     translate_job_uuid: str          # the existing translate job to update
@@ -51,6 +43,8 @@ class RenderRequest(BaseModel):
 
 class PrerenderRequest(BaseModel):
     translate_job_uuid: str
+    # Muss zur späteren Render-Auflösung passen, sonst ist das Vorrendern umsonst.
+    dpi: int = 144
 
 
 class SaveScriptsRequest(BaseModel):

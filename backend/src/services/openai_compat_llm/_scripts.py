@@ -10,6 +10,93 @@ from src.tool_prompts import SCRIPT_REFINE_DEFAULT as _SCRIPT_REFINE_DEFAULT
 
 from src.services.openai_compat_llm.base import load_prompt
 
+# Wartezeit vor dem zweiten Versuch eines Stapels. Als Konstante, damit Tests
+# nicht wirklich warten müssen.
+_BATCH_RETRY_DELAY = 5.0
+
+
+# Kürzestes Ergebnis, das noch eine Aussage sein kann. Darunter liegen nur
+# Platzhalter: "(Empty)", "(leer)", "-", "n/a", "...". Bewusst über die Länge
+# und nicht über eine Wortliste, sonst funktioniert es nur auf Deutsch und
+# Englisch, KIS läuft aber mit beliebigen Zielsprachen.
+#
+# Die Grenze ist absichtlich niedrig. Ein echtes, sehr kurzes Skript wie
+# "Thank you" oder "Any questions" muss durchkommen, sonst würde die Prüfung
+# gültige Skripte verwerfen. Ein Platzhalter darf nicht ins Video, er würde
+# wörtlich vorgelesen.
+_MIN_USABLE_SCRIPT_CHARS = 8
+
+
+def is_blank_script(script: str) -> bool:
+    """Leer, oder zu kurz, um eine gesprochene Aussage zu sein."""
+    letters = re.sub(r"[^\w\s]", "", script or "").strip()
+    return len(letters) < _MIN_USABLE_SCRIPT_CHARS
+
+
+class _ScriptCountMismatch(RuntimeError):
+    """Der Stapel kam mit einer anderen Anzahl Skripte zurück als angefragt.
+
+    Das ist kein Anbieterfehler, sondern ein Formatfehler. Auffüllen oder
+    Abschneiden würde die Zuordnung Folie zu Skript verschieben, deshalb wird
+    stattdessen Folie für Folie neu erzeugt.
+    """
+
+    def __init__(self, expected: int, got: int):
+        super().__init__(f"{got} Skripte statt {expected}")
+        self.expected = expected
+        self.got = got
+
+
+def build_length_and_format_rules(
+    batch_size: int,
+    target_lang: str,
+    greeting_rule: str,
+    closing_rule: str,
+    min_chars: int,
+    max_chars: int,
+) -> str:
+    """Systemanweisung für die Skript-Erzeugung eines Stapels.
+
+    Die Längenvorgabe ist bewusst eine Obergrenze mit weichem Ziel, keine
+    Spanne. Vorher stand hier "zwischen 1500 und 2000 Zeichen" ohne Bedingung.
+    Eine Titelfolie mit fünf Wörtern Inhalt bekam damit 333 Wörter Skript, in
+    denen derselbe Begriff 25 mal vorkam, weil das Modell die Vorgabe nur durch
+    Wiederholen erfüllen konnte. Gemessen an einem echten Durchlauf.
+    """
+    return (
+        "You are an expert at creating spoken narration scripts for presentations. "
+        f"Generate a spoken script for EACH of the {batch_size} content blocks below. "
+        "The blocks are separated by ===. "
+        f"The slide content may be in any language. Output MUST be in {target_lang}.\n"
+        "Rules:\n"
+        "- Do NOT add any new information.\n"
+        "- Do NOT hallucinate.\n"
+        "- Keep all facts, numbers, names, dates, and links exactly as they are.\n"
+        "- Convert bullet points, tables, and lists into flowing text.\n"
+        "- Remove citations, footnotes, and formatting artifacts.\n"
+        "- NO semicolons, NO dashes - use only periods, commas, exclamation marks, and question marks.\n"
+        "- Address the audience directly as 'you'.\n"
+        "- Natural, conversational tone - like a university lecturer speaking.\n"
+        + greeting_rule
+        + closing_rule
+        + f"- Never write more than {max_chars} characters for one script.\n"
+        f"- The length follows the slide. A content-rich slide may approach {min_chars} characters. "
+        "A slide with one line of content gets two or three sentences and nothing more.\n"
+        "- NEVER repeat a sentence, a phrase, a name or a fact to reach a length. "
+        "Repetition is always worse than a short script. Stop as soon as the slide is covered.\n"
+        "- EVERY block that contains any text gets a script of at least one sentence. "
+        "A block that looks similar to the previous one still gets its own script, "
+        "phrased differently. Never leave such a block empty.\n"
+        "- Only a block with NO text at all stays empty. Write nothing for it, "
+        "not a placeholder word, not brackets, just the ||| delimiter.\n"
+        "\n"
+        f"Separate the {batch_size} scripts using the delimiter ||| on its own line. "
+        "No other text before, between, or after. Example output for 2 blocks:\n"
+        "Researchers have found that regular breaks significantly reduce cognitive fatigue.\n"
+        "|||\n"
+        "Three core principles guide effective workplace ergonomics."
+    )
+
 
 class _ScriptsMixin:
     """Erwartet: self._client (OpenAI), self._model, self._extra_body,
@@ -130,30 +217,8 @@ class _ScriptsMixin:
             "- Do not add any closing statement or thank-you.\n"
         )
 
-        system_prompt = glossary_hint + (
-            "You are an expert at creating spoken narration scripts for presentations. "
-            f"Generate a spoken script for EACH of the {batch_size} content blocks below. "
-            "The blocks are separated by ===. "
-            f"The slide content may be in any language. Output MUST be in {target_lang}.\n"
-            "Rules:\n"
-            "- Do NOT add any new information.\n"
-            "- Do NOT hallucinate.\n"
-            "- Keep all facts, numbers, names, dates, and links exactly as they are.\n"
-            "- Convert bullet points, tables, and lists into flowing text.\n"
-            "- Remove citations, footnotes, and formatting artifacts.\n"
-            "- NO semicolons, NO dashes - use only periods, commas, exclamation marks, and question marks.\n"
-            "- Address the audience directly as 'you'.\n"
-            "- Natural, conversational tone - like a university lecturer speaking.\n"
-            + greeting_rule
-            + closing_rule
-            + f"- Keep each script between {min_chars} and {max_chars} characters.\n"
-            "- For empty content blocks, output nothing (just write the ||| delimiter).\n"
-            "\n"
-            f"Separate the {batch_size} scripts using the delimiter ||| on its own line. "
-            "No other text before, between, or after. Example output for 2 blocks:\n"
-            "Researchers have found that regular breaks significantly reduce cognitive fatigue.\n"
-            "|||\n"
-            "Three core principles guide effective workplace ergonomics."
+        system_prompt = glossary_hint + build_length_and_format_rules(
+            batch_size, target_lang, greeting_rule, closing_rule, min_chars, max_chars
         )
 
         user_message = slides_input
@@ -182,12 +247,12 @@ class _ScriptsMixin:
             parts = re.split(r"\|\|\|", content_clean)
             scripts = [p.strip() for p in parts]
 
+            # Ein überzähliger Trenner am Ende ist harmlos.
+            while len(scripts) > batch_size and not scripts[-1]:
+                scripts.pop()
+
             if len(scripts) != batch_size:
-                logger.warning(
-                    "Batch {}/{}: expected {} scripts, got {} - padding/trimming",
-                    batch_index + 1, batch_count, batch_size, len(scripts),
-                )
-                scripts = (scripts + [""] * batch_size)[:batch_size]
+                raise _ScriptCountMismatch(batch_size, len(scripts))
 
             return scripts
 
@@ -228,26 +293,85 @@ class _ScriptsMixin:
 
         results: dict[int, list[str]] = {}  # batch_index → scripts
 
+        def _one_slide(text: str, idx: int, slide_no: int) -> str:
+            """Eine einzelne Folie erzeugen. Ohne Trenner kann nichts verrutschen."""
+            try:
+                return self._generate_scripts_single_batch(
+                    [text], idx, batch_count, False, False,
+                    glossary, False, False, min_chars, max_chars, target_lang, source_lang,
+                )[0]
+            except RuntimeError as e:
+                logger.warning("Folie {} einzeln fehlgeschlagen: {}", slide_no, e)
+                return ""
+
+        def _fill_gaps(
+            scripts: list[str], texts: list[str], idx: int, start: int, retry: bool = True
+        ) -> list[str]:
+            """Folie hat Text, Skript aber nicht: diese eine Folie nachholen.
+
+            Gemessen an einem echten Durchlauf: eine Folie, deren Text der
+            Vorfolie stark ähnelte, bekam gar kein Skript und stand im Video
+            stumm da. Der Prompt sagt inzwischen deutlich, dass jede Folie mit
+            Inhalt ein Skript bekommt. Antworten eines Sprachmodells sind aber
+            nie garantiert, deshalb hier ein Netz darunter.
+
+            Bleibt auch der zweite Versuch ein Platzhalter, wird daraus ein
+            leerer Text. Lieber eine stumme Folie als eine, die "Empty" sagt.
+            """
+            for i, (script, text) in enumerate(zip(scripts, texts)):
+                if not is_blank_script(script):
+                    continue
+                slide_no = start + i + 1
+                if not text.strip() or not retry:
+                    # Wirklich leere Folie, oder die Folie wurde gerade schon
+                    # einzeln erzeugt. In beiden Fällen nur den Platzhalter weg.
+                    scripts[i] = ""
+                    continue
+                logger.warning(
+                    "Folie {}: kein brauchbares Skript ({!r}), einzeln nachholen",
+                    slide_no, script[:40],
+                )
+                retry = _one_slide(text, idx, slide_no)
+                if is_blank_script(retry):
+                    logger.warning("Folie {}: auch einzeln kein Skript, bleibt stumm", slide_no)
+                    scripts[i] = ""
+                else:
+                    scripts[i] = retry
+            return scripts
+
         def _run_batch_with_retry(texts: list[str], idx: int, n: int) -> tuple[int, list[str]]:
             is_first = idx == 0
             is_last = idx == batch_count - 1
+            start = batches[idx][0]
             for attempt in range(2):
                 try:
                     scripts = self._generate_scripts_single_batch(
                         texts, idx, batch_count, is_first, is_last,
                         glossary, add_greeting, add_closing, min_chars, max_chars, target_lang, source_lang,
                     )
-                    return idx, scripts
+                    return idx, _fill_gaps(scripts, texts, idx, start)
                 except RuntimeError as e:
                     if attempt == 0:
-                        logger.warning("Batch {}/{} failed (attempt 1): {} - retrying in 5s", idx + 1, batch_count, e)
-                        time.sleep(5)
-                    else:
                         logger.warning(
-                            "Batch {}/{} failed (attempt 2): {} - returning empty strings for {} slide(s)",
+                            "Batch {}/{} failed (attempt 1): {} - retrying in {}s",
+                            idx + 1, batch_count, e, _BATCH_RETRY_DELAY,
+                        )
+                        time.sleep(_BATCH_RETRY_DELAY)
+                        continue
+                    if isinstance(e, _ScriptCountMismatch):
+                        # Auffüllen würde jede folgende Folie um eine verschieben.
+                        # Einzeln erzeugen kostet mehr Aufrufe, bleibt aber richtig.
+                        logger.warning(
+                            "Batch {}/{}: {} - erzeuge {} Folie(n) einzeln",
                             idx + 1, batch_count, e, n,
                         )
-                        return idx, [""] * n
+                        single = [_one_slide(t, idx, start + i + 1) for i, t in enumerate(texts)]
+                        return idx, _fill_gaps(single, texts, idx, start, retry=False)
+                    logger.warning(
+                        "Batch {}/{} failed (attempt 2): {} - returning empty strings for {} slide(s)",
+                        idx + 1, batch_count, e, n,
+                    )
+                    return idx, [""] * n
             return idx, [""] * n  # unreachable, but satisfies type checker
 
         with ThreadPoolExecutor(max_workers=max_workers) as executor:
@@ -263,7 +387,9 @@ class _ScriptsMixin:
                 except Exception as e:
                     idx = futures[future]
                     logger.warning("Batch {}/{} unexpected error: {}", idx + 1, batch_count, e)
-                    results[idx] = [""] * batch_size
+                    # Länge des tatsächlichen Stapels, nicht die Sollgröße. Der
+                    # letzte Stapel ist meist kürzer, sonst wächst die Liste.
+                    results[idx] = [""] * len(batches[idx][1])
 
         # Reassemble in slide order
         ordered: list[str] = []

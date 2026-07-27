@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { useTranslations } from "next-intl";
 import type { SlideData } from "@/types";
 
@@ -8,7 +9,7 @@ interface TranslationReviewStepProps {
   loading: boolean;
   correctedFileName: string | null;
   onLightboxOpen: (index: number) => void;
-  onDownloadTranslatedPptx: () => void;
+  onDownloadTranslatedPptx: () => Promise<boolean>;
   onUploadCorrectedPptx: (f: File) => void;
   onAcceptAndNext: () => void;
 }
@@ -23,24 +24,46 @@ export default function TranslationReviewStep({
   onAcceptAndNext,
 }: TranslationReviewStepProps) {
   const t = useTranslations("tools.screencast");
+  const [downloadFailed, setDownloadFailed] = useState(false);
+  const unchangedCount = slides.filter((s) => s.unchanged).length;
   return (
     <section className="animate-[fadeIn_0.3s_ease-out]">
       <h2 className="text-lg font-bold mb-1">{t("translationReview.heading")}</h2>
       <p className="text-sm text-muted mb-4">{t("translationReview.intro")}</p>
 
+      {unchangedCount > 0 && (
+        <div className="mb-4 rounded-md border border-warn-border bg-warn-bg px-3 py-2">
+          <p className="text-sm font-medium text-warn-strong">
+            {t("translationReview.unchangedTitle", { n: unchangedCount })}
+          </p>
+          <p className="mt-0.5 text-sm text-warn">{t("translationReview.unchangedBody")}</p>
+        </div>
+      )}
+
+      {/* Nur die Folienbilder. Der erkannte Folientext stand hier eine Zeit lang
+          daneben, das war überflüssig: seit Extraktion und Übersetzung dieselbe
+          Stelle im Code nutzen, sagt schon das Bild, ob der Text gefunden wurde.
+          Was bleibt, ist die Markierung nicht übersetzter Folien. */}
       <div className="flex flex-wrap justify-center gap-2 mb-6">
         {slides.map((slide, i) => (
           <button
             key={i}
             onClick={() => onLightboxOpen(i)}
             style={{ width: "100px" }}
-            className="relative rounded-lg overflow-hidden border border-border-soft hover:border-kb transition-colors focus-visible:outline-2 focus-visible:outline-kb group flex-shrink-0"
+            className={`relative rounded-lg overflow-hidden border transition-colors focus-visible:outline-2 focus-visible:outline-kb group flex-shrink-0 ${
+              slide.unchanged ? "border-warn-border" : "border-border-soft hover:border-kb"
+            }`}
             aria-label={t("common.slideZoomAria", { n: i + 1 })}
           >
             {slide.imageBase64 ? (
               <img src={`data:image/png;base64,${slide.imageBase64}`} alt={t("common.slide", { n: i + 1 })} className="w-full object-cover" />
             ) : (
               <div className="aspect-video bg-surface flex items-center justify-center text-xs text-muted-soft">{t("common.loadingImage")}</div>
+            )}
+            {slide.unchanged && (
+              <span className="absolute top-1 left-1 rounded-full border border-warn-border bg-warn-bg px-1.5 py-0.5 text-[10px] font-medium text-warn-strong">
+                {t("translationReview.unchangedBadge")}
+              </span>
             )}
             <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors flex items-center justify-center">
               <span className="opacity-0 group-hover:opacity-100 bg-white/90 text-xs font-medium text-foreground-soft px-2 py-1 rounded transition-opacity">
@@ -53,7 +76,7 @@ export default function TranslationReviewStep({
 
       <div className="flex flex-col gap-3 mb-4">
         <button
-          onClick={onDownloadTranslatedPptx}
+          onClick={async () => setDownloadFailed(!(await onDownloadTranslatedPptx()))}
           className="w-full px-4 py-2 text-sm text-kb border border-kb rounded-md hover:bg-kb/5 transition-colors flex items-center justify-center gap-2"
         >
           <svg className="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
@@ -66,6 +89,11 @@ export default function TranslationReviewStep({
           </svg>
           {t("translationReview.downloadPptx")}
         </button>
+        {downloadFailed && (
+          <p className="text-sm text-error" role="alert">
+            {t("error.downloadFailed")}
+          </p>
+        )}
 
         <div className="relative">
           <label className="block w-full px-4 py-2 text-sm text-foreground-soft border border-border rounded-md hover:bg-surface transition-colors text-center cursor-pointer">

@@ -499,7 +499,10 @@
         "uploadCorrected": "Korrigierte PPTX hochladen (optional)",
         "uploading": "Wird verarbeitet...",
         "uploaded": "{name} wurde hochgeladen",
-        "acceptAndNext": "Übersetzung übernehmen und weiter"
+        "acceptAndNext": "Übersetzung übernehmen und weiter",
+        "unchangedTitle": "{n, plural, one {# Folie wirkt unübersetzt} other {# Folien wirken unübersetzt}}",
+        "unchangedBody": "Der Text dieser Folien ist gleich geblieben. Das kann richtig sein, etwa bei Namen oder Zahlen. Bitte kurz prüfen.",
+        "unchangedBadge": "unverändert"
       },
       "generatingScripts": {
         "title": "Sprechskripte werden generiert...",
@@ -587,7 +590,8 @@
         "jobFolderMissing": "Job-Daten nicht mehr verfügbar - bitte neuen Screencast starten",
         "uploadError": "Fehler beim Hochladen",
         "downloadFailed": "Download fehlgeschlagen",
-        "previousRenderBusy": "Der vorherige Render wird noch beendet. Bitte einen Moment warten und erneut versuchen."
+        "previousRenderBusy": "Der vorherige Render wird noch beendet. Bitte einen Moment warten und erneut versuchen.",
+        "resumeFailed": "Dieser Screencast lässt sich nicht mehr fortsetzen. Er ist abgelaufen, wurde gelöscht oder läuft gerade in einem anderen Tab. Sie können hier neu starten."
       },
       "regenChat": {
         "headerTitle": "KI-Assistent · Folie {n}",
@@ -612,7 +616,15 @@
       "selectJsonFirst": "Bitte zuerst eine JSON-Datei auswählen.",
       "jobUnavailable": "Job-Daten nicht mehr verfügbar - bitte neuen Screencast starten",
       "jobDeleted": "Der Job wurde gelöscht oder abgebrochen. Bitte starte einen neuen Screencast.",
-      "demoBadge": "Demo ansehen →"
+      "demoBadge": "Demo ansehen →",
+      "exit": {
+        "restart": "Neu starten",
+        "cancel": "Screencast abbrechen",
+        "restartTitle": "Screencast verwerfen und neu starten?",
+        "cancelTitle": "Screencast verwerfen und schließen?",
+        "body": "Der aktuelle Screencast wird gelöscht, samt hochgeladener Datei, Übersetzung und Skripten. Das lässt sich nicht rückgängig machen.",
+        "confirm": "Verwerfen"
+      }
     },
     "screencastDemo": {
       "backToScreencast": "Zurück",
@@ -1075,7 +1087,8 @@
         "clear": "Override entfernen",
         "saving": "Speichern…",
         "saved": "Gespeichert"
-      }
+      },
+      "ttsMaxCharsOutOfRange": "Zeichen je Sprachausgabe-Anfrage muss zwischen {min} und {max} liegen."
     },
     "whitelistCard": {
       "title": "Whitelist-Modus",

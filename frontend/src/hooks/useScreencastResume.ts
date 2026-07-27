@@ -17,6 +17,7 @@ interface ResumeResponse {
   slide_texts: string[];
   scripts: string[];
   slide_images: string[];
+  unchanged_slides?: number[];
   original_filename: string;
   user_prompt: string;
 }
@@ -31,20 +32,23 @@ function mapStep(step: string): { step: ScreencastStep; idx: number } {
 export function useScreencastResume(onResume: (payload: ScreencastResumePayload) => void) {
   const searchParams = useSearchParams();
   const [resumeLoading, setResumeLoading] = useState(false);
+  const [resumeFailed, setResumeFailed] = useState(false);
 
   useEffect(() => {
     const resumeUuid = searchParams.get("resume");
     if (!resumeUuid) return;
     setResumeLoading(true);
+    setResumeFailed(false);
     fetch(`/api/screencast/resume/${resumeUuid}`, { credentials: "include" })
       .then((r) => {
-        if (!r.ok) throw new Error("Job nicht gefunden oder nicht im Eingabe-Status");
+        if (!r.ok) throw new Error(String(r.status));
         return r.json() as Promise<ResumeResponse>;
       })
       .then((data) => {
         const imgs = data.slide_images ?? [];
         const texts = data.slide_texts ?? [];
         const scripts = data.scripts ?? [];
+        const unchanged = new Set(data.unchanged_slides ?? []);
         const slideCount = Math.max(texts.length, scripts.length, imgs.length);
         const slides: SlideData[] = slideCount === 0
           ? []
@@ -52,19 +56,24 @@ export function useScreencastResume(onResume: (payload: ScreencastResumePayload)
               index: i,
               imageBase64: imgs[i] ?? "",
               extractedText: texts[i] ?? scripts[i] ?? "",
-              script: scripts[i] ?? texts[i] ?? "",
+              // Fehlt ein Skript, bleibt das Feld leer. Früher stand hier der
+              // Folientext, den man versehentlich als Skript vorlesen ließ.
+              script: scripts[i] ?? "",
+              unchanged: unchanged.has(i),
             }));
         const { step, idx } = mapStep(data.step);
         onResume({ jobUuid: resumeUuid, slides, step, stepIdx: idx });
       })
       .catch(() => {
-        // Resume failed (job expired/cancelled) — stay on upload
+        // Job abgelaufen, gelöscht oder gerade in Arbeit. Vorher landete der
+        // Nutzer wortlos wieder beim Upload und wusste nicht, warum.
+        setResumeFailed(true);
       })
       .finally(() => setResumeLoading(false));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  return { resumeLoading };
+  return { resumeLoading, resumeFailed };
 }
 
 export function useSlideImageBackfill(jobUuid: string, slides: SlideData[], onImages: (images: string[]) => void) {

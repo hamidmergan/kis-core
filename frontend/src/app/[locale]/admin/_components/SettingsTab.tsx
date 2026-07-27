@@ -1184,6 +1184,75 @@ function UploadConcurrencyCard() {
   );
 }
 
+function ScreencastTtsParallelismCard() {
+  const [value, setValue] = useState<number | null>(null);
+  const [draft, setDraft] = useState<string>("");
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    fetch("/api/admin/settings", { credentials: "include" })
+      .then((r) => r.json())
+      .then((d) => {
+        const n = typeof d.screencast_tts_parallelism === "number" ? d.screencast_tts_parallelism : 4;
+        setValue(n);
+        setDraft(String(n));
+      });
+  }, []);
+
+  const commit = async () => {
+    if (value === null) return;
+    const parsed = Number.parseInt(draft, 10);
+    if (!Number.isFinite(parsed) || parsed < 1 || parsed > 16) {
+      setError("Wert muss zwischen 1 und 16 liegen.");
+      setDraft(String(value));
+      return;
+    }
+    if (parsed === value) return;
+    setSaving(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/admin/settings", {
+        method: "PATCH",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ screencast_tts_parallelism: parsed }),
+      });
+      if (res.ok) setValue(parsed);
+      else { setError("Speichern fehlgeschlagen."); setDraft(String(value)); }
+    } finally { setSaving(false); }
+  };
+
+  if (value === null) return null;
+
+  return (
+    <div className="border border-border-soft rounded-xl bg-background p-5">
+      <p className="text-sm font-medium text-foreground">Gleichzeitig vertonte Folien</p>
+      <div className="mt-3 flex items-center gap-3">
+        <input
+          type="number"
+          min={1}
+          max={16}
+          value={draft}
+          onChange={(e) => { setDraft(e.target.value); setError(null); }}
+          onBlur={commit}
+          onKeyDown={(e) => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); }}
+          disabled={saving}
+          className="w-24 rounded-lg border border-border bg-background px-3 py-1.5 text-sm text-foreground focus:outline-none focus:border-kb disabled:opacity-50"
+        />
+        <span className="text-xs text-muted-soft">1 bis 16</span>
+      </div>
+      {error && <p className="mt-2 text-xs text-red-500">{error}</p>}
+      <p className="mt-3 text-xs text-muted-soft">
+        Die Vertonung bestimmt fast die gesamte Wartezeit eines Screencasts, alles andere dauert zusammen wenige Sekunden.
+        Mehr gleichzeitige Folien machen den Screencast schneller und belasten den eigenen Server nicht, weil dabei nur auf
+        den Sprachdienst gewartet wird. Gemessen: 4 statt 1 verkürzt die Wartezeit auf etwa zwei Drittel, 8 auf etwa die
+        Hälfte. Über 8 bringt kaum noch etwas, weil der Sprachdienst dann selbst staut.
+      </p>
+    </div>
+  );
+}
+
 function SystemPane() {
   return (
     <div className="space-y-4">
@@ -1206,6 +1275,7 @@ function SystemPane() {
       <MascotCard />
       <DispatcherCard />
       <UploadConcurrencyCard />
+      <ScreencastTtsParallelismCard />
     </div>
   );
 }

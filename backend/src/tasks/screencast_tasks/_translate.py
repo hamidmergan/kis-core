@@ -19,6 +19,7 @@ from src.storage import (
     save_result_meta,
 )
 from src.services.screencast.naming import translate_stem
+from src.utils.heartbeat import job_heartbeat
 
 from src.tasks.screencast_tasks._queue import _maybe_dispatch_next
 from src.tasks.screencast_tasks._shared import _get_screencast_helpers
@@ -69,7 +70,12 @@ def run_screencast_translate(
             raise RuntimeError("No translation provider configured")
 
         service = TranslationService(deepl_client=translation_client, glossary=glossary)
-        translated_bytes = translate_pptx(pptx_bytes, source_lang, target_lang, service)
+        # Der Wächter hält einen Job für abgestürzt, wenn er sich zu lange nicht
+        # meldet. Die Übersetzung meldet von sich aus nichts und dauert bei
+        # Reasoning-Modellen Minuten. Ohne diesen Herzschlag bringt ein langsames
+        # Modell den Job um, obwohl alles läuft. Der Render-Task macht es genauso.
+        with job_heartbeat(job_uuid):
+            translated_bytes = translate_pptx(pptx_bytes, source_lang, target_lang, service)
 
         (
             IMAGE_TMP_DIR,
@@ -85,12 +91,23 @@ def run_screencast_translate(
             locale = job_row.get("creator_locale") or "de"
             raise ValueError(t("screencast.noSlides", locale))
 
+        # Für den Prüfen-Schritt: welche Folien hat die Übersetzung nicht angefasst.
+        from src.services.screencast.review import find_unchanged_slides
+        unchanged_slides = find_unchanged_slides(
+            _extract_text_per_slide(pptx_bytes), slide_texts
+        )
+        if unchanged_slides:
+            logger.info(
+                "Screencast translate {}: {} Folie(n) unverändert: {}",
+                job_uuid, len(unchanged_slides), unchanged_slides,
+            )
+
         # Save translated PPTX + scripts to job folder immediately
         save_job_file(user_id, job_uuid, "translated.pptx", translated_bytes)
         save_job_file(user_id, job_uuid, "scripts.txt", json.dumps(slide_texts, ensure_ascii=False, indent=2).encode("utf-8"))
 
         db.update_job_status(job_uuid, "running", progress={"step": "images"})
-        with tempfile.TemporaryDirectory() as tmpdir:
+        with tempfile.TemporaryDirectory() as tmpdir, job_heartbeat(job_uuid):
             tmp = Path(tmpdir)
             pptx_path = tmp / "translated.pptx"
             pptx_path.write_bytes(translated_bytes)
@@ -104,13 +121,15 @@ def run_screencast_translate(
             "slide_count": len(slide_texts),
             "slide_texts": slide_texts,
             "slide_images": slide_images_b64,
+            "unchanged_slides": unchanged_slides,
         }
 
         result_path = save_result_json(user_id, job_uuid, result)
         save_result_and_evict(user_id, job_uuid, result_path, f"{Path(filename).stem}_translate.json")
 
-        # Translate filename stem via DeepL once, reuse for all later artifacts (MP4, PPTX, ZIP).
-        translated = translate_stem(filename, source_lang, target_lang)
+        # Namensstamm einmal übersetzen, gilt danach für MP4, PPTX und ZIP.
+        # Über denselben Dienst wie den Folieninhalt, nicht fest über DeepL.
+        translated = translate_stem(filename, source_lang, target_lang, service=service)
         save_result_meta(user_id, job_uuid, {"translated_stem": translated})
 
         # awaiting_user: user must review scripts before render starts

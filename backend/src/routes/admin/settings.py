@@ -19,6 +19,9 @@ from src.limits import (
     AIA_TOOL_CONTEXT_HARD_CAP,
     AIA_PARALLEL_SLOTS,
     AIA_MAX_CONCURRENT_UPLOADS,
+    TTS_MAX_CHARS_PER_REQUEST,
+    SCREENCAST_TTS_DEFAULT_PARALLELISM,
+    SCREENCAST_TTS_MAX_PARALLELISM,
     AIA_SUMMARY_BATCH_MAX_CHARS,
     AIA_EMBEDDING_BATCH_SIZE,
     AIA_SOURCE_MAX_PAGES,
@@ -115,6 +118,16 @@ async def get_settings(_admin=Depends(get_admin_user)):
         # small box from RAM/CPU spikes when many people upload large media at once.
         "aia_max_concurrent_uploads": int(
             db.get_setting("aia_max_concurrent_uploads", str(AIA_MAX_CONCURRENT_UPLOADS))
+        ),
+        # Zeichen je Sprachausgabe-Anfrage. Der Anbieter bricht nach einer festen
+        # Zeit ab, nicht nach einer festen Länge, siehe Messung in limits.py.
+        "tts_max_chars_per_request": int(
+            db.get_setting("tts_max_chars_per_request", str(TTS_MAX_CHARS_PER_REQUEST))
+        ),
+        # Gleichzeitig vertonte Folien. Die Vertonung ist der Flaschenhals des
+        # Screencasts, alles andere zusammen liegt im Sekundenbereich.
+        "screencast_tts_parallelism": int(
+            db.get_setting("screencast_tts_parallelism", str(SCREENCAST_TTS_DEFAULT_PARALLELISM))
         ),
         # CEFR chat-diagnosis system prompt. One prompt for all languages; the
         # workspace language replaces the {language} placeholder at request time.
@@ -423,5 +436,32 @@ async def update_settings(
                 detail=t("admin.settings.maxConcurrentUploadsOutOfRange", locale, min=0, max=100),
             )
         db.set_setting("aia_max_concurrent_uploads", str(value))
+
+    # Zeichen je Sprachausgabe-Anfrage. Zu groß gewählt läuft jede Anfrage in
+    # den Timeout des Anbieters, zu klein gewählt wird die Aufnahme zerstückelt.
+    if body.tts_max_chars_per_request is not None:
+        value = body.tts_max_chars_per_request
+        if value < 50 or value > 10_000:
+            raise HTTPException(
+                status_code=400,
+                detail=t("admin.settings.ttsMaxCharsOutOfRange", locale, min=50, max=10_000),
+            )
+        db.set_setting("tts_max_chars_per_request", str(value))
+
+    # Gleichzeitig vertonte Folien. Nach oben gedeckelt, damit eine Fehleingabe
+    # den Sprachdienst der Hochschule nicht flutet.
+    if body.screencast_tts_parallelism is not None:
+        value = body.screencast_tts_parallelism
+        if value < 1 or value > SCREENCAST_TTS_MAX_PARALLELISM:
+            raise HTTPException(
+                status_code=400,
+                detail=t(
+                    "admin.settings.ttsParallelismOutOfRange",
+                    locale,
+                    min=1,
+                    max=SCREENCAST_TTS_MAX_PARALLELISM,
+                ),
+            )
+        db.set_setting("screencast_tts_parallelism", str(value))
 
     return {"ok": True}

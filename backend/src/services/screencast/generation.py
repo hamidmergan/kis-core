@@ -9,10 +9,29 @@ from typing import Any
 from fastapi import HTTPException
 from loguru import logger
 
-from src.limits import SCREENCAST_TTS_DEFAULT_PARALLELISM
+from src.limits import SCREENCAST_TTS_DEFAULT_PARALLELISM, SCREENCAST_TTS_MAX_PARALLELISM
 from src.services.openai_compat_llm import OpenAICompatLLMClient
 from src.services.screencast.pptx import pptx_to_images
 from src.storage import get_job_file, save_job_file
+
+
+def resolve_tts_parallelism() -> int:
+    """Wie viele Folien gleichzeitig vertont werden, zur Laufzeit einstellbar.
+
+    Der sinnvolle Wert hängt am Anbieter und nicht am Code: eine eigene GPU
+    verträgt ein Vielfaches von dem, was ein geteilter Dienst verträgt. Deshalb
+    Admin-Einstellung statt Konstante. Unsinnige Werte fallen auf den Standard
+    zurück, zu große werden gekappt, damit eine Fehleingabe im Admin nicht den
+    Anbieter der ganzen Hochschule flutet.
+    """
+    try:
+        from src import database as db
+        value = int(db.get_setting("screencast_tts_parallelism", str(SCREENCAST_TTS_DEFAULT_PARALLELISM)))
+    except Exception:
+        return SCREENCAST_TTS_DEFAULT_PARALLELISM
+    if value < 1:
+        return SCREENCAST_TTS_DEFAULT_PARALLELISM
+    return min(value, SCREENCAST_TTS_MAX_PARALLELISM)
 
 
 async def generate_all_scripts(
@@ -59,7 +78,7 @@ async def generate_all_tts(
     Each slide's audio is saved to persistent storage immediately after synthesis
     so a crash can be recovered without re-paying for completed slides.
     """
-    parallelism = SCREENCAST_TTS_DEFAULT_PARALLELISM
+    parallelism = resolve_tts_parallelism()
     logger.info("TTS provider_id={}: parallelism={}", provider_id, parallelism)
     sem = asyncio.Semaphore(parallelism)
     lock = asyncio.Lock()

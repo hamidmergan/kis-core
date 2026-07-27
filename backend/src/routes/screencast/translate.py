@@ -23,7 +23,6 @@ from src.services.screencast import (
 from src.storage import save_job_file, save_queue_file
 from src.utils.file_validation import MAX_SCREENCAST_SLIDES, MAX_UPLOAD_BYTES, validate_or_raise
 
-from src.routes.screencast._models import ExtractTextsRequest, PrepareRequest
 from src.routes.screencast._shared import SCREENCAST_TOOLS, validate_upload
 
 router = APIRouter(tags=["screencast: translate"])
@@ -93,69 +92,12 @@ async def screencast_translate(
     return {"job_uuid": job_uuid}
 
 
-@router.post("/screencast/extract-texts")
-async def screencast_extract_texts(
-    body: ExtractTextsRequest,
-    locale: str = Depends(get_locale),
-):
-    """Extract slide texts from a PPTX (base64-encoded)."""
-    try:
-        pptx_bytes = base64.b64decode(body.pptx_b64)
-    except Exception:
-        raise HTTPException(status_code=400, detail=t("file.invalidPptxBase64", locale))
-
-    logger.info("Screencast/extract-texts: extracting texts from PPTX")
-    slide_texts = extract_text_per_slide(pptx_bytes)
-    if not slide_texts:
-        raise HTTPException(status_code=400, detail=t("screencast.noSlides", locale))
-
-    if len(slide_texts) > MAX_SCREENCAST_SLIDES:
-        raise HTTPException(
-            status_code=400,
-            detail=t(
-                "screencast.tooManySlides",
-                locale,
-                count=len(slide_texts),
-                max=MAX_SCREENCAST_SLIDES,
-            ),
-        )
-
-    return {
-        "slide_count": len(slide_texts),
-        "slide_texts": slide_texts,
-    }
-
-
-@router.post("/screencast/prepare")
-async def screencast_prepare(
-    body: PrepareRequest,
-    locale: str = Depends(get_locale),
-):
-    """Convert translated PPTX to slide images."""
-    try:
-        pptx_bytes = base64.b64decode(body.translated_pptx_b64)
-    except Exception:
-        raise HTTPException(status_code=400, detail=t("file.invalidPptxBase64", locale))
-
-    logger.info("Screencast/prepare: converting PPTX to images")
-
-    with tempfile.TemporaryDirectory() as tmpdir:
-        tmp = Path(tmpdir)
-        translated_pptx_path = tmp / "translated.pptx"
-        translated_pptx_path.write_bytes(pptx_bytes)
-        img_dir = tmp / "images"
-        img_dir.mkdir()
-
-        try:
-            slide_image_paths = await convert_slides_to_images_async(
-                translated_pptx_path, img_dir
-            )
-        except RuntimeError as e:
-            raise HTTPException(status_code=500, detail=str(e))
-
-        slide_images_b64 = [base64.b64encode(p.read_bytes()).decode() for p in slide_image_paths]
-
-    return {"slide_images": slide_images_b64}
+# /screencast/extract-texts und /screencast/prepare wurden entfernt.
+# Beide nahmen eine PPTX als Base64 im JSON-Rumpf entgegen, ohne Größengrenze,
+# und /prepare startete LibreOffice mitten im Request. Das Backend läuft mit
+# einem einzigen uvicorn-Worker, jeder Aufruf hat also die gesamte API
+# blockiert. Benutzt hat sie niemand, das Frontend geht über /screencast/translate
+# und /screencast/upload-corrected.
 
 
 @router.post("/screencast/upload-corrected")
