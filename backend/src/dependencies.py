@@ -302,12 +302,14 @@ def get_translate_client_for_provider(
 # ─── DeepL resolvers ───────────────────────────────────────────────────────
 
 def _deepl_provider() -> Optional[dict]:
-    """First enabled DeepL provider on the doc_translate route (or
-    screencast_translate as a secondary lookup)."""
-    for feature in ("doc_translate", "screencast_translate"):
-        for p in feature_router.providers_for_feature(feature):
-            if p.get("protocol") == "deepl":
-                return p
+    """First enabled DeepL provider on the doc_translate route.
+
+    Der Screencast hatte einmal eine eigene Route, die hier als zweite Quelle
+    abgefragt wurde. Sie ist entfallen, beide Werkzeuge teilen sich jetzt
+    doc_translate."""
+    for p in feature_router.providers_for_feature("doc_translate"):
+        if p.get("protocol") == "deepl":
+            return p
     return None
 
 

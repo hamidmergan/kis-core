@@ -980,8 +980,8 @@ def init_db(admin_email: Optional[str] = None) -> None:
             # One row per feature (chat, embedding, ocr, ...). Maps a feature to
             # a chosen provider + model. user_choices is the multi-pill list of
             # provider IDs the user may pick from in the tool UI (used for tts,
-            # doc_translate, screencast_translate). Unset feature row means the
-            # feature is unconfigured and not available.
+            # doc_translate). Unset feature row means the feature is
+            # unconfigured and not available.
             cur.execute("""
                 CREATE TABLE IF NOT EXISTS feature_routes (
                     id              SERIAL PRIMARY KEY,
@@ -997,6 +997,11 @@ def init_db(admin_email: Optional[str] = None) -> None:
                 ALTER TABLE feature_routes
                 ADD COLUMN IF NOT EXISTS provider_models JSONB NOT NULL DEFAULT '{}'::jsonb
             """)
+            # Die Route screencast_translate ist entfallen. Der Screencast hat
+            # sein Modell immer aus doc_translate gelesen, die Zeile im Admin
+            # wirkte also nie und führte in die Irre. Beide Werkzeuge übersetzen
+            # dieselben Dateien, eine Einstellung reicht. Idempotent.
+            cur.execute("DELETE FROM feature_routes WHERE feature = 'screencast_translate'")
 
             # ─── LLM Usage Log ────────────────────────────────────────────────
             # One row per request: for daily alerts (anomaly detection) and

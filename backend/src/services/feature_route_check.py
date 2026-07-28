@@ -39,7 +39,7 @@ class FeatureTestResult:
 
 
 # Features whose openai_compat path runs via /v1/chat/completions.
-_CHAT_LIKE_FEATURES = frozenset({"chat", "vision", "ocr", "doc_translate", "screencast_translate", "transcript_translate"})
+_CHAT_LIKE_FEATURES = frozenset({"chat", "vision", "ocr", "doc_translate", "transcript_translate"})
 
 
 def run_feature_route_test(

@@ -963,7 +963,6 @@
         "image_gen": "Bildgenerierung",
         "image_edit": "Bild-Edit",
         "doc_translate": "Dokumenten-Übersetzung",
-        "screencast_translate": "Screencast-Übersetzung",
         "transcript_translate": "Transkript-Übersetzung"
       },
       "featureDesc": {
@@ -975,8 +974,7 @@
         "tts": "Sprachausgabe für Screencast und Vorlesen. Nutzer wählt im Tool, welcher Anbieter verwendet wird.",
         "image_gen": "Text-zu-Bild",
         "image_edit": "Bilder bearbeiten via Prompt",
-        "doc_translate": "Nutzer wählt im Tool, welcher Anbieter verwendet wird. (Dokumenten-Übersetzung, Screencast-Übersetzung)",
-        "screencast_translate": "Untertitel und Audio für Videos. Nutzer wählt im Tool, welcher Anbieter verwendet wird.",
+        "doc_translate": "Nutzer wählt im Tool, welcher Anbieter verwendet wird.",
         "transcript_translate": "AIA-Arbeitsbereich: Transkript in die vom Owner gewählte Zielsprache übersetzen. Quellsprache wird automatisch erkannt. Anbieter und Modell werden vom Admin konfiguriert. Instruct-Modell empfohlen, keine Reasoning-Modelle."
       },
       "exportImport": {
@@ -2164,7 +2162,6 @@
         "image_gen": "Bildgenerierung",
         "image_edit": "Bild-Edit",
         "doc_translate": "Dokumenten-Übersetzung",
-        "screencast_translate": "Screencast-Übersetzung",
         "transcript_translate": "Transkript-Übersetzung"
       }
     }

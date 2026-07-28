@@ -963,7 +963,6 @@
         "image_gen": "Image generation",
         "image_edit": "Image edit",
         "doc_translate": "Document translation",
-        "screencast_translate": "Screencast translation",
         "transcript_translate": "Transcript translation"
       },
       "featureDesc": {
@@ -976,7 +975,6 @@
         "image_gen": "Text-to-image",
         "image_edit": "Edit images via prompt",
         "doc_translate": "The user picks a provider inside the tool. (Document Translation, Screencast Translation)",
-        "screencast_translate": "Subtitles and audio for videos. The user picks a provider inside the tool.",
         "transcript_translate": "AIA workspace: translate a transcript into the owner-chosen target language. Source language is detected automatically. Provider and model are admin-configured. Use an instruct model, not a reasoning model."
       },
       "exportImport": {
@@ -2164,7 +2162,6 @@
         "image_gen": "Image generation",
         "image_edit": "Image edit",
         "doc_translate": "Document translation",
-        "screencast_translate": "Screencast translation",
         "transcript_translate": "Transcript translation"
       }
     }

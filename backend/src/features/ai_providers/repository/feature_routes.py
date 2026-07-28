@@ -2,7 +2,12 @@
 
 One row per feature maps the feature to its chosen provider (+ optional model).
 ``user_choices`` is the multi-pill list of provider IDs the end-user may pick
-between in the tool UI (used for tts / doc_translate / screencast_translate).
+between in the tool UI (used for tts / doc_translate).
+
+Es gab einmal eine eigene Route ``screencast_translate``. Der Screencast hat
+sein Modell aber immer aus ``doc_translate`` gelesen, die Zeile im Admin war
+also wirkungslos und hat nur Verwirrung gestiftet. Beide Werkzeuge übersetzen
+dieselben Dateien, deshalb reicht eine Einstellung.
 """
 
 import json
@@ -26,7 +31,6 @@ FEATURES: tuple[str, ...] = (
     "image_gen",
     "image_edit",
     "doc_translate",
-    "screencast_translate",
     "transcript_translate",
 )
 
@@ -44,7 +48,6 @@ USER_CHOICE_FEATURES: frozenset[str] = frozenset({
     "image_gen",
     "image_edit",
     "doc_translate",
-    "screencast_translate",
 })
 
 
