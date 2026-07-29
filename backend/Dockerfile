@@ -26,7 +26,13 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 COPY src/ ./src/
+COPY entrypoint.sh /usr/local/bin/kis-entrypoint.sh
+RUN chmod +x /usr/local/bin/kis-entrypoint.sh
 
 EXPOSE 8000
 
-CMD ["python", "-m", "uvicorn", "src.app:app", "--host", "0.0.0.0", "--port", "8000"]
+# Startet ueber das Skript, damit die Prozesszahl aus den vorhandenen Kernen
+# kommt statt fest zu sein. Der Schalter dafuer steht oben im Skript und ist
+# heute aus, es laeuft also genau ein Prozess wie bisher. Die Celery-Container
+# ueberschreiben das per 'command:' in der Compose-Datei.
+CMD ["/usr/local/bin/kis-entrypoint.sh"]

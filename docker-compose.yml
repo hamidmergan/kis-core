@@ -14,6 +14,45 @@ services:
       POSTGRES_USER: ${POSTGRES_USER:-kis}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-kis-local-dev}
       POSTGRES_DB: ${POSTGRES_DB:-kis}
+    # Speicherwerte aus dem vorhandenen RAM berechnen statt fest einzutragen.
+    # Postgres nimmt ohne Angabe 128 MB shared_buffers, egal wie gross die Box
+    # ist. Das ist ein Startwert fuer Mini-Systeme und viel zu klein, sobald die
+    # Vektorsuche (hnsw-Index auf aia_chunks) im Speicher liegen soll. Mit dieser
+    # Zeile passt sich das nach einem Server-Upgrade von allein an, ohne dass
+    # jemand daran denken muss.
+    #
+    # Aufteilung nach der Postgres-Doku: ein Viertel des RAM als shared_buffers,
+    # die Haelfte als effective_cache_size (nur eine Schaetzung fuer den Planer,
+    # belegt nichts). max_connections waechst mit, weil bei mehreren
+    # Backend-Prozessen und den Celery-Workern je ein eigener Verbindungsvorrat
+    # entsteht (core/db/pool.py: bis 20 pro Prozess).
+    #
+    # Warum docker-entrypoint.sh nochmal aufgerufen wird: das aeussere bash
+    # laeuft schon ueber den Entrypoint des Images, der ueberspringt dabei die
+    # Erstinitialisierung. Der zweite Aufruf mit 'postgres' als Argument holt sie
+    # nach, sonst wuerde ein frisches Volume nie angelegt. Getestet mit leerem
+    # und mit bestehendem Volume.
+    command: >
+      bash -c '
+      RAM_MB=$$(awk "/MemTotal/ {print int(\$$2/1024)}" /proc/meminfo);
+      SHARED=$$(( RAM_MB / 4 )); [ "$$SHARED" -lt 128 ] && SHARED=128;
+      CACHE=$$(( RAM_MB / 2 ));
+      MAINT=$$(( RAM_MB / 16 )); [ "$$MAINT" -lt 64 ] && MAINT=64; [ "$$MAINT" -gt 512 ] && MAINT=512;
+      CONNS=$$(( RAM_MB / 40 )); [ "$$CONNS" -lt 100 ] && CONNS=100; [ "$$CONNS" -gt 300 ] && CONNS=300;
+      echo "kis-postgres: $${RAM_MB}MB RAM erkannt, shared_buffers=$${SHARED}MB, maintenance_work_mem=$${MAINT}MB, max_connections=$${CONNS}";
+      exec docker-entrypoint.sh postgres
+      -c shared_buffers=$${SHARED}MB
+      -c effective_cache_size=$${CACHE}MB
+      -c maintenance_work_mem=$${MAINT}MB
+      -c max_connections=$${CONNS}
+      '
+    # Muss mitwachsen, sonst scheitert der Bau des hnsw-Index. Parallele
+    # Index-Arbeit legt ihren Speicher in /dev/shm ab, und das hat im Container
+    # standardmaessig nur 64 MB. Mit einem groesseren maintenance_work_mem
+    # verlangt Postgres dort mehr und bricht sonst mit "No space left on device"
+    # ab. Beim Testen genau so passiert. Der Wert ist eine Obergrenze, kein
+    # reservierter Speicher, ungenutzt kostet er nichts.
+    shm_size: 1gb
     volumes:
       - kis-postgres-data:/var/lib/postgresql/data
     restart: unless-stopped
@@ -58,7 +97,15 @@ services:
   celery-worker-screencast:
     build: ./backend
     container_name: kis-celery-screencast
-    command: celery -A src.celery_app worker --queues=screencast --concurrency=2 --loglevel=info
+    # Obergrenze aus den Kernen statt fest. Die Formel ergibt auf der heutigen
+    # 4-Kern-Box exakt die bisherige 2, waechst aber bei einem groesseren Server
+    # mit. Screencast bleibt bewusst der sparsamste Worker: Rendern und PPTX
+    # umwandeln lasten Kerne dauerhaft voll aus.
+    command: >
+      sh -c 'K=$$(nproc 2>/dev/null || echo 2);
+      C=$$(( K / 2 )); [ "$$C" -lt 2 ] && C=2; [ "$$C" -gt 4 ] && C=4;
+      echo "kis-celery-screencast: $${K} Kern(e), concurrency=$${C}";
+      exec celery -A src.celery_app worker --queues=screencast --concurrency=$$C --loglevel=info'
     env_file:
       - .env
     volumes:
@@ -82,7 +129,15 @@ services:
   celery-worker-general:
     build: ./backend
     container_name: kis-celery-general
-    command: celery -A src.celery_app worker --queues=tts,general --autoscale=10,2 --loglevel=info
+    # Obergrenze aus den Kernen. Ergibt auf 4 Kernen die bisherige 10. Hoeher als
+    # bei screencast, weil hier vor allem gewartet wird (Vertonung, Uebersetzung,
+    # Bilder gehen an fremde Server). Die Ausnahme ist das Transkribieren, das
+    # ffmpeg-Vorspiel dazu rechnet echt.
+    command: >
+      sh -c 'K=$$(nproc 2>/dev/null || echo 4);
+      M=$$(( K * 5 / 2 )); [ "$$M" -lt 2 ] && M=2; [ "$$M" -gt 16 ] && M=16;
+      echo "kis-celery-general: $${K} Kern(e), autoscale=$${M},2";
+      exec celery -A src.celery_app worker --queues=tts,general --autoscale=$$M,2 --loglevel=info'
     env_file:
       - .env
     volumes:
@@ -105,8 +160,18 @@ services:
   celery-worker-aia:
     build: ./backend
     container_name: kis-celery-aia
-    command: celery -A src.celery_app worker --queues=aia --autoscale=12,2 --loglevel=info
-    mem_limit: 1.5g
+    # Obergrenze aus den Kernen. Ergibt auf 4 Kernen die bisherige 12. Die
+    # Studio-Werkzeuge und das Einlesen warten die meiste Zeit auf das KI-Modell.
+    command: >
+      sh -c 'K=$$(nproc 2>/dev/null || echo 4);
+      M=$$(( K * 3 )); [ "$$M" -lt 2 ] && M=2; [ "$$M" -gt 16 ] && M=16;
+      echo "kis-celery-aia: $${K} Kern(e), autoscale=$${M},2";
+      exec celery -A src.celery_app worker --queues=aia --autoscale=$$M,2 --loglevel=info'
+    # Deckel gegen einen einzelnen Ausreisser, damit ein grosses Dokument nicht
+    # Postgres aus dem Speicher draengt. Bisher fest auf 1.5g, was auf einer
+    # groesseren Box unnoetig bremst. Jetzt ueber die .env anpassbar, Standard
+    # bleibt der alte Wert, damit sich heute nichts aendert.
+    mem_limit: ${CELERY_AIA_MEM_LIMIT:-1.5g}
     env_file:
       - .env
     volumes:
