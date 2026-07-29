@@ -31,6 +31,9 @@ from src.features.ai_assistant.tasks.language_training._source_flashcards import
 from src.features.ai_assistant.tasks.language_training._source_grammar import (
     generate_grammar_from_source,
 )
+from src.features.ai_assistant.tasks.language_training._source_grammar_choice import (
+    generate_grammar_choice_from_source,
+)
 from src.features.ai_assistant.tasks.language_training._source_mc import generate_mc_from_source
 from src.features.ai_assistant.tasks.language_training._variation import (
     build_title_avoidance_block,
@@ -130,6 +133,12 @@ def run_generate_exercise_set(self, set_id: int, workspace_id: int, tool: str,
                         client, model, from_ctx, how_many, **shared)
                     return got, name, None
                 if tool == "grammatik":
+                    # The answer format belongs to the exercise type, not to the tool:
+                    # "choice" is ticked in the browser, everything else is free text
+                    # and gets marked by the check route.
+                    if gtype.get("format") == "choice":
+                        return generate_grammar_choice_from_source(
+                            client, model, from_ctx, gtype, how_many, **shared)
                     return generate_grammar_from_source(
                         client, model, from_ctx, gtype, how_many, **shared)
                 got, name = generate_mc_from_source(

@@ -26,6 +26,11 @@ from src.services import aia_grammar_check as gc
 
 MARKER = "\n\nADAPT-MARKER: pitch this at level A1."
 
+# Dieses Modul testet den Freitext-Zweig. Der Typ wird über seine id festgenagelt und
+# nicht über die Position, seit der Katalog auch Ankreuz-Typen führt
+# (die haben eigene Tests in test_grammar_quiz.py).
+_TEXT_TYPE = get_grammar_type("passive_present")
+
 
 def _make_client(content):
     """Minimal OpenAI-client stand-in: records every call, always returns ``content``."""
@@ -64,7 +69,9 @@ def test_every_catalog_entry_has_the_fields_the_prompt_needs():
         assert entry["rule"]
         assert localized(entry, "label", "de")
         assert localized(entry, "instruction", "de")
-        assert entry.get("format") == "text"
+        # Freitext oder Ankreuzen, ein dritter Wert würde in der Weiche im Task
+        # still im Freitext-Zweig landen.
+        assert entry.get("format") in {"text", "choice"}
 
 
 def test_every_catalog_entry_ships_a_worked_example():
@@ -143,7 +150,7 @@ def attributed(monkeypatch):
 def _generate(response=_RESPONSE, count=2, adaptive_suffix=""):
     client, calls = _make_client(response)
     items, title, header = generate_grammar_from_source(
-        client, "m", _ctx(), GRAMMAR_TYPES[0], count, locale="de",
+        client, "m", _ctx(), _TEXT_TYPE, count, locale="de",
         adaptive_suffix=adaptive_suffix,
     )
     return items, title, header, calls
@@ -152,7 +159,7 @@ def _generate(response=_RESPONSE, count=2, adaptive_suffix=""):
 def test_generation_builds_items_title_and_header(attributed):
     items, title, header, _ = _generate()
     assert title == "Passiv im Datenmanagement"
-    assert header["instruction"] == GRAMMAR_TYPES[0]["instruction"]["de"]
+    assert header["instruction"] == _TEXT_TYPE["instruction"]["de"]
     assert header["pattern_front"] == "Hilde erklärt einen Begriff."
     assert header["pattern_back"] == "Ein Begriff wird von Hilde erklärt."
     assert [i["front"] for i in items] == [
@@ -251,9 +258,9 @@ def test_generation_prompt_carries_label_rule_and_adaptive_suffix(attributed):
     system = _system_of(calls)
     # The label names the target form. The learner-facing instruction does not, it
     # only points at the worked pair, so it is deliberately kept out of the prompt.
-    assert GRAMMAR_TYPES[0]["label"]["de"] in system
-    assert GRAMMAR_TYPES[0]["instruction"]["de"] not in system
-    assert GRAMMAR_TYPES[0]["rule"] in system
+    assert _TEXT_TYPE["label"]["de"] in system
+    assert _TEXT_TYPE["instruction"]["de"] not in system
+    assert _TEXT_TYPE["rule"] in system
     assert MARKER in system
     # The whole point of the tool: sentences are written fresh from the source.
     assert "NEW" in system
@@ -276,7 +283,7 @@ def test_generation_prompt_shows_the_worked_pair_as_a_shape_to_copy(attributed):
     # the format (same lesson as the overview prose fix).
     _, _, _, calls = _generate()
     system = _system_of(calls)
-    pair = example_pair(GRAMMAR_TYPES[0], "de")
+    pair = example_pair(_TEXT_TYPE, "de")
     assert "SHAPE TO COPY" in system
     assert pair["before"] in system
     assert pair["after"] in system
@@ -291,7 +298,7 @@ def test_title_falls_back_to_the_type_label(attributed):
         "exercises": [{"before": b, "after": a} for b, a in (_GOOD, _GOOD2)],
     })
     _, title, _, _ = _generate(response, count=2)
-    assert title == GRAMMAR_TYPES[0]["label"]["de"]
+    assert title == _TEXT_TYPE["label"]["de"]
 
 
 def test_missing_example_falls_back_to_the_catalogue_pattern(attributed):
@@ -301,10 +308,10 @@ def test_missing_example_falls_back_to_the_catalogue_pattern(attributed):
         "exercises": [{"before": b, "after": a} for b, a in (_GOOD, _GOOD2)],
     })
     _, _, header, _ = _generate(response, count=2)
-    shipped = example_pair(GRAMMAR_TYPES[0], "de")
+    shipped = example_pair(_TEXT_TYPE, "de")
     assert header["pattern_front"] == shipped["before"]
     assert header["pattern_back"] == shipped["after"]
-    assert header["instruction"] == GRAMMAR_TYPES[0]["instruction"]["de"]
+    assert header["instruction"] == _TEXT_TYPE["instruction"]["de"]
 
 
 # ─── Prüfung: Normalisierung ─────────────────────────────────────────────────

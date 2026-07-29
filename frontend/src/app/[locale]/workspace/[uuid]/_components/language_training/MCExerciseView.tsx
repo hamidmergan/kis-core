@@ -10,6 +10,7 @@ import { SetSourceLegend, sourceNumbers, sourceTag } from "./SetSourceLegend";
 
 export function MCExerciseView({
   exerciseSet, onBack, onAnswer, onAskChat, onSourceClick, breadcrumbs, chatLang = "de",
+  badgeCategory = "learning_tools", showChatHelp = true,
 }: {
   exerciseSet: ExerciseSet;
   onBack: () => void;
@@ -18,6 +19,13 @@ export function MCExerciseView({
   onSourceClick?: (filename: string, page: number, startTime?: number) => void;
   breadcrumbs?: BreadcrumbItem[];
   chatLang?: "de" | "en";
+  // The view also serves the grammar quiz, whose breadcrumb badge lives in the
+  // language-training palette rather than the learning-tools one.
+  badgeCategory?: "learning_tools" | "language_training";
+  // Both chat buttons, hint and learn-more. The grammar exercises leave them out: the
+  // answer is a form, and a chat explanation of the sentence leads away from the
+  // exercise instead of into it.
+  showChatHelp?: boolean;
 }) {
   const t = useTranslations("workspace.detail.languageTraining");
   const tChip = useTranslations("sourceChip");
@@ -62,6 +70,10 @@ export function MCExerciseView({
   const [showResults, setShowResults] = useState(false);
   const [hint, setHint] = useState<string | null>(null);
   const [hintLoading, setHintLoading] = useState(false);
+  // Hover lives in state rather than in a CSS class: the border colour is set inline
+  // (it also carries the right/wrong result), and an inline style always beats the
+  // class, so `hover:border-kb` never showed.
+  const [hovered, setHovered] = useState<number | null>(null);
 
   const total = items.length;
   const card = items[index];
@@ -92,6 +104,8 @@ export function MCExerciseView({
       setIndex((i) => i + 1);
       setSelected(null);
       setHint(null);
+      // The pointer sits on the Weiter button, not on an option of the next card.
+      setHovered(null);
     }
   }
 
@@ -122,7 +136,7 @@ export function MCExerciseView({
           style={{ backgroundColor: "var(--surface-dim)" }}>
           <CaretLeft size={13} />
         </button>
-        {breadcrumbs && breadcrumbs.length > 0 ? (<div className="flex items-center gap-1 text-[12px] min-w-0 flex-1">{breadcrumbs.map((b, i) => { const bBadge = _getToolBadge(b.toolKey, "learning_tools"); return (<React.Fragment key={i}>{bBadge ? (<button type="button" onClick={b.onClick} className="font-medium shrink-0 px-1.5 py-0.5 rounded opacity-60 hover:opacity-100 transition-opacity" style={{ backgroundColor: bBadge.bg, color: bBadge.color }}>{b.label}</button>) : (<button type="button" onClick={b.onClick} className="font-medium shrink-0 opacity-60 hover:opacity-100 transition-opacity" style={{ color: "var(--muted)" }}>{b.label}</button>)}<CaretRight size={9} weight="bold" style={{ opacity: 0.5 }} className="shrink-0" /></React.Fragment>); })}<span className="font-semibold truncate" style={{ color: "var(--foreground)" }}>{exerciseSet.title.replace(/^(Lernkarten|Grammatik-Übung|Quiz)\s*(aus|von)\s*/i, "")}</span></div>) : (<span className="text-[12px] font-semibold flex-1 truncate" style={{ color: "var(--foreground)" }}>{exerciseSet.title.replace(/^(Lernkarten|Grammatik-Übung|Quiz)\s*(aus|von)\s*/i, "")}</span>)}
+        {breadcrumbs && breadcrumbs.length > 0 ? (<div className="flex items-center gap-1 text-[12px] min-w-0 flex-1">{breadcrumbs.map((b, i) => { const bBadge = _getToolBadge(b.toolKey, badgeCategory); return (<React.Fragment key={i}>{bBadge ? (<button type="button" onClick={b.onClick} className="font-medium shrink-0 px-1.5 py-0.5 rounded opacity-60 hover:opacity-100 transition-opacity" style={{ backgroundColor: bBadge.bg, color: bBadge.color }}>{b.label}</button>) : (<button type="button" onClick={b.onClick} className="font-medium shrink-0 opacity-60 hover:opacity-100 transition-opacity" style={{ color: "var(--muted)" }}>{b.label}</button>)}<CaretRight size={9} weight="bold" style={{ opacity: 0.5 }} className="shrink-0" /></React.Fragment>); })}<span className="font-semibold truncate" style={{ color: "var(--foreground)" }}>{exerciseSet.title.replace(/^(Lernkarten|Grammatik-Übung|Quiz)\s*(aus|von)\s*/i, "")}</span></div>) : (<span className="text-[12px] font-semibold flex-1 truncate" style={{ color: "var(--foreground)" }}>{exerciseSet.title.replace(/^(Lernkarten|Grammatik-Übung|Quiz)\s*(aus|von)\s*/i, "")}</span>)}
         {minimize && (
           <button type="button" onClick={minimize}
             className="w-7 h-7 flex items-center justify-center rounded-full btn-icon"
@@ -187,7 +201,10 @@ export function MCExerciseView({
                       }}
                     />
                   ) : (
-                    <p className="text-sm font-semibold leading-snug" style={{ color: "var(--foreground)" }} dangerouslySetInnerHTML={{ __html: _md(card.front) }} />
+                    // pre-line keeps the blank line a grammar exercise puts between its
+                    // task and the sentence it refers to. Quiz questions carry no line
+                    // breaks, so they render exactly as before.
+                    <p className="text-sm font-semibold leading-snug" style={{ color: "var(--foreground)", whiteSpace: "pre-line" }} dangerouslySetInnerHTML={{ __html: _md(card.front) }} />
                   )}
                   {/* Options */}
                   <div className="flex flex-col gap-2 mt-1">
@@ -200,10 +217,15 @@ export function MCExerciseView({
                       let dotColor = "var(--muted)";
                       if (answered && isRight) { borderColor = "#1a8a5c"; bg = "rgba(26,138,92,0.08)"; dotBg = "#1a8a5c"; dotColor = "#fff"; }
                       else if (answered && isThis && !isRight) { borderColor = "#d4453a"; bg = "rgba(212,69,58,0.07)"; dotBg = "#d4453a"; dotColor = "#fff"; }
+                      // Only before answering: afterwards the border carries the result
+                      // and must not change under the pointer.
+                      if (!answered && hovered === oi) { borderColor = "var(--kb)"; }
                       return (
                         <button key={oi} type="button" onClick={() => select(oi)}
                           disabled={answered}
-                          className={`w-full text-left flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium border-2 transition-colors enabled:hover:border-kb ${!answered ? "active:scale-[0.98] cursor-pointer" : ""}`}
+                          onMouseEnter={() => setHovered(oi)}
+                          onMouseLeave={() => setHovered((h) => (h === oi ? null : h))}
+                          className={`w-full text-left flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium border-2 transition-colors ${!answered ? "active:scale-[0.98] cursor-pointer" : ""}`}
                           style={{ borderColor, backgroundColor: bg, color: "var(--foreground)", opacity: answered && !isThis && !isRight ? 0.45 : 1 }}>
                           <span className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold shrink-0"
                             style={{ backgroundColor: dotBg, color: dotColor }}>
@@ -222,6 +244,13 @@ export function MCExerciseView({
                         : { color: "#d4453a", backgroundColor: "rgba(212,69,58,0.07)" }}>
                       {isCorrect ? `✓ ${t("common.correctShort")}` : `✗ ${t("common.wrongShort")}`}
                     </div>
+                  )}
+                  {/* Why that form is the right one. Only the grammar quiz fills this,
+                      the content quiz leaves it empty — and for a form exercise the
+                      reason IS the learning, so it must not stay hidden. */}
+                  {answered && card.explanation && (
+                    <p className="text-xs leading-relaxed -mt-2" style={{ color: "var(--muted)" }}
+                      dangerouslySetInnerHTML={{ __html: _md(card.explanation) }} />
                   )}
                   {/* Source chips + Hint */}
                   <div className="flex items-center justify-between mt-1 gap-2">
@@ -256,7 +285,7 @@ export function MCExerciseView({
                         );
                       })()}
                     </div>
-                    {!answered && (
+                    {!answered && showChatHelp && (
                       <div className="flex items-center gap-2 shrink-0">
                         {(
                           <button type="button" onClick={requestHint}
@@ -269,7 +298,7 @@ export function MCExerciseView({
                       </div>
                     )}
                   </div>
-                  {answered && (
+                  {answered && showChatHelp && (
                     <div className="flex items-center justify-start mt-2">
                       <button type="button" onClick={() => {
                         onAskChat(isGap

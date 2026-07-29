@@ -12,6 +12,8 @@ const loader = () => <div className="flex-1 flex items-center justify-center p-6
 const VocabFlashcards = dynamic(() => import("./VocabFlashcards").then((m) => ({ default: m.VocabFlashcards })), { loading: loader, ssr: false });
 const GrammarExerciseView = dynamic(() => import("./GrammarExerciseView").then((m) => ({ default: m.GrammarExerciseView })), { loading: loader, ssr: false });
 const FlashcardsLearnView = dynamic(() => import("./FlashcardsLearnView").then((m) => ({ default: m.FlashcardsLearnView })), { loading: loader, ssr: false });
+// The grammar quiz ticks its answer, so it runs in the same view the quiz uses.
+const MCExerciseView = dynamic(() => import("./MCExerciseView").then((m) => ({ default: m.MCExerciseView })), { loading: loader, ssr: false });
 
 import type {
   ExerciseSet,
@@ -152,8 +154,26 @@ export function LanguageTrainingContent(props: LanguageTrainingContentProps) {
             category="language_training"
           />
         );
-      case "gr-learn":
-        return activeSet ? (
+      case "gr-learn": {
+        if (!activeSet) return null;
+        // Ticking or writing is decided by the exercise type, and the finished set
+        // carries that decision in its data: a ticking set has options on its items.
+        // Reading it off the items keeps the sets that already exist working.
+        const isTicking = (activeSet.items || []).some((i) => (i.options?.length ?? 0) > 0);
+        const grammarCrumbs = [toOverviewWithReset, { label: grammarLabel, toolKey: "Grammar", onClick: () => { setActiveSet(null); setSprachView("gr-sets"); } }];
+        return isTicking ? (
+          <MCExerciseView
+            exerciseSet={activeSet}
+            onBack={() => { setSprachView("gr-sets"); setActiveSet(null); refreshProgress(); }}
+            onAnswer={(itemId, correct, newRun) => submitSingleAnswer(activeSet.id, itemId, correct, newRun)}
+            onAskChat={handleAskChat}
+            onSourceClick={onSourceClick}
+            breadcrumbs={grammarCrumbs}
+            chatLang={chatLang}
+            badgeCategory="language_training"
+            showChatHelp={false}
+          />
+        ) : (
           <GrammarExerciseView
             exerciseSet={activeSet}
             workspaceUuid={workspaceUuid}
@@ -161,9 +181,10 @@ export function LanguageTrainingContent(props: LanguageTrainingContentProps) {
             onAnswer={(itemId, correct, newRun) => submitSingleAnswer(activeSet.id, itemId, correct, newRun)}
             onSourceClick={onSourceClick}
             onFinish={(correct, total) => { setGrammarScore({ correct, total }); setSprachView("gr-complete"); }}
-            breadcrumbs={[toOverviewWithReset, { label: grammarLabel, toolKey: "Grammar", onClick: () => { setActiveSet(null); setSprachView("gr-sets"); } }]}
+            breadcrumbs={grammarCrumbs}
           />
-        ) : null;
+        );
+      }
       case "gr-complete":
         return activeSet ? (
           <ExerciseCompletion

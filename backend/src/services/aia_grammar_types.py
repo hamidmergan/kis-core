@@ -9,14 +9,100 @@ Liegt bewusst unter ``services`` und nicht bei den Celery-Tasks: Routen, Task un
 Prüfung brauchen ihn gleichermassen, und ein Import aus ``tasks`` heraus zieht das
 ganze Task-Paket nach und schliesst einen Importzyklus über die Attribution.
 
-``format`` ist heute überall "text" (Freitext). Ein späterer Multiple-Choice-Typ
-setzt "choice" und lässt den Generator zusätzlich Distraktoren liefern.
+``format`` entscheidet, wie geantwortet wird: "text" ist Freitext und wird
+serverseitig geprüft, "choice" ist Ankreuzen und wird im Browser entschieden.
+Ein Ankreuz-Typ bringt zusätzlich ``wrong`` und ``example_task`` mit, beides nur
+für das Muster im Prompt.
 """
 
 from typing import Optional
 
-# Reihenfolge ist die Anzeigereihenfolge im Erstellen-Dialog.
+# Reihenfolge ist die Anzeigereihenfolge im Erstellen-Dialog. Der erste Eintrag ist
+# im Dialog vorausgewählt, deshalb steht das Quiz vorne: Set anlegen bleibt ein Klick.
 GRAMMAR_TYPES: list[dict] = [
+    {
+        "id": "grammar_quiz",
+        "label": {"de": "Grammatik-Quiz", "en": "Grammar quiz"},
+        "instruction": {
+            "de": "Kreuze die richtige Form an.",
+            "en": "Tick the correct form.",
+        },
+        # Der einzige Typ ohne feste Zielform: welche Formen drankommen, entscheidet
+        # das Modell am Quelltext. Deshalb trägt hier jede Aufgabe ihre eigene
+        # Anweisung, statt eines Musterpaars über dem ganzen Set.
+        "rule": (
+            "Each exercise shows one statement about the source subject matter and asks the "
+            "learner to produce ONE specific grammatical form of it. Choose the forms yourself "
+            "from what the output language offers (voice, tense, mood, case, comparison, modal "
+            "verbs, word order). Use at least three different forms across the set and never "
+            "the same one in two exercises in a row: told only to vary, the model drills a "
+            "single form. The required form is named in 'task', never in the options.\n"
+            "NEVER ask the learner to join two sentences with a conjunction. That is not a "
+            "form exercise: the conjunction has to fit the meaning, and a wrong one turns the "
+            "sentence into nonsense. Every exercise transforms ONE given sentence."
+        ),
+        "example": {
+            "de": {"before": "Die Dozentin erklärt einen komplizierten Begriff.",
+                   "after": "Ein komplizierter Begriff wird von der Dozentin erklärt."},
+            "en": {"before": "The lecturer explains a complicated term.",
+                   "after": "A complicated term is explained by the lecturer."},
+        },
+        "example_task": {
+            "de": "Bilden Sie das Passiv Präsens.",
+            "en": "Form the present passive.",
+        },
+        # Zwei weitere fertige Aufgaben. Ein einziges Beispiel reicht nicht: auf
+        # Vorlesungsmaterial lieferte das Modell damit 0 und 2 von 10 brauchbaren
+        # Aufgaben, mit dreien 4 und 7. Es ahmt Formvarianten nach, die es sieht, und
+        # ein Grammatik-Handout liefert selbst Dutzende. Genau deshalb sah das Werkzeug
+        # auf einem Handout gut aus und versagte auf jeder Fachquelle.
+        "more_examples": {
+            "de": [
+                {"task": "Bilden Sie das Perfekt.",
+                 "sentence": "Das Team sammelt die Daten.",
+                 "options": ["Das Team hat die Daten gesammelt.",
+                             "Das Team ist die Daten gesammelt.",
+                             "Das Team hat die Daten sammeln.",
+                             "Das Team hatte die Daten gesammelt."]},
+                {"task": "Bilden Sie den Satz mit 'müssen'.",
+                 "sentence": "Die Studierenden prüfen die Quellen.",
+                 "options": ["Die Studierenden müssen die Quellen prüfen.",
+                             "Die Studierenden müssen die Quellen geprüft.",
+                             "Die Studierenden müsst die Quellen prüfen.",
+                             "Die Studierenden müssen die Quellen zu prüfen."]},
+            ],
+            "en": [
+                {"task": "Form the present perfect.",
+                 "sentence": "The team collects the data.",
+                 "options": ["The team has collected the data.",
+                             "The team is collected the data.",
+                             "The team has collect the data.",
+                             "The team had collected the data."]},
+                {"task": "Rewrite the sentence with 'must'.",
+                 "sentence": "The students check the sources.",
+                 "options": ["The students must check the sources.",
+                             "The students must checked the sources.",
+                             "The students must to check the sources.",
+                             "The students musts check the sources."]},
+            ],
+        },
+        # Die drei falschen Formen zum Musterpaar. Ohne sie hat das Modell kein
+        # Beispiel dafür, wie ein Distraktor aussieht, und erfindet inhaltliche
+        # Optionen: genau der gemeldete Fehler.
+        "wrong": {
+            "de": [
+                "Ein komplizierter Begriff ist von der Dozentin erklärt.",
+                "Ein komplizierter Begriff wird von der Dozentin erklären.",
+                "Ein komplizierter Begriff wurde von der Dozentin erklärt.",
+            ],
+            "en": [
+                "A complicated term is explain by the lecturer.",
+                "A complicated term was explained by the lecturer.",
+                "A complicated term has explained by the lecturer.",
+            ],
+        },
+        "format": "choice",
+    },
     {
         "id": "passive_present",
         "label": {"de": "Passiv Präsens", "en": "Passive present"},
@@ -97,6 +183,31 @@ def example_pair(entry: dict, locale: str) -> dict:
     return {"before": pair.get("before", ""), "after": pair.get("after", "")}
 
 
+def wrong_forms(entry: dict, locale: str) -> list[str]:
+    """Die falschen Formen zum Musterpaar eines Ankreuz-Typs, sonst leer."""
+    forms = entry.get("wrong") or {}
+    return list(forms.get(locale) or forms.get(_FALLBACK_LANG) or [])
+
+
+def worked_exercises(entry: dict, locale: str) -> list[dict]:
+    """Alle fertigen Beispielaufgaben eines Ankreuz-Typs, das Musterpaar zuerst.
+
+    Jede als ``{"task", "sentence", "options"}``. Der Generator zeigt sie hinter dem
+    Quellmaterial, weil ein einziges Beispiel nachweislich nicht reicht.
+    """
+    pair = example_pair(entry, locale)
+    if not pair["before"]:
+        return []
+    first = {
+        "task": localized(entry, "example_task", locale),
+        "sentence": pair["before"],
+        "options": [pair["after"], *wrong_forms(entry, locale)],
+    }
+    more = entry.get("more_examples") or {}
+    extra = more.get(locale) or more.get(_FALLBACK_LANG) or []
+    return [first, *[dict(e) for e in extra]]
+
+
 def catalog_for_api(locale: str) -> list[dict]:
     """Was das Frontend braucht: id, Label und Anweisung, ohne die Modell-Regel.
 
@@ -119,5 +230,7 @@ __all__ = [
     "get_grammar_type",
     "localized",
     "example_pair",
+    "wrong_forms",
+    "worked_exercises",
     "catalog_for_api",
 ]
