@@ -68,7 +68,7 @@ async def get_job_slide_images(
 
 
 @router.get("/screencast/pptx/{translate_job_uuid}")
-async def download_pptx_file(
+def download_pptx_file(
     translate_job_uuid: str,
     current_user: dict = Depends(get_current_user),
     locale: str = Depends(get_locale),

@@ -51,7 +51,7 @@ router = APIRouter(tags=["admin: providers"])
 
 
 @router.get("/providers/meta")
-async def get_provider_meta(_admin=Depends(get_admin_user)):
+def get_provider_meta(_admin=Depends(get_admin_user)):
     """Static metadata for the admin UI: protocol dropdown, capability list,
     feature list. Frontend reads this once on page load."""
     protocols = []
@@ -73,7 +73,7 @@ async def get_provider_meta(_admin=Depends(get_admin_user)):
 
 
 @router.get("/providers")
-async def list_providers(_admin=Depends(get_admin_user)):
+def list_providers(_admin=Depends(get_admin_user)):
     rows = db.list_providers()
     # Mask api_key in responses - only the last 6 chars are returned for
     # UI display ("sk-...abc123"). The full key never leaves the backend.
@@ -81,7 +81,7 @@ async def list_providers(_admin=Depends(get_admin_user)):
 
 
 @router.post("/providers")
-async def create_provider(
+def create_provider(
     body: CreateProviderRequest,
     _admin=Depends(get_admin_user),
     locale: str = Depends(get_locale),
@@ -128,7 +128,7 @@ async def create_provider(
 
 
 @router.get("/providers/export")
-async def export_config(
+def export_config(
     _admin=Depends(get_admin_user),
 ):
     """Download the full AI config as JSON. Never includes api_keys."""
@@ -141,7 +141,7 @@ async def export_config(
 
 
 @router.get("/providers/{provider_id}")
-async def get_provider(
+def get_provider(
     provider_id: int,
     _admin=Depends(get_admin_user),
     locale: str = Depends(get_locale),
@@ -153,7 +153,7 @@ async def get_provider(
 
 
 @router.patch("/providers/{provider_id}")
-async def update_provider(
+def update_provider(
     provider_id: int,
     body: UpdateProviderRequest,
     _admin=Depends(get_admin_user),
@@ -201,12 +201,12 @@ async def update_provider(
 
 
 @router.delete("/providers/all")
-async def clear_all(_admin=Depends(get_admin_user)):
+def clear_all(_admin=Depends(get_admin_user)):
     return perform_clear_all()
 
 
 @router.delete("/providers/{provider_id}")
-async def delete_provider(
+def delete_provider(
     provider_id: int,
     _admin=Depends(get_admin_user),
     locale: str = Depends(get_locale),
@@ -219,7 +219,7 @@ async def delete_provider(
 
 
 @router.post("/providers/{provider_id}/probe")
-async def reprobe_provider(
+def reprobe_provider(
     provider_id: int,
     _admin=Depends(get_admin_user),
     locale: str = Depends(get_locale),
@@ -239,7 +239,7 @@ async def reprobe_provider(
 
 
 @router.get("/providers/{provider_id}/affected-features")
-async def get_affected_features(
+def get_affected_features(
     provider_id: int,
     _admin=Depends(get_admin_user),
     locale: str = Depends(get_locale),
@@ -308,12 +308,12 @@ async def discover_voices(
 
 
 @router.get("/feature-routes")
-async def list_feature_routes(_admin=Depends(get_admin_user)):
+def list_feature_routes(_admin=Depends(get_admin_user)):
     return {"routes": db.list_routes()}
 
 
 @router.post("/feature-routes/{feature}/test")
-async def test_route(
+def test_route(
     feature: str,
     provider_id: int | None = Query(None),
     _admin=Depends(get_admin_user),
@@ -360,7 +360,7 @@ async def test_route(
 
 
 @router.patch("/feature-routes/{feature}")
-async def set_feature_route(
+def set_feature_route(
     feature: str,
     body: SetFeatureRouteRequest,
     _admin=Depends(get_admin_user),
@@ -618,7 +618,7 @@ def _route_exists(feature: str) -> bool:
 
 
 @router.post("/providers/import/preview")
-async def import_preview(
+def import_preview(
     body: ImportConfigRequest,
     _admin=Depends(get_admin_user),
 ):
@@ -726,7 +726,7 @@ def perform_import(cfg: dict) -> dict:
 
 
 @router.post("/providers/import")
-async def import_config(
+def import_config(
     body: ImportConfigRequest,
     _admin=Depends(get_admin_user),
 ):

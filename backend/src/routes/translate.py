@@ -31,7 +31,7 @@ router = APIRouter(
 )
 
 @router.get("/translate/config")
-async def get_translate_config(
+def get_translate_config(
     current_user: dict = Depends(get_current_user),
     locale: str = Depends(get_locale),
 ):

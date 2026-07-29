@@ -44,7 +44,7 @@ async def get_tts_providers_with_voices():
 
 
 @router.post("/tts/providers/{provider_id}/preview")
-async def tts_provider_preview(
+def tts_provider_preview(
     provider_id: int,
     body: dict,
     _user=Depends(get_current_user),

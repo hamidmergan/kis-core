@@ -41,7 +41,7 @@ def _load_translate_result(result_path: str | None) -> dict:
 
 
 @router.get("/screencast/resume/{translate_job_uuid}")
-async def get_resume_data(
+def get_resume_data(
     translate_job_uuid: str,
     current_user: dict = Depends(get_current_user),
     locale: str = Depends(get_locale),
@@ -99,7 +99,7 @@ async def get_resume_data(
 
 
 @router.get("/screencast/folder-exists/{translate_job_uuid}")
-async def check_folder_exists(
+def check_folder_exists(
     translate_job_uuid: str,
     current_user: dict = Depends(get_current_user),
     locale: str = Depends(get_locale),

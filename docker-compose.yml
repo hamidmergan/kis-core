@@ -88,6 +88,21 @@ services:
       postgres:
         condition: service_healthy
     restart: unless-stopped
+    # Macht sichtbar, ob der Prozess noch antwortet. Ein abgestuerzter Prozess
+    # wird schon von restart:unless-stopped aufgefangen, ein HAENGENDER nicht,
+    # und genau der ist der wahrscheinlichere Fall.
+    # ACHTUNG: Docker Compose startet einen ungesunden Container NICHT von
+    # selbst neu, es zeigt ihn nur als "unhealthy" in `docker ps`. Fuer echten
+    # Selbstheilungsbetrieb braucht es zusaetzlich einen Watchdog.
+    # curl ist im Image nicht vorhanden, deshalb ueber python.
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8000/health', timeout=5).status == 200 else 1)"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      # Der Start dauert gemessen 20 bis 35 Sekunden (Schema, Storage, Routen).
+      # Ohne diese Karenz waere der Container beim Hochfahren sofort ungesund.
+      start_period: 90s
     logging:
       driver: json-file
       options:

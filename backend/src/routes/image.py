@@ -43,7 +43,7 @@ def _validate_provider(feature: str, provider_id: int | None, locale: str) -> No
 
 
 @router.post("/image/generate")
-async def generate_image(
+def generate_image(
     prompt: str = Form(...),
     size: str = Form("1024x1024"),
     provider_id: int | None = Form(None),

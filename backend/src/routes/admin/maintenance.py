@@ -48,14 +48,14 @@ async def get_maintenance(_admin=Depends(get_admin_user)):
 
 
 @router.post("/maintenance")
-async def set_maintenance(body: MaintenanceToggleRequest, _admin=Depends(get_admin_user)):
+def set_maintenance(body: MaintenanceToggleRequest, _admin=Depends(get_admin_user)):
     db.set_setting("maintenance_mode", "true" if body.enabled else "false")
     logger.info("Maintenance mode set to {}", body.enabled)
     return {"ok": True, "enabled": body.enabled}
 
 
 @router.post("/reindex-all")
-async def reindex_all(
+def reindex_all(
     _admin=Depends(get_admin_user),
     locale: str = Depends(get_locale),
 ):

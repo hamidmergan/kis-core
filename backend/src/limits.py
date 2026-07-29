@@ -234,3 +234,19 @@ AIA_MAX_CONCURRENT_UPLOADS             = 3
 # und ging vorher als eine einzige Anfrage raus, also immer in den Timeout.
 # Admin-Einstellung zur Laufzeit: tts_max_chars_per_request.
 TTS_MAX_CHARS_PER_REQUEST              = 400
+
+
+# ── Nebenläufigkeit im Web-Prozess ───────────────────────────────────────────
+# Die meisten Routen sind mit `def` deklariert, nicht `async def`. FastAPI führt
+# solche Routen in einem Threadpool aus, statt sie in den Event-Loop zu legen.
+# Das ist Absicht: sie rufen psycopg2, ldap3 und httpx blockierend auf, und in
+# einer `async def`-Route würde ein einziger dieser Aufrufe den kompletten
+# Prozess anhalten, also alle anderen Nutzer gleich mit.
+#
+# Die beiden Werte gehören zusammen und dürfen nicht getrennt geändert werden:
+# jeder Thread kann eine DB-Verbindung belegen, und ThreadedConnectionPool
+# BLOCKIERT NICHT, wenn er leer ist, sondern wirft PoolError. Der Threadpool muss
+# deshalb kleiner bleiben als der Verbindungsvorrat, sonst bekommen Nutzer unter
+# Last 500er statt kurz zu warten.
+REQUEST_THREAD_LIMIT                   = 32
+DB_POOL_MAX_CONNECTIONS                = 40

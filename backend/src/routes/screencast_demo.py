@@ -103,7 +103,7 @@ def _demo_images_exist() -> bool:
 # ── Endpoints ─────────────────────────────────────────────────────────────────
 
 @router.get("/screencast-demo/available")
-async def demo_available():
+def demo_available():
     """Check whether demo data is available."""
     images_exist = _demo_images_exist()
     video_path = _find_demo_video()
@@ -117,7 +117,7 @@ async def demo_available():
 
 
 @router.post("/screencast-demo/translate")
-async def demo_translate(
+def demo_translate(
     _: dict = Depends(get_current_user),
     locale: str = Depends(get_locale),
 ):
@@ -142,7 +142,7 @@ async def demo_translate(
 
 
 @router.post("/screencast-demo/generate-scripts")
-async def demo_generate_scripts(
+def demo_generate_scripts(
     body: DemoGenerateScriptsRequest = DemoGenerateScriptsRequest(),
     locale: str = Depends(get_locale),
 ):
@@ -159,7 +159,7 @@ async def demo_generate_scripts(
 
 
 @router.post("/screencast-demo/render")
-async def demo_render(
+def demo_render(
     body: DemoRenderRequest,
     _: dict = Depends(get_current_user),
     locale: str = Depends(get_locale),
@@ -263,7 +263,7 @@ def _streaming_demo_bundle():
 
 
 @router.get("/screencast-demo/bundle")
-async def demo_bundle(_: dict = Depends(get_current_user)):
+def demo_bundle(_: dict = Depends(get_current_user)):
     """Return a ZIP with the demo video, scripts, PPTX, audio and images."""
     return StreamingResponse(
         _streaming_demo_bundle(),

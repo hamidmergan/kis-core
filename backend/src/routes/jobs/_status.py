@@ -16,7 +16,7 @@ router = APIRouter()
 
 
 @router.get("/{job_uuid}")
-async def get_job_status(
+def get_job_status(
     job_uuid: str,
     current_user: dict = Depends(get_current_user),
     locale: str = Depends(get_locale),

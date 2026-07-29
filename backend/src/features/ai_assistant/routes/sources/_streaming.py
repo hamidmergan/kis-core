@@ -29,7 +29,7 @@ def _inline_content_disposition(filename: str) -> str:
 
 
 @router.get("/ai-assistant/workspaces/{workspace_uuid}/sources/{source_uuid}/file")
-async def stream_source_file(
+def stream_source_file(
     workspace_uuid: str,
     source_uuid: str,
     request: Request,

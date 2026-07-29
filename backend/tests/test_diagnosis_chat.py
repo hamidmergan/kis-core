@@ -558,9 +558,11 @@ def test_question_count_is_twelve():
 
 
 def test_diagnosis_config_defaults(monkeypatch):
-    import asyncio
     from src.features.ai_assistant.routes.language_training import diagnosis as route
     monkeypatch.setattr(route.db, "get_setting", lambda key, default="": default)
-    out = asyncio.run(route.config(current_user={"user_id": 1}))
+    # route.config ist bewusst `def`, nicht `async def`: FastAPI fuehrt solche
+    # Routen im Threadpool aus, damit ihre blockierenden DB-Aufrufe nicht den
+    # ganzen Prozess anhalten. Der Aufruf hier ist deshalb ein normaler Aufruf.
+    out = route.config(current_user={"user_id": 1})
     assert out["question_count"] == QUESTION_COUNT
     assert out["answer_max_chars"] == 2000

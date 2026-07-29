@@ -15,7 +15,7 @@ router = APIRouter()
 
 
 @router.post("/{job_uuid}/retry")
-async def retry_job(
+def retry_job(
     job_uuid: str,
     current_user: dict = Depends(get_current_user),
     locale: str = Depends(get_locale),

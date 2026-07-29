@@ -21,7 +21,7 @@ router = APIRouter()
 
 
 @router.get("/my")
-async def get_my_jobs(
+def get_my_jobs(
     current_user: dict = Depends(get_current_user),
     locale: str = Depends(get_locale),
     limit: int = Query(default=20, le=200),

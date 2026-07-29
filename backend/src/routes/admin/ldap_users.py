@@ -42,7 +42,7 @@ def _employee_type_for_role(kis_role: str) -> str:
 
 
 @router.post("/ldap-users")
-async def admin_create_ldap_user(
+def admin_create_ldap_user(
     payload: CreateLdapUserPayload,
     admin: dict = Depends(get_admin_user),
     locale: str = Depends(get_locale),

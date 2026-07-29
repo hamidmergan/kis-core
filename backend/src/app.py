@@ -2,6 +2,7 @@ import asyncio
 import sys
 from contextlib import asynccontextmanager
 
+import anyio.to_thread
 from fastapi import Depends, FastAPI, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
@@ -11,6 +12,7 @@ from src import database as db
 from src.database import init_db, reset_stuck_jobs
 from src.dependencies import get_session_store, get_settings, is_admin_user
 from src.security.auth import verify_auth
+from src.limits import REQUEST_THREAD_LIMIT
 from src.storage import USE_S3, cleanup_expired_files, init_storage
 from src.routes import admin, auth, glossaries, health, image, jobs, aia, ki_status, me, screencast, screencast_demo, summary, transcription, translate, tts
 
@@ -82,6 +84,12 @@ async def _periodic_cleanup() -> None:
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     settings = get_settings()
+    # Threadpool fuer die `def`-Routen vergroessern. Vorgabe von anyio sind 40,
+    # und die gilt fuer ALLE Routen zusammen. Der Wert wird bewusst kleiner
+    # gehalten als der DB-Verbindungsvorrat, sonst laeuft der leer und wirft
+    # PoolError statt kurz zu warten. Beide Zahlen stehen in limits.py.
+    anyio.to_thread.current_default_thread_limiter().total_tokens = REQUEST_THREAD_LIMIT
+    logger.info("Request thread pool: {} threads", REQUEST_THREAD_LIMIT)
     # Fail closed: local mode disables ALL authentication (verify_auth passes
     # through, every request becomes admin). That must never happen in prod, so
     # refuse to boot if production is set but no LDAP server is configured

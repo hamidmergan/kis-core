@@ -25,7 +25,7 @@ router = APIRouter(tags=["screencast: scripts"])
 
 
 @router.patch("/screencast/scripts/{translate_job_uuid}")
-async def save_scripts(
+def save_scripts(
     translate_job_uuid: str,
     body: SaveScriptsRequest,
     current_user: dict = Depends(get_current_user),

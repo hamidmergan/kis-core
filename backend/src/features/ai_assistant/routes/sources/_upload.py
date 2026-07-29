@@ -197,7 +197,7 @@ async def upload_source(
 
 
 @router.post("/ai-assistant/workspaces/{workspace_uuid}/sources/{source_uuid}/retry")
-async def retry_source(
+def retry_source(
     workspace_uuid: str,
     source_uuid: str,
     current_user: dict = Depends(get_current_user),
@@ -225,7 +225,7 @@ async def retry_source(
 
 
 @router.delete("/ai-assistant/workspaces/{workspace_uuid}/sources/{source_uuid}")
-async def delete_source(
+def delete_source(
     workspace_uuid: str,
     source_uuid: str,
     current_user: dict = Depends(get_current_user),

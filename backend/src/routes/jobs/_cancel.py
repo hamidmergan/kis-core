@@ -16,7 +16,7 @@ router = APIRouter()
 
 
 @router.post("/{job_uuid}/cancel")
-async def cancel_job_render(
+def cancel_job_render(
     job_uuid: str,
     current_user: dict = Depends(get_current_user),
     locale: str = Depends(get_locale),
@@ -54,7 +54,7 @@ async def cancel_job_render(
 
 
 @router.delete("/{job_uuid}")
-async def cancel_job(
+def cancel_job(
     job_uuid: str,
     current_user: dict = Depends(get_current_user),
     locale: str = Depends(get_locale),

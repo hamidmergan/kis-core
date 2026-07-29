@@ -34,7 +34,7 @@ def _validate_tools(tool_keys: list[str]) -> list[str]:
 
 
 @router.get("/roles")
-async def list_roles(_admin=Depends(get_admin_user)):
+def list_roles(_admin=Depends(get_admin_user)):
     return {
         "system_roles": ["admin", "staff", "user"],
         "aia_access_levels": list(AIA_ACCESS_LEVELS),
@@ -44,14 +44,14 @@ async def list_roles(_admin=Depends(get_admin_user)):
 
 
 @router.post("/roles")
-async def create_role(payload: RolePayload, _admin=Depends(get_admin_user)):
+def create_role(payload: RolePayload, _admin=Depends(get_admin_user)):
     tools = _validate_tools(payload.allowed_tools)
     new_id = db.create_custom_role(payload.name.strip(), payload.aia_access, tools)
     return db.get_custom_role(new_id)
 
 
 @router.put("/roles/{role_id}")
-async def update_role(role_id: int, payload: RolePayload, _admin=Depends(get_admin_user)):
+def update_role(role_id: int, payload: RolePayload, _admin=Depends(get_admin_user)):
     if db.get_custom_role(role_id) is None:
         raise HTTPException(status_code=404, detail="Role not found")
     tools = _validate_tools(payload.allowed_tools)
@@ -60,7 +60,7 @@ async def update_role(role_id: int, payload: RolePayload, _admin=Depends(get_adm
 
 
 @router.delete("/roles/{role_id}")
-async def delete_role(role_id: int, _admin=Depends(get_admin_user)):
+def delete_role(role_id: int, _admin=Depends(get_admin_user)):
     if db.get_custom_role(role_id) is None:
         raise HTTPException(status_code=404, detail="Role not found")
     db.delete_custom_role(role_id)

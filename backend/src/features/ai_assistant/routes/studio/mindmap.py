@@ -18,7 +18,7 @@ from src.features.ai_assistant import schemas
 router = APIRouter(tags=["ki-assistent: studio"])
 
 @router.post("/ai-assistant/workspaces/{workspace_uuid}/mindmap/generate")
-async def generate_mindmap(
+def generate_mindmap(
     workspace_uuid: str,
     body: schemas.MindmapGenerateBody,
     current_user: dict = Depends(get_current_user),
@@ -65,7 +65,7 @@ async def generate_mindmap(
     return {"mindmap_id": mindmap_id, "status": "pending"}
 
 @router.get("/ai-assistant/workspaces/{workspace_uuid}/mindmap/{mindmap_id}")
-async def get_mindmap(
+def get_mindmap(
     workspace_uuid: str,
     mindmap_id: int,
     current_user: dict = Depends(get_current_user),
@@ -94,7 +94,7 @@ async def get_mindmap(
     }
 
 @router.get("/ai-assistant/workspaces/{workspace_uuid}/mindmap")
-async def get_latest_mindmap(
+def get_latest_mindmap(
     workspace_uuid: str,
     current_user: dict = Depends(get_current_user),
     locale: str = Depends(get_locale),
@@ -122,7 +122,7 @@ async def get_latest_mindmap(
     }
 
 @router.get("/ai-assistant/workspaces/{workspace_uuid}/mindmaps")
-async def list_mindmaps(
+def list_mindmaps(
     workspace_uuid: str,
     current_user: dict = Depends(get_current_user),
     locale: str = Depends(get_locale),
@@ -149,7 +149,7 @@ async def list_mindmaps(
     ]
 
 @router.delete("/ai-assistant/workspaces/{workspace_uuid}/mindmap/{mindmap_id}")
-async def delete_mindmap(
+def delete_mindmap(
     workspace_uuid: str,
     mindmap_id: int,
     current_user: dict = Depends(get_current_user),

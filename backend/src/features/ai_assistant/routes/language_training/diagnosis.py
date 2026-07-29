@@ -291,7 +291,7 @@ async def turn(
 
 
 @router.get("/ai-assistant/language-diagnosis/config")
-async def config(current_user: dict = Depends(get_current_user)):
+def config(current_user: dict = Depends(get_current_user)):
     """Runtime knobs the diagnosis UI needs: how many questions, and the soft
     answer-length cap. Both come from admin settings, with code defaults.
 
@@ -311,7 +311,7 @@ async def config(current_user: dict = Depends(get_current_user)):
 
 
 @router.delete("/ai-assistant/language-diagnosis/me")
-async def reset(
+def reset(
     current_user: dict = Depends(get_current_user),
 ):
     db.clear_user_language_level(current_user["user_id"])

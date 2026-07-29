@@ -20,7 +20,7 @@ _TOOL_GROUP_LIMITS = {
 
 
 @router.get("/check/{tool_group}")
-async def check_job_limit(
+def check_job_limit(
     tool_group: str,
     current_user: dict = Depends(get_current_user),
 ):

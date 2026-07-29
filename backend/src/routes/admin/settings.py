@@ -55,7 +55,7 @@ router = APIRouter(tags=["admin: settings"])
 
 
 @router.get("/settings")
-async def get_settings(_admin=Depends(get_admin_user)):
+def get_settings(_admin=Depends(get_admin_user)):
     def _enabled(key: str, default: str = "true") -> bool:
         return db.get_setting(key, default).lower() == "true"
 
@@ -166,7 +166,7 @@ async def get_settings(_admin=Depends(get_admin_user)):
 
 
 @router.patch("/settings")
-async def update_settings(
+def update_settings(
     body: UpdateSettingsRequest,
     _admin=Depends(get_admin_user),
     locale: str = Depends(get_locale),

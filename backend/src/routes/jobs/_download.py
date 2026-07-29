@@ -26,7 +26,7 @@ router = APIRouter()
 
 
 @router.get("/{job_uuid}/download")
-async def download_job_result(
+def download_job_result(
     job_uuid: str,
     current_user: dict = Depends(get_current_user),
     locale: str = Depends(get_locale),
@@ -62,7 +62,7 @@ async def download_job_result(
 
 
 @router.get("/{job_uuid}/pptx")
-async def download_job_pptx(
+def download_job_pptx(
     job_uuid: str,
     current_user: dict = Depends(get_current_user),
     locale: str = Depends(get_locale),
@@ -198,7 +198,7 @@ def _streaming_zip_bundle(user_id: int, job_uuid: str, stem: str, audio_count: i
 
 
 @router.get("/{job_uuid}/bundle")
-async def download_job_bundle(
+def download_job_bundle(
     job_uuid: str,
     current_user: dict = Depends(get_current_user),
     locale: str = Depends(get_locale),

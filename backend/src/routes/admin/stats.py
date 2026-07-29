@@ -11,7 +11,7 @@ router = APIRouter(tags=["admin: stats"])
 
 
 @router.get("/stats")
-async def get_stats(
+def get_stats(
     days: int = Query(default=30, ge=1, le=365),
     _admin=Depends(get_admin_user),
 ):
@@ -44,7 +44,7 @@ async def get_stats(
 
 
 @router.get("/ai-assistant/stats")
-async def get_aia_stats(
+def get_aia_stats(
     days: int = Query(default=30, ge=1, le=365),
     mode: str | None = Query(default=None, regex="^(source|glossary)$"),
     _admin=Depends(get_admin_user),

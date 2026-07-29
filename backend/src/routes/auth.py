@@ -16,7 +16,7 @@ class LoginRequest(BaseModel):
 
 
 @router.post("/login")
-async def login(body: LoginRequest, response: Response, locale: str = Depends(get_locale)):
+def login(body: LoginRequest, response: Response, locale: str = Depends(get_locale)):
     settings = get_settings()
 
     # Step 1: LDAP authentication
@@ -106,7 +106,7 @@ async def login(body: LoginRequest, response: Response, locale: str = Depends(ge
 
 
 @router.post("/logout")
-async def logout(request: Request, response: Response):
+def logout(request: Request, response: Response):
     token = request.cookies.get("session")
     if token:
         store = get_session_store()
@@ -116,7 +116,7 @@ async def logout(request: Request, response: Response):
 
 
 @router.get("/status")
-async def auth_status(request: Request):
+def auth_status(request: Request):
     settings = get_settings()
 
     if settings.is_local_mode:

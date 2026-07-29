@@ -15,7 +15,7 @@ router = APIRouter(tags=["admin: tools"])
 
 
 @router.get("/tools")
-async def get_tools(_user=Depends(get_current_user)):
+def get_tools(_user=Depends(get_current_user)):
     """Return all tools with their enabled/disabled state. Accessible by all logged-in users."""
     disabled = set(json.loads(db.get_setting("disabled_tools", "[]")))
     enabled_overrides = set(json.loads(db.get_setting("enabled_tools_override", "[]")))
@@ -36,7 +36,7 @@ async def get_tools(_user=Depends(get_current_user)):
 
 
 @router.patch("/tools/{tool_key}")
-async def toggle_tool(
+def toggle_tool(
     tool_key: str,
     body: ToggleToolRequest,
     _admin=Depends(get_admin_user),

@@ -83,7 +83,7 @@ from src.features.ai_assistant import schemas
 router = APIRouter(tags=["ki-assistent: notes"])
 
 @router.get("/ai-assistant/workspaces/{workspace_uuid}/notes")
-async def get_notes(
+def get_notes(
     workspace_uuid: str,
     current_user: dict = Depends(get_current_user),
     locale: str = Depends(get_locale),
@@ -113,7 +113,7 @@ async def get_notes(
     ]
 
 @router.post("/ai-assistant/workspaces/{workspace_uuid}/notes")
-async def create_note(
+def create_note(
     workspace_uuid: str,
     body: schemas.NoteBody,
     background_tasks: BackgroundTasks,
@@ -157,7 +157,7 @@ async def create_note(
     }
 
 @router.patch("/ai-assistant/workspaces/{workspace_uuid}/notes/{note_id}/title")
-async def update_note_title(
+def update_note_title(
     workspace_uuid: str,
     note_id: int,
     body: schemas.NoteTitleBody,
@@ -175,7 +175,7 @@ async def update_note_title(
     return {"ok": True}
 
 @router.delete("/ai-assistant/workspaces/{workspace_uuid}/notes/{note_id}")
-async def delete_note(
+def delete_note(
     workspace_uuid: str,
     note_id: int,
     current_user: dict = Depends(get_current_user),

@@ -29,7 +29,7 @@ router = APIRouter(tags=["ki-assistent: workspaces"])
     "/ai-assistant/workspaces",
     dependencies=[Depends(require_workspace_create)],
 )
-async def create_workspace(
+def create_workspace(
     title: str = Form(..., max_length=100),
     description: Optional[str] = Form(None, max_length=300),
     expires_at: Optional[str] = Form(None),
@@ -69,7 +69,7 @@ async def create_workspace(
     }
 
 @router.get("/ai-assistant/workspaces")
-async def list_workspaces(current_user: dict = Depends(get_current_user)):
+def list_workspaces(current_user: dict = Depends(get_current_user)):
     user_id = current_user["user_id"]
     workspaces = db.get_aia_workspaces_by_user(user_id)
     result = []
@@ -102,7 +102,7 @@ async def list_workspaces(current_user: dict = Depends(get_current_user)):
     return result
 
 @router.get("/ai-assistant/transcript-languages")
-async def list_transcript_languages(
+def list_transcript_languages(
     current_user: dict = Depends(get_current_user),
     locale: str = Depends(get_locale),
 ):
@@ -117,7 +117,7 @@ async def list_transcript_languages(
 
 
 @router.get("/ai-assistant/workspaces/{workspace_uuid}")
-async def get_workspace(
+def get_workspace(
     workspace_uuid: str,
     current_user: dict = Depends(get_current_user),
     locale: str = Depends(get_locale),
@@ -200,7 +200,7 @@ def _dispatch_transcript_retranslation(workspace: dict, target_lang: str) -> Non
 
 
 @router.patch("/ai-assistant/workspaces/{workspace_uuid}")
-async def patch_workspace(
+def patch_workspace(
     workspace_uuid: str,
     body: schemas.PatchWorkspaceBody,
     current_user: dict = Depends(get_current_user),
@@ -241,7 +241,7 @@ async def patch_workspace(
     return {"uuid": workspace_uuid, "title": new_title, "is_active": new_active}
 
 @router.patch("/ai-assistant/workspaces/{workspace_uuid}/renew-code")
-async def renew_enroll_code(
+def renew_enroll_code(
     workspace_uuid: str,
     body: schemas.RenewCodeBody,
     current_user: dict = Depends(get_current_user),
@@ -263,7 +263,7 @@ async def renew_enroll_code(
 # ─── Access Links ────────────────────────────────────────────────────────────
 
 @router.post("/ai-assistant/workspaces/{workspace_uuid}/access-links")
-async def create_workspace_access_link(
+def create_workspace_access_link(
     workspace_uuid: str,
     body: schemas.CreateAccessLinkBody,
     current_user: dict = Depends(get_current_user),
@@ -290,7 +290,7 @@ async def create_workspace_access_link(
     }
 
 @router.get("/ai-assistant/workspaces/{workspace_uuid}/access-links")
-async def list_access_links(
+def list_access_links(
     workspace_uuid: str,
     current_user: dict = Depends(get_current_user),
     locale: str = Depends(get_locale),
@@ -308,7 +308,7 @@ async def list_access_links(
     ]
 
 @router.delete("/ai-assistant/workspaces/{workspace_uuid}/access-links/{link_id}")
-async def delete_access_link(
+def delete_access_link(
     workspace_uuid: str,
     link_id: int,
     current_user: dict = Depends(get_current_user),
@@ -320,7 +320,7 @@ async def delete_access_link(
     return {"deleted": link_id}
 
 @router.delete("/ai-assistant/workspaces/{workspace_uuid}")
-async def delete_workspace(
+def delete_workspace(
     workspace_uuid: str,
     current_user: dict = Depends(get_current_user),
     locale: str = Depends(get_locale),
@@ -332,7 +332,7 @@ async def delete_workspace(
     return {"deleted": workspace_uuid}
 
 @router.get("/ai-assistant/access-link/preview")
-async def preview_access_link(
+def preview_access_link(
     code: str,
     current_user: dict = Depends(get_current_user),
     locale: str = Depends(get_locale),
@@ -347,7 +347,7 @@ async def preview_access_link(
     return {"workspace_uuid": workspace["uuid"], "title": workspace["title"]}
 
 @router.post("/ai-assistant/enroll")
-async def enroll(
+def enroll(
     body: schemas.EnrollBody,
     current_user: dict = Depends(get_current_user),
     locale: str = Depends(get_locale),
@@ -382,7 +382,7 @@ async def enroll(
     return {"workspace_uuid": workspace["uuid"], "title": workspace["title"]}
 
 @router.get("/ai-assistant/my-workspaces")
-async def my_workspaces(current_user: dict = Depends(get_current_user)):
+def my_workspaces(current_user: dict = Depends(get_current_user)):
     workspaces = db.get_aia_workspaces_for_student(current_user["user_id"])
     return [
         {

@@ -15,7 +15,7 @@ router = APIRouter(tags=["admin: users"])
 # ── Users ─────────────────────────────────────────────────────────────────────
 
 @router.get("/users")
-async def list_users(
+def list_users(
     limit: int = Query(default=50, le=100),
     offset: int = Query(default=0, ge=0),
     q: str = Query(default=""),
@@ -31,12 +31,12 @@ async def list_users(
 
 
 @router.get("/users/pending")
-async def list_pending_users(_admin=Depends(get_admin_user)):
+def list_pending_users(_admin=Depends(get_admin_user)):
     return {"users": db.get_pending_users()}
 
 
 @router.post("/users/{user_id}/approve")
-async def approve_user(
+def approve_user(
     user_id: int,
     _admin=Depends(get_admin_user),
     locale: str = Depends(get_locale),
@@ -56,12 +56,12 @@ async def approve_user(
 # ── Whitelist ──────────────────────────────────────────────────────────────────
 
 @router.get("/whitelist")
-async def list_whitelist(_admin=Depends(get_admin_user)):
+def list_whitelist(_admin=Depends(get_admin_user)):
     return {"emails": db.get_whitelist_emails()}
 
 
 @router.post("/whitelist")
-async def add_whitelist(
+def add_whitelist(
     body: AddWhitelistRequest,
     _admin=Depends(get_admin_user),
     locale: str = Depends(get_locale),
@@ -75,7 +75,7 @@ async def add_whitelist(
 
 
 @router.delete("/whitelist/{email:path}")
-async def remove_whitelist(
+def remove_whitelist(
     email: str,
     _admin=Depends(get_admin_user),
     locale: str = Depends(get_locale),
@@ -100,7 +100,7 @@ class UpdateUserRoleBody(BaseModel):
 
 
 @router.post("/users/{user_id}/role")
-async def update_user_role(
+def update_user_role(
     user_id: int,
     body: UpdateUserRoleBody,
     _admin=Depends(get_admin_user),

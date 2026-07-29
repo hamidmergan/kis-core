@@ -18,7 +18,7 @@ from src.features.ai_assistant import schemas
 router = APIRouter(tags=["ki-assistent: studio"])
 
 @router.post("/ai-assistant/workspaces/{workspace_uuid}/data_table/generate")
-async def generate_data_table(
+def generate_data_table(
     workspace_uuid: str,
     body: schemas.DataTableGenerateBody,
     current_user: dict = Depends(get_current_user),
@@ -56,7 +56,7 @@ async def generate_data_table(
     return {"data_table_id": data_table_id, "status": "pending"}
 
 @router.get("/ai-assistant/workspaces/{workspace_uuid}/data_table/{data_table_id}")
-async def get_data_table(
+def get_data_table(
     workspace_uuid: str,
     data_table_id: int,
     current_user: dict = Depends(get_current_user),
@@ -75,7 +75,7 @@ async def get_data_table(
     return dt
 
 @router.get("/ai-assistant/workspaces/{workspace_uuid}/data_table")
-async def get_latest_data_table(
+def get_latest_data_table(
     workspace_uuid: str,
     current_user: dict = Depends(get_current_user),
     locale: str = Depends(get_locale),
@@ -90,7 +90,7 @@ async def get_latest_data_table(
     return dt or {}
 
 @router.get("/ai-assistant/workspaces/{workspace_uuid}/data_tables")
-async def get_data_tables(
+def get_data_tables(
     workspace_uuid: str,
     current_user: dict = Depends(get_current_user),
     locale: str = Depends(get_locale),
@@ -112,7 +112,7 @@ async def get_data_tables(
     ]
 
 @router.delete("/ai-assistant/workspaces/{workspace_uuid}/data_table/{data_table_id}")
-async def delete_data_table(
+def delete_data_table(
     workspace_uuid: str,
     data_table_id: int,
     current_user: dict = Depends(get_current_user),

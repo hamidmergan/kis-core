@@ -25,7 +25,7 @@ def _resolve_user_id(audio_id: str, current_user: dict, locale: str = "de") -> i
 
 
 @router.get("/screencast/audio/{audio_id}/zip")
-async def download_all_slide_audio_zip(
+def download_all_slide_audio_zip(
     audio_id: str,
     current_user: dict = Depends(get_current_user),
     locale: str = Depends(get_locale),
@@ -54,7 +54,7 @@ async def download_all_slide_audio_zip(
 
 
 @router.get("/screencast/audio/{audio_id}/{slide_index}")
-async def download_slide_audio(
+def download_slide_audio(
     audio_id: str,
     slide_index: int,
     current_user: dict = Depends(get_current_user),

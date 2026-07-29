@@ -15,7 +15,7 @@ from src.features.ai_assistant import schemas
 router = APIRouter(tags=["ki-assistent: messages"])
 
 @router.delete("/ai-assistant/workspaces/{workspace_uuid}/messages")
-async def delete_messages(
+def delete_messages(
     workspace_uuid: str,
     enrollment_id: Optional[int] = None,
     current_user: dict = Depends(get_current_user),
@@ -37,7 +37,7 @@ async def delete_messages(
     return {"cleared": True}
 
 @router.get("/ai-assistant/workspaces/{workspace_uuid}/messages")
-async def get_messages(
+def get_messages(
     workspace_uuid: str,
     enrollment_id: Optional[int] = None,
     current_user: dict = Depends(get_current_user),
@@ -69,7 +69,7 @@ async def get_messages(
     ]
 
 @router.get("/ai-assistant/workspaces/{workspace_uuid}/settings")
-async def get_user_settings(
+def get_user_settings(
     workspace_uuid: str,
     current_user: dict = Depends(get_current_user),
     locale: str = Depends(get_locale),
@@ -87,7 +87,7 @@ async def get_user_settings(
     return db.get_aia_user_settings(workspace["id"], user_id)
 
 @router.patch("/ai-assistant/workspaces/{workspace_uuid}/settings")
-async def update_user_settings(
+def update_user_settings(
     workspace_uuid: str,
     body: schemas.UserSettingsBody,
     current_user: dict = Depends(get_current_user),
