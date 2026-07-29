@@ -1,4 +1,10 @@
-"""MC-basierte Tools (lueckentext, quiz, vokabeltest) aus Quelltext (mode='source')."""
+"""Quiz aus Quelltext (mode='source').
+
+Das Quiz stellt zwei Fragearten in einem Satz: Verständnisfragen und Lückensätze,
+beide mit Auswahloptionen. Das eigenständige Lückentext-Werkzeug ist deshalb
+entfallen, es war dieselbe Aufgabe unter einem eigenen Namen und stand zudem im
+Sprachbereich, obwohl die Lücke ein Fachbegriff ist und kein Grammatikthema.
+"""
 
 import json
 
@@ -26,18 +32,20 @@ _TITLE_RULE = (
 def generate_mc_from_source(
     client, model,
     ctx: QuelleContext,
-    tool: str,
     count: int,
     locale: str = "de",
     adaptive_suffix: str = "",
+    title_avoidance: str = "",
+    coverage: str = "",
 ) -> tuple[list[dict], str]:
     language = _language_label(locale)
     # adaptive_suffix pitches questions/options at the learner's CEFR level; it
     # explicitly must not change the item count, the options or the correct answer.
-    tool_prompt = _build_prompt(tool, count, language) + adaptive_suffix
+    tool_prompt = _build_prompt(count, language) + adaptive_suffix + title_avoidance + coverage
     # No "already exists, avoid these" block: feeding the old questions back made the model
     # COPY them verbatim (it even reproduced a "laut Seite 7" question for a page no longer in
     # context). Variation comes instead from the rotating page subset in build_source_context.
+    # The TITLE is the exception (title_avoidance): one short string, no few-shot pull.
     messages = [
         {"role": "system", "content": tool_prompt},
         {"role": "user", "content": f"Write the output in {language}.\n\nSources:\n\n{ctx.context}"},
@@ -58,10 +66,7 @@ def generate_mc_from_source(
         json_title = ""
     exercises = list(exercises)[:count]
 
-    if tool == "lueckentext":
-        items, claims = _build_lueckentext_items(exercises)
-    else:  # quiz + vokabeltest
-        items, claims = _build_quiz_items(exercises)
+    items, claims = _build_items(exercises)
 
     # Post-hoc attribution (same pgvector gate as chat): each item cites where its
     # answer actually appears, nav-only, no highlight. The LLM's source_label/page_number
@@ -73,79 +78,55 @@ def generate_mc_from_source(
     return items, title
 
 
-def _build_prompt(tool: str, count: int, language: str) -> str:
+def _build_prompt(count: int, language: str) -> str:
     base = (
         f"You create exercises based on the given source text. "
         f"Write ALL questions, sentences, options, and answers in {language}, "
         f"regardless of the source-text language. Translate source content into {language} if needed.\n\n"
     )
     title_rule = _TITLE_RULE.replace("{language}", language)
-    if tool == "lueckentext":
-        return base + (
-            "Create cloze (gap-filling) exercises. Respond ONLY with a JSON object:\n"
-            '{"title": "Short topic title", "exercises": '
-            '[{"sentence": "Sentence with ___ as a gap", "answer": "Answer", '
-            '"options": ["A", "B", "C", "D"], "correct_idx": 0, '
-            '"source_label": "Filename.pdf", "page_number": 5}]}\n'
-            + _PERSONAL_RULE + _SOURCE_RULE + title_rule +
-            f"Create exactly {count} exercises."
-        )
-    if tool == "quiz":
-        return base + (
-            "Create multiple-choice comprehension questions for the given text. "
-            "The questions should test understanding of the content.\n\n"
-            "Respond ONLY with a JSON object:\n"
-            '{"title": "Short topic title", "exercises": '
-            '[{"question": "Comprehension question?", "options": ["A", "B", "C", "D"], '
-            '"correct_idx": 0, '
-            '"source_label": "Filename.pdf", "page_number": 5}]}\n'
-            + _PERSONAL_RULE + _SOURCE_RULE + title_rule +
-            f"Create exactly {count} questions. Mix easy and hard ones."
-        )
-    # vokabeltest (default)
     return base + (
-        "Create a vocabulary quiz: multiple-choice questions on technical terms from the source text.\n\n"
-        "First identify the most important technical terms in the text, then create questions for them.\n"
-        "Mix question types:\n"
-        "- What does the term X mean?\n"
-        "- What is the English translation of X (or German translation)?\n"
-        "- Which technical term describes the following: [definition]?\n\n"
-        "Pick terms suitable for multiple choice "
-        "(clear definition, plausible distractors possible).\n\n"
-        "Respond ONLY with a JSON object:\n"
-        '{"title": "Short topic title", "exercises": '
-        '[{"question": "Question about the technical term?", "options": ["A", "B", "C", "D"], '
-        '"correct_idx": 0, '
-        '"source_label": "Filename.pdf", "page_number": 5}]}\n'
+        "Create multiple-choice exercises for the given text. Use BOTH kinds, roughly "
+        "half and half:\n"
+        "- a comprehension question that tests understanding of the content;\n"
+        "- a gap sentence: a statement from the text with one key term replaced by ___.\n\n"
+        "Respond ONLY with a JSON object. A comprehension item uses \"question\", a gap "
+        "item uses \"sentence\" with ___ in it. Everything else is identical:\n"
+        '{"title": "Short topic title", "exercises": ['
+        '{"question": "Comprehension question?", "options": ["A", "B", "C", "D"], '
+        '"correct_idx": 0, "source_label": "Filename.pdf", "page_number": 5}, '
+        '{"sentence": "Statement with ___ as a gap.", "options": ["A", "B", "C", "D"], '
+        '"correct_idx": 2, "source_label": "Filename.pdf", "page_number": 7}]}\n'
         + _PERSONAL_RULE + _SOURCE_RULE + title_rule +
-        f"Create exactly {count} questions."
+        f"Create exactly {count} exercises. Mix easy and hard ones."
     )
 
 
-def _build_lueckentext_items(exercises: list[dict]) -> tuple[list[dict], list[str]]:
-    """Cloze items + the claim text (filled sentence) attributed back to the source."""
+def _build_items(exercises: list[dict]) -> tuple[list[dict], list[str]]:
+    """Item rows + the claim text used for source attribution.
+
+    Both kinds share one shape. A gap item carries "sentence", a comprehension item
+    carries "question"; either way the prompt side lands in ``front`` and the correct
+    option in ``back``. The UI tells them apart by the gap marker in ``front``, not by
+    a separate tool.
+    """
     items, claims = [], []
     for ex in exercises:
+        prompt_text = (ex.get("question") or ex.get("sentence") or "").strip()
+        options = ex.get("options") or []
+        idx = ex.get("correct_idx")
+        if not prompt_text or not options or idx is None or not (0 <= idx < len(options)):
+            continue
+        answer = options[idx]
         items.append({
-            "front": ex["sentence"],
-            "back": ex["answer"],
-            "options": ex["options"],
-            "correct_idx": ex["correct_idx"],
-        })
-        claims.append(f'{ex["sentence"]} {ex["answer"]}'.strip())
-    return items, claims
-
-
-def _build_quiz_items(exercises: list[dict]) -> tuple[list[dict], list[str]]:
-    """Quiz/vocab items + the claim text (question + correct answer) for attribution."""
-    items, claims = [], []
-    for q in exercises:
-        answer = q["options"][q["correct_idx"]]
-        items.append({
-            "front": q["question"],
+            "front": prompt_text,
             "back": answer,
-            "options": q["options"],
-            "correct_idx": q["correct_idx"],
+            "options": options,
+            "correct_idx": idx,
+            # Which numbered context section the model says it used. Not persisted
+            # (finalize_exercise_set only reads known keys), it exists so the caller can
+            # check that every section was actually served.
+            "_section": ex.get("section"),
         })
-        claims.append(f'{q["question"]} {answer}'.strip())
+        claims.append(f"{prompt_text} {answer}".strip())
     return items, claims

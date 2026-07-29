@@ -101,13 +101,16 @@ function CitationChip({ desc, onChipClick }: { desc: ChipDesc; onChipClick: Cita
     <span role="button" tabIndex={0}
       onPointerDown={(e) => { if (e.button === 0) activate(); }}
       onKeyDown={(e) => { if (e.key === "Enter") activate(); }}
-      className="inline-flex items-center whitespace-nowrap text-xs px-1.5 py-0.5 rounded-full font-medium chip-cite align-middle mx-0.5 cursor-pointer"
+      // Deliberately smaller than the surrounding prose (9px, tight padding, 1px margin):
+      // chips are a side note, not a headline — at text-xs with 2px padding they dominated
+      // the answer.
+      className="inline-flex items-center whitespace-nowrap text-[9px] px-[5px] py-px rounded-full font-medium chip-cite align-middle mx-px cursor-pointer"
       // Transparent border by default so the active state adds the yellow frame without
       // shifting layout. Yellow matches the viewer page frame (CITATION_HL_COLOR).
       style={{
         backgroundColor: "rgba(var(--kb-rgb),0.12)",
         color: "var(--kb)",
-        border: `2px solid ${isActive ? CITATION_HL_COLOR : "transparent"}`,
+        border: `1px solid ${isActive ? CITATION_HL_COLOR : "transparent"}`,
       }}
       title={`${filename}, ${label}`}
     >{displayQNum ? `[${displayQNum}] ` : ""}{label}</span>
@@ -131,12 +134,20 @@ function CitationChipGroup({ groupId, chips, onChipClick }: { groupId: string; c
   const reveal = () => { _openChipGroups.add(groupId); setOpen(true); };
   const collapse = () => { _openChipGroups.delete(groupId); setOpen(false); };
   const hidden = chips.length - 1;
-  // The toggle is a chip-sized hit area (easy click/tap target) carrying the hidden
-  // count, but WITHOUT the chip's filled pill background — just caret + count in the
-  // brand colour. `chip-toggle` keeps the hover outline (.chip-cite) yet opts out of the
-  // dark-mode chip background (see globals.css).
-  const toggleCls = "chip-cite chip-toggle inline-flex items-center gap-0.5 whitespace-nowrap text-xs px-2 py-0.5 rounded-full font-medium align-middle mx-0.5 cursor-pointer select-none";
-  const toggleStyle = { color: "var(--kb)" } as const;
+  // The toggle is a pill of its own next to the chip — same tint and radius, caret only,
+  // no hidden count (the number carries no useful information; it still rides along in
+  // aria-label for screen readers). A bare caret was too small to aim at, so it gets the
+  // chip's background and padding back as a hit area — the pill carries the hit area, so
+  // the caret itself stays at the chips' 9px text size. ml-0.5 on top of the preceding
+  // chip's mx-px leaves a 3px gap, enough to read as two pills without drifting apart;
+  // the fixed h-4 (border-box, like the chip's 1px transparent border) pins the pill to
+  // exactly the chip's height, which padding around a square icon cannot.
+  const toggleCls = "chip-cite chip-toggle inline-flex items-center justify-center whitespace-nowrap text-[9px] h-4 px-1.5 rounded-full font-medium align-middle ml-0.5 cursor-pointer select-none";
+  const toggleStyle = {
+    backgroundColor: "rgba(var(--kb-rgb),0.12)",
+    color: "var(--kb)",
+    border: "1px solid transparent",
+  } as const;
   if (open) {
     return (
       // flex-wrap + max-w-full so a long row of chips wraps onto multiple lines instead of
@@ -147,7 +158,7 @@ function CitationChipGroup({ groupId, chips, onChipClick }: { groupId: string; c
           onPointerDown={(e) => { if (e.button === 0) { e.stopPropagation(); collapse(); } }}
           onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.stopPropagation(); collapse(); } }}
           aria-label={`−${hidden}`} className={toggleCls} style={toggleStyle}
-        ><CaretLeft size={12} weight="bold" />{hidden}</span>
+        ><CaretLeft size={9} weight="bold" /></span>
       </span>
     );
   }
@@ -158,7 +169,7 @@ function CitationChipGroup({ groupId, chips, onChipClick }: { groupId: string; c
         onPointerDown={(e) => { if (e.button === 0) { e.stopPropagation(); reveal(); } }}
         onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.stopPropagation(); reveal(); } }}
         aria-label={`+${hidden}`} className={toggleCls} style={toggleStyle}
-      ><CaretRight size={12} weight="bold" />{hidden}</span>
+      ><CaretRight size={9} weight="bold" /></span>
     </span>
   );
 }

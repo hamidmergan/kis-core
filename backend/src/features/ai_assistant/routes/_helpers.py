@@ -46,6 +46,22 @@ def _sanitize_citations(text: str) -> str:
     return text
 
 
+# Arrows as a connector between two steps ("Es wird zum Subjekt. → Es steht am
+# Anfang."). The model reaches for them on its own — they are in neither the sources
+# nor the prompt — and they are exactly wrong for a language learner: the arrow hides
+# the verb and leaves the reader to guess it. Prompt rules did not hold, and every
+# wording that did suppress them also weakened the not-in-sources refusal (measured
+# 2026-07-29, three attempts), so this is enforced here instead of asked for there.
+# Observed arrows always follow a finished sentence, so dropping the connector leaves
+# clean prose. Runs per streamed token, hence a plain sub and no state.
+_ARROW_CONNECTOR_RE = re.compile(r"[ \t]*(?:→|⟶|➔|➜|-->|->|=>)[ \t]*")
+
+
+def _strip_arrow_connectors(text: str) -> str:
+    """Drop arrow connectors, keeping one separating space."""
+    return _ARROW_CONNECTOR_RE.sub(" ", text)
+
+
 def _trace_llm(llm, name: str) -> None:
     """Update current Langfuse observation with provider metadata."""
     langfuse_context.update_current_observation(

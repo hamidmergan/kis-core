@@ -1226,7 +1226,7 @@
     },
     "toolContextBudgetCard": {
       "title": "Tools Kontext-Budget",
-      "hint": "Wie viel Quelltext (in Zeichen) die Lern-Tools (Mindmap, Datentabelle, Quiz, Lernkarte, Begriffe-Quiz, Lückentext, Karteikarten) ins Modell geben. Getrennt vom Chat-Budget, weil ein Tool ein ganzes Dokument in einem Aufruf verarbeitet. Der Wert wird durch die Anzahl der ausgewählten Quellen geteilt. Default 250000 ist für mittlere Modelle sicher. Höher setzen (z.B. 450000 oder 900000) nur, wenn ein Modell mit großem Kontext läuft.",
+      "hint": "Wie viel Quelltext (in Zeichen) die Lern-Tools (Mindmap, Datentabelle, Quiz, Lernkarte, Grammatik-Übung, Karteikarten) ins Modell geben. Getrennt vom Chat-Budget, weil ein Tool ein ganzes Dokument in einem Aufruf verarbeitet. Der Wert wird durch die Anzahl der ausgewählten Quellen geteilt. Default 250000 ist für mittlere Modelle sicher. Höher setzen (z.B. 450000 oder 900000) nur, wenn ein Modell mit großem Kontext läuft.",
       "unit": "Zeichen",
       "approxTokens": "≈ {n}k Token",
       "outOfRange": "Wert muss zwischen 1000 und 1000000 liegen.",
@@ -1521,8 +1521,7 @@
         "tools": {
           "flashcards": "Lernkarten",
           "karteikarten": "Karteikarten",
-          "lueckentext": "Lückentext",
-          "vokabeltest": "Begriffe-Quiz",
+          "grammar": "Grammatik-Übung",
           "quiz": "Quiz",
           "exerciseFallback": "Übung"
         },
@@ -1567,18 +1566,21 @@
           "fromSelectedSource": "{count, plural, =0 {Aus ausgewählter Quelle} =1 {Aus ausgewählter Quelle} other {Aus ausgewählten Quellen}}",
           "selectedSourcesCount": "{count} Quellen",
           "noSourceHint": "Wähle links eine Quelle aus, um aus ihr zu generieren.",
-          "countHeading": "Anzahl"
+          "countHeading": "Anzahl",
+          "grammarTypeHeading": "Aufgabentyp",
+          "sentenceCountHeading": "Anzahl Sätze",
+          "noGrammarTypes": "Kein Aufgabentyp freigeschaltet. Der Owner stellt das im Zahnrad ein."
         },
         "exerciseSets": {
           "emptyText": "Wähle Quellen aus und drücke auf Erstellen.",
           "createButton": "Erstellen ({current}/{max})",
           "exercisesCount": "{count, plural, =1 {1 Übung} other {# Übungen}}",
           "cardsCount": "{count, plural, =1 {1 Karte} other {# Karten}}",
+          "sourcesCount": "{count, plural, =1 {1 Quelle} other {# Quellen}}",
           "modeLabel": "{mode}",
           "modeGlossary": "Glossar",
           "modeQuiz": "Quiz",
-          "modeLueckentext": "Lückentext",
-          "modeVokabeltest": "Vokabeltest",
+          "modeGrammar": "Grammatik",
           "modeFlashcards": "Lernkarten",
           "failed": "Fehlgeschlagen",
           "fromGlossarySuffix": " · Glossar"
@@ -1629,23 +1631,8 @@
         "overview": {
           "glossaryCounter": "{count}/{max} Glossar",
           "lernkarten": "Lernkarten",
-          "lueckentext": "Lückentext",
-          "begriffeQuiz": "Begriffe-Quiz",
+          "grammar": "Grammatik-Übung",
           "tileDesc": "Übungen"
-        },
-        "lueckentext": {
-          "startButton": "Lückentext starten",
-          "generating": "Generiere…",
-          "newExercise": "Neue Übung",
-          "percentCorrect": "{pct}% richtig",
-          "answerCorrect": "Richtig!",
-          "answerCorrectIs": "Die richtige Antwort ist: {answer}"
-        },
-        "vokabeltest": {
-          "startButton": "Begriffe-Quiz starten",
-          "generating": "Generiere…",
-          "newTest": "Neuer Test",
-          "percentCorrect": "{pct}% richtig"
         },
         "vocabFlashcards": {
           "title": "Karteikarten",
@@ -1690,6 +1677,19 @@
           "tip": "Gib mir einen kurzen Tipp zur folgenden Frage, OHNE die Antwort zu verraten.: „{term}\"",
           "termDeep": "Erkläre mir den Begriff „{term}\" genauer. Was bedeutet er, in welchem Kontext wird er verwendet und welche Zusammenhänge sind wichtig?",
           "topicDeep": "Erkläre mir folgendes Thema genauer: „{term}\". Was sind wichtige Details, Beispiele und Zusammenhänge?"
+        },
+        "grammar": {
+          "sentenceNo": "Satz {no}",
+          "answerPlaceholder": "Umgeformten Satz hier schreiben",
+          "check": "Antwort prüfen",
+          "checking": "Wird geprüft…",
+          "checkFailed": "Die Prüfung hat nicht geklappt. Bitte noch einmal versuchen.",
+          "solution": "Musterlösung: {solution}",
+          "verdict": {
+            "correct": "Richtig",
+            "close": "Fast",
+            "wrong": "Noch nicht richtig"
+          }
         }
       },
       "topbar": {
@@ -1921,8 +1921,7 @@
           "dataTable": "Datentabelle",
           "mindmap": "Mindmap",
           "lernkarten": "Lernkarten",
-          "lueckentext": "Lückentext",
-          "begriffeQuiz": "Begriffe-Quiz"
+          "grammar": "Grammatik-Übung"
         },
         "tileDescriptions": {
           "karteikarten": "Frage und Antwort zum Abfragen.",
@@ -1930,8 +1929,7 @@
           "dataTable": "Fakten aus dem Dokument als Tabelle.",
           "mindmap": "Themen als Baum dargestellt.",
           "lernkarten": "Fachwörter mit Grundform und Beispiel.",
-          "lueckentext": "Text mit Lücken zum Ausfüllen.",
-          "begriffeQuiz": "Begriffe den Definitionen zuordnen."
+          "grammar": "Sätze nach einem Muster umformen."
         },
         "recent": {
           "heading": "Letzte Aktivitäten",
@@ -2060,8 +2058,7 @@
       "langTools": {
         "flashcards": "Lernkarten",
         "karteikarten": "Karteikarten",
-        "lueckentext": "Lückentext",
-        "vokabeltest": "Begriffe-Quiz",
+        "grammatik": "Grammatik-Übung",
         "quiz": "Quiz"
       }
     },

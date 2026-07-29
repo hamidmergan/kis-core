@@ -79,8 +79,7 @@ export function ExerciseSetsOverview({
                   switch (s.mode) {
                     case "glossary": return t("exerciseSets.modeGlossary");
                     case "quiz": return t("exerciseSets.modeQuiz");
-                    case "lueckentext": return t("exerciseSets.modeLueckentext");
-                    case "vokabeltest": return t("exerciseSets.modeVokabeltest");
+                    case "grammatik": return t("exerciseSets.modeGrammar");
                     default: return t("exerciseSets.modeFlashcards");
                   }
                 })();
@@ -88,11 +87,19 @@ export function ExerciseSetsOverview({
                   <div key={s.id} onClick={() => !generating && !failed && onSelect(s)}
                     className={`bg-background rounded-xl p-3.5 flex flex-col gap-2 relative overflow-hidden group border-2 border-transparent transition-colors ${generating ? "opacity-70" : "cursor-pointer hover:border-[var(--kb)]"}`}
                     style={{ boxShadow: "0 2px 10px rgba(0,40,60,0.05), 0 0 0 1px rgba(0,40,60,0.03)", minHeight: 90 }}>
+                    {/* Which exercise type this is. Two grammar sets from one document
+                        look identical otherwise, and the type is what the learner picked. */}
+                    {!generating && s.grammar_type_label && (
+                      <span className="self-start text-[10px] font-semibold px-1.5 py-0.5 rounded"
+                        style={{ backgroundColor: "rgba(var(--kb-rgb),0.10)", color: "var(--kb)" }}>
+                        {s.grammar_type_label}
+                      </span>
+                    )}
                     {/* Title + Score */}
                     <div className="flex items-start gap-2.5 flex-1 min-w-0">
                       <span className="text-sm font-semibold leading-snug flex-1 line-clamp-3 mt-0.5 kis-tooltip" style={{ color: "var(--foreground)" }}
-                        data-tip={generating ? undefined : s.title.replace(/^(Lernkarten|Lückentext|Vokabeltest|Begriffe-Quiz|Quiz)\s*(aus|von)\s*/i, "").replace(/^(Flashcards|Cloze|Vocabulary test|Term quiz|Quiz)\s*(from|of)\s*/i, "")}>
-                        {generating ? generatingLabel : s.title.replace(/^(Lernkarten|Lückentext|Vokabeltest|Begriffe-Quiz|Quiz)\s*(aus|von)\s*/i, "").replace(/^(Flashcards|Cloze|Vocabulary test|Term quiz|Quiz)\s*(from|of)\s*/i, "")}
+                        data-tip={generating ? undefined : s.title.replace(/^(Lernkarten|Grammatik-Übung|Quiz)\s*(aus|von)\s*/i, "").replace(/^(Flashcards|Grammar exercise|Quiz)\s*(from|of)\s*/i, "")}>
+                        {generating ? generatingLabel : s.title.replace(/^(Lernkarten|Grammatik-Übung|Quiz)\s*(aus|von)\s*/i, "").replace(/^(Flashcards|Grammar exercise|Quiz)\s*(from|of)\s*/i, "")}
                       </span>
                       {generating ? (
                         <Spinner size="sm" />
@@ -118,6 +125,9 @@ export function ExerciseSetsOverview({
                       <span className="text-xs font-medium" >
                         {generating ? modeLabel : failed ? t("exerciseSets.failed") : t("exerciseSets.cardsCount", { count: s.card_count })}
                         {!generating && s.mode === "glossary" && t("exerciseSets.fromGlossarySuffix")}
+                        {/* Only in source mode: a glossary set has no sources to count. */}
+                        {!generating && !failed && s.mode !== "glossary" && (s.sources?.length ?? 0) > 0
+                          && ` · ${t("exerciseSets.sourcesCount", { count: s.sources!.length })}`}
                         {!generating && ` · ${new Date(s.created_at).toLocaleDateString(dateLocale, { day: "numeric", month: "short", timeZone: "Europe/Berlin" })}`}
                       </span>
                       <div className="flex items-center gap-1.5">

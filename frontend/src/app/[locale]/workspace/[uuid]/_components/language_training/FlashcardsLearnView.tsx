@@ -6,6 +6,7 @@ import type { ExerciseItem, ExerciseItemSource, ExerciseSet, Source } from "../.
 import { _chunkLabel, _getChipIcon, _md, _sourceChipKey } from "../../_utils";
 import { MinimizeContext } from "../../_context";
 import { _getToolBadge, type BreadcrumbItem } from "../layout/SubviewHeader";
+import { SetSourceLegend, sourceNumbers, sourceTag } from "./SetSourceLegend";
 
 export function FlashcardsLearnView({
   exerciseSet, onBack, onAnswer, onAskChat, onSourceClick, breadcrumbs, showTranslation, chatLang = "de",
@@ -63,6 +64,9 @@ export function FlashcardsLearnView({
   const total = items.length;
   const card = items[index];
   const isVocab = exerciseSet.tool === "flashcards";
+  // Chip numbering belongs to the SET, so a file keeps its number on every card
+  // and matches the numbered legend at the bottom of the view.
+  const srcNumbers = sourceNumbers(exerciseSet.sources);
 
   useEffect(() => { setFlipped(false); }, [index]);
 
@@ -116,7 +120,7 @@ export function FlashcardsLearnView({
           style={{ backgroundColor: "var(--surface-dim)" }}>
           <CaretLeft size={13} />
         </button>
-        {breadcrumbs && breadcrumbs.length > 0 ? (<div className="flex items-center gap-1 text-[12px] min-w-0 flex-1">{breadcrumbs.map((b, i) => { const bBadge = _getToolBadge(b.toolKey, isVocab ? "language_training" : "learning_tools"); return (<React.Fragment key={i}>{bBadge ? (<button type="button" onClick={b.onClick} className="font-medium shrink-0 px-1.5 py-0.5 rounded opacity-60 hover:opacity-100 transition-opacity" style={{ backgroundColor: bBadge.bg, color: bBadge.color }}>{b.label}</button>) : (<button type="button" onClick={b.onClick} className="font-medium shrink-0 opacity-60 hover:opacity-100 transition-opacity" style={{ color: "var(--muted)" }}>{b.label}</button>)}<CaretRight size={9} weight="bold" style={{ opacity: 0.5 }} className="shrink-0" /></React.Fragment>); })}<span className="font-semibold truncate" style={{ color: "var(--foreground)" }}>{exerciseSet.title.replace(/^(Lernkarten|Lückentext|Vokabeltest|Begriffe-Quiz|Quiz)\s*(aus|von)\s*/i, "")}</span></div>) : (<span className="text-[12px] font-semibold flex-1 truncate" style={{ color: "var(--foreground)" }}>{exerciseSet.title.replace(/^(Lernkarten|Lückentext|Vokabeltest|Begriffe-Quiz|Quiz)\s*(aus|von)\s*/i, "")}</span>)}
+        {breadcrumbs && breadcrumbs.length > 0 ? (<div className="flex items-center gap-1 text-[12px] min-w-0 flex-1">{breadcrumbs.map((b, i) => { const bBadge = _getToolBadge(b.toolKey, isVocab ? "language_training" : "learning_tools"); return (<React.Fragment key={i}>{bBadge ? (<button type="button" onClick={b.onClick} className="font-medium shrink-0 px-1.5 py-0.5 rounded opacity-60 hover:opacity-100 transition-opacity" style={{ backgroundColor: bBadge.bg, color: bBadge.color }}>{b.label}</button>) : (<button type="button" onClick={b.onClick} className="font-medium shrink-0 opacity-60 hover:opacity-100 transition-opacity" style={{ color: "var(--muted)" }}>{b.label}</button>)}<CaretRight size={9} weight="bold" style={{ opacity: 0.5 }} className="shrink-0" /></React.Fragment>); })}<span className="font-semibold truncate" style={{ color: "var(--foreground)" }}>{exerciseSet.title.replace(/^(Lernkarten|Grammatik-Übung|Quiz)\s*(aus|von)\s*/i, "")}</span></div>) : (<span className="text-[12px] font-semibold flex-1 truncate" style={{ color: "var(--foreground)" }}>{exerciseSet.title.replace(/^(Lernkarten|Grammatik-Übung|Quiz)\s*(aus|von)\s*/i, "")}</span>)}
         {minimize && (
           <button type="button" onClick={minimize}
             className="w-7 h-7 flex items-center justify-center rounded-full btn-icon"
@@ -305,9 +309,6 @@ export function FlashcardsLearnView({
                         seenKeys.add(k);
                         return true;
                       });
-                      const uniqueFiles = [...new Set(srcs.map(s => s.source_label))];
-                      const fileIndex = Object.fromEntries(uniqueFiles.map((f, i) => [f, i + 1]));
-                      const multiFile = uniqueFiles.length > 1;
                       return <>
                     {srcs.length > 0 && (
                       <div className="flex flex-col gap-1">
@@ -319,16 +320,11 @@ export function FlashcardsLearnView({
                               onClick={() => { if (onSourceClick) onSourceClick(s.source_label, s.page_number ?? 1, s.start_time); }}
                               className="chip-cite inline-flex items-center gap-0.5 text-[10px] font-medium px-2 py-1 rounded-full border-none cursor-pointer transition-colors"
                               style={{ color: "var(--kb)", backgroundColor: "rgba(var(--kb-rgb),0.07)" }}>
-                              <ChipIcon size={10} weight="bold" /> {multiFile ? `[${fileIndex[s.source_label]}] ` : ""}{_chunkLabel(s.source_label, s.page_number ?? 1, s.start_time, (key, vals) => tChip(key, vals))}
+                              <ChipIcon size={10} weight="bold" /> {sourceTag(s.source_label, srcNumbers)}{_chunkLabel(s.source_label, s.page_number ?? 1, s.start_time, (key, vals) => tChip(key, vals))}
                             </button>
                             );
                           })}
                         </div>
-                        {uniqueFiles.map((f, fi) => (
-                          <span key={fi} className="text-[9px] text-[var(--muted)]">
-                            {multiFile ? `[${fi + 1}] ` : ""}{f}
-                          </span>
-                        ))}
                       </div>
                     )}
                       </>;
@@ -444,9 +440,6 @@ export function FlashcardsLearnView({
                 return true;
               });
               if (!srcs.length) return null;
-              const uniqueFiles = [...new Set(srcs.map(s => s.source_label))];
-              const fileIndex = Object.fromEntries(uniqueFiles.map((f, i) => [f, i + 1]));
-              const multiFile = uniqueFiles.length > 1;
               return (
                 <div className="flex flex-col gap-1 w-full mt-4" style={{ maxWidth: 560 }}>
                   <div className="flex items-center gap-1 flex-wrap">
@@ -457,19 +450,20 @@ export function FlashcardsLearnView({
                         onClick={() => { if (onSourceClick) onSourceClick(s.source_label, s.page_number ?? 1, s.start_time); }}
                         className="chip-cite inline-flex items-center gap-0.5 text-[10px] font-medium px-2 py-1 rounded-full border-none cursor-pointer transition-colors"
                         style={{ color: "var(--kb)", backgroundColor: "rgba(var(--kb-rgb),0.07)" }}>
-                        <ChipIcon size={10} weight="bold" /> {multiFile ? `[${fileIndex[s.source_label]}] ` : ""}{_chunkLabel(s.source_label, s.page_number ?? 1, s.start_time, (key, vals) => tChip(key, vals))}
+                        <ChipIcon size={10} weight="bold" /> {sourceTag(s.source_label, srcNumbers)}{_chunkLabel(s.source_label, s.page_number ?? 1, s.start_time, (key, vals) => tChip(key, vals))}
                       </button>
                       );
                     })}
                   </div>
-                  {uniqueFiles.map((f, fi) => (
-                    <span key={fi} className="text-[9px] text-[var(--muted)]">
-                      {multiFile ? `[${fi + 1}] ` : ""}{f}
-                    </span>
-                  ))}
                 </div>
               );
             })()}
+
+            <SetSourceLegend
+              sources={exerciseSet.sources}
+              onSourceClick={(f) => onSourceClick?.(f, 1)}
+              className="w-full mt-3"
+            />
           </div>
         </>;
       })() : null}

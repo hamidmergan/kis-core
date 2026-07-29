@@ -1521,8 +1521,7 @@
         "tools": {
           "flashcards": "Vocab cards",
           "karteikarten": "Flashcards",
-          "lueckentext": "Cloze",
-          "vokabeltest": "Term quiz",
+          "grammar": "Grammar exercise",
           "quiz": "Quiz",
           "exerciseFallback": "Exercise"
         },
@@ -1567,18 +1566,21 @@
           "fromSelectedSource": "{count, plural, =0 {From selected source} =1 {From selected source} other {From selected sources}}",
           "selectedSourcesCount": "{count} sources",
           "noSourceHint": "Select a source on the left to generate from it.",
-          "countHeading": "Count"
+          "countHeading": "Count",
+          "grammarTypeHeading": "Exercise type",
+          "sentenceCountHeading": "Number of sentences",
+          "noGrammarTypes": "No exercise type enabled. The owner sets this in the settings menu."
         },
         "exerciseSets": {
           "emptyText": "Select sources and press Create.",
           "createButton": "Create ({current}/{max})",
           "exercisesCount": "{count, plural, =1 {1 exercise} other {# exercises}}",
           "cardsCount": "{count, plural, =1 {1 card} other {# cards}}",
+          "sourcesCount": "{count, plural, =1 {1 source} other {# sources}}",
           "modeLabel": "{mode}",
           "modeGlossary": "Glossary",
           "modeQuiz": "Quiz",
-          "modeLueckentext": "Cloze",
-          "modeVokabeltest": "Vocab test",
+          "modeGrammar": "Grammar",
           "modeFlashcards": "Vocab cards",
           "failed": "Failed",
           "fromGlossarySuffix": " · Glossary"
@@ -1629,23 +1631,8 @@
         "overview": {
           "glossaryCounter": "{count}/{max} glossary",
           "lernkarten": "Vocab cards",
-          "lueckentext": "Cloze",
-          "begriffeQuiz": "Term quiz",
+          "grammar": "Grammar exercise",
           "tileDesc": "Exercises"
-        },
-        "lueckentext": {
-          "startButton": "Start cloze",
-          "generating": "Generating…",
-          "newExercise": "New exercise",
-          "percentCorrect": "{pct}% correct",
-          "answerCorrect": "Correct!",
-          "answerCorrectIs": "The correct answer is: {answer}"
-        },
-        "vokabeltest": {
-          "startButton": "Start term quiz",
-          "generating": "Generating…",
-          "newTest": "New test",
-          "percentCorrect": "{pct}% correct"
         },
         "vocabFlashcards": {
           "title": "Vocab cards",
@@ -1690,6 +1677,19 @@
           "tip": "Give me a brief hint for the following question, WITHOUT revealing the answer: \"{term}\"",
           "termDeep": "Explain the term \"{term}\" in detail. What does it mean, in which contexts is it used, and what are the important relationships?",
           "topicDeep": "Explain the following topic in more detail: \"{term}\". What are important details, examples, and connections?"
+        },
+        "grammar": {
+          "sentenceNo": "Sentence {no}",
+          "answerPlaceholder": "Write the transformed sentence here",
+          "check": "Check answer",
+          "checking": "Checking…",
+          "checkFailed": "The check did not go through. Please try again.",
+          "solution": "Expected solution: {solution}",
+          "verdict": {
+            "correct": "Correct",
+            "close": "Almost",
+            "wrong": "Not right yet"
+          }
         }
       },
       "topbar": {
@@ -1921,8 +1921,7 @@
           "dataTable": "Data table",
           "mindmap": "Mind map",
           "lernkarten": "Vocab cards",
-          "lueckentext": "Cloze",
-          "begriffeQuiz": "Term quiz"
+          "grammar": "Grammar exercise"
         },
         "tileDescriptions": {
           "karteikarten": "Question and answer to test yourself.",
@@ -1930,8 +1929,7 @@
           "dataTable": "Facts from the document as a table.",
           "mindmap": "Topics shown as a tree.",
           "lernkarten": "Technical terms with base form and example.",
-          "lueckentext": "Text with gaps to fill in.",
-          "begriffeQuiz": "Match terms to their definitions."
+          "grammar": "Transform sentences following a pattern."
         },
         "recent": {
           "heading": "Recent activity",
@@ -2060,8 +2058,7 @@
       "langTools": {
         "flashcards": "Vocab cards",
         "karteikarten": "Flashcards",
-        "lueckentext": "Cloze",
-        "vokabeltest": "Term quiz",
+        "grammatik": "Grammar exercise",
         "quiz": "Quiz"
       }
     },

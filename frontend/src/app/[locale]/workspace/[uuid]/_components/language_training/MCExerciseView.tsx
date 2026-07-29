@@ -6,12 +6,12 @@ import type { ExerciseItem, ExerciseItemSource, ExerciseSet, Source } from "../.
 import { _chunkLabel, _getChipIcon, _md, _sourceChipKey } from "../../_utils";
 import { MinimizeContext } from "../../_context";
 import { _getToolBadge, type BreadcrumbItem } from "../layout/SubviewHeader";
+import { SetSourceLegend, sourceNumbers, sourceTag } from "./SetSourceLegend";
 
 export function MCExerciseView({
-  exerciseSet, tool, onBack, onAnswer, onAskChat, onSourceClick, breadcrumbs, chatLang = "de",
+  exerciseSet, onBack, onAnswer, onAskChat, onSourceClick, breadcrumbs, chatLang = "de",
 }: {
   exerciseSet: ExerciseSet;
-  tool: "lueckentext" | "vokabeltest" | "quiz";
   onBack: () => void;
   onAnswer: (itemId: number, correct: boolean, newRun?: boolean) => void;
   onAskChat: (text: string) => void;
@@ -44,20 +44,16 @@ export function MCExerciseView({
     if (raw.length > 0 && !shuffledRef.current) {
       const arr = [...raw];
       for (let i = arr.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1));[arr[i], arr[j]] = [arr[j], arr[i]]; }
-      if (tool === "quiz") {
-        const shuffled = arr.map((item) => {
-          if (!item.options || item.correct_idx === undefined) return item;
-          const indices = item.options.map((_, i) => i);
-          for (let i = indices.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1));[indices[i], indices[j]] = [indices[j], indices[i]]; }
-          return { ...item, options: indices.map((i) => item.options![i]), correct_idx: indices.indexOf(item.correct_idx) };
-        });
-        setShuffledItems(shuffled);
-      } else {
-        setShuffledItems(arr);
-      }
+      const shuffled = arr.map((item) => {
+        if (!item.options || item.correct_idx === undefined) return item;
+        const indices = item.options.map((_, i) => i);
+        for (let i = indices.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1));[indices[i], indices[j]] = [indices[j], indices[i]]; }
+        return { ...item, options: indices.map((i) => item.options![i]), correct_idx: indices.indexOf(item.correct_idx) };
+      });
+      setShuffledItems(shuffled);
       shuffledRef.current = true;
     }
-  }, [exerciseSet.items, tool]);
+  }, [exerciseSet.items]);
   const items = shuffledItems;
   const [index, setIndex] = useState(0);
   const [selected, setSelected] = useState<number | null>(null);
@@ -69,6 +65,12 @@ export function MCExerciseView({
 
   const total = items.length;
   const card = items[index];
+  // A gap item is recognised by its marker, not by a separate tool: the standalone
+  // Lückentext tool is gone and the quiz produces both kinds in one set.
+  const isGap = /___+/.test(card?.front || "");
+  // Chip numbering belongs to the SET, so a file keeps its number on every card
+  // and matches the numbered legend at the bottom of the view.
+  const srcNumbers = sourceNumbers(exerciseSet.sources);
   const answered = selected !== null;
   const isCorrect = answered && selected === card?.correct_idx;
 
@@ -85,25 +87,12 @@ export function MCExerciseView({
 
   function advance() {
     if (index >= total - 1) {
-      if (tool === "quiz") {
-        setShowResults(true);
-      } else {
-        onBack();
-      }
+      setShowResults(true);
     } else {
       setIndex((i) => i + 1);
       setSelected(null);
       setHint(null);
     }
-  }
-
-  function skip() {
-    if (answered || !card) return;
-    const isFirst = results.length === 0;
-    setResults(prev => [...prev, { item_id: card.id, correct: false }]);
-    setStreak(0);
-    onAnswer(card.id, false, isFirst);
-    advance();
   }
 
   async function requestHint() {
@@ -133,7 +122,7 @@ export function MCExerciseView({
           style={{ backgroundColor: "var(--surface-dim)" }}>
           <CaretLeft size={13} />
         </button>
-        {breadcrumbs && breadcrumbs.length > 0 ? (<div className="flex items-center gap-1 text-[12px] min-w-0 flex-1">{breadcrumbs.map((b, i) => { const bBadge = _getToolBadge(b.toolKey, tool === "quiz" ? "learning_tools" : "language_training"); return (<React.Fragment key={i}>{bBadge ? (<button type="button" onClick={b.onClick} className="font-medium shrink-0 px-1.5 py-0.5 rounded opacity-60 hover:opacity-100 transition-opacity" style={{ backgroundColor: bBadge.bg, color: bBadge.color }}>{b.label}</button>) : (<button type="button" onClick={b.onClick} className="font-medium shrink-0 opacity-60 hover:opacity-100 transition-opacity" style={{ color: "var(--muted)" }}>{b.label}</button>)}<CaretRight size={9} weight="bold" style={{ opacity: 0.5 }} className="shrink-0" /></React.Fragment>); })}<span className="font-semibold truncate" style={{ color: "var(--foreground)" }}>{exerciseSet.title.replace(/^(Lernkarten|Lückentext|Vokabeltest|Begriffe-Quiz|Quiz)\s*(aus|von)\s*/i, "")}</span></div>) : (<span className="text-[12px] font-semibold flex-1 truncate" style={{ color: "var(--foreground)" }}>{exerciseSet.title.replace(/^(Lernkarten|Lückentext|Vokabeltest|Begriffe-Quiz|Quiz)\s*(aus|von)\s*/i, "")}</span>)}
+        {breadcrumbs && breadcrumbs.length > 0 ? (<div className="flex items-center gap-1 text-[12px] min-w-0 flex-1">{breadcrumbs.map((b, i) => { const bBadge = _getToolBadge(b.toolKey, "learning_tools"); return (<React.Fragment key={i}>{bBadge ? (<button type="button" onClick={b.onClick} className="font-medium shrink-0 px-1.5 py-0.5 rounded opacity-60 hover:opacity-100 transition-opacity" style={{ backgroundColor: bBadge.bg, color: bBadge.color }}>{b.label}</button>) : (<button type="button" onClick={b.onClick} className="font-medium shrink-0 opacity-60 hover:opacity-100 transition-opacity" style={{ color: "var(--muted)" }}>{b.label}</button>)}<CaretRight size={9} weight="bold" style={{ opacity: 0.5 }} className="shrink-0" /></React.Fragment>); })}<span className="font-semibold truncate" style={{ color: "var(--foreground)" }}>{exerciseSet.title.replace(/^(Lernkarten|Grammatik-Übung|Quiz)\s*(aus|von)\s*/i, "")}</span></div>) : (<span className="text-[12px] font-semibold flex-1 truncate" style={{ color: "var(--foreground)" }}>{exerciseSet.title.replace(/^(Lernkarten|Grammatik-Übung|Quiz)\s*(aus|von)\s*/i, "")}</span>)}
         {minimize && (
           <button type="button" onClick={minimize}
             className="w-7 h-7 flex items-center justify-center rounded-full btn-icon"
@@ -145,7 +134,7 @@ export function MCExerciseView({
       </div>
       {/* Progress — rendered inside question card */}
       {/* Quiz Results */}
-      {showResults && tool === "quiz" ? (
+      {showResults ? (
         <div className="flex-1 flex flex-col items-center justify-center px-6 gap-3">
           <div className="w-16 h-16 rounded-full flex items-center justify-center mb-2"
             style={{ backgroundColor: "#1a8a5c", boxShadow: "0 4px 20px rgba(26,138,92,0.25)" }}>
@@ -186,7 +175,7 @@ export function MCExerciseView({
               <div className="rounded-2xl flex flex-col gap-4 overflow-hidden" style={{ backgroundColor: "var(--surface)", boxShadow: "0 4px 20px rgba(0,40,60,0.08)" }}>
                 <div className="px-6 pt-5 pb-6 flex flex-col gap-4">
                   {/* Question text */}
-                  {tool === "lueckentext" ? (
+                  {isGap ? (
                     <p className="text-sm leading-relaxed" style={{ color: "var(--foreground)" }}
                       dangerouslySetInnerHTML={{
                         __html: card.front.replace(
@@ -248,9 +237,6 @@ export function MCExerciseView({
                           return true;
                         });
                         if (!srcs.length) return null;
-                        const uniqueFiles = [...new Set(srcs.map(s => s.source_label))];
-                        const fileIndex = Object.fromEntries(uniqueFiles.map((f, i) => [f, i + 1]));
-                        const multiFile = uniqueFiles.length > 1;
                         return (
                           <div className="flex flex-col gap-1">
                             <div className="flex items-center gap-1 flex-wrap">
@@ -261,35 +247,23 @@ export function MCExerciseView({
                                     onClick={() => { if (onSourceClick) onSourceClick(s.source_label, s.page_number ?? 1, s.start_time); }}
                                     className="chip-cite inline-flex items-center gap-0.5 text-[10px] font-medium px-2 py-1 rounded-full border-none cursor-pointer transition-colors"
                                     style={{ color: "var(--kb)", backgroundColor: "rgba(var(--kb-rgb),0.07)" }}>
-                                    <ChipIcon size={10} weight="bold" /> {multiFile ? `[${fileIndex[s.source_label]}] ` : ""}{_chunkLabel(s.source_label, s.page_number ?? 1, s.start_time, (key, vals) => tChip(key, vals))}
+                                    <ChipIcon size={10} weight="bold" /> {sourceTag(s.source_label, srcNumbers)}{_chunkLabel(s.source_label, s.page_number ?? 1, s.start_time, (key, vals) => tChip(key, vals))}
                                   </button>
                                 );
                               })}
                             </div>
-                            {uniqueFiles.map((f, fi) => (
-                              <span key={fi} className="text-[9px] truncate text-[var(--muted)]">
-                                {multiFile ? `[${fi + 1}] ` : ""}{f}
-                              </span>
-                            ))}
                           </div>
                         );
                       })()}
                     </div>
                     {!answered && (
                       <div className="flex items-center gap-2 shrink-0">
-                        {tool === "quiz" && (
+                        {(
                           <button type="button" onClick={requestHint}
                             disabled={hintLoading}
                             className="btn-soft-accent flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-full transition-all disabled:opacity-50">
                             <Lightbulb size={13} weight="bold" />
                             {hintLoading ? t("common.loading") : t("common.hint")}
-                          </button>
-                        )}
-                        {tool !== "quiz" && (
-                          <button type="button" onClick={skip}
-                            className="text-xs font-medium px-3 py-1.5 rounded-full transition-colors hover:bg-[var(--surface-dim)]"
-                            style={{ color: "var(--muted)" }}>
-                            {t("common.dontKnow")}
                           </button>
                         )}
                       </div>
@@ -298,8 +272,8 @@ export function MCExerciseView({
                   {answered && (
                     <div className="flex items-center justify-start mt-2">
                       <button type="button" onClick={() => {
-                        onAskChat(tool === "vokabeltest" || tool === "lueckentext"
-                          ? promptTermDeep(tool === "lueckentext" ? card.back : card.front)
+                        onAskChat(isGap
+                          ? promptTermDeep(card.back)
                           : promptTopicDeep(card.front));
                       }}
                         className="btn-soft-accent flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-full transition-all">
@@ -309,7 +283,7 @@ export function MCExerciseView({
                   )}
                 </div>
               </div>
-              {(answered || tool === "quiz") && (
+              {(
                 <div className="flex justify-center">
                   <button type="button" onClick={advance}
                     className="btn-fill-accent px-5 py-2 rounded-full text-xs font-semibold transition-all">
@@ -317,6 +291,12 @@ export function MCExerciseView({
                   </button>
                 </div>
               )}
+
+              <SetSourceLegend
+                sources={exerciseSet.sources}
+                onSourceClick={(f) => onSourceClick?.(f, 1)}
+                className="pt-1"
+              />
             </div>
           </div>
         </>

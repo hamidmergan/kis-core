@@ -70,7 +70,7 @@ def get_student_stats(workspace_id: int, user_id: int) -> dict:
                 }
 
             lerntools_sets = [s for s in sets if s["tool"] in ("karteikarten", "quiz")]
-            lang_sets = [s for s in sets if s["tool"] in ("flashcards", "lueckentext", "vokabeltest")]
+            lang_sets = [s for s in sets if s["tool"] in ("flashcards", "grammatik")]
 
             overview_all = _summarise(sets)
             overview_lerntools = _summarise(lerntools_sets)
@@ -86,7 +86,7 @@ def get_student_stats(workspace_id: int, user_id: int) -> dict:
                 mode_clause = ""
                 params: list = [user_id, workspace_id, user_id]
                 if category_filter == "language_training":
-                    mode_clause = " AND s2.tool IN ('flashcards', 'lueckentext', 'vokabeltest')"
+                    mode_clause = " AND s2.tool IN ('flashcards', 'grammatik')"
                 elif category_filter == "lerntools":
                     mode_clause = " AND s2.tool IN ('karteikarten', 'quiz')"
                 cur.execute(
@@ -176,7 +176,7 @@ def get_student_day_stats(workspace_id: int, user_id: int, day_str: str, categor
             mode_clause = ""
             params: list = [workspace_id, user_id, day_str]
             if category == "language_training":
-                mode_clause = " AND s.tool IN ('flashcards', 'lueckentext', 'vokabeltest')"
+                mode_clause = " AND s.tool IN ('flashcards', 'grammatik')"
             elif category == "lerntools":
                 mode_clause = " AND s.tool IN ('karteikarten', 'quiz')"
             cur.execute(

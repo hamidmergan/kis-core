@@ -111,11 +111,18 @@ class DataTableGenerateBody(BaseModel):
     active_source_ids: list[str]
 
 class CreateSetBody(BaseModel):
-    tool: str  # "flashcards" | "lueckentext" | "vokabeltest"
+    tool: str  # "flashcards" | "karteikarten" | "quiz" | "grammatik"
     mode: str = "glossary"  # "glossary" | "source"
     source_uuid: Optional[str] = None  # legacy single-source clients
     source_uuids: Optional[list[str]] = None  # preferred: all selected sources
     count: int = 10
+    # Only tool="grammatik": id of the catalogue entry the set is built from.
+    grammar_type: Optional[str] = None
+
+
+class GrammarCheckBody(BaseModel):
+    """One free-text answer submitted for marking."""
+    answer: str = Field(..., max_length=1000)
 
 
 class ExerciseProgressBody(BaseModel):

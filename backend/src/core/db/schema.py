@@ -405,6 +405,10 @@ def init_db(admin_email: Optional[str] = None) -> None:
             cur.execute(
                 "ALTER TABLE aia_workspaces ADD COLUMN IF NOT EXISTS staff_note_links JSONB NOT NULL DEFAULT '[]'::jsonb"
             )
+            # Short-lived per-workspace filter for the grammar exercise catalogue.
+            # Dropped again: the catalogue is the same everywhere and the learner
+            # picks the type when creating a set, so there was nothing to configure.
+            cur.execute("ALTER TABLE aia_workspaces DROP COLUMN IF EXISTS grammar_types")
             # Legacy per-workspace summary toggle: summaries were removed entirely
             # (pgvector-only retrieval), so drop the now-meaningless column.
             cur.execute("ALTER TABLE aia_workspaces DROP COLUMN IF EXISTS summary_mode")
@@ -772,6 +776,40 @@ def init_db(admin_email: Optional[str] = None) -> None:
             """)
             # Migration: add sources JSONB to exercise_items
             cur.execute("ALTER TABLE aia_exercise_items ADD COLUMN IF NOT EXISTS sources JSONB")
+            # The standalone Lückentext tool is gone: its gap sentences were the same
+            # multiple-choice exercise under a second name, and they sat in the language
+            # area although the gap is a technical term and not a grammar form. The quiz
+            # now produces both kinds, so old sets move there rather than being deleted.
+            # The UI tells a gap item apart by the ___ marker in `front`, so nothing else
+            # has to change for them to keep working.
+            # Same for the removed Begriffe-Quiz: it was multiple choice over technical
+            # terms, so its sets belong with the quiz rather than being orphaned by a
+            # tile that no longer exists.
+            cur.execute(
+                "UPDATE aia_exercise_sets SET tool = 'quiz' "
+                "WHERE tool IN ('lueckentext', 'vokabeltest')"
+            )
+            # Grammar exercises: a set carries the task type it was built from plus the
+            # instruction and the worked example pair, because those are shown once above
+            # the sentences instead of being repeated on every item.
+            cur.execute("ALTER TABLE aia_exercise_sets ADD COLUMN IF NOT EXISTS grammar_type TEXT")
+            cur.execute("ALTER TABLE aia_exercise_sets ADD COLUMN IF NOT EXISTS instruction TEXT")
+            cur.execute("ALTER TABLE aia_exercise_sets ADD COLUMN IF NOT EXISTS pattern_front TEXT")
+            cur.execute("ALTER TABLE aia_exercise_sets ADD COLUMN IF NOT EXISTS pattern_back TEXT")
+            # Every source the set was generated from, in the order the learner picked
+            # them. source_uuid only ever held the first one, so neither the count nor a
+            # stable numbering for the citation chips was recoverable from the row.
+            cur.execute("ALTER TABLE aia_exercise_sets DROP COLUMN IF EXISTS source_count")
+            cur.execute(
+                "ALTER TABLE aia_exercise_sets ADD COLUMN IF NOT EXISTS "
+                "source_uuids JSONB NOT NULL DEFAULT '[]'::jsonb"
+            )
+            # Sets from before the column keep the one source that was recorded. The rest
+            # of their selection is gone and cannot be reconstructed.
+            cur.execute(
+                "UPDATE aia_exercise_sets SET source_uuids = jsonb_build_array(source_uuid) "
+                "WHERE source_uuid IS NOT NULL AND source_uuids = '[]'::jsonb"
+            )
             cur.execute("""
                 CREATE TABLE IF NOT EXISTS aia_exercise_progress (
                     id          SERIAL PRIMARY KEY,

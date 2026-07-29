@@ -4,10 +4,9 @@ import {
   BookOpenText,
   Cards,
   ClockCounterClockwise,
-  Exam,
+  PencilLine,
   Question,
   Table,
-  TextAa,
   TreeStructure,
 } from "@phosphor-icons/react";
 import { EmptyState } from "@/components/ui/EmptyState";
@@ -26,8 +25,7 @@ const ACTIVITY_TOOL_ICONS: Record<string, React.ComponentType<any>> = {
   karteikarten: Cards,
   flashcards: BookOpenText,
   quiz: Question,
-  lueckentext: TextAa,
-  vokabeltest: Exam,
+  grammatik: PencilLine,
   data_table: Table,
   mindmap: TreeStructure,
 };
@@ -36,8 +34,7 @@ const ACTIVITY_TOOL_COLORS: Record<string, string> = {
   karteikarten: "var(--success-strong)",
   flashcards: "#78350F",
   quiz: "#A16207",
-  lueckentext: "var(--error-strong)",
-  vokabeltest: "#534AB7",
+  grammatik: "#534AB7",
   data_table: "#C2410C",
   mindmap: "#0369A1",
 };

@@ -83,7 +83,7 @@ def adaptive_tool_appendix(
     return "\n\n" + text, level
 
 
-def build_adaptive_tool_suffix(user_id: int | None) -> str:
+def build_adaptive_tool_suffix(user_id: int | None, workspace_id: int | None = None) -> str:
     """The suffix to append to a tool's system prompt for this learner.
 
     Reads the learner's stored CEFR level and the admin behaviour/example
@@ -92,12 +92,22 @@ def build_adaptive_tool_suffix(user_id: int | None) -> str:
     DB-backed entry point the Celery tasks use; the pure builder above stays
     testable without a database.
 
+    ``workspace_id`` applies the same gate the chat uses: adaptive output is
+    coupled to the Fachsprachentrainer being ON for that workspace. The CEFR level
+    is stored globally per user, so without this check a national student who never
+    enabled the trainer would still get level-pitched cards and mind maps while the
+    chat answers plainly. Omitted (None) keeps the ungated behaviour, which is what
+    older queued tasks carry.
+
     The level read is short-circuited: with no level we return early and never
     touch the settings table, which is the common case.
     """
     if not user_id:
         return ""
     from src import database as db
+
+    if workspace_id is not None and not db.is_language_training_active(workspace_id, user_id):
+        return ""
 
     level = db.get_user_language_level(user_id)["language_level"]
     if not level:

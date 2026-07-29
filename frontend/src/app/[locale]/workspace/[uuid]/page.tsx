@@ -305,20 +305,11 @@ export default function KiTutorWorkspacePage() {
   }
 
   // ─── Language training functions (from useLanguageTraining) ──────────────
-  const langTrainingActiveIds = selectedSourceIds.slice(0, 3);
-  const spr = useLanguageTraining({
-    uuid,
-    langTrainingActiveIds,
-    onAfterCloze: () => loadExerciseSets("lueckentext"),
-    onAfterVocabTest: () => loadExerciseSets("vokabeltest"),
-  });
+  const spr = useLanguageTraining({ uuid });
   const {
     langTrainingView, setSprachView,
     glossary, glossaryCount, glossaryExtracting, glossaryFeedback,
-    clozeExercises, clozeLoading,
-    vocabQuestions, vocabLoading,
     deleteGlossaryEntry, deleteAllGlossaryEntries,
-    generateCloze, generateVocabTest,
     loadGlossary, loadGlossaryCount,
     extractGlossary, dismissFeedback,
   } = spr;
@@ -351,12 +342,6 @@ export default function KiTutorWorkspacePage() {
       langTrainingView={langTrainingView}
       setSprachView={setSprachView}
       glossary={glossary}
-      clozeExercises={clozeExercises}
-      clozeLoading={clozeLoading}
-      vocabQuestions={vocabQuestions}
-      vocabLoading={vocabLoading}
-      generateCloze={generateCloze}
-      generateVocabTest={generateVocabTest}
       exerciseSets={exerciseSets}
       activeSet={activeSet}
       setActiveSet={setActiveSet}
@@ -368,6 +353,7 @@ export default function KiTutorWorkspacePage() {
       setShowCreateModal={setShowCreateModal}
       submitSingleAnswer={submitSingleAnswer}
       selectedSourceIds={selectedSourceIds}
+      workspaceUuid={uuid}
       pageStats={pageStats}
       isAdmin={isAdmin}
       sources={sources}
@@ -631,19 +617,21 @@ export default function KiTutorWorkspacePage() {
           tool={createSetTool}
           glossaryCount={glossaryCount || glossary.length}
           selectedSources={selectedSourcesForSet}
+          workspaceUuid={uuid}
           onClose={() => setShowCreateModal(false)}
-          onCreate={async (mode, count) => {
+          onCreate={async (mode, count, grammarType) => {
             setShowCreateModal(false);
             if (createSetTool === "quiz" || createSetTool === "karteikarten") {
               // Studio tools stay in Studio
               setStudioView(createSetTool as StudioView);
             } else {
-              const setsView = `${createSetTool === "flashcards" ? "lk" : createSetTool === "lueckentext" ? "cl" : "vt"}-sets` as LanguageTrainingView;
+              const setsView = `${createSetTool === "flashcards" ? "lk" : "gr"}-sets` as LanguageTrainingView;
               setSprachView(setsView);
             }
             await createExerciseSet(
               createSetTool, mode, count,
               mode === "source" ? setSourceUuids : undefined,
+              grammarType,
             );
             const poll = setInterval(() => loadExerciseSets(createSetTool), 3000);
             setTimeout(() => clearInterval(poll), 120000);

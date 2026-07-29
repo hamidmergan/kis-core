@@ -76,7 +76,12 @@ def run_generate_data_table(self, data_table_id: int, source_ids: list[int],
         context = "\n\n---\n\n".join(context_parts)
 
         client, model, _ = _get_llm_client()
-        adaptive_suffix = build_adaptive_tool_suffix(user_id)
+        # Workspace comes from the sources: the adaptive suffix is gated on the
+        # Fachsprachentrainer being on there, exactly like the chat.
+        _first_source = db.get_aia_source(source_uuids[0]) if source_uuids else None
+        adaptive_suffix = build_adaptive_tool_suffix(
+            user_id, (_first_source or {}).get("workspace_id"),
+        )
         messages = [
             {"role": "system", "content": AIA_DATENTABELLE_PROMPT.replace("{language}", language) + adaptive_suffix},
             {"role": "user", "content": (

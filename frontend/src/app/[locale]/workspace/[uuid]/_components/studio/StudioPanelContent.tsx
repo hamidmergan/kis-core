@@ -155,7 +155,6 @@ export function StudioPanelContent(props: StudioPanelContentProps) {
     return (
       <MCExerciseView
         exerciseSet={activeSet}
-        tool="quiz"
         onBack={() => { setActiveSet(null); refreshProgress(); }}
         onAnswer={(itemId, correct, newRun) => submitSingleAnswer(activeSet.id, itemId, correct, newRun)}
         onAskChat={(text) => onAskChat(text, true)}

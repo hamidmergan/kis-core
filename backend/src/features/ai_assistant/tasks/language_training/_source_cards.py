@@ -21,6 +21,8 @@ def generate_cards_from_source(
     count: int,
     locale: str = "de",
     adaptive_suffix: str = "",
+    title_avoidance: str = "",
+    coverage: str = "",
 ) -> tuple[list[dict], str]:
     language = _language_label(locale)
     # adaptive_suffix pitches question + answer at the learner's CEFR level.
@@ -28,9 +30,10 @@ def generate_cards_from_source(
         AIA_KARTEIKARTEN_QA_PROMPT
         .replace("{count}", str(count))
         .replace("{language}", language)
-    ) + adaptive_suffix
+    ) + adaptive_suffix + title_avoidance + coverage
     # No "avoid these existing cards" block: feeding them back made the model copy them.
-    # Variation comes from the rotating page subset in build_source_context.
+    # Variation comes from the rotating page subset in build_source_context. Only the
+    # TITLE gets a do-not-repeat list (title_avoidance), which has no such pull.
     messages = [
         {"role": "system", "content": prompt},
         {"role": "user", "content": (
@@ -57,7 +60,9 @@ def generate_cards_from_source(
     if not cards:
         return [], title
 
-    items = [{"front": c["question"].strip(), "back": c["answer"].strip()} for c in cards]
+    items = [{"front": c["question"].strip(), "back": c["answer"].strip(),
+              # See _source_mc: the model's own section number, for the coverage check.
+              "_section": c.get("section")} for c in cards]
     claims = [f'{c["question"].strip()} {c["answer"].strip()}'.strip() for c in cards]
     # A card is one atomic Q+A, so multi=False -> exactly the single best-matching source.
     attach_chips(items, claims, ctx, multi=False)

@@ -18,7 +18,7 @@ const LANGUAGE_TRAINING_BADGE: Record<string, BadgeStyle> = {
   Flashcards: { bg: "var(--badge-amber-bg)",   color: "var(--badge-amber-fg)" },
   Glossary:   { bg: "var(--badge-emerald-bg)", color: "var(--badge-emerald-fg)" },
   Cloze:      { bg: "var(--badge-rose-bg)",    color: "var(--badge-rose-fg)" },
-  TermQuiz:   { bg: "var(--badge-violet-bg)",  color: "var(--badge-violet-fg)" },
+  Grammar:    { bg: "var(--badge-violet-bg)",  color: "var(--badge-violet-fg)" },
 };
 const SHARED_BADGE: Record<string, BadgeStyle> = {
   Notes:      { bg: "var(--badge-slate-bg)", color: "var(--badge-slate-fg)" },

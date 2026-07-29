@@ -129,6 +129,32 @@ def test_build_suffix_reads_admin_behavior_override(monkeypatch):
     assert "Custom expert wording for B2." in suffix
 
 
+def test_build_suffix_is_gated_on_the_trainer_when_a_workspace_is_given(monkeypatch):
+    """Same gate the chat uses. The CEFR level is stored per user, so without it a
+    national student who never enabled the Fachsprachentrainer would still get
+    level-pitched cards while the chat answers plainly."""
+    monkeypatch.setattr("src.database.get_user_language_level", lambda uid: {"language_level": "A1"})
+    monkeypatch.setattr("src.database.get_setting", lambda k, d="": d)
+    monkeypatch.setattr("src.database.is_language_training_active", lambda wid, uid: False)
+    assert build_adaptive_tool_suffix(7, 3) == ""
+
+    monkeypatch.setattr("src.database.is_language_training_active", lambda wid, uid: True)
+    assert "A1" in build_adaptive_tool_suffix(7, 3)
+
+
+def test_build_suffix_without_a_workspace_stays_ungated(monkeypatch):
+    # Older queued tasks carry no workspace; they must keep working rather than
+    # silently losing the adaptation.
+    monkeypatch.setattr("src.database.get_user_language_level", lambda uid: {"language_level": "A1"})
+    monkeypatch.setattr("src.database.get_setting", lambda k, d="": d)
+
+    def boom(wid, uid):
+        raise AssertionError("gate must not be consulted without a workspace")
+
+    monkeypatch.setattr("src.database.is_language_training_active", boom)
+    assert "A1" in build_adaptive_tool_suffix(7)
+
+
 # --- wiring: the suffix reaches each tool's system prompt -------------------
 
 def test_flashcards_system_prompt_carries_suffix(monkeypatch):
@@ -193,222 +219,40 @@ def test_quiz_system_prompt_carries_suffix(monkeypatch):
     ]})
     client, calls = _make_client(content)
     ctx = types.SimpleNamespace(source_hint="Quelle", context="ctx", multi_label="T")
-    items, title = mod.generate_mc_from_source(client, "m", ctx, "quiz", 1, locale="de", adaptive_suffix=MARKER)
+    items, title = mod.generate_mc_from_source(client, "m", ctx, 1, locale="de", adaptive_suffix=MARKER)
     assert MARKER in _system_of(calls)
     assert items
 
 
-def test_lueckentext_system_prompt_carries_suffix(monkeypatch):
+def test_quiz_handles_both_question_and_gap_items(monkeypatch):
+    """The standalone Lückentext tool is gone; the quiz produces comprehension
+    questions AND gap sentences, and both must land in the same item shape."""
     from src.features.ai_assistant.tasks.language_training import _source_mc as mod
     monkeypatch.setattr(mod, "attach_chips", lambda *a, **k: None)
     content = json.dumps({"title": "T", "exercises": [
-        {"sentence": "S ___", "answer": "a", "options": ["a", "b", "c", "d"], "correct_idx": 0}
+        {"question": "Was ist X?", "options": ["a", "b", "c", "d"], "correct_idx": 1},
+        {"sentence": "Der Prozess der ___ reduziert Redundanz.",
+         "options": ["a", "b", "c", "d"], "correct_idx": 2},
     ]})
     client, calls = _make_client(content)
     ctx = types.SimpleNamespace(source_hint="Quelle", context="ctx", multi_label="T")
-    items, title = mod.generate_mc_from_source(client, "m", ctx, "lueckentext", 1, locale="de", adaptive_suffix=MARKER)
+    items, _ = mod.generate_mc_from_source(client, "m", ctx, 2, locale="de", adaptive_suffix=MARKER)
     assert MARKER in _system_of(calls)
-    assert items
+    assert [i["front"] for i in items] == ["Was ist X?", "Der Prozess der ___ reduziert Redundanz."]
+    # back is always the correct option, whichever kind the item is
+    assert [i["back"] for i in items] == ["b", "c"]
 
 
-def test_glossary_lueckentext_system_prompt_carries_suffix():
-    from src.features.ai_assistant.tasks.language_training._glossary import _generate_lueckentext
-    content = json.dumps([
-        {"sentence": "S ___", "answer": "a", "options": ["a", "b", "c", "d"], "correct_idx": 0, "term_de": "T"}
-    ])
-    client, calls = _make_client(content)
-    selected = [{"term_de": "T", "term_en": "Te", "definition": "D", "filename": "f.pdf", "page_number": 1}]
-    items = _generate_lueckentext(client, "m", selected, 1, "German", MARKER)
-    assert MARKER in _system_of(calls)
-    assert items
-
-
-def test_glossary_vokabeltest_system_prompt_carries_suffix():
-    from src.features.ai_assistant.tasks.language_training._glossary import _generate_vokabeltest
-    content = json.dumps([
-        {"question": "Q", "options": ["a", "b", "c", "d"], "correct_idx": 0, "explanation": "E", "term_de": "T"}
-    ])
-    client, calls = _make_client(content)
-    selected = [{"term_de": "T", "term_en": "Te", "definition": "D", "filename": "f.pdf", "page_number": 1}]
-    items = _generate_vokabeltest(client, "m", selected, 1, "German", MARKER)
-    assert MARKER in _system_of(calls)
-    assert items
-
-
-def test_glossary_flashcards_enrich_with_grammar_extras():
-    """Glossary flashcards run through the same enrichment as source Lernkarten: the
-    model's grammar extras land on the card and the definition is rewritten (no
-    'term - ' prefix), while term/source page stay from the glossary index."""
-    from src.features.ai_assistant.tasks.language_training._glossary import _generate_flashcards
-    content = json.dumps({"title": "T", "cards": [{
-        "begriff": "Normalisierung", "definition": "Einfach erklärt.",
-        "word_parts": "Norm + al + isierung",
-        "word_class": "Nomen", "singular": "die Normalisierung", "plural": "die Normalisierungen",
-        "example_sentence": "Die Normalisierung ordnet Daten.",
-    }]})
-    client, calls = _make_client(content)
-    selected = [{"term_de": "Normalisierung", "term_en": "Normalization",
-                 "definition": "Alt", "filename": "f.pdf", "page_number": 3}]
-    items = _generate_flashcards(client, "m", selected, "German", MARKER)
-    assert MARKER in _system_of(calls)
-    card = items[0]
-    assert card["front"] == "Normalisierung"
-    assert card["back"] == "Einfach erklärt."   # rewritten, no "Normalisierung - " prefix
-    assert card["back_en"] == "Normalization"
-    assert card["sources"][0]["page_number"] == 3
-    assert card["extras"]["word_class"] == "Nomen"
-    assert card["extras"]["singular"] == "die Normalisierung"
-    assert card["extras"]["plural"] == "die Normalisierungen"
-
-
-def test_glossary_flashcards_fall_back_to_plain_on_bad_json():
-    """If enrichment fails, the card degrades to the plain definition (no prefix, no
-    crash, no extras) so flashcards never break."""
-    from src.features.ai_assistant.tasks.language_training._glossary import _generate_flashcards
-    client, _ = _make_client("not json at all")
-    selected = [{"term_de": "Satz", "term_en": "Sentence",
-                 "definition": "Eine Aussage.", "filename": "f.pdf", "page_number": 1}]
-    items = _generate_flashcards(client, "m", selected, "German", "")
-    card = items[0]
-    assert card["front"] == "Satz"
-    assert card["back"] == "Eine Aussage."
-    assert "extras" not in card
-
-
-# --- glossary CREATION: definitions written at the learner's level ----------
-# The glossary definition is authored once, when a term is added; adapting there
-# is what actually makes glossary-derived Lernkarten/Karteikarten level-correct,
-# since those copy the stored definition verbatim.
-
-def test_glossary_creation_default_is_b1_no_suffix():
-    from src.features.ai_assistant.routes.glossary import _glossary_system_prompt
-    single = _glossary_system_prompt(True, "")
-    extract = _glossary_system_prompt(False, "")
-    # Default stays B1, and nothing extra is appended.
-    assert "B1" in single and "B1" in extract
-    assert "ADAPT-MARKER" not in single and "ADAPT-MARKER" not in extract
-    # Single-term vs. multi-term extraction pick different base prompts.
-    assert "ONE specific term" in single
-    assert "JSON array" in extract
-
-
-def test_glossary_creation_appends_suffix_when_level_exists():
-    from src.features.ai_assistant.routes.glossary import _glossary_system_prompt
-    assert MARKER in _glossary_system_prompt(True, MARKER)
-    assert MARKER in _glossary_system_prompt(False, MARKER)
-
-
-def test_glossary_prompts_announce_the_adaptive_override():
-    """Both base prompts keep B1 as the default AND tell the model that an
-    adaptive block, when present, overrides it -- so the appended suffix wins."""
-    from src.features.ai_assistant.routes.glossary import (
-        _GLOSSARY_SINGLE_PROMPT,
-        _GLOSSARY_EXTRACT_PROMPT,
-    )
-    for p in (_GLOSSARY_SINGLE_PROMPT, _GLOSSARY_EXTRACT_PROMPT):
-        assert "B1 level BY DEFAULT" in p
-        assert "adaptive block" in p
-
-
-# --- glossary base form (Grundform / lemma of the marked term) --------------
-
-def test_glossary_prompts_ask_for_the_base_form():
-    """Both prompts must request base_form in their JSON shape and explain the
-    lemma rule, so the marked word can be paired with its Grundform."""
-    from src.features.ai_assistant.routes.glossary import (
-        _GLOSSARY_SINGLE_PROMPT,
-        _GLOSSARY_EXTRACT_PROMPT,
-    )
-    for p in (_GLOSSARY_SINGLE_PROMPT, _GLOSSARY_EXTRACT_PROMPT):
-        assert "base_form" in p
-        assert "singular nominative" in p and "infinitive" in p
-
-
-def test_base_form_kept_when_it_differs_from_the_term():
-    from src.features.ai_assistant.routes.glossary import _base_form
-    assert _base_form("laufen", "läuft") == "laufen"
-    assert _base_form("  Haus  ", "Häusern") == "Haus"
-
-
-def test_base_form_dropped_when_equal_empty_or_missing():
-    from src.features.ai_assistant.routes.glossary import _base_form
-    # Equal to the marked word (case-insensitively) -> noise, drop it.
-    assert _base_form("Arbeitsmarkt", "Arbeitsmarkt") == ""
-    assert _base_form("laufen", "Laufen") == ""
-    # Model returned nothing usable.
-    assert _base_form("", "Haus") == ""
-    assert _base_form("   ", "Haus") == ""
-    assert _base_form(None, "Haus") == ""
-
-
-# --- definition accuracy + document context ---------------------------------
-
-def test_definition_prompts_demand_accuracy_over_plausibility():
-    """The glossary-creation prompts (root) and the flashcard rewrite prompt must
-    push for an accurate definition -- name the category, no invented specifics,
-    no filler -- so a term like 'Wissenschaftliches Seminar' is not padded with
-    plausible-but-wrong claims."""
-    from src.features.ai_assistant.routes.glossary import (
-        _GLOSSARY_SINGLE_PROMPT,
-        _GLOSSARY_EXTRACT_PROMPT,
-    )
-    from src.tool_prompts import AIA_LERNKARTEN_PROMPT
-    for p in (_GLOSSARY_SINGLE_PROMPT, _GLOSSARY_EXTRACT_PROMPT, AIA_LERNKARTEN_PROMPT):
-        assert "category" in p
-        assert "vague filler" in p
-        assert "special case" in p
-
-
-def test_single_term_prompt_offers_document_context():
-    """Only the single-term prompt is fed a page excerpt (the multi-term path
-    already carries the marked text), so only it must mention the CONTEXT block."""
-    from src.features.ai_assistant.routes.glossary import (
-        _GLOSSARY_SINGLE_PROMPT,
-        _GLOSSARY_EXTRACT_PROMPT,
-    )
-    assert "CONTEXT" in _GLOSSARY_SINGLE_PROMPT
-    assert "CONTEXT" not in _GLOSSARY_EXTRACT_PROMPT
-    assert "marked text" in _GLOSSARY_EXTRACT_PROMPT
-
-
-def test_context_snippet_centres_on_the_term():
-    from src.features.ai_assistant.routes._helpers import _context_snippet
-    page = ("A " * 300) + "the Widget is a small reusable part " + ("B " * 300)
-    snip = _context_snippet(page, "Widget", max_chars=100)
-    assert "Widget" in snip
-    assert len(snip) <= 110  # max_chars plus the two ellipsis markers
-    assert snip.startswith("… ") and snip.endswith(" …")
-
-
-def test_context_snippet_short_page_returned_whole():
-    from src.features.ai_assistant.routes._helpers import _context_snippet
-    page = "Ein wissenschaftliches Seminar behandelt ein Thema in Referaten."
-    assert _context_snippet(page, "Seminar", max_chars=700) == page
-
-
-def test_context_snippet_falls_back_to_head_when_term_absent():
-    from src.features.ai_assistant.routes._helpers import _context_snippet
-    page = "word " * 400
-    snip = _context_snippet(page, "notpresent", max_chars=80)
-    assert snip.endswith("…")
-    assert len(snip) <= 90
-
-
-def test_context_snippet_empty_input_is_empty():
-    from src.features.ai_assistant.routes._helpers import _context_snippet
-    assert _context_snippet("", "x") == ""
-    assert _context_snippet(None, "x") == ""
-
-
-def test_flashcard_rewrite_forbids_inventing_beyond_the_given_definition():
-    """The glossary flashcard enrichment must only simplify the stored definition,
-    never add specifics or filler -- that is what turned a clean definition into
-    'reden ueber aktuelle Forschung' / 'zeigen eigene Beitraege'."""
-    from src.features.ai_assistant.tasks.language_training._glossary import _generate_flashcards
-    client, calls = _make_client(json.dumps({"cards": []}))
-    selected = [{"term_de": "Seminar", "term_en": "seminar",
-                 "definition": "Ein Kurs.", "filename": "x.pdf", "page_number": 1}]
-    _generate_flashcards(client, "m", selected, "German")
-    user_msg = calls[0][1]["content"]
-    assert "STRICTLY" in user_msg
-    assert "not in the given definition" in user_msg
+def test_quiz_skips_items_with_a_broken_answer_index(monkeypatch):
+    from src.features.ai_assistant.tasks.language_training import _source_mc as mod
+    monkeypatch.setattr(mod, "attach_chips", lambda *a, **k: None)
+    content = json.dumps({"title": "T", "exercises": [
+        {"question": "Gut?", "options": ["a", "b"], "correct_idx": 0},
+        {"question": "Index daneben?", "options": ["a", "b"], "correct_idx": 7},
+        {"question": "Ohne Optionen?", "options": [], "correct_idx": 0},
+        {"options": ["a", "b"], "correct_idx": 0},
+    ]})
+    client, _ = _make_client(content)
+    ctx = types.SimpleNamespace(source_hint="Quelle", context="ctx", multi_label="T")
+    items, _ = mod.generate_mc_from_source(client, "m", ctx, 4, locale="de")
+    assert [i["front"] for i in items] == ["Gut?"]

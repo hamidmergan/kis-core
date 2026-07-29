@@ -233,8 +233,9 @@
 :root[data-theme="dark"] .chip-cite {
   color: #7BBDE5 !important;
 }
-/* …but the expand/collapse toggle (.chip-toggle) stays background-free, just caret + count. */
-:root[data-theme="dark"] .chip-cite:not(.chip-toggle) {
+/* Includes the expand/collapse toggle: it is a chip of its own (caret only), so it
+   carries the same tinted pill on dark as the citation chips next to it. */
+:root[data-theme="dark"] .chip-cite {
   background-color: rgba(91, 163, 206, 0.18) !important;
 }
 

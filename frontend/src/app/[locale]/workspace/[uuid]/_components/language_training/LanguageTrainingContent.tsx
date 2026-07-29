@@ -10,19 +10,15 @@ import { ExerciseCompletion } from "./ExerciseCompletion";
 const loader = () => <div className="flex-1 flex items-center justify-center p-6"><Spinner size="md" /></div>;
 
 const VocabFlashcards = dynamic(() => import("./VocabFlashcards").then((m) => ({ default: m.VocabFlashcards })), { loading: loader, ssr: false });
-const LueckentextView = dynamic(() => import("./LueckentextView").then((m) => ({ default: m.LueckentextView })), { loading: loader, ssr: false });
-const VokabeltestView = dynamic(() => import("./VokabeltestView").then((m) => ({ default: m.VokabeltestView })), { loading: loader, ssr: false });
+const GrammarExerciseView = dynamic(() => import("./GrammarExerciseView").then((m) => ({ default: m.GrammarExerciseView })), { loading: loader, ssr: false });
 const FlashcardsLearnView = dynamic(() => import("./FlashcardsLearnView").then((m) => ({ default: m.FlashcardsLearnView })), { loading: loader, ssr: false });
-const MCExerciseView = dynamic(() => import("./MCExerciseView").then((m) => ({ default: m.MCExerciseView })), { loading: loader, ssr: false });
 
 import type {
-  ClozeExercise,
   ExerciseSet,
   GlossaryEntry,
   Source,
   LanguageTrainingView,
   StudentStats,
-  VocabTestQuestion,
 } from "../../_types";
 
 interface LanguageTrainingContentProps {
@@ -30,12 +26,6 @@ interface LanguageTrainingContentProps {
   setSprachView: (v: LanguageTrainingView) => void;
   // Content
   glossary: GlossaryEntry[];
-  clozeExercises: ClozeExercise[];
-  clozeLoading: boolean;
-  vocabQuestions: VocabTestQuestion[];
-  vocabLoading: boolean;
-  generateCloze: () => void;
-  generateVocabTest: () => void;
   // Exercise sets
   exerciseSets: ExerciseSet[];
   activeSet: ExerciseSet | null;
@@ -49,6 +39,7 @@ interface LanguageTrainingContentProps {
   submitSingleAnswer: (setId: number, itemId: number, correct: boolean, newRun?: boolean) => void;
   // Context
   selectedSourceIds: string[];
+  workspaceUuid: string;
   pageStats: StudentStats | null;
   isAdmin: boolean;
   sources: Source[];
@@ -58,20 +49,22 @@ interface LanguageTrainingContentProps {
   chatLang: "de" | "en";
 }
 
-const TITLE_PREFIX_RE = /^(Lernkarten|Lückentext|Vokabeltest|Begriffe-Quiz|Quiz)\s*(aus|von)\s*/i;
+const TITLE_PREFIX_RE = /^(Lernkarten|Grammatik-Übung|Quiz)\s*(aus|von)\s*/i;
 
 export function LanguageTrainingContent(props: LanguageTrainingContentProps) {
   const {
     langTrainingView, setSprachView,
-    glossary, clozeExercises, clozeLoading, vocabQuestions, vocabLoading,
-    generateCloze, generateVocabTest,
+    glossary,
     exerciseSets, activeSet, setActiveSet,
     loadExerciseSet, loadExerciseSets, deleteExerciseSet, downloadExerciseSet,
     setCreateSetTool, setShowCreateModal, submitSingleAnswer,
-    selectedSourceIds, pageStats, isAdmin, sources,
+    selectedSourceIds, workspaceUuid, pageStats, isAdmin, sources,
     refreshProgress, handleAskChat, handlePillClick, chatLang,
   } = props;
   const t = useTranslations("workspace.detail.languageTraining");
+  // The grammar run reports its score when it finishes, so the summary screen can
+  // show the real numbers rather than the placeholder the MC flows use.
+  const [grammarScore, setGrammarScore] = React.useState<{ correct: number; total: number } | null>(null);
 
   const onSourceClick = (filename: string, page: number, startTime?: number) => {
     // Tool chips are nav-only, exactly like chat citations: jump to the page/timestamp,
@@ -82,8 +75,7 @@ export function LanguageTrainingContent(props: LanguageTrainingContentProps) {
 
   const studioLabel = t("common.studio");
   const lernkartenLabel = t("tools.flashcards");
-  const lueckentextLabel = t("tools.lueckentext");
-  const begriffeQuizLabel = t("tools.vokabeltest");
+  const grammarLabel = t("tools.grammar");
 
   const toOverviewCrumb = { label: studioLabel, onClick: () => setSprachView("overview") };
   const toOverviewWithReset = { label: studioLabel, onClick: () => { setActiveSet(null); setSprachView("overview"); } };
@@ -94,26 +86,6 @@ export function LanguageTrainingContent(props: LanguageTrainingContentProps) {
         return (
           <VocabFlashcards
             entries={glossary}
-            onBack={() => setSprachView("overview")}
-            breadcrumbs={[toOverviewCrumb]}
-          />
-        );
-      case "lueckentext":
-        return (
-          <LueckentextView
-            exercises={clozeExercises}
-            loading={clozeLoading}
-            onGenerate={generateCloze}
-            onBack={() => setSprachView("overview")}
-            breadcrumbs={[toOverviewCrumb]}
-          />
-        );
-      case "vokabeltest":
-        return (
-          <VokabeltestView
-            questions={vocabQuestions}
-            loading={vocabLoading}
-            onGenerate={generateVocabTest}
             onBack={() => setSprachView("overview")}
             breadcrumbs={[toOverviewCrumb]}
           />
@@ -162,17 +134,17 @@ export function LanguageTrainingContent(props: LanguageTrainingContentProps) {
             breadcrumbs={[toOverviewWithReset, { label: lernkartenLabel, toolKey: "Flashcards", onClick: () => { setActiveSet(null); setSprachView("lk-sets"); } }]}
           />
         ) : null;
-      // ─── Lückentext Sets Flow ──────────────────────────────
-      case "cl-sets":
+      // ─── Grammatik-Übung Sets Flow ─────────────────────────
+      case "gr-sets":
         return (
           <ExerciseSetsOverview
-            title={lueckentextLabel}
-            toolKey="Cloze"
-            sets={exerciseSets.filter((s) => s.tool === "lueckentext")}
+            title={grammarLabel}
+            toolKey="Grammar"
+            sets={exerciseSets.filter((s) => s.tool === "grammatik")}
             onBack={() => setSprachView("overview")}
-            onSelect={(s) => { loadExerciseSet(s.id).then(() => setSprachView("cl-learn")); }}
-            onCreate={() => { setCreateSetTool("lueckentext"); setShowCreateModal(true); }}
-            onDelete={(id) => deleteExerciseSet(id, "lueckentext")}
+            onSelect={(s) => { loadExerciseSet(s.id).then(() => setSprachView("gr-learn")); }}
+            onCreate={() => { setCreateSetTool("grammatik"); setShowCreateModal(true); }}
+            onDelete={(id) => deleteExerciseSet(id, "grammatik")}
             onDownload={isAdmin ? downloadExerciseSet : undefined}
             sourceCount={selectedSourceIds.length}
             stats={pageStats}
@@ -180,74 +152,34 @@ export function LanguageTrainingContent(props: LanguageTrainingContentProps) {
             category="language_training"
           />
         );
-      case "cl-learn":
+      case "gr-learn":
         return activeSet ? (
-          <MCExerciseView
+          <GrammarExerciseView
             exerciseSet={activeSet}
-            tool="lueckentext"
-            onBack={() => { setSprachView("cl-sets"); setActiveSet(null); refreshProgress(); }}
+            workspaceUuid={workspaceUuid}
+            onBack={() => { setSprachView("gr-sets"); setActiveSet(null); refreshProgress(); }}
             onAnswer={(itemId, correct, newRun) => submitSingleAnswer(activeSet.id, itemId, correct, newRun)}
-            onAskChat={handleAskChat}
             onSourceClick={onSourceClick}
-            breadcrumbs={[toOverviewWithReset, { label: lueckentextLabel, toolKey: "Cloze", onClick: () => { setActiveSet(null); setSprachView("cl-sets"); } }]}
-            chatLang={chatLang}
+            onFinish={(correct, total) => { setGrammarScore({ correct, total }); setSprachView("gr-complete"); }}
+            breadcrumbs={[toOverviewWithReset, { label: grammarLabel, toolKey: "Grammar", onClick: () => { setActiveSet(null); setSprachView("gr-sets"); } }]}
           />
         ) : null;
-      case "cl-complete":
+      case "gr-complete":
         return activeSet ? (
           <ExerciseCompletion
             title={activeSet.title.replace(TITLE_PREFIX_RE, "")}
-            toolKey="Cloze"
+            toolKey="Grammar"
             category="language_training"
-            results={[]}
-            total={activeSet.card_count}
-            onRetryWrong={() => setSprachView("cl-learn")}
-            onBack={() => { setSprachView("cl-sets"); setActiveSet(null); loadExerciseSets("lueckentext"); }}
-            breadcrumbs={[toOverviewWithReset, { label: lueckentextLabel, toolKey: "Cloze", onClick: () => { setActiveSet(null); setSprachView("cl-sets"); } }]}
-          />
-        ) : null;
-      // ─── Vokabeltest Sets Flow ─────────────────────────────
-      case "vt-sets":
-        return (
-          <ExerciseSetsOverview
-            title={begriffeQuizLabel}
-            toolKey="TermQuiz"
-            sets={exerciseSets.filter((s) => s.tool === "vokabeltest")}
-            onBack={() => setSprachView("overview")}
-            onSelect={(s) => { loadExerciseSet(s.id).then(() => setSprachView("vt-learn")); }}
-            onCreate={() => { setCreateSetTool("vokabeltest"); setShowCreateModal(true); }}
-            onDelete={(id) => deleteExerciseSet(id, "vokabeltest")}
-            onDownload={isAdmin ? downloadExerciseSet : undefined}
-            sourceCount={selectedSourceIds.length}
-            stats={pageStats}
-            breadcrumbs={[toOverviewCrumb]}
-            category="language_training"
-          />
-        );
-      case "vt-learn":
-        return activeSet ? (
-          <MCExerciseView
-            exerciseSet={activeSet}
-            tool="vokabeltest"
-            onBack={() => { setSprachView("vt-sets"); setActiveSet(null); refreshProgress(); }}
-            onAnswer={(itemId, correct, newRun) => submitSingleAnswer(activeSet.id, itemId, correct, newRun)}
-            onAskChat={handleAskChat}
-            onSourceClick={onSourceClick}
-            breadcrumbs={[toOverviewWithReset, { label: begriffeQuizLabel, toolKey: "TermQuiz", onClick: () => { setActiveSet(null); setSprachView("vt-sets"); } }]}
-            chatLang={chatLang}
-          />
-        ) : null;
-      case "vt-complete":
-        return activeSet ? (
-          <ExerciseCompletion
-            title={activeSet.title.replace(TITLE_PREFIX_RE, "")}
-            toolKey="TermQuiz"
-            category="language_training"
-            results={[]}
-            total={activeSet.card_count}
-            onRetryWrong={() => setSprachView("vt-learn")}
-            onBack={() => { setSprachView("vt-sets"); setActiveSet(null); loadExerciseSets("vokabeltest"); }}
-            breadcrumbs={[toOverviewWithReset, { label: begriffeQuizLabel, toolKey: "TermQuiz", onClick: () => { setActiveSet(null); setSprachView("vt-sets"); } }]}
+            // Unlike the MC tools the run's real score is known here, so the summary
+            // shows it instead of a placeholder zero.
+            results={Array.from({ length: grammarScore?.total ?? 0 }, (_, i) => ({
+              item_id: i,
+              correct: i < (grammarScore?.correct ?? 0),
+            }))}
+            total={grammarScore?.total ?? activeSet.card_count}
+            onRetryWrong={() => setSprachView("gr-learn")}
+            onBack={() => { setSprachView("gr-sets"); setActiveSet(null); loadExerciseSets("grammatik"); }}
+            breadcrumbs={[toOverviewWithReset, { label: grammarLabel, toolKey: "Grammar", onClick: () => { setActiveSet(null); setSprachView("gr-sets"); } }]}
           />
         ) : null;
       default:

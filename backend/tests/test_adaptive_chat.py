@@ -44,18 +44,62 @@ def test_default_behavior_carries_both_placeholders():
     assert EXAMPLE_PLACEHOLDER in DEFAULT_ADAPTIVE_BEHAVIOR
 
 
-def test_default_behavior_overrides_and_covers_the_bands():
-    """The default must be assertive enough to beat the RAG completeness rules,
-    and it must give a rule for every band A1..C2. Regression for the fix where
-    the adaptation was present but did not visibly change the answer."""
+def test_default_behavior_is_style_only_and_covers_the_bands():
+    """The default steers WORDING and must give a rule for every band A1..C2.
+
+    What it must NOT do is hand the model a role. It used to open with "ADAPT TO
+    THE LEARNER" and claim to OVERRIDE the rules above, and that read as "you are
+    this learner's language tutor": measured 2026-07-29, a grammar question no
+    document answered got a full invented lesson with the trainer on and the
+    correct refusal with it off. A role beats a single prohibition sentence, so
+    the text stays a style rule with an explicit carve-out for the refusal.
+    """
     b = DEFAULT_ADAPTIVE_BEHAVIOR
-    assert "OVERRIDES" in b
+    assert "STYLE" in b
+    assert "no role" in b
+    assert "never decides" in b.lower()
+    # The refusal is one sentence at every level — the "never shorter" rule above
+    # it must not be allowed to inflate it back into an answer.
+    assert "not-in-sources sentence" in b
+    # Grammar stays out of the model's remit unless a document states it.
+    assert "language teacher" in b
     assert "A1 or A2" in b
     assert "B1:" in b
     assert "B2:" in b
     assert "C1 or C2" in b
     # Consistent informal address, so it does not flip between du and Sie.
     assert '"du"' in b and '"Sie"' in b
+
+
+def test_default_behavior_never_drops_facts_at_the_low_levels():
+    """Simplifying is about WORDING, never about leaving content out.
+
+    Regression: with a learner on A2 the same question lost the Peer-Review, the
+    Extended Abstract, the grading relevance and the access route that the same
+    workspace answered in full with adaptation off. The A1/A2 branch told the
+    model to give "only the few MOST important points, not everything" and to
+    "keep the whole answer short", and the header let the block override the base
+    prompt's completeness rule.
+    """
+    b = DEFAULT_ADAPTIVE_BEHAVIOR
+    low = b.lower()
+    assert "not everything" not in low
+    assert "most important points" not in low
+    assert "keep the whole answer short" not in low
+    # Completeness is the base prompt's business, this block must not claim it.
+    assert "completeness" not in low
+    # And it says so positively, the way the tool variant already does.
+    assert "never leave a fact out" in low
+
+
+def test_default_behavior_keeps_the_response_structure_at_the_low_levels():
+    """A2 collapsed a structured answer into one prose block.
+
+    The base prompt's RESPONSE STRUCTURE rules (headings, bullets, tables) apply
+    at every level, so the block has to say it does not override them.
+    """
+    low = DEFAULT_ADAPTIVE_BEHAVIOR.lower()
+    assert "response structure" in low
 
 
 def test_example_for_level_picks_the_matching_band():
@@ -86,3 +130,36 @@ def test_example_for_level_joins_multiple_examples():
 def test_example_for_level_empty_without_level():
     from src.services.aia_adaptive_chat import example_for_level
     assert example_for_level(None, {"A1": "eins"}) == ""
+
+
+def test_sources_guard_is_the_last_thing_the_model_reads():
+    """The guard must end the suffix, after behaviour text AND weakness hints.
+
+    The suffix is appended at the END of the user message, so the tail is what the
+    model weights most. When the guard stopped being last, the adaptive block's
+    "never shorter" won and the chat answered off-topic messages instead of
+    refusing (regression seen 2026-07-29).
+    """
+    from src.services.aia_adaptive_chat import seal_adaptive_suffix, ADAPTIVE_SOURCES_GUARD
+    sealed = seal_adaptive_suffix("\n\nBEHAVIOUR TEXT", "\n\nWEAKNESS HINT")
+    assert sealed.endswith(ADAPTIVE_SOURCES_GUARD)
+    assert "BEHAVIOUR TEXT" in sealed and "WEAKNESS HINT" in sealed
+
+
+def test_guard_holds_without_an_adaptive_block():
+    """The sources rule does not depend on the Fachsprachentrainer being on.
+
+    It used to be skipped without an adaptive block, on the theory that the system
+    prompt refuses on its own. It does not: with the trainer off the tutor still
+    invented a grammar lesson its sources never contained (2026-07-29)."""
+    from src.services.aia_adaptive_chat import seal_adaptive_suffix, ADAPTIVE_SOURCES_GUARD
+    assert seal_adaptive_suffix("", "").endswith(ADAPTIVE_SOURCES_GUARD)
+    assert seal_adaptive_suffix("", "\n\nWEAKNESS HINT").endswith(ADAPTIVE_SOURCES_GUARD)
+
+
+def test_sources_guard_cannot_be_deleted_by_an_admin_edit():
+    """The guard lives in code, NOT in the admin-editable behaviour text: an expert
+    rewriting the didactics in the admin UI must not be able to remove the rule that
+    keeps the chat from inventing answers."""
+    from src.services.aia_adaptive_chat import ADAPTIVE_SOURCES_GUARD, DEFAULT_ADAPTIVE_BEHAVIOR
+    assert ADAPTIVE_SOURCES_GUARD not in DEFAULT_ADAPTIVE_BEHAVIOR

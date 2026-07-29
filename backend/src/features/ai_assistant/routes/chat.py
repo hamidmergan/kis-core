@@ -39,6 +39,7 @@ from src.tool_prompts import (
 from src.services.aia_adaptive_chat import (
     adaptive_chat_appendix,
     example_for_level,
+    seal_adaptive_suffix,
     DEFAULT_ADAPTIVE_BEHAVIOR,
 )
 from src.services.aia_diagnosis_chat import (
@@ -983,6 +984,7 @@ from src.features.ai_assistant.routes._helpers import (
     _append_scope_anchor,
     _MEDIA_EXTENSIONS,
     _sanitize_citations,
+    _strip_arrow_connectors,
 )
 from src.features.ai_assistant import schemas
 
@@ -1078,7 +1080,7 @@ async def chat(
     # the weakness focus. National students who leave it off get plain answers. The
     # CEFR level is stored globally per user, so this per-workspace gate is also what
     # stops it leaking into workspaces where the trainer is off.
-    _adaptive_suffix, _applied_level = "", None
+    _adaptive_suffix, _applied_level, _weakness_suffix = "", None, ""
     if _user_settings.get("language_training_active"):
         # A learner with a stored CEFR level gets answers pitched at that level,
         # calibrated with a sample of that level's language (the same per-level
@@ -1097,9 +1099,13 @@ async def chat(
         # Weakness-focus help is folded into the same suffix so all answer paths
         # (popup, single, map, reduce) pick it up unchanged. Empty when nothing is
         # over the act threshold.
-        _adaptive_suffix = _adaptive_suffix + weakness_focus_appendix(
+        _weakness_suffix = weakness_focus_appendix(
             db.get_learner_focus_items(user_id, workspace["id"])
         )
+
+    # Sealed OUTSIDE the trainer gate: the sources guard goes out on every chat, with
+    # or without the adaptive block, and seal_adaptive_suffix keeps it LAST.
+    _adaptive_suffix = seal_adaptive_suffix(_adaptive_suffix, _weakness_suffix)
 
     # Resolve enrollment_id for per-link chat separation (needed for history fetch)
     enrollment_id = body.enrollment_id if not is_owner else None
@@ -1352,6 +1358,9 @@ async def chat(
         ]
         _all_best = [d for _, d, _h in per_source_expanded if d is not None]
         _global_best = min(_all_best) if _all_best else None
+        logger.info("Retrieval relevance: global best cosine distance {} over {} sources",
+                    f"{_global_best:.3f}" if _global_best is not None else "n/a",
+                    len(per_source_expanded))
         _dist_threshold = _global_best * _DIST_FACTOR if _global_best is not None else None
         # Title header (page-1 self-name) per source — input to the named-source boost below.
         _headers = {exp[0]["source_id"]: hdr for exp, _d, hdr in per_source_expanded if exp}
@@ -1759,9 +1768,13 @@ async def chat(
                         tokens_out = _to
                     delta = chunk_resp.choices[0].delta if chunk_resp.choices else None
                     if delta and delta.content:
-                        answer_parts.append(delta.content)
-                        yield f"data: {json.dumps({'token': delta.content})}\n\n"
-                        _line_buf += delta.content
+                        # Arrow connectors are dropped here, before the token reaches the
+                        # browser — the live stream is what the learner reads, so a later
+                        # cleanup of the finished answer would come too late.
+                        _tok = _strip_arrow_connectors(delta.content)
+                        answer_parts.append(_tok)
+                        yield f"data: {json.dumps({'token': _tok})}\n\n"
+                        _line_buf += _tok
                         # Intra-line degeneration loop (no newline) — cut the runaway
                         # before it grows to 100k+ chars / minutes of streaming.
                         if len(_line_buf) - _last_intra >= _INTRA_LINE_CHECK_EVERY:

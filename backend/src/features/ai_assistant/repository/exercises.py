@@ -59,23 +59,41 @@ def create_exercise_set(
 
 def create_exercise_set_placeholder(
     workspace_id: int, user_id: int, tool: str, title: str,
-    mode: str, source_uuid: str | None,
+    mode: str, source_uuid: str | None, grammar_type: str | None = None,
+    source_uuids: list[str] | None = None,
 ) -> dict:
-    """Create a placeholder set with status='generating'. Returns the set."""
+    """Create a placeholder set with status='generating'. Returns the set.
+
+    ``grammar_type`` is only set by the grammar tool and names the catalogue entry
+    the set was built from; it stays NULL for every other tool.
+
+    ``source_uuids`` is the learner's whole selection, in the order they picked it. That
+    order becomes the numbering of the citation chips, so it has to be stored rather than
+    recomputed. ``source_uuid`` keeps holding the first one for older clients.
+    """
     with get_connection() as conn:
         with conn.cursor(cursor_factory=RealDictCursor) as cur:
             cur.execute(
                 """INSERT INTO aia_exercise_sets
-                   (workspace_id, user_id, tool, title, mode, source_uuid, card_count, status)
-                   VALUES (%s, %s, %s, %s, %s, %s, 0, 'generating') RETURNING *""",
-                (workspace_id, user_id, tool, title, mode, source_uuid),
+                   (workspace_id, user_id, tool, title, mode, source_uuid, card_count,
+                    status, grammar_type, source_uuids)
+                   VALUES (%s, %s, %s, %s, %s, %s, 0, 'generating', %s, %s::jsonb) RETURNING *""",
+                (workspace_id, user_id, tool, title, mode, source_uuid, grammar_type,
+                 json.dumps(list(source_uuids or []))),
             )
             ex_set = dict(cur.fetchone())
         conn.commit()
     return ex_set
 
-def finalize_exercise_set(set_id: int, title: str, items: list[dict]) -> dict:
-    """Add items to a placeholder set and mark as ready."""
+def finalize_exercise_set(
+    set_id: int, title: str, items: list[dict], header: dict | None = None,
+) -> dict:
+    """Add items to a placeholder set and mark as ready.
+
+    ``header`` carries the grammar tool's set-level text (instruction and the worked
+    example pair). It is shown once above the sentences, so it belongs on the set and
+    not on every item. Other tools pass None and the columns stay NULL.
+    """
     with get_connection() as conn:
         with conn.cursor(cursor_factory=RealDictCursor) as cur:
             for i, item in enumerate(items):
@@ -97,11 +115,19 @@ def finalize_exercise_set(set_id: int, title: str, items: list[dict]) -> dict:
                         json.dumps(item.get("extras")) if item.get("extras") else None,
                     ),
                 )
+            head = header or {}
             cur.execute(
                 """UPDATE aia_exercise_sets
-                   SET status = 'ready', title = %s, card_count = %s
+                   SET status = 'ready', title = %s, card_count = %s,
+                       instruction = COALESCE(%s, instruction),
+                       pattern_front = COALESCE(%s, pattern_front),
+                       pattern_back = COALESCE(%s, pattern_back)
                    WHERE id = %s RETURNING *""",
-                (title, len(items), set_id),
+                (
+                    title, len(items),
+                    head.get("instruction"), head.get("pattern_front"), head.get("pattern_back"),
+                    set_id,
+                ),
             )
             ex_set = dict(cur.fetchone())
         conn.commit()
@@ -154,19 +180,20 @@ def get_exercise_sets(workspace_id: int, user_id: int, tool: str | None = None) 
             )
             return [dict(r) for r in cur.fetchall()]
 
-def get_existing_exercise_fronts(
-    workspace_id: int, tool: str, limit: int = 150,
+def get_recent_exercise_titles(
+    workspace_id: int, tool: str, limit: int = 12,
 ) -> list[str]:
-    """Return the `front` text of recent exercise items for this workspace+tool.
-    Used to give the LLM awareness of what already exists so it can create variations."""
+    """Titles of the most recent ready sets of this workspace+tool, newest first.
+
+    Without them the model has no idea a set already exists and simply names the
+    document, which is why several sets end up sharing one title."""
     with get_connection() as conn:
         with conn.cursor() as cur:
             cur.execute(
-                """SELECT i.front
-                   FROM aia_exercise_items i
-                   JOIN aia_exercise_sets s ON i.set_id = s.id
-                   WHERE s.workspace_id = %s AND s.tool = %s AND s.status = 'ready'
-                   ORDER BY s.created_at DESC, i.position ASC
+                """SELECT title FROM aia_exercise_sets
+                   WHERE workspace_id = %s AND tool = %s AND status = 'ready'
+                     AND title IS NOT NULL AND title <> ''
+                   ORDER BY created_at DESC
                    LIMIT %s""",
                 (workspace_id, tool, limit),
             )

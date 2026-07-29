@@ -3,14 +3,27 @@
 from loguru import logger
 
 
-def title_from_items(client, model, items_list: list[dict], fallback: str) -> str:
+def title_from_items(client, model, items_list: list[dict], fallback: str,
+                     avoid: list[str] | None = None) -> str:
     """Generate a short title from the actual item fronts so sets from the same
-    source get distinct titles."""
+    source get distinct titles.
+
+    ``avoid`` lists titles the workspace already uses. It matters because this call is
+    the retry after a clash: without it the model reaches for the document's name again,
+    which is the very title that clashed. The entries are the only material given, so a
+    title from here describes what the set drills rather than what the document is about.
+    """
     if not items_list:
         return fallback
     preview = "\n".join(
         f"- {(it.get('front') or '')[:160]}" for it in items_list[:10]
     )
+    avoid_rule = ""
+    if avoid:
+        avoid_rule = (
+            " These titles are already taken and MUST NOT be used, not even with a single "
+            "word changed, added or removed: " + "; ".join(t for t in avoid[:10] if t) + "."
+        )
     try:
         resp = client.chat.completions.create(
             model=model,
@@ -18,8 +31,15 @@ def title_from_items(client, model, items_list: list[dict], fallback: str) -> st
                 {"role": "system", "content": (
                     "Provide a short, concise title (max 6 words) for this exercise "
                     "that reflects the concrete topic of the entries below. "
+                    # Without this the model reaches past the entries for the subject of
+                    # the course they come from, and every set of one document ends up
+                    # with a variant of that one name.
+                    "Name the specific thing the entries have in common, for example the "
+                    "step, the activity or the material they are about. Do NOT name the "
+                    "document, the lecture, the course or the field as a whole. "
                     "Respond in the same language as the entries. "
                     "Respond ONLY with the title, no quotation marks."
+                    + avoid_rule
                 )},
                 {"role": "user", "content": f"Entries:\n{preview}"},
             ],

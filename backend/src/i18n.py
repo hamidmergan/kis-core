@@ -149,6 +149,14 @@ MESSAGES: dict[str, dict[str, str]] = {
     "source.notFound": {"de": "Source nicht gefunden", "en": "Source not found"},
     "entry.notFound": {"de": "Eintrag nicht gefunden", "en": "Entry not found"},
     "set.notFound": {"de": "Set nicht gefunden", "en": "Set not found"},
+    "grammar.typeInvalid": {
+        "de": "Aufgabentyp ist in diesem Workspace nicht verfügbar",
+        "en": "This exercise type is not available in this workspace",
+    },
+    "grammar.answerEmpty": {
+        "de": "Bitte schreibe zuerst eine Antwort",
+        "en": "Please write an answer first",
+    },
     "note.notFound": {"de": "Notiz nicht gefunden", "en": "Note not found"},
     "mindmap.notFound": {"de": "Mindmap nicht gefunden", "en": "Mindmap not found"},
     "audio.notFound": {

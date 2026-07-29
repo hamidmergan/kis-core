@@ -16,15 +16,21 @@ def generate_flashcards_from_source(
     count: int,
     locale: str = "de",
     adaptive_suffix: str = "",
+    title_avoidance: str = "",
+    coverage: str = "",
 ) -> tuple[list[dict], str]:
     # Explanations follow the UI language; the term itself (begriff) stays in the
     # source language for study and highlighting (see prompt LANGUAGE rule).
     language = _language_label(locale)
     # adaptive_suffix pitches the definitions at the learner's CEFR level (empty
     # when they have no level); it OVERRIDES the prompt's default register.
-    prompt = AIA_LERNKARTEN_PROMPT.replace("{count}", str(count)).replace("{language}", language) + adaptive_suffix
+    prompt = (
+        AIA_LERNKARTEN_PROMPT.replace("{count}", str(count)).replace("{language}", language)
+        + adaptive_suffix + title_avoidance + coverage
+    )
     # No "avoid these existing cards" block: feeding them back made the model copy them.
-    # Variation comes from the rotating page subset in build_source_context.
+    # Variation comes from the rotating page subset in build_source_context. Only the
+    # TITLE gets a do-not-repeat list (title_avoidance), which has no such pull.
     messages = [
         {"role": "system", "content": prompt},
         {"role": "user", "content": (
@@ -60,6 +66,10 @@ def _format_lernkarte(c: dict) -> dict:
         "front": (c.get("begriff") or "").strip(),
         "back": (c.get("definition") or "").strip(),
         "back_en": (c.get("begriff_en") or "").strip(),
+        # Which numbered context section the model says it used. Not persisted
+        # (finalize_exercise_set only reads known keys), it exists so the caller can
+        # check that every section was actually served.
+        "_section": c.get("section"),
     }
     extras = {
         k: (c.get(k) or "").strip()

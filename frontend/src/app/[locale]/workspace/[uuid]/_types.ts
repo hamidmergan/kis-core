@@ -158,27 +158,32 @@ export interface GlossaryEntry {
   filename?: string;
 }
 
-export interface ClozeExercise {
-  glossary_entry_id: number;
-  sentence: string;
-  answer: string;
-  options: string[];
-  page_number?: number;
+/** One entry of the grammar exercise catalogue, as the backend exposes it. */
+export interface GrammarType {
+  id: string;
+  label: string;
+  instruction: string;
+  format: "text" | "choice";
 }
 
-export interface VocabTestQuestion {
-  glossary_entry_id: number;
-  question: string;
-  options: string[];
-  correct_index: number;
-  explanation?: string;
+/** Result of marking one free-text grammar answer. */
+export interface GrammarCheckResult {
+  verdict: "correct" | "close" | "wrong";
+  feedback?: string | null;
+  solution: string;
+  explanation?: string | null;
 }
 
-export type LanguageTrainingView = "overview" | "karteikarten" | "lueckentext" | "vokabeltest"
+export type LanguageTrainingView = "overview" | "karteikarten"
   | "lk-sets" | "lk-learn" | "lk-complete"
-  | "cl-sets" | "cl-learn" | "cl-complete"
-  | "vt-sets" | "vt-learn" | "vt-complete"
+  | "gr-sets" | "gr-learn" | "gr-complete"
   | "create-set";
+
+/** One entry of a set's source legend: the number the chips print, and the file. */
+export interface ExerciseSetSource {
+  number: number;
+  filename: string;
+}
 
 export interface ExerciseItemSource {
   source_label: string;
@@ -221,6 +226,10 @@ export interface ExerciseSet {
   title: string;
   mode: string;
   source_uuid?: string;
+  /** The set's sources, numbered in the order the learner picked them. The citation
+   *  chips print these numbers, so they are the same on every item of the set.
+   *  Empty in glossary mode. */
+  sources?: ExerciseSetSource[];
   card_count: number;
   status?: string;
   created_at: string;
@@ -228,6 +237,13 @@ export interface ExerciseSet {
   progress_pct?: number;
   last_run_correct?: number;
   items?: ExerciseItem[];
+  // Grammar sets only: the catalogue entry plus the header shown above the sentences.
+  grammar_type?: string | null;
+  /** Localised name of the catalogue entry, e.g. "Passiv Präsens". List view only. */
+  grammar_type_label?: string | null;
+  instruction?: string | null;
+  pattern_front?: string | null;
+  pattern_back?: string | null;
 }
 
 export interface StreakInfo {
