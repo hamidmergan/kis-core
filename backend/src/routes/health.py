@@ -6,19 +6,19 @@ router = APIRouter(tags=["health"])
 
 
 @router.get("/health")
-def health():
+async def health():
     return {"status": "ok"}
 
 
 @router.get("/health/maintenance")
-def maintenance_status():
+async def maintenance_status():
     """Public probe so the frontend can render a maintenance page without auth."""
     enabled = db.get_setting("maintenance_mode", "false").lower() == "true"
     return {"enabled": enabled}
 
 
 @router.get("/health/labels")
-def ui_labels():
+async def ui_labels():
     """Public UI labels (e.g. customizable 'Workspace' wording).
 
     Read pre-login by the frontend to render the right vocabulary everywhere.

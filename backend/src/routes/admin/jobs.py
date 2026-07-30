@@ -30,7 +30,7 @@ def _compute_duration(job: dict) -> float | None:
 
 
 @router.get("/jobs")
-def list_all_jobs(
+async def list_all_jobs(
     limit: int = Query(default=50, le=100),
     offset: int = Query(default=0, ge=0),
     q: str = Query(default=""),
@@ -64,7 +64,7 @@ def list_all_jobs(
 
 
 @router.delete("/jobs/{job_uuid}")
-def admin_cancel_job(
+async def admin_cancel_job(
     job_uuid: str,
     _admin=Depends(get_admin_user),
     locale: str = Depends(get_locale),

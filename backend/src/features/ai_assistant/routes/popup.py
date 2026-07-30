@@ -13,7 +13,7 @@ from src.tool_prompts import (
 router = APIRouter(tags=["ki-assistent: popup"])
 
 @router.get("/ai-assistant/popup-actions")
-def get_popup_actions(locale: str = Depends(get_locale)):
+async def get_popup_actions(locale: str = Depends(get_locale)):
     """Return the PDF-viewer popup actions in the user's UI locale.
 
     Both label and prompt match the locale; the prompts instruct the LLM to

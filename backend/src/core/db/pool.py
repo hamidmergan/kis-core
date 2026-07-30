@@ -30,7 +30,63 @@ def _get_pool() -> psycopg2.pool.ThreadedConnectionPool:
 
 
 @contextmanager
+def run_once_across_processes(key: int):
+    """Gibt genau EINEM Prozess ``True``, allen anderen ``False``.
 
+    Gebraucht für das Anlegen des Schemas beim Start. Mit mehreren
+    uvicorn-Prozessen würden sonst alle gleichzeitig ``CREATE EXTENSION`` und
+    ``CREATE TABLE IF NOT EXISTS`` ausführen. Das "IF NOT EXISTS" schützt dabei
+    nicht: Postgres kann bei echt gleichzeitigem Anlegen mit einem
+    Schlüsselkonflikt in seinen Systemtabellen abbrechen, und dann startet ein
+    Prozess nicht.
+
+    Warum nicht einfach ein Riegel, hinter dem alle der Reihe nach dasselbe tun:
+    das war die erste Fassung und sie war MESSBAR SCHLECHTER. Jeder Prozess hat
+    den kompletten Schema-Durchlauf wiederholt, gemessen etwa 30 Sekunden. Bei 8
+    Prozessen kamen sie im Abstand von 30 Sekunden hoch, nach zweieinhalb
+    Minuten waren erst 5 von 8 bereit. Vorher war der Start nach 35 Sekunden
+    fertig.
+
+    Jetzt macht die Arbeit nur der Erste. Die anderen warten, bis er fertig ist,
+    und überspringen dann. Warten statt sofort weiterlaufen ist wichtig, sonst
+    würde ein Prozess Anfragen annehmen, während das Schema noch halb fertig ist.
+
+    Bewusst ein sitzungsweiter Riegel (``pg_advisory_lock``), kein
+    transaktionsweiter: das Schema-Anlegen macht mehrere Commits, ein
+    transaktionsweiter Riegel würde nach dem ersten davon aufgehen.
+    """
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute("SELECT pg_try_advisory_lock(%s)", (key,))
+            am_first = bool(cur.fetchone()[0])
+            conn.commit()   # Transaktion beenden, der Riegel bleibt (sitzungsweit)
+
+            if not am_first:
+                # Auf den Ersten warten, dann sofort wieder freigeben und nichts tun.
+                try:
+                    cur.execute("SELECT pg_advisory_lock(%s)", (key,))
+                    conn.commit()
+                    cur.execute("SELECT pg_advisory_unlock(%s)", (key,))
+                    conn.commit()
+                except Exception as e:
+                    logger.error("Warten auf Riegel {} fehlgeschlagen: {}", key, e)
+                yield False
+                return
+
+            try:
+                yield True
+            finally:
+                try:
+                    cur.execute("SELECT pg_advisory_unlock(%s)", (key,))
+                    conn.commit()
+                except Exception as e:
+                    # Nicht verschweigen: die Verbindung geht zurück in den
+                    # Vorrat, ein haengender Riegel wuerde den naechsten Start
+                    # blockieren.
+                    logger.error("Advisory-Riegel {} nicht freigegeben: {}", key, e)
+
+
+@contextmanager
 def get_connection():
     pool = _get_pool()
     conn = pool.getconn()

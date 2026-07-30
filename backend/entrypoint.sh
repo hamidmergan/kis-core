@@ -2,11 +2,15 @@
 # Startet kis-backend. Die Prozesszahl kommt aus den vorhandenen Kernen, damit
 # nach einem groesseren Server keine Einstellung von Hand noetig ist.
 #
-# HIER umstellen, sobald die Anmeldeliste in Redis liegt (services/session.py):
-#   MEHRERE_PROZESSE=1
-# Vorher NICHT. Heute liegt sie im Arbeitsspeicher EINES Prozesses, Prozess 2
-# kennt sie nicht und wuerde Nutzer zufaellig ausloggen.
-MEHRERE_PROZESSE=0
+# Mehrere Prozesse sind moeglich, seit alles Geteilte aus dem Arbeitsspeicher
+# raus ist:
+#   - Anmeldeliste in Redis          (services/session.py)
+#   - Upload-Bremse in Redis         (features/ai_assistant/routes/sources/_upload.py)
+#   - Schema-Anlegen nur einmal      (app.py, core/db/pool.py run_once_across_processes)
+#   - Auftrags-Aufraeumen nur bei leerem Broker (app.py _broker_was_emptied)
+#   - Stuendliches Aufraeumen bei celery-beat   (tasks/cleanup_tasks.py)
+# Auf 0 stellen, falls doch etwas auffaellt, das ist der Notausschalter.
+MEHRERE_PROZESSE=1
 
 set -e
 

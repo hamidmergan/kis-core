@@ -15,17 +15,34 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-kis-local-dev}
       POSTGRES_DB: ${POSTGRES_DB:-kis}
     # Speicherwerte aus dem vorhandenen RAM berechnen statt fest einzutragen.
-    # Postgres nimmt ohne Angabe 128 MB shared_buffers, egal wie gross die Box
-    # ist. Das ist ein Startwert fuer Mini-Systeme und viel zu klein, sobald die
-    # Vektorsuche (hnsw-Index auf aia_chunks) im Speicher liegen soll. Mit dieser
-    # Zeile passt sich das nach einem Server-Upgrade von allein an, ohne dass
+    # Postgres nimmt ohne Angabe 128 MB shared_buffers, egal wie gross der Server
+    # ist. Das ist ein Startwert fuer Mini-Systeme, kein Betriebswert. Mit dieser
+    # Zeile passt sich alles nach einem Server-Upgrade von allein an, ohne dass
     # jemand daran denken muss.
     #
-    # Aufteilung nach der Postgres-Doku: ein Viertel des RAM als shared_buffers,
-    # die Haelfte als effective_cache_size (nur eine Schaetzung fuer den Planer,
-    # belegt nichts). max_connections waechst mit, weil bei mehreren
-    # Backend-Prozessen und den Celery-Workern je ein eigener Verbindungsvorrat
-    # entsteht (core/db/pool.py: bis 20 pro Prozess).
+    # Ein ACHTEL des RAM als shared_buffers, nicht das Viertel aus der
+    # Postgres-Doku. Grund: die Viertel-Regel gilt fuer einen reinen
+    # Datenbankserver. Hier laufen auf derselben Maschine zusaetzlich backend,
+    # frontend, drei Celery-Container, LDAP, nginx und MinIO.
+    #
+    # Gemessen am 2026-07-29 (hnsw-Suche, 823 MB Index, 138.511 Abschnitte):
+    #   128 MB  -> 0,9 ms je Suche
+    #   1983 MB -> 0,6 ms je Suche
+    # Der Gewinn ist also 0,3 ms, waehrend eine Chatanfrage Sekunden braucht.
+    # Grund fuer den kleinen Unterschied: das Betriebssystem haelt die Indexdatei
+    # ohnehin in seinem eigenen Zwischenspeicher. Ein grosses shared_buffers
+    # nimmt genau diesem Zwischenspeicher den Platz weg.
+    #
+    # Warum dann nicht bei 128 MB bleiben: der Zwischenspeicher des
+    # Betriebssystems ist niemandem zugesichert. Laeuft eine Video-Transkription
+    # oder mehrere Uploads, verdraengt das die Indexdaten daraus. shared_buffers
+    # wird nicht verdraengt. Ein knappes Gigabyte ist die Versicherung dagegen,
+    # ohne dem Rest der Plattform 2 GB wegzunehmen.
+    #
+    # effective_cache_size bleibt bei der Haelfte des RAM, das ist nur eine
+    # Schaetzung fuer den Abfrageplaner und belegt nichts. max_connections
+    # waechst mit, weil bei mehreren Backend-Prozessen und den Celery-Workern je
+    # ein eigener Verbindungsvorrat entsteht (core/db/pool.py).
     #
     # Warum docker-entrypoint.sh nochmal aufgerufen wird: das aeussere bash
     # laeuft schon ueber den Entrypoint des Images, der ueberspringt dabei die
@@ -35,7 +52,7 @@ services:
     command: >
       bash -c '
       RAM_MB=$$(awk "/MemTotal/ {print int(\$$2/1024)}" /proc/meminfo);
-      SHARED=$$(( RAM_MB / 4 )); [ "$$SHARED" -lt 128 ] && SHARED=128;
+      SHARED=$$(( RAM_MB / 8 )); [ "$$SHARED" -lt 128 ] && SHARED=128;
       CACHE=$$(( RAM_MB / 2 ));
       MAINT=$$(( RAM_MB / 16 )); [ "$$MAINT" -lt 64 ] && MAINT=64; [ "$$MAINT" -gt 512 ] && MAINT=512;
       CONNS=$$(( RAM_MB / 40 )); [ "$$CONNS" -lt 100 ] && CONNS=100; [ "$$CONNS" -gt 300 ] && CONNS=300;

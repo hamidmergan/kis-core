@@ -27,7 +27,7 @@ def _require_workspace_access(workspace_uuid: str, user_id: int, locale: str) ->
 
 
 @router.get("/ai-assistant/workspaces/{workspace_uuid}/learner-profile")
-def get_learner_profile(
+async def get_learner_profile(
     workspace_uuid: str,
     current_user: dict = Depends(get_current_user),
     locale: str = Depends(get_locale),
@@ -44,7 +44,7 @@ def get_learner_profile(
 
 
 @router.delete("/ai-assistant/learner-profile/weaknesses/{weakness_id}")
-def delete_one(weakness_id: int, current_user: dict = Depends(get_current_user)):
+async def delete_one(weakness_id: int, current_user: dict = Depends(get_current_user)):
     # By id and owner: a user can only ever remove their own weakness, so this stays
     # global (the id already pins the workspace).
     ok = db.delete_learner_weakness(weakness_id, current_user["user_id"])
@@ -52,7 +52,7 @@ def delete_one(weakness_id: int, current_user: dict = Depends(get_current_user))
 
 
 @router.delete("/ai-assistant/workspaces/{workspace_uuid}/learner-profile/weaknesses")
-def delete_all(
+async def delete_all(
     workspace_uuid: str,
     current_user: dict = Depends(get_current_user),
     locale: str = Depends(get_locale),
@@ -63,6 +63,6 @@ def delete_all(
 
 
 @router.put("/ai-assistant/learner-profile/enabled")
-def set_enabled(body: EnabledBody, current_user: dict = Depends(get_current_user)):
+async def set_enabled(body: EnabledBody, current_user: dict = Depends(get_current_user)):
     db.set_learning_profile_enabled(current_user["user_id"], body.enabled)
     return {"enabled": body.enabled}

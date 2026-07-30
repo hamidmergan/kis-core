@@ -25,7 +25,7 @@ def _require_user_id(user: dict, locale: str) -> int:
 
 
 @router.get("")
-def list_glossaries(
+async def list_glossaries(
     user: dict = Depends(get_current_user),
     locale: str = Depends(get_locale),
 ):
@@ -34,7 +34,7 @@ def list_glossaries(
 
 
 @router.post("")
-def create_glossary(
+async def create_glossary(
     payload: GlossaryCreate,
     user: dict = Depends(get_current_user),
     locale: str = Depends(get_locale),
@@ -49,7 +49,7 @@ def create_glossary(
 
 
 @router.patch("/{glossary_id}")
-def update_glossary(
+async def update_glossary(
     glossary_id: str,
     payload: GlossaryUpdate,
     user: dict = Depends(get_current_user),
@@ -65,7 +65,7 @@ def update_glossary(
 
 
 @router.delete("/{glossary_id}")
-def delete_glossary(
+async def delete_glossary(
     glossary_id: str,
     user: dict = Depends(get_current_user),
     locale: str = Depends(get_locale),

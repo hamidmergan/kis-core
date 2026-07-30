@@ -20,7 +20,7 @@ router = APIRouter(tags=["ki-assistent: studio"])
 
 @router.post("/ai-assistant/workspaces/{workspace_uuid}/flashcards/generate")
 @observe(name="aia-flashcards")
-def generate_flashcards(
+async def generate_flashcards(
     workspace_uuid: str,
     body: schemas.FlashcardsGenerateBody,
     current_user: dict = Depends(get_current_user),

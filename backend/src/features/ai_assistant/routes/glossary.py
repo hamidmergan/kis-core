@@ -27,7 +27,7 @@ from src.services.aia_adaptive_tools import build_adaptive_tool_suffix
 router = APIRouter(tags=["ki-assistent: glossary"])
 
 @router.get("/ai-assistant/workspaces/{workspace_uuid}/glossary")
-def get_glossary(
+async def get_glossary(
     workspace_uuid: str,
     current_user: dict = Depends(get_current_user),
     locale: str = Depends(get_locale),
@@ -46,7 +46,7 @@ def get_glossary(
     return {"entries": entries}
 
 @router.delete("/ai-assistant/workspaces/{workspace_uuid}/glossary/{entry_id}")
-def delete_glossary_entry_endpoint(
+async def delete_glossary_entry_endpoint(
     workspace_uuid: str,
     entry_id: int,
     current_user: dict = Depends(get_current_user),
@@ -67,7 +67,7 @@ def delete_glossary_entry_endpoint(
     return {"ok": True}
 
 @router.delete("/ai-assistant/workspaces/{workspace_uuid}/glossary")
-def delete_all_glossary_endpoint(
+async def delete_all_glossary_endpoint(
     workspace_uuid: str,
     current_user: dict = Depends(get_current_user),
     locale: str = Depends(get_locale),

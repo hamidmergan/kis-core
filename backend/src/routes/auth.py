@@ -106,7 +106,7 @@ def login(body: LoginRequest, response: Response, locale: str = Depends(get_loca
 
 
 @router.post("/logout")
-def logout(request: Request, response: Response):
+async def logout(request: Request, response: Response):
     token = request.cookies.get("session")
     if token:
         store = get_session_store()
@@ -116,7 +116,7 @@ def logout(request: Request, response: Response):
 
 
 @router.get("/status")
-def auth_status(request: Request):
+async def auth_status(request: Request):
     settings = get_settings()
 
     if settings.is_local_mode:

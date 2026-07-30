@@ -1,6 +1,8 @@
 """Source upload / retry / delete."""
 import asyncio
+import os
 import tempfile
+import time
 import uuid
 
 from src.security.rate_limit import check_upload_limit, record_upload
@@ -17,12 +19,31 @@ from ._shared import (
 
 router = APIRouter(tags=["ki-assistent: sources"])
 
-# Global cap on simultaneous uploads in the heavy (stream + convert + store)
-# phase. One uvicorn worker = one event loop, so a plain int is race-free as long
-# as the check and the increment run with no await between them (they do, below).
-_uploads_in_flight = 0
-
 _UPLOAD_CHUNK = 1024 * 1024  # 1 MiB per stream chunk
+
+# Globale Bremse für gleichzeitige Uploads in der schweren Phase (streamen,
+# umwandeln, ablegen). Der Zähler liegt in Redis, nicht mehr als int im Prozess:
+# bei mehreren uvicorn-Prozessen hätte jeder seinen eigenen gezählt, aus einer
+# Grenze von 3 wären bei 3 Prozessen faktisch 9 geworden. Genau der Schutz, der
+# die kleine Box am Leben hält, wäre damit weg gewesen.
+#
+# Umsetzung als sortierte Menge mit Zeitstempeln statt als INCR/DECR-Zähler.
+# Grund: wird ein Prozess hart abgeschossen, läuft das DECR nie und der Zähler
+# bliebe für immer zu hoch. Einträge mit altem Zeitstempel fallen dagegen von
+# selbst heraus.
+_UPLOAD_SET_KEY = "kis:uploads:inflight"
+# Wie lange ein Eintrag höchstens gilt. Großzügig, damit ein echter langer
+# Upload (großes Video, Office-Umwandlung) nie fälschlich verworfen wird. Ein
+# verwaister Platz heilt entsprechend nach dieser Zeit von selbst.
+_UPLOAD_STALE_SECONDS = 15 * 60
+
+_REDIS_URL = os.environ.get("REDIS_URL", "redis://kis-redis:6379/0")
+
+
+def _redis():
+    """Redis-Client mit kurzen Zeitgrenzen, gleiches Muster wie rate_limit.py."""
+    import redis as _redis_lib
+    return _redis_lib.from_url(_REDIS_URL, socket_connect_timeout=1, socket_timeout=1)
 
 
 def _max_concurrent_uploads() -> int:
@@ -31,6 +52,40 @@ def _max_concurrent_uploads() -> int:
         return max(0, int(db.get_setting("aia_max_concurrent_uploads", str(AIA_MAX_CONCURRENT_UPLOADS))))
     except (TypeError, ValueError):
         return AIA_MAX_CONCURRENT_UPLOADS
+
+
+def _claim_upload_slot(limit: int) -> str | None:
+    """Einen Upload-Platz belegen. Gibt die Kennung zurück, oder None wenn voll.
+
+    ``limit <= 0`` heißt unbegrenzt, dann wird nur mitgezählt.
+
+    Bei Redis-Ausfall wird AUF gemacht (Upload erlaubt). Die Bremse schützt vor
+    Überlast, sie ist kein Sicherheitsmerkmal, und ein Redis-Ausfall darf nicht
+    dazu führen, dass niemand mehr Dateien hochladen kann.
+    """
+    ticket = uuid.uuid4().hex
+    now = time.time()
+    try:
+        r = _redis()
+        pipe = r.pipeline()
+        pipe.zremrangebyscore(_UPLOAD_SET_KEY, "-inf", now - _UPLOAD_STALE_SECONDS)
+        pipe.zcard(_UPLOAD_SET_KEY)
+        in_flight = pipe.execute()[1]
+        if 0 < limit <= in_flight:
+            return None
+        r.zadd(_UPLOAD_SET_KEY, {ticket: now})
+        return ticket
+    except Exception as e:
+        logger.warning("Upload-Bremse nicht erreichbar (Redis), lasse durch: {}", e)
+        return ticket
+
+
+def _release_upload_slot(ticket: str) -> None:
+    try:
+        _redis().zrem(_UPLOAD_SET_KEY, ticket)
+    except Exception as e:
+        # Kein Drama: der Eintrag fällt nach _UPLOAD_STALE_SECONDS von selbst raus.
+        logger.warning("Upload-Platz konnte nicht freigegeben werden: {}", e)
 
 
 async def _stream_to_tempfile(file: UploadFile, dest_path: str, max_bytes: int, locale: str) -> tuple[int, bytes]:
@@ -115,14 +170,12 @@ async def upload_source(
             detail=t("ai.source.duplicateName", locale, name=file.filename, label=_ws_label()),
         )
 
-    # Global concurrency gate. Race-free: the limit read + the check + the
-    # increment run with no await between them (single event loop). A rejected
-    # caller gets a 503 so the client can retry instead of overloading the box.
-    global _uploads_in_flight
-    limit = _max_concurrent_uploads()
-    if 0 < limit <= _uploads_in_flight:
+    # Globale Bremse, jetzt prozessübergreifend über Redis. Wer keinen Platz
+    # bekommt, erhält 503 und kann es gleich nochmal versuchen, statt die Box
+    # zusätzlich zu belasten.
+    ticket = _claim_upload_slot(_max_concurrent_uploads())
+    if ticket is None:
         raise HTTPException(status_code=503, detail=t("ai.source.serverBusy", locale))
-    _uploads_in_flight += 1
     try:
         # Stream the body to a temp file on disk, then run every heavy step
         # (validate, convert, faststart, page-count, store) off the event loop so
@@ -193,11 +246,11 @@ async def upload_source(
             logger.info("KI Tutor: source {} ({}) uploaded to workspace {}", source_uuid, stored_filename, workspace_uuid)
             return {"uuid": source_uuid, "filename": stored_filename, "status": "pending"}
     finally:
-        _uploads_in_flight -= 1
+        _release_upload_slot(ticket)
 
 
 @router.post("/ai-assistant/workspaces/{workspace_uuid}/sources/{source_uuid}/retry")
-def retry_source(
+async def retry_source(
     workspace_uuid: str,
     source_uuid: str,
     current_user: dict = Depends(get_current_user),

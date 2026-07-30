@@ -10,7 +10,7 @@ router = APIRouter(tags=["ki-assistent: sources"])
 
 
 @router.get("/ai-assistant/workspaces/{workspace_uuid}/sources/{source_uuid}/toc")
-def get_pdf_toc(
+async def get_pdf_toc(
     workspace_uuid: str,
     source_uuid: str,
     current_user: dict = Depends(get_current_user),

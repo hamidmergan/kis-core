@@ -13,7 +13,7 @@ class LocaleUpdate(BaseModel):
 
 
 @router.get("")
-def get_me(
+async def get_me(
     user: dict = Depends(get_current_user),
     locale: str = Depends(get_locale),
 ):
@@ -39,7 +39,7 @@ def get_me(
 
 
 @router.patch("/locale")
-def update_locale(
+async def update_locale(
     payload: LocaleUpdate,
     user: dict = Depends(get_current_user),
     locale: str = Depends(get_locale),

@@ -11,6 +11,7 @@ celery_app = Celery(
         "src.tasks.general_tasks",
         "src.tasks.screencast_tasks",
         "src.tasks.watchdog_tasks",
+        "src.tasks.cleanup_tasks",
         "src.tasks.aia_tasks",
     ],
 )
@@ -34,6 +35,8 @@ celery_app.conf.update(
         "screencast.translate": {"queue": "screencast"},
         "screencast.render": {"queue": "screencast"},
         "watchdog.check": {"queue": "general"},
+        "cleanup.expired_files": {"queue": "general"},
+        "cleanup.prune_schedule": {"queue": "general"},
         # AI tutor: dedicated queue for learning tools and language training
         "aia.index_source": {"queue": "aia"},
         "aia.generate_mindmap": {"queue": "aia"},
@@ -45,6 +48,18 @@ celery_app.conf.update(
         "watchdog-stuck-jobs": {
             "task": "watchdog.check",
             "schedule": 5.0,  # every 5 seconds
+            "options": {"queue": "general"},
+        },
+        # Lag vorher als Endlosschleife im Web-Prozess. Hier laeuft es garantiert
+        # genau einmal, egal wie viele uvicorn-Prozesse es gibt.
+        "cleanup-expired-files": {
+            "task": "cleanup.expired_files",
+            "schedule": 3600.0,  # stuendlich, wie vorher
+            "options": {"queue": "general"},
+        },
+        "cleanup-prune-schedule": {
+            "task": "cleanup.prune_schedule",
+            "schedule": 86400.0,  # taeglich, wie vorher
             "options": {"queue": "general"},
         },
     },

@@ -1,4 +1,5 @@
 import asyncio
+import os
 import sys
 from contextlib import asynccontextmanager
 
@@ -10,10 +11,11 @@ from loguru import logger
 
 from src import database as db
 from src.database import init_db, reset_stuck_jobs
+from src.core.db.pool import run_once_across_processes
 from src.dependencies import get_session_store, get_settings, is_admin_user
 from src.security.auth import verify_auth
 from src.limits import REQUEST_THREAD_LIMIT
-from src.storage import USE_S3, cleanup_expired_files, init_storage
+from src.storage import USE_S3, init_storage
 from src.routes import admin, auth, glossaries, health, image, jobs, aia, ki_status, me, screencast, screencast_demo, summary, transcription, translate, tts
 
 # Routes that stay reachable during maintenance so the admin can toggle it off
@@ -44,41 +46,56 @@ def _configure_logging() -> None:
     )
 
 
-async def _periodic_cleanup() -> None:
-    """Delete expired job files hourly. Prune past schedule entries once per
-    day: anything with due_date older than the admin-configured retention is
-    removed (checked or not). Setting ``aia_schedule_retention_days`` controls
-    the cutoff; -1 (default) disables pruning entirely so entries persist
-    forever."""
-    DAY_SECS = 24 * 3600
-    seconds_since_prune = 0
-    while True:
-        await asyncio.sleep(3600)
-        try:
-            deleted = await asyncio.to_thread(cleanup_expired_files)
-            if deleted:
-                logger.info("Cleanup: {} expired job(s) deleted", deleted)
-        except Exception as e:
-            logger.warning("Cleanup error: {}", e)
-        seconds_since_prune += 3600
-        if seconds_since_prune >= DAY_SECS:
-            seconds_since_prune = 0
-            try:
-                raw = db.get_setting("aia_schedule_retention_days", "-1")
-                try:
-                    retention_days = int(raw)
-                except ValueError:
-                    retention_days = -1
-                if retention_days > 0:
-                    pruned = await asyncio.to_thread(db.prune_old_entries, retention_days)
-                    if pruned:
-                        logger.info(
-                            "Schedule cleanup: {} past entries pruned (>{}d)",
-                            pruned,
-                            retention_days,
-                        )
-            except Exception as e:
-                logger.warning("Schedule cleanup error: {}", e)
+# Das stuendliche Aufraeumen lief hier als Endlosschleife (_periodic_cleanup).
+# Es liegt jetzt in tasks/cleanup_tasks.py und wird von kis-celery-beat
+# angestossen, weil das per Bauart genau einmal laeuft. Mit mehreren
+# uvicorn-Prozessen haette hier jeder Prozess seine eigene Schleife gefahren.
+
+
+# Beliebige feste Zahl, sie muss nur projektweit eindeutig sein.
+_LOCK_INIT_DB = 815_001
+
+# Merker in Redis, an dem sich erkennen laesst, ob der Celery-Broker seine
+# Warteschlange verloren hat.
+_BROKER_MARKER_KEY = "kis:broker:generation"
+
+
+def _broker_was_emptied() -> bool:
+    """True, wenn der Broker leer ist und laufende Auftraege wirklich verwaist sind.
+
+    Warum diese Pruefung ueberhaupt: ``reset_stuck_jobs`` setzt ALLE Auftraege in
+    'pending' oder 'running' auf fehlgeschlagen. Das ist richtig, wenn der
+    komplette Stapel neu startet, denn dann hat Redis die Warteschlange verloren
+    und niemand arbeitet mehr an ihnen.
+
+    Es ist aber falsch in zwei Faellen:
+    - Nur kis-backend startet neu. Die Celery-Container laufen weiter und
+      arbeiten gerade an genau diesen Auftraegen. Bisher wurden sie trotzdem
+      abgebrochen, das war ein Fehler auch schon mit einem Prozess.
+    - Mit mehreren uvicorn-Prozessen wuerde JEDER neu gestartete Prozess alle
+      laufenden Auftraege der anderen abbrechen.
+
+    Der Merker liegt in Redis, also dort wo auch die Warteschlange liegt. Ist er
+    weg, war Redis weg, und dann sind die Auftraege tatsaechlich verwaist.
+    ``nx=True`` sorgt dafuer, dass von mehreren gleichzeitig startenden Prozessen
+    nur einer True bekommt.
+
+    Bei Redis-Ausfall wird NICHT aufgeraeumt. Lieber bleibt ein Auftrag zu lange
+    auf 'running' stehen, als dass gesunde Arbeit abgebrochen wird. Der Waechter
+    (watchdog.check, alle 5 Sekunden) faengt wirklich haengende Auftraege
+    ohnehin nach JOB_WATCHDOG_MINUTES ueber den Fortschritts-Herzschlag ab.
+    """
+    try:
+        import redis as _redis_lib
+        r = _redis_lib.from_url(
+            os.environ.get("REDIS_URL", "redis://kis-redis:6379/0"),
+            socket_connect_timeout=1,
+            socket_timeout=1,
+        )
+        return bool(r.set(_BROKER_MARKER_KEY, "1", nx=True))
+    except Exception as e:
+        logger.warning("Broker-Merker nicht lesbar, ueberspringe Auftrags-Aufraeumen: {}", e)
+        return False
 
 
 @asynccontextmanager
@@ -99,21 +116,26 @@ async def lifespan(app: FastAPI):
             "Refusing to start: production=True but LDAP_SERVER is empty. "
             "Local mode would disable authentication entirely."
         )
-    init_db(admin_email=settings.admin_email or None)
-    logger.info("Database initialised")
+    # Schema nur von EINEM Prozess anlegen lassen, die anderen warten und
+    # ueberspringen, siehe run_once_across_processes().
+    with run_once_across_processes(_LOCK_INIT_DB) as am_first:
+        if am_first:
+            init_db(admin_email=settings.admin_email or None)
+            logger.info("Database initialised")
+        else:
+            logger.info("Database schema already initialised by another process")
     if settings.is_local_mode:
         user_id = db.ensure_local_admin()
         logger.info("Local mode: admin user ensured (id={})", user_id)
-    stuck = reset_stuck_jobs()
-    if stuck:
-        logger.warning("Startup: {} stuck job(s) reset to failed (server was restarted)", stuck)
+    if _broker_was_emptied():
+        stuck = reset_stuck_jobs()
+        if stuck:
+            logger.warning("Startup: {} stuck job(s) reset to failed (broker was empty)", stuck)
     init_storage()
     logger.info("Storage initialised (mode={})", "s3" if USE_S3 else "local")
     if settings.admin_email:
         logger.info("Admin email auto-whitelisted: {}", settings.admin_email)
-    cleanup_task = asyncio.create_task(_periodic_cleanup())
     yield
-    cleanup_task.cancel()
 
 
 def create_app() -> FastAPI:

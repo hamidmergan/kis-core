@@ -53,7 +53,7 @@ def _numbered_sources(ex_set: dict) -> list[dict]:
 # ─── Exercise Sets CRUD ──────────────────────────────────────────────────────
 
 @router.post("/ai-assistant/workspaces/{workspace_uuid}/exercise-sets")
-def create_exercise_set(
+async def create_exercise_set(
     workspace_uuid: str,
     body: schemas.CreateSetBody,
     current_user: dict = Depends(get_current_user),
@@ -111,7 +111,7 @@ def create_exercise_set(
 
 
 @router.get("/ai-assistant/workspaces/{workspace_uuid}/grammar-types")
-def list_grammar_types(
+async def list_grammar_types(
     workspace_uuid: str,
     current_user: dict = Depends(get_current_user),
     locale: str = Depends(get_locale),
@@ -131,7 +131,7 @@ def list_grammar_types(
 
 
 @router.post("/ai-assistant/workspaces/{workspace_uuid}/exercise-sets/{set_id}/items/{item_id}/check")
-def check_grammar_answer(
+async def check_grammar_answer(
     workspace_uuid: str,
     set_id: int,
     item_id: int,
@@ -201,7 +201,7 @@ def check_grammar_answer(
     }
 
 @router.get("/ai-assistant/workspaces/{workspace_uuid}/exercise-sets")
-def list_exercise_sets(
+async def list_exercise_sets(
     workspace_uuid: str,
     tool: Optional[str] = None,
     current_user: dict = Depends(get_current_user),
@@ -225,7 +225,7 @@ def list_exercise_sets(
     return {"sets": sets}
 
 @router.get("/ai-assistant/workspaces/{workspace_uuid}/exercise-sets/{set_id}")
-def get_exercise_set(
+async def get_exercise_set(
     workspace_uuid: str,
     set_id: int,
     current_user: dict = Depends(get_current_user),
@@ -251,7 +251,7 @@ def get_exercise_set(
     return {"set": ex_set}
 
 @router.delete("/ai-assistant/workspaces/{workspace_uuid}/exercise-sets/{set_id}")
-def delete_exercise_set_endpoint(
+async def delete_exercise_set_endpoint(
     workspace_uuid: str,
     set_id: int,
     current_user: dict = Depends(get_current_user),
@@ -263,7 +263,7 @@ def delete_exercise_set_endpoint(
     return {"ok": True}
 
 @router.post("/ai-assistant/workspaces/{workspace_uuid}/exercise-sets/{set_id}/progress")
-def record_set_progress(
+async def record_set_progress(
     workspace_uuid: str,
     set_id: int,
     body: schemas.ExerciseProgressBody,
