@@ -1,4 +1,5 @@
 from celery import Celery
+from celery.schedules import crontab
 from celery.signals import task_failure, task_revoked, worker_ready
 from loguru import logger
 
@@ -12,6 +13,7 @@ celery_app = Celery(
         "src.tasks.screencast_tasks",
         "src.tasks.watchdog_tasks",
         "src.tasks.cleanup_tasks",
+        "src.tasks.backup_tasks",
         "src.tasks.aia_tasks",
     ],
 )
@@ -37,6 +39,7 @@ celery_app.conf.update(
         "watchdog.check": {"queue": "general"},
         "cleanup.expired_files": {"queue": "general"},
         "cleanup.prune_schedule": {"queue": "general"},
+        "backup.database": {"queue": "general"},
         # AI tutor: dedicated queue for learning tools and language training
         "aia.index_source": {"queue": "aia"},
         "aia.generate_mindmap": {"queue": "aia"},
@@ -60,6 +63,14 @@ celery_app.conf.update(
         "cleanup-prune-schedule": {
             "task": "cleanup.prune_schedule",
             "schedule": 86400.0,  # taeglich, wie vorher
+            "options": {"queue": "general"},
+        },
+        # Naechtliche Datenbank-Sicherung in den Bucket. Feste Uhrzeit statt
+        # Intervall, damit sie in der Nacht laeuft und nicht irgendwann am Tag,
+        # abhaengig davon wann celery-beat zuletzt gestartet wurde.
+        "backup-database": {
+            "task": "backup.database",
+            "schedule": crontab(hour=3, minute=30),
             "options": {"queue": "general"},
         },
     },

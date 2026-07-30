@@ -250,3 +250,41 @@ TTS_MAX_CHARS_PER_REQUEST              = 400
 # Last 500er statt kurz zu warten.
 REQUEST_THREAD_LIMIT                   = 32
 DB_POOL_MAX_CONNECTIONS                = 40
+
+
+# ── Datenbank-Sicherung ──────────────────────────────────────────────────────
+# Naechtlicher pg_dump in den Objektspeicher, zusaetzlich zu den taeglichen
+# Hetzner-Snapshots. Der Unterschied: ein Snapshot dreht immer den GANZEN Server
+# zurueck, ein Dump erlaubt es, einzelne Tabellen oder Zeilen zu retten, ohne
+# alles seit dem Snapshot zu verlieren.
+#
+# Gemessen am 2026-07-30 bei 138.511 Textabschnitten: 1,6 GB je Sicherung im
+# komprimierten Format, Dauer 121 Sekunden. Der Hauptteil sind die
+# Einbettungsvektoren in aia_chunks (2,7 GB in der Datenbank). Die sind bewusst
+# MIT drin: sie liessen sich zwar neu berechnen, aber nur ueber viele
+# Modell-Aufrufe, und die laufen ins Rate-Limit.
+#
+# Gestaffelt aufbewahrt, weil manche Fehler erst nach Wochen auffallen. Nur
+# taegliche Sicherungen wuerden bedeuten: was vor drei Wochen still kaputtging,
+# ist nicht mehr rettbar.
+#   backups/daily/    7 Stueck  -> etwa 11 GB
+#   backups/weekly/   5 Stueck  -> etwa  8 GB
+#   backups/monthly/ 12 Stueck  -> etwa 18 GB
+# Zusammen etwa 37 GB im Bucket, also weiter Centbetraege im Monat.
+#
+# Die Wochenstufe ist nicht schmueckendes Beiwerk, sie schliesst eine echte
+# Luecke. Ohne sie deckt die Aufbewahrung am 30. eines Monats nur den 24. bis 30.
+# ab plus den Monatsersten. Vom 2. bis zum 23. gaebe es nichts, ein Fehler vom
+# 10. waere am 30. nicht mehr rettbar.
+#
+# Die Wochen- und Monatskopien entstehen als serverseitige Kopie im Bucket, die
+# 1,5 GB gehen also nicht mehrfach ueber die Leitung.
+#
+# Entspricht dem verbreiteten Grossvater-Vater-Sohn-Schema: taeglich 7 bis 14,
+# woechentlich 4 bis 6, monatlich 12 bis 24.
+DB_BACKUP_KEEP_DAYS                    = 7
+DB_BACKUP_KEEP_WEEKS                   = 5
+DB_BACKUP_KEEP_MONTHS                  = 12
+# Grosszuegig, damit die Sicherung nie mitten drin abgeschnitten wird. Gemessen
+# waren es 121 Sekunden, auf einer langsameren Maschine entsprechend mehr.
+DB_BACKUP_TIME_LIMIT_SECONDS           = 3600

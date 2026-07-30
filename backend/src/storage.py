@@ -86,14 +86,25 @@ def _local_path(key: str) -> Path:
 
 
 def init_lifecycle_policy() -> None:
-    """Configure MinIO lifecycle: tmp/ objects expire after 1 day.
+    """Configure bucket lifecycle: tmp/ expires after 1 day, backups/ after the
+    configured retention.
 
-    Logged-and-swallowed if the service user lacks s3:PutLifecycleConfiguration;
-    cleanup falls back to manual code paths in that case.
+    Both rules go out in ONE call because put_bucket_lifecycle_configuration
+    REPLACES the whole configuration; sending only one rule would silently drop
+    the other.
+
+    The backups/ rule is a second line of defence only. The nightly task in
+    tasks/backup_tasks.py prunes old dumps itself, because this call is
+    logged-and-swallowed when the service user lacks s3:PutLifecycleConfiguration.
     """
     if not USE_S3:
         return
     from botocore.exceptions import ClientError
+    from src.limits import (
+            DB_BACKUP_KEEP_DAYS,
+            DB_BACKUP_KEEP_MONTHS,
+            DB_BACKUP_KEEP_WEEKS,
+        )
     try:
         _s3().put_bucket_lifecycle_configuration(
             Bucket=_S3_BUCKET,
@@ -104,7 +115,28 @@ def init_lifecycle_policy() -> None:
                         "Filter": {"Prefix": "tmp/"},
                         "Expiration": {"Days": 1},
                         "Status": "Enabled",
-                    }
+                    },
+                    # Getrennte Regeln pro Unterordner. Eine Regel auf "backups/"
+                    # wuerde die Monatskopien nach wenigen Tagen mitloeschen und
+                    # die Staffelung damit wertlos machen.
+                    {
+                        "ID": "backups-daily-expire",
+                        "Filter": {"Prefix": "backups/daily/"},
+                        "Expiration": {"Days": DB_BACKUP_KEEP_DAYS},
+                        "Status": "Enabled",
+                    },
+                    {
+                        "ID": "backups-weekly-expire",
+                        "Filter": {"Prefix": "backups/weekly/"},
+                        "Expiration": {"Days": DB_BACKUP_KEEP_WEEKS * 7 + 3},
+                        "Status": "Enabled",
+                    },
+                    {
+                        "ID": "backups-monthly-expire",
+                        "Filter": {"Prefix": "backups/monthly/"},
+                        "Expiration": {"Days": DB_BACKUP_KEEP_MONTHS * 31},
+                        "Status": "Enabled",
+                    },
                 ]
             },
         )
@@ -171,6 +203,25 @@ def get_range(file_path: str, start: int, length: int) -> bytes:
     with open(Path(file_path), "rb") as f:
         f.seek(start)
         return f.read(length)
+
+
+def copy_key(src_path: str, dst_path: str) -> None:
+    """Copy a stored object without pulling it through this process.
+
+    S3 does the copy server-side, so a 1.5 GB backup does not travel over the
+    network twice just to keep a monthly copy. Local mode falls back to a plain
+    file copy.
+    """
+    if USE_S3:
+        _s3().copy_object(
+            Bucket=_S3_BUCKET,
+            CopySource={"Bucket": _S3_BUCKET, "Key": src_path},
+            Key=dst_path,
+        )
+    else:
+        dst = Path(dst_path)
+        dst.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copyfile(Path(src_path), dst)
 
 
 def put_file(file_path: str, local_path: str) -> None:

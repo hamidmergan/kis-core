@@ -16,6 +16,7 @@ RUN apt-get update && apt-get install -y \
     poppler-utils \
     fonts-crosextra-carlito \
     fonts-crosextra-caladea \
+    postgresql-client \
     && rm -rf /var/lib/apt/lists/*
 
 # Register Calibri → Carlito font substitution for LibreOffice
