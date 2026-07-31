@@ -2,6 +2,7 @@
 
 import base64
 import json
+import os
 import tempfile
 import uuid
 from pathlib import Path
@@ -20,8 +21,9 @@ from src.services.screencast import (
     extract_text_per_slide,
     maybe_start_cleanup_task,
 )
-from src.storage import save_job_file, save_queue_file
+from src.storage import save_job_file, save_job_file_from_path, save_queue_file_from_path
 from src.utils.file_validation import MAX_SCREENCAST_SLIDES, MAX_UPLOAD_BYTES, validate_or_raise
+from src.utils.upload_stream import stream_upload_to_path
 
 from src.routes.screencast._shared import SCREENCAST_TOOLS, validate_upload
 
@@ -57,23 +59,23 @@ async def screencast_translate(
     if content_length is not None and int(content_length) > MAX_UPLOAD_BYTES:
         raise HTTPException(status_code=413, detail=t("file.tooLargeMb500", locale))
 
-    pptx_bytes = await file.read()
-    if not pptx_bytes:
-        raise HTTPException(status_code=400, detail=t("file.empty", locale))
-    # Re-check after reading: a chunked upload without a Content-Length header
-    # would otherwise stream the whole body into RAM on the single worker.
-    if len(pptx_bytes) > MAX_UPLOAD_BYTES:
-        raise HTTPException(status_code=413, detail=t("file.tooLargeMb500", locale))
-    validate_or_raise(pptx_bytes, ".pptx", locale)
+    # Streamed to disk, never buffered: a PPTX with embedded media easily runs
+    # to hundreds of MB, and the body limit alone allows 500.
+    with tempfile.TemporaryDirectory(prefix="screencast_upload_") as tmpdir:
+        tmp_path = os.path.join(tmpdir, "input.pptx")
+        total, head = await stream_upload_to_path(file, tmp_path, MAX_UPLOAD_BYTES, locale)
+        if not total:
+            raise HTTPException(status_code=400, detail=t("file.empty", locale))
+        validate_or_raise(head, ".pptx", locale)
 
-    user_id = current_user.get("user_id", 0)
-    _enforce_queue_and_quota(user_id, current_user, locale)
+        user_id = current_user.get("user_id", 0)
+        _enforce_queue_and_quota(user_id, current_user, locale)
 
-    job_uuid = uuid.uuid4().hex
-    filename = file.filename or "screencast.pptx"
-    db.create_job(job_uuid, user_id, "screencast_translate", filename, locale=locale)
-    input_path = save_queue_file(user_id, job_uuid, ".pptx", pptx_bytes)
-    db.set_job_input_path(job_uuid, input_path)
+        job_uuid = uuid.uuid4().hex
+        filename = file.filename or "screencast.pptx"
+        db.create_job(job_uuid, user_id, "screencast_translate", filename, locale=locale)
+        input_path = save_queue_file_from_path(user_id, job_uuid, ".pptx", tmp_path)
+        db.set_job_input_path(job_uuid, input_path)
 
     save_job_file(user_id, job_uuid, "queue_params.json", json.dumps({
         "dispatch_as": "translate",
@@ -112,60 +114,58 @@ async def screencast_upload_corrected(
     validate_upload(file.filename, locale)
     maybe_start_cleanup_task()
 
-    pptx_bytes = await file.read()
-    if not pptx_bytes:
-        raise HTTPException(status_code=400, detail=t("file.empty", locale))
-    # This route had no size limit at all: cap it like every other upload so a
-    # multi-GB PPTX cannot be read whole into RAM on the single worker.
-    if len(pptx_bytes) > MAX_UPLOAD_BYTES:
-        raise HTTPException(status_code=413, detail=t("file.tooLargeMb500", locale))
-    validate_or_raise(pptx_bytes, ".pptx", locale)
-
-    logger.info("Screencast/upload-corrected: '{}' ({} bytes)", file.filename, len(pptx_bytes))
-
-    # Validate job ownership if translate_job_uuid provided
-    if translate_job_uuid:
-        job = db.get_job(translate_job_uuid)
-        if not job:
-            raise HTTPException(status_code=404, detail=t("job.notFound", locale))
-        if job["user_id"] != current_user.get("user_id", 0):
-            raise HTTPException(status_code=403, detail=t("job.accessDenied", locale))
-
-    slide_texts = extract_text_per_slide(pptx_bytes)
-    if not slide_texts:
-        raise HTTPException(status_code=400, detail=t("screencast.noSlides", locale))
-
-    if len(slide_texts) > MAX_SCREENCAST_SLIDES:
-        raise HTTPException(
-            status_code=400,
-            detail=t(
-                "screencast.tooManySlides",
-                locale,
-                count=len(slide_texts),
-                max=MAX_SCREENCAST_SLIDES,
-            ),
-        )
-
-    if translate_job_uuid:
-        # Existing job: save as corrected.pptx (user re-uploaded after translation)
-        save_job_file(job["user_id"], translate_job_uuid, "corrected.pptx", pptx_bytes)
-        logger.info("Saved corrected.pptx to job folder {}", translate_job_uuid)
-    else:
-        # No job yet (EN path): create a new translate job and save PPTX as translated.pptx
-        user_id = current_user.get("user_id", 0)
-        _enforce_queue_and_quota(user_id, current_user, locale)
-        translate_job_uuid = uuid.uuid4().hex
-        db.create_job(translate_job_uuid, user_id, "screencast_translate", file.filename or "screencast.pptx", locale=locale)
-        save_job_file(user_id, translate_job_uuid, "translated.pptx", pptx_bytes)
-        save_job_file(user_id, translate_job_uuid, "scripts.txt", json.dumps(slide_texts, ensure_ascii=False, indent=2).encode("utf-8"))
-        db.update_job_status(translate_job_uuid, "awaiting_user")
-        db.update_job_expiry(translate_job_uuid, 168)
-        logger.info("Created translate job {} for EN upload ({})", translate_job_uuid, file.filename)
-
+    # One temp copy serves everything below: validation, text extraction, the
+    # job folder and the LibreOffice render. Reading the body into memory first
+    # (the old path) meant a multi-GB PPTX sat in the backend process.
     with tempfile.TemporaryDirectory() as tmpdir:
         tmp = Path(tmpdir)
         pptx_path = tmp / "upload.pptx"
-        pptx_path.write_bytes(pptx_bytes)
+        total, head = await stream_upload_to_path(file, str(pptx_path), MAX_UPLOAD_BYTES, locale)
+        if not total:
+            raise HTTPException(status_code=400, detail=t("file.empty", locale))
+        validate_or_raise(head, ".pptx", locale)
+
+        logger.info("Screencast/upload-corrected: '{}' ({} bytes)", file.filename, total)
+
+        # Validate job ownership if translate_job_uuid provided
+        if translate_job_uuid:
+            job = db.get_job(translate_job_uuid)
+            if not job:
+                raise HTTPException(status_code=404, detail=t("job.notFound", locale))
+            if job["user_id"] != current_user.get("user_id", 0):
+                raise HTTPException(status_code=403, detail=t("job.accessDenied", locale))
+
+        slide_texts = extract_text_per_slide(str(pptx_path))
+        if not slide_texts:
+            raise HTTPException(status_code=400, detail=t("screencast.noSlides", locale))
+
+        if len(slide_texts) > MAX_SCREENCAST_SLIDES:
+            raise HTTPException(
+                status_code=400,
+                detail=t(
+                    "screencast.tooManySlides",
+                    locale,
+                    count=len(slide_texts),
+                    max=MAX_SCREENCAST_SLIDES,
+                ),
+            )
+
+        if translate_job_uuid:
+            # Existing job: save as corrected.pptx (user re-uploaded after translation)
+            save_job_file_from_path(job["user_id"], translate_job_uuid, "corrected.pptx", str(pptx_path))
+            logger.info("Saved corrected.pptx to job folder {}", translate_job_uuid)
+        else:
+            # No job yet (EN path): create a new translate job and save PPTX as translated.pptx
+            user_id = current_user.get("user_id", 0)
+            _enforce_queue_and_quota(user_id, current_user, locale)
+            translate_job_uuid = uuid.uuid4().hex
+            db.create_job(translate_job_uuid, user_id, "screencast_translate", file.filename or "screencast.pptx", locale=locale)
+            save_job_file_from_path(user_id, translate_job_uuid, "translated.pptx", str(pptx_path))
+            save_job_file(user_id, translate_job_uuid, "scripts.txt", json.dumps(slide_texts, ensure_ascii=False, indent=2).encode("utf-8"))
+            db.update_job_status(translate_job_uuid, "awaiting_user")
+            db.update_job_expiry(translate_job_uuid, 168)
+            logger.info("Created translate job {} for EN upload ({})", translate_job_uuid, file.filename)
+
         img_dir = tmp / "images"
         img_dir.mkdir()
         try:

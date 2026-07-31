@@ -1,5 +1,7 @@
 """Transcription route: audio/video file to text, SRT, or VTT."""
 
+import os
+import tempfile
 import uuid
 from pathlib import Path
 
@@ -12,8 +14,9 @@ from src.i18n import get_locale, t
 from src.quotas import enforce_quota
 from src.security.rate_limit import enforce_tool_burst
 from src.services import feature_provider_choices
-from src.storage import save_queue_file
+from src.storage import save_queue_file_from_path
 from src.utils.file_validation import MAX_TRANSCRIPTION_BYTES, TRANSCRIPTION_EXTENSIONS, validate_or_raise
+from src.utils.upload_stream import stream_upload_to_path
 from src.dependencies_rbac import require_tool_access
 
 router = APIRouter(
@@ -80,21 +83,24 @@ async def transcribe(
     if content_length is not None and int(content_length) > MAX_TRANSCRIPTION_BYTES:
         raise HTTPException(status_code=413, detail=t("file.tooLargeMb500", locale))
 
-    content = await file.read()
-    if not content:
-        raise HTTPException(status_code=400, detail=t("file.empty", locale))
-    if len(content) > MAX_TRANSCRIPTION_BYTES:
-        raise HTTPException(status_code=413, detail=t("file.tooLargeMb500", locale))
-    validate_or_raise(content, ext, locale)
+    # Audio/video runs to hundreds of MB: stream it to a temp file and hand
+    # storage the path. Reading the body into a bytes object would put the whole
+    # upload (twice) into the backend process.
+    with tempfile.TemporaryDirectory(prefix="stt_upload_") as tmpdir:
+        tmp_path = os.path.join(tmpdir, f"input{ext}")
+        total, head = await stream_upload_to_path(file, tmp_path, MAX_TRANSCRIPTION_BYTES, locale)
+        if not total:
+            raise HTTPException(status_code=400, detail=t("file.empty", locale))
+        validate_or_raise(head, ext, locale)
 
-    job_uuid = uuid.uuid4().hex
-    user_id = current_user.get("user_id", 0)
-    enforce_tool_burst(user_id, "transcription", locale)
-    enforce_quota(user_id, "transcription", is_admin_user(current_user), locale)
+        job_uuid = uuid.uuid4().hex
+        user_id = current_user.get("user_id", 0)
+        enforce_tool_burst(user_id, "transcription", locale)
+        enforce_quota(user_id, "transcription", is_admin_user(current_user), locale)
 
-    db.create_job(job_uuid, user_id, "transcription", file.filename, locale=locale)
-    input_path = save_queue_file(user_id, job_uuid, ext, content)
-    db.set_job_input_path(job_uuid, input_path)
+        db.create_job(job_uuid, user_id, "transcription", file.filename, locale=locale)
+        input_path = save_queue_file_from_path(user_id, job_uuid, ext, tmp_path)
+        db.set_job_input_path(job_uuid, input_path)
 
     from src.tasks.general_tasks import run_transcribe
     run_transcribe.delay(job_uuid, input_path, file.filename, task, response_format, provider_id)

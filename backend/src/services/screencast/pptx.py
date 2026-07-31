@@ -20,13 +20,16 @@ from src.utils.pptx_text import (
 )
 
 
-def extract_text_per_slide(pptx_bytes: bytes) -> list[str]:
+def extract_text_per_slide(source: bytes | str | Path) -> list[str]:
     """Text je Folie, ein Eintrag pro sichtbarer Folie.
 
     Ausgeblendete Folien bleiben außen vor, weil LibreOffice sie auch nicht
     exportiert. Sonst liefe die Skriptliste gegen die Bilderliste aus dem Takt.
+
+    Nimmt Bytes oder einen Pfad. Die Upload-Route reicht den Pfad der Temp-Datei
+    durch, damit eine große PPTX nicht zusätzlich im Speicher liegt.
     """
-    prs = Presentation(BytesIO(pptx_bytes))
+    prs = Presentation(BytesIO(source) if isinstance(source, bytes) else source)
     slide_texts: list[str] = []
     for slide in iter_visible_slides(prs):
         texts: list[str] = []

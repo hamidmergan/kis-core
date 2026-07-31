@@ -1,15 +1,39 @@
-"""Shared text-extraction helpers used by TTS and Script routes."""
+"""Shared text-extraction helpers used by TTS and Script routes.
+
+Every extractor takes ``Source`` — raw ``bytes`` or a path to a file on disk.
+The upload routes stream the body to a temp file (see
+``src.utils.upload_stream``) and pass the path, so a large document is never
+held in the backend process; the Celery tasks already have the bytes in hand
+and pass those. python-docx / python-pptx open a path directly and read zip
+members on demand, which is the whole point of the path form.
+"""
 
 import re
 from io import BytesIO
+from pathlib import Path
 
 from docx import Document
 from pptx import Presentation
 from pptx.enum.shapes import MSO_SHAPE_TYPE
 
+Source = bytes | str | Path
 
-def extract_text_md(content: bytes) -> str:
-    text = content.decode("utf-8")
+
+def _as_bytes(src: Source) -> bytes:
+    """Raw bytes for the text formats, which have to decode the whole thing anyway."""
+    if isinstance(src, bytes):
+        return src
+    with open(src, "rb") as f:
+        return f.read()
+
+
+def _as_stream(src: Source):
+    """What python-docx / python-pptx should open: a path stays a path."""
+    return BytesIO(src) if isinstance(src, bytes) else src
+
+
+def extract_text_md(content: Source) -> str:
+    text = _as_bytes(content).decode("utf-8")
     # Remove code blocks
     text = re.sub(r"```[\s\S]*?```", "", text)
     text = re.sub(r"`[^`]+`", "", text)
@@ -31,8 +55,8 @@ def extract_text_md(content: bytes) -> str:
     return text.strip()
 
 
-def extract_text_tex(content: bytes) -> str:
-    text = content.decode("utf-8")
+def extract_text_tex(content: Source) -> str:
+    text = _as_bytes(content).decode("utf-8")
     # Remove comments
     text = re.sub(r"(?<!\\)%.*$", "", text, flags=re.MULTILINE)
     # Remove preamble (everything before \begin{document})
@@ -71,8 +95,8 @@ def extract_text_tex(content: bytes) -> str:
     return text.strip()
 
 
-def extract_text_docx(content: bytes) -> str:
-    doc = Document(BytesIO(content))
+def extract_text_docx(content: Source) -> str:
+    doc = Document(_as_stream(content))
     paragraphs = []
     for para in doc.paragraphs:
         text = para.text.strip()
@@ -81,8 +105,8 @@ def extract_text_docx(content: bytes) -> str:
     return "\n".join(paragraphs)
 
 
-def extract_text_pptx(content: bytes) -> str:
-    prs = Presentation(BytesIO(content))
+def extract_text_pptx(content: Source) -> str:
+    prs = Presentation(_as_stream(content))
     texts = []
     for slide in prs.slides:
         for shape in slide.shapes:
@@ -108,13 +132,13 @@ def _collect_shape_text(shape, texts: list) -> None:
             _collect_shape_text(subshape, texts)
 
 
-def extract_text_txt(content: bytes) -> str:
-    return content.decode("utf-8", errors="replace")
+def extract_text_txt(content: Source) -> str:
+    return _as_bytes(content).decode("utf-8", errors="replace")
 
 
-def extract_text_srt(content: bytes) -> str:
+def extract_text_srt(content: Source) -> str:
     lines = []
-    for line in content.decode("utf-8", errors="replace").splitlines():
+    for line in _as_bytes(content).decode("utf-8", errors="replace").splitlines():
         stripped = line.strip()
         if not stripped:
             continue
@@ -126,9 +150,9 @@ def extract_text_srt(content: bytes) -> str:
     return " ".join(lines)
 
 
-def extract_text_vtt(content: bytes) -> str:
+def extract_text_vtt(content: Source) -> str:
     lines = []
-    for line in content.decode("utf-8", errors="replace").splitlines():
+    for line in _as_bytes(content).decode("utf-8", errors="replace").splitlines():
         stripped = line.strip()
         if not stripped or stripped.startswith("WEBVTT") or stripped.startswith("NOTE"):
             continue

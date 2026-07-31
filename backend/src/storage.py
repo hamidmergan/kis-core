@@ -3,7 +3,6 @@ import os
 import shutil
 import tempfile
 from contextlib import contextmanager
-from datetime import datetime, timezone
 from functools import lru_cache
 from pathlib import Path
 
@@ -13,7 +12,6 @@ from src.database import get_connection, update_job_result, delete_job
 
 # --- Local storage paths ---
 STORAGE_ROOT = Path("/app/storage")
-JOBS_DIR = STORAGE_ROOT / "jobs"
 
 # --- S3 config (read once at import time) ---
 _S3_ENDPOINT = os.environ.get("S3_ENDPOINT", "")
@@ -41,9 +39,32 @@ def aia_source_key(user_id: int, workspace_uuid: str, source_uuid: str, ext: str
     return f"{aia_workspace_prefix(user_id, workspace_uuid)}/sources/{source_uuid}{ext}"
 
 
-def aia_output_key(user_id: int, workspace_uuid: str, filename: str) -> str:
-    """S3 key for an AIA workspace output file."""
-    return f"{aia_workspace_prefix(user_id, workspace_uuid)}/outputs/{filename}"
+# Derived artifacts (transcript, subtitles) live next to their source, sharing
+# its key minus the extension. The naming rule belongs here, with every other
+# key rule, so the next artifact type does not have to rediscover it.
+#
+# All three take the source's own key (or path), so callers never have to strip
+# the extension themselves. Passing an already-stripped base works too.
+
+
+def aia_source_base(file_path: str) -> str:
+    """The source key without its extension: the stem every artifact hangs off."""
+    return os.path.splitext(file_path)[0]
+
+
+def aia_transcript_key(file_path: str) -> str:
+    """Full transcript with timestamps, produced by Whisper."""
+    return f"{aia_source_base(file_path)}_transcript.txt"
+
+
+def aia_vtt_key(file_path: str, lang: str) -> str:
+    """Subtitles for one language."""
+    return f"{aia_source_base(file_path)}_transcript.{lang}.vtt"
+
+
+def aia_transcript_prefix(file_path: str) -> str:
+    """Prefix covering every transcript artifact of one source."""
+    return f"{aia_source_base(file_path)}_transcript."
 
 
 def tmp_pptx_key(file_id: str) -> str:
@@ -52,10 +73,15 @@ def tmp_pptx_key(file_id: str) -> str:
 
 
 def delete_prefix(prefix: str) -> int:
-    """Delete every object under a prefix. Batches via delete_objects (1000 keys/call).
+    """Delete every object whose key starts with ``prefix``. Returns the count.
 
-    Returns the number of objects deleted. For local mode: shutil.rmtree on the
-    matching directory under STORAGE_ROOT.
+    The prefix does not have to end at a slash. ``.../sources/abc`` also covers
+    ``.../sources/abc_transcript.txt``, which is how a source and its derived
+    artifacts are removed in one go.
+
+    Local mode mirrors that: a prefix pointing at a directory is removed whole,
+    otherwise every sibling file whose name starts with the prefix goes. An
+    absolute path works too, because ``file_path`` holds one without S3.
     """
     if USE_S3:
         deleted = 0
@@ -71,18 +97,58 @@ def delete_prefix(prefix: str) -> int:
             )
             deleted += len(contents)
         return deleted
-    # Local mode: prefix maps to a directory under STORAGE_ROOT
+
+    def _remove(path: Path) -> int:
+        if path.is_dir():
+            count = sum(1 for p in path.rglob("*") if p.is_file())
+            shutil.rmtree(path, ignore_errors=True)
+            return count
+        if path.is_file():
+            path.unlink(missing_ok=True)
+            return 1
+        return 0
+
     target = STORAGE_ROOT / prefix
-    if target.exists():
-        count = sum(1 for _ in target.rglob("*") if _.is_file())
-        shutil.rmtree(target, ignore_errors=True)
-        return count
-    return 0
+    if target.is_dir():
+        return _remove(target)
+    return sum(_remove(match) for match in target.parent.glob(target.name + "*"))
 
 
 def _local_path(key: str) -> Path:
     """Map an S3 key to a local filesystem path under STORAGE_ROOT."""
     return STORAGE_ROOT / key
+
+
+# Every save_* below is one key expression plus one of these two. Keeping the
+# backend switch in a single place means a change to it (a retry wrapper, a
+# checksum, a content type) is one edit and not ten.
+
+
+def _store_bytes(key: str, data: bytes) -> str:
+    """Write ``data`` at ``key``. Returns the key (S3) or the path (local)."""
+    if USE_S3:
+        _s3().put_object(Bucket=_S3_BUCKET, Key=key, Body=data)
+        return key
+    path = _local_path(key)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_bytes(data)
+    return str(path)
+
+
+def _store_from_path(key: str, local_path: str) -> str:
+    """Copy a local file to ``key``, streaming. Returns the key (S3) or path (local).
+
+    boto3 multiparts the upload itself, so a 500 MB recording never sits in the
+    backend process. Use this for anything user-uploaded; :func:`_store_bytes`
+    is fine only for small generated payloads.
+    """
+    if USE_S3:
+        _s3().upload_file(local_path, _S3_BUCKET, key)
+        return key
+    path = _local_path(key)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copyfile(local_path, path)
+    return str(path)
 
 
 def init_lifecycle_policy() -> None:
@@ -169,7 +235,7 @@ def init_storage() -> None:
             _s3().create_bucket(Bucket=_S3_BUCKET)
         init_lifecycle_policy()
     else:
-        JOBS_DIR.mkdir(parents=True, exist_ok=True)
+        STORAGE_ROOT.mkdir(parents=True, exist_ok=True)
 
 
 # --- Generic file operations ---
@@ -222,6 +288,20 @@ def copy_key(src_path: str, dst_path: str) -> None:
         dst = Path(dst_path)
         dst.parent.mkdir(parents=True, exist_ok=True)
         shutil.copyfile(Path(src_path), dst)
+
+
+def put_bytes(file_path: str, data: bytes) -> None:
+    """Overwrite a stored object with ``data``. Counterpart to :func:`get_file`.
+
+    For small generated payloads (a transcript, a VTT). Anything user-uploaded
+    or multi-GB belongs in :func:`put_file`, which streams instead.
+    """
+    if USE_S3:
+        _s3().put_object(Bucket=_S3_BUCKET, Key=file_path, Body=data)
+        return
+    path = Path(file_path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_bytes(data)
 
 
 def put_file(file_path: str, local_path: str) -> None:
@@ -282,11 +362,16 @@ def file_exists(file_path: str) -> bool:
 
 
 def list_keys(prefix: str) -> list[str]:
-    """List stored keys/paths that begin with ``prefix`` in a single round trip.
+    """List stored keys/paths that begin with ``prefix``, in one round trip.
 
-    One ``list_objects_v2`` (S3) or directory glob (local) instead of a HEAD probe
-    per candidate file. Mirrors how :func:`file_exists` treats its argument: an S3
+    One ``list_objects_v2`` (S3) or one glob (local) instead of a HEAD probe per
+    candidate file. Mirrors how :func:`file_exists` treats its argument: an S3
     key in S3 mode, a filesystem path in local mode.
+
+    Same prefix rule as :func:`delete_prefix`: a prefix pointing at a directory
+    covers everything below it, however deep, otherwise it covers the sibling
+    files whose name starts with it. In S3 a prefix always did both, and local
+    mode has to answer the same question the same way.
     """
     if USE_S3:
         keys: list[str] = []
@@ -294,8 +379,9 @@ def list_keys(prefix: str) -> list[str]:
         for page in paginator.paginate(Bucket=_S3_BUCKET, Prefix=prefix):
             keys.extend(obj["Key"] for obj in page.get("Contents", []))
         return keys
-    p = Path(prefix)
-    return [str(f) for f in p.parent.glob(p.name + "*") if f.is_file()]
+    target = STORAGE_ROOT / prefix
+    treffer = target.rglob("*") if target.is_dir() else target.parent.glob(target.name + "*")
+    return [str(f) for f in treffer if f.is_file()]
 
 
 def job_file_exists(user_id: int, job_uuid: str, filename: str) -> bool:
@@ -312,6 +398,19 @@ def delete_file(file_path: str) -> None:
         path.unlink()
 
 
+# --- AIA source file I/O ---
+#
+# Layout: users/{user_id}/aia/workspaces/{workspace_uuid}/sources/...
+#   {source_uuid}{ext}, {source_uuid}_transcript.txt, {source_uuid}_transcript.de.vtt, ...
+
+
+def save_aia_source_from_path(
+    user_id: int, workspace_uuid: str, source_uuid: str, ext: str, local_path: str
+) -> str:
+    """Store an AIA source, streaming from a file on disk."""
+    return _store_from_path(aia_source_key(user_id, workspace_uuid, source_uuid, ext), local_path)
+
+
 # --- Job folder helpers ---
 #
 # Layout: users/{user_id}/jobs/{job_uuid}/...
@@ -320,26 +419,22 @@ def delete_file(file_path: str) -> None:
 # --- Job file I/O ---
 
 def save_queue_file(user_id: int, job_uuid: str, ext: str, data: bytes) -> str:
-    key = f"{job_prefix(user_id, job_uuid)}/input{ext}"
-    if USE_S3:
-        _s3().put_object(Bucket=_S3_BUCKET, Key=key, Body=data)
-        return key
-    path = _local_path(key)
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_bytes(data)
-    return str(path)
+    return _store_bytes(f"{job_prefix(user_id, job_uuid)}/input{ext}", data)
+
+
+def save_queue_file_from_path(user_id: int, job_uuid: str, ext: str, local_path: str) -> str:
+    """Same as :func:`save_queue_file`, but takes a path instead of bytes."""
+    return _store_from_path(f"{job_prefix(user_id, job_uuid)}/input{ext}", local_path)
+
+
+def save_job_file_from_path(user_id: int, job_uuid: str, filename: str, local_path: str) -> str:
+    """Like :func:`save_job_file`, but streams from a local file."""
+    return _store_from_path(f"{job_prefix(user_id, job_uuid)}/{filename}", local_path)
 
 
 def save_job_file(user_id: int, job_uuid: str, filename: str, data: bytes) -> str:
     """Save an arbitrary named file into the job's folder."""
-    key = f"{job_prefix(user_id, job_uuid)}/{filename}"
-    if USE_S3:
-        _s3().put_object(Bucket=_S3_BUCKET, Key=key, Body=data)
-        return key
-    path = _local_path(key)
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_bytes(data)
-    return str(path)
+    return _store_bytes(f"{job_prefix(user_id, job_uuid)}/{filename}", data)
 
 
 def get_job_file(user_id: int, job_uuid: str, filename: str) -> bytes:
@@ -351,38 +446,18 @@ def get_job_file(user_id: int, job_uuid: str, filename: str) -> bytes:
 
 
 def save_result_file(user_id: int, job_uuid: str, ext: str, data: bytes) -> str:
-    key = f"{job_prefix(user_id, job_uuid)}/output{ext}"
-    if USE_S3:
-        _s3().put_object(Bucket=_S3_BUCKET, Key=key, Body=data)
-        return key
-    path = _local_path(key)
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_bytes(data)
-    return str(path)
+    return _store_bytes(f"{job_prefix(user_id, job_uuid)}/output{ext}", data)
 
 
 def save_result_json(user_id: int, job_uuid: str, data: dict) -> str:
-    content = json.dumps(data).encode()
     key = f"{job_prefix(user_id, job_uuid)}/result.json"
-    if USE_S3:
-        _s3().put_object(Bucket=_S3_BUCKET, Key=key, Body=content)
-        return key
-    path = _local_path(key)
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_bytes(content)
-    return str(path)
+    return _store_bytes(key, json.dumps(data).encode())
 
 
 def save_result_meta(user_id: int, job_uuid: str, data: dict) -> None:
     """Save a meta.json file for a job (subtitles, audio info, etc.)."""
-    content = json.dumps(data).encode()
     key = f"{job_prefix(user_id, job_uuid)}/meta.json"
-    if USE_S3:
-        _s3().put_object(Bucket=_S3_BUCKET, Key=key, Body=content)
-        return
-    path = _local_path(key)
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_bytes(content)
+    _store_bytes(key, json.dumps(data).encode())
 
 
 def load_result_meta(user_id: int, job_uuid: str) -> dict | None:
@@ -428,6 +503,19 @@ def load_result_json(result_path: str) -> dict:
 
 # --- Per-slide audio cache ---
 
+
+def _slide_number(key_or_name: str) -> int:
+    """Slide index from ``slide_007.mp3``. Unparsable names sort to the front.
+
+    Sorting these names as text would put ``slide_1000`` before ``slide_999``.
+    Widening the padding instead would be worse: old jobs would keep the
+    three-digit names and the two widths would mix.
+    """
+    name = key_or_name.rsplit("/", 1)[-1]
+    digits = name[len("slide_"):].split(".", 1)[0]
+    return int(digits) if digits.isdigit() else -1
+
+
 def save_audio_cache(user_id: int, job_uuid: str, audio_files: list[bytes]) -> None:
     """Save per-slide MP3 files under the job's audio/ folder. S3 writes parallel."""
     base = f"{job_prefix(user_id, job_uuid)}/audio"
@@ -465,8 +553,8 @@ def get_audio_slide(user_id: int, job_uuid: str, slide_index: int) -> bytes | No
 def get_audio_slide_count(user_id: int, job_uuid: str) -> int:
     prefix = f"{job_prefix(user_id, job_uuid)}/audio/"
     if USE_S3:
-        resp = _s3().list_objects_v2(Bucket=_S3_BUCKET, Prefix=prefix)
-        return resp.get("KeyCount", 0)
+        # list_keys paginates; a plain KeyCount would cap a long deck at 1000.
+        return len(list_keys(prefix))
     audio_dir = _local_path(prefix)
     if not audio_dir.exists():
         return 0
@@ -476,13 +564,12 @@ def get_audio_slide_count(user_id: int, job_uuid: str) -> int:
 def get_all_audio_slides(user_id: int, job_uuid: str) -> list[tuple[str, bytes]]:
     """Fetch all per-slide MP3s in parallel (S3) or sequentially (local).
 
-    Returns a sorted list of (filename, data) tuples.
+    Returns a list of (filename, data) tuples in slide order.
     """
     prefix = f"{job_prefix(user_id, job_uuid)}/audio/"
     if USE_S3:
         from concurrent.futures import ThreadPoolExecutor, as_completed
-        resp = _s3().list_objects_v2(Bucket=_S3_BUCKET, Prefix=prefix)
-        keys = sorted(obj["Key"] for obj in resp.get("Contents", []) if obj["Key"].endswith(".mp3"))
+        keys = [k for k in list_keys(prefix) if k.endswith(".mp3")]
         if not keys:
             return []
 
@@ -490,17 +577,17 @@ def get_all_audio_slides(user_id: int, job_uuid: str) -> list[tuple[str, bytes]]
             data = _s3().get_object(Bucket=_S3_BUCKET, Key=key)["Body"].read()
             return (key.split("/")[-1], data)
 
-        results: list[tuple[str, bytes]] = []
+        # as_completed discards submission order, so the sort at the end is the
+        # one that decides the result. Sorting the keys too would be wasted.
         with ThreadPoolExecutor(max_workers=min(len(keys), 10)) as pool:
-            futures = {pool.submit(_fetch, key): key for key in keys}
-            for future in as_completed(futures):
-                results.append(future.result())
-        return sorted(results, key=lambda x: x[0])
+            results = [f.result() for f in as_completed([pool.submit(_fetch, k) for k in keys])]
+        return sorted(results, key=lambda x: _slide_number(x[0]))
 
     audio_dir = _local_path(prefix)
     if not audio_dir.exists():
         return []
-    return [(f.name, f.read_bytes()) for f in sorted(audio_dir.glob("slide_*.mp3"))]
+    slides = sorted(audio_dir.glob("slide_*.mp3"), key=lambda p: _slide_number(p.name))
+    return [(f.name, f.read_bytes()) for f in slides]
 
 
 # --- PPTX temp storage (translate -> render handoff) ---
@@ -511,13 +598,7 @@ def get_all_audio_slides(user_id: int, job_uuid: str) -> list[tuple[str, bytes]]
 
 def save_pptx_tmp(file_id: str, data: bytes) -> None:
     """Save a temporary PPTX for the translate -> render handoff."""
-    key = tmp_pptx_key(file_id)
-    if USE_S3:
-        _s3().put_object(Bucket=_S3_BUCKET, Key=key, Body=data)
-        return
-    path = _local_path(key)
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_bytes(data)
+    _store_bytes(tmp_pptx_key(file_id), data)
 
 
 def get_pptx_tmp(file_id: str) -> bytes | None:
@@ -543,7 +624,7 @@ def delete_pptx_tmp(file_id: str) -> None:
         _local_path(key).unlink(missing_ok=True)
 
 
-# --- Per-job folder deletion ---
+# --- Folder deletion ---
 
 def delete_job_folder(user_id: int, job_uuid: str) -> int:
     """Delete all files for a job. Returns number of objects deleted."""
@@ -553,6 +634,23 @@ def delete_job_folder(user_id: int, job_uuid: str) -> int:
 def clear_render_cache(user_id: int, job_uuid: str) -> int:
     """Delete render-cache (TTS audio + alignments). Called before re-render."""
     return delete_prefix(f"{job_prefix(user_id, job_uuid)}/render_cache/")
+
+
+def delete_aia_source_files(file_path: str) -> int:
+    """Delete an AIA source together with everything derived from it.
+
+    Transcript and subtitles are siblings of the source file, so deleting the
+    source alone would leave the full text of a recording in the bucket with
+    no row pointing at it. Safe as a prefix because source uuids are
+    ``uuid4().hex``, all 32 characters: no source name can be a prefix of
+    another, so this never reaches into a sibling source.
+    """
+    return delete_prefix(aia_source_base(file_path))
+
+
+def delete_aia_workspace_folder(user_id: int, workspace_uuid: str) -> int:
+    """Delete an AIA workspace with all its sources and derived artifacts."""
+    return delete_prefix(aia_workspace_prefix(user_id, workspace_uuid))
 
 
 # --- Result saving with eviction ---

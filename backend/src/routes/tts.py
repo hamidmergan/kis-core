@@ -1,3 +1,5 @@
+import os
+import tempfile
 import uuid
 from pathlib import Path
 
@@ -9,9 +11,10 @@ from src.i18n import get_locale, t
 from src.quotas import enforce_quota
 from src.security.rate_limit import enforce_tool_burst
 from src import database as db
-from src.storage import save_queue_file
+from src.storage import save_queue_file_from_path
 from src.utils.file_validation import TTS_EXTENSIONS, MAX_UPLOAD_BYTES, TTS_MAX_CHARS, validate_or_raise
 from src.utils.text_extraction import EXTRACTORS
+from src.utils.upload_stream import stream_upload_to_path
 from src.dependencies_rbac import require_tool_access
 
 router = APIRouter(
@@ -109,76 +112,80 @@ async def text_to_speech(
     if not has_file and not has_text:
         raise HTTPException(status_code=400, detail=t("tts.noInput", locale))
 
-    if has_text:
-        cleaned = _sanitize_tts_text(text)
-        if not cleaned:
-            raise HTTPException(status_code=400, detail=t("tts.textEmpty", locale))
-        if len(cleaned) > TTS_MAX_CHARS:
-            raise HTTPException(
-                status_code=422,
-                detail=t(
-                    "tts.textTooLong",
-                    locale,
-                    chars=f"{len(cleaned):,}".replace(",", "."),
-                    maxChars=f"{TTS_MAX_CHARS:,}".replace(",", "."),
-                ),
-            )
-        ext = ".txt"
-        content = cleaned.encode("utf-8")
-        source_filename = "text.txt"
-    else:
-        assert file is not None
-        ext = Path(file.filename).suffix.lower()
-        if ext not in TTS_EXTENSIONS:
-            raise HTTPException(status_code=400, detail=t("tts.unsupportedFormat", locale))
+    # Both inputs end up as a file on disk, so the upload is never held in RAM
+    # and storage can stream it from the path.
+    with tempfile.TemporaryDirectory(prefix="tts_upload_") as tmpdir:
+        if has_text:
+            cleaned = _sanitize_tts_text(text)
+            if not cleaned:
+                raise HTTPException(status_code=400, detail=t("tts.textEmpty", locale))
+            if len(cleaned) > TTS_MAX_CHARS:
+                raise HTTPException(
+                    status_code=422,
+                    detail=t(
+                        "tts.textTooLong",
+                        locale,
+                        chars=f"{len(cleaned):,}".replace(",", "."),
+                        maxChars=f"{TTS_MAX_CHARS:,}".replace(",", "."),
+                    ),
+                )
+            ext = ".txt"
+            source_filename = "text.txt"
+            tmp_path = os.path.join(tmpdir, "input.txt")
+            with open(tmp_path, "wb") as out:
+                out.write(cleaned.encode("utf-8"))
+        else:
+            assert file is not None
+            ext = Path(file.filename).suffix.lower()
+            if ext not in TTS_EXTENSIONS:
+                raise HTTPException(status_code=400, detail=t("tts.unsupportedFormat", locale))
 
-        content_length = request.headers.get("content-length")
-        if content_length is not None and int(content_length) > MAX_UPLOAD_BYTES:
-            raise HTTPException(status_code=413, detail=t("file.tooLargeMb200", locale))
+            content_length = request.headers.get("content-length")
+            if content_length is not None and int(content_length) > MAX_UPLOAD_BYTES:
+                raise HTTPException(status_code=413, detail=t("file.tooLargeMb200", locale))
 
-        content = await file.read()
-        if not content:
-            raise HTTPException(status_code=400, detail=t("file.empty", locale))
-        if len(content) > MAX_UPLOAD_BYTES:
-            raise HTTPException(status_code=413, detail=t("file.tooLargeMb200", locale))
-        validate_or_raise(content, ext, locale)
+            tmp_path = os.path.join(tmpdir, f"input{ext}")
+            total, head = await stream_upload_to_path(file, tmp_path, MAX_UPLOAD_BYTES, locale)
+            if not total:
+                raise HTTPException(status_code=400, detail=t("file.empty", locale))
+            validate_or_raise(head, ext, locale)
 
-        extractor = EXTRACTORS.get(ext)
-        if extractor is None:
-            raise HTTPException(status_code=400, detail=t("tts.unsupportedFileType", locale))
+            extractor = EXTRACTORS.get(ext)
+            if extractor is None:
+                raise HTTPException(status_code=400, detail=t("tts.unsupportedFileType", locale))
 
-        extracted = extractor(content)
-        if len(extracted) > TTS_MAX_CHARS:
-            raise HTTPException(
-                status_code=422,
-                detail=t(
-                    "tts.documentTooLong",
-                    locale,
-                    chars=f"{len(extracted):,}".replace(",", "."),
-                    maxChars=f"{TTS_MAX_CHARS:,}".replace(",", "."),
-                ),
-            )
-        source_filename = file.filename
+            extracted = extractor(tmp_path)
+            if len(extracted) > TTS_MAX_CHARS:
+                raise HTTPException(
+                    status_code=422,
+                    detail=t(
+                        "tts.documentTooLong",
+                        locale,
+                        chars=f"{len(extracted):,}".replace(",", "."),
+                        maxChars=f"{TTS_MAX_CHARS:,}".replace(",", "."),
+                    ),
+                )
+            source_filename = file.filename
 
-    # Validate provider
-    from src.dependencies import get_tts_client_for_provider
-    try:
-        client = get_tts_client_for_provider(provider_id)
-    except RuntimeError:
-        raise HTTPException(status_code=400, detail=t("tts.providerNotFound", locale))
-    if client is None:
-        raise HTTPException(status_code=400, detail=t("tts.providerNotFound", locale))
-    if not client.is_available():
-        raise HTTPException(status_code=503, detail=t("tts.providerUnavailable", locale))
+        # Validate provider
+        from src.dependencies import get_tts_client_for_provider
+        try:
+            client = get_tts_client_for_provider(provider_id)
+        except RuntimeError:
+            raise HTTPException(status_code=400, detail=t("tts.providerNotFound", locale))
+        if client is None:
+            raise HTTPException(status_code=400, detail=t("tts.providerNotFound", locale))
+        if not client.is_available():
+            raise HTTPException(status_code=503, detail=t("tts.providerUnavailable", locale))
 
-    user_id = current_user.get("user_id", 0)
-    enforce_tool_burst(user_id, "tts", locale)
-    enforce_quota(user_id, "tts", is_admin_user(current_user), locale)
+        user_id = current_user.get("user_id", 0)
+        enforce_tool_burst(user_id, "tts", locale)
+        enforce_quota(user_id, "tts", is_admin_user(current_user), locale)
 
-    job_uuid = uuid.uuid4().hex
-    db.create_job(job_uuid, user_id, "tts", source_filename, locale=locale)
-    input_path = save_queue_file(user_id, job_uuid, ext, content)
-    db.set_job_input_path(job_uuid, input_path)
+        job_uuid = uuid.uuid4().hex
+        db.create_job(job_uuid, user_id, "tts", source_filename, locale=locale)
+        input_path = save_queue_file_from_path(user_id, job_uuid, ext, tmp_path)
+        db.set_job_input_path(job_uuid, input_path)
 
     from src.tasks.tts_tasks import run_tts
     task = run_tts.apply_async(args=[

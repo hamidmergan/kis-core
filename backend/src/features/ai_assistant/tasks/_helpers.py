@@ -18,21 +18,6 @@ def _language_label(locale: str) -> str:
     return "English" if (locale or "").lower().startswith("en") else "German"
 
 
-def _save_aia_output(user_id: int, workspace_uuid: str, filename: str, data: bytes) -> str:
-    """Save an AIA output file (presentation, mindmap, etc.) under users/{user_id}/aia/."""
-    from src.storage import USE_S3, aia_output_key
-    key = aia_output_key(user_id, workspace_uuid, filename)
-    if USE_S3:
-        from src.storage import _s3, _S3_BUCKET  # type: ignore[attr-defined]
-        _s3().put_object(Bucket=_S3_BUCKET, Key=key, Body=data)
-        return key
-    from src.storage import STORAGE_ROOT
-    dest = STORAGE_ROOT / key
-    dest.parent.mkdir(parents=True, exist_ok=True)
-    dest.write_bytes(data)
-    return str(dest)
-
-
 def _get_llm_client():
     """Return (client, model, provider) using the configured LLM provider."""
     from langfuse.openai import OpenAI

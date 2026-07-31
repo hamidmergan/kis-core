@@ -1,5 +1,7 @@
 """Summary route: generate a text summary from various file formats via the admin-configured LLM."""
 
+import os
+import tempfile
 import uuid
 from pathlib import Path
 
@@ -12,7 +14,7 @@ from src.i18n import get_locale, t
 from src.quotas import enforce_quota
 from src.security.rate_limit import enforce_tool_burst
 from src.services import feature_provider_choices
-from src.storage import save_queue_file
+from src.storage import save_queue_file_from_path
 from src.utils.file_validation import (
     MAX_UPLOAD_BYTES,
     SUMMARY_EXTENSIONS,
@@ -20,6 +22,7 @@ from src.utils.file_validation import (
     validate_or_raise,
 )
 from src.utils.text_extraction import EXTRACTORS
+from src.utils.upload_stream import stream_upload_to_path
 from src.dependencies_rbac import require_tool_access
 
 router = APIRouter(
@@ -67,35 +70,37 @@ async def summarize(
     if content_length is not None and int(content_length) > MAX_UPLOAD_BYTES:
         raise HTTPException(status_code=413, detail=t("file.tooLargeMb500", locale))
 
-    content = await file.read()
-    if not content:
-        raise HTTPException(status_code=400, detail=t("file.empty", locale))
-    if len(content) > MAX_UPLOAD_BYTES:
-        raise HTTPException(status_code=413, detail=t("summary.fileTooLarge", locale))
-    validate_or_raise(content, ext, locale)
+    # Stream to a temp file instead of holding the body (up to 500 MB) in RAM.
+    # The extractor reads the path, storage uploads from the path.
+    with tempfile.TemporaryDirectory(prefix="summary_upload_") as tmpdir:
+        tmp_path = os.path.join(tmpdir, f"input{ext}")
+        total, head = await stream_upload_to_path(file, tmp_path, MAX_UPLOAD_BYTES, locale)
+        if not total:
+            raise HTTPException(status_code=400, detail=t("file.empty", locale))
+        validate_or_raise(head, ext, locale)
 
-    extractor = EXTRACTORS.get(ext)
-    if extractor is not None:
-        text = extractor(content)
-        if len(text) > SUMMARY_MAX_CHARS:
-            raise HTTPException(
-                status_code=422,
-                detail=t(
-                    "summary.documentTooLong",
-                    locale,
-                    chars=f"{len(text):,}".replace(",", "."),
-                    maxChars=f"{SUMMARY_MAX_CHARS:,}".replace(",", "."),
-                ),
-            )
+        extractor = EXTRACTORS.get(ext)
+        if extractor is not None:
+            text = extractor(tmp_path)
+            if len(text) > SUMMARY_MAX_CHARS:
+                raise HTTPException(
+                    status_code=422,
+                    detail=t(
+                        "summary.documentTooLong",
+                        locale,
+                        chars=f"{len(text):,}".replace(",", "."),
+                        maxChars=f"{SUMMARY_MAX_CHARS:,}".replace(",", "."),
+                    ),
+                )
 
-    job_uuid = uuid.uuid4().hex
-    user_id = current_user.get("user_id", 0)
-    enforce_tool_burst(user_id, "summary", locale)
-    enforce_quota(user_id, "summary", is_admin_user(current_user), locale)
+        job_uuid = uuid.uuid4().hex
+        user_id = current_user.get("user_id", 0)
+        enforce_tool_burst(user_id, "summary", locale)
+        enforce_quota(user_id, "summary", is_admin_user(current_user), locale)
 
-    db.create_job(job_uuid, user_id, "summary", file.filename, locale=locale)
-    input_path = save_queue_file(user_id, job_uuid, ext, content)
-    db.set_job_input_path(job_uuid, input_path)
+        db.create_job(job_uuid, user_id, "summary", file.filename, locale=locale)
+        input_path = save_queue_file_from_path(user_id, job_uuid, ext, tmp_path)
+        db.set_job_input_path(job_uuid, input_path)
 
     from src.tasks.general_tasks import run_summary
     run_summary.delay(job_uuid, input_path, file.filename, provider_id)
