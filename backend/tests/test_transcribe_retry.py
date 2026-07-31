@@ -1,6 +1,12 @@
-"""run_transcribe retry policy: a 429 requeues with backoff (resume via cache); any
-other error or an exhausted retry budget marks the job failed. Mirrors the AIA
-media-ingestion policy and matches the "only 429 is retried" decision."""
+"""run_transcribe retry policy: every *transient* upstream failure requeues with
+backoff, a permanent one fails straight away.
+
+Wider than the AIA ingestion policy on purpose. AIA only requeues on 429 because
+a failed source has a retry button in the UI ("nothing is lost"). A transcription
+job has none — /jobs/{uuid}/retry accepts tts and screencast only — so a 502 on
+chunk 11 of 12 used to throw away eleven finished chunks and cost the user the
+whole file again, quota included. The per-chunk Redis cache makes the requeue
+nearly free, which is exactly what it was built for."""
 import contextlib
 
 import pytest
@@ -98,11 +104,44 @@ def test_429_after_max_retries_marks_failed(env):
     assert failed.get("label") == "Transcribe"
 
 
-def test_non_rate_limit_error_fails_immediately(env):
+@pytest.mark.parametrize("msg", [
+    "Chunk 1 transcription failed: Whisper API error (KISSKI): Internal Server Error",
+    "Chunk 9 transcription failed: Whisper API error (myLab): Bad Gateway",
+    "Whisper API error (myLab): Service Unavailable",
+    "Whisper API error (myLab): Read timeout",
+    "Whisper API error (myLab): Connection reset by peer",
+])
+def test_transient_upstream_failure_requeues_instead_of_losing_finished_chunks(env, msg):
     set_error, failed = env
-    set_error("Chunk 1 transcription failed: Whisper API error (KISSKI): Internal Server Error")
+    set_error(msg)
+    s = _FakeSelf(retries=0)
+    with pytest.raises(_Retrying):
+        _run(s)
+    assert s.retry_calls == [(30, 5)]
+    assert failed == {}
+
+
+def test_transient_failure_after_max_retries_marks_failed(env):
+    set_error, failed = env
+    set_error("Whisper API error (myLab): Bad Gateway")
+    s = _FakeSelf(retries=5)
+    with pytest.raises(RuntimeError):
+        _run(s)
+    assert s.retry_calls == []
+    assert failed.get("label") == "Transcribe"
+
+
+@pytest.mark.parametrize("msg", [
+    "Audio zu lang (183.4 min). Maximum: 100 Minuten.",
+    "ffprobe failed: Invalid data found when processing input",
+    "Whisper returned no output",
+])
+def test_permanent_failure_is_not_retried(env, msg):
+    """Retrying these burns the backoff budget and still fails. Fail loudly instead."""
+    set_error, failed = env
+    set_error(msg)
     s = _FakeSelf(retries=0)
     with pytest.raises(RuntimeError):
         _run(s)
-    assert s.retry_calls == []          # a 500 is NOT auto-retried (only 429)
+    assert s.retry_calls == []
     assert failed.get("label") == "Transcribe"

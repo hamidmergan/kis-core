@@ -27,6 +27,9 @@ export default function TranscriptionPage() {
   const [doneJobUuid, setDoneJobUuid] = useState<string | null>(null);
   const [transcriptText, setTranscriptText] = useState<string>("");
   const [transcriptFilename, setTranscriptFilename] = useState<string>("");
+  // Long recordings are split into 9-minute parts. The backend reports each
+  // finished part so the wait is not a silent spinner.
+  const [chunkProgress, setChunkProgress] = useState<{ current: number; total: number } | null>(null);
 
   const [responseFormat, setResponseFormat] = useState("text");
 
@@ -48,6 +51,7 @@ export default function TranscriptionPage() {
     setErrorMessage("");
     setStallMessage("");
     setDoneJobUuid(null);
+    setChunkProgress(null);
     try {
       const formData = new FormData();
       formData.append("file", pendingFile);
@@ -61,7 +65,16 @@ export default function TranscriptionPage() {
       }
       const data = await response.json();
       window.dispatchEvent(new Event("kis-jobs-changed"));
-      await pollJob(data.job_uuid, undefined, 3000, undefined,
+      await pollJob(
+        data.job_uuid,
+        (status) => {
+          const p = status.progress as { step?: string; current?: number; total?: number } | null;
+          if (p?.step === "transcribe" && typeof p.current === "number" && typeof p.total === "number") {
+            setChunkProgress({ current: p.current, total: p.total });
+          }
+        },
+        3000,
+        undefined,
         () => setStallMessage(t("longRunning")),
         60_000,
       );
@@ -158,6 +171,11 @@ export default function TranscriptionPage() {
                 )}
                 {processing ? tCommon("processing") : t("submit")}
               </button>
+              {processing && chunkProgress && (
+                <p className="mt-2 text-sm text-muted" role="status" aria-live="polite">
+                  {t("chunkProgress", { current: chunkProgress.current, total: chunkProgress.total })}
+                </p>
+              )}
             </div>
           )}
 

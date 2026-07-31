@@ -179,13 +179,23 @@ def run_transcribe(
         client = resolve_whisper_client(provider_id)
         ext_suffix = Path(filename).suffix.lower()
 
+        # Long recordings run for many minutes. Report each finished chunk so the
+        # UI can show "part 3 of 12" instead of an unchanging spinner.
+        def _on_chunk(done: int, total: int) -> None:
+            db.update_job_status(
+                job_uuid, "running",
+                progress={"step": "transcribe", "current": done, "total": total},
+            )
+
         with job_heartbeat(job_uuid), open_input_file(input_path, suffix=ext_suffix) as local_path:
             if task == "translate":
                 result_text = client.transcribe_and_translate_chunked(
-                    local_path, response_format=response_format, cache_key=job_uuid)
+                    local_path, response_format=response_format, cache_key=job_uuid,
+                    on_progress=_on_chunk)
             else:
                 result_text = client.transcribe_chunked(
-                    local_path, response_format=response_format, cache_key=job_uuid)
+                    local_path, response_format=response_format, cache_key=job_uuid,
+                    on_progress=_on_chunk)
 
         out_ext = _FORMAT_EXT[response_format]
         if task == "translate":
@@ -201,15 +211,23 @@ def run_transcribe(
         logger.info("Transcribe task {} completed: {}", job_uuid, output_name)
 
     except Exception as e:
-        # Rate-limit (429): keep the job alive and requeue with backoff instead of failing.
-        # Chunks already transcribed are cached per job_uuid in Redis, so the retry resumes
-        # rather than restarting from zero. Mirrors the AIA media-ingestion retry policy.
-        msg = str(e).lower()
-        if ("429" in msg or "rate limit" in msg) and self.request.retries < 5:
+        # Any transient upstream failure (429, 5xx, timeout, dropped connection):
+        # keep the job alive and requeue with backoff. Chunks already transcribed
+        # are cached per job_uuid in Redis, so the retry resumes rather than
+        # restarting from zero.
+        #
+        # Deliberately wider than the AIA ingestion policy, which only requeues on
+        # 429: a failed AIA source has a retry button, a transcription job does not
+        # (/jobs/{uuid}/retry covers tts and screencast only). Without this, a 502
+        # on the last chunk of a 90-minute recording discarded every finished chunk
+        # and cost the user the upload and a quota slot.
+        from src.services.openai_compat_llm.base import is_transient_error
+
+        if is_transient_error(e) and self.request.retries < 5:
             countdown = min(30 * (2 ** self.request.retries), 120)  # 30s, 1m, 2m, 2m, 2m
             logger.warning(
-                "Transcribe job {} hit rate limit (attempt {}/{}), retrying in {}s",
-                job_uuid, self.request.retries + 1, 5, countdown,
+                "Transcribe job {} hit a transient error (attempt {}/{}), retrying in {}s: {}",
+                job_uuid, self.request.retries + 1, 5, countdown, e,
             )
             raise self.retry(exc=e, countdown=countdown, max_retries=5)
         _handle_task_exception(job_uuid, e, task_label="Transcribe")

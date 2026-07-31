@@ -19,6 +19,23 @@ _SILENCE_MIN_DURATION = 0.3  # Minimum silence duration (s)
 _SPLIT_SEARCH_WINDOW = 60  # Search window around each target split point (s)
 
 
+class AudioTooLongError(Exception):
+    """Media longer than :data:`MAX_AUDIO_SEC`.
+
+    Typed rather than a formatted string: this is raised deep in the service
+    layer, which has no locale, while the wording belongs to whoever knows the
+    user's language (``src.tasks._errors.handle_task_exception``). ``str()``
+    stays readable for logs.
+    """
+
+    def __init__(self, duration_sec: float):
+        self.duration_sec = duration_sec
+        self.max_sec = MAX_AUDIO_SEC
+        super().__init__(
+            f"Audio too long ({duration_sec / 60:.1f} min), maximum {MAX_AUDIO_SEC // 60} min"
+        )
+
+
 def get_audio_duration(file_path: str) -> float:
     """Return audio/video duration in seconds via ffprobe."""
     result = subprocess.run(

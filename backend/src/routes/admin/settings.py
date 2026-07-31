@@ -22,6 +22,8 @@ from src.limits import (
     TTS_MAX_CHARS_PER_REQUEST,
     SCREENCAST_TTS_DEFAULT_PARALLELISM,
     SCREENCAST_TTS_MAX_PARALLELISM,
+    STT_CHUNK_DEFAULT_PARALLELISM,
+    STT_CHUNK_MAX_PARALLELISM,
     AIA_SUMMARY_BATCH_MAX_CHARS,
     AIA_EMBEDDING_BATCH_SIZE,
     AIA_SOURCE_MAX_PAGES,
@@ -128,6 +130,12 @@ async def get_settings(_admin=Depends(get_admin_user)):
         # Screencasts, alles andere zusammen liegt im Sekundenbereich.
         "screencast_tts_parallelism": int(
             db.get_setting("screencast_tts_parallelism", str(SCREENCAST_TTS_DEFAULT_PARALLELISM))
+        ),
+        # Gleichzeitig hochgeladene Audio-Teile je Transkription. Der Standard
+        # ist konservativ, weil ein geteiltes Anbieter-Kontingent schnell in 429
+        # läuft und das dann alle Werkzeuge trifft.
+        "stt_chunk_parallelism": int(
+            db.get_setting("stt_chunk_parallelism", str(STT_CHUNK_DEFAULT_PARALLELISM))
         ),
         # CEFR chat-diagnosis system prompt. One prompt for all languages; the
         # workspace language replaces the {language} placeholder at request time.
@@ -463,5 +471,21 @@ async def update_settings(
                 ),
             )
         db.set_setting("screencast_tts_parallelism", str(value))
+
+    # Gleichzeitig hochgeladene Audio-Teile. Gedeckelt aus demselben Grund: bei
+    # einem geteilten Kontingent trifft eine Fehleingabe alle Werkzeuge.
+    if body.stt_chunk_parallelism is not None:
+        value = body.stt_chunk_parallelism
+        if value < 1 or value > STT_CHUNK_MAX_PARALLELISM:
+            raise HTTPException(
+                status_code=400,
+                detail=t(
+                    "admin.settings.sttParallelismOutOfRange",
+                    locale,
+                    min=1,
+                    max=STT_CHUNK_MAX_PARALLELISM,
+                ),
+            )
+        db.set_setting("stt_chunk_parallelism", str(value))
 
     return {"ok": True}

@@ -6,6 +6,14 @@ export const MAX_UPLOAD_BYTES = MAX_UPLOAD_MB * 1024 * 1024;
 export const MAX_TRANSCRIPTION_MB = 500;
 export const MAX_TRANSCRIPTION_BYTES = MAX_TRANSCRIPTION_MB * 1024 * 1024;
 
+/**
+ * Max playing time for transcription (mirrors backend MAX_AUDIO_SEC in
+ * _chunking.py). Checked in the browser as well as on the server: the server
+ * can only measure it after the whole file has been uploaded, so without the
+ * browser check the user waits out a long upload just to be told no.
+ */
+export const MAX_TRANSCRIPTION_MINUTES = 100;
+
 /** Max upload size for images (image edit/analyze). */
 export const MAX_IMAGE_MB = 20;
 export const MAX_IMAGE_BYTES = MAX_IMAGE_MB * 1024 * 1024;

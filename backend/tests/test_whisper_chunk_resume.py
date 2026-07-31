@@ -29,7 +29,7 @@ class _StubWhisper(wc._WhisperChunkedMixin):
 @pytest.fixture
 def store(monkeypatch):
     # Deterministic 4-chunk split, no ffmpeg, no Redis. Serial so the failure order is fixed.
-    monkeypatch.setattr(wc, "CHUNK_TRANSCRIBE_CONCURRENCY", 1)
+    monkeypatch.setattr(wc, "chunk_concurrency", lambda: 1)
     monkeypatch.setattr(wc, "get_audio_duration", lambda p: 2000.0)
     monkeypatch.setattr(wc, "find_silence_starts", lambda p: [])
     monkeypatch.setattr(wc, "compute_split_points", lambda d, s: [540.0, 1080.0, 1620.0])

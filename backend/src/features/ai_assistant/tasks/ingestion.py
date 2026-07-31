@@ -256,10 +256,15 @@ def run_index_source(self, source_uuid: str, locale: str = "de", _aia_job_uuid: 
                 raise self.retry(exc=e, countdown=countdown, max_retries=5)
 
         logger.error("KI Tutor: indexing source {} failed: {}", source_uuid, e)
+        from src.services.openai_compat_llm._chunking import AudioTooLongError
+        from src.tasks._errors import audio_too_long_message
+
         if isinstance(e, PdfNoReadableTextError):
             error_message = t("ai.source.pdfNoReadableText", locale)
         elif isinstance(e, OcrFailedError):
             error_message = t("ai.source.ocrFailed", locale, page=e.page_number)
+        elif isinstance(e, AudioTooLongError):
+            error_message = audio_too_long_message(e, locale)
         else:
             error_message = str(e)
         db.update_aia_source_status(source_uuid, "failed", error_message=error_message)

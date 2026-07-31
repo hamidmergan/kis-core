@@ -210,7 +210,9 @@
       "downloadLabel": "Transkription",
       "readyTitle": "Transkript fertig",
       "editorAria": "Transkript bearbeiten",
-      "providerLabel": "STT-Anbieter"
+      "providerLabel": "STT-Anbieter",
+      "chunkProgress": "Teil {current} von {total}",
+      "tooLong": "Aufnahme zu lang ({minutes} Minuten). Erlaubt sind höchstens {maxMinutes} Minuten."
     },
     "summarize": {
       "title": "Zusammenfassung",

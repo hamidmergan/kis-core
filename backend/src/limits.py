@@ -110,6 +110,20 @@ RENDER_MAX_WORKERS = 2  # ThreadPoolExecutor limit for PDF->PNG and FFmpeg
 SCREENCAST_TTS_DEFAULT_PARALLELISM = 4
 SCREENCAST_TTS_MAX_PARALLELISM = 16
 
+# --- Transkription: gleichzeitig hochgeladene Audio-Teile --------------------
+# Eine lange Aufnahme wird in Teile von je 9 Minuten geschnitten. Wie viele
+# davon gleichzeitig zum Anbieter gehen, hängt am Anbieter und nicht am Code:
+# ein geteiltes Kontingent (GWDG, hochschulweit 2 Anfragen/s) verträgt viel
+# weniger als ein eigener Dienst.
+#
+# Der Standard bleibt bewusst bei 2, dem alten fest verdrahteten Wert. Wer
+# Tempo braucht und weiß, dass der eigene Anbieter es aushält, stellt im Admin
+# höher und beobachtet die 429-Rate. Nach oben gedeckelt, damit ein Vertipper
+# nicht den Dienst der ganzen Hochschule flutet.
+# Admin-Einstellung zur Laufzeit: stt_chunk_parallelism.
+STT_CHUNK_DEFAULT_PARALLELISM = 2
+STT_CHUNK_MAX_PARALLELISM = 16
+
 # --- Celery task timeouts (in seconds) --------------------------------------
 TTS_SOFT_TIME_LIMIT             = 5400   # 90 min, SoftTimeLimitExceeded -> graceful DB update
 TTS_TIME_LIMIT                  = 5520   # 92 min, SIGKILL fallback

@@ -252,6 +252,10 @@ MESSAGES: dict[str, dict[str, str]] = {
         "de": "Gleichzeitig vertonte Folien muss zwischen {min} und {max} liegen.",
         "en": "Slides voiced at once must be between {min} and {max}.",
     },
+    "admin.settings.sttParallelismOutOfRange": {
+        "de": "Gleichzeitig verarbeitete Audio-Teile muss zwischen {min} und {max} liegen.",
+        "en": "Audio parts processed at once must be between {min} and {max}.",
+    },
     "admin.settings.parallelSlotsOutOfRange": {
         "de": "Parallele Slots muss zwischen {min} und {max} liegen.",
         "en": "Parallel slots must be between {min} and {max}.",

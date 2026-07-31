@@ -62,6 +62,9 @@ class UpdateSettingsRequest(BaseModel):
     # Wie viele Folien eines Screencasts gleichzeitig vertont werden. Reine
     # Wartezeit am Anbieter, kostet keine eigene CPU.
     screencast_tts_parallelism: int | None = None
+    # Wie viele 9-Minuten-Teile einer Aufnahme gleichzeitig zum STT-Anbieter
+    # gehen. Sinnvoller Wert hängt am Anbieter, nicht am Code.
+    stt_chunk_parallelism: int | None = None
     # System prompt for the CEFR chat diagnosis. ONE prompt for every language;
     # the workspace language is substituted for the {language} placeholder. An
     # empty string restores the shipped default.

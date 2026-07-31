@@ -31,6 +31,10 @@ MESSAGES: dict[str, dict[str, str]] = {
         "de": "Dokument zu lang ({chars} Zeichen). Bitte aufteilen (max. {maxChars} Zeichen).",
         "en": "Document too long ({chars} characters). Please split (max {maxChars} characters).",
     },
+    "transcription.audioTooLong": {
+        "de": "Aufnahme zu lang ({minutes} Minuten). Erlaubt sind höchstens {maxMinutes} Minuten.",
+        "en": "Recording too long ({minutes} minutes). The maximum is {maxMinutes} minutes.",
+    },
 
     # ── glossary (terminology, per user) ──────────────────────────────────────
     "glossary.tooMany": {

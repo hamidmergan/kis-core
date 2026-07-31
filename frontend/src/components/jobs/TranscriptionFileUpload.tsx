@@ -2,7 +2,8 @@
 
 import { useCallback, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
-import { MAX_TRANSCRIPTION_MB, MAX_TRANSCRIPTION_BYTES } from "@/lib/constants";
+import { MAX_TRANSCRIPTION_MB, MAX_TRANSCRIPTION_BYTES, MAX_TRANSCRIPTION_MINUTES } from "@/lib/constants";
+import { exceedsTranscriptionLimit, readMediaDurationSeconds } from "@/lib/mediaDuration";
 
 // Everything the Whisper endpoint accepts. Display mirrors the allow-list so
 // the hint and the "only these allowed" error stay honest.
@@ -17,8 +18,10 @@ interface TranscriptionFileUploadProps {
 
 export default function TranscriptionFileUpload({ onFileSelected, disabled = false, selectedFilename }: TranscriptionFileUploadProps) {
   const t = useTranslations("common");
+  const tStt = useTranslations("tools.stt");
   const [dragActive, setDragActive] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [checking, setChecking] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
   const validateFile = (file: File): string | null => {
@@ -33,27 +36,43 @@ export default function TranscriptionFileUpload({ onFileSelected, disabled = fal
   };
 
   const handleFile = useCallback(
-    (file: File) => {
+    async (file: File) => {
       setError(null);
       const validationError = validateFile(file);
       if (validationError) {
         setError(validationError);
         return;
       }
+      // The server can only measure the playing time once the whole file has
+      // arrived. Reading it here first spares the user a long upload that ends
+      // in "too long". An unreadable duration falls through to the server.
+      setChecking(true);
+      try {
+        const seconds = await readMediaDurationSeconds(file);
+        if (exceedsTranscriptionLimit(seconds)) {
+          setError(tStt("tooLong", {
+            minutes: Math.round((seconds as number) / 60),
+            maxMinutes: MAX_TRANSCRIPTION_MINUTES,
+          }));
+          return;
+        }
+      } finally {
+        setChecking(false);
+      }
       onFileSelected(file);
     },
-    [onFileSelected]
+    [onFileSelected, tStt]
   );
 
   const handleDrop = useCallback(
     (e: React.DragEvent) => {
       e.preventDefault();
       setDragActive(false);
-      if (disabled) return;
+      if (disabled || checking) return;
       const file = e.dataTransfer.files[0];
-      if (file) handleFile(file);
+      if (file) void handleFile(file);
     },
-    [disabled, handleFile]
+    [disabled, checking, handleFile]
   );
 
   const handleDragOver = (e: React.DragEvent) => {
@@ -65,7 +84,7 @@ export default function TranscriptionFileUpload({ onFileSelected, disabled = fal
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (file) handleFile(file);
+    if (file) void handleFile(file);
     if (inputRef.current) inputRef.current.value = "";
   };
 
@@ -81,17 +100,17 @@ export default function TranscriptionFileUpload({ onFileSelected, disabled = fal
         role="button"
         tabIndex={0}
         aria-label={t("audioVideoSelectAria")}
-        onClick={() => !disabled && inputRef.current?.click()}
+        onClick={() => !disabled && !checking && inputRef.current?.click()}
         onKeyDown={(e) => {
           if (e.key === "Enter" || e.key === " ") {
             e.preventDefault();
-            if (!disabled) inputRef.current?.click();
+            if (!disabled && !checking) inputRef.current?.click();
           }
         }}
         onDrop={handleDrop}
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
-        className={`border-2 border-dashed rounded-lg p-10 text-center cursor-pointer transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-kb ${borderClass} ${disabled ? "opacity-50 cursor-not-allowed" : ""}`}
+        className={`border-2 border-dashed rounded-lg p-10 text-center cursor-pointer transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-kb ${borderClass} ${disabled || checking ? "opacity-50 cursor-not-allowed" : ""}`}
       >
         {selectedFilename ? (
           <>
