@@ -7,19 +7,19 @@ import uuid
 
 from src.security.rate_limit import check_upload_limit, record_upload
 from src.utils.file_validation import validate_or_raise
+from src.utils.upload_stream import stream_upload_to_path
 
 from ._shared import (
     Path, APIRouter, Depends, File, HTTPException, UploadFile, logger, db,
     get_current_user, get_locale, t,
     AIA_MAX_CONCURRENT_UPLOADS, AIA_SOURCE_MAX_PAGES, AIA_WORKSPACE_MAX_SOURCES,
-    delete_file, _convert_office_to_pdf_path, _mp4_faststart_path, _count_pages_path,
+    delete_aia_source_files,
+    _convert_office_to_pdf_path, _mp4_faststart_path, _count_pages_path,
     _require_own_workspace, _load_workspace_source, _save_source_file_path,
     _ALLOWED_EXTENSIONS, _MAX_UPLOAD_BYTES,
 )
 
 router = APIRouter(tags=["ki-assistent: sources"])
-
-_UPLOAD_CHUNK = 1024 * 1024  # 1 MiB per stream chunk
 
 # Globale Bremse für gleichzeitige Uploads in der schweren Phase (streamen,
 # umwandeln, ablegen). Der Zähler liegt in Redis, nicht mehr als int im Prozess:
@@ -88,28 +88,6 @@ def _release_upload_slot(ticket: str) -> None:
         logger.warning("Upload-Platz konnte nicht freigegeben werden: {}", e)
 
 
-async def _stream_to_tempfile(file: UploadFile, dest_path: str, max_bytes: int, locale: str) -> tuple[int, bytes]:
-    """Stream the request body to ``dest_path`` in chunks so a large upload never
-    sits fully in RAM. Returns ``(total_bytes, head)`` where ``head`` is the first
-    64 KiB (enough for magic-byte / UTF-8 content validation). Raises 413 as soon
-    as the body exceeds ``max_bytes``."""
-    total = 0
-    head = bytearray()
-    with open(dest_path, "wb") as out:
-        while True:
-            chunk = await file.read(_UPLOAD_CHUNK)
-            if not chunk:
-                break
-            total += len(chunk)
-            if total > max_bytes:
-                raise HTTPException(
-                    status_code=413,
-                    detail=t("file.tooLargeMb", locale, max=max_bytes // (1024 * 1024)),
-                )
-            if len(head) < 65536:
-                head.extend(chunk[: 65536 - len(head)])
-            out.write(chunk)
-    return total, bytes(head)
 
 
 @router.post("/ai-assistant/workspaces/{workspace_uuid}/sources")
@@ -182,7 +160,7 @@ async def upload_source(
         # one upload can't freeze the single-worker backend for everyone else.
         with tempfile.TemporaryDirectory(prefix="aia_upload_") as tmpdir:
             raw_path = str(Path(tmpdir) / f"input{ext}")
-            total, head = await _stream_to_tempfile(file, raw_path, _MAX_UPLOAD_BYTES, locale)
+            total, head = await stream_upload_to_path(file, raw_path, _MAX_UPLOAD_BYTES, locale)
             if total == 0:
                 raise HTTPException(status_code=400, detail=t("file.empty", locale))
             validate_or_raise(head, ext, locale)
@@ -289,9 +267,9 @@ def delete_source(
     # could delete a source (file + DB row) belonging to workspace B.
     source = _load_workspace_source(source_uuid, workspace, locale)
     try:
-        delete_file(source["file_path"])
+        delete_aia_source_files(source["file_path"])
     except Exception as e:
-        logger.warning("KI Tutor: could not delete source file {}: {}", source["file_path"], e)
+        logger.warning("KI Tutor: could not delete source files for {}: {}", source["file_path"], e)
     db.delete_aia_source(source_uuid)
     logger.info("KI Tutor: source {} deleted", source_uuid)
     return {"deleted": source_uuid}

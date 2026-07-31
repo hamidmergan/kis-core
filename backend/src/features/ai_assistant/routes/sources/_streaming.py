@@ -8,6 +8,7 @@ from ._shared import (
     Response, StreamingResponse, USE_S3,
     file_exists, get_file, list_keys, stream_s3_object, _require_own_workspace,
     _load_workspace_source,
+    aia_transcript_prefix, aia_vtt_key,
 )
 
 router = APIRouter(tags=["ki-assistent: sources"])
@@ -125,8 +126,7 @@ async def regenerate_transcript(
 
     # A source-language VTT must exist to translate from. One listing instead of a
     # HEAD probe per known language, off the event loop.
-    base_key = source["file_path"].rsplit(".", 1)[0]
-    keys = await asyncio.to_thread(list_keys, f"{base_key}_transcript.")
+    keys = await asyncio.to_thread(list_keys, aia_transcript_prefix(source["file_path"]))
     if not any(k.endswith(".vtt") for k in keys):
         raise HTTPException(status_code=404, detail=t("ai.transcript.sourceMissing", locale))
 
@@ -169,8 +169,7 @@ async def get_transcript_vtt(
     if not re.fullmatch(r"[a-z]{2,5}", lang_clean):
         raise HTTPException(status_code=400, detail=t("ai.transcript.invalidLangCode", locale))
 
-    base_key = source["file_path"].rsplit(".", 1)[0]
-    vtt_key = f"{base_key}_transcript.{lang_clean}.vtt"
+    vtt_key = aia_vtt_key(source["file_path"], lang_clean)
     if not await asyncio.to_thread(file_exists, vtt_key):
         raise HTTPException(status_code=404, detail=t("ai.transcript.notAvailable", locale))
 
@@ -207,8 +206,7 @@ async def get_transcript_exists(
     if not re.fullmatch(r"[a-z]{2,5}", lang_clean):
         raise HTTPException(status_code=400, detail=t("ai.transcript.invalidLangCode", locale))
 
-    base_key = source["file_path"].rsplit(".", 1)[0]
-    vtt_key = f"{base_key}_transcript.{lang_clean}.vtt"
+    vtt_key = aia_vtt_key(source["file_path"], lang_clean)
     return {"exists": await asyncio.to_thread(file_exists, vtt_key)}
 
 
@@ -239,14 +237,13 @@ async def get_transcript_langs(
 
     source = _load_workspace_source(source_uuid, workspace, locale)
 
-    base_key = source["file_path"].rsplit(".", 1)[0]
     source_lang = (source.get("language") or "").lower() or None
     target_lang = workspace.get("transcript_target_lang") or "en"
 
     # One listing instead of a HEAD probe per candidate language: read which
     # "<base>_transcript.<lang>.vtt" files actually exist in a single round trip,
     # off the event loop so the storage call does not block other requests.
-    prefix = f"{base_key}_transcript."
+    prefix = aia_transcript_prefix(source["file_path"])
     keys = await asyncio.to_thread(list_keys, prefix)
     vtt_re = re.compile(re.escape(prefix) + r"([a-z]{2,5})\.vtt$")
     found = {m.group(1) for k in keys if (m := vtt_re.search(k))}

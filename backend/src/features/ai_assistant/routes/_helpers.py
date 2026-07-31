@@ -17,7 +17,12 @@ from langfuse.decorators import langfuse_context
 
 from src import database as db
 from src.i18n import DEFAULT_LOCALE, t
-from src.storage import USE_S3
+from src.storage import (
+    aia_transcript_key,
+    delete_aia_workspace_folder,
+    get_file,
+    save_aia_source_from_path,
+)
 
 # Smaller models sometimes emit `[N] S. X` or `[N] MM:SS` (closing the bracket
 # before the position label). Repair to `[N, S. X]` / `[N, MM:SS]` so the chip
@@ -1381,10 +1386,8 @@ def _load_transcript_segments(source: dict) -> list[dict]:
     file_path = source.get("file_path") or ""
     if not file_path:
         return []
-    base_key = file_path.rsplit(".", 1)[0]
-    transcript_key = base_key + "_transcript.txt"
+    transcript_key = aia_transcript_key(file_path)
     try:
-        from src.storage import get_file
         text = get_file(transcript_key).decode("utf-8")
     except Exception as e:
         logger.debug("transcript artifact unavailable for source {}: {}", source.get("id"), e)
@@ -1439,46 +1442,23 @@ def _require_workspace_access(workspace_uuid: str, user_id: int, locale: str = D
         return workspace
     raise HTTPException(status_code=403, detail=t("workspace.accessDenied", locale))
 
-def _save_source_file(user_id: int, workspace_uuid: str, source_uuid: str, ext: str, data: bytes) -> str:
-    from src.storage import aia_source_key
-    key = aia_source_key(user_id, workspace_uuid, source_uuid, ext)
-    if USE_S3:
-        from src.storage import _s3, _S3_BUCKET  # type: ignore[attr-defined]
-        _s3().put_object(Bucket=_S3_BUCKET, Key=key, Body=data)
-        return key
-    from src.storage import STORAGE_ROOT
-    dest = STORAGE_ROOT / key
-    dest.parent.mkdir(parents=True, exist_ok=True)
-    dest.write_bytes(data)
-    return str(dest)
-
-
 def _save_source_file_path(user_id: int, workspace_uuid: str, source_uuid: str, ext: str, local_path: str) -> str:
-    """Like _save_source_file but streams from a file on disk (low-RAM).
+    """Store an uploaded source, streaming from a file on disk (low-RAM).
 
-    S3 uses boto3 multipart upload_file; local copies the file. Returns the
-    stored key (S3) or absolute path (local), same as _save_source_file."""
-    import shutil
-    from src.storage import aia_source_key
-    key = aia_source_key(user_id, workspace_uuid, source_uuid, ext)
-    if USE_S3:
-        from src.storage import _s3, _S3_BUCKET  # type: ignore[attr-defined]
-        _s3().upload_file(local_path, _S3_BUCKET, key)
-        return key
-    from src.storage import STORAGE_ROOT
-    dest = STORAGE_ROOT / key
-    dest.parent.mkdir(parents=True, exist_ok=True)
-    shutil.copyfile(local_path, dest)
-    return str(dest)
+    Returns the stored key (S3) or absolute path (local)."""
+    return save_aia_source_from_path(user_id, workspace_uuid, source_uuid, ext, local_path)
 
 def _delete_source_files_for_workspace(workspace: dict) -> None:
-    from src.storage import delete_file
-    sources = db.get_aia_sources_by_workspace(workspace["id"])
-    for source in sources:
-        try:
-            delete_file(source["file_path"])
-        except Exception as e:
-            logger.warning("KI Tutor: could not delete file {}: {}", source["file_path"], e)
+    """Remove the workspace folder as a whole.
+
+    Per-source deletion would leave the derived artifacts (transcript,
+    subtitles) behind, and those hold the full text of a lecture recording.
+    """
+    try:
+        removed = delete_aia_workspace_folder(workspace["user_id"], workspace["uuid"])
+        logger.info("KI Tutor: removed {} files for workspace {}", removed, workspace["uuid"])
+    except Exception as e:
+        logger.warning("KI Tutor: could not delete files for workspace {}: {}", workspace["uuid"], e)
 
 def _resolve_source_ids(
     workspace: dict, source_uuids: list[str], max_count: int = 3,

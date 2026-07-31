@@ -7,7 +7,13 @@ from loguru import logger
 
 from src.celery_app import celery_app
 from src import database as db
-from src.storage import open_input_file
+from src.storage import (
+    aia_transcript_key,
+    aia_transcript_prefix,
+    aia_vtt_key,
+    list_keys,
+    open_input_file,
+)
 
 from src.features.ai_assistant.tasks._helpers import _format_ts
 
@@ -21,13 +27,8 @@ _BUILD_INGEST_SUMMARY = False
 
 def _save_transcript_artifact(key: str, text: str) -> None:
     """Write a transcript-related text artifact to the same backend as the source file."""
-    from src.storage import USE_S3
-    if USE_S3:
-        from src.storage import _s3, _S3_BUCKET  # type: ignore[attr-defined]
-        _s3().put_object(Bucket=_S3_BUCKET, Key=key, Body=text.encode("utf-8"))
-    else:
-        from pathlib import Path as _Path
-        _Path(key).write_text(text, encoding="utf-8")
+    from src import storage
+    storage.put_bytes(key, text.encode("utf-8"))
 
 @celery_app.task(bind=True, name="aia.index_source", queue="aia")
 def run_index_source(self, source_uuid: str, locale: str = "de", _aia_job_uuid: str | None = None):
@@ -111,14 +112,13 @@ def run_index_source(self, source_uuid: str, locale: str = "de", _aia_job_uuid: 
                     f"[{_format_ts(s['start'])} - {_format_ts(s['end'])}] {s['text']}"
                     for s in segments
                 )
-                base_key = file_path_stored.rsplit(".", 1)[0]
-                transcript_key = base_key + "_transcript.txt"
+                transcript_key = aia_transcript_key(file_path_stored)
                 _save_transcript_artifact(transcript_key, transcript_text)
                 logger.info("KI Tutor: transcript saved to {}", transcript_key)
 
                 # Save VTT in source language (e.g. _transcript.de.vtt)
                 lang_code = (media_language or "").lower() or "unknown"
-                source_vtt_key = f"{base_key}_transcript.{lang_code}.vtt"
+                source_vtt_key = aia_vtt_key(file_path_stored, lang_code)
                 _save_transcript_artifact(source_vtt_key, segments_to_vtt(segments))
                 logger.info("KI Tutor: VTT ({}) saved to {}", lang_code, source_vtt_key)
 
@@ -332,23 +332,26 @@ def run_translate_transcript(
         raise
 
 
-def _resolve_source_vtt(base_key: str, source: dict) -> tuple[str | None, str | None]:
+def _resolve_source_vtt(file_path: str, source: dict) -> tuple[str | None, str | None]:
     """Return (vtt_key, source_lang) for a media source's original-language VTT.
 
-    Prefers the Whisper-detected ``language`` on the source; falls back to probing
-    the known target codes for any existing ``_transcript.<code>.vtt`` (older sources
-    indexed before the language column was populated)."""
-    from src.storage import file_exists
+    Prefers the Whisper-detected ``language`` on the source; falls back to the
+    known target codes for any existing ``_transcript.<code>.vtt`` (older sources
+    indexed before the language column was populated).
+
+    One listing instead of a HEAD per candidate language: the bucket is remote,
+    so nine probes are nine round trips."""
     from src.i18n import TRANSCRIPT_LANGUAGES
 
+    vorhanden = set(list_keys(aia_transcript_prefix(file_path)))
     source_lang = (source.get("language") or "").lower()
     if source_lang and source_lang != "unknown":
-        cand = f"{base_key}_transcript.{source_lang}.vtt"
-        if file_exists(cand):
+        cand = aia_vtt_key(file_path, source_lang)
+        if cand in vorhanden:
             return cand, source_lang
     for code in TRANSCRIPT_LANGUAGES:
-        cand = f"{base_key}_transcript.{code}.vtt"
-        if file_exists(cand):
+        cand = aia_vtt_key(file_path, code)
+        if cand in vorhanden:
             return cand, code
     return None, None
 
@@ -357,7 +360,7 @@ def _run_translate_transcript_inner(
     source_uuid: str, provider_id: int | None, target_lang: str | None
 ) -> None:
     from src.services.subtitle_converter import vtt_to_segments, segments_to_vtt
-    from src.storage import get_file, delete_file, file_exists
+    from src.storage import get_file, delete_file
     from src.dependencies import get_translate_client_for_provider
     from src.i18n import TRANSCRIPT_LANGUAGES, DEFAULT_TRANSCRIPT_TARGET
 
@@ -366,7 +369,7 @@ def _run_translate_transcript_inner(
         logger.warning("KI Tutor translate: source {} not found, skipping", source_uuid)
         return
 
-    base_key = source["file_path"].rsplit(".", 1)[0]
+    file_path = source["file_path"]
 
     # Target: explicit arg > workspace setting > default English.
     if not target_lang:
@@ -377,7 +380,7 @@ def _run_translate_transcript_inner(
         logger.warning("KI Tutor translate: unknown target '{}' for {}, skipping", target_lang, source_uuid)
         return
 
-    source_vtt_key, source_lang = _resolve_source_vtt(base_key, source)
+    source_vtt_key, source_lang = _resolve_source_vtt(file_path, source)
     if not source_vtt_key or not source_lang:
         logger.warning("KI Tutor translate: no source VTT for {}, skipping", source_uuid)
         return
@@ -385,11 +388,12 @@ def _run_translate_transcript_inner(
     # Keep exactly the source VTT + the languages in `keep`; drop every other
     # known-language translation so a media source never accumulates spurs.
     def _cleanup_stale(keep: set[str]) -> None:
+        vorhanden = set(list_keys(aia_transcript_prefix(file_path)))
         for code in TRANSCRIPT_LANGUAGES:
             if code in keep:
                 continue
-            stale = f"{base_key}_transcript.{code}.vtt"
-            if file_exists(stale):
+            stale = aia_vtt_key(file_path, code)
+            if stale in vorhanden:
                 delete_file(stale)
                 logger.info("KI Tutor translate: removed stale {}", stale)
 
@@ -434,7 +438,7 @@ def _run_translate_transcript_inner(
         {"start": s["start"], "end": s["end"], "text": t_text}
         for s, t_text in zip(segments, translated)
     ]
-    target_key = f"{base_key}_transcript.{target_lang}.vtt"
+    target_key = aia_vtt_key(file_path, target_lang)
     _save_transcript_artifact(target_key, segments_to_vtt(out_segments))
     # Overwrite-when-ready: only after the new VTT is saved do we drop the old one,
     # so the player never sees a gap while a re-translation runs.
