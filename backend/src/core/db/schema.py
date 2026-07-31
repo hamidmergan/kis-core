@@ -373,24 +373,12 @@ def init_db(admin_email: Optional[str] = None) -> None:
             cur.execute("UPDATE aia_workspaces SET last_visited_at = COALESCE(updated_at, created_at, NOW()) WHERE last_visited_at IS NULL")
             cur.execute("ALTER TABLE aia_workspaces ALTER COLUMN last_visited_at SET NOT NULL")
             cur.execute("ALTER TABLE aia_workspaces ALTER COLUMN last_visited_at SET DEFAULT NOW()")
-            # Per-workspace setting: EN transcript translation mode (off/auto/manual). Owner-controlled.
-            cur.execute(
-                "ALTER TABLE aia_workspaces ADD COLUMN IF NOT EXISTS transcript_translation_mode TEXT NOT NULL DEFAULT 'manual'"
-            )
-            # Per-workspace setting: default transcript view (source/target/both). Owner-controlled.
-            cur.execute(
-                "ALTER TABLE aia_workspaces ADD COLUMN IF NOT EXISTS transcript_default_lang TEXT NOT NULL DEFAULT 'both'"
-            )
             # Per-workspace setting: the ONE language the owner translates transcripts into
             # (short ISO code, see i18n.TRANSCRIPT_LANGUAGES). Source is the Whisper-detected
             # media language; English is the default target.
             cur.execute(
                 "ALTER TABLE aia_workspaces ADD COLUMN IF NOT EXISTS transcript_target_lang TEXT NOT NULL DEFAULT 'en'"
             )
-            # Migrate legacy default-view values: the pill used to be language-specific
-            # (de/en) but the target is now owner-chosen, so it became role-based.
-            cur.execute("UPDATE aia_workspaces SET transcript_default_lang = 'source' WHERE transcript_default_lang = 'de'")
-            cur.execute("UPDATE aia_workspaces SET transcript_default_lang = 'target' WHERE transcript_default_lang = 'en'")
             # Per-workspace setting: the language the CEFR chat diagnosis is held in
             # (short ISO code, see i18n.TRANSCRIPT_LANGUAGES). Independent of the
             # transcript target — a workspace can hold French sources while the
@@ -412,6 +400,10 @@ def init_db(admin_email: Optional[str] = None) -> None:
             # Legacy per-workspace summary toggle: summaries were removed entirely
             # (pgvector-only retrieval), so drop the now-meaningless column.
             cur.execute("ALTER TABLE aia_workspaces DROP COLUMN IF EXISTS summary_mode")
+            # Legacy transcript translation mode (off/auto/manual): translation now
+            # always runs on click in the transcript panel, so there is nothing left
+            # to configure.
+            cur.execute("ALTER TABLE aia_workspaces DROP COLUMN IF EXISTS transcript_translation_mode")
             cur.execute("""
                 CREATE TABLE IF NOT EXISTS aia_access_links (
                     id           SERIAL PRIMARY KEY,
@@ -742,6 +734,10 @@ def init_db(admin_email: Optional[str] = None) -> None:
                 )
             """)
             cur.execute("ALTER TABLE aia_user_settings ADD COLUMN IF NOT EXISTS studio_enabled BOOLEAN NOT NULL DEFAULT TRUE")
+            # Zielsprache der Auswahlleisten-Übersetzung, je Person und Modul.
+            # Englisch als Standard, weil das die Sprache ist, in die am
+            # häufigsten übersetzt wird. Codes aus i18n.TRANSCRIPT_LANGUAGES.
+            cur.execute("ALTER TABLE aia_user_settings ADD COLUMN IF NOT EXISTS popup_translate_lang TEXT NOT NULL DEFAULT 'en'")
             cur.execute("""
                 CREATE TABLE IF NOT EXISTS aia_notes (
                     id           SERIAL PRIMARY KEY,

@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import { CaretLeft, SidebarSimple, SpeakerHigh } from "@phosphor-icons/react";
-import { langLabel, type ViewerState, type TranscriptDefaultLang } from "../../_types";
+import { langLabel, type ViewerState } from "../../_types";
 import type { AddNoteExtras } from "../../_hooks/useNotes";
 import { FileIcon } from "../sources/FileIcon";
 import { TranscriptPanel, type LangInfo } from "./TranscriptPanel";
@@ -11,7 +11,7 @@ import { TranscriptPanel, type LangInfo } from "./TranscriptPanel";
 const EMPTY_LANGS: LangInfo = { source_lang: null, target_lang: null, available: [] };
 
 export function MediaPlayer({
-  source, onClose, workspaceUuid, onMinimize, canDownload = false, canManage = false, onSaveNote, defaultTranscriptLang = "both",
+  source, onClose, workspaceUuid, onMinimize, canDownload = false, canManage = false, onSaveNote,
 }: {
   source: ViewerState;
   onClose: () => void;
@@ -20,7 +20,6 @@ export function MediaPlayer({
   canDownload?: boolean;
   canManage?: boolean;
   onSaveNote?: (content: string, sourceUuids?: string[], extras?: AddNoteExtras) => void | Promise<void>;
-  defaultTranscriptLang?: TranscriptDefaultLang;
 }) {
   const t = useTranslations("workspace.detail.viewer");
   const tPanels = useTranslations("workspace.detail.panels");
@@ -36,11 +35,19 @@ export function MediaPlayer({
   // the TranscriptPanel below so the langs endpoint is hit a single time per source. Used
   // here to attach only available <track> elements (any source/target pair, not just de/en).
   const [langInfo, setLangInfo] = useState<LangInfo | null>(null);
+  // Mirrors the transcript panel's "off" mode. While off, no subtitle tracks are attached:
+  // the player's own subtitle menu stays empty, so the text cannot be read along in the video.
+  const [transcriptOff, setTranscriptOff] = useState(false);
   useEffect(() => {
     // Clear on source switch (panel shows loading) and abort the in-flight request: an
     // uncancelled request keeps holding one of the browser's few per-origin connections,
     // and a few rapid switches exhaust them and freeze the page.
     setLangInfo(null);
+    // Reset here, not just in the panel: TranscriptPanel is the sole writer of this flag via
+    // onOffChange, but it never emits false on unmount or when the next source has no
+    // transcript at all, so a stale "off" from the previous source would otherwise survive
+    // the switch.
+    setTranscriptOff(false);
     const ac = new AbortController();
     fetch(
       `/api/ai-assistant/workspaces/${workspaceUuid}/sources/${source.uuid}/transcript/langs`,
@@ -131,7 +138,7 @@ export function MediaPlayer({
             className="w-full max-h-full rounded-lg"
             style={{ backgroundColor: "#000" }}
           >
-            {availableLangs.map((lang) => (
+            {!transcriptOff && availableLangs.map((lang) => (
               <track
                 key={lang}
                 kind="subtitles"
@@ -168,7 +175,7 @@ export function MediaPlayer({
         langInfo={langInfo}
         canManage={canManage}
         onSaveNote={onSaveNote}
-        defaultLang={defaultTranscriptLang}
+        onOffChange={setTranscriptOff}
         citationTime={source.isCitation ? source.startTime : undefined}
         citationNonce={source.nonce}
       />

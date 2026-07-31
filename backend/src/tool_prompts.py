@@ -945,9 +945,15 @@ AIA_POPUP_ACTIONS: list[dict[str, str | int]] = [
         "label_de": "Übersetzen",
         "label_en": "Translate",
         "icon": "Translate",
+        # Die Zielsprache ist eine Einstellung der lesenden Person, nicht mehr
+        # ein festes Hin und Her zwischen Deutsch und Englisch. Eingesetzt wird
+        # der ENGLISCHE Sprachname (Spanish, Turkish). Das erspart die Beugung
+        # im deutschen Prompt ("ins Spanische" gegen "ins Türkische") und das
+        # Modell versteht beides gleich gut.
         "prompt_de": (
-            "Übersetze die markierte Passage. Deutscher Originaltext wird ins Englische übersetzt, "
-            "englischer Originaltext ins Deutsche. "
+            "Übersetze die markierte Passage. "
+            "Zielsprache: {language}. "
+            "Ist die Passage bereits in dieser Sprache, gib sie unverändert zurück. "
             "Nutze den umgebenden Dokumentkontext, um Mehrdeutigkeiten, Fachbegriffe "
             "und Wörter mit mehreren möglichen Bedeutungen korrekt aufzulösen. "
             "Gib NUR die Übersetzung aus — keine Erklärungen, keine Anmerkungen, "
@@ -955,8 +961,9 @@ AIA_POPUP_ACTIONS: list[dict[str, str | int]] = [
             "Behalte Register, Ton und Stil des Originals:"
         ),
         "prompt_en": (
-            "Translate the marked passage. If the source is German, translate to English; "
-            "if the source is English, translate to German. "
+            "Translate the marked passage. "
+            "Target language: {language}. "
+            "If the passage is already in that language, return it unchanged. "
             "Use the surrounding document context to disambiguate ambiguous terms, "
             "domain-specific vocabulary, and words with multiple possible meanings. "
             "Output ONLY the translation — no explanations, no notes, no original text, "

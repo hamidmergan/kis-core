@@ -5,6 +5,7 @@ import { useTranslations } from "next-intl";
 import type { ChatMessage, ViewerState } from "../_types";
 import { useWorkspaceLabel } from "@/hooks/useWorkspaceLabel";
 import { api } from "@/lib/api";
+import { popupActionsUrl } from "./_popupActionsUrl";
 
 interface PopupAction {
   key: string;
@@ -20,9 +21,10 @@ interface UseChatOptions {
   selectedSourceIds: string[];
   viewerSource: ViewerState | null;
   chatLang: "de" | "en";
+  popupTranslateLang: string;
 }
 
-export function useChat({ uuid, enrollmentId, selectedSourceIds, viewerSource, chatLang }: UseChatOptions) {
+export function useChat({ uuid, enrollmentId, selectedSourceIds, viewerSource, chatLang, popupTranslateLang }: UseChatOptions) {
   void chatLang; // popup labels now follow UI locale (Accept-Language); chatLang stays in the API for callers
   const labels = useWorkspaceLabel();
   const tChat = useTranslations("workspace.detail.chat");
@@ -79,13 +81,15 @@ export function useChat({ uuid, enrollmentId, selectedSourceIds, viewerSource, c
     try {
       // Locale comes from Accept-Language (api.fetch reads NEXT_LOCALE cookie),
       // not chat_lang - popup labels are UI strings, not LLM output language.
-      const res = await api.fetch("/api/ai-assistant/popup-actions");
+      // The target language IS the reader's own setting, so it rides along as a
+      // query param and this refetches whenever they change it.
+      const res = await api.fetch(popupActionsUrl(popupTranslateLang));
       if (res.ok) {
         const d = await res.json();
         setPopupActions(d.actions ?? []);
       }
     } catch { /* ignore */ }
-  }, []);
+  }, [popupTranslateLang]);
 
   const sendChatMessage = useCallback(async (
     content: string,

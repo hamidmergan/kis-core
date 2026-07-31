@@ -33,3 +33,28 @@ export function cueIndexAtTime(cues: TimedCue[], time: number): number {
   const dBefore = time - cues[before].start;   // > 0
   return dAfter <= dBefore ? after : before;
 }
+
+/**
+ * Which transcript spurs are shown.
+ * "source" = original media language, "target" = the owner-chosen translation,
+ * "both" = stacked, "off" = nothing shown (listening comprehension).
+ */
+export type TranscriptMode = "off" | "source" | "target" | "both";
+
+/**
+ * The switcher's entries for a loaded source, in display order.
+ *
+ * The original always comes first and is the default the panel preselects. "both" needs
+ * two distinct spurs. "off" is always offered and always last, so a student can hide the
+ * text and just listen — even when only one language exists.
+ */
+export function buildTranscriptModes(
+  { hasSource, hasTarget }: { hasSource: boolean; hasTarget: boolean },
+): TranscriptMode[] {
+  const modes: TranscriptMode[] = [];
+  if (hasSource) modes.push("source");
+  if (hasTarget) modes.push("target");
+  if (hasSource && hasTarget) modes.push("both");
+  modes.push("off");
+  return modes;
+}

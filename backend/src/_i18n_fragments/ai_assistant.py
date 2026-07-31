@@ -2,14 +2,6 @@
 
 MESSAGES: dict[str, dict[str, str]] = {
     # Workspace / module
-    "ai.workspace.translationModeInvalid": {
-        "de": "Ungültiger Übersetzungs-Modus",
-        "en": "Invalid translation mode",
-    },
-    "ai.workspace.transcriptDefaultLangInvalid": {
-        "de": "Ungültige Standard-Transkript-Ansicht",
-        "en": "Invalid default transcript view",
-    },
     "ai.workspace.transcriptTargetLangInvalid": {
         "de": "Ungültige Zielsprache für die Übersetzung",
         "en": "Invalid translation target language",
@@ -17,6 +9,10 @@ MESSAGES: dict[str, dict[str, str]] = {
     "ai.workspace.diagnosisLanguageInvalid": {
         "de": "Ungültige Sprache für die Sprachdiagnose",
         "en": "Invalid language for the language diagnosis",
+    },
+    "ai.userSettings.popupTranslateLangInvalid": {
+        "de": "Ungültige Zielsprache für die Übersetzung in der Auswahlleiste",
+        "en": "Invalid target language for the selection-bar translation",
     },
     "ai.workspace.invalidEnrollCode": {
         "de": "Ungültiger oder abgelaufener Einschreibecode",
@@ -121,10 +117,6 @@ MESSAGES: dict[str, dict[str, str]] = {
         "en": "Data table not found",
     },
     # Transcripts
-    "ai.transcript.translationDisabled": {
-        "de": "EN-Übersetzung ist für diesen Workspace deaktiviert",
-        "en": "EN translation is disabled for this workspace",
-    },
     "ai.transcript.invalidProvider": {
         "de": "Ungültiger Provider",
         "en": "Invalid provider",

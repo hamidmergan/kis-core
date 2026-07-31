@@ -18,11 +18,6 @@ export interface Source {
   progress?: IndexingProgress | null;
 }
 
-export type TranscriptTranslationMode = "off" | "auto" | "manual";
-// Default transcript view is role-based now (the concrete target is owner-chosen):
-// "source" = original media language, "target" = the translation, "both" = stacked.
-export type TranscriptDefaultLang = "source" | "target" | "both";
-
 // The list of target languages comes from the backend (GET /ai-assistant/
 // transcript-languages, single source: i18n.TRANSCRIPT_LANGUAGES). Viewer tabs
 // label arbitrary detected source codes via langLabel below.
@@ -51,8 +46,6 @@ export interface WorkspaceDetail {
   is_owner?: boolean;
   /** Owner or tutor. Drives the UI, is_owner is literal ownership only. */
   can_manage?: boolean;
-  transcript_translation_mode?: TranscriptTranslationMode;
-  transcript_default_lang?: TranscriptDefaultLang;
   transcript_target_lang?: string;
   /** Language the CEFR chat diagnosis is held in (ISO code, default "de"). */
   diagnosis_language?: string;

@@ -5,7 +5,7 @@ import { useTranslations } from "next-intl";
 import { Link } from "@/i18n/navigation";
 import { GearSix, CaretUp, CaretDown } from "@phosphor-icons/react";
 import { SettingsMenu } from "./SettingsMenu";
-import type { PanelKey, TranscriptTranslationMode, TranscriptDefaultLang } from "../../_types";
+import type { PanelKey } from "../../_types";
 
 interface WorkspaceTopbarProps {
   isMobile: boolean;
@@ -22,12 +22,10 @@ interface WorkspaceTopbarProps {
   isAdmin: boolean;
   hideHeader: boolean;
   onToggleHideHeader: () => void;
-  translationMode: TranscriptTranslationMode;
-  onChangeTranslationMode: (mode: TranscriptTranslationMode) => void;
-  transcriptDefaultLang: TranscriptDefaultLang;
-  onChangeTranscriptDefaultLang: (lang: TranscriptDefaultLang) => void;
   transcriptTargetLang: string;
   onChangeTranscriptTargetLang: (lang: string) => void;
+  popupTranslateLang: string;
+  onChangePopupTranslateLang: (lang: string) => void;
   // Mobile tabs
   activeTab: PanelKey;
   setActiveTab: (k: PanelKey) => void;
@@ -49,9 +47,8 @@ export function WorkspaceTopbar(props: WorkspaceTopbarProps) {
     studioEnabled, onToggleStudio,
     language_trainingActive, onToggleLanguageTraining,
     isOwner, isAdmin, hideHeader, onToggleHideHeader,
-    translationMode, onChangeTranslationMode,
-    transcriptDefaultLang, onChangeTranscriptDefaultLang,
     transcriptTargetLang, onChangeTranscriptTargetLang,
+    popupTranslateLang, onChangePopupTranslateLang,
     activeTab, setActiveTab,
     languageLevel, onResetLanguageLevel,
   } = props;
@@ -68,12 +65,10 @@ export function WorkspaceTopbar(props: WorkspaceTopbarProps) {
       onToggleLanguageTraining={onToggleLanguageTraining}
       isOwner={isOwner}
       isAdmin={isAdmin}
-      translationMode={translationMode}
-      onChangeTranslationMode={onChangeTranslationMode}
-      transcriptDefaultLang={transcriptDefaultLang}
-      onChangeTranscriptDefaultLang={onChangeTranscriptDefaultLang}
       transcriptTargetLang={transcriptTargetLang}
       onChangeTranscriptTargetLang={onChangeTranscriptTargetLang}
+      popupTranslateLang={popupTranslateLang}
+      onChangePopupTranslateLang={onChangePopupTranslateLang}
       languageLevel={languageLevel}
       onResetLanguageLevel={onResetLanguageLevel}
     />

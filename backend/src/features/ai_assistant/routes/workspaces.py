@@ -166,11 +166,17 @@ async def list_transcript_languages(
     current_user: dict = Depends(get_current_user),
     locale: str = Depends(get_locale),
 ):
-    """Languages an owner may translate media transcripts into. Single source of
-    truth is i18n.TRANSCRIPT_LANGUAGES; labels come from the shared ``lang.*`` keys."""
+    """Languages a transcript or a selection may be translated into. Single source
+    of truth is i18n.TRANSCRIPT_LANGUAGES.
+
+    Each entry also carries its ``deepl`` code, because the browser labels these
+    pickers from its own ``langLabels`` messages — the same way every other
+    language picker in the app does. ``label`` stays for callers without those
+    messages, but it follows Accept-Language, not the UI locale, so the browser
+    should prefer ``deepl``."""
     from src.i18n import DEFAULT_TRANSCRIPT_TARGET
     languages = [
-        {"id": code, "label": t(f"lang.{meta['deepl']}", locale)}
+        {"id": code, "deepl": meta["deepl"], "label": t(f"lang.{meta['deepl']}", locale)}
         for code, meta in TRANSCRIPT_LANGUAGES.items()
     ]
     return {"languages": languages, "default": DEFAULT_TRANSCRIPT_TARGET}
@@ -235,11 +241,9 @@ def _dispatch_transcript_retranslation(workspace: dict, target_lang: str) -> Non
     """Re-translate every ready media source in the workspace into ``target_lang``.
 
     Owner-only path, fired when the workspace target language changes. No-op when
-    translation is off or no provider is configured. The task itself skips sources
-    whose source language already equals the target and cleans up stale VTTs.
+    no provider is configured. The task itself skips sources whose source language
+    already equals the target and cleans up stale VTTs.
     """
-    if workspace.get("transcript_translation_mode", "manual") == "off":
-        return
     from src.services import feature_router, aia_chunker
     try:
         binding = feature_router.resolve("transcript_translate")
@@ -281,7 +285,7 @@ async def patch_workspace(
         db.set_aia_workspace_transcript_target_lang(workspace_uuid, body.transcript_target_lang)
         # Switching the target re-translates existing media sources into the new
         # language (overwrite-when-ready: the task writes the new VTT, then drops
-        # the stale one). Skipped when translation is off or the target is unchanged.
+        # the stale one). Skipped when the target is unchanged.
         if body.transcript_target_lang != prev_target:
             _dispatch_transcript_retranslation(workspace, body.transcript_target_lang)
     if body.diagnosis_language is not None:

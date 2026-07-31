@@ -6,7 +6,6 @@ import Modal from "@/components/ui/Modal";
 import Select from "@/components/ui/Select";
 import { useMascotPref, type MascotMode } from "@/hooks/useMascotPref";
 import { LearnerProfilePanel } from "../LearnerProfilePanel";
-import type { TranscriptTranslationMode, TranscriptDefaultLang } from "../../_types";
 
 interface SettingsMenuProps {
   open: boolean;
@@ -17,12 +16,10 @@ interface SettingsMenuProps {
   onToggleLanguageTraining: () => void;
   isOwner: boolean;
   isAdmin: boolean;
-  translationMode: TranscriptTranslationMode;
-  onChangeTranslationMode: (mode: TranscriptTranslationMode) => void;
-  transcriptDefaultLang: TranscriptDefaultLang;
-  onChangeTranscriptDefaultLang: (lang: TranscriptDefaultLang) => void;
   transcriptTargetLang: string;
   onChangeTranscriptTargetLang: (lang: string) => void;
+  popupTranslateLang: string;
+  onChangePopupTranslateLang: (lang: string) => void;
   languageLevel?: string | null;
   onResetLanguageLevel?: () => void | Promise<void>;
 }
@@ -65,6 +62,34 @@ function ToggleRow({
   );
 }
 
+// The dialog mixes two kinds of settings: personal ones every reader has for
+// themselves, and workspace ones only owners and tutors see that apply to
+// everyone. Without a visible break, an owner cannot tell which is which.
+function SectionHeading({
+  title,
+  description,
+  divider,
+}: {
+  title: string;
+  description: string;
+  divider?: boolean;
+}) {
+  return (
+    <div
+      className={divider ? "pt-4 border-t" : undefined}
+      style={divider ? { borderColor: "var(--border)" } : undefined}
+    >
+      <p
+        className="text-xs font-semibold uppercase tracking-wide"
+        style={{ color: "var(--foreground)" }}
+      >
+        {title}
+      </p>
+      <p className="text-xs mt-1" style={{ color: "var(--muted)" }}>{description}</p>
+    </div>
+  );
+}
+
 export function SettingsMenu({
   open,
   onClose,
@@ -74,17 +99,16 @@ export function SettingsMenu({
   onToggleLanguageTraining,
   isOwner,
   isAdmin,
-  translationMode,
-  onChangeTranslationMode,
-  transcriptDefaultLang,
-  onChangeTranscriptDefaultLang,
   transcriptTargetLang,
   onChangeTranscriptTargetLang,
+  popupTranslateLang,
+  onChangePopupTranslateLang,
   languageLevel,
   onResetLanguageLevel,
 }: SettingsMenuProps) {
   const t = useTranslations("workspace.detail.settings");
   const tDiag = useTranslations("workspace.detail.languageTraining.diagnosis");
+  const tLang = useTranslations("langLabels");
   const { mode: mascotMode, setMode: setMascotMode, globalEnabled: mascotGlobalEnabled } = useMascotPref();
 
   // The learner profile opens as a subview of this same modal instead of a
@@ -95,34 +119,38 @@ export function SettingsMenu({
     if (!open) setShowLearnerProfile(false);
   }, [open]);
 
-  // Target-language options come from the backend (single source of truth).
-  const [targetLangOptions, setTargetLangOptions] = useState<{ value: string; label: string }[]>([]);
+  // WHICH languages exist comes from the backend (single source of truth,
+  // i18n.TRANSCRIPT_LANGUAGES). What they are CALLED comes from our own
+  // langLabels messages, like every other language picker in the app - the
+  // backend's own label follows Accept-Language, not the UI locale, so it would
+  // read "Turkish" inside a German dialog.
+  // Not gated on isOwner: the popup-translation target is a per-reader setting,
+  // so every enrolled person needs this list, not just the owner.
+  const [targetLangCodes, setTargetLangCodes] = useState<{ id: string; deepl: string }[]>([]);
   useEffect(() => {
-    if (!isOwner) return;
     let cancelled = false;
     fetch("/api/ai-assistant/transcript-languages", { credentials: "include" })
       .then((res) => (res.ok ? res.json() : null))
       .then((data) => {
         if (cancelled || !data?.languages) return;
-        setTargetLangOptions(
-          data.languages.map((l: { id: string; label: string }) => ({ value: l.id, label: l.label })),
+        setTargetLangCodes(
+          data.languages.map((l: { id: string; deepl: string }) => ({ id: l.id, deepl: l.deepl })),
         );
       })
       .catch(() => { /* picker stays empty */ });
     return () => { cancelled = true; };
-  }, [isOwner]);
+  }, []);
+
+  const targetLangOptions = targetLangCodes.map(({ id, deepl }) => ({
+    value: id,
+    label: tLang(deepl),
+  }));
 
   const handleResetLanguageLevel = () => {
     if (!onResetLanguageLevel) return;
     if (!window.confirm(tDiag("resetConfirmBody"))) return;
     void onResetLanguageLevel();
   };
-
-  const TRANSLATION_MODE_OPTIONS = [
-    { value: "off" as const, label: t("translationModeOff") },
-    { value: "auto" as const, label: t("translationModeAuto") },
-    { value: "manual" as const, label: t("translationModeManual") },
-  ];
 
   const MASCOT_OPTIONS = [
     { value: "off" as const, label: t("mascotOff") },
@@ -151,6 +179,10 @@ export function SettingsMenu({
   return (
     <Modal open={open} onClose={onClose} title={t("title")} size="md">
       <div className="flex flex-col gap-4">
+        <SectionHeading
+          title={t("sectionPersonalTitle")}
+          description={t("sectionPersonalDescription")}
+        />
         {mascotGlobalEnabled && (
           <div>
             <p className="text-sm font-medium" style={{ color: "var(--foreground)" }}>{t("mascotTitle")}</p>
@@ -216,27 +248,27 @@ export function SettingsMenu({
             </button>
           </div>
         )}
-        {isOwner && (
+        <div className="mt-3">
+          <p className="text-sm font-medium" style={{ color: "var(--foreground)" }}>{t("popupTranslateLangTitle")}</p>
+          <p className="text-xs mt-1" style={{ color: "var(--muted)" }}>
+            {t("popupTranslateLangDescription")}
+          </p>
           <div className="mt-3">
-            <p className="text-sm font-medium" style={{ color: "var(--foreground)" }}>{t("translationModeTitle")}</p>
-            <p className="text-xs mt-1" style={{ color: "var(--muted)" }}>
-              {t("translationModeDescription")}
-            </p>
-            <ul className="text-xs mt-2 space-y-1 pl-4 list-disc" style={{ color: "var(--muted)" }}>
-              <li><strong>{t("translationModeOff")}</strong> {t("translationModeOffHint")}</li>
-              <li><strong>{t("translationModeAuto")}</strong> {t("translationModeAutoHint")}</li>
-              <li><strong>{t("translationModeManual")}</strong> {t("translationModeManualHint")}</li>
-            </ul>
-            <div className="mt-3">
-              <Select<TranscriptTranslationMode>
-                value={translationMode}
-                onChange={onChangeTranslationMode}
-                options={TRANSLATION_MODE_OPTIONS}
-              />
-            </div>
+            <Select<string>
+              value={popupTranslateLang}
+              onChange={onChangePopupTranslateLang}
+              options={targetLangOptions}
+            />
           </div>
+        </div>
+        {isOwner && (
+          <SectionHeading
+            title={t("sectionWorkspaceTitle")}
+            description={t("sectionWorkspaceDescription")}
+            divider
+          />
         )}
-        {isOwner && translationMode !== "off" && (
+        {isOwner && (
           <div className="mt-3">
             <p className="text-sm font-medium" style={{ color: "var(--foreground)" }}>{t("transcriptTargetLangTitle")}</p>
             <p className="text-xs mt-1" style={{ color: "var(--muted)" }}>
@@ -248,38 +280,6 @@ export function SettingsMenu({
                 onChange={onChangeTranscriptTargetLang}
                 options={targetLangOptions}
               />
-            </div>
-          </div>
-        )}
-        {isOwner && (
-          <div className="mt-3">
-            <p className="text-sm font-medium" style={{ color: "var(--foreground)" }}>{t("transcriptDefaultLangTitle")}</p>
-            <p className="text-xs mt-1" style={{ color: "var(--muted)" }}>
-              {t("transcriptDefaultLangDescription")}
-            </p>
-            <div className="mt-3 flex gap-1">
-              {(["source", "target", "both"] as const).map((lang) => {
-                const active = transcriptDefaultLang === lang;
-                const label = lang === "source" ? t("transcriptDefaultLangSource")
-                  : lang === "target" ? t("transcriptDefaultLangTarget")
-                  : t("transcriptDefaultLangBoth");
-                return (
-                  <button
-                    key={lang}
-                    type="button"
-                    onClick={() => onChangeTranscriptDefaultLang(lang)}
-                    className="px-2.5 py-1 rounded-full text-xs font-medium transition-colors"
-                    style={{
-                      backgroundColor: active ? "var(--kb)" : "transparent",
-                      color: active ? "white" : "var(--muted)",
-                      border: `1px solid ${active ? "var(--kb)" : "var(--border)"}`,
-                    }}
-                    aria-pressed={active}
-                  >
-                    {label}
-                  </button>
-                );
-              })}
             </div>
           </div>
         )}

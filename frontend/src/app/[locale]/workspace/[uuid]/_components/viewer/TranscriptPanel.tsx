@@ -2,9 +2,10 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import { ArrowDown, ArrowsClockwise, ArrowUp, Check, NavigationArrow, NotePencil, X } from "@phosphor-icons/react";
 import Spinner from "@/components/ui/Spinner";
-import { langLabel, type TranscriptDefaultLang } from "../../_types";
+import Select from "@/components/ui/Select";
+import { langLabel } from "../../_types";
 import type { AddNoteExtras } from "../../_hooks/useNotes";
-import { cueIndexAtTime } from "./_transcript";
+import { buildTranscriptModes, cueIndexAtTime, type TranscriptMode } from "./_transcript";
 import { CITATION_HL_COLOR } from "./_highlight";
 import { clearActiveChipTarget } from "../chat/_citations";
 
@@ -14,9 +15,8 @@ interface Cue {
   text: string;
 }
 
-// Which transcript spurs are shown. "source" = original media language,
-// "target" = the owner-chosen translation, "both" = stacked.
-type ViewMode = "source" | "target" | "both";
+// The switcher's modes live in _transcript.ts so their order can be unit-tested.
+type ViewMode = TranscriptMode;
 
 export interface LangInfo {
   source_lang: string | null;
@@ -73,7 +73,7 @@ export function TranscriptPanel({
   langInfo,
   canManage = false,
   onSaveNote,
-  defaultLang = "both",
+  onOffChange,
   citationTime,
   citationNonce,
 }: {
@@ -86,7 +86,9 @@ export function TranscriptPanel({
   langInfo: LangInfo | null;
   canManage?: boolean;
   onSaveNote?: (content: string, sourceUuids?: string[], extras?: AddNoteExtras) => void | Promise<void>;
-  defaultLang?: TranscriptDefaultLang;
+  // Reports whether the student switched the transcript OFF, so the player can drop its
+  // subtitle tracks: reading along in the video would defeat listening comprehension.
+  onOffChange?: (off: boolean) => void;
   // The cited segment's start time (set only on a citation-chip jump) and the jump's
   // nonce, used to pin a navigable "citation highlight" the way the PDF viewer frames
   // the cited page.
@@ -100,7 +102,9 @@ export function TranscriptPanel({
   const [sourceLang, setSourceLang] = useState<string | null>(null);
   const [targetLang, setTargetLang] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
-  const [mode, setMode] = useState<ViewMode>(defaultLang);
+  // Always opens on the original track. Students switch to the translation or the
+  // stacked view in the panel itself.
+  const [mode, setMode] = useState<ViewMode>("source");
   const [currentIdx, setCurrentIdx] = useState<number>(-1);
   // Follow-mode (auto-scroll the transcript to the playing cue) is OFF by default: playback
   // runs without the list jumping around on every cue change. The user opts in via the
@@ -178,8 +182,9 @@ export function TranscriptPanel({
 
       const hasSource = !!(info.source_lang && map[info.source_lang]);
       const hasTarget = !!(info.target_lang && map[info.target_lang] && info.target_lang !== info.source_lang);
-      if (hasSource && hasTarget) setMode(defaultLang);
-      else if (hasSource) setMode("source");
+      // The original always wins; the translation is only preselected when there is
+      // no original track at all.
+      if (hasSource) setMode("source");
       else if (hasTarget) setMode("target");
 
       // Resume "running" state if a translation was dispatched recently and the
@@ -195,7 +200,7 @@ export function TranscriptPanel({
     })();
 
     return () => { cancelled = true; ac.abort(); };
-  }, [workspaceUuid, sourceUuid, langInfo, regenStorageKey, defaultLang]);
+  }, [workspaceUuid, sourceUuid, langInfo, regenStorageKey]);
 
   // Source-language track is the timing master (identical timestamps to the
   // translation — both derive from Whisper on the same audio).
@@ -241,7 +246,9 @@ export function TranscriptPanel({
       el.scrollIntoView({ block: "center", behavior: isJump ? "instant" : "smooth" });
       lastScrolledIdx.current = currentIdx;
     }
-  }, [currentIdx, followCurrent]);
+    // `mode` is a dep (unused in the body) because the list this scrolls unmounts entirely
+    // in "off" mode: coming back needs a fresh re-centre against the newly mounted list.
+  }, [currentIdx, followCurrent, mode]);
 
   // A new source clears any pinned citation before its cues load.
   useEffect(() => { setCitationIdx(-1); }, [sourceUuid]);
@@ -256,6 +263,11 @@ export function TranscriptPanel({
   // The SCROLL is gated to once per jump via the nonce ref, but uses the LOCALLY computed
   // `idx` — never the `citationIdx` state, which lags a render behind and previously made the
   // scroll race to a stale/old cue (e.g. jumping to the top) while consuming the nonce.
+  //
+  // In "off" mode the cue list is unmounted, so there is nothing to scroll: the nonce is left
+  // UNconsumed (guarded by `mode !== "off"`, not just the optional-chained scrollIntoView,
+  // which would silently no-op and burn the one-shot). `mode` is a dep so switching the
+  // transcript back on re-runs this and the deferred scroll finally lands.
   useEffect(() => {
     // Ignore cues that still belong to the previous source (mid document-switch): acting on
     // them would scroll to the wrong place and consume the one-shot scroll before the new
@@ -264,13 +276,13 @@ export function TranscriptPanel({
     if (citationTime == null || masterCues.length === 0) { setCitationIdx(-1); return; }
     const idx = cueIndexAtTime(masterCues, citationTime);
     setCitationIdx(idx);
-    if (idx >= 0 && citationNonceRef.current !== citationNonce) {
+    if (idx >= 0 && mode !== "off" && citationNonceRef.current !== citationNonce) {
       citationNonceRef.current = citationNonce;
       requestAnimationFrame(() => {
         itemRefs.current[idx]?.scrollIntoView({ block: "center", behavior: "instant" });
       });
     }
-  }, [citationNonce, citationTime, masterCues, sourceUuid]);
+  }, [citationNonce, citationTime, masterCues, sourceUuid, mode]);
 
   // Track whether the pinned cue is on-screen so the jump-back button only shows once
   // it has scrolled out of view (like the PDF jump button appearing after you page away).
@@ -291,7 +303,10 @@ export function TranscriptPanel({
     check();
     list.addEventListener("scroll", check, { passive: true });
     return () => list.removeEventListener("scroll", check);
-  }, [citationIdx]);
+    // `mode` is a dep (unused in the body) because the list unmounts entirely in "off" mode:
+    // its scroll listener goes with it, and coming back needs a fresh listener on the new list
+    // plus a re-check, or `citationInView` would stay frozen at whatever it last was.
+  }, [citationIdx, mode]);
 
   // User-initiated scroll disables follow mode until jump button is pressed.
   useEffect(() => {
@@ -313,6 +328,19 @@ export function TranscriptPanel({
     if (el) el.scrollIntoView({ block: "center", behavior: "smooth" });
     setFollowCurrent(true);
   };
+
+  // Push the off-state up so the player can drop its <track> elements in lockstep. Gated on
+  // an actual boolean transition (not just a dep-array change) because `onOffChange` is a
+  // caller-supplied prop of unknown stability: an inline arrow re-fires this every render, and
+  // if the caller stores the flag non-primitively (e.g. into an array or object) that produces
+  // a new reference each time and never bails out on its own, i.e. an infinite render loop.
+  const lastOffReportedRef = useRef<boolean | null>(null);
+  useEffect(() => {
+    const off = mode === "off";
+    if (lastOffReportedRef.current === off) return;
+    lastOffReportedRef.current = off;
+    onOffChange?.(off);
+  }, [mode, onOffChange]);
 
   // Jump back to the pinned citation: ONLY scroll the transcript to the marking. The play
   // head and ongoing playback are left exactly where they are — no seek, no pause, no play.
@@ -353,7 +381,9 @@ export function TranscriptPanel({
           clearInterval(timer);
           if (typeof window !== "undefined") window.localStorage.removeItem(regenStorageKey);
           setCues((prev) => ({ ...prev, [targetLang]: parsed }));
-          if (sourceLang && cues[sourceLang]) setMode("both");
+          // A finished translation reveals both spurs — unless the student deliberately
+          // switched the transcript off, in which case yanking it back on would be rude.
+          if (sourceLang && cues[sourceLang]) setMode((m) => (m === "off" ? m : "both"));
           setRegen("idle");
         }
       } catch {
@@ -430,13 +460,23 @@ export function TranscriptPanel({
   const targetCues = targetLang ? cues[targetLang] : undefined;
   if (!sourceCues && !targetCues) return null;
 
-  const hasBoth = !!sourceCues && !!targetCues && sourceLang !== targetLang;
+  // A target spur only counts as its own entry when it is a different language than the
+  // original (same-language "translations" would just duplicate the source track).
+  const hasSourceTrack = !!sourceCues;
+  const hasTargetTrack = !!targetCues && sourceLang !== targetLang;
   const showSource = (mode === "source" || mode === "both") && !!sourceCues;
   const showTarget = (mode === "target" || mode === "both") && !!targetCues;
-  // The single visible language label when only one spur exists.
-  const soleLang = sourceCues ? sourceLang : targetLang;
   const canTranslate = canManage && !!sourceCues && !!sourceLang
     && !!targetLang && targetLang !== sourceLang && !targetCues;
+
+  const modeLabel = (m: ViewMode): string => {
+    if (m === "off") return t("tabOff");
+    if (m === "both") return t("tabBoth");
+    // hasSourceTrack / hasTargetTrack guarantee the matching lang code is set.
+    return m === "source" ? langLabel(sourceLang!, locale) : langLabel(targetLang!, locale);
+  };
+  const modeOptions = buildTranscriptModes({ hasSource: hasSourceTrack, hasTarget: hasTargetTrack })
+    .map((m) => ({ value: m, label: modeLabel(m) }));
 
   return (
     <div
@@ -454,67 +494,71 @@ export function TranscriptPanel({
         >
           {t("transcriptLabel")}
         </span>
-        <button
-          type="button"
-          onClick={jumpToCurrent}
-          onMouseEnter={() => setJumpHover(true)}
-          onMouseLeave={() => setJumpHover(false)}
-          disabled={currentIdx < 0}
-          title={t("jumpToCurrent")}
-          className="flex-shrink-0 w-7 h-7 flex items-center justify-center rounded-full transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-          style={{
-            backgroundColor: followCurrent ? "rgba(var(--kb-rgb), 0.12)" : "transparent",
-            color: followCurrent || jumpHover ? "var(--kb)" : "var(--muted)",
-            border: `2px solid ${jumpHover ? "var(--kb)" : "var(--border)"}`,
-          }}
-        >
-          <NavigationArrow size={14} weight={followCurrent ? "fill" : "regular"} />
-        </button>
-        <div className="flex-1" />
-        {hasBoth ? (
-          <div className="flex gap-1">
-            <TabButton active={mode === "source"} onClick={() => setMode("source")}>{langLabel(sourceLang!, locale)}</TabButton>
-            <TabButton active={mode === "target"} onClick={() => setMode("target")}>{langLabel(targetLang!, locale)}</TabButton>
-            <TabButton active={mode === "both"} onClick={() => setMode("both")}>{t("tabBoth")}</TabButton>
-          </div>
-        ) : (
-          <div className="flex items-center gap-2">
-            <span className="text-xs" style={{ color: "var(--muted)" }}>
-              {soleLang ? langLabel(soleLang, locale) : ""}
-            </span>
-            {canTranslate && (
-              <button
-                type="button"
-                onClick={regenerateTranscript}
-                disabled={regen === "running"}
-                title={
-                  regen === "error"
-                    ? t("regenEnErrorTitle", { error: regenError ?? "" })
-                    : regen === "running"
-                    ? t("regenEnRunningTitle")
-                    : t("regenEnIdleTitle")
-                }
-                className="flex-shrink-0 h-6 px-2 flex items-center gap-1 rounded-full transition-colors disabled:opacity-60 disabled:cursor-wait"
-                style={{
-                  backgroundColor: regen === "error" ? "rgba(239, 68, 68, 0.12)" : "var(--surface-dim)",
-                  color: regen === "error" ? "rgb(239, 68, 68)" : "var(--muted)",
-                  border: "1px solid var(--border)",
-                  fontSize: "10px",
-                }}
-              >
-                {regen === "running" ? (
-                  <Spinner size="xs" color="current" />
-                ) : (
-                  <ArrowsClockwise size={10} weight="bold" />
-                )}
-                <span>{regen === "running" ? t("regenEnRunning") : t("regenEnButton")}</span>
-              </button>
-            )}
-          </div>
+        {mode !== "off" && (
+          <button
+            type="button"
+            onClick={jumpToCurrent}
+            onMouseEnter={() => setJumpHover(true)}
+            onMouseLeave={() => setJumpHover(false)}
+            disabled={currentIdx < 0}
+            title={t("jumpToCurrent")}
+            className="flex-shrink-0 w-7 h-7 flex items-center justify-center rounded-full transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+            style={{
+              backgroundColor: followCurrent ? "rgba(var(--kb-rgb), 0.12)" : "transparent",
+              color: followCurrent || jumpHover ? "var(--kb)" : "var(--muted)",
+              border: `2px solid ${jumpHover ? "var(--kb)" : "var(--border)"}`,
+            }}
+          >
+            <NavigationArrow size={14} weight={followCurrent ? "fill" : "regular"} />
+          </button>
         )}
+        <div className="flex-1" />
+        <div className="flex items-center gap-2">
+          {/* The pill buttons this replaced were named by their own text; role="combobox"
+              isn't, so it needs an explicit accessible name. */}
+          <label htmlFor={`transcript-mode-${sourceUuid}`} className="sr-only">
+            {t("transcriptModeLabel")}
+          </label>
+          <Select<ViewMode>
+            id={`transcript-mode-${sourceUuid}`}
+            size="sm"
+            value={mode}
+            onChange={setMode}
+            options={modeOptions}
+          />
+          {canTranslate && (
+            <button
+              type="button"
+              onClick={regenerateTranscript}
+              disabled={regen === "running"}
+              title={
+                regen === "error"
+                  ? t("regenEnErrorTitle", { error: regenError ?? "" })
+                  : regen === "running"
+                  ? t("regenEnRunningTitle")
+                  : t("regenEnIdleTitle")
+              }
+              className="flex-shrink-0 h-6 px-2 flex items-center gap-1 rounded-full transition-colors disabled:opacity-60 disabled:cursor-wait"
+              style={{
+                backgroundColor: regen === "error" ? "rgba(239, 68, 68, 0.12)" : "var(--surface-dim)",
+                color: regen === "error" ? "rgb(239, 68, 68)" : "var(--muted)",
+                border: "1px solid var(--border)",
+                fontSize: "10px",
+              }}
+            >
+              {regen === "running" ? (
+                <Spinner size="xs" color="current" />
+              ) : (
+                <ArrowsClockwise size={10} weight="bold" />
+              )}
+              <span>{regen === "running" ? t("regenEnRunning") : t("regenEnButton")}</span>
+            </button>
+          )}
+        </div>
       </div>
 
-      {/* Cue list */}
+      {/* Cue list — hidden entirely when the student switched the transcript off. */}
+      {mode !== "off" && (
       <div ref={listRef} className="flex-1 overflow-y-auto px-4 py-3">
         {masterCues.map((c, idx) => {
           const isCurrent = idx === currentIdx;
@@ -599,10 +643,11 @@ export function TranscriptPanel({
           );
         })}
       </div>
+      )}
 
       {/* Citation pin controls — same corner + pill design as the PDF viewer's page-frame
           bar. Icon-only with full text in title/aria. Shown while a citation is pinned. */}
-      {citationIdx >= 0 && masterCues[citationIdx] && (
+      {mode !== "off" && citationIdx >= 0 && masterCues[citationIdx] && (
         <div className="absolute bottom-6 right-4 z-10 flex items-center gap-1.5">
           {/* Jump-back: only after the pinned cue scrolled off-screen. Arrow points toward
               it, label is its timestamp. Click replays from there. */}
@@ -632,32 +677,5 @@ export function TranscriptPanel({
         </div>
       )}
     </div>
-  );
-}
-
-function TabButton({
-  active, onClick, children,
-}: {
-  active: boolean;
-  onClick: () => void;
-  children: React.ReactNode;
-}) {
-  const [hover, setHover] = useState(false);
-  const showHover = hover && !active;
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      onMouseEnter={() => setHover(true)}
-      onMouseLeave={() => setHover(false)}
-      className="px-2.5 py-1 rounded-full text-xs font-medium transition-colors"
-      style={{
-        backgroundColor: active ? "var(--kb)" : "transparent",
-        color: active ? "#fff" : showHover ? "var(--kb)" : "var(--muted)",
-        border: `2px solid ${active || showHover ? "var(--kb)" : "var(--border)"}`,
-      }}
-    >
-      {children}
-    </button>
   );
 }

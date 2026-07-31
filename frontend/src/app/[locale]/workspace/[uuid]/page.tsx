@@ -12,8 +12,6 @@ import type {
   ViewerState,
   StudioView,
   LanguageTrainingView,
-  TranscriptTranslationMode,
-  TranscriptDefaultLang,
   StaffNoteLink,
 } from "./_types";
 import { _isMediaFile } from "./_utils";
@@ -89,8 +87,10 @@ export default function KiTutorWorkspacePage() {
   } = usePanelLayout({ uuid, viewerSource });
 
   const [chatLang, setChatLang] = useState<"de" | "en">("de");
+  // Zielsprache der Auswahlleisten-Übersetzung, je lesender Person.
+  const [popupTranslateLang, setPopupTranslateLang] = useState<string>("en");
 
-  const chat = useChat({ uuid, enrollmentId, selectedSourceIds, viewerSource, chatLang });
+  const chat = useChat({ uuid, enrollmentId, selectedSourceIds, viewerSource, chatLang, popupTranslateLang });
   const {
     messages, setMessages,
     chatLoading, popupActions,
@@ -128,36 +128,6 @@ export default function KiTutorWorkspacePage() {
     ? { quellen: false, chat: true, studio: false }
     : panels;
 
-  const [translationMode, setTranslationMode] = useState<TranscriptTranslationMode>("manual");
-  useEffect(() => {
-    if (moduleDetail?.transcript_translation_mode) {
-      setTranslationMode(moduleDetail.transcript_translation_mode);
-    }
-  }, [moduleDetail?.transcript_translation_mode]);
-  const handleChangeTranslationMode = (mode: TranscriptTranslationMode) => {
-    setTranslationMode(mode);
-    fetch(`/api/ai-assistant/workspaces/${uuid}`, {
-      method: "PATCH",
-      credentials: "include",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ transcript_translation_mode: mode }),
-    }).catch(() => { /* ignore */ });
-  };
-  const [transcriptDefaultLang, setTranscriptDefaultLang] = useState<TranscriptDefaultLang>("both");
-  useEffect(() => {
-    if (moduleDetail?.transcript_default_lang) {
-      setTranscriptDefaultLang(moduleDetail.transcript_default_lang);
-    }
-  }, [moduleDetail?.transcript_default_lang]);
-  const handleChangeTranscriptDefaultLang = (lang: TranscriptDefaultLang) => {
-    setTranscriptDefaultLang(lang);
-    fetch(`/api/ai-assistant/workspaces/${uuid}`, {
-      method: "PATCH",
-      credentials: "include",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ transcript_default_lang: lang }),
-    }).catch(() => { /* ignore */ });
-  };
   const [transcriptTargetLang, setTranscriptTargetLang] = useState<string>("en");
   useEffect(() => {
     if (moduleDetail?.transcript_target_lang) {
@@ -226,6 +196,7 @@ export default function KiTutorWorkspacePage() {
       setChatLang(s.chat_lang);
       setStudioEnabled(s.studio_enabled);
       setLanguageTrainingActive(s.language_training_active);
+      setPopupTranslateLang(s.popup_translate_lang);
     },
   });
 
@@ -259,9 +230,9 @@ export default function KiTutorWorkspacePage() {
       method: "PATCH",
       credentials: "include",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ chat_lang: chatLang, studio_enabled: studioEnabled, language_training_active: language_trainingActive }),
+      body: JSON.stringify({ chat_lang: chatLang, studio_enabled: studioEnabled, language_training_active: language_trainingActive, popup_translate_lang: popupTranslateLang }),
     }).catch(() => { /* ignore */ });
-  }, [chatLang, studioEnabled, language_trainingActive, initialized, uuid]);
+  }, [chatLang, studioEnabled, language_trainingActive, popupTranslateLang, initialized, uuid]);
 
   // ─── Viewer + chat input actions (see useViewerActions) ─────────────────
   const {
@@ -576,12 +547,10 @@ export default function KiTutorWorkspacePage() {
           isAdmin={isAdmin}
           hideHeader={hideHeader}
           onToggleHideHeader={() => setHideHeader((v) => !v)}
-          translationMode={translationMode}
-          onChangeTranslationMode={handleChangeTranslationMode}
-          transcriptDefaultLang={transcriptDefaultLang}
-          onChangeTranscriptDefaultLang={handleChangeTranscriptDefaultLang}
           transcriptTargetLang={transcriptTargetLang}
           onChangeTranscriptTargetLang={handleChangeTranscriptTargetLang}
+          popupTranslateLang={popupTranslateLang}
+          onChangePopupTranslateLang={setPopupTranslateLang}
           activeTab={activeTab}
           setActiveTab={setActiveTab}
           languageLevel={me?.language_level ?? null}

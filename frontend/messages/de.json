@@ -1707,6 +1707,10 @@
       },
       "settings": {
         "title": "Einstellungen",
+        "sectionPersonalTitle": "Persönlich",
+        "sectionPersonalDescription": "Gilt nur für dich. Andere im Workspace sehen davon nichts.",
+        "sectionWorkspaceTitle": "Workspace",
+        "sectionWorkspaceDescription": "Gilt für alle im Workspace. Nur die Verwaltung kann das ändern.",
         "mascotTitle": "Maskottchen",
         "mascotDescription": "Wähle deinen Begleiter im Chat oder schalte ihn aus.",
         "mascotOff": "Aus",
@@ -1735,7 +1739,9 @@
         "learnerProfileDescription": "Zeigt dein Sprachniveau und deine offenen Schwächen.",
         "learnerProfileOpen": "Öffnen",
         "learnerProfileBack": "Zurück zu Einstellungen",
-        "learnerProfileAdminOnly": "Nur Admin"
+        "learnerProfileAdminOnly": "Nur Admin",
+        "popupTranslateLangTitle": "Sprache der Auswahlleiste",
+        "popupTranslateLangDescription": "In welche Sprache markierter Text übersetzt wird, wenn du in der Auswahlleiste auf Übersetzen tippst."
       },
       "learnerProfile": {
         "title": "Mein Lernprofil",
@@ -1865,9 +1871,11 @@
         "transcriptLabel": "Transkript",
         "transcriptLoading": "Transkript wird geladen...",
         "jumpToCurrent": "Zum aktuellen Transkript springen",
+        "transcriptModeLabel": "Transkriptmodus",
         "tabDe": "Deutsch",
         "tabEn": "English",
         "tabBoth": "Beide",
+        "tabOff": "Aus",
         "saveAsNote": "Als Notiz speichern",
         "regenEnRunning": "läuft...",
         "regenEnButton": "Übersetzen",

@@ -8,7 +8,7 @@ from loguru import logger
 
 from src import database as db
 from src.dependencies import get_current_user
-from src.i18n import get_locale, t
+from src.i18n import get_locale, t, TRANSCRIPT_LANGUAGES
 
 from src.features.ai_assistant import schemas
 
@@ -103,9 +103,12 @@ async def update_user_settings(
     if not is_owner and not is_enrolled:
         raise HTTPException(status_code=403, detail=t("workspace.accessDenied", locale))
 
+    if body.popup_translate_lang not in TRANSCRIPT_LANGUAGES:
+        raise HTTPException(status_code=400, detail=t("ai.userSettings.popupTranslateLangInvalid", locale))
+
     db.upsert_aia_user_settings(
         workspace["id"], user_id, body.chat_lang, body.studio_enabled,
-        body.language_training_active,
+        body.language_training_active, body.popup_translate_lang,
     )
     return {"ok": True}
 

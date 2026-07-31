@@ -58,8 +58,6 @@ def run_index_source(self, source_uuid: str, locale: str = "de", _aia_job_uuid: 
         provider = get_embedding_provider()
         fingerprint: str | None = None  # set from the first embedded batch (step 7)
 
-        _translation_pending = False
-
         embedding_model = provider.model_name
 
         # 4. Fetch file from storage
@@ -122,11 +120,9 @@ def run_index_source(self, source_uuid: str, locale: str = "de", _aia_job_uuid: 
                 _save_transcript_artifact(source_vtt_key, segments_to_vtt(segments))
                 logger.info("KI Tutor: VTT ({}) saved to {}", lang_code, source_vtt_key)
 
-                # The translated VTT is produced by a separate Celery task dispatched
-                # at the end of this task (after chunking/embedding) so chat is
-                # available before translation finishes. Pending whenever we detected
-                # a real source language (the target is resolved from the workspace).
-                _translation_pending = lang_code != "unknown"
+                # Ingest never translates. The translated VTT is produced by a
+                # separate Celery task that only runs when someone asks for it in
+                # the transcript panel (target language comes from the workspace).
             else:
                 def _progress_cb(stage: str, page: int | None = None, total: int | None = None) -> None:
                     db.update_aia_source_progress(source_uuid, stage, page=page, total=total)
@@ -230,36 +226,7 @@ def run_index_source(self, source_uuid: str, locale: str = "de", _aia_job_uuid: 
                 )
                 logger.info("KI Tutor: workspace {} is now ready", workspace["uuid"])
 
-        # 10. Dispatch non-critical follow-ups (translation runs relaxed in bg).
-        # Mode is owner-controlled per workspace (default "manual"): only "auto"
-        # triggers at ingest; "manual" waits for the button; "off" disables it.
-        # The target language is owner-chosen; we skip when it equals the source.
-        if _translation_pending:
-            workspace = db.get_aia_workspace_by_id(workspace_id)
-            translation_mode = (workspace or {}).get("transcript_translation_mode", "manual")
-            target_lang = (workspace or {}).get("transcript_target_lang") or "en"
-            source_lang = (media_language or "").lower()
-            if translation_mode == "auto" and source_lang != target_lang:
-                from src.services import feature_router
-                try:
-                    binding = feature_router.resolve("transcript_translate")
-                    run_translate_transcript.delay(source_uuid, binding.provider["id"], target_lang)
-                    logger.info(
-                        "KI Tutor: dispatched {} translation for {} (provider_id={})",
-                        target_lang, source_uuid, binding.provider["id"],
-                    )
-                except feature_router.FeatureNotConfigured:
-                    logger.warning(
-                        "KI Tutor: transcript_translate not configured, skipping auto translation for {}",
-                        source_uuid,
-                    )
-            else:
-                logger.info(
-                    "KI Tutor: skipping auto-translation for {} (mode={}, source={}, target={})",
-                    source_uuid, translation_mode, source_lang, target_lang,
-                )
-
-        # 11. Source is ready (chunks embedded + DOC SUMMARY built in step 7b).
+        # 10. Source is ready (chunks embedded + DOC SUMMARY built in step 7b).
         # SPECIFIC answers run on chunk retrieval, GENERIC on the per-source
         # summary (see routes/chat.py). Clear the progress field so the card
         # shows ready.

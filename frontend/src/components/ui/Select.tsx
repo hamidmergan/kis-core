@@ -19,7 +19,29 @@ interface SelectProps<T extends string> {
   placeholder?: string;
   id?: string;
   className?: string;
+  // "md" is the full-width form control used across admin and dialogs.
+  // "sm" is a compact pill that fits into a toolbar row.
+  size?: "sm" | "md";
 }
+
+// "sm" pill popover sizing configuration (expressed once, derived for both arithmetic and CSS)
+const SM_POPOVER_MAX_WIDTH_PX = 256; // 16rem at 16px font base
+const SM_POPOVER_MAX_WIDTH_REM = `${SM_POPOVER_MAX_WIDTH_PX / 16}rem`; // "16rem"
+const SM_POPOVER_MARGIN_PX = 8;
+
+// Conflicting Tailwind utilities (w-full vs auto, rounded-md vs rounded-full, px-3 vs px-2.5)
+// resolve by stylesheet order, not by class order, so the two sizes must be mutually
+// exclusive lists rather than a base plus overrides.
+const SIZE_CLS = {
+  md: "block w-full rounded-md px-3 py-2 text-sm gap-2",
+  sm: "rounded-full px-2.5 py-1 text-xs gap-1.5 max-w-[16rem]",
+} as const;
+
+const BUTTON_BASE =
+  "group border-2 border-border bg-background text-foreground shadow-sm hover:border-kb "
+  + "focus:border-kb focus:outline-none focus:ring-1 focus:ring-kb disabled:opacity-50 "
+  + "disabled:cursor-not-allowed disabled:hover:border-border transition-colors "
+  + "flex items-center justify-between text-left";
 
 export default function Select<T extends string>({
   value,
@@ -29,12 +51,13 @@ export default function Select<T extends string>({
   placeholder,
   id,
   className = "",
+  size = "md",
 }: SelectProps<T>) {
   const t = useTranslations("common");
   const resolvedPlaceholder = placeholder ?? t("pleaseSelect");
   const [open, setOpen] = useState(false);
   const [highlightIdx, setHighlightIdx] = useState<number>(-1);
-  const [pos, setPos] = useState<{ top: number; left: number; width: number } | null>(null);
+  const [pos, setPos] = useState<{ top: number; left: number; width: number; smMaxWidth?: number } | null>(null);
   const rootRef = useRef<HTMLDivElement>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
   const listRef = useRef<HTMLUListElement>(null);
@@ -59,7 +82,20 @@ export default function Select<T extends string>({
     function update() {
       const r = buttonRef.current?.getBoundingClientRect();
       if (!r) return;
-      setPos({ top: r.bottom + 4, left: r.left, width: r.width });
+
+      if (size === "sm") {
+        // For "sm", stay anchored under the button (never clamp left — a shifted popover
+        // reads as detached from its trigger) and instead bound the width: never narrower
+        // than the button itself, never past the viewport's right edge minus margin, and
+        // never past the design cap.
+        const left = r.left;
+        const availableWidth = window.innerWidth - left - SM_POPOVER_MARGIN_PX;
+        const smMaxWidth = Math.min(SM_POPOVER_MAX_WIDTH_PX, Math.max(r.width, availableWidth));
+        setPos({ top: r.bottom + 4, left, width: r.width, smMaxWidth });
+      } else {
+        // "md" unchanged: no clamping, popover width pinned to button width
+        setPos({ top: r.bottom + 4, left: r.left, width: r.width });
+      }
     }
     update();
     window.addEventListener("scroll", update, true);
@@ -68,7 +104,7 @@ export default function Select<T extends string>({
       window.removeEventListener("scroll", update, true);
       window.removeEventListener("resize", update);
     };
-  }, [open]);
+  }, [open, size]);
 
   useEffect(() => {
     if (open) setHighlightIdx(selectedIdx >= 0 ? selectedIdx : 0);
@@ -119,7 +155,7 @@ export default function Select<T extends string>({
   }
 
   return (
-    <div ref={rootRef} className={`relative ${className}`} onKeyDown={onKeyDown}>
+    <div ref={rootRef} className={`relative ${size === "sm" ? "w-fit" : ""} ${className}`} onKeyDown={onKeyDown}>
       <button
         ref={buttonRef}
         id={id}
@@ -129,13 +165,13 @@ export default function Select<T extends string>({
         aria-haspopup="listbox"
         disabled={disabled}
         onClick={() => !disabled && setOpen((v) => !v)}
-        className="group block w-full rounded-md border-2 border-border bg-background px-3 py-2 text-sm text-foreground shadow-sm hover:border-kb focus:border-kb focus:outline-none focus:ring-1 focus:ring-kb disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:border-border transition-colors flex items-center justify-between gap-2 text-left"
+        className={`${BUTTON_BASE} ${SIZE_CLS[size]}`}
       >
         <span className={`flex-1 truncate ${selected ? "" : "text-muted-soft"}`}>
           {selected ? selected.label : resolvedPlaceholder}
         </span>
         <CaretDown
-          size={14}
+          size={size === "sm" ? 12 : 14}
           weight="bold"
           className={`flex-shrink-0 transition-transform text-muted group-hover:text-kb group-focus:text-kb ${open ? "rotate-180 text-kb" : ""}`}
         />
@@ -148,7 +184,11 @@ export default function Select<T extends string>({
           style={{
             top: pos.top,
             left: pos.left,
-            width: pos.width,
+            // "sm" sits in a toolbar and is only as wide as its current label, so the list
+            // must be free to grow past the button. "md" stays pinned to the field width.
+            ...(size === "sm"
+              ? { minWidth: pos.width, width: "max-content", maxWidth: pos.smMaxWidth ? `${pos.smMaxWidth}px` : SM_POPOVER_MAX_WIDTH_REM }
+              : { width: pos.width }),
             backgroundColor: "var(--background)",
             border: "1px solid var(--border)",
             boxShadow: "0 8px 24px rgba(0,40,60,0.12)",

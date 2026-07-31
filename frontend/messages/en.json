@@ -1707,6 +1707,10 @@
       },
       "settings": {
         "title": "Settings",
+        "sectionPersonalTitle": "Personal",
+        "sectionPersonalDescription": "Applies to you only. Others in the workspace do not see any of this.",
+        "sectionWorkspaceTitle": "Workspace",
+        "sectionWorkspaceDescription": "Applies to everyone in the workspace. Only workspace admins can change it.",
         "mascotTitle": "Mascot",
         "mascotDescription": "Pick your companion in chat or turn it off.",
         "mascotOff": "Off",
@@ -1735,7 +1739,9 @@
         "learnerProfileDescription": "Shows your language level and your open weaknesses.",
         "learnerProfileOpen": "Open",
         "learnerProfileBack": "Back to settings",
-        "learnerProfileAdminOnly": "Admin only"
+        "learnerProfileAdminOnly": "Admin only",
+        "popupTranslateLangTitle": "Selection bar language",
+        "popupTranslateLangDescription": "Which language selected text is translated into when you tap Translate in the selection bar."
       },
       "learnerProfile": {
         "title": "My learner profile",
@@ -1865,9 +1871,11 @@
         "transcriptLabel": "Transcript",
         "transcriptLoading": "Loading transcript...",
         "jumpToCurrent": "Jump to current transcript",
+        "transcriptModeLabel": "Transcript mode",
         "tabDe": "German",
         "tabEn": "English",
         "tabBoth": "Both",
+        "tabOff": "Off",
         "saveAsNote": "Save as note",
         "regenEnRunning": "running...",
         "regenEnButton": "Translate",

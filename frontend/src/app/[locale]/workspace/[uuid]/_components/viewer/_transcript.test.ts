@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { cueIndexAtTime, type TimedCue } from "./_transcript";
+import { buildTranscriptModes, cueIndexAtTime, type TimedCue } from "./_transcript";
 
 // `time` is now the chunk's EXACT start (a Whisper segment start, i.e. a VTT cue start),
 // resolved from source_pages — NOT the lossy whole-second display timestamp.
@@ -51,5 +51,39 @@ describe("cueIndexAtTime", () => {
       { start: 476.99, end: 492.00 },  // 2  cited, exact start 476.99
     ];
     expect(cueIndexAtTime(vtt, 476.99)).toBe(2);
+  });
+});
+
+describe("buildTranscriptModes", () => {
+  it("offers the original plus off when only the source track loaded", () => {
+    expect(buildTranscriptModes({ hasSource: true, hasTarget: false })).toEqual(["source", "off"]);
+  });
+
+  it("offers original, translation, both and off when both tracks loaded", () => {
+    expect(buildTranscriptModes({ hasSource: true, hasTarget: true })).toEqual([
+      "source",
+      "target",
+      "both",
+      "off",
+    ]);
+  });
+
+  it("offers the translation plus off when the source track is missing", () => {
+    expect(buildTranscriptModes({ hasSource: false, hasTarget: true })).toEqual(["target", "off"]);
+  });
+
+  // The panel bails out before rendering when no track loaded at all, but the helper
+  // stays total so it can never hand back an empty list.
+  it("still offers off when no track loaded", () => {
+    expect(buildTranscriptModes({ hasSource: false, hasTarget: false })).toEqual(["off"]);
+  });
+
+  it("always puts off last", () => {
+    for (const hasSource of [true, false]) {
+      for (const hasTarget of [true, false]) {
+        const modes = buildTranscriptModes({ hasSource, hasTarget });
+        expect(modes[modes.length - 1]).toBe("off");
+      }
+    }
   });
 });

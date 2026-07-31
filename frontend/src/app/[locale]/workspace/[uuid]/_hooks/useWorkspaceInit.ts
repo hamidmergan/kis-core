@@ -11,6 +11,7 @@ interface WorkspaceSettings {
   chat_lang: "de" | "en";
   studio_enabled: boolean;
   language_training_active: boolean;
+  popup_translate_lang: string;
 }
 
 interface UseWorkspaceInitOptions {
@@ -59,6 +60,7 @@ export function useWorkspaceInit(opts: UseWorkspaceInitOptions) {
             chat_lang: s.chat_lang ?? "de",
             studio_enabled: s.studio_enabled ?? true,
             language_training_active: s.language_training_active ?? false,
+            popup_translate_lang: s.popup_translate_lang ?? "en",
           });
         }
 
