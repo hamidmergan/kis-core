@@ -42,6 +42,7 @@ export default function ProtectedRoute({ children }: { children: React.ReactNode
       const isWorkspacePath = pathname?.startsWith("/workspace/");
       const isAdminPath = pathname?.startsWith("/admin");
       const isToolPath = pathname?.startsWith("/tools/");
+      const isJobsPath = pathname?.startsWith("/my-jobs");
 
       if (isAdminPath && !perms.allow_admin_panel) {
         router.replace("/");
@@ -55,6 +56,12 @@ export default function ProtectedRoute({ children }: { children: React.ReactNode
           setLoading(false);
           return;
         }
+      }
+      // Jobs entstehen nur aus Werkzeugen, ohne Werkzeug-Recht gibt es nichts zu sehen.
+      if (isJobsPath && perms.tools.length === 0) {
+        router.replace("/");
+        setLoading(false);
+        return;
       }
       if (isWorkspacePath && !perms.allow_aia) {
         router.replace("/");

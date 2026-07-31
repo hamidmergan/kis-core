@@ -65,9 +65,11 @@ export function ChatInputBar({
             </span>
           </div>
         )}
+        {/* The border sits on the wrapper, the caret in the textarea inside it, so
+            the focus ring comes from focus-within. Class, not inline style: an
+            inline border would beat it. */}
         <div
-          className="flex items-center gap-2 rounded-2xl px-4 py-3"
-          style={{ backgroundColor: "var(--surface)", border: "1px solid var(--border)" }}
+          className="flex items-center gap-2 rounded-2xl px-4 py-3 bg-surface border-2 border-border transition-colors focus-within:border-kb"
         >
           <textarea
             ref={textareaCallbackRef}

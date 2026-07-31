@@ -20,12 +20,15 @@ export default function Header({ hasSession = true, showLogout = false, showTool
   const t = useTranslations("header");
   const [isAdmin, setIsAdmin] = useState(false);
   const [isLocalMode, setIsLocalMode] = useState(false);
+  const [hasTools, setHasTools] = useState(false);
 
   useEffect(() => {
     if (!showLogout || !hasSession) return;
     checkAuthStatus().then((s) => {
       setIsAdmin(s.is_admin ?? false);
       setIsLocalMode(s.local_mode ?? false);
+      // Jobs entstehen nur aus Werkzeugen, ohne Werkzeug-Recht bleibt die Liste leer.
+      setHasTools((s.permissions?.tools?.length ?? 0) > 0);
     });
   }, [showLogout, hasSession]);
 
@@ -56,7 +59,7 @@ export default function Header({ hasSession = true, showLogout = false, showTool
         {showLogout && (
           <div className="flex items-center gap-1.5">
             <div className="hidden sm:flex items-center gap-1.5">
-              {hasSession && <JobsPanel />}
+              {hasSession && hasTools && <JobsPanel />}
               <HeaderLanguageSwitch />
               <HeaderThemeToggle />
 
@@ -88,6 +91,7 @@ export default function Header({ hasSession = true, showLogout = false, showTool
             <HeaderMobileMenu
               hasSession={hasSession}
               isAdmin={isAdmin}
+              hasTools={hasTools}
               isLocalMode={isLocalMode}
               showToolsToggle={showToolsToggle}
               onLogout={handleLogout}

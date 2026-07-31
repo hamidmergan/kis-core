@@ -308,12 +308,7 @@ export function LanguageDiagnosisPanel({
                       send(draft);
                     }
                   }}
-                  className="w-full rounded-xl px-4 py-3 text-base resize-y"
-                  style={{
-                    backgroundColor: "var(--surface)",
-                    color: "var(--foreground)",
-                    border: "1px solid var(--border)",
-                  }}
+                  className="w-full rounded-xl px-4 py-3 text-base resize-y bg-surface text-foreground border-2 border-border transition-colors focus:border-kb focus:outline-none"
                 />
                 <div className="flex items-center justify-between gap-2">
                   {skipButton}

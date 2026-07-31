@@ -11,6 +11,7 @@ import { useTheme } from "@/hooks/useTheme";
 interface HeaderMobileMenuProps {
   hasSession: boolean;
   isAdmin: boolean;
+  hasTools?: boolean;
   isLocalMode?: boolean;
   showToolsToggle?: boolean;
   onLogout: () => void;
@@ -28,7 +29,7 @@ async function persistLocale(locale: Locale) {
   }
 }
 
-export default function HeaderMobileMenu({ hasSession, isAdmin, isLocalMode = false, showToolsToggle = false, onLogout }: HeaderMobileMenuProps) {
+export default function HeaderMobileMenu({ hasSession, isAdmin, hasTools = false, isLocalMode = false, showToolsToggle = false, onLogout }: HeaderMobileMenuProps) {
   const t = useTranslations("header");
   const router = useRouter();
   const pathname = usePathname();
@@ -113,7 +114,7 @@ export default function HeaderMobileMenu({ hasSession, isAdmin, isLocalMode = fa
               <span>{t("tools")}</span>
             </button>
           )}
-          {hasSession && (
+          {hasSession && hasTools && (
             <Link
               href="/my-jobs"
               onClick={() => setOpen(false)}

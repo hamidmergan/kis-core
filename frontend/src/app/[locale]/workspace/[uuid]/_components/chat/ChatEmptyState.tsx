@@ -45,7 +45,7 @@ export function ChatEmptyState({ activeSourceIds, onSendPrompt, mascotEnabled = 
             key={prompt}
             disabled={disabled}
             onClick={() => onSendPrompt?.(prompt)}
-            className="text-left text-sm px-4 rounded-xl border transition-colors enabled:hover:bg-[var(--surface-dim)] enabled:hover:border-[rgba(var(--kb-rgb),0.4)]"
+            className="text-left text-sm px-4 rounded-xl border transition-colors btn-ghost"
             style={{
               height: 50,
               borderColor: disabled ? "var(--border)" : "rgba(var(--kb-rgb),0.25)",

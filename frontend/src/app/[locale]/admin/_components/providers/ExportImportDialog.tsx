@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
+import Spinner from "@/components/ui/Spinner";
 import { filterExportConfig } from "./_exportFilter";
 import { fetchExportConfig } from "./_api";
 import type { ImportPreviewResult, Provider } from "./_types";
@@ -228,8 +229,9 @@ function ExportTab({
           type="button"
           onClick={handleExport}
           disabled={busy || count === 0}
-          className="px-3 py-1.5 text-sm font-medium bg-kb text-white rounded-md border-2 border-kb hover:bg-background hover:text-kb disabled:opacity-50 disabled:cursor-not-allowed"
+          className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium bg-kb text-white rounded-md border-2 border-kb hover:bg-background hover:text-kb disabled:opacity-50 disabled:cursor-not-allowed"
         >
+          {busy && <Spinner size="xs" color="current" />}
           {t("export.confirmButton", { count })}
         </button>
       </div>
@@ -302,7 +304,10 @@ function ImportTab({
           <DropZone onFile={handleFile} />
         )}
         {state.kind === "loading" && (
-          <p className="text-sm text-muted">{state.filename}…</p>
+          <p className="flex items-center gap-2 text-sm text-muted">
+            <Spinner size="xs" color="current" />
+            <span className="truncate">{state.filename}</span>
+          </p>
         )}
         {state.kind === "error" && (
           <p className="text-[12px] text-error">{state.message}</p>
@@ -339,8 +344,9 @@ function ImportTab({
             type="button"
             onClick={handleConfirm}
             disabled={confirming}
-            className="px-3 py-1.5 text-sm font-medium bg-kb text-white rounded-md border-2 border-kb hover:bg-background hover:text-kb disabled:opacity-50"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium bg-kb text-white rounded-md border-2 border-kb hover:bg-background hover:text-kb disabled:opacity-50"
           >
+            {confirming && <Spinner size="xs" color="current" />}
             {t("import.confirmButton")}
           </button>
         )}

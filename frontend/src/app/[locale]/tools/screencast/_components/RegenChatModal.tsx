@@ -287,8 +287,7 @@ export default function RegenChatModal({
 
         <div className="px-4 pt-4 pb-3" style={{ borderTop: "1px solid var(--border)" }}>
           <div
-            className="flex items-center gap-2 rounded-2xl px-4 py-3"
-            style={{ backgroundColor: "var(--surface)", border: "1px solid var(--border)" }}
+            className="flex items-center gap-2 rounded-2xl px-4 py-3 bg-surface border-2 border-border transition-colors focus-within:border-kb"
           >
             <textarea
               value={prompt}

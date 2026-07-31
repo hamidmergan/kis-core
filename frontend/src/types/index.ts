@@ -26,21 +26,7 @@ export interface LoginResponse {
   display_name: string;
 }
 
-export interface ApiError {
-  detail: string;
-}
-
-export type TranslationState = "idle" | "uploading" | "translating" | "done" | "error";
-
 export type TTSState = "idle" | "uploading" | "processing" | "done" | "error";
-
-export type TranscriptionState = "idle" | "uploading" | "processing" | "done" | "error";
-
-export type ScreencastState = "idle" | "uploading" | "processing" | "done" | "error";
-
-export type SummaryState = "idle" | "processing" | "done" | "error";
-
-export type ScreencastMode = "auto" | "manual";
 
 export type ScreencastStep =
   | "upload"

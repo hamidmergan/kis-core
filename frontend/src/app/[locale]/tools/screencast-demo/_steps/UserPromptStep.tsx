@@ -31,7 +31,7 @@ export function UserPromptStep({
     <section className="animate-[fadeIn_0.3s_ease-out]">
       <h2 className="text-lg font-bold mb-1">{t("userPrompt.heading")}</h2>
       <div className="mt-3 space-y-2">
-        <label className={`flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${scriptInputMode === "generate" ? "border-kb bg-kb/5" : "border-border-soft hover:border-border"}`}>
+        <label className={`flex items-start gap-3 p-3 rounded-lg border-2 cursor-pointer transition-colors ${scriptInputMode === "generate" ? "border-kb bg-kb/10" : "border-border hover:border-kb"}`}>
           <input type="radio" name="scriptInputMode" value="generate" checked={scriptInputMode === "generate"}
             onChange={() => setMode("generate")} className="mt-0.5 accent-kb" />
           <div>
@@ -39,7 +39,7 @@ export function UserPromptStep({
             <p className="text-xs text-muted mt-0.5">{t("userPrompt.generateDesc")}</p>
           </div>
         </label>
-        <label className={`flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${scriptInputMode === "manual" ? "border-kb bg-kb/5" : "border-border-soft hover:border-border"}`}>
+        <label className={`flex items-start gap-3 p-3 rounded-lg border-2 cursor-pointer transition-colors ${scriptInputMode === "manual" ? "border-kb bg-kb/10" : "border-border hover:border-kb"}`}>
           <input type="radio" name="scriptInputMode" value="manual" checked={scriptInputMode === "manual"}
             onChange={() => setMode("manual")} className="mt-0.5 accent-kb" />
           <div>
@@ -47,7 +47,7 @@ export function UserPromptStep({
             <p className="text-xs text-muted mt-0.5">{t("userPrompt.manualDesc")}</p>
           </div>
         </label>
-        <label className={`flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${scriptInputMode === "import" ? "border-kb bg-kb/5" : "border-border-soft hover:border-border"}`}>
+        <label className={`flex items-start gap-3 p-3 rounded-lg border-2 cursor-pointer transition-colors ${scriptInputMode === "import" ? "border-kb bg-kb/10" : "border-border hover:border-kb"}`}>
           <input type="radio" name="scriptInputMode" value="import" checked={scriptInputMode === "import"}
             onChange={() => onScriptInputModeChange("import")} className="mt-0.5 accent-kb" />
           <div className="flex-1 min-w-0">

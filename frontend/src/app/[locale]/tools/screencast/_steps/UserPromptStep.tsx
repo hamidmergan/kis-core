@@ -38,7 +38,7 @@ export default function UserPromptStep({
 
       <div className="mt-3 space-y-2">
         <label
-          className={`flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${scriptInputMode === "generate" ? "border-kb bg-kb/5" : "border-border-soft hover:border-border"}`}
+          className={`flex items-start gap-3 p-3 rounded-lg border-2 cursor-pointer transition-colors ${scriptInputMode === "generate" ? "border-kb bg-kb/10" : "border-border hover:border-kb"}`}
         >
           <input
             type="radio"
@@ -58,7 +58,7 @@ export default function UserPromptStep({
         </label>
 
         <label
-          className={`flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${scriptInputMode === "manual" ? "border-kb bg-kb/5" : "border-border-soft hover:border-border"}`}
+          className={`flex items-start gap-3 p-3 rounded-lg border-2 cursor-pointer transition-colors ${scriptInputMode === "manual" ? "border-kb bg-kb/10" : "border-border hover:border-kb"}`}
         >
           <input
             type="radio"
@@ -78,7 +78,7 @@ export default function UserPromptStep({
         </label>
 
         <label
-          className={`flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${scriptInputMode === "import" ? "border-kb bg-kb/5" : "border-border-soft hover:border-border"}`}
+          className={`flex items-start gap-3 p-3 rounded-lg border-2 cursor-pointer transition-colors ${scriptInputMode === "import" ? "border-kb bg-kb/10" : "border-border hover:border-kb"}`}
         >
           <input
             type="radio"

@@ -87,10 +87,10 @@ export default function GenerateTab() {
               key={s}
               type="button"
               onClick={() => setSize(s)}
-              className={`px-3 py-1.5 text-xs font-medium rounded-md border transition-colors ${
+              className={`px-3 py-1.5 text-xs font-medium rounded-md border-2 transition-colors ${
                 size === s
-                  ? "border-kb bg-kb/10 text-kb"
-                  : "border-border text-foreground-soft hover:bg-surface"
+                  ? "border-kb bg-kb/10 text-kb dark:text-foreground"
+                  : "border-border text-foreground-soft hover:border-kb"
               }`}
             >
               {s}
