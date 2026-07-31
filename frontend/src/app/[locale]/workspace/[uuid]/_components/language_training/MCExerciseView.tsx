@@ -7,6 +7,7 @@ import { _chunkLabel, _getChipIcon, _md, _sourceChipKey } from "../../_utils";
 import { MinimizeContext } from "../../_context";
 import { _getToolBadge, type BreadcrumbItem } from "../layout/SubviewHeader";
 import { SetSourceLegend, sourceNumbers, sourceTag } from "./SetSourceLegend";
+import { shuffleOptions } from "./_shuffle";
 
 export function MCExerciseView({
   exerciseSet, onBack, onAnswer, onAskChat, onSourceClick, breadcrumbs, chatLang = "de",
@@ -14,7 +15,7 @@ export function MCExerciseView({
 }: {
   exerciseSet: ExerciseSet;
   onBack: () => void;
-  onAnswer: (itemId: number, correct: boolean, newRun?: boolean) => void;
+  onAnswer: (itemId: number, correct: boolean) => void;
   onAskChat: (text: string) => void;
   onSourceClick?: (filename: string, page: number, startTime?: number) => void;
   breadcrumbs?: BreadcrumbItem[];
@@ -52,12 +53,7 @@ export function MCExerciseView({
     if (raw.length > 0 && !shuffledRef.current) {
       const arr = [...raw];
       for (let i = arr.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1));[arr[i], arr[j]] = [arr[j], arr[i]]; }
-      const shuffled = arr.map((item) => {
-        if (!item.options || item.correct_idx === undefined) return item;
-        const indices = item.options.map((_, i) => i);
-        for (let i = indices.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1));[indices[i], indices[j]] = [indices[j], indices[i]]; }
-        return { ...item, options: indices.map((i) => item.options![i]), correct_idx: indices.indexOf(item.correct_idx) };
-      });
+      const shuffled = arr.map(shuffleOptions);
       setShuffledItems(shuffled);
       shuffledRef.current = true;
     }
@@ -90,11 +86,10 @@ export function MCExerciseView({
     if (answered || !card) return;
     setSelected(optIdx);
     const correct = optIdx === card.correct_idx;
-    const isFirst = results.length === 0;
     setResults(prev => [...prev, { item_id: card.id, correct }]);
     if (correct) setStreak((s) => s + 1);
     else setStreak(0);
-    onAnswer(card.id, correct, isFirst);
+    onAnswer(card.id, correct);
   }
 
   function advance() {

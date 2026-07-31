@@ -4,6 +4,7 @@ export const TOOL_COLORS: Record<string, { bg: string; color: string }> = {
   karteikarten: { bg: "var(--badge-emerald-bg)", color: "var(--badge-emerald-fg)" },
   quiz:         { bg: "var(--badge-yellow-bg)",  color: "var(--badge-yellow-fg)" },
   grammatik:    { bg: "var(--badge-violet-bg)",  color: "var(--badge-violet-fg)" },
+  hoerverstehen: { bg: "var(--badge-blue-bg)",   color: "var(--badge-blue-fg)" },
 };
 
 // Studio form-input limits (frontend-only UX caps; backend stores TEXT without VARCHAR limit).

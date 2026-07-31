@@ -1523,6 +1523,7 @@
           "karteikarten": "Flashcards",
           "grammar": "Grammar exercise",
           "quiz": "Quiz",
+          "listening": "Listening",
           "exerciseFallback": "Exercise"
         },
         "common": {
@@ -1556,7 +1557,8 @@
           "none": "No source selected",
           "one": "1 source selected",
           "few": "{count} sources selected",
-          "many": "{count} sources available, only 5 are used"
+          "many": "{count} sources available, only 5 are used",
+          "mediaOnly": "(audio and video only)"
         },
         "createModal": {
           "title": "Create new {tool}",
@@ -1566,6 +1568,7 @@
           "fromSelectedSource": "{count, plural, =0 {From selected source} =1 {From selected source} other {From selected sources}}",
           "selectedSourcesCount": "{count} sources",
           "noSourceHint": "Select a source on the left to generate from it.",
+          "noMediaHint": "Select an audio or video source on the left.",
           "countHeading": "Count",
           "grammarTypeHeading": "Exercise type",
           "sentenceCountHeading": "Number of sentences",
@@ -1583,6 +1586,7 @@
           "modeGrammar": "Grammar",
           "modeFlashcards": "Vocab cards",
           "failed": "Failed",
+          "retry": "Try again",
           "fromGlossarySuffix": " · Glossary"
         },
         "completion": {
@@ -1632,6 +1636,7 @@
           "glossaryCounter": "{count}/{max} glossary",
           "lernkarten": "Vocab cards",
           "grammar": "Grammar exercise",
+          "listening": "Listening",
           "tileDesc": "Exercises"
         },
         "vocabFlashcards": {
@@ -1929,7 +1934,8 @@
           "dataTable": "Data table",
           "mindmap": "Mind map",
           "lernkarten": "Vocab cards",
-          "grammar": "Grammar exercise"
+          "grammar": "Grammar exercise",
+          "listening": "Listening"
         },
         "tileDescriptions": {
           "karteikarten": "Question and answer to test yourself.",
@@ -1937,7 +1943,8 @@
           "dataTable": "Facts from the document as a table.",
           "mindmap": "Topics shown as a tree.",
           "lernkarten": "Technical terms with base form and example.",
-          "grammar": "Transform sentences following a pattern."
+          "grammar": "Transform sentences following a pattern.",
+          "listening": "Questions about a recording."
         },
         "recent": {
           "heading": "Recent activity",
@@ -2067,7 +2074,8 @@
         "flashcards": "Vocab cards",
         "karteikarten": "Flashcards",
         "grammatik": "Grammar exercise",
-        "quiz": "Quiz"
+        "quiz": "Quiz",
+        "hoerverstehen": "Listening"
       }
     },
     "list": {

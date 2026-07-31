@@ -974,8 +974,17 @@ def init_db(admin_email: Optional[str] = None) -> None:
             cur.execute("ALTER TABLE aia_exercise_items ADD COLUMN IF NOT EXISTS back_en TEXT")
             # Migration: add extras JSONB for Flashcards structured fields (word_parts etc.)
             cur.execute("ALTER TABLE aia_exercise_items ADD COLUMN IF NOT EXISTS extras JSONB")
-            # Migration: last_run_start for tracking exercise run boundaries
-            cur.execute("ALTER TABLE aia_exercise_sets ADD COLUMN IF NOT EXISTS last_run_start TIMESTAMP")
+            # The run boundary is gone. The progress ring counted only the answers
+            # after this mark, and the browser set it when the learner answered the
+            # first card of a session. Interrupting an exercise moved the mark into
+            # the middle of the run, and everything answered before it stopped
+            # counting. The ring now reads the last answer per card instead, which
+            # needs no boundary at all.
+            cur.execute("ALTER TABLE aia_exercise_sets DROP COLUMN IF EXISTS last_run_start")
+            # Migration: the item count the learner asked for. card_count only says how
+            # many were produced, which is 0 on a failed set, so a retry would silently
+            # fall back to the default size instead of the one that was picked.
+            cur.execute("ALTER TABLE aia_exercise_sets ADD COLUMN IF NOT EXISTS requested_count INTEGER")
             # Migration: drop legacy mastery columns if they exist
             for col in ("correct_streak", "total_attempts", "total_correct"):
                 cur.execute(f"ALTER TABLE aia_exercise_items DROP COLUMN IF EXISTS {col}")

@@ -46,6 +46,8 @@ async def generate_flashcards(
     placeholder = db.create_exercise_set_placeholder(
         workspace_id=workspace["id"], user_id=user_id, tool="flashcards",
         title="Wird generiert…", mode="source", source_uuid=first_uuid,
+        source_uuids=body.active_source_ids[:5],
+        requested_count=body.count,
     )
 
     from src.tasks.aia_tasks import run_generate_exercise_set

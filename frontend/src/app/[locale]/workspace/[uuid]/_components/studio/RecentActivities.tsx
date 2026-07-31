@@ -4,6 +4,7 @@ import {
   BookOpenText,
   Cards,
   ClockCounterClockwise,
+  Headphones,
   PencilLine,
   Question,
   Table,
@@ -26,6 +27,7 @@ const ACTIVITY_TOOL_ICONS: Record<string, React.ComponentType<any>> = {
   flashcards: BookOpenText,
   quiz: Question,
   grammatik: PencilLine,
+  hoerverstehen: Headphones,
   data_table: Table,
   mindmap: TreeStructure,
 };
@@ -35,6 +37,7 @@ const ACTIVITY_TOOL_COLORS: Record<string, string> = {
   flashcards: "#78350F",
   quiz: "#A16207",
   grammatik: "#534AB7",
+  hoerverstehen: "#0F766E",
   data_table: "#C2410C",
   mindmap: "#0369A1",
 };

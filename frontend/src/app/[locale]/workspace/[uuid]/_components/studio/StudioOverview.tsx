@@ -11,6 +11,7 @@ import {
   TreeStructure,
   BookOpenText,
   PencilLine,
+  Headphones,
 } from "@phosphor-icons/react";
 import Spinner from "@/components/ui/Spinner";
 import type { Source, StudioView, LanguageTrainingView, StudentStats } from "../../_types";
@@ -117,6 +118,7 @@ export function StudioOverview({
   const langTrainingTiles = [
     { key: "lk-sets" as const, Icon: BookOpenText, label: t("tiles.lernkarten"), description: t("tileDescriptions.lernkarten"), iconBg: "var(--badge-amber-bg)", iconColor: "var(--badge-amber-fg)" },
     { key: "gr-sets" as const, Icon: PencilLine, label: t("tiles.grammar"), description: t("tileDescriptions.grammar"), iconBg: "var(--badge-violet-bg)", iconColor: "var(--badge-violet-fg)" },
+    { key: "hv-sets" as const, Icon: Headphones, label: t("tiles.listening"), description: t("tileDescriptions.listening"), iconBg: "var(--badge-blue-bg)", iconColor: "var(--badge-blue-fg)" },
   ];
 
   void activeSourceCount;

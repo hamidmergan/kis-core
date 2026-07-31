@@ -134,6 +134,7 @@
   --badge-red-bg:     rgba(254,226,226,0.7);  --badge-red-fg:     #B91C1C;
   --badge-violet-bg:  rgba(237,233,254,0.7);  --badge-violet-fg:  #534AB7;
   --badge-teal-bg:    rgba(236,254,255,0.7);  --badge-teal-fg:    #0E7490;
+  --badge-blue-bg:    rgba(219,234,254,0.7);  --badge-blue-fg:    #1E3A8A;
   --badge-orange-bg:  rgba(255,237,213,0.7);  --badge-orange-fg:  #C2410C;
   --badge-slate-bg:   rgba(241,245,249,0.7);  --badge-slate-fg:   #475569;
 
@@ -211,6 +212,7 @@
   --badge-red-bg:     rgba(185,28,28,0.30);   --badge-red-fg:     #FECACA;
   --badge-violet-bg:  rgba(83,74,183,0.30);   --badge-violet-fg:  #D6D2F5;
   --badge-teal-bg:    rgba(14,116,144,0.30);  --badge-teal-fg:    #A5F3FC;
+  --badge-blue-bg:    rgba(30,58,138,0.40);   --badge-blue-fg:    #BFDBFE;
   --badge-orange-bg:  rgba(194,65,12,0.30);   --badge-orange-fg:  #FED7AA;
   --badge-slate-bg:   rgba(71,85,105,0.30);   --badge-slate-fg:   #CBD5E1;
 

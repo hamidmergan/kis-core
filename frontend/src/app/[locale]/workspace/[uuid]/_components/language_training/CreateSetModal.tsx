@@ -1,7 +1,31 @@
 import { useEffect, useState } from "react";
+import type { ReactNode } from "react";
 import { Sparkle } from "@phosphor-icons/react";
 import { useTranslations } from "next-intl";
 import type { GrammarType } from "../../_types";
+
+// Every picker in this modal shares one look: 2px border, primary on hover,
+// primary + tint for the current choice (same classes as the quiz answers).
+// The border must come from a class, not an inline style: an inline border
+// always beats `hover:border-kb`, which is why hover used to do nothing here.
+const PICK_BOX = "border-2 transition-colors disabled:opacity-40";
+const PICK_ON = "border-kb bg-kb/10";
+const PICK_OFF = "border-border bg-background enabled:hover:border-kb";
+
+function PickerOption({ selected, disabled, onClick, children }: {
+  selected: boolean; disabled?: boolean; onClick: () => void; children: ReactNode;
+}) {
+  return (
+    <button type="button" onClick={onClick} disabled={disabled}
+      className={`group flex items-center gap-2 px-3 py-2 rounded-lg text-left text-[11px] font-medium text-foreground ${PICK_BOX} ${selected ? PICK_ON : PICK_OFF}`}>
+      <span className={`w-3.5 h-3.5 rounded-full border-2 flex items-center justify-center shrink-0 transition-colors ${
+        selected ? "border-kb" : `border-border ${disabled ? "" : "group-hover:border-kb"}`}`}>
+        {selected && <span className="w-1.5 h-1.5 rounded-full bg-kb" />}
+      </span>
+      <span className="min-w-0">{children}</span>
+    </button>
+  );
+}
 
 export function CreateSetModal({
   tool, glossaryCount, selectedSources, workspaceUuid,
@@ -23,10 +47,12 @@ export function CreateSetModal({
   // The grammar tool rewrites sentences about the source content, so it has no
   // glossary mode at all.
   const isGrammar = tool === "grammatik";
+  // Hörverstehen fragt nach dem Inhalt einer Aufnahme, im Glossar gibt es keine.
+  const isListening = tool === "hoerverstehen";
   const [mode, setMode] = useState<"glossary" | "source">(
-    isQuiz || isGrammar || glossaryCount === 0 ? "source" : "glossary",
+    isQuiz || isGrammar || isListening || glossaryCount === 0 ? "source" : "glossary",
   );
-  const [count, setCount] = useState(isQuiz ? 5 : 10);
+  const [count, setCount] = useState(isQuiz || isListening ? 5 : 10);
 
   // The catalogue is owner-configurable per workspace, so it is fetched rather
   // than hardcoded here: a new exercise type shows up without a frontend change.
@@ -55,11 +81,12 @@ export function CreateSetModal({
       flashcards: t("tools.flashcards"),
       grammatik: t("tools.grammar"),
       quiz: t("tools.quiz"),
+      hoerverstehen: t("tools.listening"),
     };
     return map[tool] || t("tools.exerciseFallback");
   })();
 
-  const canCreate = isGrammar ? Boolean(hasSource && grammarType) : true;
+  const canCreate = isGrammar ? Boolean(hasSource && grammarType) : !(isListening && !hasSource);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ backgroundColor: "rgba(0,0,0,0.25)" }} onClick={onClose}>
@@ -70,41 +97,19 @@ export function CreateSetModal({
         {/* Mode */}
         <div className="text-[9px] font-semibold uppercase tracking-wide mb-1.5" style={{ color: "var(--muted)" }}>{t("createModal.sourceHeading")}</div>
         <div className="flex flex-col gap-1.5 mb-3">
-          {!isQuiz && !isGrammar && (
-            <button type="button" onClick={() => glossaryCount > 0 && setMode("glossary")}
-              className="flex items-center gap-2 px-3 py-2 rounded-lg text-[11px] font-medium transition-all text-left"
-              style={{
-                ...(mode === "glossary"
-                  ? { border: "1.5px solid var(--kb)", backgroundColor: "rgba(var(--kb-rgb),0.07)", color: "var(--foreground)" }
-                  : { border: "1.5px solid var(--border)", backgroundColor: "var(--background)", color: "var(--foreground)" }),
-                ...(glossaryCount === 0 ? { opacity: 0.4, pointerEvents: "none" as const } : {}),
-              }}>
-              <div className="w-3.5 h-3.5 rounded-full border-2 flex items-center justify-center shrink-0"
-                style={{ borderColor: mode === "glossary" ? "var(--kb)" : "var(--border)" }}>
-                {mode === "glossary" && <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: "var(--kb)" }} />}
-              </div>
-              {t("createModal.fromGlossary")} <span className="text-[10px]" style={{ color: "var(--muted)" }}>{t("createModal.glossaryTermsCount", { count: glossaryCount })}</span>
-            </button>
+          {!isQuiz && !isGrammar && !isListening && (
+            <PickerOption selected={mode === "glossary"} disabled={glossaryCount === 0}
+              onClick={() => setMode("glossary")}>
+              {t("createModal.fromGlossary")} <span className="text-[10px] text-muted">{t("createModal.glossaryTermsCount", { count: glossaryCount })}</span>
+            </PickerOption>
           )}
-          <button type="button" onClick={() => hasSource && setMode("source")}
-            className="flex items-center gap-2 px-3 py-2 rounded-lg text-[11px] font-medium transition-all text-left"
-            style={{
-              ...(mode === "source"
-                ? { border: "1.5px solid var(--kb)", backgroundColor: "rgba(var(--kb-rgb),0.07)" }
-                : { border: "1.5px solid var(--border)", backgroundColor: "var(--background)" }),
-              color: "var(--foreground)",
-              opacity: hasSource ? 1 : 0.4,
-              pointerEvents: hasSource ? "auto" : "none",
-            }}>
-            <div className="w-3.5 h-3.5 rounded-full border-2 flex items-center justify-center shrink-0"
-              style={{ borderColor: mode === "source" ? "var(--kb)" : "var(--border)" }}>
-              {mode === "source" && <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: "var(--kb)" }} />}
-            </div>
-            {t("createModal.fromSelectedSource", { count: pickedSources.length })} {hasSource && <span className="text-[10px] inline-block max-w-[120px] truncate align-bottom" title={pickedSources.map((s) => s.filename).join("\n")} style={{ color: "var(--muted)" }}>({sourceHint})</span>}
-          </button>
+          <PickerOption selected={mode === "source"} disabled={!hasSource}
+            onClick={() => setMode("source")}>
+            {t("createModal.fromSelectedSource", { count: pickedSources.length })} {hasSource && <span className="text-[10px] text-muted inline-block max-w-[120px] truncate align-bottom" title={pickedSources.map((s) => s.filename).join("\n")}>({sourceHint})</span>}
+          </PickerOption>
           {!hasSource && (
             <p className="text-[10px] ml-5" style={{ color: "#c4820e" }}>
-              {t("createModal.noSourceHint")}
+              {isListening ? t("createModal.noMediaHint") : t("createModal.noSourceHint")}
             </p>
           )}
         </div>
@@ -121,22 +126,13 @@ export function CreateSetModal({
                 <p className="text-[10px]" style={{ color: "#c4820e" }}>{t("createModal.noGrammarTypes")}</p>
               )}
               {grammarTypes.map((gt) => (
-                <button key={gt.id} type="button" onClick={() => setGrammarType(gt.id)}
-                  className="flex items-start gap-2 px-3 py-2 rounded-lg text-left transition-all"
-                  style={grammarType === gt.id
-                    ? { border: "1.5px solid var(--kb)", backgroundColor: "rgba(var(--kb-rgb),0.07)" }
-                    : { border: "1.5px solid var(--border)", backgroundColor: "var(--background)" }}>
-                  <div className="w-3.5 h-3.5 rounded-full border-2 flex items-center justify-center shrink-0 mt-0.5"
-                    style={{ borderColor: grammarType === gt.id ? "var(--kb)" : "var(--border)" }}>
-                    {grammarType === gt.id && <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: "var(--kb)" }} />}
-                  </div>
-                  {/* Label only. The instruction is the worksheet line ("transform
-                      according to the pattern below") and reads identically for every
-                      type, so it belongs above the sentences, not in the picker. */}
-                  <span className="min-w-0">
-                    <span className="block text-[11px] font-semibold" style={{ color: "var(--foreground)" }}>{gt.label}</span>
-                  </span>
-                </button>
+                /* Label only. The instruction is the worksheet line ("transform
+                   according to the pattern below") and reads identically for every
+                   type, so it belongs above the sentences, not in the picker. */
+                <PickerOption key={gt.id} selected={grammarType === gt.id}
+                  onClick={() => setGrammarType(gt.id)}>
+                  <span className="block font-semibold">{gt.label}</span>
+                </PickerOption>
               ))}
             </div>
           </>
@@ -147,10 +143,8 @@ export function CreateSetModal({
         <div className="flex gap-1.5 mb-4">
           {[5, 10, 15].map((n) => (
             <button key={n} type="button" onClick={() => setCount(n)}
-              className="flex-1 py-2 rounded-lg text-xs font-semibold transition-all text-center"
-              style={count === n
-                ? { border: "1.5px solid var(--kb)", backgroundColor: "rgba(var(--kb-rgb),0.07)", color: "var(--kb)" }
-                : { border: "1.5px solid var(--border)", backgroundColor: "var(--background)", color: "var(--foreground)" }}>
+              className={`flex-1 py-2 rounded-lg text-xs font-semibold text-center ${PICK_BOX} ${
+                count === n ? `${PICK_ON} text-kb dark:text-foreground` : `${PICK_OFF} text-foreground`}`}>
               {n}
             </button>
           ))}

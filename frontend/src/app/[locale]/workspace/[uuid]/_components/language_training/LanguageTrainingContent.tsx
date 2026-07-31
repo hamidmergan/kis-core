@@ -6,10 +6,10 @@ import { useTranslations } from "next-intl";
 import Spinner from "@/components/ui/Spinner";
 import { ExerciseSetsOverview } from "./ExerciseSetsOverview";
 import { ExerciseCompletion } from "./ExerciseCompletion";
+import { _isMediaFile } from "../../_utils";
 
 const loader = () => <div className="flex-1 flex items-center justify-center p-6"><Spinner size="md" /></div>;
 
-const VocabFlashcards = dynamic(() => import("./VocabFlashcards").then((m) => ({ default: m.VocabFlashcards })), { loading: loader, ssr: false });
 const GrammarExerciseView = dynamic(() => import("./GrammarExerciseView").then((m) => ({ default: m.GrammarExerciseView })), { loading: loader, ssr: false });
 const FlashcardsLearnView = dynamic(() => import("./FlashcardsLearnView").then((m) => ({ default: m.FlashcardsLearnView })), { loading: loader, ssr: false });
 // The grammar quiz ticks its answer, so it runs in the same view the quiz uses.
@@ -17,7 +17,6 @@ const MCExerciseView = dynamic(() => import("./MCExerciseView").then((m) => ({ d
 
 import type {
   ExerciseSet,
-  GlossaryEntry,
   Source,
   LanguageTrainingView,
   StudentStats,
@@ -26,8 +25,6 @@ import type {
 interface LanguageTrainingContentProps {
   langTrainingView: LanguageTrainingView;
   setSprachView: (v: LanguageTrainingView) => void;
-  // Content
-  glossary: GlossaryEntry[];
   // Exercise sets
   exerciseSets: ExerciseSet[];
   activeSet: ExerciseSet | null;
@@ -35,10 +32,11 @@ interface LanguageTrainingContentProps {
   loadExerciseSet: (id: number) => Promise<void>;
   loadExerciseSets: (tool?: string) => void;
   deleteExerciseSet: (id: number, tool: string) => void;
+  retryExerciseSet: (id: number, tool: string) => void;
   downloadExerciseSet: (s: ExerciseSet) => void;
   setCreateSetTool: (t: string) => void;
   setShowCreateModal: (v: boolean) => void;
-  submitSingleAnswer: (setId: number, itemId: number, correct: boolean, newRun?: boolean) => void;
+  submitSingleAnswer: (setId: number, itemId: number, correct: boolean) => void;
   // Context
   selectedSourceIds: string[];
   workspaceUuid: string;
@@ -51,14 +49,13 @@ interface LanguageTrainingContentProps {
   chatLang: "de" | "en";
 }
 
-const TITLE_PREFIX_RE = /^(Lernkarten|Grammatik-Übung|Quiz)\s*(aus|von)\s*/i;
+const TITLE_PREFIX_RE = /^(Lernkarten|Grammatik-Übung|Quiz|Hörverstehen)\s*(aus|von)\s*/i;
 
 export function LanguageTrainingContent(props: LanguageTrainingContentProps) {
   const {
     langTrainingView, setSprachView,
-    glossary,
     exerciseSets, activeSet, setActiveSet,
-    loadExerciseSet, loadExerciseSets, deleteExerciseSet, downloadExerciseSet,
+    loadExerciseSet, loadExerciseSets, deleteExerciseSet, retryExerciseSet, downloadExerciseSet,
     setCreateSetTool, setShowCreateModal, submitSingleAnswer,
     selectedSourceIds, workspaceUuid, pageStats, isAdmin, sources,
     refreshProgress, handleAskChat, handlePillClick, chatLang,
@@ -78,20 +75,19 @@ export function LanguageTrainingContent(props: LanguageTrainingContentProps) {
   const studioLabel = t("common.studio");
   const lernkartenLabel = t("tools.flashcards");
   const grammarLabel = t("tools.grammar");
+  const listeningLabel = t("tools.listening");
+  // Für das Hörverstehen zählen nur Aufnahmen: ein ausgewähltes PDF darf den Knopf
+  // nicht freischalten, die Route würde den Satz ohnehin ablehnen.
+  const mediaSourceCount = selectedSourceIds.filter((id) => {
+    const src = sources.find((s) => s.uuid === id);
+    return src ? _isMediaFile(src.filename) : false;
+  }).length;
 
   const toOverviewCrumb = { label: studioLabel, onClick: () => setSprachView("overview") };
   const toOverviewWithReset = { label: studioLabel, onClick: () => { setActiveSet(null); setSprachView("overview"); } };
 
   const inner = (() => {
     switch (langTrainingView) {
-      case "karteikarten":
-        return (
-          <VocabFlashcards
-            entries={glossary}
-            onBack={() => setSprachView("overview")}
-            breadcrumbs={[toOverviewCrumb]}
-          />
-        );
       // ─── Flashcards Sets Flow ──────────────────────────────
       case "lk-sets":
         return (
@@ -103,6 +99,7 @@ export function LanguageTrainingContent(props: LanguageTrainingContentProps) {
             onSelect={(s) => { loadExerciseSet(s.id).then(() => setSprachView("lk-learn")); }}
             onCreate={() => { setCreateSetTool("flashcards"); setShowCreateModal(true); }}
             onDelete={(id) => deleteExerciseSet(id, "flashcards")}
+            onRetry={(id) => retryExerciseSet(id, "flashcards")}
             onDownload={isAdmin ? downloadExerciseSet : undefined}
             sourceCount={selectedSourceIds.length}
             stats={pageStats}
@@ -115,25 +112,12 @@ export function LanguageTrainingContent(props: LanguageTrainingContentProps) {
           <FlashcardsLearnView
             exerciseSet={activeSet}
             onBack={() => { setSprachView("lk-sets"); setActiveSet(null); refreshProgress(); }}
-            onAnswer={(itemId, correct, newRun) => submitSingleAnswer(activeSet.id, itemId, correct, newRun)}
+            onAnswer={(itemId, correct) => submitSingleAnswer(activeSet.id, itemId, correct)}
             onAskChat={handleAskChat}
             onSourceClick={onSourceClick}
             breadcrumbs={[toOverviewWithReset, { label: lernkartenLabel, toolKey: "Flashcards", onClick: () => { setActiveSet(null); setSprachView("lk-sets"); } }]}
             showTranslation
             chatLang={chatLang}
-          />
-        ) : null;
-      case "lk-complete":
-        return activeSet ? (
-          <ExerciseCompletion
-            title={activeSet.title.replace(TITLE_PREFIX_RE, "")}
-            toolKey="Flashcards"
-            category="language_training"
-            results={[]}
-            total={activeSet.card_count}
-            onRetryWrong={() => setSprachView("lk-learn")}
-            onBack={() => { setSprachView("lk-sets"); setActiveSet(null); loadExerciseSets("flashcards"); }}
-            breadcrumbs={[toOverviewWithReset, { label: lernkartenLabel, toolKey: "Flashcards", onClick: () => { setActiveSet(null); setSprachView("lk-sets"); } }]}
           />
         ) : null;
       // ─── Grammatik-Übung Sets Flow ─────────────────────────
@@ -147,6 +131,7 @@ export function LanguageTrainingContent(props: LanguageTrainingContentProps) {
             onSelect={(s) => { loadExerciseSet(s.id).then(() => setSprachView("gr-learn")); }}
             onCreate={() => { setCreateSetTool("grammatik"); setShowCreateModal(true); }}
             onDelete={(id) => deleteExerciseSet(id, "grammatik")}
+            onRetry={(id) => retryExerciseSet(id, "grammatik")}
             onDownload={isAdmin ? downloadExerciseSet : undefined}
             sourceCount={selectedSourceIds.length}
             stats={pageStats}
@@ -165,7 +150,7 @@ export function LanguageTrainingContent(props: LanguageTrainingContentProps) {
           <MCExerciseView
             exerciseSet={activeSet}
             onBack={() => { setSprachView("gr-sets"); setActiveSet(null); refreshProgress(); }}
-            onAnswer={(itemId, correct, newRun) => submitSingleAnswer(activeSet.id, itemId, correct, newRun)}
+            onAnswer={(itemId, correct) => submitSingleAnswer(activeSet.id, itemId, correct)}
             onAskChat={handleAskChat}
             onSourceClick={onSourceClick}
             breadcrumbs={grammarCrumbs}
@@ -178,7 +163,7 @@ export function LanguageTrainingContent(props: LanguageTrainingContentProps) {
             exerciseSet={activeSet}
             workspaceUuid={workspaceUuid}
             onBack={() => { setSprachView("gr-sets"); setActiveSet(null); refreshProgress(); }}
-            onAnswer={(itemId, correct, newRun) => submitSingleAnswer(activeSet.id, itemId, correct, newRun)}
+            onAnswer={(itemId, correct) => submitSingleAnswer(activeSet.id, itemId, correct)}
             onSourceClick={onSourceClick}
             onFinish={(correct, total) => { setGrammarScore({ correct, total }); setSprachView("gr-complete"); }}
             breadcrumbs={grammarCrumbs}
@@ -201,6 +186,42 @@ export function LanguageTrainingContent(props: LanguageTrainingContentProps) {
             onRetryWrong={() => setSprachView("gr-learn")}
             onBack={() => { setSprachView("gr-sets"); setActiveSet(null); loadExerciseSets("grammatik"); }}
             breadcrumbs={[toOverviewWithReset, { label: grammarLabel, toolKey: "Grammar", onClick: () => { setActiveSet(null); setSprachView("gr-sets"); } }]}
+          />
+        ) : null;
+      // ─── Hörverstehen Sets Flow ────────────────────────────
+      // Angekreuzt wird wie beim Quiz, deshalb dieselbe Ansicht. Der Unterschied
+      // steckt in den Aufgaben (Richtig/Falsch kommt dazu) und in den Quellen
+      // (nur Ton und Bild), nicht in der Bedienung.
+      case "hv-sets":
+        return (
+          <ExerciseSetsOverview
+            title={listeningLabel}
+            toolKey="Listening"
+            sets={exerciseSets.filter((s) => s.tool === "hoerverstehen")}
+            onBack={() => setSprachView("overview")}
+            onSelect={(s) => { loadExerciseSet(s.id).then(() => setSprachView("hv-learn")); }}
+            onCreate={() => { setCreateSetTool("hoerverstehen"); setShowCreateModal(true); }}
+            onDelete={(id) => deleteExerciseSet(id, "hoerverstehen")}
+            onRetry={(id) => retryExerciseSet(id, "hoerverstehen")}
+            onDownload={isAdmin ? downloadExerciseSet : undefined}
+            sourceCount={mediaSourceCount}
+            mediaOnly
+            stats={pageStats}
+            breadcrumbs={[toOverviewCrumb]}
+            category="language_training"
+          />
+        );
+      case "hv-learn":
+        return activeSet ? (
+          <MCExerciseView
+            exerciseSet={activeSet}
+            onBack={() => { setSprachView("hv-sets"); setActiveSet(null); refreshProgress(); }}
+            onAnswer={(itemId, correct) => submitSingleAnswer(activeSet.id, itemId, correct)}
+            onAskChat={handleAskChat}
+            onSourceClick={onSourceClick}
+            breadcrumbs={[toOverviewWithReset, { label: listeningLabel, toolKey: "Listening", onClick: () => { setActiveSet(null); setSprachView("hv-sets"); } }]}
+            chatLang={chatLang}
+            badgeCategory="language_training"
           />
         ) : null;
       default:

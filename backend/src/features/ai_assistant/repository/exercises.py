@@ -60,7 +60,7 @@ def create_exercise_set(
 def create_exercise_set_placeholder(
     workspace_id: int, user_id: int, tool: str, title: str,
     mode: str, source_uuid: str | None, grammar_type: str | None = None,
-    source_uuids: list[str] | None = None,
+    source_uuids: list[str] | None = None, requested_count: int | None = None,
 ) -> dict:
     """Create a placeholder set with status='generating'. Returns the set.
 
@@ -70,20 +70,52 @@ def create_exercise_set_placeholder(
     ``source_uuids`` is the learner's whole selection, in the order they picked it. That
     order becomes the numbering of the citation chips, so it has to be stored rather than
     recomputed. ``source_uuid`` keeps holding the first one for older clients.
+
+    ``requested_count`` is the size the learner picked. It is kept because a retry has
+    to generate the same size, and card_count is 0 on a set that never finished.
     """
     with get_connection() as conn:
         with conn.cursor(cursor_factory=RealDictCursor) as cur:
             cur.execute(
                 """INSERT INTO aia_exercise_sets
                    (workspace_id, user_id, tool, title, mode, source_uuid, card_count,
-                    status, grammar_type, source_uuids)
-                   VALUES (%s, %s, %s, %s, %s, %s, 0, 'generating', %s, %s::jsonb) RETURNING *""",
+                    status, grammar_type, source_uuids, requested_count)
+                   VALUES (%s, %s, %s, %s, %s, %s, 0, 'generating', %s, %s::jsonb, %s)
+                   RETURNING *""",
                 (workspace_id, user_id, tool, title, mode, source_uuid, grammar_type,
-                 json.dumps(list(source_uuids or []))),
+                 json.dumps(list(source_uuids or [])), requested_count),
             )
             ex_set = dict(cur.fetchone())
         conn.commit()
     return ex_set
+
+
+def reset_exercise_set_for_retry(set_id: int, user_id: int) -> dict | None:
+    """Put a failed set back into 'generating' so its task can run again.
+
+    Returns the set with everything the generation task needs, or None when the set
+    is not this user's or is not in the failed state. Scoping the UPDATE itself keeps
+    a double click, or two tabs, from queueing the same set twice: the second call
+    finds nothing to update.
+    """
+    with get_connection() as conn:
+        with conn.cursor(cursor_factory=RealDictCursor) as cur:
+            cur.execute(
+                """UPDATE aia_exercise_sets
+                   SET status = 'generating', card_count = 0,
+                       instruction = NULL, pattern_front = NULL, pattern_back = NULL
+                   WHERE id = %s AND user_id = %s AND status = 'failed'
+                   RETURNING *""",
+                (set_id, user_id),
+            )
+            row = cur.fetchone()
+            if row:
+                # A run that died between writing its items and marking the set ready
+                # leaves them behind. The second run appends, so without this the set
+                # comes back with both halves in it.
+                cur.execute("DELETE FROM aia_exercise_items WHERE set_id = %s", (set_id,))
+        conn.commit()
+    return dict(row) if row else None
 
 def finalize_exercise_set(
     set_id: int, title: str, items: list[dict], header: dict | None = None,
@@ -144,7 +176,18 @@ def fail_exercise_set(set_id: int) -> None:
         conn.commit()
 
 def get_exercise_sets(workspace_id: int, user_id: int, tool: str | None = None) -> list[dict]:
-    """List exercise sets for a user in a workspace with mastery info."""
+    """List exercise sets for a user in a workspace with mastery info.
+
+    ``progress_pct`` is what the ring on the card shows: the share of cards whose
+    LAST answer was correct. Per card, not per attempt, so a card that was wrong
+    and is now right counts as learned, and one that was right and is now wrong
+    does not.
+
+    It used to be the correct answers of the last run, cut off by a timestamp the
+    browser set when the learner answered the first card of a session. Anything
+    answered before that mark was dropped, so interrupting an exercise and coming
+    back showed less than the learner had right (reported: 40 percent at 4 of 5).
+    """
     with get_connection() as conn:
         with conn.cursor(cursor_factory=RealDictCursor) as cur:
             where = "s.workspace_id = %s AND s.user_id = %s"
@@ -157,23 +200,24 @@ def get_exercise_sets(workspace_id: int, user_id: int, tool: str | None = None) 
                            COALESCE(m.total_attempts, 0) AS total_attempts,
                            COALESCE(m.items_correct, 0) AS items_correct,
                            CASE WHEN s.card_count > 0
-                                THEN ROUND(COALESCE(m.items_correct, 0)::numeric / s.card_count * 100)
-                                ELSE 0 END AS progress_pct,
-                           COALESCE(lr.last_run_correct, 0) AS last_run_correct
+                                THEN LEAST(100, ROUND(
+                                       COALESCE(m.items_correct, 0)::numeric
+                                       / s.card_count * 100))
+                                ELSE 0 END AS progress_pct
                     FROM aia_exercise_sets s
                     LEFT JOIN LATERAL (
-                      SELECT COUNT(*) AS total_attempts,
-                             COUNT(DISTINCT item_id) FILTER (WHERE correct) AS items_correct
-                      FROM aia_exercise_progress p
-                      WHERE p.set_id = s.id AND p.user_id = s.user_id
+                      SELECT
+                        (SELECT COUNT(*) FROM aia_exercise_progress p
+                          WHERE p.set_id = s.id AND p.user_id = s.user_id
+                        ) AS total_attempts,
+                        (SELECT COUNT(*) FROM (
+                           SELECT DISTINCT ON (p.item_id) p.correct
+                           FROM aia_exercise_progress p
+                           WHERE p.set_id = s.id AND p.user_id = s.user_id
+                           ORDER BY p.item_id, p.answered_at DESC, p.id DESC
+                         ) letzte WHERE letzte.correct
+                        ) AS items_correct
                     ) m ON true
-                    LEFT JOIN LATERAL (
-                      SELECT COUNT(DISTINCT item_id) FILTER (WHERE correct) AS last_run_correct
-                      FROM aia_exercise_progress p
-                      WHERE p.set_id = s.id AND p.user_id = s.user_id
-                        AND s.last_run_start IS NOT NULL
-                        AND p.answered_at >= s.last_run_start
-                    ) lr ON true
                     WHERE {where}
                     ORDER BY s.created_at DESC""",
                 params,
@@ -301,27 +345,6 @@ def delete_exercise_set(set_id: int, user_id: int) -> bool:
             deleted = cur.fetchone() is not None
         conn.commit()
     return deleted
-
-def record_exercise_progress(set_id: int, item_id: int, user_id: int, correct: bool) -> None:
-    """Record a single exercise answer."""
-    with get_connection() as conn:
-        with conn.cursor() as cur:
-            cur.execute(
-                """INSERT INTO aia_exercise_progress
-                   (set_id, item_id, user_id, correct) VALUES (%s, %s, %s, %s)""",
-                (set_id, item_id, user_id, correct),
-            )
-        conn.commit()
-
-def start_new_run(set_id: int) -> None:
-    """Mark the start of a new exercise run."""
-    with get_connection() as conn:
-        with conn.cursor() as cur:
-            cur.execute(
-                "UPDATE aia_exercise_sets SET last_run_start = NOW() WHERE id = %s",
-                (set_id,),
-            )
-        conn.commit()
 
 def bulk_record_exercise_progress(set_id: int, user_id: int, results: list[dict]) -> None:
     """Record multiple exercise answers at once."""

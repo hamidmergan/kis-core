@@ -169,10 +169,10 @@ export interface GrammarCheckResult {
   explanation?: string | null;
 }
 
-export type LanguageTrainingView = "overview" | "karteikarten"
-  | "lk-sets" | "lk-learn" | "lk-complete"
+export type LanguageTrainingView = "overview"
+  | "lk-sets" | "lk-learn"
   | "gr-sets" | "gr-learn" | "gr-complete"
-  | "create-set";
+  | "hv-sets" | "hv-learn";
 
 /** One entry of a set's source legend: the number the chips print, and the file. */
 export interface ExerciseSetSource {
@@ -229,8 +229,8 @@ export interface ExerciseSet {
   status?: string;
   created_at: string;
   total_attempts?: number;
+  /** Anteil der Karten, deren letzte Antwort richtig war. Der Ring auf der Karte. */
   progress_pct?: number;
-  last_run_correct?: number;
   items?: ExerciseItem[];
   // Grammar sets only: the catalogue entry plus the header shown above the sentences.
   grammar_type?: string | null;

@@ -149,6 +149,10 @@ MESSAGES: dict[str, dict[str, str]] = {
     "source.notFound": {"de": "Source nicht gefunden", "en": "Source not found"},
     "entry.notFound": {"de": "Eintrag nicht gefunden", "en": "Entry not found"},
     "set.notFound": {"de": "Set nicht gefunden", "en": "Set not found"},
+    "set.retryNotFailed": {
+        "de": "Diese Übung wird gerade erstellt oder ist schon fertig",
+        "en": "This exercise is being created right now or is already finished",
+    },
     "grammar.typeInvalid": {
         "de": "Aufgabentyp ist in diesem Workspace nicht verfügbar",
         "en": "This exercise type is not available in this workspace",

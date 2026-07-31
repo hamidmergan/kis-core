@@ -13,7 +13,7 @@ export function FlashcardsLearnView({
 }: {
   exerciseSet: ExerciseSet;
   onBack: () => void;
-  onAnswer: (itemId: number, correct: boolean, newRun?: boolean) => void;
+  onAnswer: (itemId: number, correct: boolean) => void;
   onAskChat?: (text: string) => void;
   onSourceClick?: (filename: string, page: number, startTime?: number) => void;
   breadcrumbs?: BreadcrumbItem[];
@@ -72,12 +72,11 @@ export function FlashcardsLearnView({
 
   function answer(correct: boolean) {
     if (!card) return;
-    const isFirstAnswerOfSession = Object.keys(results).length === 0;
     const newResults = { ...results, [card.id]: correct };
     setResults(newResults);
     if (correct) setStreak((s) => s + 1);
     else setStreak(0);
-    onAnswer(card.id, correct, isFirstAnswerOfSession);
+    onAnswer(card.id, correct);
 
     if (index >= total - 1) {
       const pending = items.filter(it => !(it.id in newResults));

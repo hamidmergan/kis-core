@@ -72,6 +72,32 @@ export function useExercises({ uuid }: UseExercisesOptions) {
     return null;
   }, [uuid, loadExerciseSets]);
 
+  // Run a failed set again. The card keeps its id and flips straight back to
+  // "generating" so the learner sees the same card retrying, not a new one.
+  const retryExerciseSet = useCallback(async (setId: number, tool: string) => {
+    setExerciseSets((prev) => prev.map((s) => (
+      s.id === setId ? { ...s, status: "generating" } : s
+    )));
+    try {
+      const res = await api.fetch(`/api/ai-assistant/workspaces/${uuid}/exercise-sets/${setId}/retry`, {
+        method: "POST",
+      });
+      if (!res.ok) {
+        // Quota, burst limit or an already-running set: put the card back to failed
+        // rather than leaving it spinning forever on a task that was never queued.
+        loadExerciseSets(tool);
+        return false;
+      }
+      // Same watch the create flow runs, so the card leaves "generating" on its own.
+      const poll = setInterval(() => loadExerciseSets(tool), 3000);
+      setTimeout(() => clearInterval(poll), 120000);
+      return true;
+    } catch {
+      loadExerciseSets(tool);
+      return false;
+    }
+  }, [uuid, loadExerciseSets]);
+
   const deleteExerciseSet = useCallback(async (setId: number, tool: string) => {
     try {
       await fetch(`/api/ai-assistant/workspaces/${uuid}/exercise-sets/${setId}`, {
@@ -137,12 +163,12 @@ export function useExercises({ uuid }: UseExercisesOptions) {
     } catch { /* ignore */ }
   }, [uuid]);
 
-  const submitSingleAnswer = useCallback(async (setId: number, itemId: number, correct: boolean, newRun = false) => {
+  const submitSingleAnswer = useCallback(async (setId: number, itemId: number, correct: boolean) => {
     try {
       await fetch(`/api/ai-assistant/workspaces/${uuid}/exercise-sets/${setId}/progress`, {
         method: "POST", credentials: "include",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ results: [{ item_id: itemId, correct }], new_run: newRun }),
+        body: JSON.stringify({ results: [{ item_id: itemId, correct }] }),
       });
     } catch { /* ignore */ }
   }, [uuid]);
@@ -153,7 +179,7 @@ export function useExercises({ uuid }: UseExercisesOptions) {
     createSetTool, setCreateSetTool,
     showCreateModal, setShowCreateModal,
     loadExerciseSets, loadExerciseSet,
-    createExerciseSet, deleteExerciseSet, downloadExerciseSet,
+    createExerciseSet, deleteExerciseSet, retryExerciseSet, downloadExerciseSet,
     submitSingleAnswer,
   };
 }

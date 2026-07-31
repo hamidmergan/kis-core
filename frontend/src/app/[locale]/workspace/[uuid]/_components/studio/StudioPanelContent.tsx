@@ -31,10 +31,11 @@ interface ExerciseBundle {
   setActiveSet: (s: ExerciseSet | null) => void;
   loadExerciseSet: (id: number) => Promise<void>;
   deleteExerciseSet: (id: number, tool: string) => void;
+  retryExerciseSet: (id: number, tool: string) => void;
   downloadExerciseSet: (s: ExerciseSet) => void;
   setCreateSetTool: (t: string) => void;
   setShowCreateModal: (v: boolean) => void;
-  submitSingleAnswer: (setId: number, itemId: number, correct: boolean, newRun?: boolean) => void;
+  submitSingleAnswer: (setId: number, itemId: number, correct: boolean) => void;
 }
 
 interface NotesBundle {
@@ -128,7 +129,7 @@ export function StudioPanelContent(props: StudioPanelContentProps) {
     );
   }
 
-  const { activeSet, setActiveSet, exerciseSets, loadExerciseSet, deleteExerciseSet, downloadExerciseSet, setCreateSetTool, setShowCreateModal, submitSingleAnswer } = ex;
+  const { activeSet, setActiveSet, exerciseSets, loadExerciseSet, deleteExerciseSet, retryExerciseSet, downloadExerciseSet, setCreateSetTool, setShowCreateModal, submitSingleAnswer } = ex;
 
   const onSourceClick = (filename: string, page: number, startTime?: number) => {
     // Tool chips are nav-only, exactly like chat citations: jump to the page/timestamp,
@@ -142,7 +143,7 @@ export function StudioPanelContent(props: StudioPanelContentProps) {
       <FlashcardsLearnView
         exerciseSet={activeSet}
         onBack={() => { setActiveSet(null); refreshProgress(); }}
-        onAnswer={(itemId, correct, newRun) => submitSingleAnswer(activeSet.id, itemId, correct, newRun)}
+        onAnswer={(itemId, correct) => submitSingleAnswer(activeSet.id, itemId, correct)}
         onAskChat={(text) => onAskChat(text, hideHeader)}
         onSourceClick={onSourceClick}
         breadcrumbs={[{ label: t("panelTitle"), onClick: () => { setActiveSet(null); setStudioView("overview"); } }, { label: t("tiles.karteikarten"), toolKey: "Flashcards", onClick: () => { setActiveSet(null); refreshProgress(); } }]}
@@ -156,7 +157,7 @@ export function StudioPanelContent(props: StudioPanelContentProps) {
       <MCExerciseView
         exerciseSet={activeSet}
         onBack={() => { setActiveSet(null); refreshProgress(); }}
-        onAnswer={(itemId, correct, newRun) => submitSingleAnswer(activeSet.id, itemId, correct, newRun)}
+        onAnswer={(itemId, correct) => submitSingleAnswer(activeSet.id, itemId, correct)}
         onAskChat={(text) => onAskChat(text, true)}
         onSourceClick={onSourceClick}
         breadcrumbs={[{ label: t("panelTitle"), onClick: () => { setActiveSet(null); setStudioView("overview"); } }, { label: t("tiles.quiz"), toolKey: "Quiz", onClick: () => { setActiveSet(null); refreshProgress(); } }]}
@@ -177,6 +178,7 @@ export function StudioPanelContent(props: StudioPanelContentProps) {
         onSelect={(s) => { setActiveSet(s); loadExerciseSet(s.id); }}
         onCreate={() => { setCreateSetTool("karteikarten"); setShowCreateModal(true); }}
         onDelete={(id) => deleteExerciseSet(id, "karteikarten")}
+        onRetry={(id) => retryExerciseSet(id, "karteikarten")}
         onDownload={isAdmin ? downloadExerciseSet : undefined}
         sourceCount={selectedSourceIds.length}
         stats={pageStats}
@@ -256,6 +258,7 @@ export function StudioPanelContent(props: StudioPanelContentProps) {
         onSelect={(s) => { setActiveSet(s); loadExerciseSet(s.id); }}
         onCreate={() => { setCreateSetTool("quiz"); setShowCreateModal(true); }}
         onDelete={(id) => deleteExerciseSet(id, "quiz")}
+        onRetry={(id) => retryExerciseSet(id, "quiz")}
         onDownload={isAdmin ? downloadExerciseSet : undefined}
         sourceCount={selectedSourceIds.length}
         stats={pageStats}

@@ -19,6 +19,7 @@ const LANGUAGE_TRAINING_BADGE: Record<string, BadgeStyle> = {
   Glossary:   { bg: "var(--badge-emerald-bg)", color: "var(--badge-emerald-fg)" },
   Cloze:      { bg: "var(--badge-rose-bg)",    color: "var(--badge-rose-fg)" },
   Grammar:    { bg: "var(--badge-violet-bg)",  color: "var(--badge-violet-fg)" },
+  Listening:  { bg: "var(--badge-blue-bg)",    color: "var(--badge-blue-fg)" },
 };
 const SHARED_BADGE: Record<string, BadgeStyle> = {
   Notes:      { bg: "var(--badge-slate-bg)", color: "var(--badge-slate-fg)" },

@@ -120,7 +120,7 @@ class DataTableGenerateBody(BaseModel):
     active_source_ids: list[str]
 
 class CreateSetBody(BaseModel):
-    tool: str  # "flashcards" | "karteikarten" | "quiz" | "grammatik"
+    tool: str  # "flashcards" | "karteikarten" | "quiz" | "grammatik" | "hoerverstehen"
     mode: str = "glossary"  # "glossary" | "source"
     source_uuid: Optional[str] = None  # legacy single-source clients
     source_uuids: Optional[list[str]] = None  # preferred: all selected sources
@@ -136,7 +136,6 @@ class GrammarCheckBody(BaseModel):
 
 class ExerciseProgressBody(BaseModel):
     results: list[dict]  # [{"item_id": int, "correct": bool}]
-    new_run: bool = False
 
 
 # ─── Schedule ─────────────────────────────────────────────────────────────────

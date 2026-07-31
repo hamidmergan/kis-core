@@ -43,6 +43,10 @@ MESSAGES: dict[str, dict[str, str]] = {
         "de": "Keine Source angegeben",
         "en": "No source specified",
     },
+    "ai.source.noMediaSelected": {
+        "de": "Für das Hörverstehen wird mindestens eine Audio- oder Videoquelle gebraucht",
+        "en": "Listening comprehension needs at least one audio or video source",
+    },
     "ai.source.allowedExtensions": {
         "de": "Nur {extensions} erlaubt",
         "en": "Only {extensions} allowed",

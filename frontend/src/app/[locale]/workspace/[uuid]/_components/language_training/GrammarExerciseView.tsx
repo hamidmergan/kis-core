@@ -30,7 +30,7 @@ export function GrammarExerciseView({
   exerciseSet: ExerciseSet;
   workspaceUuid: string;
   onBack: () => void;
-  onAnswer: (itemId: number, correct: boolean, newRun?: boolean) => void;
+  onAnswer: (itemId: number, correct: boolean) => void;
   onSourceClick?: (filename: string, page: number, startTime?: number) => void;
   breadcrumbs?: BreadcrumbItem[];
   onFinish?: (correct: number, total: number) => void;
@@ -48,7 +48,6 @@ export function GrammarExerciseView({
   const [checkError, setCheckError] = useState(false);
   const [result, setResult] = useState<GrammarCheckResult | null>(null);
   const [correctCount, setCorrectCount] = useState(0);
-  const answeredRef = useRef(0);
 
   const total = items.length;
   const card = items[index];
@@ -72,9 +71,7 @@ export function GrammarExerciseView({
       setResult(data);
       const isCorrect = data.verdict === "correct";
       if (isCorrect) setCorrectCount((c) => c + 1);
-      const isFirst = answeredRef.current === 0;
-      answeredRef.current += 1;
-      onAnswer(card.id, isCorrect, isFirst);
+      onAnswer(card.id, isCorrect);
     } catch {
       // The learner keeps the sentence and can try again; nothing is recorded.
       setResult(null);
@@ -97,9 +94,7 @@ export function GrammarExerciseView({
 
   function skip() {
     if (!card || answered) return;
-    const isFirst = answeredRef.current === 0;
-    answeredRef.current += 1;
-    onAnswer(card.id, false, isFirst);
+    onAnswer(card.id, false);
     setResult({ verdict: "wrong", feedback: null, solution: card.back, explanation: card.explanation });
   }
 
@@ -231,8 +226,7 @@ export function GrammarExerciseView({
                 rows={3}
                 spellCheck={false}
                 placeholder={t("grammar.answerPlaceholder")}
-                className="w-full rounded-xl px-3 py-2.5 text-sm resize-y disabled:opacity-75"
-                style={{ border: "1.5px solid var(--border)", backgroundColor: "var(--background)", color: "var(--foreground)" }}
+                className="w-full rounded-xl px-3 py-2.5 text-sm resize-y bg-background text-foreground border-2 border-border transition-colors enabled:hover:border-kb focus:border-kb focus:outline-none disabled:opacity-75"
               />
 
               {checkError && (

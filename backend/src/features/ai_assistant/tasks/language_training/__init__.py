@@ -1,7 +1,7 @@
 """KI-Assistent Celery-Task: Exercise-Set-Generierung.
 
 Dispatcht je nach `mode` (glossary/source) und `tool`
-(flashcards/karteikarten/quiz/grammatik) an die passenden
+(flashcards/karteikarten/quiz/grammatik/hoerverstehen) an die passenden
 Handler-Module."""
 
 from langfuse.decorators import observe
@@ -33,6 +33,9 @@ from src.features.ai_assistant.tasks.language_training._source_grammar import (
 )
 from src.features.ai_assistant.tasks.language_training._source_grammar_choice import (
     generate_grammar_choice_from_source,
+)
+from src.features.ai_assistant.tasks.language_training._source_listening import (
+    generate_listening_from_source,
 )
 from src.features.ai_assistant.tasks.language_training._source_mc import generate_mc_from_source
 from src.features.ai_assistant.tasks.language_training._variation import (
@@ -130,6 +133,10 @@ def run_generate_exercise_set(self, set_id: int, workspace_id: int, tool: str,
                     return got, name, None
                 if tool == "karteikarten":
                     got, name = generate_cards_from_source(
+                        client, model, from_ctx, how_many, **shared)
+                    return got, name, None
+                if tool == "hoerverstehen":
+                    got, name = generate_listening_from_source(
                         client, model, from_ctx, how_many, **shared)
                     return got, name, None
                 if tool == "grammatik":

@@ -16,6 +16,17 @@ _TZ_BERLIN = ZoneInfo("Europe/Berlin")
 _REDIS_URL = os.environ.get("REDIS_URL", "redis://kis-redis:6379/0")
 from src.core.db.pool import get_connection
 
+# Which tool belongs to which of the two areas the statistics are split into. Named
+# once because the split is asked three times below (summary, heatmap, day view), and
+# a tool missing from one of them shows up as practised time that never happened.
+LANGUAGE_TRAINING_TOOLS = ("flashcards", "grammatik", "hoerverstehen")
+LERNTOOLS_TOOLS = ("karteikarten", "quiz")
+
+
+def sql_tool_list(tools: tuple[str, ...]) -> str:
+    """The tools as a literal IN-list. Fixed strings from this module, never user input."""
+    return ", ".join(f"'{tool}'" for tool in tools)
+
 
 def get_student_stats(workspace_id: int, user_id: int) -> dict:
     """Aggregate personal learning stats for a student in a workspace."""
@@ -69,8 +80,8 @@ def get_student_stats(workspace_id: int, user_id: int) -> dict:
                     "accuracy": round(total_correct / total_attempts * 100) if total_attempts > 0 else 0,
                 }
 
-            lerntools_sets = [s for s in sets if s["tool"] in ("karteikarten", "quiz")]
-            lang_sets = [s for s in sets if s["tool"] in ("flashcards", "grammatik")]
+            lerntools_sets = [s for s in sets if s["tool"] in LERNTOOLS_TOOLS]
+            lang_sets = [s for s in sets if s["tool"] in LANGUAGE_TRAINING_TOOLS]
 
             overview_all = _summarise(sets)
             overview_lerntools = _summarise(lerntools_sets)
@@ -86,9 +97,9 @@ def get_student_stats(workspace_id: int, user_id: int) -> dict:
                 mode_clause = ""
                 params: list = [user_id, workspace_id, user_id]
                 if category_filter == "language_training":
-                    mode_clause = " AND s2.tool IN ('flashcards', 'grammatik')"
+                    mode_clause = f" AND s2.tool IN ({sql_tool_list(LANGUAGE_TRAINING_TOOLS)})"
                 elif category_filter == "lerntools":
-                    mode_clause = " AND s2.tool IN ('karteikarten', 'quiz')"
+                    mode_clause = f" AND s2.tool IN ({sql_tool_list(LERNTOOLS_TOOLS)})"
                 cur.execute(
                     f"""SELECT (ep.answered_at AT TIME ZONE 'UTC' AT TIME ZONE 'Europe/Berlin')::date AS day,
                               COUNT(ep.id) AS answers,
@@ -176,9 +187,9 @@ def get_student_day_stats(workspace_id: int, user_id: int, day_str: str, categor
             mode_clause = ""
             params: list = [workspace_id, user_id, day_str]
             if category == "language_training":
-                mode_clause = " AND s.tool IN ('flashcards', 'grammatik')"
+                mode_clause = f" AND s.tool IN ({sql_tool_list(LANGUAGE_TRAINING_TOOLS)})"
             elif category == "lerntools":
-                mode_clause = " AND s.tool IN ('karteikarten', 'quiz')"
+                mode_clause = f" AND s.tool IN ({sql_tool_list(LERNTOOLS_TOOLS)})"
             cur.execute(
                 f"""SELECT s.id AS set_id, s.tool, s.mode, s.title,
                           COUNT(ep.id) AS answers,

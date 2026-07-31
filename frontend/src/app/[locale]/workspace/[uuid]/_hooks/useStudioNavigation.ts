@@ -52,6 +52,7 @@ export function useStudioNavigation(opts: UseStudioNavigationOptions) {
     loadExerciseSet(setId).then(() => {
       if (tool === "flashcards" || (tool === "karteikarten" && mode === "glossary")) setSprachView("lk-learn");
       else if (tool === "grammatik") setSprachView("gr-learn");
+      else if (tool === "hoerverstehen") setSprachView("hv-learn");
       else setStudioView(tool as StudioView);
     });
   }, [selectMindmap, selectDataTable, loadExerciseSet, setSprachView, setStudioView]);
@@ -59,6 +60,7 @@ export function useStudioNavigation(opts: UseStudioNavigationOptions) {
   const handleSprachNavigate = useCallback((view: LanguageTrainingView) => {
     if (view === "lk-sets") loadExerciseSets("flashcards");
     if (view === "gr-sets") loadExerciseSets("grammatik");
+    if (view === "hv-sets") loadExerciseSets("hoerverstehen");
     setSprachView(view);
   }, [loadExerciseSets, setSprachView]);
 

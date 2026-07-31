@@ -29,6 +29,23 @@ router = APIRouter(tags=["ki-assistent: language-training"])
 _MAX_SET_SOURCES = 5
 
 
+def _media_source_uuids(source_uuids: list[str]) -> list[str]:
+    """Only the audio/video sources of a selection, in the order the learner picked them.
+
+    Hörverstehen is about spoken material, so a PDF that happens to be ticked as well
+    drops out instead of ending up in the set. Filtering beats refusing: the learner
+    usually has a whole module selected, not one file.
+    """
+    from src.services.aia_chunker import is_media_file
+
+    out: list[str] = []
+    for suuid in source_uuids:
+        source = db.get_aia_source(suuid)
+        if source and is_media_file(source.get("file_type") or ""):
+            out.append(suuid)
+    return out
+
+
 def _numbered_sources(ex_set: dict) -> list[dict]:
     """The set's sources as ``[{number, filename}]``, numbered in selection order.
 
@@ -76,6 +93,15 @@ async def create_exercise_set(
     # A set can be generated from every selected source, not just the first one.
     # source_uuid stays supported for older clients that only send a single UUID.
     source_uuids = body.source_uuids or ([body.source_uuid] if body.source_uuid else [])
+    if body.tool == "hoerverstehen":
+        # There is nothing to listen to in a PDF, and the learner normally has a whole
+        # module ticked. So the recordings are kept and the rest drops out silently,
+        # and only a selection without any recording is an error.
+        if body.mode != "source":
+            raise HTTPException(status_code=400, detail=t("ai.source.notSelected", locale))
+        source_uuids = _media_source_uuids(source_uuids)
+        if not source_uuids:
+            raise HTTPException(status_code=400, detail=t("ai.source.noMediaSelected", locale))
     if body.mode == "source":
         if not source_uuids:
             raise HTTPException(status_code=400, detail=t("ai.source.notSelected", locale))
@@ -98,6 +124,7 @@ async def create_exercise_set(
         source_uuid=source_uuids[0] if source_uuids else None,
         grammar_type=grammar_type,
         source_uuids=source_uuids,
+        requested_count=body.count,
     )
 
     from src.tasks.aia_tasks import run_generate_exercise_set
@@ -108,6 +135,57 @@ async def create_exercise_set(
     )
 
     return {"set": placeholder}
+
+
+@router.post("/ai-assistant/workspaces/{workspace_uuid}/exercise-sets/{set_id}/retry")
+async def retry_exercise_set(
+    workspace_uuid: str,
+    set_id: int,
+    current_user: dict = Depends(get_current_user),
+    locale: str = Depends(get_locale),
+):
+    """Run a failed set's generation again, with the settings it was created from.
+
+    The set keeps its id rather than being deleted and re-created, so the learner
+    watches the same card go from failed back to generating instead of one card
+    vanishing and another appearing.
+    """
+    user_id = current_user["user_id"]
+    workspace = db.get_aia_workspace(workspace_uuid)
+    if not workspace:
+        raise HTTPException(status_code=404, detail=t("workspace.notFound", locale))
+
+    meta = db.get_exercise_set_meta(set_id)
+    # Same 404-not-403 rule as the other single-set routes: the serial id must not
+    # reveal that another user's set exists.
+    if not meta or meta["user_id"] != user_id or meta["workspace_id"] != workspace["id"]:
+        raise HTTPException(status_code=404, detail=t("set.notFound", locale))
+
+    # A retry costs the same model calls as the first attempt, so it is charged the
+    # same way. Checked before the reset, so a rejected retry leaves the card failed
+    # rather than stuck in generating with no task behind it.
+    enforce_aia_burst(user_id, locale)
+    enforce_quota(user_id, "aia_generate", is_admin_user(current_user), locale)
+
+    ex_set = db.reset_exercise_set_for_retry(set_id, user_id)
+    if not ex_set:
+        # Not failed (any more): already generating, already ready, or a second click.
+        raise HTTPException(status_code=409, detail=t("set.retryNotFailed", locale))
+
+    source_uuids = ex_set.get("source_uuids") or (
+        [ex_set["source_uuid"]] if ex_set.get("source_uuid") else []
+    )
+
+    from src.tasks.aia_tasks import run_generate_exercise_set
+    run_generate_exercise_set.delay(
+        set_id, workspace["id"], ex_set["tool"], ex_set["mode"],
+        # Sets created before the count was stored fall back to the create default.
+        ex_set.get("requested_count") or schemas.CreateSetBody.model_fields["count"].default,
+        source_uuids=source_uuids or None,
+        locale=locale,
+    )
+
+    return {"ok": True, "status": "generating"}
 
 
 @router.get("/ai-assistant/workspaces/{workspace_uuid}/grammar-types")
@@ -274,13 +352,11 @@ async def record_set_progress(
     workspace = db.get_aia_workspace(workspace_uuid)
     if not workspace:
         raise HTTPException(status_code=404, detail=t("workspace.notFound", locale))
-    # Without this the serial set_id let any user reset another user's run
-    # (start_new_run) and write progress against a set they do not own.
+    # Without this the serial set_id let any user write progress against a set
+    # they do not own.
     meta = db.get_exercise_set_meta(set_id)
     if not meta or meta["user_id"] != user_id or meta["workspace_id"] != workspace["id"]:
         raise HTTPException(status_code=404, detail=t("set.notFound", locale))
-    if body.new_run:
-        db.start_new_run(set_id)
     db.bulk_record_exercise_progress(set_id, user_id, body.results)
     db.update_streak(workspace["id"], user_id)
 

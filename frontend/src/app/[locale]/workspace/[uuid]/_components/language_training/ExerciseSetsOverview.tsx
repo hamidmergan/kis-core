@@ -1,18 +1,20 @@
-import { Cards, DownloadSimple, Files, Sparkle, Trash } from "@phosphor-icons/react";
+import { ArrowClockwise, Cards, DownloadSimple, Files, Sparkle, Trash } from "@phosphor-icons/react";
 import { useLocale, useTranslations } from "next-intl";
 import Spinner from "@/components/ui/Spinner";
 import { EmptyState } from "@/components/ui/EmptyState";
 import type { ExerciseSet, StudentStats } from "../../_types";
 import { SubviewHeader, type BreadcrumbItem, type ToolCategory } from "../layout/SubviewHeader";
+import { setProgressPct } from "./_progress";
 
 export function ExerciseSetsOverview({
-  title, toolKey, sets, onBack, onSelect, onCreate, onDelete, onDownload, sourceCount, stats, breadcrumbs, category,
+  title, toolKey, sets, onBack, onSelect, onCreate, onDelete, onRetry, onDownload, sourceCount, mediaOnly, stats, breadcrumbs, category,
 }: {
   title: string; toolKey?: string; sets: ExerciseSet[];
   onBack: () => void; onSelect: (s: ExerciseSet) => void;
   onCreate: () => void; onDelete: (id: number) => void;
+  onRetry?: (id: number) => void;
   onDownload?: (s: ExerciseSet) => void;
-  sourceCount: number; stats?: StudentStats | null;
+  sourceCount: number; mediaOnly?: boolean; stats?: StudentStats | null;
   breadcrumbs?: BreadcrumbItem[];
   category?: ToolCategory;
 }) {
@@ -33,13 +35,20 @@ export function ExerciseSetsOverview({
             color: noSources ? "var(--error-strong)" : sourceCount > 5 ? "#c4820e" : "var(--kb)",
           }}>
           <Files size={13} weight="bold" />
-          {noSources
-            ? t("sourceStatus.none")
-            : sourceCount === 1
-              ? t("sourceStatus.one")
-              : sourceCount <= 5
-                ? t("sourceStatus.few", { count: sourceCount })
-                : t("sourceStatus.many", { count: sourceCount })}
+          <span>
+            {noSources
+              ? t("sourceStatus.none")
+              : sourceCount === 1
+                ? t("sourceStatus.one")
+                : sourceCount <= 5
+                  ? t("sourceStatus.few", { count: sourceCount })
+                  : t("sourceStatus.many", { count: sourceCount })}
+            {/* Die Zahl zaehlt nur Ton und Bild. Ohne den Zusatz liest sich eine
+                ausgewaehlte PDF-Quelle, die hier gar nicht mitzaehlt, wie ein Fehler. */}
+            {mediaOnly && (
+              <span className="font-normal" style={{ opacity: 0.7 }}>{" "}{t("sourceStatus.mediaOnly")}</span>
+            )}
+          </span>
         </div>
 
         {sets.length === 0 ? (
@@ -73,8 +82,6 @@ export function ExerciseSetsOverview({
               {sets.map((s) => {
                 const generating = s.status === "generating";
                 const failed = s.status === "failed";
-                const lastCorrect = s.last_run_correct ?? 0;
-                const hasRun = (s.total_attempts ?? 0) > 0;
                 const modeLabel = (() => {
                   switch (s.mode) {
                     case "glossary": return t("exerciseSets.modeGlossary");
@@ -97,16 +104,20 @@ export function ExerciseSetsOverview({
                     )}
                     {/* Title + Score */}
                     <div className="flex items-start gap-2.5 flex-1 min-w-0">
-                      <span className="text-sm font-semibold leading-snug flex-1 line-clamp-3 mt-0.5 kis-tooltip" style={{ color: "var(--foreground)" }}
-                        data-tip={generating ? undefined : s.title.replace(/^(Lernkarten|Grammatik-Übung|Quiz)\s*(aus|von)\s*/i, "").replace(/^(Flashcards|Grammar exercise|Quiz)\s*(from|of)\s*/i, "")}>
-                        {generating ? generatingLabel : s.title.replace(/^(Lernkarten|Grammatik-Übung|Quiz)\s*(aus|von)\s*/i, "").replace(/^(Flashcards|Grammar exercise|Quiz)\s*(from|of)\s*/i, "")}
+                      {/* A failed set never got a real title, so it still carries the
+                          "generating" placeholder. Saying so in the title is the only
+                          place the learner reliably reads. */}
+                      <span className="text-sm font-semibold leading-snug flex-1 line-clamp-3 mt-0.5 kis-tooltip"
+                        style={{ color: failed ? "var(--error-strong)" : "var(--foreground)" }}
+                        data-tip={generating || failed ? undefined : s.title.replace(/^(Lernkarten|Grammatik-Übung|Quiz)\s*(aus|von)\s*/i, "").replace(/^(Flashcards|Grammar exercise|Quiz)\s*(from|of)\s*/i, "")}>
+                        {generating ? generatingLabel : failed ? t("exerciseSets.failed") : s.title.replace(/^(Lernkarten|Grammatik-Übung|Quiz)\s*(aus|von)\s*/i, "").replace(/^(Flashcards|Grammar exercise|Quiz)\s*(from|of)\s*/i, "")}
                       </span>
                       {generating ? (
                         <Spinner size="sm" />
-                      ) : failed ? (
-                        <span className="shrink-0 text-xs font-bold" style={{ color: "var(--error)" }}>!</span>
-                      ) : (() => {
-                        const pct = hasRun ? Math.round((lastCorrect / s.card_count) * 100) : 0;
+                      ) : failed ? null : (() => {
+                        // Wie viele Karten des Satzes sitzen. Der Wert kommt fertig
+                        // aus dem Backend, damit Ring und Statistik dasselbe zaehlen.
+                        const pct = setProgressPct(s);
                         const r = 16; const c = 2 * Math.PI * r; const offset = c - (pct / 100) * c;
                         return (
                           <svg width="42" height="42" viewBox="0 0 42 42" className="shrink-0">
@@ -123,15 +134,29 @@ export function ExerciseSetsOverview({
                     {/* Bottom row: meta left, delete right */}
                     <div className="flex items-center justify-between mt-auto pt-1">
                       <span className="text-xs font-medium" >
-                        {generating ? modeLabel : failed ? t("exerciseSets.failed") : t("exerciseSets.cardsCount", { count: s.card_count })}
-                        {!generating && s.mode === "glossary" && t("exerciseSets.fromGlossarySuffix")}
+                        {/* Nothing but the date on a failed set: it has no cards to count,
+                            and modeLabel reads off mode rather than tool, so it would name
+                            the wrong exercise type next to the failure. */}
+                        {generating ? modeLabel : failed ? null : t("exerciseSets.cardsCount", { count: s.card_count })}
+                        {!generating && !failed && s.mode === "glossary" && t("exerciseSets.fromGlossarySuffix")}
                         {/* Only in source mode: a glossary set has no sources to count. */}
                         {!generating && !failed && s.mode !== "glossary" && (s.sources?.length ?? 0) > 0
                           && ` · ${t("exerciseSets.sourcesCount", { count: s.sources!.length })}`}
-                        {!generating && ` · ${new Date(s.created_at).toLocaleDateString(dateLocale, { day: "numeric", month: "short", timeZone: "Europe/Berlin" })}`}
+                        {!generating && (failed
+                          ? new Date(s.created_at).toLocaleDateString(dateLocale, { day: "numeric", month: "short", timeZone: "Europe/Berlin" })
+                          : ` · ${new Date(s.created_at).toLocaleDateString(dateLocale, { day: "numeric", month: "short", timeZone: "Europe/Berlin" })}`)}
                       </span>
                       <div className="flex items-center gap-1.5">
-                        {!generating && onDownload && (
+                        {failed && onRetry && (
+                          <button type="button" onClick={(e) => { e.stopPropagation(); onRetry(s.id); }}
+                            className="w-6 h-6 rounded-full flex items-center justify-center btn-icon"
+                            style={{ backgroundColor: "var(--surface-dim)" }}
+                            title={t("exerciseSets.retry")}
+                            aria-label={t("exerciseSets.retry")}>
+                            <ArrowClockwise size={12} />
+                          </button>
+                        )}
+                        {!generating && !failed && onDownload && (
                           <button type="button" onClick={(e) => { e.stopPropagation(); onDownload(s); }}
                             className="w-6 h-6 rounded-full flex items-center justify-center btn-icon"
                             style={{ backgroundColor: "var(--surface-dim)" }}
