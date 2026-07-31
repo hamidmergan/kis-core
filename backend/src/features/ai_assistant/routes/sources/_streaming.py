@@ -6,7 +6,7 @@ from ._shared import (
     Path, APIRouter, Depends, HTTPException, Request, logger, db, get_current_user,
     get_locale, t, FileResponse,
     Response, StreamingResponse, USE_S3,
-    file_exists, get_file, list_keys, stream_s3_object, _require_own_workspace,
+    file_exists, get_file, list_keys, stream_s3_object, _require_workspace_manage,
     _load_workspace_source,
     aia_transcript_prefix, aia_vtt_key,
 )
@@ -110,11 +110,8 @@ async def regenerate_transcript(
     """
     from src.services import feature_router
 
-    workspace = _require_own_workspace(workspace_uuid, current_user["user_id"], locale=locale)
+    workspace = _require_workspace_manage(workspace_uuid, current_user["user_id"], locale=locale)
     source = _load_workspace_source(source_uuid, workspace, locale)
-
-    if workspace.get("transcript_translation_mode", "manual") == "off":
-        raise HTTPException(status_code=403, detail=t("ai.transcript.translationDisabled", locale))
 
     try:
         binding = feature_router.resolve("transcript_translate")

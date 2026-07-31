@@ -49,6 +49,8 @@ export interface WorkspaceDetail {
   status: string;
   is_active: boolean;
   is_owner?: boolean;
+  /** Owner or tutor. Drives the UI, is_owner is literal ownership only. */
+  can_manage?: boolean;
   transcript_translation_mode?: TranscriptTranslationMode;
   transcript_default_lang?: TranscriptDefaultLang;
   transcript_target_lang?: string;

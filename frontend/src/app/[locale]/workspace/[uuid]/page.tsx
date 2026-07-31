@@ -405,7 +405,10 @@ export default function KiTutorWorkspacePage() {
 
   // ─── Render ────────────────────────────────────────────────────────────────
 
-  const isLecturer = !!auth?.permissions?.allow_workspace_create;
+  // The relationship to THIS workspace decides what it offers, never the system
+  // role. Owner and tutor manage it, everyone else learns from it, whether they
+  // are staff, admin or student.
+  const isOwner = moduleDetail?.can_manage ?? moduleDetail?.is_owner ?? false;
   const activeSourceIds = viewerSource ? [viewerSource.uuid] : selectedSourceIds;
 
   const p1Style: React.CSSProperties = effectivePanels.quellen
@@ -464,9 +467,9 @@ export default function KiTutorWorkspacePage() {
   const renderQuellenContent = ({ onMinimize, hideHeader: hh }: { onMinimize: () => void; hideHeader: boolean }) => {
     if (viewerSource) {
       return _isMediaFile(viewerSource.filename) ? (
-        <MediaPlayer source={viewerSource} onClose={handleCloseViewer} workspaceUuid={uuid} onMinimize={onMinimize} canDownload={isLecturer || isAdmin} canManage={isLecturer || isAdmin} onSaveNote={addNote} defaultTranscriptLang={transcriptDefaultLang} />
+        <MediaPlayer source={viewerSource} onClose={handleCloseViewer} workspaceUuid={uuid} onMinimize={onMinimize} canDownload={isOwner} canManage={isOwner} onSaveNote={addNote} />
       ) : (
-        <PdfViewer source={viewerSource} onClose={handleCloseViewer} workspaceUuid={uuid} onAskWithSelection={handleAskWithSelection} onCustomQuestion={handleCustomQuestion} popupActions={popupActions} onAddToGlossary={handleAddToGlossary} onAddToNote={handleAddToNote} onMinimize={onMinimize} isOwner={moduleDetail?.is_owner ?? false} />
+        <PdfViewer source={viewerSource} onClose={handleCloseViewer} workspaceUuid={uuid} onAskWithSelection={handleAskWithSelection} onCustomQuestion={handleCustomQuestion} popupActions={popupActions} onAddToGlossary={handleAddToGlossary} onAddToNote={handleAddToNote} onMinimize={onMinimize} isOwner={isOwner} />
       );
     }
     return (
@@ -481,7 +484,7 @@ export default function KiTutorWorkspacePage() {
         uploadProgress={uploadProgress}
         uploadErrors={uploadErrors}
         onDismissUploadErrors={() => setUploadErrors([])}
-        isLecturer={isLecturer}
+        isOwner={isOwner}
         onMinimize={onMinimize}
         workspaceUuid={uuid}
         staffNoteText={moduleDetail?.staff_note_text ?? null}
@@ -569,8 +572,7 @@ export default function KiTutorWorkspacePage() {
           onToggleStudio={() => setStudioEnabled((v) => !v)}
           language_trainingActive={language_trainingActive}
           onToggleLanguageTraining={() => setLanguageTrainingActive((v) => !v)}
-          isLecturer={isLecturer}
-          isOwner={moduleDetail?.is_owner ?? false}
+          isOwner={isOwner}
           isAdmin={isAdmin}
           hideHeader={hideHeader}
           onToggleHideHeader={() => setHideHeader((v) => !v)}

@@ -15,7 +15,7 @@ from ._shared import (
     AIA_MAX_CONCURRENT_UPLOADS, AIA_SOURCE_MAX_PAGES, AIA_WORKSPACE_MAX_SOURCES,
     delete_aia_source_files,
     _convert_office_to_pdf_path, _mp4_faststart_path, _count_pages_path,
-    _require_own_workspace, _load_workspace_source, _save_source_file_path,
+    _require_workspace_manage, _load_workspace_source, _save_source_file_path,
     _ALLOWED_EXTENSIONS, _MAX_UPLOAD_BYTES,
 )
 
@@ -97,7 +97,7 @@ async def upload_source(
     current_user: dict = Depends(get_current_user),
     locale: str = Depends(get_locale),
 ):
-    workspace = _require_own_workspace(workspace_uuid, current_user["user_id"], locale=locale)
+    workspace = _require_workspace_manage(workspace_uuid, current_user["user_id"], locale=locale)
 
     # Reject before reading the body so spam attempts don't waste bandwidth.
     # READ-ONLY check here; the counter is bumped by record_upload() only once the
@@ -198,8 +198,11 @@ async def upload_source(
 
             source_uuid = uuid.uuid4().hex
             file_type = ext.lstrip(".")
+            # Key the file to the workspace OWNER, not whoever uploaded it. A
+            # tutor uploading into someone else's workspace must not scatter its
+            # files across a second prefix, or deleting the workspace would miss them.
             file_path = await asyncio.to_thread(
-                _save_source_file_path, current_user["user_id"], workspace_uuid, source_uuid, ext, final_path
+                _save_source_file_path, workspace["user_id"], workspace_uuid, source_uuid, ext, final_path
             )
 
             db.create_aia_source(
@@ -234,7 +237,7 @@ async def retry_source(
     current_user: dict = Depends(get_current_user),
     locale: str = Depends(get_locale),
 ):
-    workspace = _require_own_workspace(workspace_uuid, current_user["user_id"], locale=locale)
+    workspace = _require_workspace_manage(workspace_uuid, current_user["user_id"], locale=locale)
     # Bind the source to the owned workspace: without this an owner of workspace A
     # could retry (delete chunks + reset) a source belonging to workspace B.
     source = _load_workspace_source(source_uuid, workspace, locale)
@@ -262,7 +265,7 @@ def delete_source(
     current_user: dict = Depends(get_current_user),
     locale: str = Depends(get_locale),
 ):
-    workspace = _require_own_workspace(workspace_uuid, current_user["user_id"], locale=locale)
+    workspace = _require_workspace_manage(workspace_uuid, current_user["user_id"], locale=locale)
     # Bind the source to the owned workspace: without this an owner of workspace A
     # could delete a source (file + DB row) belonging to workspace B.
     source = _load_workspace_source(source_uuid, workspace, locale)

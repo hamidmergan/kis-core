@@ -1,11 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import React, { useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
 import HelpTooltip from "@/components/ui/HelpTooltip";
 import WorkspaceTableRow from "./WorkspaceTableRow";
+import WorkspaceTableStudentRow from "./WorkspaceTableStudentRow";
 import { useWorkspaceLabel } from "@/hooks/useWorkspaceLabel";
-import type { AccessLink, KiTutorWorkspace } from "../_shared";
+import { canManage, type AccessLink, type KiTutorWorkspace } from "../_shared";
 
 const MODULES_PER_PAGE = 20;
 
@@ -15,6 +16,7 @@ interface WorkspaceTableProps {
   onDelete: (uuid: string) => Promise<void>;
   onEdit: (uuid: string, newTitle: string, newDescription: string) => Promise<boolean>;
   onLinksChanged: (uuid: string, links: AccessLink[]) => void;
+  onRolesChanged: () => void;
 }
 
 export default function WorkspaceTable({
@@ -23,14 +25,36 @@ export default function WorkspaceTable({
   onDelete,
   onEdit,
   onLinksChanged,
+  onRolesChanged,
 }: WorkspaceTableProps) {
   const t = useTranslations("workspace.list");
   const labels = useWorkspaceLabel();
   const [page, setPage] = useState(1);
-  const totalPages = Math.max(1, Math.ceil(workspaces.length / MODULES_PER_PAGE));
+
+  // Workspaces the user runs come first, the ones they only learn from after.
+  // Sorting before paginating keeps the two groups from interleaving across pages.
+  const sorted = useMemo(
+    () => [...workspaces].sort(
+      (a, b) => Number(canManage(b.access)) - Number(canManage(a.access)),
+    ),
+    [workspaces],
+  );
+  const hasBothGroups = sorted.some((m) => canManage(m.access))
+    && sorted.some((m) => !canManage(m.access));
+
+  const totalPages = Math.max(1, Math.ceil(sorted.length / MODULES_PER_PAGE));
   const safePage = Math.min(page, totalPages);
   const startIdx = (safePage - 1) * MODULES_PER_PAGE;
-  const visibleModules = workspaces.slice(startIdx, startIdx + MODULES_PER_PAGE);
+  const visibleModules = sorted.slice(startIdx, startIdx + MODULES_PER_PAGE);
+
+  // A heading goes above the first row of a page and wherever the group changes,
+  // so every page says what it is showing even when a group spans pages.
+  const groupHeadingFor = (index: number): string | null => {
+    if (!hasBothGroups) return null;
+    const current = canManage(visibleModules[index].access);
+    if (index > 0 && canManage(visibleModules[index - 1].access) === current) return null;
+    return current ? t("myWorkspaces", { label: labels.plural }) : t("groupEnrolled");
+  };
 
   return (
     <>
@@ -54,16 +78,37 @@ export default function WorkspaceTable({
               </tr>
             </thead>
             <tbody>
-              {visibleModules.map((m) => (
-                <WorkspaceTableRow
-                  key={m.uuid}
-                  workspace={m}
-                  onToggleActive={onToggleActive}
-                  onDelete={onDelete}
-                  onEdit={onEdit}
-                  onLinksChanged={onLinksChanged}
-                />
-              ))}
+              {visibleModules.map((m, i) => {
+                const heading = groupHeadingFor(i);
+                return (
+                  <React.Fragment key={`${m.uuid}-${m.access}-${m.enrollment_id ?? "o"}`}>
+                    {heading && (
+                      <tr>
+                        <th
+                          colSpan={7}
+                          scope="colgroup"
+                          className="px-4 pt-5 pb-2 text-left text-xs font-semibold uppercase tracking-wide"
+                          style={{ color: "var(--muted)" }}
+                        >
+                          {heading}
+                        </th>
+                      </tr>
+                    )}
+                    {canManage(m.access) ? (
+                      <WorkspaceTableRow
+                        workspace={m}
+                        onToggleActive={onToggleActive}
+                        onDelete={onDelete}
+                        onEdit={onEdit}
+                        onLinksChanged={onLinksChanged}
+                        onRolesChanged={onRolesChanged}
+                      />
+                    ) : (
+                      <WorkspaceTableStudentRow workspace={m} />
+                    )}
+                  </React.Fragment>
+                );
+              })}
             </tbody>
           </table>
         </div>

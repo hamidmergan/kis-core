@@ -1,10 +1,12 @@
 "use client";
 
+import { useState } from "react";
 import { useTranslations } from "next-intl";
 import {
   ArrowRight,
   CaretRight,
   Plus,
+  Users,
 } from "@phosphor-icons/react";
 import IconButton from "@/components/ui/IconButton";
 import LinkRow from "./LinkRow";
@@ -20,6 +22,7 @@ interface WorkspaceTableRowProps {
   onDelete: (uuid: string) => Promise<void>;
   onEdit: (uuid: string, newTitle: string, newDescription: string) => Promise<boolean>;
   onLinksChanged: (uuid: string, links: AccessLink[]) => void;
+  onRolesChanged: () => void;
 }
 
 export default function WorkspaceTableRow({
@@ -28,16 +31,23 @@ export default function WorkspaceTableRow({
   onDelete,
   onEdit,
   onLinksChanged,
+  onRolesChanged,
 }: WorkspaceTableRowProps) {
   const t = useTranslations("workspace.list");
   const a = useWorkspaceActions({ workspace, onToggleActive, onDelete, onLinksChanged });
   const labels = useWorkspaceLabel();
+  const [showParticipants, setShowParticipants] = useState(false);
+  // A tutor manages links like the owner. Deleting the whole workspace is the
+  // one thing that stays with the owner, because it cannot be undone.
+  const isOwner = workspace.access === "owner";
 
   return (
     <>
       <WorkspaceModals
         workspace={workspace}
         showStats={a.showStats} onCloseStats={() => a.setShowStats(false)}
+        showParticipants={showParticipants} onCloseParticipants={() => setShowParticipants(false)}
+        onRolesChanged={onRolesChanged}
         editOpen={a.editOpen} onCloseEdit={() => a.setEditOpen(false)}
         onSubmitEdit={(t, d) => onEdit(workspace.uuid, t, d)}
         showAddLink={a.showAddLink} onCloseAddLink={() => a.setShowAddLink(false)} onLinkCreated={a.handleLinkCreated}
@@ -66,7 +76,28 @@ export default function WorkspaceTableRow({
           onClick={a.handleOpen}
           onMouseDown={(e) => { if (e.button === 1) { e.preventDefault(); window.open(a.moduleHref, "_blank"); } }}
         >
-          <span className="font-medium text-foreground-soft truncate block" title={workspace.title}>{workspace.title}</span>
+          <span className="font-medium text-foreground-soft truncate flex items-center gap-1.5" title={workspace.title}>
+            <span className="truncate">{workspace.title}</span>
+            {workspace.shared && (
+              <Users
+                size={15}
+                weight="fill"
+                className="flex-shrink-0 text-muted-soft"
+                aria-label={isOwner ? t("sharedByMe") : t("sharedWithMe")}
+              >
+                <title>{isOwner ? t("sharedByMe") : t("sharedWithMe")}</title>
+              </Users>
+            )}
+            {/* The row looks the same whether it is owned or tutored, so say which. */}
+            {!isOwner && (
+              <span
+                className="flex-shrink-0 text-[11px] font-medium px-1.5 py-0.5 rounded-full"
+                style={{ backgroundColor: "var(--surface-dim)", color: "var(--muted)" }}
+              >
+                {t("roleTutor")}
+              </span>
+            )}
+          </span>
         </td>
         <td
           className="px-4 py-3 text-right tabular-nums text-foreground-soft cursor-pointer"
@@ -115,8 +146,9 @@ export default function WorkspaceTableRow({
           <div className="flex justify-center">
             <WorkspaceMenu
               onStats={() => a.setShowStats(true)}
+              onParticipants={() => setShowParticipants(true)}
               onEdit={() => a.setEditOpen(true)}
-              onDelete={() => a.setDeleteConfirm(true)}
+              onDelete={isOwner ? () => a.setDeleteConfirm(true) : undefined}
             />
           </div>
         </td>

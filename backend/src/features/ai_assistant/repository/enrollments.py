@@ -19,21 +19,89 @@ from src.core.db.pool import get_connection
 
 def enroll_student(
     workspace_id: int, user_id: int, enrolled_until: datetime | None,
-    link_id: int | None = None,
+    link_id: int | None = None, role: str = "student",
 ) -> int | None:
-    """Enroll student. Returns enrollment id, or None if already enrolled for this link."""
+    """Enroll a user. Returns enrollment id, or None if already enrolled here.
+
+    ``role`` is copied from the link rather than looked up through ``link_id``
+    later, because ``link_id`` is ON DELETE SET NULL: deleting a spent tutor link
+    must not silently demote the tutor.
+
+    The conflict target is the person, not the link, and matches the rule on the
+    table. Two links clicked at the same moment both pass the check in the route,
+    so this is where that race ends: quietly, with None, instead of a 500.
+    """
     with get_connection() as conn:
         with conn.cursor() as cur:
             cur.execute(
-                """INSERT INTO aia_enrollments (workspace_id, user_id, link_id, enrolled_until)
-                   VALUES (%s, %s, %s, %s)
-                   ON CONFLICT (workspace_id, user_id, link_id) DO NOTHING
+                """INSERT INTO aia_enrollments (workspace_id, user_id, link_id, enrolled_until, role)
+                   VALUES (%s, %s, %s, %s, %s)
+                   ON CONFLICT (workspace_id, user_id) DO NOTHING
                    RETURNING id""",
-                (workspace_id, user_id, link_id, enrolled_until),
+                (workspace_id, user_id, link_id, enrolled_until, role),
             )
             row = cur.fetchone()
         conn.commit()
     return row[0] if row else None
+
+def is_workspace_tutor(workspace_id: int, user_id: int) -> bool:
+    """True if the user joined this workspace through a tutor link.
+
+    Tutors manage the workspace exactly like its owner, so an expired
+    enrollment still counts here: losing management rights mid-semester
+    because a link ran out would be a trap.
+    """
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                "SELECT 1 FROM aia_enrollments "
+                "WHERE workspace_id = %s AND user_id = %s AND role = 'tutor'",
+                (workspace_id, user_id),
+            )
+            return cur.fetchone() is not None
+
+def get_workspace_participants(workspace_id: int) -> list[dict]:
+    """Everyone enrolled in a workspace, one entry per person.
+
+    Someone who joined through several links has several enrollments but is one
+    participant, so the strongest role wins and the earliest join date is kept.
+    """
+    with get_connection() as conn:
+        with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
+            cur.execute(
+                """SELECT e.user_id,
+                          u.display_name,
+                          u.ldap_username,
+                          BOOL_OR(e.role = 'tutor') AS is_tutor,
+                          MIN(e.created_at)         AS joined_at,
+                          MAX(e.enrolled_until)     AS enrolled_until
+                   FROM aia_enrollments e
+                   JOIN users u ON u.id = e.user_id
+                   WHERE e.workspace_id = %s
+                   GROUP BY e.user_id, u.display_name, u.ldap_username
+                   ORDER BY BOOL_OR(e.role = 'tutor') DESC, u.display_name ASC""",
+                (workspace_id,),
+            )
+            rows = cur.fetchall()
+    return [dict(row) for row in rows]
+
+
+def set_participant_role(workspace_id: int, user_id: int, role: str) -> int:
+    """Promote or demote a participant. Returns how many enrollments changed.
+
+    All of the person's enrollments in this workspace move together: rights
+    belong to the person, not to the link they happened to arrive through.
+    """
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                "UPDATE aia_enrollments SET role = %s WHERE workspace_id = %s AND user_id = %s",
+                (role, workspace_id, user_id),
+            )
+            geaendert = cur.rowcount
+        conn.commit()
+    return geaendert
+
 
 def is_student_enrolled(workspace_id: int, user_id: int) -> bool:
     with get_connection() as conn:

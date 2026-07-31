@@ -1423,13 +1423,37 @@ def _enrich_media_content(chunk: dict, segments: list[dict]) -> str:
         return content
     return " ".join(f"({_format_timestamp(s['start'])}) {s['text']}" for s in relevant)
 
-def _require_own_workspace(workspace_uuid: str, user_id: int, locale: str = DEFAULT_LOCALE) -> dict:
+def _require_workspace_owner(workspace_uuid: str, user_id: int, locale: str = DEFAULT_LOCALE) -> dict:
+    """Owner only. The two things a tutor must not do.
+
+    Deleting the workspace is unrecoverable, and handing out tutor rights would
+    let the circle of people with full rights grow without the owner noticing.
+    Inviting learners is not in here: that is ordinary tutoring work and cannot
+    hurt anything.
+    """
     workspace = db.get_aia_workspace(workspace_uuid)
     if not workspace:
         raise HTTPException(status_code=404, detail=t("workspace.notFound", locale))
     if workspace["user_id"] != user_id:
         raise HTTPException(status_code=403, detail=t("workspace.accessDenied", locale))
     return workspace
+
+
+def _require_workspace_manage(workspace_uuid: str, user_id: int, locale: str = DEFAULT_LOCALE) -> dict:
+    """Allow the owner OR a tutor. Used for everything that changes a workspace.
+
+    A tutor joined through a tutor link and manages the workspace on the owner's
+    behalf, with the same rights. The system role (staff/admin/user) never grants
+    this, only ownership or a tutor enrollment does.
+    """
+    workspace = db.get_aia_workspace(workspace_uuid)
+    if not workspace:
+        raise HTTPException(status_code=404, detail=t("workspace.notFound", locale))
+    if workspace["user_id"] == user_id:
+        return workspace
+    if db.is_workspace_tutor(workspace["id"], user_id):
+        return workspace
+    raise HTTPException(status_code=403, detail=t("workspace.accessDenied", locale))
 
 def _require_workspace_access(workspace_uuid: str, user_id: int, locale: str = DEFAULT_LOCALE) -> dict:
     """Allow owner OR enrolled student. Used for read-only workspace info."""
@@ -1448,7 +1472,7 @@ def _save_source_file_path(user_id: int, workspace_uuid: str, source_uuid: str, 
     Returns the stored key (S3) or absolute path (local)."""
     return save_aia_source_from_path(user_id, workspace_uuid, source_uuid, ext, local_path)
 
-def _delete_source_files_for_workspace(workspace: dict) -> None:
+def _delete_workspace_files(workspace: dict) -> None:
     """Remove the workspace folder as a whole.
 
     Per-source deletion would leave the derived artifacts (transcript,

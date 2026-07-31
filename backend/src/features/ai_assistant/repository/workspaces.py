@@ -64,6 +64,38 @@ def touch_aia_workspace_visited(uuid: str) -> None:
             )
         conn.commit()
 
+def get_workspace_ids_with_tutors() -> set[int]:
+    """Workspace ids that have at least one tutor, for the shared marker."""
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute("SELECT DISTINCT workspace_id FROM aia_enrollments WHERE role = 'tutor'")
+            return {r[0] for r in cur.fetchall()}
+
+
+def get_aia_workspaces_for_member(user_id: int) -> list[dict]:
+    """Workspaces the user joined via a link, with the role that link gave them.
+
+    Deactivating a workspace hides it from students, but never from tutors:
+    they manage it, so they need it even while it is switched off.
+    """
+    with get_connection() as conn:
+        with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
+            cur.execute(
+                """SELECT m.*, e.id AS enrollment_id, e.link_id, e.enrolled_until,
+                          e.role AS member_role,
+                          al.code AS link_code, al.expires_at AS link_expires_at
+                   FROM aia_workspaces m
+                   JOIN aia_enrollments e ON e.workspace_id = m.id
+                   LEFT JOIN aia_access_links al ON al.id = e.link_id
+                   WHERE e.user_id = %s
+                     AND (e.role = 'tutor' OR m.is_active = TRUE)
+                   ORDER BY e.created_at DESC""",
+                (user_id,),
+            )
+            rows = cur.fetchall()
+    return [dict(row) for row in rows]
+
+
 def get_aia_workspaces_for_student(user_id: int) -> list[dict]:
     """Return workspaces with enrollment info. Same workspace can appear multiple times (different links)."""
     with get_connection() as conn:

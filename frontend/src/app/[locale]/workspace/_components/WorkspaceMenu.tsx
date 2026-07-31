@@ -3,19 +3,21 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useTranslations } from "next-intl";
-import { ChartBar, DotsThreeVertical, PencilSimple, Trash } from "@phosphor-icons/react";
+import { ChartBar, DotsThreeVertical, PencilSimple, Trash, Users } from "@phosphor-icons/react";
 import IconButton from "@/components/ui/IconButton";
 
 interface WorkspaceMenuProps {
   onStats: () => void;
+  onParticipants: () => void;
   onEdit: () => void;
-  onDelete: () => void;
+  /** Left out for tutors: deleting the workspace stays with the owner. */
+  onDelete?: () => void;
 }
 
 const MENU_WIDTH = 220;
 const GAP = 6;
 
-export default function WorkspaceMenu({ onStats, onEdit, onDelete }: WorkspaceMenuProps) {
+export default function WorkspaceMenu({ onStats, onParticipants, onEdit, onDelete }: WorkspaceMenuProps) {
   const t = useTranslations("workspace.list");
   const [open, setOpen] = useState(false);
   const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
@@ -90,6 +92,15 @@ export default function WorkspaceMenu({ onStats, onEdit, onDelete }: WorkspaceMe
           </button>
           <button
             type="button"
+            onClick={() => handle(onParticipants)}
+            className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-left hover:bg-[var(--surface-dim)] transition-colors"
+            style={{ color: "var(--foreground)" }}
+          >
+            <Users size={16} weight="bold" />
+            {t("participants")}
+          </button>
+          <button
+            type="button"
             onClick={() => handle(onEdit)}
             className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-left hover:bg-[var(--surface-dim)] transition-colors"
             style={{ color: "var(--foreground)" }}
@@ -97,15 +108,17 @@ export default function WorkspaceMenu({ onStats, onEdit, onDelete }: WorkspaceMe
             <PencilSimple size={16} weight="bold" />
             {t("edit")}
           </button>
-          <button
-            type="button"
-            onClick={() => handle(onDelete)}
-            className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-left hover:bg-[var(--surface-dim)] transition-colors"
-            style={{ color: "rgb(185, 28, 28)" }}
-          >
-            <Trash size={16} weight="bold" />
-            {t("delete")}
-          </button>
+          {onDelete && (
+            <button
+              type="button"
+              onClick={() => handle(onDelete)}
+              className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-left hover:bg-[var(--surface-dim)] transition-colors"
+              style={{ color: "rgb(185, 28, 28)" }}
+            >
+              <Trash size={16} weight="bold" />
+              {t("delete")}
+            </button>
+          )}
         </div>,
         document.body,
       )}

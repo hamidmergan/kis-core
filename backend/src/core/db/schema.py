@@ -431,11 +431,38 @@ def init_db(admin_email: Optional[str] = None) -> None:
                     link_id        INTEGER REFERENCES aia_access_links(id) ON DELETE SET NULL,
                     enrolled_until TIMESTAMP,
                     created_at     TIMESTAMP NOT NULL DEFAULT NOW(),
-                    UNIQUE (workspace_id, user_id, link_id)
+                    role           TEXT NOT NULL DEFAULT 'student',
+                    UNIQUE (workspace_id, user_id)
                 )
             """)
             # Migration: add link_id column if table already existed without it
             cur.execute("ALTER TABLE aia_enrollments ADD COLUMN IF NOT EXISTS link_id INTEGER REFERENCES aia_access_links(id) ON DELETE SET NULL")
+            # A member is either a learner or a tutor. Tutors manage the workspace
+            # with the same rights as its owner, minus inviting: only the owner
+            # decides who gets in and who becomes a tutor.
+            #
+            # The role sits on the enrollment, never on the link. A link that
+            # granted full rights would be a credential that leaks by being
+            # forwarded, and nobody could tell it had spread. Promotion instead
+            # targets a named person the owner picked from the participant list.
+            cur.execute(
+                "ALTER TABLE aia_enrollments ADD COLUMN IF NOT EXISTS role TEXT NOT NULL DEFAULT 'student'"
+            )
+            cur.execute("""
+                DO $$ BEGIN
+                    IF NOT EXISTS (
+                        SELECT 1 FROM pg_constraint
+                        WHERE conname = 'aia_enrollments_role_check'
+                    ) THEN
+                        ALTER TABLE aia_enrollments
+                            ADD CONSTRAINT aia_enrollments_role_check
+                            CHECK (role IN ('student', 'tutor'));
+                    END IF;
+                END $$
+            """)
+            # Links never carried a role in a released version; drop the short-lived column.
+            cur.execute("ALTER TABLE aia_access_links DROP CONSTRAINT IF EXISTS aia_access_links_role_check")
+            cur.execute("ALTER TABLE aia_access_links DROP COLUMN IF EXISTS role")
             # Migration: drop legacy unique constraints (both pre-link_id and pre-workspace_id versions)
             cur.execute("""
                 DO $$ BEGIN
@@ -448,15 +475,65 @@ def init_db(admin_email: Optional[str] = None) -> None:
                     END IF;
                 END $$
             """)
+            # One enrollment per person and workspace. The rule used to include
+            # link_id, which made it toothless: link_id is ON DELETE SET NULL, and
+            # an empty value never equals another empty value, so a course that
+            # replaced its link collected a second enrollment for the same person
+            # and stood twice in their list.
+            #
+            # Existing duplicates are merged first, otherwise the rule could not be
+            # put in place at all. The oldest enrollment stays, with its own expiry:
+            # a later link must not silently extend an access that was meant to run
+            # out. Its role wins if any of the merged rows was a tutor, because
+            # rights belong to the person, and messages move along so no chat is
+            # left hanging on a row that is about to disappear.
+            cur.execute("""
+                UPDATE aia_enrollments k
+                SET role = 'tutor'
+                FROM aia_enrollments t
+                WHERE t.workspace_id = k.workspace_id
+                  AND t.user_id = k.user_id
+                  AND t.role = 'tutor'
+                  AND k.role <> 'tutor'
+            """)
+            cur.execute("""
+                UPDATE aia_messages m
+                SET enrollment_id = behalten.id
+                FROM aia_enrollments e
+                JOIN (
+                    SELECT DISTINCT ON (workspace_id, user_id) id, workspace_id, user_id
+                    FROM aia_enrollments
+                    ORDER BY workspace_id, user_id, created_at, id
+                ) behalten
+                  ON behalten.workspace_id = e.workspace_id
+                 AND behalten.user_id = e.user_id
+                WHERE m.enrollment_id = e.id
+                  AND e.id <> behalten.id
+            """)
+            cur.execute("""
+                DELETE FROM aia_enrollments e
+                USING (
+                    SELECT DISTINCT ON (workspace_id, user_id) id, workspace_id, user_id
+                    FROM aia_enrollments
+                    ORDER BY workspace_id, user_id, created_at, id
+                ) behalten
+                WHERE e.workspace_id = behalten.workspace_id
+                  AND e.user_id = behalten.user_id
+                  AND e.id <> behalten.id
+            """)
+            cur.execute(
+                "ALTER TABLE aia_enrollments "
+                "DROP CONSTRAINT IF EXISTS aia_enrollments_workspace_id_user_id_link_id_key"
+            )
             cur.execute("""
                 DO $$ BEGIN
                     IF NOT EXISTS (
                         SELECT 1 FROM pg_constraint
-                        WHERE conname = 'aia_enrollments_workspace_id_user_id_link_id_key'
+                        WHERE conname = 'aia_enrollments_workspace_id_user_id_key'
                     ) THEN
                         ALTER TABLE aia_enrollments
-                            ADD CONSTRAINT aia_enrollments_workspace_id_user_id_link_id_key
-                            UNIQUE (workspace_id, user_id, link_id);
+                            ADD CONSTRAINT aia_enrollments_workspace_id_user_id_key
+                            UNIQUE (workspace_id, user_id);
                     END IF;
                 END $$
             """)

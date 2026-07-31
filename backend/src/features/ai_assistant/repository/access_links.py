@@ -18,6 +18,8 @@ from src.core.db.pool import get_connection
 
 
 def create_access_link(workspace_id: int, code: str, expires_at: datetime | None) -> dict:
+    """Create an access link. Following it always joins as a learner: only the
+    owner can hand out tutor rights, and only to a named person."""
     with get_connection() as conn:
         with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
             cur.execute(

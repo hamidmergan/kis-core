@@ -6,6 +6,7 @@ import { useLocale, useTranslations } from "next-intl";
 import StatsModal from "./StatsModal";
 import EditWorkspaceModal from "./EditWorkspaceModal";
 import AddLinkModal from "./AddLinkModal";
+import ParticipantsModal from "./ParticipantsModal";
 import { useWorkspaceLabel } from "@/hooks/useWorkspaceLabel";
 import type { AccessLink, KiTutorWorkspace } from "../_shared";
 
@@ -13,6 +14,9 @@ interface WorkspaceModalsProps {
   workspace: KiTutorWorkspace;
   showStats: boolean;
   onCloseStats: () => void;
+  showParticipants: boolean;
+  onCloseParticipants: () => void;
+  onRolesChanged: () => void;
   editOpen: boolean;
   onCloseEdit: () => void;
   onSubmitEdit: (title: string, description: string) => Promise<boolean>;
@@ -33,6 +37,7 @@ export default function WorkspaceModals(props: WorkspaceModalsProps) {
   const {
     workspace,
     showStats, onCloseStats,
+    showParticipants, onCloseParticipants, onRolesChanged,
     editOpen, onCloseEdit, onSubmitEdit,
     showAddLink, onCloseAddLink, onLinkCreated,
     deleteConfirm, onCancelDelete, onConfirmDelete, deleting,
@@ -50,6 +55,13 @@ export default function WorkspaceModals(props: WorkspaceModalsProps) {
     <>
       {showStats && (
         <StatsModal workspaceUuid={workspace.uuid} moduleTitle={workspace.title} onClose={onCloseStats} />
+      )}
+      {showParticipants && (
+        <ParticipantsModal
+          workspaceUuid={workspace.uuid}
+          onClose={onCloseParticipants}
+          onRolesChanged={onRolesChanged}
+        />
       )}
       {editOpen && (
         <EditWorkspaceModal

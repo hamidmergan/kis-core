@@ -12,7 +12,7 @@ from src.limits import (
 )
 
 from src.features.ai_assistant.routes._helpers import (
-    _require_own_workspace,
+    _require_workspace_manage,
 )
 
 router = APIRouter(tags=["ki-assistent: language-training"])
@@ -80,7 +80,7 @@ async def get_lecturer_workspace_stats(
     current_user: dict = Depends(get_current_user),
     locale: str = Depends(get_locale),
 ):
-    workspace = _require_own_workspace(workspace_uuid, current_user["user_id"], locale=locale)
+    workspace = _require_workspace_manage(workspace_uuid, current_user["user_id"], locale=locale)
     return db.get_aia_workspace_stats(workspace["id"])
 
 

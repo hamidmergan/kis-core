@@ -27,7 +27,7 @@ export function SourcesPanel({
   uploadProgress,
   uploadErrors,
   onDismissUploadErrors,
-  isLecturer,
+  isOwner,
   onMinimize,
   workspaceUuid,
   hideHeader,
@@ -45,7 +45,7 @@ export function SourcesPanel({
   uploadProgress: { current: number; total: number; percent: number } | null;
   uploadErrors: { filename: string; message: string }[];
   onDismissUploadErrors: () => void;
-  isLecturer: boolean;
+  isOwner: boolean;
   onMinimize: () => void;
   workspaceUuid: string;
   hideHeader?: boolean;
@@ -120,7 +120,7 @@ export function SourcesPanel({
       )}
 
       {/* Upload button + drag-and-drop (lecturer) */}
-      {isLecturer && (
+      {isOwner && (
         <div
           className="px-4 py-3 flex-shrink-0 transition-colors duration-150"
           style={{ borderBottom: "1px solid var(--border)" }}
@@ -178,7 +178,7 @@ export function SourcesPanel({
         <StaffNoteBox
           text={staffNoteText ?? null}
           links={noteLinks}
-          isOwner={isLecturer}
+          isOwner={isOwner}
           workspaceUuid={workspaceUuid}
           onEdit={() => setStaffNoteModalOpen(true)}
         />
@@ -282,7 +282,7 @@ export function SourcesPanel({
 
                 {!compact && (
                   <>
-                    {isLecturer && src.status === "failed" && (
+                    {isOwner && src.status === "failed" && (
                       <div className="flex-shrink-0 flex items-center justify-center px-1 py-2.5">
                         <button
                           type="button"
@@ -295,7 +295,7 @@ export function SourcesPanel({
                         </button>
                       </div>
                     )}
-                    {isLecturer && (
+                    {isOwner && (
                       <div className="flex-shrink-0 flex items-center justify-center pl-1 pr-2 py-2.5">
                         <div className="relative">
                           <button
@@ -343,7 +343,7 @@ export function SourcesPanel({
       </div>
 
       {/* Staff note edit modal (owner only) */}
-      {isLecturer && onStaffNoteSave && (
+      {isOwner && onStaffNoteSave && (
         <StaffNoteEditModal
           open={staffNoteModalOpen}
           initialText={staffNoteText ?? null}

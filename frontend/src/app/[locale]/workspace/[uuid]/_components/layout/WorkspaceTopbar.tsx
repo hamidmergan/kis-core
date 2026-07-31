@@ -18,7 +18,6 @@ interface WorkspaceTopbarProps {
   onToggleStudio: () => void;
   language_trainingActive: boolean;
   onToggleLanguageTraining: () => void;
-  isLecturer: boolean;
   isOwner: boolean;
   isAdmin: boolean;
   hideHeader: boolean;
@@ -49,7 +48,7 @@ export function WorkspaceTopbar(props: WorkspaceTopbarProps) {
     showSettings, onToggleSettings, onCloseSettings,
     studioEnabled, onToggleStudio,
     language_trainingActive, onToggleLanguageTraining,
-    isLecturer, isOwner, isAdmin, hideHeader, onToggleHideHeader,
+    isOwner, isAdmin, hideHeader, onToggleHideHeader,
     translationMode, onChangeTranslationMode,
     transcriptDefaultLang, onChangeTranscriptDefaultLang,
     transcriptTargetLang, onChangeTranscriptTargetLang,
@@ -92,7 +91,7 @@ export function WorkspaceTopbar(props: WorkspaceTopbarProps) {
     </button>
   );
 
-  const headerToggleButton = isLecturer ? (
+  const headerToggleButton = isOwner ? (
     <button
       type="button"
       onClick={onToggleHideHeader}

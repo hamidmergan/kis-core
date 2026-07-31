@@ -4,30 +4,34 @@ import { Suspense, useEffect, useState } from "react";
 import ProtectedRoute from "@/components/auth/ProtectedRoute";
 import LockedNotice from "@/components/auth/LockedNotice";
 import { checkAuthStatus } from "@/lib/auth";
-import LecturerView from "./workspace/_components/LecturerView";
-import StudentView from "./workspace/_components/StudentView";
+import WorkspaceHome from "./workspace/_components/WorkspaceHome";
 import HomeNotice from "./workspace/_components/HomeNotice";
 
-type HomeView = "lecturer" | "student" | "tools-only";
+interface HomeState {
+  allowAia: boolean;
+  canCreate: boolean;
+  firstName: string;
+}
 
 export default function HomePage() {
-  const [view, setView] = useState<HomeView | null>(null);
+  const [state, setState] = useState<HomeState | null>(null);
 
   useEffect(() => {
     checkAuthStatus().then((s) => {
-      const perms = s.permissions;
-      if (perms?.allow_workspace_create) setView("lecturer");
-      else if (perms?.allow_aia) setView("student");
-      else setView("tools-only");
+      setState({
+        allowAia: !!s.permissions?.allow_aia,
+        canCreate: !!s.permissions?.allow_workspace_create,
+        firstName: s.display_name?.split(" ")[0] ?? s.username ?? "",
+      });
     });
   }, []);
 
   return (
     <ProtectedRoute>
-      {view === null ? null : view === "lecturer" ? (
-        <LecturerView />
-      ) : view === "student" ? (
-        <Suspense><StudentView /></Suspense>
+      {state === null ? null : state.allowAia ? (
+        <Suspense>
+          <WorkspaceHome canCreate={state.canCreate} firstName={state.firstName} />
+        </Suspense>
       ) : (
         <div className="px-4 sm:px-6 md:px-8 pt-10 pb-20">
           <div className="max-w-2xl mx-auto">

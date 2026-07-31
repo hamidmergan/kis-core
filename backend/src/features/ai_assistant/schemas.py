@@ -1,6 +1,6 @@
 """Pydantic request/response models for AI assistant routes."""
 
-from typing import Optional
+from typing import Literal, Optional
 
 from pydantic import BaseModel, Field, field_validator
 
@@ -47,11 +47,20 @@ class PatchWorkspaceBody(BaseModel):
 
 
 class RenewCodeBody(BaseModel):
-    expires_at: str  # ISO datetime string
+    # None means the link never expires, same as leaving the field empty in the UI.
+    expires_at: Optional[str] = None  # ISO datetime string
 
 
 class CreateAccessLinkBody(BaseModel):
-    expires_at: str  # ISO datetime string
+    # None means the link never expires. Not every course has an end date, and a
+    # forced one only leads to links that quietly stop working mid-semester.
+    expires_at: Optional[str] = None  # ISO datetime string
+
+
+class SetParticipantRoleBody(BaseModel):
+    # Owner-only. A tutor manages the workspace like the owner, except that
+    # inviting stays with the owner alone.
+    role: Literal["student", "tutor"]
 
 
 class EnrollBody(BaseModel):

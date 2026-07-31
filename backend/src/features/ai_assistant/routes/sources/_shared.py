@@ -32,7 +32,7 @@ from src.features.ai_assistant.routes._helpers import (
     _convert_office_to_pdf_path,
     _mp4_faststart_path,
     _count_pages_path,
-    _require_own_workspace,
+    _require_workspace_manage,
     _save_source_file_path,
     _ALLOWED_EXTENSIONS,
     _MAX_UPLOAD_BYTES,
@@ -65,7 +65,7 @@ __all__ = [
     "stream_s3_object", "aia_transcript_prefix", "aia_vtt_key",
     "_convert_office_to_pdf", "_mp4_faststart", "_count_pages",
     "_convert_office_to_pdf_path", "_mp4_faststart_path", "_count_pages_path",
-    "_require_own_workspace", "_load_workspace_source",
+    "_require_workspace_manage", "_load_workspace_source",
     "_save_source_file_path",
     "_ALLOWED_EXTENSIONS", "_MAX_UPLOAD_BYTES",
 ]
