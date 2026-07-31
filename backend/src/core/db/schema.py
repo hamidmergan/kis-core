@@ -173,13 +173,16 @@ def init_db(admin_email: Optional[str] = None) -> None:
             # for unauthenticated requests; this column is the cross-device source of truth after login.
             cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS locale TEXT NOT NULL DEFAULT 'de' CHECK (locale IN ('de', 'en'))")
             # Language level diagnosis (one-time self-assessment for Fachsprachentrainer).
-            # All three columns nullable: NULL means "diagnosis not yet completed".
+            # Both columns nullable: NULL means "diagnosis not yet completed".
             # The full CEFR ladder A1..C2. An earlier version collapsed everything
             # above B1 into "B1+"; the scale now runs the whole ladder so the
             # adaptive chat can pitch every level, not only "needs support" vs not.
             cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS language_level TEXT CHECK (language_level IN ('A1','A2','B1','B2','C1','C2'))")
             cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS language_level_set_at TIMESTAMP WITH TIME ZONE")
-            cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS language_level_skill_scores JSONB")
+            # Migration: the five per-skill scores are gone. Only the result screen
+            # ever showed them, and a model that forgot one failed the whole grading
+            # turn and cost a repair call, so the column goes with them.
+            cur.execute("ALTER TABLE users DROP COLUMN IF EXISTS language_level_skill_scores")
             # Migration: the outcome set grew from the four A1..B1+ values back to
             # the full ladder. The inline CHECK above only fires on fresh installs,
             # so rewrite the constraint on existing DBs. Any stored "B1+" (the old

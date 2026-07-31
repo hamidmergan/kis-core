@@ -146,4 +146,13 @@ MESSAGES: dict[str, dict[str, str]] = {
         "de": "Auswertung fehlgeschlagen. Bitte erneut versuchen.",
         "en": "Evaluation failed. Please retry.",
     },
+    # Shown when the learner skipped every single question. Deliberately flat:
+    # there is nothing to praise and nothing to criticise, so the line only says
+    # what happened and how to get a real result.
+    "ai.languageDiagnosis.allSkipped": {
+        "de": "Du hast alle Fragen übersprungen. Dein Niveau steht deshalb auf A1. "
+              "Du kannst den Test jederzeit neu machen.",
+        "en": "You skipped every question. Your level is therefore set to A1. "
+              "You can take the test again at any time.",
+    },
 }

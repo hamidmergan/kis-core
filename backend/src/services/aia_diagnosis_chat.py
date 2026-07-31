@@ -29,7 +29,6 @@ PROMPT_PLACEHOLDER = "{language}"
 # split and needs its own C1/C2 questions in the plan; the admin owns the plan,
 # so how deep the test really reaches is the expert's choice, not a code limit.
 VALID_LEVELS = {"A1", "A2", "B1", "B2", "C1", "C2"}
-REQUIRED_SKILLS = {"grammar", "vocabulary", "reading", "writing", "pragmatics"}
 
 # Fixed-length test. Every learner answers the same questions, so two results are
 # comparable and the UI can show "question 3 of 12". A question carries only a
@@ -545,6 +544,21 @@ def answered_items(history: list[dict]) -> list[dict]:
     return items
 
 
+def is_empty_run(history: list[dict]) -> bool:
+    """True when the learner produced nothing at all: no text and no pick.
+
+    There is then nothing to grade. Asked to place a learner from a record of
+    blank answers, the model picks between the lower bands at random and, because
+    the prompt asks for an encouraging closing message, invents a strength to
+    praise. The caller answers with a fixed A1 instead. An empty transcript is
+    NOT an empty run: it is no run, so it returns False.
+    """
+    items = answered_items(history)
+    return bool(items) and all(
+        not item["answer"] and not item["selected"] for item in items
+    )
+
+
 def build_grading_brief(plan: list[dict], history: list[dict]) -> str:
     """The record the one final call grades from: every question, its answer key
     where the expert set one, and the learner's answer.
@@ -605,7 +619,7 @@ KICKOFF_MESSAGE = "Begin the interview now with your first question."
 # Appended once all questions are answered, to pull the verdict out.
 FORCE_FINISH_MESSAGE = (
     "That was the learner's last answer. Do not ask another question. "
-    "Reply now with the final JSON object: done=true, level and skill_scores."
+    "Reply now with the final JSON object: done=true, message and level."
 )
 # Injected on every asking turn so the model does not have to count the
 # transcript itself: the backend knows the position and dictates the task type.
@@ -665,7 +679,7 @@ def next_question_message(number: int, plan: list[dict] | None = None) -> str:
 FINAL_INSTRUCTION = (
     "The learner has answered every question. The full record follows. Apply the "
     "LEVEL ASSIGNMENT rules and reply with ONLY the final JSON object: done=true, "
-    "message, level and skill_scores. Where a RESULT is given, use it as it stands."
+    "message and level. Where a RESULT is given, use it as it stands."
 )
 
 
@@ -700,10 +714,9 @@ DEFAULT_DIAGNOSIS_PROMPT = """You are a CEFR assessor running a short diagnostic
 The target language is {language}. Conduct the ENTIRE conversation in {language}.
 
 GOAL
-Sort the learner into one of the six CEFR levels, A1, A2, B1, B2, C1 or C2, and
-give a score from 0 to 100 for each of: grammar, vocabulary, reading, writing,
-pragmatics. Read the level off the learner's OWN answers, above all their
-free-text writing, measured against the CALIBRATION EXAMPLES below. The questions
+Sort the learner into one of the six CEFR levels, A1, A2, B1, B2, C1 or C2. Read
+the level off the learner's OWN answers, above all their free-text writing,
+measured against the CALIBRATION EXAMPLES below. The questions
 carry no level of their own, you decide the level. It then drives how simply the
 tutor writes back to the learner, so an accurate placement across the whole
 ladder matters, not only telling "needs support" from "does not".
@@ -878,7 +891,7 @@ valid alternative answer. The interface shuffles the options, so their order in
 the array carries no meaning.
 
 On the final turn, "level" must be exactly one of "A1", "A2", "B1", "B2", "C1", "C2":
-{"done": true, "message": "<two or three very simple sentences in {language}, encouraging in tone, naming one strength and one thing to work on. Simple enough for an A1 learner to read>", "level": "B1", "skill_scores": {"grammar": 60, "vocabulary": 55, "reading": 65, "writing": 50, "pragmatics": 60}}
+{"done": true, "message": "<two or three very simple sentences in {language}, encouraging in tone, naming one strength and one thing to work on. Simple enough for an A1 learner to read>", "level": "B1"}
 """
 
 
@@ -1062,32 +1075,14 @@ def _loads_lenient(raw: str):
         raise DiagnosisChatError(f"Response is not valid JSON: {exc}") from exc
 
 
-def _validate_scores(raw_scores) -> dict[str, int]:
-    if not isinstance(raw_scores, dict):
-        raise DiagnosisChatError("skill_scores must be an object")
-    missing = REQUIRED_SKILLS - raw_scores.keys()
-    if missing:
-        raise DiagnosisChatError(f"Missing skill scores: {sorted(missing)}")
-    scores: dict[str, int] = {}
-    for skill in REQUIRED_SKILLS:
-        value = raw_scores[skill]
-        # bool is an int subclass; a True score is a malformed answer, not a 1.
-        if isinstance(value, bool) or not isinstance(value, (int, float)):
-            raise DiagnosisChatError(f"skill_scores.{skill} must be a number, got {value!r}")
-        if not 0 <= value <= 100:
-            raise DiagnosisChatError(f"skill_scores.{skill} must be 0-100, got {value!r}")
-        scores[skill] = int(value)
-    return scores
-
-
 def parse_turn_response(raw: str) -> dict:
     """Validate one model turn.
 
     Returns ``{"done": False, "message": str}`` while the interview runs, or
-    ``{"done": True, "message": str, "level": str, "skill_scores": dict}`` on the
-    final grading turn. Extra keys are dropped, so a level that shows up early can
-    never be mistaken for a verdict. Used for the final call; auto question turns
-    go through :func:`parse_auto_question`, which also validates the options.
+    ``{"done": True, "message": str, "level": str}`` on the final grading turn.
+    Extra keys are dropped, so a level that shows up early can never be mistaken
+    for a verdict. Used for the final call; auto question turns go through
+    :func:`parse_auto_question`, which also validates the options.
     """
     parsed = _loads_lenient(raw)
 
@@ -1109,5 +1104,4 @@ def parse_turn_response(raw: str) -> dict:
         "done": True,
         "message": message.strip(),
         "level": level,
-        "skill_scores": _validate_scores(parsed.get("skill_scores")),
     }

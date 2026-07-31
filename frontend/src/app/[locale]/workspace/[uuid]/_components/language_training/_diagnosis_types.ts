@@ -20,7 +20,6 @@ export const DIAGNOSIS_QUESTION_COUNT = 12;
 // The six CEFR outcomes. Every one is a plain CEFR glyph shown as itself. See
 // VALID_LEVELS in aia_diagnosis_chat.py.
 export type CEFRLevel = "A1" | "A2" | "B1" | "B2" | "C1" | "C2";
-export type Skill = "grammar" | "vocabulary" | "reading" | "writing" | "pragmatics";
 
 export interface ChatTurn {
   role: "assistant" | "user";
@@ -57,7 +56,6 @@ export interface DiagnosisResult {
   level: CEFRLevel;
   /** Closing feedback, written in the workspace's diagnosis language. */
   message: string;
-  skill_scores: Record<Skill, number>;
 }
 
 /** One turn of the diagnosis: the next question, or the final verdict. */

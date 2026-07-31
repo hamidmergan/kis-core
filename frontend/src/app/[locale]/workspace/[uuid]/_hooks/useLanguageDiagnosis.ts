@@ -126,7 +126,6 @@ export function useLanguageDiagnosis(
           setResult({
             level: data.level,
             message: data.message,
-            skill_scores: data.skill_scores,
           });
           setStatus("done");
           clearDraft(userId);

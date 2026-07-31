@@ -48,6 +48,7 @@ from src.services.aia_diagnosis_chat import (
     assemble_system_prompt,
     auto_question_payload,
     build_final_messages,
+    is_empty_run,
     manual_question_payload,
     next_question_message,
     parse_auto_question,
@@ -269,6 +270,18 @@ async def turn(
         parsed = await _run_auto(llm, messages, want_options, user_id, locale)
         return auto_question_payload(parsed)
 
+    # Nothing given anywhere: there is nothing to grade. The level is fixed in
+    # code rather than left to a model that would pick between the lower bands at
+    # random and invent a strength to praise, and it saves the call as well.
+    if is_empty_run(history):
+        db.set_user_language_level(user_id, "A1")
+        logger.info("Language diagnosis: empty run, level fixed to A1 for user={}", user_id)
+        return {
+            "done": True,
+            "level": "A1",
+            "message": t("ai.languageDiagnosis.allSkipped", locale),
+        }
+
     # Every question answered: the ONE grading call. It reads the full record,
     # uses the code-graded results as they stand, judges the rest, and returns the
     # level. A model that forgets to finish is forced once more before we give up.
@@ -283,9 +296,7 @@ async def turn(
         raise HTTPException(status_code=502,
                             detail=t("ai.languageDiagnosis.invalidResponse", locale))
 
-    db.set_user_language_level(
-        user_id, level=result["level"], skill_scores=result["skill_scores"]
-    )
+    db.set_user_language_level(user_id, result["level"])
     logger.info("Language diagnosis complete: user={} level={}", user_id, result["level"])
     return result
 

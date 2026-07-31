@@ -1,10 +1,7 @@
 "use client";
 
 import { useTranslations } from "next-intl";
-import HelpTooltip from "@/components/ui/HelpTooltip";
-import { type DiagnosisResult, type Skill } from "./_diagnosis_types";
-
-const SKILL_ORDER: Skill[] = ["grammar", "vocabulary", "reading", "writing", "pragmatics"];
+import { type DiagnosisResult } from "./_diagnosis_types";
 
 export function DiagnosisResultScreen({
   result,
@@ -29,32 +26,6 @@ export function DiagnosisResultScreen({
       <p className="text-center" style={{ color: "var(--foreground)" }}>
         {result.message}
       </p>
-
-      <div className="w-full flex flex-col gap-2 mt-2">
-        {SKILL_ORDER.map((skill) => {
-          const score = result.skill_scores[skill];
-          return (
-            <div key={skill} className="flex items-center gap-3">
-              <span className="w-32 flex items-center gap-1 text-sm" style={{ color: "var(--muted)" }}>
-                {t(`skill.${skill}`)}
-                {skill === "pragmatics" && <HelpTooltip text={t("skillHelp.pragmatics")} />}
-              </span>
-              <div
-                className="flex-1 h-2 rounded-full overflow-hidden"
-                style={{ backgroundColor: "var(--surface-dim)" }}
-              >
-                <div
-                  className="h-full rounded-full transition-[width]"
-                  style={{ width: `${score}%`, backgroundColor: "var(--kb)" }}
-                />
-              </div>
-              <span className="w-10 text-right text-sm tabular-nums" style={{ color: "var(--foreground)" }}>
-                {score}
-              </span>
-            </div>
-          );
-        })}
-      </div>
 
       {/* The level is a model estimate, not a certified test result. The note sits
           with the number rather than before the chat, so it qualifies the result

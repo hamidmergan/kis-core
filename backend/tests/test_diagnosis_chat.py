@@ -24,7 +24,6 @@ from src.services.aia_diagnosis_chat import (
     QUESTION_COUNT,
     QUESTION_PLAN,
     PROMPT_PLACEHOLDER,
-    REQUIRED_SKILLS,
     DiagnosisChatError,
     build_final_messages,
     next_question_message,
@@ -164,11 +163,17 @@ def test_default_prompt_forbids_bracketed_hints():
     assert "___" in DEFAULT_DIAGNOSIS_PROMPT
 
 
-def test_default_prompt_names_the_outcomes_and_skills():
+def test_default_prompt_names_the_outcomes():
     for level in ("A1", "A2", "B1", "B2", "C1", "C2"):
         assert level in DEFAULT_DIAGNOSIS_PROMPT
-    for skill in REQUIRED_SKILLS:
-        assert skill in DEFAULT_DIAGNOSIS_PROMPT
+
+
+def test_the_model_is_never_asked_for_per_skill_scores():
+    """Prompt and both control messages must agree: level and message, no scores."""
+    from src.services.aia_diagnosis_chat import FORCE_FINISH_MESSAGE
+    assert "skill_scores" not in DEFAULT_DIAGNOSIS_PROMPT
+    assert "skill_scores" not in FINAL_INSTRUCTION
+    assert "skill_scores" not in FORCE_FINISH_MESSAGE
 
 
 def test_grading_rules_are_holistic_not_a_ladder():
@@ -221,7 +226,6 @@ def _final(**overrides) -> str:
         "done": True,
         "message": "Gut gemacht.",
         "level": "B1",
-        "skill_scores": {s: 60 for s in REQUIRED_SKILLS},
     }
     payload.update(overrides)
     return json.dumps(payload)
@@ -229,22 +233,7 @@ def _final(**overrides) -> str:
 
 def test_parse_final_turn():
     result = parse_turn_response(_final())
-    assert result["done"] is True
-    assert result["level"] == "B1"
-    assert result["message"] == "Gut gemacht."
-    assert result["skill_scores"] == {s: 60 for s in REQUIRED_SKILLS}
-
-
-def test_parse_final_turn_coerces_float_scores_to_int():
-    result = parse_turn_response(_final(skill_scores={s: 72.6 for s in REQUIRED_SKILLS}))
-    assert all(isinstance(v, int) for v in result["skill_scores"].values())
-
-
-def test_parse_final_turn_ignores_extra_skills():
-    scores = {s: 50 for s in REQUIRED_SKILLS}
-    scores["listening"] = 90
-    result = parse_turn_response(_final(skill_scores=scores))
-    assert set(result["skill_scores"]) == REQUIRED_SKILLS
+    assert result == {"done": True, "level": "B1", "message": "Gut gemacht."}
 
 
 # ─── Parsing: rejection ────────────────────────────────────────────────────
@@ -293,30 +282,15 @@ def test_parse_rejects_levels_outside_the_ladder(level):
         parse_turn_response(_final(level=level))
 
 
-def test_parse_rejects_missing_skill():
-    scores = {s: 50 for s in REQUIRED_SKILLS}
-    scores.pop("pragmatics")
-    with pytest.raises(DiagnosisChatError):
-        parse_turn_response(_final(skill_scores=scores))
+def test_parse_accepts_a_final_turn_without_scores():
+    """The five per-skill scores are gone: an answer without them is complete.
 
-
-def test_parse_rejects_score_out_of_range():
-    with pytest.raises(DiagnosisChatError):
-        parse_turn_response(_final(skill_scores={**{s: 50 for s in REQUIRED_SKILLS},
-                                                  "writing": 140}))
-
-
-def test_parse_rejects_non_numeric_score():
-    with pytest.raises(DiagnosisChatError):
-        parse_turn_response(_final(skill_scores={**{s: 50 for s in REQUIRED_SKILLS},
-                                                  "grammar": "good"}))
-
-
-def test_parse_rejects_final_turn_without_scores():
-    payload = json.loads(_final())
-    del payload["skill_scores"]
-    with pytest.raises(DiagnosisChatError):
-        parse_turn_response(json.dumps(payload))
+    They used to be mandatory, so a model that dropped one failed the whole
+    grading turn and cost a repair call for a number nobody read.
+    """
+    result = parse_turn_response(_final())
+    assert result["done"] is True
+    assert "skill_scores" not in result
 
 
 # ─── Auto-question generation messages ─────────────────────────────────────

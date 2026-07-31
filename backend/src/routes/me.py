@@ -34,7 +34,6 @@ async def get_me(
         "locale": row.get("locale", "de"),
         "language_level": ll["language_level"],
         "language_level_set_at": set_at.isoformat() if set_at else None,
-        "language_level_skill_scores": ll["language_level_skill_scores"],
     }
 
 
