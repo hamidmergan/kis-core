@@ -85,10 +85,6 @@ async def get_settings(_admin=Depends(get_admin_user)):
         "aia_workspace_max_sources": int(
             db.get_setting("aia_workspace_max_sources", str(AIA_WORKSPACE_MAX_SOURCES))
         ),
-        # Schedule retention (admin-tunable). -1 = never delete (UI: empty input)
-        "aia_schedule_retention_days": int(
-            db.get_setting("aia_schedule_retention_days", "-1")
-        ),
         # KI-tutor chat context budget (chars). Default sized for 32k models.
         "aia_context_max_chars": int(
             db.get_setting("aia_context_max_chars", str(AIA_CONTEXT_MAX_CHARS))
@@ -340,23 +336,6 @@ async def update_settings(
                 detail=t("admin.settings.maxSourcesOutOfRange", locale, min=1, max=1000),
             )
         db.set_setting("aia_workspace_max_sources", str(value))
-
-    # Schedule retention in days. -1 disables pruning entirely (UI: empty
-    # field). Otherwise must be 1..3650 so a typo cannot effectively disable
-    # retention or trigger a zero-day prune.
-    if body.aia_schedule_retention_days is not None:
-        value = body.aia_schedule_retention_days
-        if value != -1 and (value < 1 or value > 3650):
-            raise HTTPException(
-                status_code=400,
-                detail=t(
-                    "admin.settings.scheduleRetentionOutOfRange",
-                    locale,
-                    min=1,
-                    max=3650,
-                ),
-            )
-        db.set_setting("aia_schedule_retention_days", str(value))
 
     # KI-tutor context budget in characters. Bounded so a typo cannot starve the
     # context (too low) or blow past even large model windows (too high). Lower

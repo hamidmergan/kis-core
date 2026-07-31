@@ -38,7 +38,6 @@ celery_app.conf.update(
         "screencast.render": {"queue": "screencast"},
         "watchdog.check": {"queue": "general"},
         "cleanup.expired_files": {"queue": "general"},
-        "cleanup.prune_schedule": {"queue": "general"},
         "backup.database": {"queue": "general"},
         # AI tutor: dedicated queue for learning tools and language training
         "aia.index_source": {"queue": "aia"},
@@ -58,11 +57,6 @@ celery_app.conf.update(
         "cleanup-expired-files": {
             "task": "cleanup.expired_files",
             "schedule": 3600.0,  # stuendlich, wie vorher
-            "options": {"queue": "general"},
-        },
-        "cleanup-prune-schedule": {
-            "task": "cleanup.prune_schedule",
-            "schedule": 86400.0,  # taeglich, wie vorher
             "options": {"queue": "general"},
         },
         # Naechtliche Datenbank-Sicherung in den Bucket. Feste Uhrzeit statt

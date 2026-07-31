@@ -31,9 +31,6 @@ class UpdateSettingsRequest(BaseModel):
     ocr_enabled: bool | None = None
     # Per-workspace source upload cap (admin-tunable, default 30).
     aia_workspace_max_sources: int | None = None
-    # Schedule entries older than this many days are pruned daily.
-    # 0 = never delete (default). Bounded to a sane upper limit.
-    aia_schedule_retention_days: int | None = None
     # KI-tutor chat context budget in characters. Drives both the truncation in
     # the context builder and the "full document fits -> send it whole" overview
     # path. Sized for the smallest supported model (32k) by default; a deployment
