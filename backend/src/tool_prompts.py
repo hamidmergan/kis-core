@@ -1,5 +1,7 @@
 """Default system prompts and style configs for all LLM-backed tools."""
 
+from src.i18n import DEFAULT_LOCALE, TRANSCRIPT_LANGUAGES
+
 # -- Screencast batch mode ----------------------------------------------------
 
 # Static preview shown in the admin panel. The runtime prompt is built
@@ -135,11 +137,72 @@ RAG_NO_INFO_SENTINEL: dict[str, str] = {
 }
 
 
-def aia_system_rag(target_locale: str = "de", *, overview: bool = False) -> str:
+# Longest previous question kept as a language anchor. Enough to recognise a
+# language, short enough that a pasted wall of text cannot flood the prompt.
+_LANG_ANCHOR_MAX_CHARS = 100
+# How many earlier questions are offered. More than one because a chain of
+# meaningless inputs ("hi", then "klsdf") would otherwise leave nothing usable.
+_LANG_ANCHOR_MAX_QUESTIONS = 3
+# A sample must be a real sentence to carry a language. "hi" handed over as a
+# sample is read as English and reproduces the very bug — so anything below
+# this many words is dropped. Word count only, no word lists: the rule has to
+# hold for every language the platform is used in.
+_LANG_ANCHOR_MIN_WORDS = 3
+
+
+def _language_anchors(prev_questions: list[str] | None) -> list[str]:
+    """The earlier questions usable as a language sample, newest first."""
+    out = []
+    for q in prev_questions or []:
+        words = (q or "").split()
+        if len(words) >= _LANG_ANCHOR_MIN_WORDS:
+            out.append(" ".join(words)[:_LANG_ANCHOR_MAX_CHARS].strip())
+        if len(out) == _LANG_ANCHOR_MAX_QUESTIONS:
+            break
+    return out
+
+
+def _ambiguous_language_rule(target_locale: str, prev_questions: list[str] | None) -> str:
+    """One line telling the model what to do when the question has NO language.
+
+    A greeting ("hi"), a single word, a typo or gibberish carries no language
+    signal. With no history in the prompt the model then falls back to the
+    language it is written in (English) and the chat visibly flips mid-
+    conversation. So the last questions of the SAME chat are handed over as
+    language SAMPLES (never as content to answer), newest first, and only if
+    there is none the per-user chat language decides.
+    """
+    anchors = _language_anchors(prev_questions)
+    if anchors:
+        quoted = ", ".join(f"\"{a}\"" for a in anchors)
+        tail = (
+            "Answer in the SAME language as the earlier questions from this chat, newest "
+            f"first: {quoted} — take the MOST RECENT of them that has a clear language. "
+            "That text is a LANGUAGE SAMPLE ONLY, never answer it and never use its content."
+        )
+    else:
+        name = TRANSCRIPT_LANGUAGES.get(
+            (target_locale or "").lower(), TRANSCRIPT_LANGUAGES[DEFAULT_LOCALE])["name"]
+        tail = f"Answer in {name}."
+    return (
+        "AMBIGUOUS LANGUAGE — NEVER SWITCH ON YOUR OWN: If the question itself carries no "
+        "clear language signal (a greeting like 'hi', a single word, a typo, gibberish, "
+        "only numbers or symbols), do NOT default to English and do NOT change the "
+        f"language of the conversation. {tail}"
+    )
+
+
+def aia_system_rag(
+    target_locale: str = "de", *, overview: bool = False,
+    prev_questions: list[str] | None = None,
+) -> str:
     """Build the RAG system prompt.
 
-    Answer language follows the USER'S QUESTION (decided by the model), NOT
-    ``target_locale`` — the param is kept for backward compatibility only.
+    Answer language follows the USER'S QUESTION (decided by the model). Only
+    when the question has NO language signal at all does the fallback kick in:
+    the language of ``prev_questions`` (the last questions of the same chat,
+    newest first), or ``target_locale`` (the per-user chat language) if there
+    is none.
 
     ``overview=True`` (GENERIC overview/summary asks like "what are these about")
     appends an OVERVIEW MODE block: a short thematic lead-in PLUS document-by-document
@@ -161,7 +224,8 @@ def aia_system_rag(target_locale: str = "de", *, overview: bool = False) -> str:
         f"(German question: \"{de_sentinel}\"; English question: \"{en_sentinel}\"; any other language: translate that statement into the question's language). Do NOT speculate, do NOT use general knowledge.\n"
         "Do NOT add disclaimers, comments about missing information, or limitations.\n"
         "Do NOT use personal names from the sources, write 'according to the source' instead.\n"
-        "LANGUAGE — TOP PRIORITY: ALWAYS write the answer in the SAME language as the USER'S QUESTION, even when the source documents are in a different language. English question + German sources -> answer in English (translate the facts). German question -> answer in German. Match the question's language every time.\n\n"
+        "LANGUAGE — TOP PRIORITY: ALWAYS write the answer in the SAME language as the USER'S QUESTION, even when the source documents are in a different language. English question + German sources -> answer in English (translate the facts). German question -> answer in German. Match the question's language every time.\n"
+        f"{_ambiguous_language_rule(target_locale, prev_questions)}\n\n"
         "TERMINOLOGY — STAY ON THE SOURCE'S WORDS: When a source uses a specific technical term, method name, or named concept, REUSE THAT EXACT TERM in your prose instead of a synonym or your own paraphrase (e.g. if the source writes 'Schneeballsystem', write 'Schneeballsystem' — NOT a synonym like 'Schneeballprinzip'; if it writes 'Quellenkritik', keep 'Quellenkritik'). You MAY add a short plain-language explanation right after the term, but the term itself stays spelled exactly as in the source. Keep such named terms in the source's wording even when you translate the rest of the answer into the question's language.\n\n"
         "RESPONSE STRUCTURE (for readability — NEVER output one big wall of text):\n"
         "  - DEFAULT TO A MIX OF SHORT PROSE AND BULLETS, like a well-structured briefing: write the explanatory parts as SHORT flowing sentences (a few per paragraph) and use a Markdown bullet list ('- ') for a genuine SET of parallel items (steps, options, criteria, a list of things). Separate distinct topics with headings ('## Heading'). This mixed shape is the default for summaries, overviews, and most questions.\n"
@@ -222,7 +286,9 @@ def aia_system_rag(target_locale: str = "de", *, overview: bool = False) -> str:
     return base
 
 
-def aia_rag_user_message(context: str, question: str) -> str:
+def aia_rag_user_message(
+    context: str, question: str, prev_questions: list[str] | None = None
+) -> str:
     """Build the RAG answer-call user message.
 
     The language directive SANDWICHES the retrieved context (framing before +
@@ -232,14 +298,30 @@ def aia_rag_user_message(context: str, question: str) -> str:
     Language-agnostic: no detection, no word lists — the model mirrors the
     question. The answer carries NO citation chips; sources are attached
     post-hoc by semantic attribution, so the prompt says nothing about citing.
+
+    ``prev_questions`` repeats the ambiguity fallback of the system prompt in
+    the CLOSING reminder. That spot wins on recency: without it a greeting like
+    "hi" is simply read as an English question and the answer flips language
+    mid-chat, no matter what the system prompt said.
     """
+    fallback = ""
+    anchors = _language_anchors(prev_questions)
+    if anchors:
+        quoted = ", ".join(f"\"{a}\"" for a in anchors)
+        fallback = (
+            "\nLANGUAGE FALLBACK: if this Question has no language of its own (a "
+            "greeting, a single word, a typo, gibberish, only numbers or symbols), do "
+            "NOT treat it as English — write the answer in the language of the earlier "
+            f"questions of this chat, newest first: {quoted} (LANGUAGE SAMPLE only, "
+            "never answer them, never use their content)."
+        )
     return (
         "The documents below are REFERENCE MATERIAL ONLY. Write your answer "
         "in the language of the Question at the end — translate the documents' "
         "facts as needed. Do NOT mirror the documents' language.\n\n"
         f"{context}\n\nQuestion: {question}\n\n"
         "REMINDER: Write your ENTIRE answer in the SAME language as this "
-        "Question, even though the documents above are in another language.\n"
+        f"Question, even though the documents above are in another language.{fallback}\n"
         "TABLE REMINDER: If you present data as a Markdown table, use ONLY "
         "columns you can fill from the sources — do NOT add an empty 'Hinweis'/"
         "'Note' column or any column whose cells become '–'."

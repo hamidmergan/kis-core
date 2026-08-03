@@ -1484,6 +1484,13 @@ async def chat(
     # is fully standalone (no follow-up condensing, no leaks).
     _map_messages: Optional[list[list[dict]]] = None
     messages: Optional[list[dict]] = None
+    # Language anchor: a question without a language of its own ("hi", "klsdf")
+    # would otherwise be answered in the system prompt's own language (English)
+    # and the chat flips mid-conversation. Read BEFORE this turn is persisted
+    # below, so it really is the PREVIOUS question. Empty -> chat_lang decides.
+    # Popups carry their own selected text, so they skip the lookup.
+    _prev_questions = [] if body.source_text else db.get_last_aia_user_questions(
+        workspace["id"], user_id, enrollment_id=enrollment_id)
     if body.source_text:
         # Popup actions: user has selected text themselves.
         page_ref = f" [S. {body.source_page}]" if body.source_page else ""
@@ -1509,14 +1516,14 @@ async def chat(
         # thematic lead-in + document-by-document coverage so all sources are touched.
         _overview = intent == "GENERIC" and not scope_chunks
         messages = [
-            {"role": "system", "content": aia_system_rag(chat_lang, overview=_overview)},
-            {"role": "user", "content": aia_rag_user_message(context, rewritten_question) + _adaptive_suffix},
+            {"role": "system", "content": aia_system_rag(chat_lang, overview=_overview, prev_questions=_prev_questions)},
+            {"role": "user", "content": aia_rag_user_message(context, rewritten_question, _prev_questions) + _adaptive_suffix},
         ]
     else:
         _map_messages = [
             [
-                {"role": "system", "content": aia_system_rag(chat_lang)},
-                {"role": "user", "content": aia_rag_user_message(b, rewritten_question) + _adaptive_suffix},
+                {"role": "system", "content": aia_system_rag(chat_lang, prev_questions=_prev_questions)},
+                {"role": "user", "content": aia_rag_user_message(b, rewritten_question, _prev_questions) + _adaptive_suffix},
             ]
             for b in batches
         ]
@@ -1648,15 +1655,15 @@ async def chat(
                             len(_partials), len(_map_messages))
                 if _partials:
                     _final_messages = [
-                        {"role": "system", "content": aia_system_rag(chat_lang)},
+                        {"role": "system", "content": aia_system_rag(chat_lang, prev_questions=_prev_questions)},
                         {"role": "user", "content": aia_reduce_user_message(rewritten_question, _partials) + _adaptive_suffix},
                     ]
                 else:
                     # Every map call empty/failed → single call over the first batch
                     # so the user still gets an answer rather than nothing.
                     _final_messages = [
-                        {"role": "system", "content": aia_system_rag(chat_lang)},
-                        {"role": "user", "content": aia_rag_user_message(context, rewritten_question) + _adaptive_suffix},
+                        {"role": "system", "content": aia_system_rag(chat_lang, prev_questions=_prev_questions)},
+                        {"role": "user", "content": aia_rag_user_message(context, rewritten_question, _prev_questions) + _adaptive_suffix},
                     ]
             _line_buf = ""
             aborted = False

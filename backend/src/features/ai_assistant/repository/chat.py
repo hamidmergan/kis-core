@@ -95,6 +95,35 @@ def get_aia_messages(
             rows = cur.fetchall()
     return list(reversed([dict(row) for row in rows]))
 
+def get_last_aia_user_questions(
+    workspace_id: int, user_id: int, enrollment_id: int | None = None, limit: int = 10
+) -> list[str]:
+    """Die letzten Fragen dieser Person in diesem Chat, neueste zuerst.
+
+    Dienen allein als Sprach-Anker fuer die naechste Antwort: der Chat schickt
+    keinen Verlauf an das Modell, deshalb hat eine Eingabe wie "hi" kein
+    Sprachsignal und die Antwort kippt ins Englische. Es werden mehr Zeilen
+    gelesen als gebraucht, weil kurze Eingaben spaeter als Sprachprobe
+    ausscheiden (siehe ``_language_anchors``). Nur Nachrichten der Person
+    kommen infrage, die Antworten des Tutors wuerden dessen eigene Sprachwahl
+    nur bestaetigen. Chats je Zugangslink bleiben getrennt.
+    """
+    where = "enrollment_id = %s" if enrollment_id is not None else "enrollment_id IS NULL"
+    params: tuple = (workspace_id, user_id) + (
+        (enrollment_id,) if enrollment_id is not None else ()) + (limit,)
+    with get_connection() as conn:
+        with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
+            cur.execute(
+                f"""SELECT content FROM aia_messages
+                   WHERE workspace_id = %s AND user_id = %s AND role = 'user'
+                     AND {where}
+                   ORDER BY created_at DESC
+                   LIMIT %s""",
+                params,
+            )
+            rows = cur.fetchall()
+    return [q for q in ((row["content"] or "").strip() for row in rows) if q]
+
 def get_aia_user_settings(workspace_id: int, user_id: int) -> dict:
     with get_connection() as conn:
         with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
