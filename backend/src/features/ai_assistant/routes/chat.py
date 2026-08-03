@@ -47,7 +47,6 @@ from src.services.aia_diagnosis_chat import (
     LEVEL_EXAMPLES_SETTING,
     parse_level_examples,
 )
-from src.services.aia_learner_profile import weakness_focus_appendix
 
 # Upper bound on the question length we hand to the LLM intent classifier.
 # Longer questions are nearly always topic-specific (no need for an LLM round-trip)
@@ -1076,11 +1075,11 @@ async def chat(
     chat_lang = _user_settings.get("chat_lang", "de")
 
     # Adaptive tutor behaviour is coupled to the Fachsprachentrainer: only learners
-    # who have the trainer toggled on for THIS workspace get CEFR-pitched answers and
-    # the weakness focus. National students who leave it off get plain answers. The
-    # CEFR level is stored globally per user, so this per-workspace gate is also what
-    # stops it leaking into workspaces where the trainer is off.
-    _adaptive_suffix, _applied_level, _weakness_suffix = "", None, ""
+    # who have the trainer toggled on for THIS workspace get CEFR-pitched answers.
+    # National students who leave it off get plain answers. The CEFR level is stored
+    # globally per user, so this per-workspace gate is also what stops it leaking
+    # into workspaces where the trainer is off.
+    _adaptive_suffix, _applied_level = "", None
     if _user_settings.get("language_training_active"):
         # A learner with a stored CEFR level gets answers pitched at that level,
         # calibrated with a sample of that level's language (the same per-level
@@ -1096,16 +1095,9 @@ async def chat(
             _example,
         )
 
-        # Weakness-focus help is folded into the same suffix so all answer paths
-        # (popup, single, map, reduce) pick it up unchanged. Empty when nothing is
-        # over the act threshold.
-        _weakness_suffix = weakness_focus_appendix(
-            db.get_learner_focus_items(user_id, workspace["id"])
-        )
-
     # Sealed OUTSIDE the trainer gate: the sources guard goes out on every chat, with
     # or without the adaptive block, and seal_adaptive_suffix keeps it LAST.
-    _adaptive_suffix = seal_adaptive_suffix(_adaptive_suffix, _weakness_suffix)
+    _adaptive_suffix = seal_adaptive_suffix(_adaptive_suffix)
 
     # Resolve enrollment_id for per-link chat separation (needed for history fetch)
     enrollment_id = body.enrollment_id if not is_owner else None

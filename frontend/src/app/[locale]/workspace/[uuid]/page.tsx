@@ -553,7 +553,6 @@ export default function KiTutorWorkspacePage() {
           language_trainingActive={language_trainingActive}
           onToggleLanguageTraining={() => setLanguageTrainingActive((v) => !v)}
           isOwner={isOwner}
-          isAdmin={isAdmin}
           hideHeader={hideHeader}
           onToggleHideHeader={() => setHideHeader((v) => !v)}
           transcriptTargetLang={transcriptTargetLang}

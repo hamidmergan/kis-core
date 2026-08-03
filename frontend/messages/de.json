@@ -1184,9 +1184,7 @@
       "description": "Steuert, wie die KI im normalen Chat auf Lernende antwortet, je nach ihrem Niveau. Wirkt nur, wenn ein Niveau gespeichert ist.",
       "hint": "'{level}' wird durch das Niveau ersetzt, '{example}' durch das Beispiel dieser Stufe aus der Card Sprachniveau-Beispiele.",
       "reset": "Auf Standard zurücksetzen",
-      "saveFailed": "Speichern fehlgeschlagen",
-      "windowDaysLabel": "Zeitfenster Schwächen in Tagen",
-      "windowDaysHint": "Wie viele Tage eine Schwäche im Lernprofil sichtbar bleibt, bevor sie automatisch wieder verschwindet."
+      "saveFailed": "Speichern fehlgeschlagen"
     },
     "diagnosisGradingCard": {
       "title": "Einstufungs-Regeln",
@@ -1742,33 +1740,8 @@
         "transcriptDefaultLangSource": "Original",
         "transcriptDefaultLangTarget": "Übersetzung",
         "transcriptDefaultLangBoth": "Beide",
-        "learnerProfileTitle": "Mein Lernprofil",
-        "learnerProfileDescription": "Zeigt dein Sprachniveau und deine offenen Schwächen.",
-        "learnerProfileOpen": "Öffnen",
-        "learnerProfileBack": "Zurück zu Einstellungen",
-        "learnerProfileAdminOnly": "Nur Admin",
         "popupTranslateLangTitle": "Sprache der Auswahlleiste",
         "popupTranslateLangDescription": "In welche Sprache markierter Text übersetzt wird, wenn du in der Auswahlleiste auf Übersetzen tippst."
-      },
-      "learnerProfile": {
-        "title": "Mein Lernprofil",
-        "loading": "Wird geladen…",
-        "levelLabel": "Sprachniveau",
-        "noLevel": "Kein Niveau gesetzt",
-        "progressHint": "Fortschritt heißt, die Liste der Schwächen wird kürzer. Es bedeutet nicht automatisch ein höheres Niveau.",
-        "countLine": "{n, plural, =1 {1 offene Schwäche} other {# offene Schwächen}}",
-        "empty": "Aktuell keine offenen Schwächen.",
-        "categoryTerm": "Wörter und Begriffe",
-        "categoryPassage": "Textstellen",
-        "categoryTool": "Werkzeuge",
-        "knowItAlready": "kann ich schon",
-        "clearAll": "Alles leeren",
-        "clearAllConfirm": "Wirklich alle Schwächen löschen? Das kann nicht rückgängig gemacht werden.",
-        "trackingTitle": "Tracking",
-        "trackingDescription": "Speichert, wo du noch Schwierigkeiten hast, damit dir gezielter geholfen wird.",
-        "trackingOffHint": "Tracking ist aus. Es werden keine neuen Schwächen mehr gespeichert.",
-        "actionFailed": "Aktion fehlgeschlagen. Bitte versuche es noch einmal.",
-        "loadFailed": "Lernprofil konnte nicht geladen werden. Bitte versuche es noch einmal."
       },
       "subviewHeader": {
         "back": "Zurück"

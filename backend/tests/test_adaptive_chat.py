@@ -133,7 +133,7 @@ def test_example_for_level_empty_without_level():
 
 
 def test_sources_guard_is_the_last_thing_the_model_reads():
-    """The guard must end the suffix, after behaviour text AND weakness hints.
+    """The guard must end the suffix, after the behaviour text.
 
     The suffix is appended at the END of the user message, so the tail is what the
     model weights most. When the guard stopped being last, the adaptive block's
@@ -141,9 +141,9 @@ def test_sources_guard_is_the_last_thing_the_model_reads():
     refusing (regression seen 2026-07-29).
     """
     from src.services.aia_adaptive_chat import seal_adaptive_suffix, ADAPTIVE_SOURCES_GUARD
-    sealed = seal_adaptive_suffix("\n\nBEHAVIOUR TEXT", "\n\nWEAKNESS HINT")
+    sealed = seal_adaptive_suffix("\n\nBEHAVIOUR TEXT")
     assert sealed.endswith(ADAPTIVE_SOURCES_GUARD)
-    assert "BEHAVIOUR TEXT" in sealed and "WEAKNESS HINT" in sealed
+    assert "BEHAVIOUR TEXT" in sealed
 
 
 def test_guard_holds_without_an_adaptive_block():
@@ -153,8 +153,7 @@ def test_guard_holds_without_an_adaptive_block():
     prompt refuses on its own. It does not: with the trainer off the tutor still
     invented a grammar lesson its sources never contained (2026-07-29)."""
     from src.services.aia_adaptive_chat import seal_adaptive_suffix, ADAPTIVE_SOURCES_GUARD
-    assert seal_adaptive_suffix("", "").endswith(ADAPTIVE_SOURCES_GUARD)
-    assert seal_adaptive_suffix("", "\n\nWEAKNESS HINT").endswith(ADAPTIVE_SOURCES_GUARD)
+    assert seal_adaptive_suffix("").endswith(ADAPTIVE_SOURCES_GUARD)
 
 
 def test_sources_guard_cannot_be_deleted_by_an_admin_edit():

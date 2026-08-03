@@ -359,28 +359,6 @@ async def record_set_progress(
         raise HTTPException(status_code=404, detail=t("set.notFound", locale))
     db.bulk_record_exercise_progress(set_id, user_id, body.results)
     db.update_streak(workspace["id"], user_id)
-
-    # Feed the learner profile: a wrong item is a weakness on that term, a correct
-    # one graduates it. The term is the answer side for a gap sentence (the gap IS
-    # the term) and the prompt side otherwise. Decided by content, not by tool, since
-    # gap sentences now live inside the quiz.
-    _detail = db.get_exercise_set_with_items(set_id)
-    if _detail:
-        _term_by_id = {
-            it["id"]: (
-                (it.get("back") if "___" in (it.get("front") or "") else it.get("front")) or ""
-            ).strip()
-            for it in _detail.get("items", [])
-        }
-        for _r in body.results:
-            _term = _term_by_id.get(_r["item_id"])
-            if not _term:
-                continue
-            if _r["correct"]:
-                db.graduate_learner_term(user_id, workspace["id"], _term)
-            else:
-                db.record_weakness(user_id, workspace["id"], "term", "quiz_wrong", _term)
-
     return {"ok": True}
 
 

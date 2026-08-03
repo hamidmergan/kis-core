@@ -898,52 +898,11 @@ def init_db(admin_email: Optional[str] = None) -> None:
                     answered_at TIMESTAMP NOT NULL DEFAULT NOW()
                 )
             """)
-            # ─── Learner Profile (adaptive weakness tracking) ────
-            # Weaknesses are scoped to a workspace: a term learned as difficult in one
-            # module must not bleed into another, where it may mean something else or
-            # nothing at all.
-            cur.execute("""
-                CREATE TABLE IF NOT EXISTS aia_learner_weakness (
-                    id            SERIAL PRIMARY KEY,
-                    user_id       INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-                    workspace_id  INTEGER NOT NULL REFERENCES aia_workspaces(id) ON DELETE CASCADE,
-                    category      TEXT NOT NULL,
-                    key_norm      TEXT NOT NULL,
-                    label         TEXT NOT NULL,
-                    source_id     INTEGER REFERENCES aia_sources(id) ON DELETE SET NULL,
-                    weight        REAL NOT NULL DEFAULT 0,
-                    hit_count     INTEGER NOT NULL DEFAULT 0,
-                    first_seen_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-                    last_seen_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
-                )
-            """)
-            # Migration for pre-workspace installs: the old table had no workspace_id
-            # and a user-wide unique key. There is no workspace to backfill onto, so
-            # old rows are dropped (a clean, per-workspace start) and the unique key is
-            # rebuilt to include the workspace.
-            cur.execute(
-                "ALTER TABLE aia_learner_weakness ADD COLUMN IF NOT EXISTS "
-                "workspace_id INTEGER REFERENCES aia_workspaces(id) ON DELETE CASCADE"
-            )
-            cur.execute("DELETE FROM aia_learner_weakness WHERE workspace_id IS NULL")
-            cur.execute("ALTER TABLE aia_learner_weakness ALTER COLUMN workspace_id SET NOT NULL")
-            cur.execute(
-                "ALTER TABLE aia_learner_weakness DROP CONSTRAINT IF EXISTS "
-                "aia_learner_weakness_user_id_category_key_norm_key"
-            )
-            cur.execute(
-                "CREATE UNIQUE INDEX IF NOT EXISTS uq_learner_weakness_ws "
-                "ON aia_learner_weakness(user_id, workspace_id, category, key_norm)"
-            )
-            cur.execute(
-                "CREATE INDEX IF NOT EXISTS idx_learner_weakness_user "
-                "ON aia_learner_weakness(user_id, last_seen_at)"
-            )
-            # Global per-user off-switch for weakness tracking, on by default.
-            cur.execute(
-                "ALTER TABLE users ADD COLUMN IF NOT EXISTS "
-                "learning_profile_enabled BOOLEAN NOT NULL DEFAULT TRUE"
-            )
+            # The learner profile (per-user weakness tracking) was removed. Adaptivity
+            # is the CEFR level and nothing else. Nothing creates or reads
+            # aia_learner_weakness or users.learning_profile_enabled any more; both are
+            # left in place on existing installs so no data disappears behind an
+            # operator's back, and are dropped by hand when they decide to.
             # ─── Streak Tracking ────────────────────────────────
             cur.execute("""
                 CREATE TABLE IF NOT EXISTS aia_streaks (

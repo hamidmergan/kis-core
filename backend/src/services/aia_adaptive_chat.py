@@ -111,14 +111,14 @@ def example_for_level(level: str | None, examples: dict) -> str:
     return " / ".join(example_items(examples.get(level, "")))
 
 
-def seal_adaptive_suffix(behavior_suffix: str, weakness_suffix: str = "") -> str:
+def seal_adaptive_suffix(behavior_suffix: str) -> str:
     """Assemble the full user-message suffix, with the sources guard LAST.
 
     The whole suffix is appended at the END of the user message, so whatever sits
     last is what the model reads last — and that has to be the guard, not the
-    behaviour text's "never shorter" or a weakness hint. Any further appendix must
-    be passed in here rather than concatenated after the return value, otherwise it
-    displaces the guard and the refusal regression comes back.
+    behaviour text's "never shorter". Any further appendix must be passed in here
+    rather than concatenated after the return value, otherwise it displaces the
+    guard and the refusal regression comes back.
 
     The guard is appended even with NO adaptive block. It used to be skipped there
     ("the system prompt refuses on its own"), which is exactly what the screenshot
@@ -127,7 +127,7 @@ def seal_adaptive_suffix(behavior_suffix: str, weakness_suffix: str = "") -> str
     is on or off, so the text goes out either way. The deterministic enforcement lives
     in ``aia_source_coverage`` — this is the second layer, not the only one.
     """
-    return behavior_suffix + weakness_suffix + ADAPTIVE_SOURCES_GUARD
+    return behavior_suffix + ADAPTIVE_SOURCES_GUARD
 
 
 def adaptive_chat_appendix(

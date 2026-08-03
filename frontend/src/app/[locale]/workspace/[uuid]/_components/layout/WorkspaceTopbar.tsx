@@ -19,7 +19,6 @@ interface WorkspaceTopbarProps {
   language_trainingActive: boolean;
   onToggleLanguageTraining: () => void;
   isOwner: boolean;
-  isAdmin: boolean;
   hideHeader: boolean;
   onToggleHideHeader: () => void;
   transcriptTargetLang: string;
@@ -46,7 +45,7 @@ export function WorkspaceTopbar(props: WorkspaceTopbarProps) {
     showSettings, onToggleSettings, onCloseSettings,
     studioEnabled, onToggleStudio,
     language_trainingActive, onToggleLanguageTraining,
-    isOwner, isAdmin, hideHeader, onToggleHideHeader,
+    isOwner, hideHeader, onToggleHideHeader,
     transcriptTargetLang, onChangeTranscriptTargetLang,
     popupTranslateLang, onChangePopupTranslateLang,
     activeTab, setActiveTab,
@@ -64,7 +63,6 @@ export function WorkspaceTopbar(props: WorkspaceTopbarProps) {
       language_trainingActive={language_trainingActive}
       onToggleLanguageTraining={onToggleLanguageTraining}
       isOwner={isOwner}
-      isAdmin={isAdmin}
       transcriptTargetLang={transcriptTargetLang}
       onChangeTranscriptTargetLang={onChangeTranscriptTargetLang}
       popupTranslateLang={popupTranslateLang}
