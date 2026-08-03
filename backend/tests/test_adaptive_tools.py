@@ -256,3 +256,47 @@ def test_quiz_skips_items_with_a_broken_answer_index(monkeypatch):
     ctx = types.SimpleNamespace(source_hint="Quelle", context="ctx", multi_label="T")
     items, _ = mod.generate_mc_from_source(client, "m", ctx, 4, locale="de")
     assert [i["front"] for i in items] == ["Gut?"]
+
+
+# --- wiring: the glossary route gates on the workspace ----------------------
+
+def test_glossary_extract_passes_the_workspace_to_the_gate(monkeypatch):
+    """The route must hand the workspace to build_adaptive_tool_suffix.
+
+    Without it the gate is skipped and one diagnosis pitches definitions in every
+    workspace, including those where the Fachsprachentrainer is switched off, while
+    the chat in that same workspace answers plainly.
+    """
+    import asyncio
+    import types as _types
+    from src.features.ai_assistant.routes import glossary as mod
+
+    seen = {}
+
+    def fake_suffix(user_id, workspace_id=None):
+        seen["args"] = (user_id, workspace_id)
+        return ""
+
+    monkeypatch.setattr(mod, "build_adaptive_tool_suffix", fake_suffix)
+    monkeypatch.setattr(mod.db, "get_aia_workspace", lambda uuid: {"id": 42, "user_id": 7})
+    monkeypatch.setattr(mod.db, "is_student_enrolled", lambda wid, uid: True)
+    monkeypatch.setattr(mod.db, "get_glossary_count", lambda wid, uid: 0)
+    monkeypatch.setattr(mod.db, "get_aia_source", lambda uuid: {"id": 5, "workspace_id": 42})
+    monkeypatch.setattr(mod.db, "get_aia_glossary_by_workspace", lambda wid, uid: [])
+    monkeypatch.setattr(mod.db, "get_page_text", lambda sid, page: "")
+    monkeypatch.setattr(mod.db, "bulk_create_glossary_entries", lambda *a, **k: None)
+    monkeypatch.setattr(mod, "enforce_aia_burst", lambda uid, locale: None)
+    monkeypatch.setattr(mod, "enforce_quota", lambda *a, **k: None)
+    monkeypatch.setattr(mod, "is_admin_user", lambda u: False)
+
+    content = json.dumps({"term_en": "exam work", "base_form": "Prüfungsleistung",
+                          "definition": "d", "definition_en": "d",
+                          "example_sentence": "s", "example_sentence_en": "s"})
+    client, _ = _make_client(content)
+    llm = _types.SimpleNamespace(_client=client, _model="m", _extra_body=None)
+    body = _types.SimpleNamespace(text="Prüfungsleistung", source_uuid="u", page_number=1)
+
+    asyncio.run(mod.extract_glossary_from_selection(
+        "ws-uuid", body, {"user_id": 7}, llm, "de",
+    ))
+    assert seen["args"] == (7, 42)
