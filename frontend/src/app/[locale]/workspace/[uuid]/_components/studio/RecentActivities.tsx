@@ -11,6 +11,7 @@ import {
   TreeStructure,
 } from "@phosphor-icons/react";
 import { EmptyState } from "@/components/ui/EmptyState";
+import { TOOL_COLORS } from "../../_constants";
 
 interface RecentActivity {
   set_id: number;
@@ -32,15 +33,6 @@ const ACTIVITY_TOOL_ICONS: Record<string, React.ComponentType<any>> = {
   mindmap: TreeStructure,
 };
 
-const ACTIVITY_TOOL_COLORS: Record<string, string> = {
-  karteikarten: "var(--success-strong)",
-  flashcards: "#78350F",
-  quiz: "#A16207",
-  grammatik: "#534AB7",
-  hoerverstehen: "#0F766E",
-  data_table: "#C2410C",
-  mindmap: "#0369A1",
-};
 
 export function RecentActivities({ workspaceUuid, onNavigateToSet, refreshKey }: { workspaceUuid: string; onNavigateToSet?: (setId: number, tool: string, mode: string) => void; refreshKey?: number }) {
   const t = useTranslations("workspace.detail.studio.recent");
@@ -92,7 +84,7 @@ export function RecentActivities({ workspaceUuid, onNavigateToSet, refreshKey }:
       </span>
       <div className="flex flex-col gap-1">
         {activities.map((a) => {
-          const iconColor = ACTIVITY_TOOL_COLORS[a.tool] ?? "var(--muted)";
+          const iconColor = TOOL_COLORS[a.tool]?.color ?? "var(--muted)";
           const Icon = ACTIVITY_TOOL_ICONS[a.tool] ?? Cards;
           const displayTitle = a.title.replace(/\.(pdf|mp4|mp3|webm|wav|m4a|ogg)$/i, "");
           return (
