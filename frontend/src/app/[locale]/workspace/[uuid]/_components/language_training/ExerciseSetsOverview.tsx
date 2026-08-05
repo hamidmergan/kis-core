@@ -91,10 +91,10 @@ export function ExerciseSetsOverview({
                     style={{ boxShadow: "0 2px 10px rgba(0,40,60,0.05), 0 0 0 1px rgba(0,40,60,0.03)", minHeight: 90 }}>
                     {/* Which exercise type this is. Two grammar sets from one document
                         look identical otherwise, and the type is what the learner picked. */}
-                    {!generating && s.grammar_type_label && (
+                    {!generating && s.grammar_topic_name && (
                       <span className="self-start text-3xs font-semibold px-1.5 py-0.5 rounded"
                         style={{ backgroundColor: "rgba(var(--kb-rgb),0.10)", color: "var(--kb)" }}>
-                        {s.grammar_type_label}
+                        {s.grammar_topic_name}
                       </span>
                     )}
                     {/* Title + Score */}

@@ -12,6 +12,7 @@ nicht an ihnen geprüft werden.
 """
 
 from fastapi import APIRouter, Depends, HTTPException
+from loguru import logger
 
 from src import database as db
 from src.dependencies import get_current_user
@@ -64,7 +65,13 @@ async def preview_topic(
         raise HTTPException(status_code=400, detail=t("grammar.topicNameEmpty", locale))
 
     client, model, _ = _get_llm_client()
-    derived = derive_topic(client, model, name, locale)
+    try:
+        derived = derive_topic(client, model, name, locale)
+    except Exception as e:
+        # Der Dienst ist weg, nicht das Thema falsch. Wer hier "kein Grammatikthema"
+        # liest, schreibt seinen völlig richtigen Namen um und wundert sich.
+        logger.warning("Grammatik-Thema {!r}: Anbieter nicht erreichbar: {}", name, e)
+        raise HTTPException(status_code=503, detail=t("grammar.topicServiceDown", locale))
     if not derived:
         # Kein Grammatikthema, oder das Modell hat kein brauchbares Muster geliefert.
         # Eine Absage ist hier besser als ein erfundener Eintrag, den später ein

@@ -169,6 +169,12 @@ MESSAGES: dict[str, dict[str, str]] = {
         "de": "Dieses Thema gibt es hier schon",
         "en": "This topic already exists here",
     },
+    "grammar.topicServiceDown": {
+        "de": "Der KI-Dienst antwortet gerade nicht. Bitte versuche es in ein paar "
+              "Minuten noch einmal, dein Thema ist in Ordnung.",
+        "en": "The AI service is not responding right now. Please try again in a few "
+              "minutes, your topic is fine.",
+    },
     "grammar.topicNotRecognized": {
         "de": "Daraus lässt sich kein Grammatikthema machen. Versuche es mit einer "
               "grammatischen Form, zum Beispiel „Konjunktiv II“ oder „Passiv Präteritum“.",

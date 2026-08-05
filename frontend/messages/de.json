@@ -1676,7 +1676,7 @@
           "selectedSourcesCount": "{count} Quellen",
           "noSourceHint": "Wähle links eine Quelle aus, um aus ihr zu generieren.",
           "countHeading": "Anzahl",
-          "grammarTypeHeading": "Aufgabentyp",
+          "grammarTypeHeading": "Thema",
           "sentenceCountHeading": "Anzahl Sätze",
           "noGrammarTypes": "Kein Aufgabentyp freigeschaltet. Der Owner stellt das im Zahnrad ein."
         },
@@ -1801,6 +1801,19 @@
             "close": "Fast",
             "wrong": "Noch nicht richtig"
           }
+        },
+        "grammarTopics": {
+          "addTopic": "+ Neues Thema",
+          "nameLabel": "Welche Grammatik soll geübt werden?",
+          "namePlaceholder": "z. B. Konjunktiv II",
+          "check": "Prüfen",
+          "accept": "Übernehmen",
+          "again": "Nochmal erzeugen",
+          "checkHint": "Stimmt das Muster? Du kannst es überschreiben und weitere ergänzen.",
+          "beforePlaceholder": "Satz vorher",
+          "afterPlaceholder": "Satz nachher",
+          "needExample": "Bitte lass mindestens ein Musterpaar stehen",
+          "failed": "Das hat nicht geklappt, bitte nochmal versuchen"
         }
       },
       "topbar": {

@@ -2,7 +2,8 @@ import { useEffect, useState } from "react";
 import type { ReactNode } from "react";
 import { Sparkle } from "@phosphor-icons/react";
 import { useTranslations } from "next-intl";
-import type { GrammarType } from "../../_types";
+import type { GrammarTopic } from "../../_types";
+import { GrammarTopicForm } from "./GrammarTopicForm";
 
 // Every picker in this modal shares one look: 2px border, primary on hover,
 // primary + tint for the current choice (same classes as the quiz answers).
@@ -29,12 +30,14 @@ function PickerOption({ selected, disabled, onClick, children }: {
 
 export function CreateSetModal({
   tool, glossaryCount, selectedSources, workspaceUuid,
-  onClose, onCreate,
+  onClose, onCreate, canManage = false,
 }: {
   tool: string; glossaryCount: number; selectedSources?: { uuid: string; filename: string }[] | null;
   workspaceUuid: string;
   onClose: () => void;
-  onCreate: (mode: string, count: number, grammarType?: string) => void;
+  onCreate: (mode: string, count: number, grammarTopicId?: number) => void;
+  /** Eigentuemer oder Tutor. Nur die duerfen Themen anlegen. */
+  canManage?: boolean;
 }) {
   const t = useTranslations("workspace.detail.languageTraining");
   const pickedSources = selectedSources ?? [];
@@ -54,26 +57,28 @@ export function CreateSetModal({
   );
   const [count, setCount] = useState(isQuiz || isListening ? 5 : 10);
 
-  // The catalogue is owner-configurable per workspace, so it is fetched rather
-  // than hardcoded here: a new exercise type shows up without a frontend change.
-  const [grammarTypes, setGrammarTypes] = useState<GrammarType[]>([]);
-  const [grammarType, setGrammarType] = useState<string>("");
+  // Die Themen gehoeren dem Kurs und stehen in der Datenbank, nicht im Code. Ein
+  // neues Thema erscheint hier also ohne Aenderung an der Oberflaeche.
+  const [topics, setTopics] = useState<GrammarTopic[]>([]);
+  const [topicId, setTopicId] = useState<number | null>(null);
   const [typesLoading, setTypesLoading] = useState(false);
+  const [addingTopic, setAddingTopic] = useState(false);
+  const [reload, setReload] = useState(0);
   useEffect(() => {
     if (!isGrammar) return;
     let cancelled = false;
     setTypesLoading(true);
-    fetch(`/api/ai-assistant/workspaces/${workspaceUuid}/grammar-types`, { credentials: "include" })
+    fetch(`/api/ai-assistant/workspaces/${workspaceUuid}/grammar-topics`, { credentials: "include" })
       .then((res) => (res.ok ? res.json() : null))
       .then((data) => {
-        if (cancelled || !data?.types) return;
-        setGrammarTypes(data.types);
-        setGrammarType((prev) => prev || data.types[0]?.id || "");
+        if (cancelled || !data?.topics) return;
+        setTopics(data.topics);
+        setTopicId((prev) => prev ?? data.topics[0]?.id ?? null);
       })
-      .catch(() => { /* the create button stays disabled */ })
+      .catch(() => { /* der Erstellen-Knopf bleibt gesperrt */ })
       .finally(() => { if (!cancelled) setTypesLoading(false); });
     return () => { cancelled = true; };
-  }, [isGrammar, workspaceUuid]);
+  }, [isGrammar, workspaceUuid, reload]);
 
   const toolLabel = (() => {
     const map: Record<string, string> = {
@@ -87,7 +92,7 @@ export function CreateSetModal({
   })();
 
   const canCreate = isGrammar
-    ? Boolean(hasSource && grammarType)
+    ? Boolean(hasSource && topicId && !addingTopic)
     : !(isListening && !hasSource);
 
   return (
@@ -124,18 +129,35 @@ export function CreateSetModal({
               {typesLoading && (
                 <p className="text-3xs" style={{ color: "var(--muted)" }}>{t("common.loading")}</p>
               )}
-              {!typesLoading && grammarTypes.length === 0 && (
+              {!typesLoading && topics.length === 0 && !addingTopic && (
                 <p className="text-3xs" style={{ color: "#c4820e" }}>{t("createModal.noGrammarTypes")}</p>
               )}
-              {grammarTypes.map((gt) => (
-                /* Label only. The instruction is the worksheet line ("transform
-                   according to the pattern below") and reads identically for every
-                   type, so it belongs above the sentences, not in the picker. */
-                <PickerOption key={gt.id} selected={grammarType === gt.id}
-                  onClick={() => setGrammarType(gt.id)}>
-                  <span className="block font-semibold">{gt.label}</span>
+              {!addingTopic && topics.map((topic) => (
+                /* Nur der Name. Die Anweisung an den Lernenden lautet fuer jedes
+                   Thema gleich und gehoert deshalb ueber die Saetze, nicht hierhin. */
+                <PickerOption key={topic.id} selected={topicId === topic.id}
+                  onClick={() => setTopicId(topic.id)}>
+                  <span className="block font-semibold">{topic.name}</span>
                 </PickerOption>
               ))}
+              {canManage && !addingTopic && (
+                /* Anlegen ist Verwaltungsarbeit. Lernende sehen diesen Eintrag nicht,
+                   waehlen duerfen sie aus derselben Liste. */
+                <PickerOption selected={false} onClick={() => setAddingTopic(true)}>
+                  <span className="block font-semibold">{t("grammarTopics.addTopic")}</span>
+                </PickerOption>
+              )}
+              {addingTopic && (
+                <GrammarTopicForm
+                  workspaceUuid={workspaceUuid}
+                  onCancel={() => setAddingTopic(false)}
+                  onSaved={(topic) => {
+                    setAddingTopic(false);
+                    setTopicId(topic.id);
+                    setReload((n) => n + 1);
+                  }}
+                />
+              )}
             </div>
           </>
         )}
@@ -159,7 +181,7 @@ export function CreateSetModal({
             style={{ color: "var(--kb)", backgroundColor: "var(--surface)", border: "2px solid var(--border)" }}>
             {t("common.cancel")}
           </button>
-          <button type="button" onClick={() => onCreate(mode, count, isGrammar ? grammarType : undefined)}
+          <button type="button" onClick={() => onCreate(mode, count, isGrammar && topicId ? topicId : undefined)}
             disabled={!canCreate}
             className="btn-fill-accent flex-1 flex items-center justify-center gap-1.5 py-2 rounded-full text-xs font-semibold transition-all disabled:opacity-50">
             <Sparkle size={12} weight="bold" />

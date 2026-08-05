@@ -623,8 +623,9 @@ export default function KiTutorWorkspacePage() {
           glossaryCount={glossaryCount || glossary.length}
           selectedSources={selectedSourcesForSet}
           workspaceUuid={uuid}
+          canManage={isOwner}
           onClose={() => setShowCreateModal(false)}
-          onCreate={async (mode, count, grammarType) => {
+          onCreate={async (mode, count, grammarTopicId) => {
             setShowCreateModal(false);
             if (createSetTool === "quiz" || createSetTool === "karteikarten") {
               // Studio tools stay in Studio
@@ -638,7 +639,7 @@ export default function KiTutorWorkspacePage() {
             await createExerciseSet(
               createSetTool, mode, count,
               mode === "source" ? setSourceUuids : undefined,
-              grammarType,
+              grammarTopicId,
             );
             const poll = setInterval(() => loadExerciseSets(createSetTool), 3000);
             setTimeout(() => clearInterval(poll), 120000);

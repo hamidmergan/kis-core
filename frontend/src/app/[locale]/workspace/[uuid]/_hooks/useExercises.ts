@@ -46,7 +46,7 @@ export function useExercises({ uuid }: UseExercisesOptions) {
     } catch { /* ignore */ }
   }, [uuid]);
 
-  const createExerciseSet = useCallback(async (tool: string, mode: string, count: number, sourceUuids?: string[], grammarType?: string) => {
+  const createExerciseSet = useCallback(async (tool: string, mode: string, count: number, sourceUuids?: string[], grammarTopicId?: number) => {
     try {
       // api.fetch attaches Accept-Language from the NEXT_LOCALE cookie so the
       // backend generates the set in the UI language (raw fetch defaulted to de).
@@ -60,7 +60,7 @@ export function useExercises({ uuid }: UseExercisesOptions) {
           source_uuids: sourceUuids,
           source_uuid: sourceUuids?.[0],
           // Only the grammar tool sends this; the backend rejects an unknown id.
-          grammar_type: grammarType,
+          grammar_topic_id: grammarTopicId,
         }),
       });
       if (res.ok) {

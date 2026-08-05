@@ -15,6 +15,8 @@ Kein Netzzugriff, das Modell bekommt einen Fake-Client.
 import json
 import types
 
+import pytest
+
 from src.services.aia_grammar_topic import derive_topic
 
 
@@ -89,14 +91,22 @@ def test_unusable_json_is_refused_instead_of_crashing():
     assert derive_topic(client, "m", "Konjunktiv II", "de") is None
 
 
-def test_a_provider_error_is_refused_instead_of_crashing():
+def test_a_provider_failure_is_not_confused_with_a_bad_topic():
+    """Am laufenden System aufgefallen: der Anbieter meldete "Model Not Loaded", und
+    der Dozent las "daraus lässt sich kein Grammatikthema machen". Er hätte seinen
+    völlig richtigen Themennamen umgeschrieben, obwohl nur der Dienst weg war.
+
+    Eine Störung muss also durchschlagen, damit der Aufrufer sie als solche melden
+    kann. Ein Modell, das antwortet und dabei Unsinn liefert, bleibt None.
+    """
     def create(**kwargs):
-        raise RuntimeError("Connection error.")
+        raise RuntimeError("Model Not Loaded.")
 
     client = types.SimpleNamespace(
         chat=types.SimpleNamespace(completions=types.SimpleNamespace(create=create))
     )
-    assert derive_topic(client, "m", "Konjunktiv II", "de") is None
+    with pytest.raises(RuntimeError):
+        derive_topic(client, "m", "Konjunktiv II", "de")
 
 
 def test_a_fenced_answer_is_still_parsed():

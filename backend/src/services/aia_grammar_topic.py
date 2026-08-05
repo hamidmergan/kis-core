@@ -20,7 +20,6 @@ import json
 from loguru import logger
 
 from src.features.ai_assistant.repository.grammar_topics import MAX_EXAMPLES
-from src.features.ai_assistant.tasks._helpers import _clean_llm_json, _language_label
 from src.services.aia_grammar_check import normalize
 
 
@@ -52,20 +51,35 @@ def derive_topic(client, model, name: str, language: str) -> dict | None:
 
     ``None`` heisst: daraus lässt sich kein Grammatikthema machen. Der Aufrufer
     zeigt eine Absage, statt einen erfundenen Eintrag zu speichern.
+
+    Eine **Störung** des Anbieters schlägt dagegen durch. Am laufenden System
+    aufgefallen: der Dienst meldete "Model Not Loaded", und der Dozent las
+    "daraus lässt sich kein Grammatikthema machen". Er hätte seinen völlig
+    richtigen Themennamen umgeschrieben, obwohl nur der Dienst weg war. Zwei
+    verschiedene Ursachen brauchen zwei verschiedene Meldungen.
     """
+    # Erst hier geholt, nicht oben: das Aufgaben-Paket importiert seinerseits
+    # derive_topic, ein Import auf Modulebene ergäbe also einen Ringschluss. Die
+    # beiden sind allgemeine Helfer für Modell-Ausgaben und liegen nur historisch
+    # unter tasks/.
+    from src.features.ai_assistant.tasks._helpers import _clean_llm_json, _language_label
+
     label = _language_label(language)
     messages = [
         {"role": "system", "content": _PROMPT.replace("{language}", label)},
         {"role": "user", "content": f"Topic: {name}\n\nWrite the example in {label}."},
     ]
+    # Niedrige Temperatur: hier ist keine Vielfalt gefragt, sondern die gängigste
+    # und damit sicherste Lesart des Themennamens. Ein Fehler beim Aufruf selbst
+    # geht bewusst nach oben durch, siehe Docstring.
+    response = client.chat.completions.create(
+        model=model, messages=messages, temperature=0.2)
     try:
-        # Niedrige Temperatur: hier ist keine Vielfalt gefragt, sondern die
-        # gängigste und damit sicherste Lesart des Themennamens.
-        response = client.chat.completions.create(
-            model=model, messages=messages, temperature=0.2)
         data = json.loads(_clean_llm_json(response.choices[0].message.content or ""))
     except Exception as e:
-        logger.warning("Grammatik-Thema {!r} nicht ableitbar: {}", name, e)
+        # Das Modell hat geantwortet, aber unbrauchbar. Das ist eine Absage und
+        # keine Störung: ein zweiter Versuch mit demselben Namen hilft nicht.
+        logger.warning("Grammatik-Thema {!r} nicht lesbar beantwortet: {}", name, e)
         return None
 
     if not isinstance(data, dict) or not data.get("is_grammar"):

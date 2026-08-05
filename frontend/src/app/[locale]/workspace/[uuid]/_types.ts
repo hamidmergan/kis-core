@@ -163,11 +163,11 @@ export interface GlossaryEntry {
 }
 
 /** One entry of the grammar exercise catalogue, as the backend exposes it. */
-export interface GrammarType {
-  id: string;
-  label: string;
-  instruction: string;
-  format: "text" | "choice";
+/** Ein Grammatikthema des Kurses. Der Name ist alles, was der Dozent tippt. */
+export interface GrammarTopic {
+  id: number;
+  name: string;
+  created_by?: number | null;
 }
 
 /** Result of marking one free-text grammar answer. */
@@ -244,7 +244,7 @@ export interface ExerciseSet {
   // Grammar sets only: the catalogue entry plus the header shown above the sentences.
   grammar_type?: string | null;
   /** Localised name of the catalogue entry, e.g. "Passiv Präsens". List view only. */
-  grammar_type_label?: string | null;
+  grammar_topic_name?: string | null;
   instruction?: string | null;
   pattern_front?: string | null;
   pattern_back?: string | null;

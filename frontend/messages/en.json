@@ -1676,7 +1676,7 @@
           "selectedSourcesCount": "{count} sources",
           "noSourceHint": "Select a source on the left to generate from it.",
           "countHeading": "Count",
-          "grammarTypeHeading": "Exercise type",
+          "grammarTypeHeading": "Topic",
           "sentenceCountHeading": "Number of sentences",
           "noGrammarTypes": "No exercise type enabled. The owner sets this in the settings menu."
         },
@@ -1801,6 +1801,19 @@
             "close": "Almost",
             "wrong": "Not right yet"
           }
+        },
+        "grammarTopics": {
+          "addTopic": "+ New topic",
+          "nameLabel": "Which grammar should be practised?",
+          "namePlaceholder": "e.g. past passive",
+          "check": "Check",
+          "accept": "Accept",
+          "again": "Generate again",
+          "checkHint": "Does the pattern look right? You can overwrite it and add more.",
+          "beforePlaceholder": "Sentence before",
+          "afterPlaceholder": "Sentence after",
+          "needExample": "Please keep at least one example pair",
+          "failed": "That did not work, please try again"
         }
       },
       "topbar": {
