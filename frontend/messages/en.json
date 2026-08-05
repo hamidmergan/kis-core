@@ -1920,13 +1920,13 @@
           "listening": "Listening and reading"
         },
         "tileDescriptions": {
-          "karteikarten": "Question and answer to test yourself.",
-          "quiz": "Questions to tick the right answer.",
-          "dataTable": "Facts from the document as a table.",
-          "mindmap": "Topics shown as a tree.",
-          "lernkarten": "Technical terms with base form and example.",
-          "grammar": "Transform sentences following a pattern.",
-          "listening": "Questions about a recording."
+          "karteikarten": "Create cards with question and answer from the selected sources",
+          "quiz": "Create a quiz with answers to tick from the selected sources",
+          "dataTable": "Collect facts from the selected sources in a table",
+          "mindmap": "Show the topics of the selected sources as a tree",
+          "lernkarten": "Explain technical terms from the selected sources with base form and example",
+          "grammar": "Transform sentences from the selected sources following a pattern",
+          "listening": "Create questions about a text or a recording from the selected sources"
         },
         "recent": {
           "heading": "Recent activity",

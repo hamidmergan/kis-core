@@ -1920,13 +1920,13 @@
           "listening": "Hör- und Leseverstehen"
         },
         "tileDescriptions": {
-          "karteikarten": "Frage und Antwort zum Abfragen.",
-          "quiz": "Fragen zum Ankreuzen.",
-          "dataTable": "Fakten aus dem Dokument als Tabelle.",
-          "mindmap": "Themen als Baum dargestellt.",
-          "lernkarten": "Fachwörter mit Grundform und Beispiel.",
-          "grammar": "Sätze nach einem Muster umformen.",
-          "listening": "Fragen zu einer Aufnahme."
+          "karteikarten": "Karten mit Frage und Antwort aus den ausgewählten Quellen erstellen",
+          "quiz": "Quiz zum Ankreuzen aus den ausgewählten Quellen erstellen",
+          "dataTable": "Fakten aus den ausgewählten Quellen in einer Tabelle sammeln",
+          "mindmap": "Die Themen der ausgewählten Quellen als Baum darstellen",
+          "lernkarten": "Fachwörter aus den ausgewählten Quellen mit Grundform und Beispiel erklären",
+          "grammar": "Sätze aus den ausgewählten Quellen nach einem Muster umformen",
+          "listening": "Fragen zu einem Text oder einer Aufnahme aus den ausgewählten Quellen erstellen"
         },
         "recent": {
           "heading": "Letzte Aktivitäten",
