@@ -106,8 +106,9 @@ export function useLanguageDiagnosis(
         }
         const data = (await res.json()) as DiagnosisTurnResponse;
         // A running turn is one question. Option questions carry their shuffled
-        // values and a multi flag so the client renders radio vs checkbox; the
-        // verdict has neither and is shown by the result screen.
+        // values and a multi flag so the client renders radio vs checkbox, a gap
+        // fill carries short so it gets a one-line box; the verdict has none of
+        // them and is shown by the result screen.
         const next: ChatTurn[] = [
           ...history,
           data.done
@@ -117,6 +118,7 @@ export function useLanguageDiagnosis(
                 content: data.message,
                 ...(data.options ? { options: data.options } : {}),
                 ...(data.multi ? { multi: data.multi } : {}),
+                ...(data.short ? { short: data.short } : {}),
               },
         ];
         turnsRef.current = next;

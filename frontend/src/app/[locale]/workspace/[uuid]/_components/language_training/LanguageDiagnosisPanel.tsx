@@ -76,6 +76,10 @@ export function LanguageDiagnosisPanel({
   // A free-text question is one being answered that carries no options. It gets a
   // real textbox with a submit button, not the chat-style composer.
   const isFreeText = !!current && !(options && options.length > 0);
+  // A gap fill is answered with one word, so it gets a one-line box. The big
+  // four-row box is for whole sentences and reads as "write a lot" next to a
+  // sentence that is missing a single word.
+  const isShort = current?.short ?? false;
 
   // Checkbox picks for a multi-correct question, and the free-text draft. Both
   // reset whenever a new question arrives, so nothing leaks between questions.
@@ -291,10 +295,29 @@ export function LanguageDiagnosisPanel({
 
           {/* Free-text tasks (error correction, free writing) get a real textbox
               and an explicit submit button, since the learner writes whole
-              sentences. Cmd/Ctrl+Enter submits too. */}
+              sentences. Cmd/Ctrl+Enter submits too. A gap fill gets a one-line
+              box instead, where plain Enter submits: there is only one word to
+              type, so waiting for a modifier would just feel stuck. */}
           {isFreeText && (
             <div className="px-4 pt-3 pb-4">
               <div className="max-w-2xl mx-auto w-full flex flex-col gap-2">
+                {isShort ? (
+                  <input
+                    type="text"
+                    value={draft}
+                    onChange={(e) => setDraft(e.target.value)}
+                    maxLength={answerMaxChars}
+                    autoFocus
+                    placeholder={t("gapPlaceholder")}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" && draft.trim()) {
+                        e.preventDefault();
+                        send(draft);
+                      }
+                    }}
+                    className="w-full rounded-xl px-4 py-3 text-base bg-surface text-foreground border-2 border-border transition-colors focus:border-kb focus:outline-none"
+                  />
+                ) : (
                 <textarea
                   value={draft}
                   onChange={(e) => setDraft(e.target.value)}
@@ -310,6 +333,7 @@ export function LanguageDiagnosisPanel({
                   }}
                   className="w-full rounded-xl px-4 py-3 text-base resize-y bg-surface text-foreground border-2 border-border transition-colors focus:border-kb focus:outline-none"
                 />
+                )}
                 <div className="flex items-center justify-between gap-2">
                   {skipButton}
                   <button

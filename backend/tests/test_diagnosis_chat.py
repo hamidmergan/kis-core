@@ -326,8 +326,16 @@ def test_next_question_message_has_no_options_directive_for_free_text():
     assert "3 of" in msg  # difficulty follows position, not a band
 
 
+def test_next_question_message_has_no_options_directive_for_a_gap_fill():
+    """Gap fill is typed, not picked, so the model must not invent options."""
+    msg = next_question_message(1, QUESTION_PLAN)  # Q1 is gap fill
+    assert AUTO_OPTIONS_DIRECTIVE.strip() not in msg
+    assert "gap fill" in msg
+
+
 def test_next_question_message_uses_verbatim_text_when_present():
-    plan = [{"band": "A1", "type": "gap fill", "text": "Fülle die Lücke: Ich ___ Student."}]
+    plan = [{"band": "A1", "type": "multiple choice",
+             "text": "Fülle die Lücke: Ich ___ Student."}]
     msg = next_question_message(1, plan)
     assert "Ich ___ Student." in msg
     assert "1 of 1" in msg
@@ -338,7 +346,7 @@ def test_next_question_message_uses_verbatim_text_when_present():
 # ─── Final grading messages ────────────────────────────────────────────────
 
 def test_build_final_messages_carries_the_record_to_one_user_turn():
-    plan = [{"band": "A1", "type": "gap fill", "text": "Ich ___ Student.",
+    plan = [{"band": "A1", "type": "multiple choice", "text": "Ich ___ Student.",
              "options": [{"text": "bin", "correct": True},
                          {"text": "ist", "correct": False}]}]
     history = [

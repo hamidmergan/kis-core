@@ -44,6 +44,7 @@ from src.services.aia_diagnosis_chat import (
     OPTION_QUESTION_TYPES,
     QUESTION_PLAN_SETTING,
     REPAIR_MESSAGE,
+    TYPED_ANSWER_QUESTION_TYPES,
     DiagnosisChatError,
     assemble_system_prompt,
     auto_question_payload,
@@ -262,13 +263,15 @@ async def turn(
     if answered < total:
         step = plan[answered]
         mode = question_mode(step)
-        if mode in ("manual_options", "manual_text"):
+        if mode in ("manual_options", "manual_typed", "manual_text"):
             return manual_question_payload(step)
         enforce_aia_burst(user_id, locale)
         messages = build_auto_messages(system_prompt, answered + 1, plan)
         want_options = step["type"] in OPTION_QUESTION_TYPES
         parsed = await _run_auto(llm, messages, want_options, user_id, locale)
-        return auto_question_payload(parsed)
+        return auto_question_payload(
+            parsed, short=step["type"] in TYPED_ANSWER_QUESTION_TYPES
+        )
 
     # Nothing given anywhere: there is nothing to grade. The level is fixed in
     # code rather than left to a model that would pick between the lower bands at

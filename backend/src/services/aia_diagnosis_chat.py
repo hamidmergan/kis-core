@@ -64,11 +64,15 @@ QUESTION_COUNT = len(QUESTION_PLAN)
 # is now drawn at random. Error correction and free writing have no options and
 # are skipped.
 OPTION_QUESTION_TYPES = {
-    "gap fill",
     "multiple choice",
     "reading comprehension",
     "situation",
 }
+# Gap fill is answered by TYPING the missing word, never by picking from a list.
+# With options it was just another multiple choice, and a blank in a sentence
+# invites typing, so it is its own family: the learner produces the answer, and an
+# authored answer key still lets the code grade it with no model call.
+TYPED_ANSWER_QUESTION_TYPES = {"gap fill"}
 # The two task types that never carry options: the learner writes their own
 # answer, which only the final LLM call can judge.
 FREE_TEXT_QUESTION_TYPES = {"error correction", "free writing"}
@@ -85,6 +89,10 @@ MIN_FREE_TEXT_QUESTIONS = 2
 # is a paste accident.
 MIN_OPTIONS = 2
 MAX_OPTIONS = 8
+# Bounds for a typed question's answer key. One accepted answer is the normal
+# case; the extra room is for the spellings that are genuinely just as right
+# ("Straße" / "Strasse"), not for a list long enough to accept anything.
+MAX_ANSWERS = 8
 CORRECT_OPTION_POSITIONS = ["a", "b", "c", "d"]
 # History caps. The client keeps the transcript and posts it back each turn, so
 # these bound how big a single request may grow.
@@ -157,6 +165,40 @@ def _parse_options(raw_options) -> list[dict] | None:
     return cleaned if has_correct else None
 
 
+def _parse_answers(raw_answers) -> list[str] | None:
+    """Validate an authored answer key for a typed question, or None when unusable.
+
+    The key is a plain list of accepted answers, ``["gehe"]`` in the common case.
+    There is no correct flag: everything in the list IS correct, which is what an
+    author expects from a field called "Lösung". One to MAX_ANSWERS entries, each a
+    non-empty string. Returns the stripped answers, or None so the caller can
+    revert the whole plan, exactly like a broken option set does.
+    """
+    if not isinstance(raw_answers, list) or not (1 <= len(raw_answers) <= MAX_ANSWERS):
+        return None
+    cleaned: list[str] = []
+    for answer in raw_answers:
+        if not isinstance(answer, str) or not answer.strip():
+            return None
+        cleaned.append(answer.strip())
+    return cleaned
+
+
+def _legacy_answers_from_options(raw_options) -> list[str] | None:
+    """Answer key recovered from a stored gap fill that still carries options.
+
+    Gap fill used to be an option type, so plans saved before this change hold
+    four options with a correct flag. Reading the correct ones as the answer key
+    keeps such a plan working word for word instead of silently dropping it back
+    to model-generated questions. Returns None when the option set itself is
+    broken, so the caller reverts as it always did.
+    """
+    cleaned = _parse_options(raw_options)
+    if cleaned is None:
+        return None
+    return [opt["text"] for opt in cleaned if opt["correct"]]
+
+
 def parse_question_plan(raw: str) -> list[dict]:
     """Parse the admin question-plan JSON, falling back to the shipped default.
 
@@ -168,6 +210,9 @@ def parse_question_plan(raw: str) -> list[dict]:
         ``correct`` flag. Graded in code, so no model call. A structurally broken
         option set reverts the whole plan to the default (existing philosophy:
         always run on a usable plan).
+      * ``"answers"`` (typed types only) the accepted answers the learner types.
+        Also graded in code. A gap fill saved before typed answers existed still
+        carries ``"options"``; its correct ones become the answer key.
     A legacy ``"band"`` field from older plans, an ``"example"`` and options on a
     free-text type are all ignored rather than rejected, so an old or stray field
     is forgiving.
@@ -196,6 +241,18 @@ def parse_question_plan(raw: str) -> list[dict]:
             if options is None:
                 return QUESTION_PLAN
             step["options"] = options
+        if qtype in TYPED_ANSWER_QUESTION_TYPES:
+            answers = None
+            if item.get("answers") is not None:
+                answers = _parse_answers(item.get("answers"))
+            elif item.get("options") is not None:
+                answers = _legacy_answers_from_options(item.get("options"))
+            if answers is None and (
+                item.get("answers") is not None or item.get("options") is not None
+            ):
+                return QUESTION_PLAN
+            if answers:
+                step["answers"] = answers
         plan.append(step)
     return plan
 
@@ -215,12 +272,7 @@ DEFAULT_GERMAN_QUESTION_PLAN = [
     {
         "type": "gap fill",
         "text": "Setze das passende Wort ein.\n\nIch ___ jeden Tag zur Arbeit.",
-        "options": [
-            {"text": "gehe", "correct": True},
-            {"text": "gehst", "correct": False},
-            {"text": "geht", "correct": False},
-            {"text": "gehen", "correct": False},
-        ],
+        "answers": ["gehe"],
     },
     {
         "type": "multiple choice",
@@ -343,8 +395,10 @@ def question_plan_is_valid(raw: str) -> bool:
     The save path uses this to reject a typo with a 400, rather than storing
     something the runtime then silently reverts to a default. Mirrors
     :func:`parse_question_plan`: the type must be known, an option set (option
-    types only) must pass ``_parse_options``, and text must be a string. A legacy
-    ``band`` field is ignored.
+    types only) must pass ``_parse_options``, an answer key (typed types only)
+    must pass ``_parse_answers``, and text must be a string. A legacy ``band``
+    field is ignored, and so is a legacy option set on a typed type, which the
+    runtime converts to an answer key instead of rejecting.
     """
     try:
         data = json.loads(raw)
@@ -362,6 +416,13 @@ def question_plan_is_valid(raw: str) -> bool:
         if item["type"] in OPTION_QUESTION_TYPES and item.get("options") is not None:
             if _parse_options(item.get("options")) is None:
                 return False
+        if item["type"] in TYPED_ANSWER_QUESTION_TYPES:
+            if item.get("answers") is not None:
+                if _parse_answers(item.get("answers")) is None:
+                    return False
+            elif item.get("options") is not None:
+                if _legacy_answers_from_options(item.get("options")) is None:
+                    return False
     return True
 
 
@@ -424,21 +485,70 @@ def grade_selection(step: dict, selected: list[str]) -> bool:
     return picked == correct
 
 
+def answer_key(step: dict) -> list[str]:
+    """The accepted answers of an authored typed question, in authoring order.
+
+    Never sent to the client: the learner types, so knowing the key would give the
+    answer away outright, unlike an option list that has to be shown anyway.
+    """
+    return list(step.get("answers", []))
+
+
+# Punctuation a learner may leave at the end of a typed answer. Ending a gap-fill
+# word with a full stop is a habit, not a language mistake, and marking it wrong
+# would be graded typing rather than graded language.
+_TRAILING_PUNCTUATION = ".,;:!?…"
+
+
+def normalize_typed_answer(value: str) -> str:
+    """Fold a typed answer down to what actually carries meaning.
+
+    Dropped: outer whitespace, doubled inner whitespace, trailing punctuation and
+    capitalisation. Kept: every letter as written, so "gehe" never matches "geht"
+    and a missing umlaut stays a mistake. ``lower`` rather than ``casefold`` on
+    purpose, since casefold would quietly make "Straße" equal "strasse" and that
+    is the author's call to make in the answer key, not ours.
+    """
+    folded = " ".join(value.split()).rstrip(_TRAILING_PUNCTUATION).strip()
+    return folded.lower()
+
+
+def grade_typed(step: dict, answer: str) -> bool:
+    """Deterministic grade for an authored typed question (gap fill).
+
+    Correct iff the typed answer folds onto one of the accepted answers. A skipped
+    question arrives as an empty string and is never correct. Nothing is guessed
+    here: a near miss is simply wrong, since the author decides which spellings
+    count by listing them.
+    """
+    key = {normalize_typed_answer(a) for a in answer_key(step)}
+    if not key:
+        return False
+    return normalize_typed_answer(answer) in key
+
+
 def question_mode(step: dict) -> str:
-    """How a slot is served and graded: 'manual_options', 'manual_text' or 'auto'.
+    """How a slot is served and graded: 'manual_options', 'manual_typed',
+    'manual_text' or 'auto'.
 
     * manual_options: an option type with both a question text and an answer key.
       Served instantly, graded in code.
+    * manual_typed: a typed type (gap fill) with both a question text and an
+      answer key. Served instantly, graded in code against the typed answer.
     * manual_text: a free-text type with a question text. Served instantly, judged
       by the final LLM.
-    * auto: anything else (bare band/type, or an option type whose answer key is
-      not filled in yet). The model generates it, exactly as before.
+    * auto: anything else (bare band/type, or an option or typed type whose answer
+      key is not filled in yet). The model generates it, exactly as before.
     """
     qtype = step.get("type")
     has_text = bool((step.get("text") or "").strip())
     if qtype in OPTION_QUESTION_TYPES:
         if has_text and correct_values(step):
             return "manual_options"
+        return "auto"
+    if qtype in TYPED_ANSWER_QUESTION_TYPES:
+        if has_text and answer_key(step):
+            return "manual_typed"
         return "auto"
     if qtype in FREE_TEXT_QUESTION_TYPES:
         return "manual_text" if has_text else "auto"
@@ -478,12 +588,16 @@ def manual_question_payload(step: dict, rng=None) -> dict:
 
     The message is the authored question text. Option questions also carry the
     shuffled option values (never the correct flags) and a ``multi`` flag so the
-    client picks radio vs checkbox. Free-text questions carry only the message.
+    client picks radio vs checkbox. Typed questions carry ``short`` so the client
+    offers a one-line box instead of the big one meant for whole sentences; the
+    answer key stays here. Free-text questions carry only the message.
     """
     payload = {"done": False, "message": step["text"]}
     if step.get("type") in OPTION_QUESTION_TYPES and step.get("options"):
         payload["options"] = _shuffle(option_values(step), rng)
         payload["multi"] = is_multi_correct(step)
+    if step.get("type") in TYPED_ANSWER_QUESTION_TYPES:
+        payload["short"] = True
     return payload
 
 
@@ -507,16 +621,20 @@ def parse_auto_question(raw: str, want_options: bool) -> dict:
     return result
 
 
-def auto_question_payload(parsed: dict, rng=None) -> dict:
+def auto_question_payload(parsed: dict, rng=None, *, short: bool = False) -> dict:
     """Client payload for a model-generated question, stripped of the answer key.
 
     The correct flags never leave the server; the options are shuffled to values
     only. Auto questions are always single-correct, so ``multi`` is always False.
+    ``short`` marks a typed question, so a generated gap fill gets the same
+    one-line box as an authored one.
     """
     payload = {"done": False, "message": parsed["message"]}
     if "options" in parsed:
         payload["options"] = _shuffle([opt["text"] for opt in parsed["options"]], rng)
         payload["multi"] = False
+    if short:
+        payload["short"] = True
     return payload
 
 
@@ -593,6 +711,14 @@ def build_grading_brief(plan: list[dict], history: list[dict]) -> str:
                     f"Correct answer(s): {correct}. Learner wrote in free words: \"{answer}\". "
                     "Decide which option they meant, then whether it is correct."
                 )
+        elif mode == "manual_typed":
+            verdict = "CORRECT" if grade_typed(step, answer) else "INCORRECT"
+            lines.append(
+                f"{header}: authored gap fill, the learner types the answer. "
+                f"Question: {q_text} Accepted answer(s): {answer_key(step)}. "
+                f"Learner typed: \"{answer}\". "
+                f"RESULT (already graded in code, use exactly this): {verdict}."
+            )
         elif mode == "manual_text":
             lines.append(
                 f"{header}: authored free-text task. Question: {q_text} "
@@ -604,6 +730,12 @@ def build_grading_brief(plan: list[dict], history: list[dict]) -> str:
                 f"{header}: model-generated choice. Question: {q_text} "
                 f"Options shown: {item['options']}. Learner answered: {picked}. "
                 "Decide which option they meant, then whether it is correct."
+            )
+        elif qtype in TYPED_ANSWER_QUESTION_TYPES:  # auto gap fill, no authored key
+            lines.append(
+                f"{header}: model-generated gap fill, the learner types the missing "
+                f"word. Question: {q_text} Learner typed: \"{answer}\". "
+                "Decide whether the word fits the blank."
             )
         else:  # auto free-text
             lines.append(
@@ -755,7 +887,10 @@ METHOD
   each question; write exactly that type, at a difficulty that fits its position.
   Most are closed questions with options, which keeps the task readable at a
   glance:
-  * gap fill: ONE short everyday sentence with a blank, plus four options
+  * gap fill: ONE short everyday sentence with a blank, written as ___ , and NO
+    options. The learner types the missing word themselves, so the sentence must
+    leave exactly one word that fits; if several words would fit, add enough
+    context that only one does
   * multiple choice: a question with four short options, clearly distinct
   * error correction: one faulty sentence the learner has to rewrite correctly,
     no options
@@ -878,11 +1013,12 @@ Reply with ONLY a JSON object. No prose, no markdown fences, no explanation.
 The line breaks required by TASK LAYOUT go inside the "message" string as \\n.
 
 While the interview is still running you ask ONE question.
-For a task WITH options (gap fill, multiple choice, reading comprehension,
-situation) return the options as a separate "options" array, NEVER inside the
+For a task WITH options (multiple choice, reading comprehension, situation)
+return the options as a separate "options" array, NEVER inside the
 message. EXACTLY ONE option is correct:
 {"done": false, "message": "<the instruction and the sentence or question, in {language}, laid out over lines, WITHOUT the options>", "options": [{"text": "<option in {language}>", "correct": true}, {"text": "<option>", "correct": false}, {"text": "<option>", "correct": false}, {"text": "<option>", "correct": false}]}
-For a task WITHOUT options (error correction, free writing) omit "options":
+For a task WITHOUT options (gap fill, error correction, free writing) omit
+"options":
 {"done": false, "message": "<the instruction and the sentence, in {language}, laid out over lines>"}
 
 Mark exactly one option "correct": true and every other one "correct": false.

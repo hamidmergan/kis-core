@@ -108,7 +108,8 @@ def _full_skip_history() -> list[dict]:
 
 def test_all_skipped_gives_a_fixed_a1_without_asking_the_model(client):
     with patch(f"{ROUTE}._require_workspace_access",
-               return_value={"diagnosis_language": "de"}), \
+               return_value={"id": 7, "diagnosis_language": "de"}), \
+         patch(f"{ROUTE}.db.is_language_training_active", return_value=True), \
          patch(f"{ROUTE}.db.get_setting", side_effect=lambda key, default="": default), \
          patch(f"{ROUTE}.db.set_user_language_level") as save, \
          patch(f"{ROUTE}._call_llm") as call_llm:
@@ -136,7 +137,8 @@ def test_a_single_answer_still_goes_to_the_model(client):
     history[1]["content"] = "Ich gehe ins Kino."
 
     with patch(f"{ROUTE}._require_workspace_access",
-               return_value={"diagnosis_language": "de"}), \
+               return_value={"id": 7, "diagnosis_language": "de"}), \
+         patch(f"{ROUTE}.db.is_language_training_active", return_value=True), \
          patch(f"{ROUTE}.db.get_setting", side_effect=lambda key, default="": default), \
          patch(f"{ROUTE}.db.set_user_language_level"), \
          patch(f"{ROUTE}.enforce_aia_burst"), \

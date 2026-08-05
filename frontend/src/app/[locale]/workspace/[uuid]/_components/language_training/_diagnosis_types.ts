@@ -30,6 +30,10 @@ export interface ChatTurn {
   /** Assistant option question: several options may be correct, so the learner
    *  picks with checkboxes instead of a single radio choice. */
   multi?: boolean;
+  /** Assistant typed question (gap fill): the answer is a single word, so the
+   *  learner gets a one-line box instead of the one meant for whole sentences.
+   *  Display only, it never travels back. */
+  short?: boolean;
   /** User turn: the option values the learner clicked. Absent when they typed a
    *  free answer, which the final grading call interprets. */
   selected?: string[];
@@ -37,7 +41,7 @@ export interface ChatTurn {
 
 /** The wire shape of one transcript entry posted back each turn. The options and
  *  the picks travel so the server can reconstruct the record for the one final
- *  grading call; `multi` is display-only and stays on the client. */
+ *  grading call; `multi` and `short` are display-only and stay on the client. */
 export function toTranscript(turns: ChatTurn[]): {
   role: ChatTurn["role"];
   content: string;
@@ -60,5 +64,5 @@ export interface DiagnosisResult {
 
 /** One turn of the diagnosis: the next question, or the final verdict. */
 export type DiagnosisTurnResponse =
-  | { done: false; message: string; options?: string[]; multi?: boolean }
+  | { done: false; message: string; options?: string[]; multi?: boolean; short?: boolean }
   | ({ done: true } & DiagnosisResult);
