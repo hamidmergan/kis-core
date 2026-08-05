@@ -24,10 +24,16 @@ def create_aia_workspace(user_id: int, title: str, description: str | None) -> s
         with conn.cursor() as cur:
             cur.execute(
                 """INSERT INTO aia_workspaces (uuid, user_id, title, description)
-                   VALUES (%s, %s, %s, %s)""",
+                   VALUES (%s, %s, %s, %s) RETURNING id""",
                 (workspace_uuid, user_id, title, description),
             )
+            new_id = cur.fetchone()[0]
         conn.commit()
+    # Grundstock an Grammatikthemen, damit ein frischer Kurs sofort ueben kann statt
+    # vor einer leeren Liste zu stehen. Ohne Ausarbeitung: die entsteht beim ersten
+    # Benutzen in der Kurssprache.
+    from src.features.ai_assistant.repository.grammar_topics import seed_grammar_topics
+    seed_grammar_topics(new_id, user_id)
     return workspace_uuid
 
 def get_aia_workspace(uuid: str) -> dict | None:

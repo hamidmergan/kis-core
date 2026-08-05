@@ -873,10 +873,66 @@ def init_db(admin_email: Optional[str] = None) -> None:
                 "UPDATE aia_exercise_sets SET tool = 'quiz' "
                 "WHERE tool IN ('lueckentext', 'vokabeltest')"
             )
-            # Grammar exercises: a set carries the task type it was built from plus the
-            # instruction and the worked example pair, because those are shown once above
-            # the sentences instead of being repeated on every item.
-            cur.execute("ALTER TABLE aia_exercise_sets ADD COLUMN IF NOT EXISTS grammar_type TEXT")
+            # Grammar exercises: a set carries the instruction and the worked example
+            # pair, because those are shown once above the sentences instead of being
+            # repeated on every item.
+            # Grammatikthemen. Sie standen im Code, und ein neues kostete dort einen
+            # Eintrag mit Regel, Musterpaar je Sprache und beim Ankreuz-Format noch drei
+            # falschen Formen. Für zwei Themen tragbar, für dreissig nicht. Jetzt tippt
+            # der Dozent einen Namen und die KI arbeitet den Rest aus.
+            #
+            # Zwei Tabellen, weil ein Thema nur ein Name ist, Regel und Beispiele aber
+            # zusätzlich an der Sprache hängen: "Konjunktiv II" braucht auf Deutsch ein
+            # anderes Beispiel als derselbe Kurs auf Englisch.
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS aia_grammar_topics (
+                    id           SERIAL PRIMARY KEY,
+                    workspace_id INTEGER NOT NULL
+                                   REFERENCES aia_workspaces(id) ON DELETE CASCADE,
+                    name         TEXT NOT NULL,
+                    created_by   INTEGER,
+                    created_at   TIMESTAMP NOT NULL DEFAULT NOW()
+                )
+            """)
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS aia_grammar_topic_specs (
+                    id        SERIAL PRIMARY KEY,
+                    topic_id  INTEGER NOT NULL
+                                REFERENCES aia_grammar_topics(id) ON DELETE CASCADE,
+                    language  TEXT NOT NULL,
+                    rule      TEXT NOT NULL,
+                    examples  JSONB NOT NULL DEFAULT '[]'::jsonb,
+                    UNIQUE (topic_id, language)
+                )
+            """)
+            cur.execute(
+                "CREATE INDEX IF NOT EXISTS idx_grammar_topics_workspace "
+                "ON aia_grammar_topics(workspace_id)"
+            )
+            # Grundstock für jeden Workspace, der noch keinen hat. Ohne Ausarbeitung:
+            # die entsteht beim ersten Benutzen in der jeweiligen Sprache, sonst kostete
+            # jeder Kurs acht Modell-Aufrufe, von denen die meisten nie gebraucht werden.
+            cur.execute("""
+                INSERT INTO aia_grammar_topics (workspace_id, name, created_by)
+                SELECT w.id, s.name, w.user_id
+                FROM aia_workspaces w
+                CROSS JOIN (VALUES ('Passiv Präsens'), ('Passiv mit Modalverb'),
+                                   ('Perfekt'), ('Präteritum'), ('Konjunktiv II'),
+                                   ('Relativsätze'), ('Nebensätze'),
+                                   ('Adjektivdeklination')) AS s(name)
+                WHERE NOT EXISTS (
+                    SELECT 1 FROM aia_grammar_topics t
+                    WHERE t.workspace_id = w.id AND t.name = s.name
+                )
+            """)
+            # Die Textspalte zeigte auf einen Code-Eintrag, den es nicht mehr gibt. Kein
+            # Bestandsschutz, wir sind auf dev: die alten Grammatik-Sets gehen mit.
+            cur.execute("DELETE FROM aia_exercise_sets WHERE tool = 'grammatik'")
+            cur.execute("ALTER TABLE aia_exercise_sets DROP COLUMN IF EXISTS grammar_type")
+            cur.execute(
+                "ALTER TABLE aia_exercise_sets ADD COLUMN IF NOT EXISTS grammar_topic_id "
+                "INTEGER REFERENCES aia_grammar_topics(id) ON DELETE SET NULL"
+            )
             cur.execute("ALTER TABLE aia_exercise_sets ADD COLUMN IF NOT EXISTS instruction TEXT")
             cur.execute("ALTER TABLE aia_exercise_sets ADD COLUMN IF NOT EXISTS pattern_front TEXT")
             cur.execute("ALTER TABLE aia_exercise_sets ADD COLUMN IF NOT EXISTS pattern_back TEXT")
