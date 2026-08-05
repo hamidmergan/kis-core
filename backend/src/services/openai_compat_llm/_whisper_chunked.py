@@ -18,7 +18,7 @@ from src.services.openai_compat_llm._chunking import (
     split_audio,
 )
 from src.services.openai_compat_llm._subtitles import merge_srt, merge_vtt
-from src.limits import STT_CHUNK_DEFAULT_PARALLELISM, STT_CHUNK_MAX_PARALLELISM
+from src.limits import STT_CHUNK_PARALLELISM
 
 # (finished_chunks, total_chunks) -> None. Fires per finished chunk so a long
 # transcription can say "part 3 of 12" instead of just "running".
@@ -28,24 +28,20 @@ ProgressFn = Callable[[int, int], None] | None
 def chunk_concurrency() -> int:
     """How many chunks of one recording go to the provider at once.
 
-    Read per call, not cached, so a change in the admin panel takes effect on
-    the next job without restarting the worker. Unusable values fall back to the
-    default and oversized ones are capped: a typo here would otherwise hit the
-    provider for the whole university.
+    Keine Einstellung mehr, sondern eine gemessene Konstante. Bleibt als
+    Funktion stehen, damit Tests den Wert ersetzen können.
     """
-    try:
-        from src import database as db
-        value = int(db.get_setting("stt_chunk_parallelism", str(STT_CHUNK_DEFAULT_PARALLELISM)))
-    except Exception:
-        return STT_CHUNK_DEFAULT_PARALLELISM
-    if value < 1:
-        return STT_CHUNK_DEFAULT_PARALLELISM
-    return min(value, STT_CHUNK_MAX_PARALLELISM)
+    return STT_CHUNK_PARALLELISM
 
 
 def _reject_if_too_long(duration: float) -> None:
     if duration > MAX_AUDIO_SEC:
         raise AudioTooLongError(duration)
+
+
+def _fail_chunk(kind: str, index: int, error: Exception) -> RuntimeError:
+    """Einheitliche Fehlermeldung für einen gescheiterten Teil."""
+    return RuntimeError(f"Chunk {index + 1} {kind} failed: {error}")
 
 
 def _report(on_progress: ProgressFn, done: int, total: int) -> None:
@@ -109,7 +105,7 @@ class _WhisperChunkedMixin:
                         logger.info("Chunk {}/{} transcribed", i + 1, len(chunks))
                         _report(on_progress, len(results), len(chunks))
                     except Exception as e:
-                        raise RuntimeError(f"Chunk {i + 1} transcription failed: {e}") from e
+                        raise _fail_chunk("transcription", i, e) from e
 
             if cache_key:
                 _chunk_cache.clear_text(cache_key, len(chunks))
@@ -164,7 +160,7 @@ class _WhisperChunkedMixin:
                         logger.info("Chunk {}/{} translated", i + 1, len(chunks))
                         _report(on_progress, len(results), len(chunks))
                     except Exception as e:
-                        raise RuntimeError(f"Chunk {i + 1} translation failed: {e}") from e
+                        raise _fail_chunk("translation", i, e) from e
 
             if cache_key:
                 _chunk_cache.clear_text(cache_key, len(chunks))
@@ -222,7 +218,7 @@ class _WhisperChunkedMixin:
                         results[i] = (future.result(), offset)
                         logger.info("Chunk {}/{} transcribed (verbose)", i + 1, len(chunks))
                     except Exception as e:
-                        raise RuntimeError(f"Chunk {i + 1} verbose transcription failed: {e}") from e
+                        raise _fail_chunk("verbose transcription", i, e) from e
 
             all_segments: list[dict] = []
             first_lang = ""
@@ -271,7 +267,7 @@ class _WhisperChunkedMixin:
                         results[i] = (future.result(), offset)
                         logger.info("Chunk {}/{} translated (verbose)", i + 1, len(chunks))
                     except Exception as e:
-                        raise RuntimeError(f"Chunk {i + 1} verbose translation failed: {e}") from e
+                        raise _fail_chunk("verbose translation", i, e) from e
 
             all_segments: list[dict] = []
             for i in range(len(chunks)):

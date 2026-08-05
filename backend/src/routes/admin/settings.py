@@ -17,15 +17,8 @@ from src.limits import (
     AIA_CONTEXT_HARD_CAP,
     AIA_TOOL_CONTEXT_MAX_CHARS,
     AIA_TOOL_CONTEXT_HARD_CAP,
-    AIA_PARALLEL_SLOTS,
-    AIA_MAX_CONCURRENT_UPLOADS,
     TTS_MAX_CHARS_PER_REQUEST,
-    SCREENCAST_TTS_DEFAULT_PARALLELISM,
-    SCREENCAST_TTS_MAX_PARALLELISM,
-    STT_CHUNK_DEFAULT_PARALLELISM,
-    STT_CHUNK_MAX_PARALLELISM,
     AIA_SUMMARY_BATCH_MAX_CHARS,
-    AIA_EMBEDDING_BATCH_SIZE,
     AIA_SOURCE_MAX_PAGES,
     AIA_WORKSPACE_MAX_SOURCES,
 )
@@ -98,40 +91,18 @@ async def get_settings(_admin=Depends(get_admin_user)):
         "aia_summary_batch_max_chars": int(
             db.get_setting("aia_summary_batch_max_chars", str(AIA_SUMMARY_BATCH_MAX_CHARS))
         ),
-        # Chunks per embedding request at ingest (higher = fewer embedding calls).
-        "aia_embedding_batch_size": int(
-            db.get_setting("aia_embedding_batch_size", str(AIA_EMBEDDING_BATCH_SIZE))
-        ),
         # Max pages per uploaded source (long scripts → upload chapter-wise).
         "aia_source_max_pages": int(
             db.get_setting("aia_source_max_pages", str(AIA_SOURCE_MAX_PAGES))
         ),
-        # Background dispatcher: master switch (default off) + shared parallel-slot
-        # pool size (0 = unlimited, for when we run on our own GPU).
-        "aia_scheduler_enabled": _enabled("aia_scheduler_enabled", "false"),
-        "aia_parallel_slots": int(
-            db.get_setting("aia_parallel_slots", str(AIA_PARALLEL_SLOTS))
-        ),
-        # Max simultaneous uploads in the HTTP layer (0 = unlimited). Protects the
-        # small box from RAM/CPU spikes when many people upload large media at once.
-        "aia_max_concurrent_uploads": int(
-            db.get_setting("aia_max_concurrent_uploads", str(AIA_MAX_CONCURRENT_UPLOADS))
-        ),
         # Zeichen je Sprachausgabe-Anfrage. Der Anbieter bricht nach einer festen
         # Zeit ab, nicht nach einer festen Länge, siehe Messung in limits.py.
+        # Bleibt einstellbar, weil das eine ANBIETER-EIGENSCHAFT ist, die sich
+        # nicht aus Absagen ablesen lässt: die Anfrage läuft in einen Timeout,
+        # nicht in ein 429. Alles, was sich messen oder erkennen lässt, ist
+        # dagegen aus diesem Bereich verschwunden.
         "tts_max_chars_per_request": int(
             db.get_setting("tts_max_chars_per_request", str(TTS_MAX_CHARS_PER_REQUEST))
-        ),
-        # Gleichzeitig vertonte Folien. Die Vertonung ist der Flaschenhals des
-        # Screencasts, alles andere zusammen liegt im Sekundenbereich.
-        "screencast_tts_parallelism": int(
-            db.get_setting("screencast_tts_parallelism", str(SCREENCAST_TTS_DEFAULT_PARALLELISM))
-        ),
-        # Gleichzeitig hochgeladene Audio-Teile je Transkription. Der Standard
-        # ist konservativ, weil ein geteiltes Anbieter-Kontingent schnell in 429
-        # läuft und das dann alle Werkzeuge trifft.
-        "stt_chunk_parallelism": int(
-            db.get_setting("stt_chunk_parallelism", str(STT_CHUNK_DEFAULT_PARALLELISM))
         ),
         # CEFR chat-diagnosis system prompt. One prompt for all languages; the
         # workspace language replaces the {language} placeholder at request time.
@@ -364,16 +335,9 @@ async def update_settings(
             )
         db.set_setting("aia_summary_batch_max_chars", str(value))
 
-    # Embedding chunks-per-request. Upper bound 1000 = measured server-safe ceiling
-    # (2000 → 502 on the embedding endpoint); higher = fewer rate-limited requests.
-    if body.aia_embedding_batch_size is not None:
-        value = body.aia_embedding_batch_size
-        if value < 1 or value > 1000:
-            raise HTTPException(
-                status_code=400,
-                detail=t("admin.settings.embeddingBatchOutOfRange", locale, min=1, max=1000),
-            )
-        db.set_setting("aia_embedding_batch_size", str(value))
+    # Chunks pro Embedding-Aufruf steht hier bewusst nicht mehr: der Regler konnte
+    # nur unter den Standard, und der Client misst die Grenze jetzt selbst
+    # (aia_embeddings, Halbieren bei Absage). Siehe AIA_EMBEDDING_BATCH_SIZE.
 
     # Max pages per uploaded source. Bounded 1..2000: keeps sources near the
     # fit-shortcut size (complete overview) and rejects monster docs (split into
@@ -387,32 +351,6 @@ async def update_settings(
             )
         db.set_setting("aia_source_max_pages", str(value))
 
-    # Background dispatcher master switch.
-    if body.aia_scheduler_enabled is not None:
-        db.set_setting("aia_scheduler_enabled", "true" if body.aia_scheduler_enabled else "false")
-
-    # Shared parallel-slot pool size. 0 = unlimited (own-GPU future); upper bound
-    # keeps a typo from spawning a runaway number of in-flight jobs.
-    if body.aia_parallel_slots is not None:
-        value = body.aia_parallel_slots
-        if value < 0 or value > 100:
-            raise HTTPException(
-                status_code=400,
-                detail=t("admin.settings.parallelSlotsOutOfRange", locale, min=0, max=100),
-            )
-        db.set_setting("aia_parallel_slots", str(value))
-
-    # Max simultaneous uploads. 0 = unlimited; upper bound keeps a typo from
-    # letting the small box accept a runaway number of in-flight uploads.
-    if body.aia_max_concurrent_uploads is not None:
-        value = body.aia_max_concurrent_uploads
-        if value < 0 or value > 100:
-            raise HTTPException(
-                status_code=400,
-                detail=t("admin.settings.maxConcurrentUploadsOutOfRange", locale, min=0, max=100),
-            )
-        db.set_setting("aia_max_concurrent_uploads", str(value))
-
     # Zeichen je Sprachausgabe-Anfrage. Zu groß gewählt läuft jede Anfrage in
     # den Timeout des Anbieters, zu klein gewählt wird die Aufnahme zerstückelt.
     if body.tts_max_chars_per_request is not None:
@@ -423,37 +361,5 @@ async def update_settings(
                 detail=t("admin.settings.ttsMaxCharsOutOfRange", locale, min=50, max=10_000),
             )
         db.set_setting("tts_max_chars_per_request", str(value))
-
-    # Gleichzeitig vertonte Folien. Nach oben gedeckelt, damit eine Fehleingabe
-    # den Sprachdienst der Hochschule nicht flutet.
-    if body.screencast_tts_parallelism is not None:
-        value = body.screencast_tts_parallelism
-        if value < 1 or value > SCREENCAST_TTS_MAX_PARALLELISM:
-            raise HTTPException(
-                status_code=400,
-                detail=t(
-                    "admin.settings.ttsParallelismOutOfRange",
-                    locale,
-                    min=1,
-                    max=SCREENCAST_TTS_MAX_PARALLELISM,
-                ),
-            )
-        db.set_setting("screencast_tts_parallelism", str(value))
-
-    # Gleichzeitig hochgeladene Audio-Teile. Gedeckelt aus demselben Grund: bei
-    # einem geteilten Kontingent trifft eine Fehleingabe alle Werkzeuge.
-    if body.stt_chunk_parallelism is not None:
-        value = body.stt_chunk_parallelism
-        if value < 1 or value > STT_CHUNK_MAX_PARALLELISM:
-            raise HTTPException(
-                status_code=400,
-                detail=t(
-                    "admin.settings.sttParallelismOutOfRange",
-                    locale,
-                    min=1,
-                    max=STT_CHUNK_MAX_PARALLELISM,
-                ),
-            )
-        db.set_setting("stt_chunk_parallelism", str(value))
 
     return {"ok": True}

@@ -1,15 +1,17 @@
 """Production seam between AIA routes/tasks and the dispatch engine.
 
-Default OFF: ``scheduler_enabled()`` reads ``aia_scheduler_enabled`` (default
-"false"), so routes keep their direct ``.delay()`` path until the flag is on and
-the new path is verified live. When on, routes call ``enqueue_task`` and tasks
-call ``on_complete`` at the end.
+Immer aktiv. Der Umschalter ``aia_scheduler_enabled`` war eine Umzugshilfe: er
+hielt den alten direkten ``.delay()``-Pfad offen, solange der neue noch nicht
+live bestätigt war. Das ist er längst, und ein Schalter, der nur noch eine
+Stellung hat, ist kein Schalter, sondern eine Falle. Wer ihn ausschaltet,
+umgeht die Platzverwaltung und überlastet die Maschine, ohne dass irgendwo
+steht warum.
 
 One shared pool of background slots (``AIA_PARALLEL_SLOTS``), areas weighted by
 ``AIA_AREA_WEIGHTS``. Chat is NOT here (synchronous). All jobs go to the ``aia``
-queue; the dispatcher controls how many are in flight. Both knobs are
-admin-tunable (settings ``aia_parallel_slots``, ``aia_area_weights``); set slots
-to 0 for unlimited once we run on our own GPU.
+queue; the dispatcher controls how many are in flight. Die Platzanzahl kommt aus
+der erkannten Maschinengröße (services/system_capacity.py), nicht aus einer
+Einstellung.
 """
 from __future__ import annotations
 
@@ -45,11 +47,15 @@ def area_for_task(task_name: str) -> str:
 
 
 def scheduler_enabled(get_setting: Callable[..., str] = _default_get_setting) -> bool:
-    return str(get_setting("aia_scheduler_enabled", "false")).strip().lower() == "true"
+    """Immer an. Bleibt als Funktion stehen, weil die Aufrufer sie abfragen und
+    ein flächiges Entfernen der Abfrage nur Lärm im Diff wäre."""
+    return True
 
 
 def slots_from_settings(get_setting: Callable[..., str] = _default_get_setting) -> int:
-    return int(get_setting("aia_parallel_slots", str(AIA_PARALLEL_SLOTS)))
+    """Plätze aus der erkannten Maschinengröße. Signatur bleibt, damit Tests
+    weiterhin eine eigene Quelle einsetzen können."""
+    return AIA_PARALLEL_SLOTS
 
 
 def weights_from_settings(get_setting: Callable[..., str] = _default_get_setting) -> dict[str, float]:

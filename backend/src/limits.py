@@ -3,7 +3,16 @@
 #
 # Change any values here that affect limits, timeouts or quotas.
 # All other modules import from here.
+#
+# Werte, die von der MASCHINE abhängen (Kerne, RAM), stehen absichtlich nicht als
+# Zahl hier drin, sondern werden erkannt. Siehe services/system_capacity.py.
+# Werte, die vom ANBIETER abhängen, sind gemessene Konstanten. Bewusst keine
+# Automatik: wie viel gerade frei ist, hängt an den anderen Projekten der
+# Hochschule, und das kann KIS nicht wissen. Bei einer Absage wiederholt der
+# jeweilige Aufruf mit wachsender Wartezeit.
 # -----------------------------------------------------------------------------
+
+from src.services.system_capacity import capacity
 
 # --- Rate limiting: burst block for chat (against bugs/abuse) ---------------
 # Idea: anyone sending too many chat requests in a short window (typically a
@@ -81,12 +90,12 @@ BUNDLE_INCLUDE_IMAGES = False  # include slide images in ZIP
 MAX_SCREENCAST_SLIDES          = 50
 MAX_QUEUED_SCREENCAST_JOBS     = 5  # max jobs in user queue (including running)
 
-# CPU parallelism for render operations: tune to available cores:
-# 4 cores  ->  RENDER_MAX_WORKERS = 2
-# 8 cores  ->  RENDER_MAX_WORKERS = 4
-# 16 cores ->  RENDER_MAX_WORKERS = 8
-# Rule of thumb: half the core count, leaves enough CPU for Uvicorn + OS
-RENDER_MAX_WORKERS = 2  # ThreadPoolExecutor limit for PDF->PNG and FFmpeg
+# Threads für PDF nach PNG und ffmpeg. Rein rechenlastig, deshalb an den Kernen
+# der Maschine bemessen und NICHT mehr von Hand gepflegt. Hier stand jahrelang
+# eine 2 mit dem Kommentar "für 4 Kerne", während die Entwicklungsmaschine 18
+# Kerne hat: eine Handkonstante veraltet still, eine Erkennung nicht.
+# Formel und Container-Fallstricke stehen in services/system_capacity.py.
+RENDER_MAX_WORKERS = capacity().render_workers
 
 # Wie viele Folien gleichzeitig vertont werden.
 #
@@ -103,12 +112,16 @@ RENDER_MAX_WORKERS = 2  # ThreadPoolExecutor limit for PDF->PNG and FFmpeg
 # Der Anbieter staut ab 8 spürbar (11 s je Anfrage werden zu 32 s), unterm
 # Strich bleibt es schneller. Über 8 lohnt es nicht mehr.
 #
-# Der Standard ist bewusst 4 und nicht 8: mehrere Nutzer können gleichzeitig
-# rendern, dann liegt die Last beim Anbieter entsprechend höher. Wer allein
-# arbeitet und Tempo braucht, stellt im Admin auf 8.
-# Admin-Einstellung zur Laufzeit: screencast_tts_parallelism.
-SCREENCAST_TTS_DEFAULT_PARALLELISM = 4
-SCREENCAST_TTS_MAX_PARALLELISM = 16
+# Feste Konstante, keine Einstellung. Der Wert ist gemessen, nicht geraten, und
+# 8 ist genau das, was auf der Produktionsmaschine bisher im Admin eingestellt
+# war. Hier stand als Voreinstellung 4, weil eine falsche Zahl im Admin bis zur
+# nächsten Beschwerde falsch blieb. Diese Vorsicht ist mit dem Feld entfallen.
+#
+# Achtung beim Rechnen: die Zahl gilt JE SCREENCAST. Der screencast-Arbeiter
+# nimmt mehrere Aufträge gleichzeitig an (auf 4 Kernen zwei), beim Anbieter
+# kommt also das Doppelte an. Bei einer Absage greift die Wiederholung mit
+# wachsender Wartezeit in screencast/generation.py.
+SCREENCAST_TTS_PARALLELISM = 8
 
 # --- Transkription: gleichzeitig hochgeladene Audio-Teile --------------------
 # Eine lange Aufnahme wird in Teile von je 9 Minuten geschnitten. Wie viele
@@ -116,13 +129,11 @@ SCREENCAST_TTS_MAX_PARALLELISM = 16
 # ein geteiltes Kontingent (GWDG, hochschulweit 2 Anfragen/s) verträgt viel
 # weniger als ein eigener Dienst.
 #
-# Der Standard bleibt bewusst bei 2, dem alten fest verdrahteten Wert. Wer
-# Tempo braucht und weiß, dass der eigene Anbieter es aushält, stellt im Admin
-# höher und beobachtet die 429-Rate. Nach oben gedeckelt, damit ein Vertipper
-# nicht den Dienst der ganzen Hochschule flutet.
-# Admin-Einstellung zur Laufzeit: stt_chunk_parallelism.
-STT_CHUNK_DEFAULT_PARALLELISM = 2
-STT_CHUNK_MAX_PARALLELISM = 16
+# Bleibt bei 2, dem gemessenen Wert, jetzt als Konstante statt als Einstellung.
+# Bewusst niedrig: das Kontingent teilt sich die ganze Hochschule, und wie viel
+# davon gerade frei ist, kann KIS nicht wissen. Bei einer Absage wiederholt der
+# Aufruf mit wachsender Wartezeit, das reicht.
+STT_CHUNK_PARALLELISM = 2
 
 # --- Celery task timeouts (in seconds) --------------------------------------
 TTS_SOFT_TIME_LIMIT             = 5400   # 90 min, SoftTimeLimitExceeded -> graceful DB update
@@ -206,8 +217,13 @@ AIA_TOOL_CONTEXT_HARD_CAP              = 1_000_000
 AIA_SUMMARY_BATCH_MAX_CHARS            = 360000
 # Chunks (input texts) per embedding request at ingest. Higher = fewer requests
 # against the shared GWDG rate limit. Measured safe on myLab qwen3-embedding-4b:
-# 1000 OK, 2000 → 502 → bounded to 1000 (see aia_embeddings._BATCH_SIZE ceiling).
-# Admin-tunable: ``aia_embedding_batch_size``.
+# 1000 OK (~13s), 2000 → 502. Each chunk is tiny (~300 tok, well under the
+# model's 40k/input limit), so a full 1000-batch is fine.
+# BEWUSST KEINE Admin-Einstellung: der frühere Regler hatte Standard UND
+# Obergrenze auf diesem Wert, konnte also nur bremsen, und was ein fremder
+# Anbieter verträgt, kann im Admin-Bereich niemand wissen. Lehnt ein Endpunkt
+# diese Größe ab, halbiert der Client selbst und merkt sich die Zahl, die
+# durchging (siehe aia_embeddings._learned_batch_size).
 AIA_EMBEDDING_BATCH_SIZE               = 1000
 AIA_WORKSPACE_MAX_ACCESS_LINKS         = 10      # max enrollment links per workspace
 AIA_NOTES_MAX_PER_USER              = 100     # max notes per user per workspace
@@ -223,16 +239,33 @@ GLOSSARY_LIMIT                        = 150     # max glossary entries per works
 # user can never block the others. Studio outweighs ingest because a student
 # actively waits on a studio tool, while uploads process in the background.
 #
-# Admin-tunable at runtime (settings: aia_parallel_slots, aia_area_weights).
-# Raise AIA_PARALLEL_SLOTS (or set 0 = unlimited) once we run on our own GPU and
-# the parallelism no longer needs rationing.
-AIA_PARALLEL_SLOTS                     = 2       # total background jobs in flight (0 = unlimited)
+# Feste Zahl, BEWUSST nicht aus der Maschine abgeleitet. Der Versuch war da und
+# ist an drei Dingen gescheitert:
+#
+# 1. Der Topf ist geteilt, die Erkennung ist es nicht. Das Backend verteilt beim
+#    Hochladen, der aia-Arbeiter nach jedem fertigen Auftrag. Der Arbeiter hat
+#    aber ein eigenes mem_limit von 1,5 GB und käme damit auf eine ganz andere
+#    Zahl als das Backend mit den 8 GB der Maschine. Zwei Prozesse mit
+#    verschiedenen Werten am selben Topf: der kleinere gewinnt still, und die
+#    Hintergrundarbeit läuft plötzlich der Reihe nach statt parallel.
+# 2. Die Grenze, auf die es ankommt, ist die eines ANDEREN Containers. Die
+#    Aufträge laufen in kis-celery-aia, nicht hier. Was der eigene Prozess an
+#    Speicher sieht, sagt darüber nichts.
+# 3. Diese Aufträge WARTEN auf das KI-Modell, sie rechnen nicht. Eine Formel
+#    nach Kernen ist die falsche Regel dafür. Derselbe Grund, aus dem der
+#    aia-Arbeiter unten mit dem dreifachen der Kernzahl skaliert und nicht mit
+#    der Hälfte.
+#
+# Der Wert 4 ist nicht geraten, er lief bisher so (Einstellung aia_parallel_slots)
+# und verträgt sich nachweislich mit dem 1,5-GB-Limit des Arbeiters.
+AIA_PARALLEL_SLOTS                     = 4
 AIA_AREA_WEIGHTS                       = {"studio": 2, "ingest": 1}
 
 # Max simultaneous source uploads in the HTTP layer (the streaming + convert +
-# store phase). Caps RAM/CPU when several people upload large media at once on
-# the small box. 0 = unlimited. Admin-tunable at runtime (aia_max_concurrent_uploads).
-AIA_MAX_CONCURRENT_UPLOADS             = 3
+# store phase). Caps RAM/CPU when several people upload large media at once.
+# Ebenfalls erkannt statt eingestellt: die schwere Phase startet LibreOffice und
+# ffmpeg, der Bedarf hängt an Kernen UND Speicher, nicht an einer Meinung.
+AIA_MAX_CONCURRENT_UPLOADS             = capacity().max_concurrent_uploads
 
 # Zeichen je Sprachausgabe-Anfrage. Nicht die Grenze des Modells, sondern die
 # Zeitgrenze davor: gemessen an THL myLab (2026-07-27) bricht jede Anfrage nach

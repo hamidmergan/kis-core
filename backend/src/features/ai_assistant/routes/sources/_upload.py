@@ -47,11 +47,13 @@ def _redis():
 
 
 def _max_concurrent_uploads() -> int:
-    """Admin-tunable upload concurrency cap (0 = unlimited)."""
-    try:
-        return max(0, int(db.get_setting("aia_max_concurrent_uploads", str(AIA_MAX_CONCURRENT_UPLOADS))))
-    except (TypeError, ValueError):
-        return AIA_MAX_CONCURRENT_UPLOADS
+    """Wie viele Uploads gleichzeitig durch die schwere Phase dürfen.
+
+    Keine Einstellung mehr, sondern an der Maschine bemessen: die Frage "wie
+    viele gleichzeitig" ist eine Frage nach Kernen und Arbeitsspeicher, nicht
+    nach einer Meinung. Formel in services/system_capacity.py.
+    """
+    return AIA_MAX_CONCURRENT_UPLOADS
 
 
 def _claim_upload_slot(limit: int) -> str | None:

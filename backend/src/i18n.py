@@ -232,30 +232,14 @@ MESSAGES: dict[str, dict[str, str]] = {
         "de": "Zusammenfassungs-Häppchen muss zwischen {min} und {max} Zeichen liegen.",
         "en": "Summary batch must be between {min} and {max} characters.",
     },
-    "admin.settings.embeddingBatchOutOfRange": {
-        "de": "Embedding-Chunks pro Aufruf muss zwischen {min} und {max} liegen.",
-        "en": "Embedding chunks per call must be between {min} and {max}.",
-    },
     "admin.settings.maxPagesOutOfRange": {
         "de": "Maximale Seiten pro Quelle muss zwischen {min} und {max} liegen.",
         "en": "Max pages per source must be between {min} and {max}.",
     },
-    "admin.settings.maxConcurrentUploadsOutOfRange": {
-        "de": "Maximale gleichzeitige Uploads muss zwischen {min} und {max} liegen.",
-        "en": "Max simultaneous uploads must be between {min} and {max}.",
-    },
-    "admin.settings.ttsParallelismOutOfRange": {
-        "de": "Gleichzeitig vertonte Folien muss zwischen {min} und {max} liegen.",
-        "en": "Slides voiced at once must be between {min} and {max}.",
-    },
-    "admin.settings.sttParallelismOutOfRange": {
-        "de": "Gleichzeitig verarbeitete Audio-Teile muss zwischen {min} und {max} liegen.",
-        "en": "Audio parts processed at once must be between {min} and {max}.",
-    },
-    "admin.settings.parallelSlotsOutOfRange": {
-        "de": "Parallele Slots muss zwischen {min} und {max} liegen.",
-        "en": "Parallel slots must be between {min} and {max}.",
-    },
+    # Die vier Fehlermeldungen zu Nebenläufigkeit sind entfallen. Sie gehörten zu
+    # Eingabefeldern, die es nicht mehr gibt: Plätze und Uploads werden an der
+    # Maschine gemessen, Vertonung und Spracherkennung regeln sich nach Absagen
+    # des Anbieters selbst. Eine Fehleingabe kann es ohne Eingabe nicht geben.
     "admin.providers.requiredFields": {
         "de": "Name und Base-URL sind Pflicht.",
         "en": "Name and base URL are required.",

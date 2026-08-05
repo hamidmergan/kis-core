@@ -9,29 +9,20 @@ from typing import Any
 from fastapi import HTTPException
 from loguru import logger
 
-from src.limits import SCREENCAST_TTS_DEFAULT_PARALLELISM, SCREENCAST_TTS_MAX_PARALLELISM
+from src.limits import SCREENCAST_TTS_PARALLELISM
 from src.services.openai_compat_llm import OpenAICompatLLMClient
 from src.services.screencast.pptx import pptx_to_images
 from src.storage import get_job_file, save_job_file
 
 
 def resolve_tts_parallelism() -> int:
-    """Wie viele Folien gleichzeitig vertont werden, zur Laufzeit einstellbar.
+    """Wie viele Folien gleichzeitig vertont werden.
 
-    Der sinnvolle Wert hängt am Anbieter und nicht am Code: eine eigene GPU
-    verträgt ein Vielfaches von dem, was ein geteilter Dienst verträgt. Deshalb
-    Admin-Einstellung statt Konstante. Unsinnige Werte fallen auf den Standard
-    zurück, zu große werden gekappt, damit eine Fehleingabe im Admin nicht den
-    Anbieter der ganzen Hochschule flutet.
+    Keine Einstellung mehr, sondern eine gemessene Konstante. Bleibt als
+    Funktion stehen, damit Tests den Wert ersetzen können, ohne die Konstante
+    im ganzen Modul zu verbiegen.
     """
-    try:
-        from src import database as db
-        value = int(db.get_setting("screencast_tts_parallelism", str(SCREENCAST_TTS_DEFAULT_PARALLELISM)))
-    except Exception:
-        return SCREENCAST_TTS_DEFAULT_PARALLELISM
-    if value < 1:
-        return SCREENCAST_TTS_DEFAULT_PARALLELISM
-    return min(value, SCREENCAST_TTS_MAX_PARALLELISM)
+    return SCREENCAST_TTS_PARALLELISM
 
 
 async def generate_all_scripts(

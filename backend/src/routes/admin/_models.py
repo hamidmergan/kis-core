@@ -43,25 +43,15 @@ class UpdateSettingsRequest(BaseModel):
     # Per-batch char cap for the ingest-side DOC SUMMARY. Bigger = fewer (but
     # coarser) summary calls per upload → fewer GWDG-rate-limited requests.
     aia_summary_batch_max_chars: int | None = None
-    # Chunks per embedding request at ingest. Higher = fewer embedding requests
-    # against the shared GWDG rate limit. Bounded to a server-safe ceiling.
-    aia_embedding_batch_size: int | None = None
     # Max pages per uploaded source (long scripts → upload chapter-wise). Keeps a
     # source near the fit-shortcut size so its overview stays complete.
     aia_source_max_pages: int | None = None
-    # Background dispatcher: master switch + size of the shared parallel-slot pool.
-    aia_scheduler_enabled: bool | None = None
-    aia_parallel_slots: int | None = None
-    # Max simultaneous uploads in the HTTP layer (0 = unlimited). Caps RAM/CPU on
-    # the small box when several people upload large media at once.
-    aia_max_concurrent_uploads: int | None = None
+    # Nebenläufigkeit steht hier bewusst NICHT mehr. Platzanzahl, gleichzeitige
+    # Uploads und Umwandlungs-Threads werden an der Maschine gemessen
+    # (services/system_capacity.py), Vertonung und Spracherkennung sind gemessene
+    # Konstanten in limits.py. Beides sind Fragen, die ein Mensch im
+    # Admin-Bereich nicht beantworten kann.
     tts_max_chars_per_request: int | None = None
-    # Wie viele Folien eines Screencasts gleichzeitig vertont werden. Reine
-    # Wartezeit am Anbieter, kostet keine eigene CPU.
-    screencast_tts_parallelism: int | None = None
-    # Wie viele 9-Minuten-Teile einer Aufnahme gleichzeitig zum STT-Anbieter
-    # gehen. Sinnvoller Wert hängt am Anbieter, nicht am Code.
-    stt_chunk_parallelism: int | None = None
     # System prompt for the CEFR chat diagnosis. ONE prompt for every language;
     # the workspace language is substituted for the {language} placeholder. An
     # empty string restores the shipped default.

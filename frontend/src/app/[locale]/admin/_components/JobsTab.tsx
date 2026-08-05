@@ -8,6 +8,7 @@ import Spinner from "@/components/ui/Spinner";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { formatDate, formatDuration } from "@/lib/format";
 import { JobStatusBadge, type AdminJob } from "../_shared";
+import SystemLoadCard from "./SystemLoadCard";
 
 export default function JobsTab() {
   const t = useTranslations("admin");
@@ -75,13 +76,15 @@ export default function JobsTab() {
 
   return (
     <div className="space-y-3">
+      <SystemLoadCard />
+
       <div className="flex flex-wrap gap-2 items-center">
         <input
           type="text"
           value={q}
           onChange={(e) => setQ(e.target.value)}
           placeholder={t("jobs.searchPlaceholder")}
-          className="flex-1 min-w-[200px] text-sm border border-border rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-kb"
+          className="flex-1 min-w-50 text-sm border border-border rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-kb"
         />
         <input
           type="date"
@@ -139,7 +142,7 @@ export default function JobsTab() {
                       {j.user_display_name}
                     </td>
                     <td className="px-4 py-3 text-foreground-soft whitespace-nowrap">{j.tool_label}</td>
-                    <td className="px-4 py-3 text-muted max-w-[200px] truncate">
+                    <td className="px-4 py-3 text-muted max-w-50 truncate">
                       {j.original_filename}
                     </td>
                     <td className="px-4 py-3">

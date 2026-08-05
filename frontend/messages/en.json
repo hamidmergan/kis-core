@@ -745,6 +745,19 @@
       "successClose": "Close",
       "errorGeneric": "Creation failed"
     },
+    "load": {
+      "title": "Load",
+      "detected": "Detected: {cores} cores, {memory} GB. Every limit derived from this, nothing to configure.",
+      "slots": "Slots",
+      "uploads": "Uploads",
+      "cpu": "Processor",
+      "memory": "Memory",
+      "slotsValue": "{running} of {total} in use",
+      "slotsWaiting": "{running} of {total} in use, {waiting} waiting",
+      "memoryValue": "{used} of {total} GB",
+      "unknown": "unknown",
+      "hint": "Every limit is derived from the detected machine. There is nothing to configure."
+    },
     "jobs": {
       "searchPlaceholder": "Search: user, tool, file...",
       "from": "From",
@@ -1238,13 +1251,6 @@
       "unit": "characters",
       "approxPages": "≈ {n} pages",
       "outOfRange": "Value must be between 10000 and 500000.",
-      "saveFailed": "Save failed."
-    },
-    "embeddingBatchCard": {
-      "title": "Embedding – chunks per call",
-      "hint": "How many text chunks are packed into one embedding call during upload. Higher = fewer calls (eases the provider's rate limit). Default 1000 is a safe value; too high may be rejected by the provider.",
-      "unit": "chunks/call",
-      "outOfRange": "Value must be between 1 and 1000.",
       "saveFailed": "Save failed."
     },
     "sourceMaxPagesCard": {
