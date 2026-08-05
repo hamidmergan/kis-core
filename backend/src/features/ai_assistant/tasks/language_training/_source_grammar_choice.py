@@ -18,7 +18,10 @@ from loguru import logger
 
 from src.features.ai_assistant.tasks._helpers import _clean_llm_json, _language_label
 
-from src.features.ai_assistant.tasks.language_training._attribution import attach_chips
+from src.features.ai_assistant.tasks.language_training._attribution import (
+    PAGE_RULE,
+    attach_chips_cited,
+)
 from src.features.ai_assistant.tasks.language_training._context import QuelleContext
 from src.services.aia_grammar_check import normalize, overlap_ratio
 from src.services.aia_grammar_types import (
@@ -33,7 +36,8 @@ _SHAPE = (
     '"sentence": "The statement to transform", '
     '"options": ["...", "...", "...", "..."], '
     '"correct_idx": 0, '
-    '"explanation": "One short sentence naming the form that decides it"}]}\n'
+    '"explanation": "One short sentence naming the form that decides it", '
+    '"page": 12}]}\n'
 )
 
 # Vier Optionen, wie im Quiz. Weniger sieht nach einem Fehler aus, mehr passt nicht
@@ -119,9 +123,9 @@ def generate_grammar_choice_from_source(
         )
         return [], "", {}
 
-    # Same post-hoc attribution as every other tool: the chip points at the page the
-    # sentence's content came from, nav-only. multi=False, one sentence has one origin.
-    attach_chips(items, claims, ctx, multi=False)
+    # Nav-only chip per sentence, model-cited page first, then search, then the section.
+    # Same reason as the free-text drill: an invented sentence is not found back reliably.
+    attach_chips_cited(items, claims, ctx)
 
     title = (data.get("title") or "").strip() or localized(grammar_type, "label", locale)
     # No set-level instruction or worked pair: every item carries its own task line.
@@ -231,7 +235,8 @@ def _build_prompt(grammar_type: dict, count: int, language: str, locale: str) ->
         # Deliberately NO length or complexity rule here. How hard a sentence is comes
         # from exactly one place, the learner's CEFR level (build_adaptive_tool_suffix).
         "- Do NOT use personal names. Write 'die Dozentin', 'das Team', 'according to "
-        "the source' instead, matching the output language.\n\n"
+        "the source' instead, matching the output language.\n"
+        + PAGE_RULE + "\n"
         + _SHAPE +
         f"Create exactly {count} exercises."
     )
@@ -323,6 +328,9 @@ def _build_items(exercises: list[dict], banned: set) -> tuple[list[dict], list[s
             # (finalize_exercise_set only reads known keys), it exists so the caller
             # can check that every section was actually served.
             "_section": ex.get("section"),
+            # The page the model says it took the material from, read and removed by
+            # attach_chips_cited after it is checked against the pages actually shown.
+            "_page": ex.get("page"),
         })
         # The solved sentence carries the source content, so it is what gets attributed.
         claims.append(correct)

@@ -97,11 +97,12 @@ def attributed(monkeypatch):
 
     def fake_attach(items, claims, ctx, **kwargs):
         seen["claims"] = list(claims)
-        seen["multi"] = kwargs.get("multi")
+        seen["items"] = [dict(i) for i in items]
         return items
 
     monkeypatch.setattr(
-        "src.features.ai_assistant.tasks.language_training._source_grammar_choice.attach_chips",
+        "src.features.ai_assistant.tasks.language_training._source_grammar_choice"
+        ".attach_chips_cited",
         fake_attach,
     )
     return seen
@@ -213,7 +214,20 @@ def test_attribution_gets_the_correct_option_as_the_claim(attributed):
     # The solved sentence carries the source content. One sentence has one origin.
     _generate()
     assert attributed["claims"] == [_CORRECT]
-    assert attributed["multi"] is False
+
+
+def test_generation_prompt_asks_the_model_where_it_took_the_material_from(attributed):
+    # Same reason as the free-text drill: invented sentences are not found again by a
+    # post-hoc search, so the model names the page while it still knows it.
+    _, _, _, calls = _generate()
+    system = _system_of(calls)
+    assert '"page"' in system
+    assert "S. " in system
+
+
+def test_items_carry_the_page_the_model_cited(attributed):
+    _generate(_response(_exercise() | {"page": 4}))
+    assert [i.get("_page") for i in attributed["items"]] == [4]
 
 
 # ─── Aussortieren ────────────────────────────────────────────────────────────

@@ -75,7 +75,7 @@ def test_quiz_prompt_carries_the_rule(monkeypatch):
 def test_grammar_prompt_carries_the_rule(monkeypatch):
     from src.features.ai_assistant.tasks.language_training import _source_grammar as mod
     from src.services.aia_grammar_types import GRAMMAR_TYPES
-    monkeypatch.setattr(mod, "attach_chips", lambda *a, **k: None)
+    monkeypatch.setattr(mod, "attach_chips_cited", lambda *a, **k: None)
     client, calls = _make_client(json.dumps({
         "title": "T",
         "example": {"before": "Der Server speichert die Werte.",
@@ -111,8 +111,10 @@ def test_every_generator_keeps_the_models_section_claim(monkeypatch):
     from src.features.ai_assistant.tasks.language_training import _source_flashcards as fc
     from src.features.ai_assistant.tasks.language_training import _source_grammar as gr
     from src.services.aia_grammar_types import GRAMMAR_TYPES
-    for mod in (mc, cards, fc, gr):
+    for mod in (mc, cards, fc):
         monkeypatch.setattr(mod, "attach_chips", lambda *a, **k: None)
+    # Die Grammatik-Übung nimmt den gestaffelten Weg (Modell-Seite vor Rücksuche).
+    monkeypatch.setattr(gr, "attach_chips_cited", lambda *a, **k: None)
 
     client, _ = _make_client(json.dumps({"title": "T", "exercises": [
         {"question": "Q", "options": ["a", "b"], "correct_idx": 0, "section": 2}]}))

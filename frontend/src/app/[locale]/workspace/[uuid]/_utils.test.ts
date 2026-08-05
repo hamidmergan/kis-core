@@ -161,6 +161,12 @@ describe("_chunkLabel", () => {
     expect(_chunkLabel("doc.pdf", 2, null, tChip)).toBe("p. 2");
     expect(_chunkLabel("v.mp4", 3, null, tChip)).toBe("Part 3");
   });
+  it("names media with neither a time nor a part by its file alone", () => {
+    // Grammatik-Sätze werden erfunden, deshalb lässt sich für Ton und Video oft
+    // keine Stelle belegen. Dann sagt der Chip nur, aus welcher Datei der Stoff
+    // stammt, statt eine falsche Minute anzubieten.
+    expect(_chunkLabel("v.mp4", null, null)).toBe("");
+  });
 });
 
 // ── parseFlashcards ──────────────────────────────────────────────────────────

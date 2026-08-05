@@ -35,6 +35,10 @@ class QuelleContext:
     # can never cite a page the model was not shown. Media source_ids appear here too (their
     # seen-check is source-level, not per page).
     seen_pages_by_source: dict[int, set] = field(default_factory=dict)
+    # {source_id: {page_number: start_time}}, media chunks only. Every context line reads
+    # "[Datei, S. N]", so for audio and video the model cites N — a segment index, not a
+    # page. A chip must navigate media by timestamp, so the index is translated back here.
+    media_start_by_page: dict[int, dict[int, float]] = field(default_factory=dict)
 
 
 def per_section_quota(n_sections: int, count: int) -> int:
@@ -268,6 +272,7 @@ def build_source_context(uuids: list[str], tool: str,
     quota = per_section_quota(len(picked_by_label), count) if count else 0
     trimmed: list[str] = []
     seen_pages_by_source: dict[int, set] = {}
+    media_start_by_page: dict[int, dict] = {}
     sections: dict[int, str] = {}
     for i, (label, picked) in enumerate(picked_by_label, start=1):
         sections[i] = label
@@ -287,6 +292,12 @@ def build_source_context(uuids: list[str], tool: str,
         # chunks land here too: their page_number is a segment index, but the seen-check is
         # source-level for media, so recording the source_id is what matters.
         seen_pages_by_source.setdefault(sid, set()).update(c["page_number"] for c in picked)
+        # Segment index -> timestamp, so a citation of "S. 7" in a transcript can be turned
+        # back into the timestamp the player needs.
+        times = {c["page_number"]: c["start_time"] for c in picked
+                 if c.get("start_time") is not None}
+        if times:
+            media_start_by_page.setdefault(sid, {}).update(times)
 
     multi_label = first_label if len(uuids) == 1 else f"{len(uuids)} Sources"
     source_hint = "folgender Source" if len(uuids) == 1 else "folgenden Sources"
@@ -299,4 +310,5 @@ def build_source_context(uuids: list[str], tool: str,
         sections=sections,
         source_by_name=source_by_name,
         seen_pages_by_source=seen_pages_by_source,
+        media_start_by_page=media_start_by_page,
     )

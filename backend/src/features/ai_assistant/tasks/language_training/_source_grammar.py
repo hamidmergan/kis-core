@@ -15,7 +15,10 @@ from loguru import logger
 
 from src.features.ai_assistant.tasks._helpers import _clean_llm_json, _language_label
 
-from src.features.ai_assistant.tasks.language_training._attribution import attach_chips
+from src.features.ai_assistant.tasks.language_training._attribution import (
+    PAGE_RULE,
+    attach_chips_cited,
+)
 from src.features.ai_assistant.tasks.language_training._context import QuelleContext
 from src.services.aia_grammar_check import normalize
 from src.services.aia_grammar_types import example_pair, localized
@@ -28,7 +31,8 @@ _SHAPE = (
     '"after": "The same sentence transformed"}, '
     '"exercises": [{"before": "Sentence the learner transforms", '
     '"after": "The expected transformed sentence", '
-    '"explanation": "One short sentence naming the form that changed"}]}\n'
+    '"explanation": "One short sentence naming the form that changed", '
+    '"page": 12}]}\n'
 )
 
 # Fragezeichen quer über Schriftsysteme. Ein 'before' mit Fragezeichen ist keine
@@ -98,10 +102,11 @@ def generate_grammar_from_source(
         "pattern_back": pattern_back,
     }
 
-    # Same post-hoc attribution as every other tool: the chip points at the page the
-    # sentence's content came from, nav-only. A grammar sentence is a rewrite of one
-    # passage, so multi=False (one origin, not every page mentioning the words).
-    attach_chips(items, claims, ctx, multi=False)
+    # Nav-only chip per sentence, taking the page the model itself named and falling back
+    # to search and then to the section. Not the plain post-hoc search the other tools use:
+    # these sentences are invented and then transformed, so searching them back finds
+    # nothing for roughly half of them and the set ends up half cited, half not.
+    attach_chips_cited(items, claims, ctx)
 
     title = (data.get("title") or "").strip() or localized(grammar_type, "label", locale)
     return items, title, header
@@ -148,7 +153,8 @@ def _build_prompt(grammar_type: dict, target_form: str, example: dict,
         "- Do NOT use personal names. Write 'die Dozentin', 'das Team', 'according to the source' "
         "instead, matching the output language.\n"
         "- 'example' is the worked pair shown above the exercises. It follows the same rule "
-        "but must NOT repeat any of the exercise sentences.\n\n"
+        "but must NOT repeat any of the exercise sentences.\n"
+        + PAGE_RULE + "\n"
         + _SHAPE +
         f"Create exactly {count} exercises."
     )
@@ -192,6 +198,9 @@ def _build_items(exercises: list[dict]) -> tuple[list[dict], list[str]]:
             # (finalize_exercise_set only reads known keys), it exists so the caller
             # can check that every section was actually served.
             "_section": ex.get("section"),
+            # The page the model says it took the material from. Read (and removed) by
+            # attach_chips_cited, which cross-checks it against the pages actually shown.
+            "_page": ex.get("page"),
         })
         # The transformed sentence carries the content, so it is what gets attributed.
         claims.append(after)

@@ -30,7 +30,7 @@ from src.features.ai_assistant.tasks._helpers import _clean_llm_json, _language_
 from src.services.aia_chunker import is_media_file
 from src.services.aia_grammar_check import normalize
 
-from src.features.ai_assistant.tasks.language_training._attribution import attach_chips
+from src.features.ai_assistant.tasks.language_training._attribution import attach_chips_cited
 from src.features.ai_assistant.tasks.language_training._context import QuelleContext
 from src.features.ai_assistant.tasks.language_training._title import title_from_items
 
@@ -170,9 +170,13 @@ def generate_listening_from_source(
     if not items:
         return [], ""
 
-    # Post-hoc-Attribution, dieselbe pgvector-Schranke wie im Chat: jede Aufgabe zitiert,
-    # wo ihre Antwort wirklich steht. Das source_label des Modells wird bewusst verworfen.
-    attach_chips(items, [i.pop("_claim", "") for i in items], ctx, multi=False)
+    # Gestaffelt wie in der Grammatik-Übung: Datei und Seite, die das Modell selbst nennt,
+    # sonst die pgvector-Suche, sonst wenigstens die Datei. Die Angabe des Modells wurde
+    # hier lange erfragt und dann weggeworfen, weil eine reine Suche zuverlässiger schien.
+    # Sie ist es nicht: eine umformulierte Aussage findet sich oft nicht wieder, und dann
+    # stand die Aufgabe ganz ohne Quelle da. Für Aufnahmen zählt die Angabe weiterhin
+    # nicht, siehe attach_chips_cited.
+    attach_chips_cited(items, [i.pop("_claim", "") for i in items], ctx)
     items = drop_quotes_on_recordings(items, recordings)
 
     if not items:
@@ -395,6 +399,11 @@ def _build_items(exercises: list[dict], ctx: QuelleContext, locale: str) -> list
             "_section": exercise.get("section"),
             # Text für die Attribution. Wird vor dem Speichern wieder entfernt.
             "_claim": claim,
+            # Woher das Modell die Aufgabe genommen haben will. Der Prompt fragt beides
+            # seit jeher ab (_SOURCE_RULE), jetzt wird die Antwort auch benutzt. Beides
+            # wird gegen den Kontext geprüft und danach entfernt.
+            "_source_label": (exercise.get("source_label") or "").strip(),
+            "_page": exercise.get("page_number"),
             # Zitiert die Aufgabe Wortlaut? Entscheidet nach der Attribution, ob sie auf
             # einer Aufnahme liegen darf. Wird ebenfalls wieder entfernt.
             "_kind": kind,

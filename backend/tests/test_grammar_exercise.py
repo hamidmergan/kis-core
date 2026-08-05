@@ -130,18 +130,18 @@ _RESPONSE = json.dumps({
 def attributed(monkeypatch):
     """Record what attribution was asked for, without touching pgvector.
 
-    The chip wiring itself is covered by test_aia_tool_attribution; here only the
-    claims the grammar generator hands over matter.
+    The chip wiring itself is covered by test_grammar_citation; here only what the
+    grammar generator hands over matters.
     """
     seen: dict = {}
 
     def fake_attach(items, claims, ctx, **kwargs):
         seen["claims"] = list(claims)
-        seen["multi"] = kwargs.get("multi")
+        seen["items"] = [dict(i) for i in items]
         return items
 
     monkeypatch.setattr(
-        "src.features.ai_assistant.tasks.language_training._source_grammar.attach_chips",
+        "src.features.ai_assistant.tasks.language_training._source_grammar.attach_chips_cited",
         fake_attach,
     )
     return seen
@@ -173,14 +173,35 @@ def test_generation_builds_items_title_and_header(attributed):
 
 
 def test_attribution_gets_the_transformed_sentences_as_claims(attributed):
-    # The solution carries the source content, so it is what gets attributed. One
-    # sentence has one origin, hence multi=False.
+    # The solution carries the source content, so it is what gets attributed.
     _generate()
     assert attributed["claims"] == [
         "Die Messwerte werden vom Server gespeichert.",
         "Die Eingaben werden von der Software geprüft.",
     ]
-    assert attributed["multi"] is False
+
+
+def test_generation_prompt_asks_the_model_where_it_took_the_material_from(attributed):
+    """The sentences are invented, so searching them back afterwards fails often. The
+    model itself knows the passage it used, and every context line is labelled with a
+    page, so it only has to name that number."""
+    _, _, _, calls = _generate()
+    system = _system_of(calls)
+    assert '"page"' in system
+    assert "S. " in system
+
+
+def test_items_carry_the_page_the_model_cited(attributed):
+    response = json.dumps({
+        "title": "T",
+        "example": {"before": "a b c.", "after": "c b a."},
+        "exercises": [
+            {"before": _GOOD[0], "after": _GOOD[1], "page": 4},
+            {"before": _GOOD2[0], "after": _GOOD2[1]},
+        ],
+    })
+    _generate(response, count=2)
+    assert [i.get("_page") for i in attributed["items"]] == [4, None]
 
 
 def test_generated_items_carry_no_multiple_choice_fields(attributed):

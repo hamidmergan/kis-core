@@ -74,9 +74,9 @@ def gen(monkeypatch):
     monkeypatch.setattr(mod, "title_from_items", lambda *a, **k: "T")
     # Die Attribution fragt pgvector. Hier wird nur festgehalten, WOMIT sie gerufen wird.
     seen = {}
-    monkeypatch.setattr(mod, "attach_chips",
+    monkeypatch.setattr(mod, "attach_chips_cited",
                         lambda items, claims, ctx, **kw: seen.update(
-                            items=items, claims=claims, ctx=ctx, kw=kw))
+                            items=[dict(i) for i in items], claims=claims, ctx=ctx, kw=kw))
     mod._seen = seen
     return mod
 
@@ -283,12 +283,28 @@ def test_a_quoting_item_on_a_recording_is_thrown_out(gen):
                                 "start_time": 42.0}]
             item["source_label"] = "VL1.mp4"
 
-    gen.attach_chips = _chips
+    gen.attach_chips_cited = _chips
 
     items, _title = gen.generate_listening_from_source(client, "m", _ctx(both=True), 2,
                                                        locale="de")
 
     assert [i["front"] for i in items] == [_STATEMENT]
+
+
+def test_items_carry_the_source_and_page_the_model_named(gen):
+    """Das Werkzeug fragt im Prompt schon lange nach source_label und page_number, hat
+    die Antwort aber weggeworfen. Sie ist die verlässlichste Angabe für eine geschriebene
+    Quelle, weil das Modell im Moment des Schreibens weiß, wo es gelesen hat."""
+    client, _calls = _make_client(_payload(
+        {"kind": "statement", "statement": _STATEMENT, "answer": True,
+         "source_label": "Skript.pdf", "page_number": 4},
+    ))
+
+    gen.generate_listening_from_source(client, "m", _ctx(), 1, locale="de")
+
+    handed = gen._seen["items"][0]
+    assert handed["_page"] == 4
+    assert handed["_source_label"] == "Skript.pdf"
 
 
 def test_a_quoting_item_on_a_written_source_stays(gen):
@@ -303,7 +319,7 @@ def test_a_quoting_item_on_a_written_source_stays(gen):
                                 "start_time": None}]
             item["source_label"] = "Skript.pdf"
 
-    gen.attach_chips = _chips
+    gen.attach_chips_cited = _chips
 
     items, _title = gen.generate_listening_from_source(client, "m", _ctx(both=True), 1,
                                                        locale="de")
@@ -371,19 +387,24 @@ def test_the_adaptive_suffix_and_the_coverage_block_are_appended(gen):
 
 # ── Fundstelle ───────────────────────────────────────────────────────────────
 
-def test_the_source_is_decided_by_attribution_not_by_the_model(gen):
+def test_a_source_the_model_invented_never_becomes_the_chip(gen):
+    """Die Angabe des Modells wird benutzt, aber nicht geglaubt. Weder die Datei noch
+    die Seite stehen im Kontext, also müssen beide durchfallen und die Attribution
+    entscheidet."""
+    from src.features.ai_assistant.tasks.language_training import _attribution
+
     client, _calls = _make_client(_payload(
         {"kind": "statement", "statement": _STATEMENT, "answer": True,
          "source_label": "Erfunden.pdf", "page_number": 99},
     ))
 
-    items, _title = gen.generate_listening_from_source(client, "m", _ctx(), 1, locale="de")
+    gen.generate_listening_from_source(client, "m", _ctx(), 1, locale="de")
 
-    # Das Modell darf die Seite nennen, gespeichert wird sie nicht: die Attribution
-    # entscheidet. Also darf hier nichts vom Modell in der Zeile stehen.
-    assert "source_label" not in items[0]
-    assert gen._seen["kw"] == {"multi": False}
-    assert gen._seen["ctx"].context == MATERIAL
+    handed = gen._seen["items"][0]
+    ctx = gen._seen["ctx"]
+    assert ctx.context == MATERIAL
+    assert _attribution._cited_chip(handed, ctx, {1: "Skript.pdf"}) is None
+    assert _attribution._named_source_id(handed, ctx) is None
 
 
 def test_the_claim_for_a_statement_leaves_the_verdict_label_out(gen):

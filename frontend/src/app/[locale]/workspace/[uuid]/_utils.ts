@@ -175,13 +175,19 @@ export type ChipLabelT = (key: "page" | "part", values: { num: number }) => stri
 
 export function _chunkLabel(
   filename: string,
-  num: number,
+  num: number | null | undefined,
   startTime?: number | null,
   tChip?: ChipLabelT,
 ): string {
   if (_isMediaFile(filename) && startTime != null) return _formatTime(startTime);
-  if (_isMediaFile(filename)) return tChip ? tChip("part", { num }) : `Teil ${num}`;
-  return tChip ? tChip("page", { num }) : `S. ${num}`;
+  // Ton und Video ohne beides: der Chip nennt nur die Datei. Für erfundene Sätze
+  // (Grammatik-Übung) lässt sich die Stelle im Transkript oft nicht belegen, und
+  // eine falsche Minute schickt den Lernenden irgendwohin.
+  if (_isMediaFile(filename)) {
+    if (num == null) return "";
+    return tChip ? tChip("part", { num }) : `Teil ${num}`;
+  }
+  return tChip ? tChip("page", { num: num ?? 1 }) : `S. ${num ?? 1}`;
 }
 
 export function parseFlashcards(text: string): LernKarte[] {

@@ -252,7 +252,7 @@ def test_quiz_prompt_carries_the_block(monkeypatch):
 def test_grammar_prompt_carries_the_block(monkeypatch):
     from src.features.ai_assistant.tasks.language_training import _source_grammar as mod
     from src.services.aia_grammar_types import GRAMMAR_TYPES
-    monkeypatch.setattr(mod, "attach_chips", lambda *a, **k: None)
+    monkeypatch.setattr(mod, "attach_chips_cited", lambda *a, **k: None)
     client, calls = _make_client(json.dumps({
         "title": "T",
         "example": {"before": "Der Server speichert die Werte.",
