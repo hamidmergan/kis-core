@@ -8,10 +8,25 @@ Hier nur die reinen Funktionen. Datenbankzugriffe haben in diesen Tests nichts z
 suchen, sie werden in den Routen-Tests ausgehängt.
 """
 
+import inspect
+
+from src.features.ai_assistant.repository.exercises import create_exercise_set_placeholder
 from src.features.ai_assistant.repository.grammar_topics import (
     SEED_TOPICS,
     catalog_entry,
 )
+
+
+def test_a_set_is_stored_with_its_topic_not_with_a_catalogue_id():
+    """Am laufenden System aufgefallen: die Route reichte grammar_topic_id durch,
+    die Ablage nahm aber weiter grammar_type, und das Anlegen brach mit einem 500 ab.
+
+    Die Signatur zu prüfen kostet nichts und faengt genau diese Sorte Fehler, die
+    kein Einzeltest sieht, weil beide Seiten fuer sich richtig aussehen.
+    """
+    params = inspect.signature(create_exercise_set_placeholder).parameters
+    assert "grammar_topic_id" in params
+    assert "grammar_type" not in params
 
 
 def test_every_seed_topic_carries_a_name():

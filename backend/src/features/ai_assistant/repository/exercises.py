@@ -59,13 +59,13 @@ def create_exercise_set(
 
 def create_exercise_set_placeholder(
     workspace_id: int, user_id: int, tool: str, title: str,
-    mode: str, source_uuid: str | None, grammar_type: str | None = None,
+    mode: str, source_uuid: str | None, grammar_topic_id: int | None = None,
     source_uuids: list[str] | None = None, requested_count: int | None = None,
 ) -> dict:
     """Create a placeholder set with status='generating'. Returns the set.
 
-    ``grammar_type`` is only set by the grammar tool and names the catalogue entry
-    the set was built from; it stays NULL for every other tool.
+    ``grammar_topic_id`` is only set by the grammar tool and points at the workspace
+    topic the set was built from; it stays NULL for every other tool.
 
     ``source_uuids`` is the learner's whole selection, in the order they picked it. That
     order becomes the numbering of the citation chips, so it has to be stored rather than
@@ -79,10 +79,10 @@ def create_exercise_set_placeholder(
             cur.execute(
                 """INSERT INTO aia_exercise_sets
                    (workspace_id, user_id, tool, title, mode, source_uuid, card_count,
-                    status, grammar_type, source_uuids, requested_count)
+                    status, grammar_topic_id, source_uuids, requested_count)
                    VALUES (%s, %s, %s, %s, %s, %s, 0, 'generating', %s, %s::jsonb, %s)
                    RETURNING *""",
-                (workspace_id, user_id, tool, title, mode, source_uuid, grammar_type,
+                (workspace_id, user_id, tool, title, mode, source_uuid, grammar_topic_id,
                  json.dumps(list(source_uuids or [])), requested_count),
             )
             ex_set = dict(cur.fetchone())
