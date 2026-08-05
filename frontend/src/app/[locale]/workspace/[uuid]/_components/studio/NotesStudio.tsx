@@ -283,12 +283,12 @@ export function NotesStudio({
                                   tabIndex={0}
                                   onClick={(e) => { e.stopPropagation(); onChipClick(s.uuid, 0, s.filename); }}
                                   onKeyDown={(e) => { if (e.key === "Enter") e.currentTarget.click(); }}
-                                  className="inline-flex items-center gap-1 text-xs cursor-pointer text-[var(--muted)] hover:text-[var(--kb)] transition-colors"
+                                  className="inline-flex items-center gap-1 text-xs cursor-pointer text-[var(--muted)] hover-lighten transition-colors"
                                   title={s.filename}
                                 >
                                   <ChipIcon size={10} weight="bold" />
                                   <span style={{ color: "var(--kb)" }}>[{s.qnum}]</span>
-                                  <span className="max-w-[500px] truncate">{s.filename}</span>
+                                  <span className="max-w-125 truncate">{s.filename}</span>
                                 </span>
                               );
                             })}

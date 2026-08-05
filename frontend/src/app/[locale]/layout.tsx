@@ -64,7 +64,7 @@ export default async function RootLayout({ children, params }: Props) {
       </head>
       <body className={`${geist.variable} min-h-screen flex flex-col`} suppressHydrationWarning>
         <NextIntlClientProvider locale={locale} messages={messages}>
-          <NextTopLoader color="#668DA0" showSpinner={false} height={3} />
+          <NextTopLoader color="#265E79" showSpinner={false} height={3} />
           <MaintenanceGuard />
           <main className="flex-1">
             <LayoutShell hasSession={hasSession}>{children}</LayoutShell>

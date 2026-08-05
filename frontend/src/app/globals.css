@@ -87,8 +87,10 @@
   --surface-dim:     #EBEDF0;
   --border-soft:     #D9E2E6;
   --border:          #B8CDD5;
-  --muted-soft:      #8FAEC0;
-  --muted:           #668DA0;
+  /* muted/-soft sind Marken-Toenungen (kb75 / kb85) statt kb60/kb45.
+     kb60 lag bei 3,0:1 auf --surface-dim und verfehlte WCAG 2.1 AA. */
+  --muted-soft:      #407188;
+  --muted:           #265E79;
   --foreground-soft: #2F4D5C;
   --foreground:      #0D1F2D;
 
@@ -168,8 +170,9 @@
   --surface-dim:     #1C1D22;
   --border-soft:     #23252B;
   --border:          #2A2C32;
-  --muted-soft:      #6E7079;
-  --muted:           #8B8E97;
+  /* aufgehellt: 3,7:1 bzw. 5,1:1 auf --surface-dim waren zu wenig */
+  --muted-soft:      #85888F;
+  --muted:           #9A9DA6;
   --foreground-soft: #ffffff;
   --foreground:      #ffffff;
 
@@ -248,6 +251,23 @@
 }
 :root[data-theme="dark"] .add-source-btn:hover {
   border-color: var(--kb) !important;
+}
+
+/* Quellen-Zeilen (Chat-Chips, Quellenliste unter den Uebungen): Hover hellt die Zeile
+   auf, statt sie ins dunkle Akzentblau kippen zu lassen. Hell eine Stufe ueber --muted,
+   dunkel bis auf Weiss. Icons folgen ueber currentColor.
+   Hell springt auf --kb60: --muted-soft war nur eine halbe Stufe und im Betrieb nicht
+   zu sehen. --kb60 ist als Textfarbe zu hell (3,0:1 auf --surface-dim), als reiner
+   Hover-Zustand einer ohnehin nebensaechlichen Zeile aber vertretbar, der Ruhezustand
+   bleibt auf --muted.
+   Steht bewusst AUSSERHALB von @layer components: die Zeilen tragen die Utility
+   text-[var(--muted)], und die utilities-Layer schlaegt components unabhaengig von der
+   Spezifitaet. Ungelayerte Regeln gewinnen gegen beide. */
+.hover-lighten:hover:not(:disabled, [aria-disabled="true"]) {
+  color: var(--kb60) !important;
+}
+:root[data-theme="dark"] .hover-lighten:hover:not(:disabled, [aria-disabled="true"]) {
+  color: var(--foreground) !important;
 }
 
 /* Unified Abbrechen-Button: Outline permanent 2px (Layout-stabil), default transparent → Hover Outline #004261. Light: Schrift unveraendert. Dark: Schrift bleibt weiss. */
