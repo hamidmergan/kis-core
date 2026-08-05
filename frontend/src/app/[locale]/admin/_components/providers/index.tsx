@@ -32,7 +32,16 @@ type DialogState =
   | { open: true; mode: "edit"; provider: Provider }
   | { open: true; mode: "export-import"; initialTab: "export" | "import" };
 
-export default function ProvidersTab() {
+/**
+ * Anbieter und Funktionen. `only` waehlt aus, welche der beiden Karten
+ * gerendert wird, damit jede eine eigene Adresse bekommen kann. Ohne `only`
+ * bleibt das alte Verhalten mit beiden Karten untereinander.
+ *
+ * Der Zustand bleibt bewusst hier: beide Karten arbeiten auf denselben Daten,
+ * und ein gemeinsamer Zustand ueber zwei Routen waere mehr Aufwand als der
+ * eine zusaetzliche Ladevorgang beim Wechseln kostet.
+ */
+export default function ProvidersTab({ only }: { only?: "list" | "routes" } = {}) {
   const t = useTranslations("admin.providers");
   const [meta, setMeta] = useState<ProviderMeta | null>(null);
   const [providers, setProviders] = useState<Provider[]>([]);
@@ -261,7 +270,7 @@ export default function ProvidersTab() {
 
   return (
     <div className="space-y-4">
-      <header className="flex items-start justify-between gap-4">
+      {only !== "routes" && <header className="flex items-start justify-between gap-4">
         <p className="text-sm text-foreground-soft max-w-2xl">{t("intro")}</p>
         {providers.length > 0 && (
           <div className="relative shrink-0">
@@ -306,9 +315,9 @@ export default function ProvidersTab() {
             )}
           </div>
         )}
-      </header>
+      </header>}
 
-      <ProviderListCard
+      {only !== "routes" && <ProviderListCard
         providers={providers}
         onAdd={() => setDialog({ open: true, mode: "create" })}
         onEdit={(p) => setDialog({ open: true, mode: "edit", provider: p })}
@@ -316,9 +325,9 @@ export default function ProvidersTab() {
         onDelete={handleDelete}
         onToggleEnabled={handleToggleEnabled}
         onOpenExportImport={handleOpenExportImport}
-      />
+      />}
 
-      {providers.length > 0 && (
+      {only !== "list" && providers.length > 0 && (
         <FeatureRoutingCard
           meta={meta}
           providers={providers}

@@ -686,6 +686,104 @@
       "llm": "LLM",
       "kiCrumb": "KI · {section}"
     },
+    "sections": {
+      "nutzer": {
+        "label": "Nutzer",
+        "sub": "Wer darf herein und wer darf was.",
+        "pending": {
+          "label": "Ausstehend",
+          "sub": "Anfragen, die auf Freischaltung warten."
+        },
+        "whitelist": {
+          "label": "Whitelist",
+          "sub": "Wer ohne Freischaltung hereinkommt."
+        },
+        "users": {
+          "label": "Alle Nutzer",
+          "sub": "Suchen, Rolle setzen, Kontingente öffnen."
+        },
+        "roles": {
+          "label": "Rollen",
+          "sub": "System-Rollen sind fest, eigene Rollen frei zusammenstellbar."
+        },
+        "quota": {
+          "label": "Kontingente",
+          "sub": "Wie oft jemand ein Werkzeug benutzen darf."
+        }
+      },
+      "werkzeuge": {
+        "label": "Werkzeuge",
+        "sub": "Die globalen Tools auf der Startseite.",
+        "release": {
+          "label": "Freigabe",
+          "sub": "Welche Tools auf der Startseite erscheinen."
+        },
+        "jobs": {
+          "label": "Aufträge",
+          "sub": "Wie voll die Maschine ist, was läuft und was schiefging."
+        },
+        "stats": {
+          "label": "Statistik",
+          "sub": "Läufe, Fehlerquoten und Dauer über einen Zeitraum."
+        }
+      },
+      "assistent": {
+        "label": "KI-Assistent",
+        "sub": "Der Assistent im Modul.",
+        "sources": {
+          "label": "Quellen",
+          "sub": "Was hochgeladen werden darf und wie es eingelesen wird."
+        },
+        "answers": {
+          "label": "Antworten",
+          "sub": "Wie viel Quelltext in eine Anfrage geht."
+        },
+        "level": {
+          "label": "Sprachniveau",
+          "sub": "Ob eingestuft wird, was der Test abfragt und wie die KI dabei urteilt.",
+          "tabs": {
+            "assessment": "Einstufung",
+            "behaviour": "KI-Verhalten"
+          }
+        },
+        "usage": {
+          "label": "Nutzung",
+          "sub": "Teilnehmer, Übungen und Chat je Modul."
+        }
+      },
+      "anbieter": {
+        "label": "Anbieter & Modelle",
+        "sub": "Gilt für beide Bereiche.",
+        "list": {
+          "label": "Anbieter",
+          "sub": "Endpunkte, Zugangsschlüssel und Erreichbarkeit."
+        },
+        "routes": {
+          "label": "Funktionen",
+          "sub": "Pro Funktion ein Anbieter und ein Modell."
+        }
+      },
+      "appearance": {
+        "label": "Oberfläche",
+        "sub": "Was die Nutzer sehen und wie es heißt."
+      },
+      "system": {
+        "label": "System",
+        "sub": "Sperrt die Plattform. Wird auch für den Reindex gebraucht."
+      },
+      "mascot": {
+        "label": "Maskottchen",
+        "sub": "Nur für die Entwicklung.",
+        "hilde": {
+          "label": "Hilde",
+          "sub": "Alle Posen und Zustände auf einen Blick."
+        },
+        "francis": {
+          "label": "Francis",
+          "sub": "Alle Posen und Zustände auf einen Blick."
+        }
+      }
+    },
     "jobStatus": {
       "success": "Fertig",
       "failed": "Fehler",

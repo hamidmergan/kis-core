@@ -686,6 +686,104 @@
       "llm": "LLM",
       "kiCrumb": "AI · {section}"
     },
+    "sections": {
+      "nutzer": {
+        "label": "Users",
+        "sub": "Who gets in and who may do what.",
+        "pending": {
+          "label": "Pending",
+          "sub": "Requests waiting for approval."
+        },
+        "whitelist": {
+          "label": "Whitelist",
+          "sub": "Who gets in without approval."
+        },
+        "users": {
+          "label": "All users",
+          "sub": "Search, set role, open quotas."
+        },
+        "roles": {
+          "label": "Roles",
+          "sub": "System roles are fixed, custom roles are yours to build."
+        },
+        "quota": {
+          "label": "Quotas",
+          "sub": "How often someone may use a tool."
+        }
+      },
+      "werkzeuge": {
+        "label": "Tools",
+        "sub": "The global tools on the home page.",
+        "release": {
+          "label": "Availability",
+          "sub": "Which tools show up on the home page."
+        },
+        "jobs": {
+          "label": "Jobs",
+          "sub": "How busy the machine is, what runs and what failed."
+        },
+        "stats": {
+          "label": "Statistics",
+          "sub": "Runs, failure rates and duration over a period."
+        }
+      },
+      "assistent": {
+        "label": "AI assistant",
+        "sub": "The assistant inside a module.",
+        "sources": {
+          "label": "Sources",
+          "sub": "What may be uploaded and how it is indexed."
+        },
+        "answers": {
+          "label": "Answers",
+          "sub": "How much source text goes into a request."
+        },
+        "level": {
+          "label": "Language level",
+          "sub": "Whether levels are assessed, what the test asks and how the AI judges.",
+          "tabs": {
+            "assessment": "Assessment",
+            "behaviour": "AI behaviour"
+          }
+        },
+        "usage": {
+          "label": "Usage",
+          "sub": "Participants, exercises and chat per module."
+        }
+      },
+      "anbieter": {
+        "label": "Providers & models",
+        "sub": "Applies to both areas.",
+        "list": {
+          "label": "Providers",
+          "sub": "Endpoints, API keys and reachability."
+        },
+        "routes": {
+          "label": "Features",
+          "sub": "One provider and one model per feature."
+        }
+      },
+      "appearance": {
+        "label": "Appearance",
+        "sub": "What users see and what it is called."
+      },
+      "system": {
+        "label": "System",
+        "sub": "Locks the platform. Also needed for the reindex."
+      },
+      "mascot": {
+        "label": "Mascots",
+        "sub": "Development only.",
+        "hilde": {
+          "label": "Hilde",
+          "sub": "Every pose and state at a glance."
+        },
+        "francis": {
+          "label": "Francis",
+          "sub": "Every pose and state at a glance."
+        }
+      }
+    },
     "jobStatus": {
       "success": "Done",
       "failed": "Failed",

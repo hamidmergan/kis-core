@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
+import CollapsibleCard from "@/components/ui/CollapsibleCard";
 
 /**
  * The adaptive answer behaviour that steers the existing workspace chat.
@@ -68,16 +69,14 @@ export default function DiagnosisAdaptiveBehaviorCard() {
   const isDefault = draft.trim() === fallback.trim();
 
   return (
-    <div className="border border-border-soft rounded-xl bg-background p-5">
-      <p className="text-sm font-medium text-foreground">{t("title")}</p>
-      <p className="text-xs text-muted mt-1">{t("description")}</p>
+    <CollapsibleCard title={t("title")} description={t("description")}>
       <textarea
         value={draft}
         onChange={(e) => { setDraft(e.target.value); setError(null); }}
         onBlur={() => { if (draft !== saved) void commit(draft); }}
         disabled={saving}
         rows={8}
-        className="mt-3 w-full rounded-lg border border-border bg-background px-3 py-2 text-xs font-mono text-foreground focus:outline-none focus:border-kb disabled:opacity-50 resize-y"
+        className="w-full rounded-lg border border-border bg-background px-3 py-2 text-xs font-mono text-foreground focus:outline-none focus:border-kb disabled:opacity-50 resize-y"
       />
       <div className="mt-2 flex items-center justify-between gap-3">
         <p className="text-xs text-muted-soft">{t("hint")}</p>
@@ -95,6 +94,6 @@ export default function DiagnosisAdaptiveBehaviorCard() {
           {error}
         </p>
       )}
-    </div>
+    </CollapsibleCard>
   );
 }

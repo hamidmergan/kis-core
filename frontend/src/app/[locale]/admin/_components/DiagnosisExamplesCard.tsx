@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
+import CollapsibleCard from "@/components/ui/CollapsibleCard";
 
 /**
  * Per-level example answers (A1, A2, B1, B2, C1, C2).
@@ -87,13 +88,12 @@ export default function DiagnosisExamplesCard() {
   };
 
   return (
-    <div className="border border-border-soft rounded-xl bg-background p-5">
-      <p className="text-sm font-medium text-foreground">
-        {t("title")}
-        <span className="ml-2 text-xs font-mono font-normal text-muted-soft">{"{examples} {example}"}</span>
-      </p>
-      <p className="text-xs text-muted mt-1">{t("description")}</p>
-      <p className="text-xs text-muted-soft mt-1">{t("hint")}</p>
+    <CollapsibleCard
+      title={t("title")}
+      badge="{examples} {example}"
+      description={t("description")}
+    >
+      <p className="text-xs text-muted-soft">{t("hint")}</p>
 
       <div className="mt-3 flex flex-col gap-2">
         {levels.map((lvl) => (
@@ -126,6 +126,6 @@ export default function DiagnosisExamplesCard() {
           {error}
         </p>
       )}
-    </div>
+    </CollapsibleCard>
   );
 }

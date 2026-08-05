@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
+import CollapsibleCard from "@/components/ui/CollapsibleCard";
 
 /**
  * The grading rules: how the diagnosis decides the final level (the
@@ -73,19 +74,14 @@ export default function DiagnosisGradingCard() {
   const isDefault = rules.trim() === fallback.trim();
 
   return (
-    <div className="border border-border-soft rounded-xl bg-background p-5">
-      <p className="text-sm font-medium text-foreground">
-        {t("title")}
-        <span className="ml-2 text-xs font-mono font-normal text-muted-soft">{"{grading}"}</span>
-      </p>
-      <p className="text-xs text-muted mt-1">{t("description")}</p>
+    <CollapsibleCard title={t("title")} badge="{grading}" description={t("description")}>
       <textarea
         value={rules}
         onChange={(e) => { setRules(e.target.value); setError(null); }}
         onBlur={commit}
         disabled={saving}
         rows={9}
-        className="mt-3 w-full rounded-lg border border-border bg-background px-3 py-2 text-xs font-mono text-foreground focus:outline-none focus:border-kb disabled:opacity-50 resize-y"
+        className="w-full rounded-lg border border-border bg-background px-3 py-2 text-xs font-mono text-foreground focus:outline-none focus:border-kb disabled:opacity-50 resize-y"
       />
       <div className="mt-2 flex justify-end">
         <button
@@ -102,6 +98,6 @@ export default function DiagnosisGradingCard() {
           {error}
         </p>
       )}
-    </div>
+    </CollapsibleCard>
   );
 }
