@@ -49,7 +49,7 @@ export function ChatPanel({
   isAdmin?: boolean;
 }) {
   const t = useTranslations("workspace.detail.chat");
-  const { enabled: mascotEnabled, variant: mascotVariant } = useMascotPref();
+  const { variant: mascotVariant } = useMascotPref();
 
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const isFirstRender = useRef(true);
@@ -174,7 +174,6 @@ export function ChatPanel({
             <ChatEmptyState
               activeSourceIds={activeSourceIds}
               onSendPrompt={onSendPrompt}
-              mascotEnabled={mascotEnabled}
               variant={mascotVariant}
             />
           )}
@@ -196,7 +195,6 @@ export function ChatPanel({
                 onSaveNote={onSaveNote}
                 onRetry={onRetry ? handleRetry : undefined}
                 loading={loading}
-                mascotEnabled={mascotEnabled}
                 variant={mascotVariant}
                 isLatest={i === messages.length - 1}
                 collapseByDefault={msg.role === "assistant" && !recentAssistantIdx.has(i)}

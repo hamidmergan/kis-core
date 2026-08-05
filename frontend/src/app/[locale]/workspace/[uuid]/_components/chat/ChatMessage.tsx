@@ -52,7 +52,6 @@ interface ChatMessageProps {
   onSaveNote?: (content: string, sourceUuids?: string[], extras?: AddNoteExtras) => void | Promise<void>;
   onRetry?: () => void;
   loading: boolean;
-  mascotEnabled?: boolean;
   variant?: MascotVariant;
   isLatest?: boolean;
   collapseByDefault?: boolean;
@@ -63,7 +62,7 @@ interface ChatMessageProps {
 
 function ChatMessageImpl({
   msg, activeSourceIds, getFilename, onChipClick, onSaveNote, onRetry, loading,
-  mascotEnabled = false, variant = "francis", isLatest = false, collapseByDefault = false,
+  variant = "francis", isLatest = false, collapseByDefault = false,
   popupActions, isAdmin = false,
 }: ChatMessageProps) {
   const t = useTranslations("workspace.detail.chat");
@@ -196,25 +195,11 @@ function ChatMessageImpl({
       data-testid={msg.role === "assistant" ? "assistant-message" : "user-message"}
       className={`flex flex-col gap-1.5 group ${msg.role === "user" ? "items-end" : "items-start"}`}
     >
-      {msg.role === "assistant" && (
-        mascotEnabled ? (
-          isLatest && (
-            <div className="flex items-center gap-2 mb-0.5">
-              <Mascot variant={variant} size={80} state={avatarState} />
-              <span className="text-base font-medium">{variant === "hilde" ? t("hildeName") : t("francisName")}</span>
-            </div>
-          )
-        ) : (
-          <div className="flex items-center gap-2 mb-0.5">
-            <div
-              className="w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold text-white flex-shrink-0"
-              style={{ backgroundColor: "var(--kb)" }}
-            >
-              {t("assistantBadge")}
-            </div>
-            <span className="text-base font-medium">{t("assistantName")}</span>
-          </div>
-        )
+      {msg.role === "assistant" && isLatest && (
+        <div className="flex items-center gap-2 mb-0.5">
+          <Mascot variant={variant} size={80} state={avatarState} />
+          <span className="text-base font-medium">{variant === "hilde" ? t("hildeName") : t("francisName")}</span>
+        </div>
       )}
       {isAdmin && msg.role === "assistant" && msg.content ? (
         <span className="text-xs mb-0.5" style={{ color: "var(--muted-soft)" }}>
@@ -312,7 +297,7 @@ function ChatMessageImpl({
                 )}
                 <div
                   ref={userContentRef}
-                  className={actionKey ? "border-l-2 pl-2.5 italic text-[15px] opacity-95" : undefined}
+                  className={actionKey ? "border-l-2 pl-2.5 italic text-sm opacity-95" : undefined}
                   style={{
                     maxHeight: expandUserContent ? "none" : "8em",
                     overflow: "hidden",
@@ -369,7 +354,7 @@ function ChatMessageImpl({
               <button
                 type="button"
                 onClick={() => setExpandSources(v => !v)}
-                className="flex items-center gap-1 text-xs text-[var(--muted)] hover:text-[var(--kb)] transition-colors"
+                className="flex items-center gap-1 text-xs text-[var(--muted)] hover-lighten transition-colors"
               >
                 {expandSources ? <CaretUp size={10} /> : <CaretDown size={10} />}
                 {t("sourcesCount", { n: msgQmap.length })}
@@ -387,14 +372,14 @@ function ChatMessageImpl({
                       tabIndex={0}
                       onClick={() => onChipClick(q.uuid, 0, q.filename)}
                       onKeyDown={(e) => { if (e.key === "Enter") e.currentTarget.click(); }}
-                      className="inline-flex items-center gap-1 text-xs cursor-pointer text-[var(--muted)] hover:text-[var(--kb)] transition-colors"
+                      className="inline-flex items-center gap-1 text-xs cursor-pointer text-[var(--muted)] hover-lighten transition-colors"
                       title={q.filename}
                     >
                       <ChipIcon size={10} weight="bold" />
                       {msgQmap.length > 1 && (
                         <span style={{ color: "var(--kb)" }}>[{q.qnum}]</span>
                       )}
-                      <span className="max-w-[500px] truncate">{q.filename}</span>
+                      <span className="max-w-125 truncate">{q.filename}</span>
                     </span>
                   );
                 })}

@@ -4,7 +4,8 @@ import React, { useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
 import Modal from "@/components/ui/Modal";
 import Select from "@/components/ui/Select";
-import { useMascotPref, type MascotMode } from "@/hooks/useMascotPref";
+import type { MascotVariant } from "@/components/ui/Mascot";
+import { useMascotPref } from "@/hooks/useMascotPref";
 
 interface SettingsMenuProps {
   open: boolean;
@@ -106,7 +107,7 @@ export function SettingsMenu({
   const t = useTranslations("workspace.detail.settings");
   const tDiag = useTranslations("workspace.detail.languageTraining.diagnosis");
   const tLang = useTranslations("langLabels");
-  const { mode: mascotMode, setMode: setMascotMode, globalEnabled: mascotGlobalEnabled } = useMascotPref();
+  const { variant: mascotVariant, setVariant: setMascotVariant } = useMascotPref();
 
   // WHICH languages exist comes from the backend (single source of truth,
   // i18n.TRANSCRIPT_LANGUAGES). What they are CALLED comes from our own
@@ -142,7 +143,6 @@ export function SettingsMenu({
   };
 
   const MASCOT_OPTIONS = [
-    { value: "off" as const, label: t("mascotOff") },
     { value: "hilde" as const, label: t("mascotHilde") },
     { value: "francis" as const, label: t("mascotFrancis") },
   ];
@@ -154,19 +154,17 @@ export function SettingsMenu({
           title={t("sectionPersonalTitle")}
           description={t("sectionPersonalDescription")}
         />
-        {mascotGlobalEnabled && (
-          <div>
-            <p className="text-sm font-medium" style={{ color: "var(--foreground)" }}>{t("mascotTitle")}</p>
-            <p className="text-xs mt-1" style={{ color: "var(--muted)" }}>{t("mascotDescription")}</p>
-            <div className="mt-2">
-              <Select<MascotMode>
-                value={mascotMode}
-                onChange={setMascotMode}
-                options={MASCOT_OPTIONS}
-              />
-            </div>
+        <div>
+          <p className="text-sm font-medium" style={{ color: "var(--foreground)" }}>{t("mascotTitle")}</p>
+          <p className="text-xs mt-1" style={{ color: "var(--muted)" }}>{t("mascotDescription")}</p>
+          <div className="mt-2">
+            <Select<MascotVariant>
+              value={mascotVariant}
+              onChange={setMascotVariant}
+              options={MASCOT_OPTIONS}
+            />
           </div>
-        )}
+        </div>
         <ToggleRow
           title={t("studioTitle")}
           description={t("studioDescription")}

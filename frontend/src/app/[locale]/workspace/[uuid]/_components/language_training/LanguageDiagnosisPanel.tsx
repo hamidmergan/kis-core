@@ -34,7 +34,7 @@ export function LanguageDiagnosisPanel({
   const t = useTranslations("workspace.detail.languageTraining.diagnosis");
   const tChat = useTranslations("workspace.detail.chat");
   const [confirmAbort, setConfirmAbort] = useState(false);
-  const { enabled: mascotEnabled, variant } = useMascotPref();
+  const { variant } = useMascotPref();
 
   const { turns, status, result, errorMessage, send, retry, abort, questionCount, answerMaxChars } =
     useLanguageDiagnosis(userId, workspaceUuid);
@@ -161,28 +161,14 @@ export function LanguageDiagnosisPanel({
                 >
                   {bubble.role === "assistant" && i === mascotIndex && (
                     <div className="flex items-center gap-2 mb-0.5">
-                      {mascotEnabled ? (
-                        <>
-                          <Mascot
-                            variant={variant}
-                            size={80}
-                            state={status === "loading" ? "thinking" : "idle"}
-                          />
-                          <span className="text-base font-medium">
-                            {variant === "hilde" ? tChat("hildeName") : tChat("francisName")}
-                          </span>
-                        </>
-                      ) : (
-                        <>
-                          <div
-                            className="w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold text-white flex-shrink-0"
-                            style={{ backgroundColor: "var(--kb)" }}
-                          >
-                            {tChat("assistantBadge")}
-                          </div>
-                          <span className="text-base font-medium">{tChat("assistantName")}</span>
-                        </>
-                      )}
+                      <Mascot
+                        variant={variant}
+                        size={80}
+                        state={status === "loading" ? "thinking" : "idle"}
+                      />
+                      <span className="text-base font-medium">
+                        {variant === "hilde" ? tChat("hildeName") : tChat("francisName")}
+                      </span>
                     </div>
                   )}
                   <div

@@ -1,17 +1,15 @@
 import { useTranslations } from "next-intl";
-import { Chat } from "@phosphor-icons/react";
 import Mascot, { type MascotVariant } from "@/components/ui/Mascot";
 
 
 interface ChatEmptyStateProps {
   activeSourceIds: string[];
   onSendPrompt?: (text: string) => void;
-  mascotEnabled?: boolean;
   variant?: MascotVariant;
 }
 
 
-export function ChatEmptyState({ activeSourceIds, onSendPrompt, mascotEnabled = true, variant = "francis" }: ChatEmptyStateProps) {
+export function ChatEmptyState({ activeSourceIds, onSendPrompt, variant = "francis" }: ChatEmptyStateProps) {
   const t = useTranslations("workspace.detail.chat");
   const disabled = activeSourceIds.length === 0;
   const prompts = [
@@ -21,23 +19,12 @@ export function ChatEmptyState({ activeSourceIds, onSendPrompt, mascotEnabled = 
   ];
   return (
     <div className="flex-1 flex flex-col items-center justify-center gap-4 py-16">
-      {mascotEnabled ? (
-        <Mascot variant={variant} size={120} state="wave" />
-      ) : (
-        <div
-          className="w-12 h-12 rounded-full flex items-center justify-center"
-          style={{ backgroundColor: "rgba(var(--kb-rgb),0.08)" }}
-        >
-          <Chat size={22} style={{ color: "var(--kb)" }} />
-        </div>
-      )}
+      <Mascot variant={variant} size={120} state="wave" />
       <p className="text-base font-medium" style={{ color: "var(--foreground)" }}>
-        {mascotEnabled
-          ? (variant === "hilde" ? t("emptyHildeGreeting") : t("emptyFrancisGreeting"))
-          : t("emptyAssistantTitle")}
+        {variant === "hilde" ? t("emptyHildeGreeting") : t("emptyFrancisGreeting")}
       </p>
       <p className="text-sm text-center max-w-xs" style={{ color: "var(--muted)" }}>
-        {mascotEnabled ? t("emptyHildeIntro") : t("emptyAssistantIntro")}
+        {t("emptyHildeIntro")}
       </p>
       <div className="flex flex-col gap-2 mt-2 w-full max-w-sm">
         {prompts.map((prompt) => (

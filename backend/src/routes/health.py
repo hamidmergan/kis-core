@@ -25,8 +25,6 @@ async def ui_labels():
     Returns both locales so the client picks the one matching its UI locale
     without a re-fetch on language switch. Legacy unsuffixed keys fall back
     as DE defaults for back-compat with older deployments.
-    Also exposes the system-wide mascot toggle so unauthenticated pages
-    (login, wartung, pending) honour the admin's choice.
     """
     return {
         "workspace_singular_de": db.get_setting(
@@ -39,7 +37,6 @@ async def ui_labels():
         ),
         "workspace_singular_en": db.get_setting("workspace_label_singular_en", "Workspace"),
         "workspace_plural_en": db.get_setting("workspace_label_plural_en", "Workspaces"),
-        "mascot_enabled": db.get_setting("mascot_enabled", "true").lower() == "true",
         # Home-page notice banner: shown to all users on the start page above
         # "Nächste Termine". Read here (public) so the home page renders it
         # without admin rights.
