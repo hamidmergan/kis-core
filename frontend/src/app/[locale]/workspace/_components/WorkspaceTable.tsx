@@ -58,23 +58,21 @@ export default function WorkspaceTable({
 
   return (
     <>
-      <div className="bg-background border border-border-soft rounded-lg overflow-hidden">
+      <div className="bg-background rounded-lg overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[760px] text-sm">
+          <table className="w-full min-w-190 text-sm">
             <thead>
               <tr className="border-b border-border-soft text-left text-xs text-muted uppercase">
-                <th className="px-4 py-2 w-6"></th>
                 <th className="px-4 py-2">{labels.singular}</th>
-                <th className="px-4 py-2 text-right">{t("colSources")}</th>
-                <th className="px-4 py-2 text-right">{t("colLinks")}</th>
-                <th className="px-4 py-2">
+                <th className="pl-10 pr-4 py-2 text-right">{t("colSources")}</th>
+                <th className="pl-10 pr-4 py-2 text-right">{t("colLinks")}</th>
+                <th className="pl-10 pr-4 py-2">
                   <span className="inline-flex items-center gap-1.5">
                     {t("colStatus")}
                     <HelpTooltip text={t("statusHelp")} />
                   </span>
                 </th>
-                <th className="px-4 py-2"></th>
-                <th className="px-4 py-2"></th>
+                <th className="pl-6 pr-4 py-2"></th>
               </tr>
             </thead>
             <tbody>
@@ -85,7 +83,7 @@ export default function WorkspaceTable({
                     {heading && (
                       <tr>
                         <th
-                          colSpan={7}
+                          colSpan={5}
                           scope="colgroup"
                           className="px-4 pt-5 pb-2 text-left text-xs font-semibold uppercase tracking-wide"
                           style={{ color: "var(--muted)" }}

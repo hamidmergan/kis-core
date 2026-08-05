@@ -2,17 +2,10 @@
 
 import { useState } from "react";
 import { useTranslations } from "next-intl";
-import {
-  ArrowRight,
-  CaretRight,
-  Plus,
-  Users,
-} from "@phosphor-icons/react";
-import IconButton from "@/components/ui/IconButton";
-import LinkRow from "./LinkRow";
+import { Users } from "@phosphor-icons/react";
 import WorkspaceMenu from "./WorkspaceMenu";
 import WorkspaceModals from "./WorkspaceModals";
-import { MAX_ACCESS_LINKS, type AccessLink, type KiTutorWorkspace } from "../_shared";
+import { type AccessLink, type KiTutorWorkspace } from "../_shared";
 import { useWorkspaceActions } from "../_hooks/useWorkspaceActions";
 import { useWorkspaceLabel } from "@/hooks/useWorkspaceLabel";
 
@@ -50,7 +43,8 @@ export default function WorkspaceTableRow({
         onRolesChanged={onRolesChanged}
         editOpen={a.editOpen} onCloseEdit={() => a.setEditOpen(false)}
         onSubmitEdit={(t, d) => onEdit(workspace.uuid, t, d)}
-        showAddLink={a.showAddLink} onCloseAddLink={() => a.setShowAddLink(false)} onLinkCreated={a.handleLinkCreated}
+        showLinks={a.showLinks} onCloseLinks={() => a.setShowLinks(false)}
+        links={a.links} onLinkCreated={a.handleLinkCreated} onRequestDeleteLink={a.setDeleteLinkConfirm}
         deleteConfirm={a.deleteConfirm} onCancelDelete={() => a.setDeleteConfirm(false)}
         onConfirmDelete={a.handleDeleteConfirm} deleting={a.deleting}
         deleteLinkConfirm={a.deleteLinkConfirm} onCancelDeleteLink={() => a.setDeleteLinkConfirm(null)}
@@ -58,19 +52,9 @@ export default function WorkspaceTableRow({
       />
 
       <tr
-        className={`border-b border-border-soft transition-colors ${a.expanded ? "bg-surface" : "hover:bg-surface"}`}
+        className="border-b border-border-soft transition-colors hover:bg-surface"
         onMouseEnter={a.handlePrefetch}
       >
-        <td className="px-4 py-3 cursor-pointer" onClick={() => a.setExpanded(!a.expanded)}>
-          <button
-            type="button"
-            onClick={(e: React.MouseEvent) => { e.stopPropagation(); a.setExpanded(!a.expanded); }}
-            title={a.expanded ? t("collapse") : t("expand")}
-            className="w-6 h-6 flex items-center justify-center text-[var(--muted)] hover:text-kb transition"
-          >
-            <CaretRight size={12} weight="bold" className={`transition-transform ${a.expanded ? "rotate-90" : ""}`} />
-          </button>
-        </td>
         <td
           className="px-4 py-3 cursor-pointer w-full max-w-0"
           onClick={a.handleOpen}
@@ -91,30 +75,35 @@ export default function WorkspaceTableRow({
             {/* The row looks the same whether it is owned or tutored, so say which. */}
             {!isOwner && (
               <span
-                className="flex-shrink-0 text-[11px] font-medium px-1.5 py-0.5 rounded-full"
+                className="flex-shrink-0 text-2xs font-medium px-1.5 py-0.5 rounded-full"
                 style={{ backgroundColor: "var(--surface-dim)", color: "var(--muted)" }}
               >
                 {t("roleTutor")}
               </span>
             )}
           </span>
+          {workspace.description && (
+            <span className="text-xs truncate block" style={{ color: "var(--muted)" }} title={workspace.description}>
+              {workspace.description}
+            </span>
+          )}
         </td>
         <td
-          className="px-4 py-3 text-right tabular-nums text-foreground-soft cursor-pointer"
+          className="pl-10 pr-4 py-3 text-right tabular-nums text-foreground-soft cursor-pointer"
           onClick={a.handleOpen}
           onMouseDown={(e) => { if (e.button === 1) { e.preventDefault(); window.open(a.moduleHref, "_blank"); } }}
         >
           {workspace.source_count}
         </td>
         <td
-          className="px-4 py-3 text-right tabular-nums text-foreground-soft cursor-pointer"
+          className="pl-10 pr-4 py-3 text-right tabular-nums text-foreground-soft cursor-pointer"
           onClick={a.handleOpen}
           onMouseDown={(e) => { if (e.button === 1) { e.preventDefault(); window.open(a.moduleHref, "_blank"); } }}
         >
           {a.links.length}
         </td>
         <td
-          className="px-4 py-3 cursor-pointer"
+          className="pl-10 pr-4 py-3 cursor-pointer"
           onClick={() => !a.toggling && a.handleToggle(!workspace.is_active)}
         >
           <div className="flex items-center gap-2.5">
@@ -130,7 +119,7 @@ export default function WorkspaceTableRow({
             >
               <span
                 className={`inline-block h-4 w-4 transform rounded-full bg-white shadow-sm transition-transform ${
-                  workspace.is_active ? "translate-x-[18px]" : "translate-x-0.5"
+                  workspace.is_active ? "translate-x-[1.125rem]" : "translate-x-0.5"
                 }`}
               />
             </button>
@@ -142,62 +131,18 @@ export default function WorkspaceTableRow({
             </span>
           </div>
         </td>
-        <td className="px-4 py-3">
+        <td className="pl-6 pr-4 py-3">
           <div className="flex justify-center">
             <WorkspaceMenu
               onStats={() => a.setShowStats(true)}
               onParticipants={() => setShowParticipants(true)}
+              onLinks={() => a.setShowLinks(true)}
               onEdit={() => a.setEditOpen(true)}
               onDelete={isOwner ? () => a.setDeleteConfirm(true) : undefined}
             />
           </div>
         </td>
-        <td
-          className="px-4 py-3 cursor-pointer"
-          onClick={a.handleOpen}
-          onMouseDown={(e) => { if (e.button === 1) { e.preventDefault(); window.open(a.moduleHref, "_blank"); } }}
-        >
-          <div className="flex justify-end">
-            <IconButton
-              onClick={(e: React.MouseEvent) => { e.stopPropagation(); a.handleOpen(); }}
-              title={t("openWorkspace", { label: labels.singular })}
-            >
-              <ArrowRight size={13} weight="bold" />
-            </IconButton>
-          </div>
-        </td>
       </tr>
-
-      {/* Expanded row */}
-      {a.expanded && (
-        <tr className="bg-surface">
-          <td colSpan={7} className="px-4 pb-4 pt-0 pl-11">
-            <div className="flex flex-col gap-3 max-w-full break-words">
-              {workspace.description && (
-                <p className="text-[13px] leading-relaxed break-words" style={{ color: "var(--muted)" }}>
-                  {workspace.description}
-                </p>
-              )}
-              {a.links.map((link) => (
-                <LinkRow key={link.id} link={link} onRequestDelete={a.setDeleteLinkConfirm} />
-              ))}
-              {a.links.length >= MAX_ACCESS_LINKS ? (
-                <p className="text-xs self-start mt-0.5" style={{ color: "var(--muted)" }}>
-                  {t("maxLinksReached", { n: MAX_ACCESS_LINKS })}
-                </p>
-              ) : (
-                <button
-                  onClick={() => a.setShowAddLink(true)}
-                  className="inline-flex items-center gap-1.5 text-xs font-medium text-muted-soft hover:text-kb transition-colors self-start mt-0.5"
-                >
-                  <Plus size={12} weight="bold" />
-                  {t("newLink")}
-                </button>
-              )}
-            </div>
-          </td>
-        </tr>
-      )}
     </>
   );
 }

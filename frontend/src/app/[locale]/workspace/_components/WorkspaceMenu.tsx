@@ -3,12 +3,13 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useTranslations } from "next-intl";
-import { ChartBar, DotsThreeVertical, PencilSimple, Trash, Users } from "@phosphor-icons/react";
+import { ChartBar, DotsThreeVertical, LinkSimple, PencilSimple, Trash, Users } from "@phosphor-icons/react";
 import IconButton from "@/components/ui/IconButton";
 
 interface WorkspaceMenuProps {
   onStats: () => void;
   onParticipants: () => void;
+  onLinks: () => void;
   onEdit: () => void;
   /** Left out for tutors: deleting the workspace stays with the owner. */
   onDelete?: () => void;
@@ -17,7 +18,7 @@ interface WorkspaceMenuProps {
 const MENU_WIDTH = 220;
 const GAP = 6;
 
-export default function WorkspaceMenu({ onStats, onParticipants, onEdit, onDelete }: WorkspaceMenuProps) {
+export default function WorkspaceMenu({ onStats, onParticipants, onLinks, onEdit, onDelete }: WorkspaceMenuProps) {
   const t = useTranslations("workspace.list");
   const [open, setOpen] = useState(false);
   const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
@@ -98,6 +99,15 @@ export default function WorkspaceMenu({ onStats, onParticipants, onEdit, onDelet
           >
             <Users size={16} weight="bold" />
             {t("participants")}
+          </button>
+          <button
+            type="button"
+            onClick={() => handle(onLinks)}
+            className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-left hover:bg-[var(--surface-dim)] transition-colors"
+            style={{ color: "var(--foreground)" }}
+          >
+            <LinkSimple size={16} weight="bold" />
+            {t("linksTitle")}
           </button>
           <button
             type="button"

@@ -17,9 +17,8 @@ export function useWorkspaceActions({ workspace, onToggleActive, onDelete, onLin
   const loader = useTopLoader();
 
   const [toggling, setToggling] = useState(false);
-  const [expanded, setExpanded] = useState(false);
   const [showStats, setShowStats] = useState(false);
-  const [showAddLink, setShowAddLink] = useState(false);
+  const [showLinks, setShowLinks] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [deleteLinkConfirm, setDeleteLinkConfirm] = useState<AccessLink | null>(null);
@@ -68,9 +67,9 @@ export function useWorkspaceActions({ workspace, onToggleActive, onDelete, onLin
 
   return {
     links, moduleHref,
-    toggling, expanded, setExpanded,
+    toggling,
     showStats, setShowStats,
-    showAddLink, setShowAddLink,
+    showLinks, setShowLinks,
     deleteConfirm, setDeleteConfirm, deleting,
     deleteLinkConfirm, setDeleteLinkConfirm, deletingLink,
     editOpen, setEditOpen,

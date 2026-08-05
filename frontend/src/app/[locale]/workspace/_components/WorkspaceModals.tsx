@@ -5,7 +5,7 @@ import { createPortal } from "react-dom";
 import { useLocale, useTranslations } from "next-intl";
 import StatsModal from "./StatsModal";
 import EditWorkspaceModal from "./EditWorkspaceModal";
-import AddLinkModal from "./AddLinkModal";
+import LinksModal from "./LinksModal";
 import ParticipantsModal from "./ParticipantsModal";
 import { useWorkspaceLabel } from "@/hooks/useWorkspaceLabel";
 import type { AccessLink, KiTutorWorkspace } from "../_shared";
@@ -20,9 +20,11 @@ interface WorkspaceModalsProps {
   editOpen: boolean;
   onCloseEdit: () => void;
   onSubmitEdit: (title: string, description: string) => Promise<boolean>;
-  showAddLink: boolean;
-  onCloseAddLink: () => void;
+  showLinks: boolean;
+  onCloseLinks: () => void;
+  links: AccessLink[];
   onLinkCreated: (link: AccessLink) => void;
+  onRequestDeleteLink: (link: AccessLink) => void;
   deleteConfirm: boolean;
   onCancelDelete: () => void;
   onConfirmDelete: () => void;
@@ -39,7 +41,7 @@ export default function WorkspaceModals(props: WorkspaceModalsProps) {
     showStats, onCloseStats,
     showParticipants, onCloseParticipants, onRolesChanged,
     editOpen, onCloseEdit, onSubmitEdit,
-    showAddLink, onCloseAddLink, onLinkCreated,
+    showLinks, onCloseLinks, links, onLinkCreated, onRequestDeleteLink,
     deleteConfirm, onCancelDelete, onConfirmDelete, deleting,
     deleteLinkConfirm, onCancelDeleteLink, onConfirmDeleteLink, deletingLink,
   } = props;
@@ -71,8 +73,14 @@ export default function WorkspaceModals(props: WorkspaceModalsProps) {
           onSubmit={onSubmitEdit}
         />
       )}
-      {showAddLink && (
-        <AddLinkModal workspaceUuid={workspace.uuid} onClose={onCloseAddLink} onCreated={onLinkCreated} />
+      {showLinks && (
+        <LinksModal
+          workspaceUuid={workspace.uuid}
+          links={links}
+          onClose={onCloseLinks}
+          onCreated={onLinkCreated}
+          onRequestDelete={onRequestDeleteLink}
+        />
       )}
       {deleteConfirm && (
         <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
