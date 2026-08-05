@@ -110,12 +110,12 @@ def _generate(response=_RESPONSE, count=2, adaptive_suffix=""):
     return items, title, header, calls
 
 
-def test_generation_builds_items_title_and_header(attributed):
+def test_generation_builds_items_and_a_title(attributed):
     items, title, header, _ = _generate()
     assert title == "Passiv im Datenmanagement"
-    assert header["instruction"] == _INSTRUCTION["de"]
-    assert header["pattern_front"] == "Hilde erklärt einen Begriff."
-    assert header["pattern_back"] == "Ein Begriff wird von Hilde erklärt."
+    # Kein Set-Kopf mehr: ein gemischtes Set hat kein gemeinsames Muster, das über
+    # allem stehen könnte. Es hängt an der Aufgabe, die eines braucht.
+    assert header == {}
     assert [i["front"] for i in items] == [
         "Der Server speichert die Messwerte.",
         "Die Software prüft die Eingaben.",
@@ -276,17 +276,18 @@ def test_title_falls_back_to_the_type_label(attributed):
     assert title == _TEXT_TYPE["label"]
 
 
-def test_missing_example_falls_back_to_the_catalogue_pattern(attributed):
-    # The learner must never face the sentences without a worked pair above them.
+def test_every_transform_carries_the_topics_worked_pattern(attributed):
+    """Vor einer Umformung darf niemand ohne Muster stehen. Es kommt jetzt vom Thema
+    und hängt an der Aufgabe, statt einmal über dem ganzen Set zu stehen."""
     response = json.dumps({
         "title": "T",
         "exercises": [{"before": b, "after": a} for b, a in (_GOOD, _GOOD2)],
     })
-    _, _, header, _ = _generate(response, count=2)
+    items, _, _, _ = _generate(response, count=2)
     shipped = _TEXT_TYPE["example"]
-    assert header["pattern_front"] == shipped["before"]
-    assert header["pattern_back"] == shipped["after"]
-    assert header["instruction"] == _INSTRUCTION["de"]
+    for item in items:
+        assert item["extras"]["pattern_front"] == shipped["before"]
+        assert item["extras"]["pattern_back"] == shipped["after"]
 
 
 # ─── Prüfung: Normalisierung ─────────────────────────────────────────────────
