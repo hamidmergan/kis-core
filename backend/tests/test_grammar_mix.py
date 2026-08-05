@@ -206,6 +206,33 @@ def test_a_run_where_most_items_fail_is_discarded_entirely(attributed):
     assert header == {}
 
 
+def test_the_prompt_demands_full_sentences_as_options(attributed):
+    """Am laufenden System aufgefallen: das Modell lieferte als Optionen einzelne
+    Wortformen ("geschrieben", "schreiben", "schreibt"). Der Wortüberdeckungs-Filter
+    misst Überdeckung in Wörtern und sieht bei Einzelwörtern null, also fiel JEDE
+    Ankreuz-Aufgabe durch und das Set kam ohne dieses Format heraus.
+
+    Der Filter ist richtig, er trennt Form von Inhalt. Also muss die Vorgabe die
+    Form nennen, die er erwartet."""
+    _, _, _, calls = _generate()
+    system = calls[0][0]["content"]
+    assert "complete sentence" in system.lower()
+
+
+def test_the_same_sentence_never_appears_twice(attributed):
+    """Ebenfalls am laufenden System aufgefallen: derselbe Satz kam an Position 1
+    und 5. Zweimal dieselbe Aufgabe ist verlorene Übungszeit."""
+    pair = {"kind": "transform", "before": "Der Server speichert die Messwerte.",
+            "after": "Die Messwerte werden vom Server gespeichert."}
+    response = json.dumps({"title": "T", "exercises": [
+        pair, dict(pair), dict(pair),
+        {"kind": "transform", "before": "Die Software prüft die Eingaben.",
+         "after": "Die Eingaben werden von der Software geprüft."},
+    ]})
+    items, _, _, _ = _generate(response, count=4)
+    assert len(items) == 2
+
+
 def test_an_unknown_kind_is_dropped_rather_than_guessed(attributed):
     response = json.dumps({"title": "T", "exercises": [
         {"kind": "wortschatz", "before": "a b c.", "after": "c b a."},

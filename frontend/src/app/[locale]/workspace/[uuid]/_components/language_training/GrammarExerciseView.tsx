@@ -17,12 +17,19 @@ const VERDICT_STYLE: Record<GrammarCheckResult["verdict"], { fg: string; bg: str
 };
 
 /**
- * Free-text grammar drill: instruction and worked example stay pinned above, the
- * learner rewrites one sentence per step.
+ * Grammatik-Übung: ein Satz je Schritt, vier Darreichungsformen gemischt.
  *
- * Unlike the MC views the answer cannot be judged in the browser, so "check" hits
- * the backend. Only a deviating answer costs a model call there, which is why the
- * button stays enabled and responsive on a correct answer.
+ * Die Ansicht unterscheidet sie an genau einem Merkmal, nämlich ob die Aufgabe
+ * ``options`` mitbringt:
+ *
+ * * mit Optionen wird angekreuzt, und das entscheidet der Browser selbst,
+ * * ohne Optionen wird getippt (Umformung oder Lückentext), und das kann nur das
+ *   Backend beurteilen. Nur eine abweichende Antwort kostet dort einen Modellaufruf,
+ *   deshalb bleibt der Knopf auch bei einer richtigen Antwort flott.
+ *
+ * Das Musterpaar steht an der Aufgabe, die eines braucht, nicht mehr über dem Set:
+ * ein gemischtes Set hat kein gemeinsames Muster, und eine Richtig/Falsch-Aufgabe
+ * folgt keinem.
  */
 export function GrammarExerciseView({
   exerciseSet, workspaceUuid, onBack, onAnswer, onSourceClick, breadcrumbs, onFinish,
@@ -48,6 +55,7 @@ export function GrammarExerciseView({
   const [checkError, setCheckError] = useState(false);
   const [result, setResult] = useState<GrammarCheckResult | null>(null);
   const [correctCount, setCorrectCount] = useState(0);
+  const [picked, setPicked] = useState<number | null>(null);
 
   const total = items.length;
   const card = items[index];
@@ -88,6 +96,7 @@ export function GrammarExerciseView({
     }
     setIndex((i) => i + 1);
     setAnswer("");
+    setPicked(null);
     setResult(null);
     setCheckError(false);
   }
@@ -98,6 +107,19 @@ export function GrammarExerciseView({
     setResult({ verdict: "wrong", feedback: null, solution: card.back, explanation: card.explanation });
   }
 
+  /** Ankreuzen entscheidet der Browser: die Lösung steht in der Aufgabe. */
+  function pick(optionIndex: number) {
+    if (!card || answered) return;
+    setPicked(optionIndex);
+    const isCorrect = optionIndex === card.correct_idx;
+    if (isCorrect) setCorrectCount((c) => c + 1);
+    onAnswer(card.id, isCorrect);
+    setResult({
+      verdict: isCorrect ? "correct" : "wrong",
+      feedback: null, solution: card.back, explanation: card.explanation,
+    });
+  }
+
   if (!card) return (
     <div className="flex flex-col h-full items-center justify-center gap-3">
       <Spinner size="lg" />
@@ -106,7 +128,12 @@ export function GrammarExerciseView({
   );
 
   const progressPct = ((index + 1) / total) * 100;
-  const hasPattern = Boolean(exerciseSet.pattern_front && exerciseSet.pattern_back);
+  // Ankreuzen oder Tippen: genau ein Merkmal entscheidet es.
+  const isChoice = Boolean(card.options?.length);
+  // Das Muster haengt an der Aufgabe, die eines braucht (die Umformung).
+  const pattern = card.extras?.pattern_front && card.extras?.pattern_back
+    ? { front: card.extras.pattern_front, back: card.extras.pattern_back }
+    : null;
   const verdictStyle = result ? VERDICT_STYLE[result.verdict] : null;
   const VerdictIcon = result?.verdict === "correct" ? Check : result?.verdict === "close" ? Minus : X;
   const verdictLabel = result
@@ -174,35 +201,6 @@ export function GrammarExerciseView({
         <div className="h-full transition-all duration-500 rounded-r-full" style={{ width: `${progressPct}%`, backgroundColor: "var(--kb)" }} />
       </div>
 
-      {/* Instruction + worked example, laid out like the paper worksheet it comes
-          from: the task line names the pattern, the pattern follows directly under
-          it. Outside the scroll area on purpose, and never collapsible — the task
-          line literally points at the pair, so hiding it makes the sentence lie. */}
-      {exerciseSet.instruction && (
-        <div className="px-4 pt-3 pb-2.5 flex-shrink-0">
-          <div className="mx-auto w-full" style={{ maxWidth: 560 }}>
-            {/* Same 15px as the sentence in the card below, so the task line and the
-                sentences the learner works on read at one size. The pair under it is
-                the platform's body size. */}
-            <p className="text-base font-semibold leading-snug" style={{ color: "var(--foreground)" }}>
-              {exerciseSet.instruction}
-            </p>
-            {hasPattern && (
-              <div className="mt-2">
-                <p className="text-sm leading-relaxed" style={{ color: "var(--foreground-soft)" }}>{exerciseSet.pattern_front}</p>
-                {/* The arrow carries the direction without a word, so it needs no
-                    translation. Decorative for a screen reader, and flex gives the
-                    wrapped second line a hanging indent under the text, not the arrow. */}
-                <p className="text-sm leading-relaxed flex gap-1.5" style={{ color: "var(--foreground-soft)" }}>
-                  <span aria-hidden="true" className="shrink-0" style={{ color: "var(--kb)" }}>→</span>
-                  <span>{exerciseSet.pattern_back}</span>
-                </p>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-
       <div className="flex-1 overflow-y-auto p-4">
         <div className="mx-auto mt-1 sm:mt-3 w-full flex flex-col gap-3" style={{ maxWidth: 560 }}>
           <div className="text-center text-xs font-semibold">{index + 1} / {total}</div>
@@ -213,27 +211,67 @@ export function GrammarExerciseView({
               <div className="text-2xs font-bold" style={{ color: "var(--muted)" }}>
                 {t("grammar.sentenceNo", { no: index + 1 })}
               </div>
-              <p className="text-base font-semibold leading-snug" style={{ color: "var(--foreground)" }}>{card.front}</p>
+              {/* Aufgabenzeile und Satz. Die Ankreuz-Aufgabe bringt ihre Anweisung
+                  fett in front mit, deshalb wird hier Markdown-Fett gerendert. */}
+              <p className="text-base font-semibold leading-snug whitespace-pre-line" style={{ color: "var(--foreground)" }}
+                dangerouslySetInnerHTML={{ __html: card.front.replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>") }} />
 
-              <textarea
-                value={answer}
-                onChange={(e) => { setAnswer(e.target.value); setCheckError(false); }}
-                onKeyDown={(e) => {
-                  // Enter checks, Shift+Enter keeps the newline for long sentences.
-                  if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); void check(); }
-                }}
-                disabled={answered || checking}
-                rows={3}
-                spellCheck={false}
-                placeholder={t("grammar.answerPlaceholder")}
-                className="w-full rounded-xl px-3 py-2.5 text-sm resize-y bg-background text-foreground border-2 border-border transition-colors enabled:hover:border-kb focus:border-kb focus:outline-none disabled:opacity-75"
-              />
+              {/* Das Muster, direkt an der Aufgabe, die eines braucht. Es steht unter
+                  dem Satz und nicht darüber: der Lernende liest erst die Aufgabe. */}
+              {pattern && (
+                <div className="rounded-xl px-3 py-2" style={{ backgroundColor: "var(--surface-dim)" }}>
+                  <p className="text-xs leading-relaxed" style={{ color: "var(--foreground-soft)" }}>{pattern.front}</p>
+                  {/* Der Pfeil trägt die Richtung ohne Wort und braucht keine
+                      Übersetzung. Für einen Screenreader nur Zierde. */}
+                  <p className="text-xs leading-relaxed flex gap-1.5" style={{ color: "var(--foreground-soft)" }}>
+                    <span aria-hidden="true" className="shrink-0" style={{ color: "var(--kb)" }}>→</span>
+                    <span>{pattern.back}</span>
+                  </p>
+                </div>
+              )}
+
+              {isChoice ? (
+                <div className="flex flex-col gap-1.5">
+                  {(card.options || []).map((opt, oi) => {
+                    const isRight = oi === card.correct_idx;
+                    const chosen = picked === oi;
+                    const show = answered && (isRight || chosen);
+                    return (
+                      <button key={oi} type="button" onClick={() => pick(oi)} disabled={answered}
+                        className="text-left px-3 py-2 rounded-xl text-sm border-2 transition-colors disabled:cursor-default"
+                        style={{
+                          borderColor: show ? (isRight ? "#1a8a5c" : "#d4453a") : "var(--border)",
+                          backgroundColor: show
+                            ? (isRight ? "rgba(26,138,92,0.08)" : "rgba(212,69,58,0.07)")
+                            : "transparent",
+                          color: "var(--foreground)",
+                        }}>
+                        {opt}
+                      </button>
+                    );
+                  })}
+                </div>
+              ) : (
+                <textarea
+                  value={answer}
+                  onChange={(e) => { setAnswer(e.target.value); setCheckError(false); }}
+                  onKeyDown={(e) => {
+                    // Enter checks, Shift+Enter keeps the newline for long sentences.
+                    if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); void check(); }
+                  }}
+                  disabled={answered || checking}
+                  rows={3}
+                  spellCheck={false}
+                  placeholder={t("grammar.answerPlaceholder")}
+                  className="w-full rounded-xl px-3 py-2.5 text-sm resize-y bg-background text-foreground border-2 border-border transition-colors enabled:hover:border-kb focus:border-kb focus:outline-none disabled:opacity-75"
+                />
+              )}
 
               {checkError && (
                 <p className="text-xs" style={{ color: "#d4453a" }}>{t("grammar.checkFailed")}</p>
               )}
 
-              {!answered && (
+              {!answered && !isChoice && (
                 <div className="flex items-center gap-2">
                   <button type="button" onClick={skip}
                     className="text-xs font-medium px-3 py-1.5 rounded-full transition-colors hover:bg-[var(--surface-dim)]"

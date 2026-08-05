@@ -197,6 +197,10 @@ export interface ExerciseItemSource {
 }
 
 export interface ExerciseItemExtras {
+  /** Musterpaar der Grammatik-Übung, nur bei einer Umformung gesetzt. Es hängt an
+   *  der Aufgabe, weil ein gemischtes Set kein gemeinsames Muster mehr hat. */
+  pattern_front?: string;
+  pattern_back?: string;
   word_parts?: string;
   word_parts_explained?: string;
   example_sentence?: string;

@@ -13,6 +13,7 @@ from src.limits import AIA_TOOL_SOFT_TIME_LIMIT, AIA_TOOL_TIME_LIMIT
 from src.features.ai_assistant.tasks._helpers import _get_llm_client
 from src.services.aia_adaptive_tools import build_adaptive_tool_suffix
 from src.features.ai_assistant.repository.grammar_topics import catalog_entry
+from src.services.aia_grammar_check import normalize
 from src.services.aia_grammar_topic import derive_topic
 
 from src.features.ai_assistant.tasks.language_training._context import (
@@ -151,8 +152,7 @@ def run_generate_exercise_set(self, set_id: int, workspace_id: int, tool: str,
                         client, model, from_ctx, how_many, **shared)
                     return got, name, None
                 if tool == "grammatik":
-                    # Nur Freitext. Das Ankreuz-Format war nie ein Thema, sondern ein
-                    # Format, und kommt mit der gleichmässigen Mischung zurück.
+                    # Ein Aufruf, vier Formate gleichmässig gemischt.
                     return generate_grammar_from_source(
                         client, model, from_ctx, gtype, how_many, **shared)
                 if tool == "hoerverstehen":
@@ -193,6 +193,12 @@ def run_generate_exercise_set(self, set_id: int, workspace_id: int, tool: str,
                                 # The top-up numbers its own sections from 1, so its claims
                                 # have to be translated back before the two runs are merged.
                                 remap_sections(extra, gap_ctx, ctx)
+                                # Jeder Lauf sortiert seine eigenen Doppler aus, über die
+                                # Laufgrenze hinweg kann er das nicht. Gemessen: derselbe
+                                # Satz kam an Position 1 und noch einmal an Position 5.
+                                seen_fronts = {normalize(i["front"]) for i in items}
+                                extra = [i for i in extra
+                                         if normalize(i["front"]) not in seen_fronts]
                                 items = rebalance_to_count(items + extra, count)
                     except Exception as e:
                         logger.warning(

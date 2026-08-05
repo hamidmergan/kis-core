@@ -167,6 +167,19 @@ def _build_prompt(grammar_type: dict, target_form: str, example: dict,
         '  "Was bedeutet wissenschaftliches Arbeiten?"  (a question, cannot be transformed)\n'
         '  "Nennen Sie drei Beispiele."                 (an instruction, not a statement)\n'
         '  "Wissenschaftliches Arbeiten"                (not a sentence)\n\n'
+        # Für das Ankreuzen ein eigenes Beispiel, weil die Regel "nur die Form ändert
+        # sich" allein nicht wirkt. Gemessen am 2026-08-05: das Modell tauschte im
+        # Falschantwort das Subjekt aus ("Die Studierenden werden geschrieben."), und
+        # der Wortüberdeckungs-Filter warf jede Ankreuz-Aufgabe raus. Ein Beispiel
+        # wirkt, wo eine Regel nicht wirkt, dieselbe Lehre wie überall in diesem Werkzeug.
+        "OPTIONS TO COPY, for kind \"choice\". Note how all four say the SAME thing "
+        "about the SAME people and differ only in the verb form:\n"
+        '  "Der Bericht wird vom Team geschrieben."      <- the correct one\n'
+        '  "Der Bericht ist vom Team geschrieben."\n'
+        '  "Der Bericht wird vom Team schreiben."\n'
+        '  "Der Bericht wurde vom Team geschrieben."\n\n'
+        "NOT like this, it changes who does what instead of the form:\n"
+        '  "Das Team wird geschrieben."\n\n'
     )
     return (
         f"You build a grammar drill from the given source text. "
@@ -187,7 +200,9 @@ def _build_prompt(grammar_type: dict, target_form: str, example: dict,
         "wrong. 'answer' is true when it is correct. About half of them are false, and a "
         "false one is wrong in exactly ONE detail of the form.\n"
         "- choice: four options that differ ONLY in form, same words, same content. "
-        "Exactly one is correct, the other three are mistakes a learner actually makes. "
+        "Every option is a COMPLETE SENTENCE, never a single word and never a bare "
+        "verb form, because the learner picks a finished sentence. Exactly one is "
+        "correct, the other three are mistakes a learner actually makes. "
         "'correct_idx' counts from 0.\n\n"
         "How to build the sentences:\n"
         "- Take the FACTS, terms and topics from the source text and write NEW, simple "
@@ -322,6 +337,9 @@ def _build_items(exercises: list[dict], locale: str,
     """
     yes, no = _VERDICT_LABELS.get(locale, _VERDICT_LABELS["en"])
     items, claims = [], []
+    # Derselbe Satz zweimal ist verlorene Übungszeit. Am laufenden System gemessen:
+    # das Modell lieferte eine Umformung an Position 1 und noch einmal an Position 5.
+    seen: set = set()
     for ex in exercises:
         kind = (ex.get("kind") or "transform").strip().lower()
         built = _build_one(ex, kind, yes, no, example)
@@ -329,6 +347,11 @@ def _build_items(exercises: list[dict], locale: str,
             logger.debug("KI Tutor: Grammatik-Aufgabe verworfen ({}): {!r}", kind, ex)
             continue
         item, claim = built
+        key = normalize(item["front"])
+        if key in seen:
+            logger.debug("KI Tutor: Grammatik-Aufgabe doppelt: {!r}", item["front"])
+            continue
+        seen.add(key)
         item["explanation"] = (ex.get("explanation") or "").strip() or None
         # Welchen nummerierten Abschnitt das Modell benutzt haben will. Wird nicht
         # gespeichert, der Aufrufer prüft damit die Abdeckung.
