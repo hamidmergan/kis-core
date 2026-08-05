@@ -317,6 +317,23 @@ td, th, p, span, li, h1, h2, h3, h4, h5, h6, div {
   &::-webkit-scrollbar { display: none !important; }
 }
 
+/* ─── Seitenrand fuer Listen- und Tabellenseiten ────────────────────────
+   Kein fester Deckel wie max-w-5xl, sondern ein Rand der prozentual
+   mitwaechst. Auf einem 3440er Bildschirm blieben mit 1024 px Deckel zwei
+   Drittel der Flaeche leer. Unterhalb von lg bleiben feste Werte, weil
+   10 % Rand auf dem Handy den Inhalt auffressen wuerden.
+   Nur fuer Listen und Tabellen gedacht. Fliesstext (Impressum, Datenschutz)
+   und Formulare bleiben schmal, dort ist die Zeilenlaenge das Argument. */
+@utility page-shell {
+  padding-inline: 1rem;
+
+  @media (min-width: 40rem) { padding-inline: 1.5rem; }
+  @media (min-width: 48rem) { padding-inline: 2rem; }
+  @media (min-width: 64rem) { padding-inline: 6%; }
+  @media (min-width: 80rem) { padding-inline: 8%; }
+  @media (min-width: 96rem) { padding-inline: 10%; }
+}
+
 /* ─── Global scrollbar styling ─── */
 * {
   scrollbar-width: thin;

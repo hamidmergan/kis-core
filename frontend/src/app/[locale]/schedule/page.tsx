@@ -157,7 +157,7 @@ export default function SchedulePage() {
 
   return (
     <ProtectedRoute>
-      <div className="max-w-5xl mx-auto px-4 sm:px-6 md:px-8 pt-10 pb-20 lg:pt-15 lg:pb-30">
+      <div className="page-shell pt-10 pb-20 lg:pt-15 lg:pb-30">
         <div className="flex items-center justify-between mb-6 gap-3 flex-wrap">
           <h1 className="text-xl font-bold flex items-center gap-2" style={{ color: "var(--foreground)" }}>
             <CalendarBlank size={20} weight="bold" style={{ color: "var(--kb)" }} />

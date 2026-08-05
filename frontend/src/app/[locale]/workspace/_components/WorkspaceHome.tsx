@@ -130,40 +130,38 @@ export default function WorkspaceHome({ canCreate, firstName }: Props) {
   }
 
   return (
-    <div className="px-4 sm:px-6 md:px-8 pt-6 pb-20 lg:pt-15 lg:pb-30">
-      <div className="max-w-5xl mx-auto">
-        <div className="mb-10 lg:mb-16">
-          <h1 className="text-3xl font-bold min-h-[2.25rem]">
-            {firstName && t("headerTitle", { name: firstName })}
-          </h1>
-          <p className="text-sm text-foreground-soft mt-1">
-            {new Date().toLocaleDateString(locale === "en" ? "en-US" : "de-DE", {
-              weekday: "long",
-              day: "numeric",
-              month: "long",
-              year: "numeric",
-              timeZone: "Europe/Berlin",
-            })}
-          </p>
-        </div>
-
-        {previewInvalid && (
-          <div
-            className="rounded-xl p-4 mb-8 text-sm"
-            style={{ backgroundColor: "var(--error-bg)", color: "var(--error)" }}
-          >
-            {t("enrollInvalidCode")}
-          </div>
-        )}
-
-        <HomeNotice />
-
-        <div className="mb-12">
-          <UpcomingDeadlinesWidget />
-        </div>
-
-        <WorkspaceList canCreate={canCreate} />
+    <div className="page-shell pt-6 pb-20 lg:pt-15 lg:pb-30">
+      <div className="mb-10 lg:mb-16">
+        <h1 className="text-3xl font-bold min-h-[2.25rem]">
+          {firstName && t("headerTitle", { name: firstName })}
+        </h1>
+        <p className="text-sm text-foreground-soft mt-1">
+          {new Date().toLocaleDateString(locale === "en" ? "en-US" : "de-DE", {
+            weekday: "long",
+            day: "numeric",
+            month: "long",
+            year: "numeric",
+            timeZone: "Europe/Berlin",
+          })}
+        </p>
       </div>
+
+      {previewInvalid && (
+        <div
+          className="rounded-xl p-4 mb-8 text-sm"
+          style={{ backgroundColor: "var(--error-bg)", color: "var(--error)" }}
+        >
+          {t("enrollInvalidCode")}
+        </div>
+      )}
+
+      <HomeNotice />
+
+      <div className="mb-12">
+        <UpcomingDeadlinesWidget />
+      </div>
+
+      <WorkspaceList canCreate={canCreate} />
     </div>
   );
 }

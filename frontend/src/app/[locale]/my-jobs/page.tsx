@@ -152,7 +152,7 @@ export default function MeineJobsPage() {
 
   return (
     <ProtectedRoute>
-      <main className="max-w-4xl mx-auto px-4 py-8">
+      <main className="page-shell py-8">
         <BackLink />
         <div className="flex items-center justify-between mb-1">
           <h2 className="text-xl font-semibold mb-4">{t("title")}</h2>
