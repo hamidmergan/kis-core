@@ -10,6 +10,14 @@ MESSAGES: dict[str, dict[str, str]] = {
         "de": "Ungültige Sprache für die Sprachdiagnose",
         "en": "Invalid language for the language diagnosis",
     },
+    "ai.workspace.languageTrainingDisabled": {
+        "de": "Der Sprachtrainer ist auf dieser Plattform ausgeschaltet",
+        "en": "The language trainer is switched off on this platform",
+    },
+    "ai.workspace.languageTrainingOff": {
+        "de": "Der Sprachtrainer ist in diesem Workspace ausgeschaltet",
+        "en": "The language trainer is switched off in this workspace",
+    },
     "ai.userSettings.popupTranslateLangInvalid": {
         "de": "Ungültige Zielsprache für die Übersetzung in der Auswahlleiste",
         "en": "Invalid target language for the selection-bar translation",

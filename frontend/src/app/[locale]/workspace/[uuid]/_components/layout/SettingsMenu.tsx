@@ -13,6 +13,8 @@ interface SettingsMenuProps {
   studioEnabled: boolean;
   onToggleStudio: () => void;
   language_trainingActive: boolean;
+  /** Sprachtrainer offered on this platform at all (admin setting). */
+  languageTrainingAvailable: boolean;
   onToggleLanguageTraining: () => void;
   isOwner: boolean;
   transcriptTargetLang: string;
@@ -95,6 +97,7 @@ export function SettingsMenu({
   studioEnabled,
   onToggleStudio,
   language_trainingActive,
+  languageTrainingAvailable,
   onToggleLanguageTraining,
   isOwner,
   transcriptTargetLang,
@@ -171,14 +174,11 @@ export function SettingsMenu({
           checked={studioEnabled}
           onToggle={onToggleStudio}
         />
-        <ToggleRow
-          title={t("languageTrainingTitle")}
-          description={t("languageTrainingDescription")}
-          checked={language_trainingActive}
-          onToggle={onToggleLanguageTraining}
-          disabled={!studioEnabled}
-        />
-        {languageLevel && onResetLanguageLevel && (
+        {/* Das Niveau haengt am Nutzer, der Sprachtrainer am Workspace. Ist er
+            hier aus, wird das Niveau auch nirgends benutzt, dann hat es in den
+            Einstellungen dieses Kurses nichts zu suchen. Gespeichert bleibt es,
+            wer den Trainer wieder einschaltet, findet seine Einstufung vor. */}
+        {language_trainingActive && languageLevel && onResetLanguageLevel && (
           <div className="flex items-center justify-between gap-4">
             <div className="min-w-0 flex-1">
               <p className="text-sm font-medium" style={{ color: "var(--foreground)" }}>
@@ -189,8 +189,7 @@ export function SettingsMenu({
             <button
               type="button"
               onClick={handleResetLanguageLevel}
-              className="px-3 py-1.5 text-xs rounded-md border"
-              style={{ borderColor: "var(--border)", color: "var(--foreground)" }}
+              className="px-3 py-1.5 text-xs rounded-md text-foreground border-2 border-border transition-colors hover:border-kb"
             >
               {tDiag("resetSetting")}
             </button>
@@ -229,6 +228,20 @@ export function SettingsMenu({
                 options={targetLangOptions}
               />
             </div>
+          </div>
+        )}
+        {/* Der Admin gibt den Sprachtrainer plattformweit frei, hier entscheidet
+            die Verwaltung des Workspace, ob der Kurs ihn anbietet. Ganz weg statt
+            gesperrt, solange die Plattform ihn nicht anbietet, ein toter Schalter
+            erklaert nichts. */}
+        {isOwner && languageTrainingAvailable && (
+          <div className="mt-4">
+            <ToggleRow
+              title={t("languageTrainingTitle")}
+              description={t("languageTrainingDescription")}
+              checked={language_trainingActive}
+              onToggle={onToggleLanguageTraining}
+            />
           </div>
         )}
       </div>

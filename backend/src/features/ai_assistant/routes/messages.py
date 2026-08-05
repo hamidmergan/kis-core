@@ -108,7 +108,7 @@ async def update_user_settings(
 
     db.upsert_aia_user_settings(
         workspace["id"], user_id, body.chat_lang, body.studio_enabled,
-        body.language_training_active, body.popup_translate_lang,
+        body.popup_translate_lang,
     )
     return {"ok": True}
 

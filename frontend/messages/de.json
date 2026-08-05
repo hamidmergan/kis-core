@@ -802,8 +802,8 @@
       "colDate": "Datum"
     },
     "kiTutor": {
-      "modeSource": "Lerntools",
-      "modeGlossary": "Fachsprachentraining",
+      "modeSource": "Fachsprachentrainer",
+      "modeGlossary": "Sprachtrainer",
       "days7": "7 Tage",
       "month1": "1 Monat",
       "months3": "3 Monate",
@@ -820,7 +820,7 @@
       "noStudents": "Keine eingeschriebenen Teilnehmer",
       "colStudent": "Student",
       "colCorrect": "Richtig",
-      "colLerntools": "Lerntools",
+      "colLerntools": "Fachspr.",
       "colLanguageTraining": "Sprachtr."
     },
     "quota": {
@@ -1131,11 +1131,12 @@
       "lastRunFailed": ", {n} Fehler",
       "activateMaintenance": "Wartungsmodus aktivieren (Tab \"System\"), bevor du startest."
     },
-    "mascotCard": {
-      "title": "Hilde-Maskottchen",
-      "active": "Aktiv - die Eulen-Begleiterin wird systemweit angezeigt; jeder Nutzer kann sie für sich abschalten.",
-      "disabled": "Deaktiviert - Hilde wird nirgendwo angezeigt, der Nutzer-Toggle in den KI-Assistent-Einstellungen ist ausgeblendet.",
-      "toggleAria": "Maskottchen umschalten"
+    "languageTrainerCard": {
+      "title": "Sprachtrainer",
+      "description": "Der Sprachtrainer ist ein Übungsbereich im Studio für alle, die dem Kurs in einer Fremdsprache folgen. Er enthält Lernkarten für Fachbegriffe, eine Grammatik-Übung und eine Hörverstehen-Übung, jeweils aus den Quellen des Workspace gebaut. Ist er eingeschaltet, wird der Sprachstand einmalig eingestuft, und Chat-Antworten sowie Aufgaben werden auf dieses Niveau angepasst.",
+      "active": "Aktiv. Eigentümer und Tutoren entscheiden in den Workspace-Einstellungen, ob ihr Kurs den Sprachtrainer anbietet. Sie brauchen dafür passende Quellen zur Grammatik der Kurssprache.",
+      "disabled": "Aus. Der Sprachtrainer taucht nirgendwo auf. Bereits getroffene Entscheidungen bleiben gespeichert und gelten wieder, sobald du hier einschaltest.",
+      "toggleAria": "Sprachtrainer umschalten"
     },
     "ocrCard": {
       "title": "OCR für Scans & Bild-Seiten",
@@ -1735,8 +1736,8 @@
         "mascotFrancis": "Francis",
         "studioTitle": "Studio",
         "studioDescription": "Studio-Panel mit Mindmaps, Notizen und Tools einblenden.",
-        "languageTrainingTitle": "Fachsprachentraining",
-        "languageTrainingDescription": "Zeigt den Fachsprachentraining-Tab im Studio.",
+        "languageTrainingTitle": "Sprachtrainer",
+        "languageTrainingDescription": "Schaltet den Sprachtrainer für alle im Workspace ein, mit Lernkarten, Grammatik-Übung und Hörverstehen. Alle Übungen werden aus den Quellen dieses Workspace gebaut. Dafür müssen passende Quellen zur Grammatik der Kurssprache hochgeladen sein, sonst sind die Übungen unbrauchbar. Schalte das nur ein, wenn du weißt, welche Quellen hier liegen. Wer noch kein Sprachniveau hat, wird einmalig eingestuft.",
         "translationModeTitle": "Übersetzung der Transkripte",
         "translationModeDescription": "Übersetzt Untertitel von Audio-/Video-Quellen in die unten gewählte Zielsprache. Die Quellsprache wird automatisch erkannt. Studierende können im Transkript-Panel zwischen Original und Übersetzung umschalten. Die Übersetzung läuft als Hintergrund-Job und kann ein paar Minuten dauern.",
         "translationModeOff": "Aus",
@@ -1908,8 +1909,8 @@
           "schedule": "Zeitplan"
         },
         "headings": {
-          "learningTools": "Lerntools",
-          "languageTraining": "Fachsprachentraining"
+          "learningTools": "Fachsprachentrainer",
+          "languageTraining": "Sprachtrainer"
         },
         "tiles": {
           "karteikarten": "Karteikarten",

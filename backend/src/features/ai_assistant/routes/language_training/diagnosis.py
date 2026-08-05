@@ -241,6 +241,11 @@ async def turn(
 ):
     user_id = current_user["user_id"]
     workspace = _require_workspace_access(body.workspace_uuid, user_id, locale=locale)
+    # Schaltet die Verwaltung den Trainer waehrend eines laufenden Tests ab, darf
+    # das offene Fenster ihn nicht zu Ende bringen. Sonst stuende hinterher ein
+    # Niveau in der Datenbank, das der Kurs gar nicht mehr benutzt.
+    if not db.is_language_training_active(workspace["id"]):
+        raise HTTPException(status_code=403, detail=t("ai.workspace.languageTrainingOff", locale))
 
     plan = resolve_question_plan(
         db.get_setting(QUESTION_PLAN_SETTING, ""),

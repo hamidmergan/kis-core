@@ -40,6 +40,9 @@ class PatchWorkspaceBody(BaseModel):
     is_active: Optional[bool] = None
     transcript_target_lang: Optional[str] = None
     diagnosis_language: Optional[str] = None
+    # Sprachtrainer for everyone in this workspace. Admin decision, see the
+    # rank check in patch_workspace.
+    language_training_active: Optional[bool] = None
     staff_note_text: Optional[str] = Field(None, max_length=2000)
     staff_note_links: Optional[list[StaffNoteLink]] = Field(None, max_length=30)
 
@@ -80,7 +83,6 @@ class ChatBody(BaseModel):
 class UserSettingsBody(BaseModel):
     chat_lang: str
     studio_enabled: bool = True
-    language_training_active: bool
     # Zielsprache der Auswahlleisten-Übersetzung, Code aus i18n.TRANSCRIPT_LANGUAGES.
     popup_translate_lang: str = "en"
 

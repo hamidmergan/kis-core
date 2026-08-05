@@ -104,10 +104,17 @@ export default function KiTutorWorkspacePage() {
 
 
   const [studioEnabled, setStudioEnabled] = useState(true);
+  // Sprachtrainer: an owner decision for the whole workspace, not a personal
+  // checkbox. Comes with the workspace, and already accounts for the admin's
+  // system-wide switch (off there = false for everyone).
   const [language_trainingActive, setLanguageTrainingActive] = useState(false);
+  useEffect(() => {
+    setLanguageTrainingActive(moduleDetail?.language_training_active ?? false);
+  }, [moduleDetail?.language_training_active]);
+  const languageTrainingAvailable = moduleDetail?.language_training_enabled ?? false;
 
-  // Language level diagnosis: triggered when Fachsprachentrainer toggles on
-  // for a user without a stored language_level. Fetched once at mount.
+  // Language level diagnosis: triggered when the Sprachtrainer is on in this
+  // workspace and the reader has no stored language_level. Fetched once at mount.
   const [me, setMe] = useState<{ id: number; language_level: string | null } | null>(null);
   useEffect(() => {
     let cancelled = false;
@@ -142,6 +149,25 @@ export default function KiTutorWorkspacePage() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ transcript_target_lang: lang }),
     }).catch(() => { /* ignore */ });
+  };
+  // Owner switch, so it goes to the workspace, not to the personal settings. The
+  // local state flips first and is put back if the request fails, otherwise the
+  // switch would sit in a state the workspace never took.
+  const handleToggleLanguageTraining = () => {
+    const next = !language_trainingActive;
+    setLanguageTrainingActive(next);
+    setWorkspaceDetail((prev) => (prev ? { ...prev, language_training_active: next } : prev));
+    fetch(`/api/ai-assistant/workspaces/${uuid}`, {
+      method: "PATCH",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ language_training_active: next }),
+    })
+      .then((res) => { if (!res.ok) throw new Error("save failed"); })
+      .catch(() => {
+        setLanguageTrainingActive(!next);
+        setWorkspaceDetail((prev) => (prev ? { ...prev, language_training_active: !next } : prev));
+      });
   };
   const handleStaffNoteSave = async (text: string | null, links: StaffNoteLink[]) => {
     const res = await fetch(`/api/ai-assistant/workspaces/${uuid}`, {
@@ -195,7 +221,6 @@ export default function KiTutorWorkspacePage() {
     onSettingsLoaded: (s) => {
       setChatLang(s.chat_lang);
       setStudioEnabled(s.studio_enabled);
-      setLanguageTrainingActive(s.language_training_active);
       setPopupTranslateLang(s.popup_translate_lang);
     },
   });
@@ -230,9 +255,9 @@ export default function KiTutorWorkspacePage() {
       method: "PATCH",
       credentials: "include",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ chat_lang: chatLang, studio_enabled: studioEnabled, language_training_active: language_trainingActive, popup_translate_lang: popupTranslateLang }),
+      body: JSON.stringify({ chat_lang: chatLang, studio_enabled: studioEnabled, popup_translate_lang: popupTranslateLang }),
     }).catch(() => { /* ignore */ });
-  }, [chatLang, studioEnabled, language_trainingActive, popupTranslateLang, initialized, uuid]);
+  }, [chatLang, studioEnabled, popupTranslateLang, initialized, uuid]);
 
   // ─── Viewer + chat input actions (see useViewerActions) ─────────────────
   const {
@@ -551,7 +576,8 @@ export default function KiTutorWorkspacePage() {
           studioEnabled={studioEnabled}
           onToggleStudio={() => setStudioEnabled((v) => !v)}
           language_trainingActive={language_trainingActive}
-          onToggleLanguageTraining={() => setLanguageTrainingActive((v) => !v)}
+          languageTrainingAvailable={languageTrainingAvailable}
+          onToggleLanguageTraining={handleToggleLanguageTraining}
           isOwner={isOwner}
           hideHeader={hideHeader}
           onToggleHideHeader={() => setHideHeader((v) => !v)}

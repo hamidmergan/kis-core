@@ -87,21 +87,22 @@ async def create_exercise_set(
     if not is_owner and not is_enrolled:
         raise HTTPException(status_code=403, detail=t("workspace.accessDenied", locale))
 
+    # Ist der Trainer im Workspace aus, gibt es hier nichts mehr zu bauen. Ein
+    # offen gebliebenes Fenster kennt die Kacheln noch und wuerde sonst
+    # weiterhin Modell-Aufrufe ausloesen.
+    if not db.is_language_training_active(workspace["id"]):
+        raise HTTPException(status_code=403, detail=t("ai.workspace.languageTrainingOff", locale))
+
     enforce_aia_burst(user_id, locale)
     enforce_quota(user_id, "aia_generate", is_admin_user(current_user), locale)
 
     # A set can be generated from every selected source, not just the first one.
     # source_uuid stays supported for older clients that only send a single UUID.
     source_uuids = body.source_uuids or ([body.source_uuid] if body.source_uuid else [])
-    if body.tool == "hoerverstehen":
-        # There is nothing to listen to in a PDF, and the learner normally has a whole
-        # module ticked. So the recordings are kept and the rest drops out silently,
-        # and only a selection without any recording is an error.
-        if body.mode != "source":
-            raise HTTPException(status_code=400, detail=t("ai.source.notSelected", locale))
-        source_uuids = _media_source_uuids(source_uuids)
-        if not source_uuids:
-            raise HTTPException(status_code=400, detail=t("ai.source.noMediaSelected", locale))
+    if body.tool == "hoerverstehen" and body.mode != "source":
+        # Hör- und Leseverstehen fragt zu den gewählten Quellen, im Glossar stehen nur
+        # Einzelbegriffe. Auf Medien gefiltert wird nicht: wer eine PDF anhakt, übt Lesen.
+        raise HTTPException(status_code=400, detail=t("ai.source.notSelected", locale))
     if body.mode == "source":
         if not source_uuids:
             raise HTTPException(status_code=400, detail=t("ai.source.notSelected", locale))
@@ -154,6 +155,11 @@ async def retry_exercise_set(
     workspace = db.get_aia_workspace(workspace_uuid)
     if not workspace:
         raise HTTPException(status_code=404, detail=t("workspace.notFound", locale))
+
+    # Vor dem Nachschlagen des Satzes: ein abgeschalteter Trainer erzeugt nichts
+    # mehr, auch keinen zweiten Anlauf.
+    if not db.is_language_training_active(workspace["id"]):
+        raise HTTPException(status_code=403, detail=t("ai.workspace.languageTrainingOff", locale))
 
     meta = db.get_exercise_set_meta(set_id)
     # Same 404-not-403 rule as the other single-set routes: the serial id must not

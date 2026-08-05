@@ -389,6 +389,14 @@ def init_db(admin_email: Optional[str] = None) -> None:
             cur.execute(
                 "ALTER TABLE aia_workspaces ADD COLUMN IF NOT EXISTS diagnosis_language TEXT NOT NULL DEFAULT 'de'"
             )
+            # Per-workspace setting: whether the Sprachtrainer (vocabulary cards,
+            # grammar exercise, listening) is offered here at all. The owner decides
+            # this once for everyone; it used to be a per-reader checkbox, which meant
+            # a course could not rely on the trainer being there. Off by default, and
+            # only effective while the system-wide switch is on (see _common settings).
+            cur.execute(
+                "ALTER TABLE aia_workspaces ADD COLUMN IF NOT EXISTS language_training_active BOOLEAN NOT NULL DEFAULT FALSE"
+            )
             # Owner-managed pinned note shown above the sources list. Plain text + structured links.
             cur.execute(
                 "ALTER TABLE aia_workspaces ADD COLUMN IF NOT EXISTS staff_note_text TEXT"

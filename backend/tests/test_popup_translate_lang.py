@@ -69,7 +69,6 @@ def test_gespeicherter_wert_wird_gelesen(fake_db):
     fake_db({
         "chat_lang": "de",
         "studio_enabled": True,
-        "language_training_active": False,
         "popup_translate_lang": "tr",
     })
     settings = repo_chat.get_aia_user_settings(1, 2)
@@ -78,7 +77,7 @@ def test_gespeicherter_wert_wird_gelesen(fake_db):
 
 def test_schreiben_nimmt_die_sprache_mit(fake_db):
     calls = fake_db(None)
-    repo_chat.upsert_aia_user_settings(1, 2, "de", True, False, "ar")
+    repo_chat.upsert_aia_user_settings(1, 2, "de", True, "ar")
     sql, params = calls[0]
     assert "popup_translate_lang" in sql
     assert "ar" in params
@@ -86,7 +85,7 @@ def test_schreiben_nimmt_die_sprache_mit(fake_db):
 
 def test_schreiben_ohne_angabe_bleibt_bei_englisch(fake_db):
     calls = fake_db(None)
-    repo_chat.upsert_aia_user_settings(1, 2, "de", True, False)
+    repo_chat.upsert_aia_user_settings(1, 2, "de", True)
     _sql, params = calls[0]
     assert "en" in params
 
@@ -115,14 +114,14 @@ def fake_settings_route(monkeypatch):
 
 def _body(lang):
     return schemas.UserSettingsBody(
-        chat_lang="de", studio_enabled=True, language_training_active=False,
+        chat_lang="de", studio_enabled=True,
         popup_translate_lang=lang,
     )
 
 
 def test_body_faellt_ohne_angabe_auf_englisch():
     body = schemas.UserSettingsBody(
-        chat_lang="de", studio_enabled=True, language_training_active=False,
+        chat_lang="de", studio_enabled=True,
     )
     assert body.popup_translate_lang == "en"
 

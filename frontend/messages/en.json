@@ -802,8 +802,8 @@
       "colDate": "Date"
     },
     "kiTutor": {
-      "modeSource": "Learning tools",
-      "modeGlossary": "Language training",
+      "modeSource": "Technical language trainer",
+      "modeGlossary": "Language trainer",
       "days7": "7 days",
       "month1": "1 month",
       "months3": "3 months",
@@ -820,7 +820,7 @@
       "noStudents": "No enrolled participants",
       "colStudent": "Student",
       "colCorrect": "Correct",
-      "colLerntools": "Learning tools",
+      "colLerntools": "Tech. lang.",
       "colLanguageTraining": "Lang. tr."
     },
     "quota": {
@@ -1131,11 +1131,12 @@
       "lastRunFailed": ", {n} errors",
       "activateMaintenance": "Activate maintenance mode (System tab) before starting."
     },
-    "mascotCard": {
-      "title": "Hilde mascot",
-      "active": "Active - the owl companion is shown system-wide; each user can hide her individually.",
-      "disabled": "Disabled - Hilde is not shown anywhere, the user toggle in the AI assistant settings is hidden.",
-      "toggleAria": "Toggle mascot"
+    "languageTrainerCard": {
+      "title": "Language trainer",
+      "description": "The language trainer is a practice area in the studio for everyone following the course in a foreign language. It holds vocabulary cards for technical terms, a grammar exercise and a listening exercise, each built from the workspace sources. While it is on, every reader is assessed once and chat answers as well as exercises are pitched at that level.",
+      "active": "Active. Owners and tutors decide in the workspace settings whether their course offers the language trainer. They need suitable sources on the grammar of the course language for it.",
+      "disabled": "Off. The language trainer appears nowhere. Choices already made stay stored and apply again as soon as you switch this on.",
+      "toggleAria": "Toggle language trainer"
     },
     "ocrCard": {
       "title": "OCR for scans & image pages",
@@ -1735,8 +1736,8 @@
         "mascotFrancis": "Francis",
         "studioTitle": "Studio",
         "studioDescription": "Show the studio panel with mind maps, notes and tools.",
-        "languageTrainingTitle": "Language training",
-        "languageTrainingDescription": "Shows the language training tab in studio.",
+        "languageTrainingTitle": "Language trainer",
+        "languageTrainingDescription": "Switches the language trainer on for everyone in this workspace, with vocabulary cards, grammar exercise and listening. Every exercise is built from the sources of this workspace. That needs suitable sources on the grammar of the course language, otherwise the exercises are useless. Only switch this on when you know which sources are here. Readers without a language level are assessed once.",
         "translationModeTitle": "Transcript translation",
         "translationModeDescription": "Translates subtitles of audio/video sources into the target language chosen below. The source language is detected automatically. Students can switch between original and translation in the transcript panel. Translation runs as a background job and can take a few minutes.",
         "translationModeOff": "Off",
@@ -1908,8 +1909,8 @@
           "schedule": "Schedule"
         },
         "headings": {
-          "learningTools": "Learning tools",
-          "languageTraining": "Language training"
+          "learningTools": "Technical language trainer",
+          "languageTraining": "Language trainer"
         },
         "tiles": {
           "karteikarten": "Flashcards",

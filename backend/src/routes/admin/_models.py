@@ -20,8 +20,9 @@ class UpdateSettingsRequest(BaseModel):
     workspace_label_plural_de: str | None = None
     workspace_label_singular_en: str | None = None
     workspace_label_plural_en: str | None = None
-    # Hide the Hilde mascot system-wide. Default true (mascot shown).
-    mascot_enabled: bool | None = None
+    # Offer the Sprachtrainer system-wide. Default false: without it, workspace
+    # owners never see the switch and nobody gets the trainer.
+    language_training_enabled: bool | None = None
     # Home-page notice banner (shown to all users on the start page, above
     # "Nächste Termine"). Enabled flag + free text, e.g. for test-phase notes.
     home_notice_enabled: bool | None = None

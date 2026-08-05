@@ -207,6 +207,11 @@ async def get_workspace(
         "can_manage": can_manage,
         "transcript_target_lang": workspace.get("transcript_target_lang", "en"),
         "diagnosis_language": workspace.get("diagnosis_language", DEFAULT_DIAGNOSIS_LANGUAGE),
+        # Sprachtrainer: the stored owner decision only counts while the admin has
+        # the feature switched on system-wide. The raw admin flag goes along so the
+        # settings dialog can hide the owner switch instead of offering a dead one.
+        "language_training_enabled": db.is_language_training_enabled_globally(),
+        "language_training_active": db.is_language_training_active(workspace["id"]),
         "staff_note_text": workspace.get("staff_note_text"),
         "staff_note_links": workspace.get("staff_note_links") or [],
         "access_links": [
@@ -292,6 +297,16 @@ async def patch_workspace(
         if body.diagnosis_language not in TRANSCRIPT_LANGUAGES:
             raise HTTPException(status_code=400, detail=t("ai.workspace.diagnosisLanguageInvalid", locale))
         db.set_aia_workspace_diagnosis_language(workspace_uuid, body.diagnosis_language)
+    if body.language_training_active is not None:
+        # Only writable while the feature is on system-wide, so a stale dialog cannot
+        # switch on something the admin has retired.
+        if not db.is_language_training_enabled_globally():
+            raise HTTPException(status_code=403, detail=t("ai.workspace.languageTrainingDisabled", locale))
+        # Whoever manages the workspace decides whether it offers the trainer. The
+        # admin switch above frees the feature for the platform, it does not make
+        # every course a decision only admins may take. _require_workspace_manage
+        # ran above, so a foreign workspace stays closed either way.
+        db.set_aia_workspace_language_training(workspace_uuid, body.language_training_active)
     if body.staff_note_text is not None or body.staff_note_links is not None:
         new_text = body.staff_note_text if body.staff_note_text is not None else workspace.get("staff_note_text")
         new_links_models = body.staff_note_links if body.staff_note_links is not None else []

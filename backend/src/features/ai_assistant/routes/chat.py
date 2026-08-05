@@ -1074,13 +1074,12 @@ async def chat(
     _user_settings = db.get_aia_user_settings(workspace["id"], user_id) or {}
     chat_lang = _user_settings.get("chat_lang", "de")
 
-    # Adaptive tutor behaviour is coupled to the Fachsprachentrainer: only learners
-    # who have the trainer toggled on for THIS workspace get CEFR-pitched answers.
-    # National students who leave it off get plain answers. The CEFR level is stored
-    # globally per user, so this per-workspace gate is also what stops it leaking
-    # into workspaces where the trainer is off.
+    # Adaptive tutor behaviour is coupled to the Sprachtrainer: answers are only
+    # CEFR-pitched in workspaces whose owner switched the trainer on. Everywhere else
+    # they stay plain. The CEFR level is stored globally per user, so this
+    # per-workspace gate is also what stops it leaking into other workspaces.
     _adaptive_suffix, _applied_level = "", None
-    if _user_settings.get("language_training_active"):
+    if db.is_language_training_active(workspace["id"]):
         # A learner with a stored CEFR level gets answers pitched at that level,
         # calibrated with a sample of that level's language (the same per-level
         # examples the diagnosis uses). Empty setting or no level -> no change.

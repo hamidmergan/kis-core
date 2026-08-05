@@ -4,7 +4,7 @@ Provider selection, model names, feature routes, and any LLM-related
 configuration are managed by the dedicated "KI" admin tab (see
 ``routes/admin/providers.py``) and live in the ``providers`` +
 ``feature_routes`` tables. The settings tab now only covers system-wide
-toggles (whitelist, mascot, workspace label/limits, schedule retention).
+toggles (whitelist, workspace label/limits, schedule retention).
 """
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -67,8 +67,9 @@ async def get_settings(_admin=Depends(get_admin_user)):
         ),
         "workspace_label_singular_en": db.get_setting("workspace_label_singular_en", "Workspace"),
         "workspace_label_plural_en": db.get_setting("workspace_label_plural_en", "Workspaces"),
-        # Hilde mascot (system-wide)
-        "mascot_enabled": _enabled("mascot_enabled"),
+        # Sprachtrainer (system-wide, off by default). Owners can only switch the
+        # trainer on in their workspace while this is on.
+        "language_training_enabled": _enabled("language_training_enabled", "false"),
         # Home-page notice banner (all users, above "Nächste Termine").
         "home_notice_enabled": _enabled("home_notice_enabled", "false"),
         "home_notice_text": db.get_setting("home_notice_text", ""),
@@ -144,8 +145,12 @@ async def update_settings(
     if body.whitelist_enabled is not None:
         db.set_setting("whitelist_enabled", "true" if body.whitelist_enabled else "false")
 
-    if body.mascot_enabled is not None:
-        db.set_setting("mascot_enabled", "true" if body.mascot_enabled else "false")
+    # Switching the Sprachtrainer off hides it everywhere but keeps each workspace's
+    # own choice, so switching it back on restores the previous state.
+    if body.language_training_enabled is not None:
+        db.set_setting(
+            "language_training_enabled", "true" if body.language_training_enabled else "false"
+        )
 
     # Home-page notice banner. Toggle is independent of the text so an admin can
     # keep a drafted message and flip it on/off. Text is length-capped so a paste

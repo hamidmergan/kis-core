@@ -1,5 +1,5 @@
 """Read/write CEFR language level columns on the users table, plus the
-Fachsprachentrainer switch that decides whether the level is applied at all.
+Sprachtrainer switch that decides whether the level is applied at all.
 
 The diagnosis is a one-time self-assessment per user (global, not workspace-scoped).
 Two columns: language_level (A1-C2 or NULL) and language_level_set_at.
@@ -41,19 +41,35 @@ def get_user_language_level(user_id: int) -> dict:
             }
 
 
-def is_language_training_active(workspace_id: int, user_id: int) -> bool:
-    """Whether the learner has the Fachsprachentrainer toggled on for this workspace.
+LANGUAGE_TRAINING_SETTING = "language_training_enabled"
 
-    The CEFR level is stored globally per user, so this per-workspace switch is what
-    gates every adaptive appendix (chat and tools). Students who never enable it stay
-    on the plain, unadapted output. Off by default (no settings row).
+
+def is_language_training_enabled_globally() -> bool:
+    """System-wide switch for the Sprachtrainer, set by the admin. Off by default.
+
+    Off means the feature does not exist for anyone: no owner setting, no tiles, no
+    adaptive output. The per-workspace choice stays stored while it is off, so
+    switching the feature back on restores every workspace as it was.
     """
+    from src.features.admin.repository.settings import get_setting
+
+    return get_setting(LANGUAGE_TRAINING_SETTING, "false").lower() == "true"
+
+
+def is_language_training_active(workspace_id: int) -> bool:
+    """Whether the Sprachtrainer is on in this workspace, admin switch included.
+
+    The owner decides this for everyone in the workspace. The CEFR level is stored
+    globally per user, so this is also the gate that keeps level-pitched answers and
+    tools out of workspaces that do not run the trainer.
+    """
+    if not is_language_training_enabled_globally():
+        return False
     with get_connection() as conn:
         with conn.cursor() as cur:
             cur.execute(
-                "SELECT language_training_active FROM aia_user_settings "
-                "WHERE workspace_id = %s AND user_id = %s",
-                (workspace_id, user_id),
+                "SELECT language_training_active FROM aia_workspaces WHERE id = %s",
+                (workspace_id,),
             )
             row = cur.fetchone()
             return bool(row[0]) if row else False

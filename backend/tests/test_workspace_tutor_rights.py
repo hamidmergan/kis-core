@@ -221,3 +221,86 @@ def test_datei_landet_beim_eigentuemer(lokal):
     falsch = storage.aia_source_key(TUTOR, "w-1", "q1", ".pdf")
     assert falsch != schluessel
     assert storage.aia_workspace_prefix(MENTOR, "w-1") not in falsch
+
+
+# --- Sprachtrainer schaltet, wer den Workspace verwaltet -------------------
+
+@pytest.fixture
+def sprachtrainer_bereit(workspace_mit, monkeypatch):
+    """Workspace da, Sprachtrainer systemweit frei, Schreibzugriff mitgeschrieben.
+
+    Zurueck kommt die Liste der geschriebenen Werte. Bleibt sie leer, hat die
+    Route nichts gespeichert.
+    """
+    from src.features.ai_assistant.routes import _helpers
+    from src.features.ai_assistant.routes import workspaces as routes
+
+    workspace_mit(tutoren={TUTOR})
+    # Die Route liest Titel, Beschreibung und Zustand, die im schlanken
+    # WORKSPACE der uebrigen Tests fehlen.
+    voll = {**WORKSPACE, "title": "Kurs", "description": "", "is_active": True}
+    monkeypatch.setattr(_helpers.db, "get_aia_workspace", lambda uuid: voll)
+    geschrieben: list[bool] = []
+    monkeypatch.setattr(routes.db, "update_aia_workspace", lambda *a, **k: None)
+    monkeypatch.setattr(routes.db, "is_language_training_enabled_globally", lambda: True)
+    monkeypatch.setattr(
+        routes.db,
+        "set_aia_workspace_language_training",
+        lambda uuid, an: geschrieben.append(an),
+    )
+    return geschrieben
+
+
+def _sprachtrainer_schalten(nutzer: dict):
+    """Ruft die PATCH-Route direkt auf, ohne HTTP-Schicht."""
+    import asyncio
+
+    from src.features.ai_assistant import schemas
+    from src.features.ai_assistant.routes import workspaces as routes
+
+    return asyncio.run(
+        routes.patch_workspace(
+            "w-1",
+            schemas.PatchWorkspaceBody(language_training_active=True),
+            current_user=nutzer,
+            locale="de",
+        )
+    )
+
+
+def test_eigentuemer_schaltet_den_sprachtrainer(sprachtrainer_bereit):
+    """Der Admin gibt den Sprachtrainer plattformweit frei, mehr nicht.
+
+    Ob ein Kurs ihn anbietet, entscheidet der Eigentuemer. Der Systemrang
+    spielt dabei keine Rolle, sonst koennte niemand ausser Admins den
+    Sprachtrainer ueberhaupt benutzen.
+    """
+    _sprachtrainer_schalten({"user_id": MENTOR, "role": "user", "email": ""})
+    assert sprachtrainer_bereit == [True]
+
+
+def test_tutor_schaltet_den_sprachtrainer(sprachtrainer_bereit):
+    """Der Tutor verwaltet den Workspace mit, also darf er das auch."""
+    _sprachtrainer_schalten({"user_id": TUTOR, "role": "user", "email": ""})
+    assert sprachtrainer_bereit == [True]
+
+
+def test_sprachtrainer_bleibt_zu_wenn_die_plattform_ihn_nicht_anbietet(
+    sprachtrainer_bereit, monkeypatch
+):
+    """Ein altes offenes Fenster schaltet nichts an, was der Admin abgeraeumt hat."""
+    from src.features.ai_assistant.routes import workspaces as routes
+
+    monkeypatch.setattr(routes.db, "is_language_training_enabled_globally", lambda: False)
+    with pytest.raises(HTTPException) as fehler:
+        _sprachtrainer_schalten({"user_id": MENTOR, "role": "user", "email": ""})
+    assert fehler.value.status_code == 403
+    assert sprachtrainer_bereit == []
+
+
+def test_admin_ohne_verwaltungsrecht_kommt_gar_nicht_rein(sprachtrainer_bereit):
+    """Der Systemrang oeffnet keinen fremden Workspace, das bleibt so."""
+    with pytest.raises(HTTPException) as fehler:
+        _sprachtrainer_schalten({"user_id": FREMDER, "role": "admin", "email": ""})
+    assert fehler.value.status_code == 403
+    assert sprachtrainer_bereit == []
