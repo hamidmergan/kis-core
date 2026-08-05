@@ -1,21 +1,34 @@
-"""Hörverstehen aus Ton- und Bildquellen (mode='source').
+"""Hör- und Leseverstehen aus Quelltext (mode='source').
 
-Das Werkzeug stellt drei Fragearten in einem Satz: Verständnisfragen, Lückensätze
-und Richtig/Falsch-Aussagen, alle zum Ankreuzen. Es ist bewusst ein eigenes
-Werkzeug und keine vierte Frageart im Quiz: das Quiz arbeitet auf allem, was
-ausgewählt ist, hier zählen nur Transkripte von Audio und Video (die Auswahl wird
-in der Route gefiltert).
+Läuft mechanisch wie das Quiz: EIN rotierendes Fenster über alle gewählten Quellen,
+eine Frage je Stelle, verteilt über die nummerierten Abschnitte des Kontexts. Fünfzehn
+Aufgaben kommen damit aus fünfzehn verschiedenen Stellen und nicht aus einem Absatz.
 
-Die Regeln für die Richtig/Falsch-Aussagen stammen aus der Testkonstruktion. Ohne
-sie ist dieser Aufgabentyp ohne Zuhören lösbar: Absolutwörter wie "immer" sind fast
-immer falsch, Weichmacher wie "in der Regel" fast immer richtig, wörtlich übernommene
-Sätze prüfen Wiedererkennung statt Verstehen, und ein Modell ohne Vorgabe schreibt
-fast nur wahre Sätze.
+Der Unterschied zum Quiz liegt allein in der Frageart. Das Quiz prüft Fachwissen
+("Was ist X?"), hier wird geprüft, ob jemand verstanden hat, was die Quelle sagt:
+
+* Richtig/Falsch zu einer umformulierten Aussage
+* sinngemäße Wiedergabe eines zitierten Satzes
+* Bezugswort: worauf verweist "sie" in diesem Satz
+* Schlussfolgerung: was folgt daraus, ohne dort zu stehen
+
+Aufnahmen bekommen nur Richtig/Falsch und Schlussfolgerung. Die beiden anderen Arten
+zitieren Wortlaut, und geschriebener Wortlaut aus einer Aufnahme macht aus der Hörübung
+wieder eine Leseübung.
+
+Die Mischung steht als ZAHL im Prompt, nicht als Absicht. Erfahrung aus dem
+Grammatik-Quiz: "stelle abwechslungsreiche Fragen" wirkt nicht, "genau 4 Aufgaben der
+Art X" wirkt. Die Beispielaufgaben stehen hinter dem Quellmaterial und nicht im
+System-Prompt, auch das hat dort erst den Ausschlag gegeben.
 """
 
 import json
 
+from loguru import logger
+
 from src.features.ai_assistant.tasks._helpers import _clean_llm_json, _language_label
+from src.services.aia_chunker import is_media_file
+from src.services.aia_grammar_check import normalize
 
 from src.features.ai_assistant.tasks.language_training._attribution import attach_chips
 from src.features.ai_assistant.tasks.language_training._context import QuelleContext
@@ -23,39 +36,102 @@ from src.features.ai_assistant.tasks.language_training._title import title_from_
 
 
 # Feste Beschriftung statt einer vom Modell erfundenen: es schrieb sonst mal "Wahr",
-# mal "richtig", und die Ansicht zeigt die Optionen unverändert an. Die Reihenfolge
-# ist ebenfalls fest, deshalb mischt die Ansicht Zwei-Options-Items nicht.
+# mal "richtig", und die Ansicht zeigt die Optionen unverändert an.
 _VERDICT_LABELS = {"de": ("Richtig", "Falsch"), "en": ("True", "False")}
 
-_SOURCE_RULE = (
-    "- For every item, include source_label and page_number, the source/timestamp the "
-    "content came from.\n"
-)
-_PERSONAL_RULE = (
-    "IMPORTANT:\n- Do NOT use personal names in questions. Instead of 'laut Prof. X', write "
-    "'laut Quelle' (German) or 'according to the source' (English), matching the output "
-    "language.\n"
-)
-_TITLE_RULE = (
-    "- title: a short, concrete topic title in {language} (max 6 words), no quotation marks, "
-    "never a filename.\n"
-)
-# Die Regeln gelten nur für die Aussagen, nicht für Fragen und Lücken: dort sind
-# die Optionen sichtbar, hier entscheidet der Satz allein.
+# Ab hier gilt eine Antwort als im Quellmaterial vorhanden. Kein wörtlicher Vergleich:
+# das Modell formuliert um, und genau das soll es auch.
+_MIN_ANSWER_COVERAGE = 0.6
+
+# Diese Arten dürfen nicht wörtlich im Material stehen, für sie greift der Wortabgleich
+# also nicht. Eine Schlussfolgerung folgt aus dem Text, ohne dort zu stehen, und eine
+# falsche Aussage steht dort nie.
+_UNGROUNDED_KINDS = {"statement", "inference"}
+
+# Diese Arten zitieren Wortlaut. Aus einer Aufnahme darf keine davon kommen, sonst liest
+# der Lernende den gesprochenen Satz, statt ihn zu hören.
+_QUOTING_KINDS = {"paraphrase", "reference"}
+
+_LEVELS_ADVANCED = {"B2", "C1", "C2"}
+
+_KIND_RULES = {
+    "statement": "statement: a claim about the material that the learner marks as true "
+                 "or false.",
+    "paraphrase": "paraphrase: quote ONE sentence from the material inside the question "
+                  "and ask which option says the same thing in other words. The three "
+                  "wrong options must be about the same sentence, changed in one point.",
+    "reference": "reference: quote ONE sentence from the material that contains a "
+                 "pronoun or a reference word (it, this, they, there) and ask what that "
+                 "word refers back to. Every option must be a noun phrase that actually "
+                 "appears in the material.",
+    "inference": "inference: one question whose answer follows from the material without "
+                 "being written in it. Never a question that can be answered by copying "
+                 "a sentence.",
+}
+
+# Regeln aus der Testkonstruktion. Ohne sie ist der Aufgabentyp ohne die Quelle lösbar:
+# Absolutwörter wie "immer" sind fast immer falsch, Weichmacher wie "in der Regel" fast
+# immer richtig, wörtlich übernommene Sätze prüfen Wiedererkennung statt Verstehen, und
+# ein Modell ohne Vorgabe schreibt fast nur wahre Sätze.
 _TRUE_FALSE_RULES = (
     "\nRULES FOR THE statement ITEMS (an item that breaks one of these can be solved "
-    "without having listened):\n"
+    "without having read or heard the source):\n"
     "- About half of the statements must be false. Do not follow a pattern.\n"
     "- One statement, one idea. Short and unambiguous.\n"
     "- Never use absolute words (always, never, all, none, nobody) and never use hedges "
     "(usually, mostly, as a rule). Both give the answer away.\n"
     "- No negation inside the statement.\n"
     "- Never copy the source verbatim, always paraphrase it.\n"
-    "- Make a statement false by changing exactly one detail: a number, a person, a role, a "
-    "time, a direction, or a cause. Never invent something the source does not mention at all, "
-    "that is too easy to spot.\n"
+    "- Make a statement false by changing exactly one detail: a number, a person, a role, "
+    "a time, a direction, or a cause. Never invent something the source does not mention "
+    "at all, that is too easy to spot.\n"
     "- True and false statements must be about the same length.\n"
-    "- Every statement must be decidable from the source alone, never from general knowledge.\n"
+)
+
+# Warum das kein zweites Quiz ist. Steht als eigener Block da, weil das Modell sonst in
+# die Wissensfrage zurückfällt, die es aus jedem Fachtext am leichtesten baut.
+_COMPREHENSION_RULE = (
+    "\nTHIS IS NOT A KNOWLEDGE QUIZ. Never ask for a definition, a number or a technical "
+    "fact for its own sake. Every item asks whether the learner UNDERSTOOD a place in the "
+    "material: what it says, what a word in it refers to, or what follows from it. "
+    'A question of the form "Was bedeutet X?" or "Wie viele Y gibt es?" is wrong here.\n'
+)
+
+_PERSONAL_RULE = (
+    "- Do NOT use personal names in questions. Instead of 'laut Prof. X', write "
+    "'laut Quelle' (German) or 'according to the source' (English), matching the output "
+    "language.\n"
+)
+_SOURCE_RULE = (
+    "- For every item, include source_label and page_number, the source/page it came from.\n"
+)
+_TITLE_RULE = (
+    "- title: a short, concrete topic title in {language} (max 6 words), no quotation "
+    "marks, never a filename.\n"
+)
+
+# Drei Beispiele HINTER dem Quellmaterial. Beim Grammatik-Quiz war das der Unterschied
+# zwischen 0 und 8 brauchbaren Aufgaben: das Modell ahmt die Formen nach, die es zuletzt
+# gesehen hat. Die Beispiele werden in _build_items gesperrt, damit sie nicht als
+# Aufgabe 1 abgeschrieben werden.
+_EXAMPLE_BLOCK = """
+Three examples of the SHAPE to copy. They are about different material, never reuse
+their wording or their content:
+
+{"kind": "paraphrase", "question": "Die Quelle sagt: \\"Sinkt die Außentemperatur, fällt die Leistungszahl.\\" Was heißt das?",
+ "options": ["Bei Kälte arbeitet die Anlage weniger wirtschaftlich", "Bei Kälte schaltet die Anlage ab",
+             "Die Leistungszahl steigt mit der Kälte", "Die Außentemperatur hängt von der Anlage ab"],
+ "correct_idx": 0}
+{"kind": "reference", "question": "Worauf bezieht sich \\"sie\\" in \\"Sinkt die Temperatur, fällt sie\\"?",
+ "options": ["auf die Wärme", "auf die Leistungszahl", "auf die Temperatur", "auf die Luft"],
+ "correct_idx": 1}
+{"kind": "statement", "statement": "Bei sinkender Temperatur arbeitet der Verdichter weniger."
+ , "answer": false}
+"""
+
+_EXAMPLE_MARKERS = (
+    "worauf bezieht sich sie in sinkt die temperatur fallt sie",
+    "bei sinkender temperatur arbeitet der verdichter weniger",
 )
 
 
@@ -67,105 +143,260 @@ def generate_listening_from_source(
     adaptive_suffix: str = "",
     title_avoidance: str = "",
     coverage: str = "",
+    level: str | None = None,
 ) -> tuple[list[dict], str]:
+    """Ein Aufruf über den ganzen Kontext, wie beim Quiz. Liefert (items, title).
+
+    Fällt der erste Wurf durch die Filter, wird EIN zweites Mal geworfen und ergänzt,
+    statt das Set wegzuwerfen. Die Fragearten hier sind enger gefasst als beim Quiz,
+    also fällt auch mehr durch.
+    """
     language = _language_label(locale)
-    tool_prompt = _build_prompt(count, language) + adaptive_suffix + title_avoidance + coverage
-    messages = [
-        {"role": "system", "content": tool_prompt},
-        {"role": "user", "content": f"Write the output in {language}.\n\nSources:\n\n{ctx.context}"},
-    ]
-    response = client.chat.completions.create(model=model, messages=messages, temperature=0.6)
-    answer = _clean_llm_json(response.choices[0].message.content or "")
-    data = json.loads(answer)
-    if isinstance(data, dict):
-        exercises = data.get("exercises") or []
-        json_title = (data.get("title") or "").strip()
+    recordings = _recording_labels(ctx)
+    plan = item_plan(count, advanced=(level or "").upper() in _LEVELS_ADVANCED,
+                     text_ok=len(recordings) < len(ctx.source_by_name))
+    system = (_build_prompt(plan, language, _recording_sections(ctx, recordings))
+              + adaptive_suffix + title_avoidance + coverage)
+    user = _build_user(ctx, language)
+
+    items, title = _one_call(client, model, system, user, ctx, locale, count)
+    if len(items) < max(1, count // 2):
+        more, _ = _one_call(client, model, system, user, ctx, locale, count)
+        fronts = {normalize(i["front"]) for i in items}
+        items += [i for i in more if normalize(i["front"]) not in fronts]
+        logger.info("Hör- und Leseverstehen: zweiter Wurf, jetzt {} Aufgaben", len(items))
+    items = items[:count]
+
+    if not items:
+        return [], ""
+
+    # Post-hoc-Attribution, dieselbe pgvector-Schranke wie im Chat: jede Aufgabe zitiert,
+    # wo ihre Antwort wirklich steht. Das source_label des Modells wird bewusst verworfen.
+    attach_chips(items, [i.pop("_claim", "") for i in items], ctx, multi=False)
+    items = drop_quotes_on_recordings(items, recordings)
+
+    if not items:
+        return [], ""
+
+    return items, title or title_from_items(client, model, items, ctx.multi_label)
+
+
+def drop_quotes_on_recordings(items: list[dict], recordings: list[str]) -> list[dict]:
+    """Wirft zitierende Aufgaben weg, deren Fundstelle eine Aufnahme ist.
+
+    Der Prompt verbietet das schon, am echten Lauf hat sich das Modell aber nicht daran
+    gehalten: von 15 Aufgaben lagen 4 als "Die Quelle sagt: ..." auf einem Video. Die
+    Regel muss deshalb im Code stehen und nicht nur im Prompt.
+
+    Erst NACH der Attribution möglich: vorher steht die Quelle einer Aufgabe nicht fest.
+    Das Set wird dadurch kürzer, das ist der Preis. Ein kurzes Set ist kurz, ein Set mit
+    abgedrucktem Ton ist falsch.
+    """
+    heard = set(recordings)
+    keep = []
+    for item in items:
+        kind = item.pop("_kind", "")
+        labels = {s.get("source_label") for s in item.get("sources") or []}
+        labels.add(item.get("source_label"))
+        if heard and kind in _QUOTING_KINDS and labels & heard:
+            continue
+        keep.append(item)
+    dropped = len(items) - len(keep)
+    if dropped:
+        logger.info("Hör- und Leseverstehen: {} zitierende Aufgaben lagen auf einer "
+                    "Aufnahme und sind raus", dropped)
+    return keep
+
+
+def _recording_labels(ctx: QuelleContext) -> list[str]:
+    """Dateinamen der Aufnahmen in diesem Kontext."""
+    return [label for label, source in ctx.source_by_name.items()
+            if is_media_file(source.get("file_type") or "")]
+
+
+def _recording_sections(ctx: QuelleContext, recordings: list[str]) -> list[str]:
+    """Die Aufnahmen so benannt, wie sie im Material stehen.
+
+    Mit Abschnittsnummer, wo es eine gibt. Der Dateiname allein hat nicht gereicht: das
+    Material trägt die Nummer im Kopf jedes Abschnitts, und das Modell greift danach.
+    """
+    by_label = {label: num for num, label in (ctx.sections or {}).items()}
+    return [f"SECTION {by_label[label]} ({label})" if label in by_label else label
+            for label in recordings]
+
+
+def item_plan(count: int, *, advanced: bool, text_ok: bool) -> list[str]:
+    """Welche Frageart wie oft. Zählbar, weil eine Absichtserklärung nicht wirkt.
+
+    Ohne geschriebene Quelle fallen die zitierenden Arten weg: ein zitierter Satz aus
+    einer Aufnahme ist der Wortlaut, und dann liest der Lernende wieder, statt zu hören.
+    Die Schlussfolgerung kommt erst ab B2 dazu, darunter überfordert sie.
+    """
+    if not text_ok:
+        cycle = ["statement", "inference"] if advanced else ["statement"]
+    elif advanced:
+        cycle = ["statement", "paraphrase", "inference", "reference"]
     else:
-        exercises = data
-        json_title = ""
-    exercises = list(exercises)[:count]
+        cycle = ["statement", "paraphrase", "reference", "statement"]
+    return [cycle[i % len(cycle)] for i in range(max(0, count))]
 
-    items, claims = _build_items(exercises, locale)
 
-    # Post-hoc-Attribution wie im Quiz: nav-only, kein Highlight. Bei Medienquellen
-    # landet der Chip auf dem Zeitstempel, eine falsche Aussage zeigt also auf die
-    # Stelle, an der die richtige Fassung zu hören ist.
-    attach_chips(items, claims, ctx, multi=False)
+def _plan_sentence(plan: list[str]) -> str:
+    """Die Mischung als Zahlensatz."""
+    counts: dict[str, int] = {}
+    for kind in plan:
+        counts[kind] = counts.get(kind, 0) + 1
+    return ", ".join(f'{n} of kind "{kind}"' for kind, n in counts.items())
 
-    title = json_title or title_from_items(client, model, items, ctx.multi_label)
-    return items, title
+
+def _build_prompt(plan: list[str], language: str, recordings: list[str]) -> str:
+    kinds = list(dict.fromkeys(plan))
+    rules = "".join(f"- {_KIND_RULES[k]}\n" for k in kinds if k in _KIND_RULES)
+    title_rule = _TITLE_RULE.replace("{language}", language)
+    shape_kind = next((k for k in kinds if k != "statement"), "inference")
+    # Der Wortlaut einer Aufnahme darf nicht in der Frage stehen. Die Regel wird nur
+    # gesetzt, wenn überhaupt eine Aufnahme dabei ist, sonst ist sie Rauschen.
+    media_rule = ""
+    if recordings:
+        listing = ", ".join(recordings)
+        media_rule = (
+            f"\nRECORDINGS. This material is spoken, the learner LISTENS to it: {listing}.\n"
+            "- NEVER put a sentence from a recording in quotation marks in your question. "
+            'An item taken from a recording must be of kind "statement" or "inference", '
+            'never "paraphrase" and never "reference".\n'
+            "- The learner sees no transcript. An item from a recording must be answerable "
+            "after listening, without any written text to read.\n"
+            "- Take the quoting kinds from the written sections instead.\n"
+        )
+    return (
+        f"You write reading- and listening-comprehension items about the given source "
+        f"material. Everything you ask must be decidable from that material alone, never "
+        f"from general knowledge. Write ALL questions, statements, options and answers in "
+        f"{language}, regardless of the source language. Translate if needed.\n\n"
+        f"Write exactly {len(plan)} items: {_plan_sentence(plan)}. Take each item from a "
+        f"DIFFERENT place in the material, never several items about the same sentence.\n\n"
+        f"The kinds:\n{rules}\n"
+        "Respond ONLY with a JSON object. Every item carries its \"kind\". A statement "
+        "item uses \"statement\" plus \"answer\" (JSON true or false) and brings no "
+        "options. Every other kind uses \"question\", \"options\" (exactly 4) and "
+        "\"correct_idx\":\n"
+        '{"title": "Short topic title", "exercises": ['
+        f'{{"kind": "{shape_kind}", "question": "...", "options": ["A", "B", "C", "D"], '
+        '"correct_idx": 0, "source_label": "Filename.pdf", "page_number": 5}, '
+        '{"kind": "statement", "statement": "...", "answer": false, '
+        '"source_label": "Filename.pdf", "page_number": 7}]}\n'
+        + (_TRUE_FALSE_RULES if "statement" in kinds else "")
+        + media_rule
+        + _COMPREHENSION_RULE
+        + "\nGENERAL:\n"
+        + _PERSONAL_RULE
+        + "- Never ask what a single word means. That tests vocabulary, not comprehension.\n"
+        + "- The four options of an item must differ from each other and none of them may "
+          "repeat the question.\n"
+        + _SOURCE_RULE
+        + title_rule
+    )
+
+
+def _build_user(ctx: QuelleContext, language: str) -> str:
+    """Quellmaterial zuerst, Beispiele dahinter.
+
+    Die Reihenfolge ist nicht Geschmack: ein Beispiel im System-Prompt wurde auf
+    Fachquellen als Aufgabe 1 abgeschrieben, hinter dem Material wirkt es als Form.
+    """
+    return (f"Write the output in {language}.\n\nSources:\n\n{ctx.context}\n\n"
+            f"{_EXAMPLE_BLOCK}")
 
 
 def _verdict_labels(locale: str) -> tuple[str, str]:
     return _VERDICT_LABELS["en" if (locale or "").lower().startswith("en") else "de"]
 
 
-def _build_prompt(count: int, language: str) -> str:
-    base = (
-        f"You create listening-comprehension exercises. The sources are transcripts of audio "
-        f"or video recordings, so ask about what is actually said in them. "
-        f"Write ALL questions, statements, options, and answers in {language}, "
-        f"regardless of the source-text language. Translate source content into {language} "
-        f"if needed.\n\n"
-    )
-    title_rule = _TITLE_RULE.replace("{language}", language)
-    return base + (
-        "Use all three kinds of item, roughly one third each:\n"
-        "- a comprehension question that tests understanding of the content;\n"
-        "- a gap sentence: a statement from the recording with one key term replaced by ___;\n"
-        "- a statement the learner marks as true or false.\n\n"
-        "Respond ONLY with a JSON object. A comprehension item uses \"question\", a gap item "
-        "uses \"sentence\" with ___ in it, both with their own options. A true/false item uses "
-        "\"statement\" plus \"answer\" (JSON true or false) and brings no options:\n"
-        '{"title": "Short topic title", "exercises": ['
-        '{"question": "Comprehension question?", "options": ["A", "B", "C", "D"], '
-        '"correct_idx": 0, "source_label": "VL1.mp4", "page_number": "3:20"}, '
-        '{"sentence": "Statement with ___ as a gap.", "options": ["A", "B", "C", "D"], '
-        '"correct_idx": 2, "source_label": "VL1.mp4", "page_number": "7:05"}, '
-        '{"statement": "A claim about the recording.", "answer": false, '
-        '"source_label": "VL1.mp4", "page_number": "9:40"}]}\n'
-        + _TRUE_FALSE_RULES + _PERSONAL_RULE + _SOURCE_RULE + title_rule +
-        f"Create exactly {count} exercises. Mix easy and hard ones."
-    )
+def answer_is_grounded(answer: str, material: str) -> bool:
+    """Steht die richtige Antwort im Quellmaterial?
+
+    Der Prüfstein gegen Weltwissen. Kein wörtlicher Vergleich, sondern der Anteil der
+    Antwortwörter, die im Material vorkommen: das Modell formuliert um, und das soll es
+    auch. Sprach-unabhängig, keine Wortlisten.
+    """
+    words = normalize(answer).split()
+    if not words:
+        return False
+    pool = set(normalize(material).split())
+    hits = sum(1 for word in words if word in pool)
+    return hits / len(words) >= _MIN_ANSWER_COVERAGE
 
 
-def _build_items(exercises: list[dict], locale: str) -> tuple[list[dict], list[str]]:
-    """Item-Zeilen und der Claim-Text für die Quellenzuordnung.
+def _one_call(client, model, system: str, user: str, ctx: QuelleContext, locale: str,
+              count: int) -> tuple[list[dict], str]:
+    messages = [{"role": "system", "content": system}, {"role": "user", "content": user}]
+    response = client.chat.completions.create(model=model, messages=messages, temperature=0.6)
+    try:
+        data = json.loads(_clean_llm_json(response.choices[0].message.content or ""))
+    except (json.JSONDecodeError, TypeError):
+        logger.warning("Hör- und Leseverstehen: unbrauchbares JSON")
+        return [], ""
+    if isinstance(data, dict):
+        exercises = data.get("exercises") or []
+        title = (data.get("title") or "").strip()
+    else:
+        exercises, title = data, ""
+    return _build_items(list(exercises)[:count], ctx, locale), title
 
-    Alle drei Fragearten teilen sich eine Form: Aufgabentext in ``front``, richtige
-    Option in ``back``, dazu ``options`` und ``correct_idx``. Die Ansicht unterscheidet
-    sie an der Anzahl der Optionen und am Lückenzeichen, nicht an einem eigenen Feld.
 
-    Der Claim einer Aussage ist die Aussage selbst. Bei den anderen Arten kommt die
-    richtige Option dazu, hier wäre das nur das Wort "Richtig" und damit als Suchtext
-    wertlos.
+def _build_items(exercises: list[dict], ctx: QuelleContext, locale: str) -> list[dict]:
+    """Item-Zeilen. Was durchfällt, kommt nicht ins Set.
+
+    Alle Arten teilen eine Form: Aufgabentext in ``front``, richtige Option in ``back``,
+    dazu ``options`` und ``correct_idx``. Die Ansicht unterscheidet sie an der Anzahl der
+    Optionen, nicht an einem eigenen Feld.
     """
     yes, no = _verdict_labels(locale)
-    items, claims = [], []
-    for ex in exercises:
-        statement = (ex.get("statement") or "").strip()
-        if statement:
-            verdict = ex.get("answer")
-            if not isinstance(verdict, bool):
+    items: list[dict] = []
+    for exercise in exercises:
+        kind = (exercise.get("kind") or "").strip().lower()
+        statement = (exercise.get("statement") or "").strip()
+
+        if statement or kind == "statement":
+            verdict = exercise.get("answer")
+            if not statement or not isinstance(verdict, bool):
                 continue
-            prompt_text, options = statement, [yes, no]
-            idx = 0 if verdict else 1
-            claim = statement
+            # Die Fundstelle wird über die Aussage gesucht, nicht über "Richtig"/"Falsch":
+            # die feste Beschriftung steht in keiner Quelle und würde die Suche verwässern.
+            front, options, idx, claim = statement, [yes, no], (0 if verdict else 1), statement
         else:
-            prompt_text = (ex.get("question") or ex.get("sentence") or "").strip()
-            options = ex.get("options") or []
-            idx = ex.get("correct_idx")
-            if not prompt_text or not options or idx is None or not (0 <= idx < len(options)):
+            front = (exercise.get("question") or "").strip()
+            options = [str(o).strip() for o in (exercise.get("options") or []) if str(o).strip()]
+            idx = exercise.get("correct_idx")
+            if not front or len(options) < 2 or not isinstance(idx, int):
                 continue
-            claim = f"{prompt_text} {options[idx]}".strip()
+            if not 0 <= idx < len(options):
+                continue
+            if len(set(normalize(o) for o in options)) != len(options):
+                continue
+            if normalize(options[idx]) == normalize(front):
+                continue
+            # Weltwissen-Sperre. Eine Schlussfolgerung steht bewusst nicht im Material,
+            # für sie greift nur, dass das Modell nichts anderes gesehen hat.
+            if kind not in _UNGROUNDED_KINDS and not answer_is_grounded(options[idx], ctx.context):
+                continue
+            claim = f"{front} {options[idx]}".strip()
+
+        if normalize(front) in _EXAMPLE_MARKERS:
+            continue
+
         items.append({
-            "front": prompt_text,
+            "front": front,
             "back": options[idx],
             "options": options,
             "correct_idx": idx,
-            # Welchen nummerierten Abschnitt das Modell benutzt hat. Wird nicht
-            # gespeichert, finalize_exercise_set liest nur bekannte Schlüssel.
-            "_section": ex.get("section"),
+            # Welchen nummerierten Abschnitt das Modell benutzt haben will. Wird nicht
+            # gespeichert, der Aufrufer prüft damit, ob jeder Abschnitt drankam.
+            "_section": exercise.get("section"),
+            # Text für die Attribution. Wird vor dem Speichern wieder entfernt.
+            "_claim": claim,
+            # Zitiert die Aufgabe Wortlaut? Entscheidet nach der Attribution, ob sie auf
+            # einer Aufnahme liegen darf. Wird ebenfalls wieder entfernt.
+            "_kind": kind,
         })
-        claims.append(claim)
-    return items, claims
+    return items

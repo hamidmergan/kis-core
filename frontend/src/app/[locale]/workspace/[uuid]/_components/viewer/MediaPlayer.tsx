@@ -37,7 +37,10 @@ export function MediaPlayer({
   const [langInfo, setLangInfo] = useState<LangInfo | null>(null);
   // Mirrors the transcript panel's "off" mode. While off, no subtitle tracks are attached:
   // the player's own subtitle menu stays empty, so the text cannot be read along in the video.
-  const [transcriptOff, setTranscriptOff] = useState(false);
+  // Beim Hör- und Leseverstehen startet es auf "aus", damit niemand mitliest statt zuzuhören.
+  // Gesperrt ist es nicht: der Umschalter im Panel stellt es jederzeit wieder an.
+  const startTranscriptOff = Boolean(source.hideTranscript);
+  const [transcriptOff, setTranscriptOff] = useState(startTranscriptOff);
   useEffect(() => {
     // Clear on source switch (panel shows loading) and abort the in-flight request: an
     // uncancelled request keeps holding one of the browser's few per-origin connections,
@@ -47,7 +50,9 @@ export function MediaPlayer({
     // onOffChange, but it never emits false on unmount or when the next source has no
     // transcript at all, so a stale "off" from the previous source would otherwise survive
     // the switch.
-    setTranscriptOff(false);
+    // Auf den Startwert der neuen Quelle, nicht blind auf false: sonst hängt der Player
+    // beim Wechsel Untertitel ein, während das Panel noch ausgeschaltet ist.
+    setTranscriptOff(startTranscriptOff);
     const ac = new AbortController();
     fetch(
       `/api/ai-assistant/workspaces/${workspaceUuid}/sources/${source.uuid}/transcript/langs`,
@@ -58,7 +63,7 @@ export function MediaPlayer({
       .then((data: LangInfo) => setLangInfo(data))
       .catch((e) => { if (e?.name !== "AbortError") setLangInfo(EMPTY_LANGS); });
     return () => ac.abort();
-  }, [workspaceUuid, source.uuid]);
+  }, [workspaceUuid, source.uuid, startTranscriptOff]);
   const availableLangs = langInfo?.available ?? [];
 
   // Seek to the cited timestamp when the source changes — robust against Safari, which is the
@@ -178,6 +183,7 @@ export function MediaPlayer({
         onOffChange={setTranscriptOff}
         citationTime={source.isCitation ? source.startTime : undefined}
         citationNonce={source.nonce}
+        startOff={startTranscriptOff}
       />
     </div>
   );

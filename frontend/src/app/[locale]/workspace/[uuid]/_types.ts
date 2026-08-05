@@ -116,6 +116,11 @@ export interface ViewerState {
   // exactly, no line/sentence expansion). Always true when highlightText is set,
   // since the only remaining highlight source is the popup exact selection.
   exactSelection?: boolean;
+  // Blendet das Transkript im Quellen-Fenster aus. Gesetzt vom Hör- und
+  // Leseverstehen: wer beim Hören mitlesen kann, hört nicht zu, und die Aufgabe
+  // prüft wieder Lesen. Der Aufgabenkasten zeigt deshalb keinen Text UND das
+  // Quellen-Fenster auch nicht.
+  hideTranscript?: boolean;
   // True when the viewer was opened by clicking a citation chip (pill / source
   // reference) — used only to distinguish a chip nav from a plain document open.
   isCitation?: boolean;

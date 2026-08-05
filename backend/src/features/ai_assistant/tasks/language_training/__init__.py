@@ -135,10 +135,6 @@ def run_generate_exercise_set(self, set_id: int, workspace_id: int, tool: str,
                     got, name = generate_cards_from_source(
                         client, model, from_ctx, how_many, **shared)
                     return got, name, None
-                if tool == "hoerverstehen":
-                    got, name = generate_listening_from_source(
-                        client, model, from_ctx, how_many, **shared)
-                    return got, name, None
                 if tool == "grammatik":
                     # The answer format belongs to the exercise type, not to the tool:
                     # "choice" is ticked in the browser, everything else is free text
@@ -148,6 +144,15 @@ def run_generate_exercise_set(self, set_id: int, workspace_id: int, tool: str,
                             client, model, from_ctx, gtype, how_many, **shared)
                     return generate_grammar_from_source(
                         client, model, from_ctx, gtype, how_many, **shared)
+                if tool == "hoerverstehen":
+                    # Läuft wie das Quiz über den ganzen Kontext, nur mit anderen
+                    # Fragearten. Das Sprachniveau entscheidet, ob Schlussfolgerungen
+                    # dabei sind, deshalb kommt es hier zusätzlich mit.
+                    got, name = generate_listening_from_source(
+                        client, model, from_ctx, how_many,
+                        level=db.get_user_language_level(user_id)["language_level"],
+                        **shared)
+                    return got, name, None
                 got, name = generate_mc_from_source(
                     client, model, from_ctx, how_many, **shared)
                 return got, name, None

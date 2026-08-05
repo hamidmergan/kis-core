@@ -1537,7 +1537,7 @@
           "karteikarten": "Karteikarten",
           "grammar": "Grammatik-Übung",
           "quiz": "Quiz",
-          "listening": "Hörverstehen",
+          "listening": "Hör- und Leseverstehen",
           "exerciseFallback": "Übung"
         },
         "common": {
@@ -1571,8 +1571,7 @@
           "none": "Keine Quelle ausgewählt",
           "one": "1 Quelle ausgewählt",
           "few": "{count} Quellen ausgewählt",
-          "many": "{count} Quellen vorhanden, es werden maximal 5 berücksichtigt",
-          "mediaOnly": "(nur Audio und Video)"
+          "many": "{count} Quellen vorhanden, es werden maximal 5 berücksichtigt"
         },
         "createModal": {
           "title": "{tool} erstellen",
@@ -1582,7 +1581,6 @@
           "fromSelectedSource": "{count, plural, =0 {Aus ausgewählter Quelle} =1 {Aus ausgewählter Quelle} other {Aus ausgewählten Quellen}}",
           "selectedSourcesCount": "{count} Quellen",
           "noSourceHint": "Wähle links eine Quelle aus, um aus ihr zu generieren.",
-          "noMediaHint": "Wähle links eine Audio- oder Videoquelle aus.",
           "countHeading": "Anzahl",
           "grammarTypeHeading": "Aufgabentyp",
           "sentenceCountHeading": "Anzahl Sätze",
@@ -1650,7 +1648,7 @@
           "glossaryCounter": "{count}/{max} Glossar",
           "lernkarten": "Lernkarten",
           "grammar": "Grammatik-Übung",
-          "listening": "Hörverstehen",
+          "listening": "Hör- und Leseverstehen",
           "tileDesc": "Übungen"
         },
         "vocabFlashcards": {
@@ -1919,7 +1917,7 @@
           "mindmap": "Mindmap",
           "lernkarten": "Lernkarten",
           "grammar": "Grammatik-Übung",
-          "listening": "Hörverstehen"
+          "listening": "Hör- und Leseverstehen"
         },
         "tileDescriptions": {
           "karteikarten": "Frage und Antwort zum Abfragen.",

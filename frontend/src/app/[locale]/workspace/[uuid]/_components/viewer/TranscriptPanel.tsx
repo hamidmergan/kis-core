@@ -76,6 +76,7 @@ export function TranscriptPanel({
   onOffChange,
   citationTime,
   citationNonce,
+  startOff = false,
 }: {
   mediaRef: React.RefObject<HTMLVideoElement | HTMLAudioElement | null>;
   workspaceUuid: string;
@@ -94,6 +95,10 @@ export function TranscriptPanel({
   // the cited page.
   citationTime?: number;
   citationNonce?: number;
+  // Beim Hör- und Leseverstehen startet das Transkript ausgeschaltet: wer mitlesen kann,
+  // hört nicht zu. Es ist aber NICHT gesperrt, der Umschalter steht daneben und der
+  // Lernende stellt es wieder an, wenn er will.
+  startOff?: boolean;
 }) {
   const t = useTranslations("workspace.detail.viewer");
   const locale = useLocale();
@@ -103,8 +108,17 @@ export function TranscriptPanel({
   const [targetLang, setTargetLang] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   // Always opens on the original track. Students switch to the translation or the
-  // stacked view in the panel itself.
-  const [mode, setMode] = useState<ViewMode>("source");
+  // stacked view in the panel itself. Aus einer Hörübung heraus startet es auf "aus".
+  const [mode, setMode] = useState<ViewMode>(startOff ? "off" : "source");
+  // Für die Ladefunktion unten, die sonst die Startvorgabe wieder überschreiben würde.
+  // Als Ref, damit sie nicht wegen einer Prop-Änderung erneut läuft.
+  const startOffRef = useRef(startOff);
+  startOffRef.current = startOff;
+  // Jede neue Aufnahme aus einer Übung fängt wieder ausgeschaltet an. Ohne das würde die
+  // Wahl von der vorigen Aufgabe mitwandern.
+  useEffect(() => {
+    if (startOff) setMode("off");
+  }, [sourceUuid, startOff]);
   const [currentIdx, setCurrentIdx] = useState<number>(-1);
   // Follow-mode (auto-scroll the transcript to the playing cue) is OFF by default: playback
   // runs without the list jumping around on every cue change. The user opts in via the
@@ -183,9 +197,12 @@ export function TranscriptPanel({
       const hasSource = !!(info.source_lang && map[info.source_lang]);
       const hasTarget = !!(info.target_lang && map[info.target_lang] && info.target_lang !== info.source_lang);
       // The original always wins; the translation is only preselected when there is
-      // no original track at all.
-      if (hasSource) setMode("source");
-      else if (hasTarget) setMode("target");
+      // no original track at all. Ein aus der Übung heraus ausgeschaltetes Transkript
+      // bleibt aus, sonst schaltet das fertige Laden es hinter dem Rücken wieder an.
+      const keep = (next: ViewMode) => (m: ViewMode) =>
+        (m === "off" && startOffRef.current ? m : next);
+      if (hasSource) setMode(keep("source"));
+      else if (hasTarget) setMode(keep("target"));
 
       // Resume "running" state if a translation was dispatched recently and the
       // target is still missing — the backend task may still be working.
@@ -598,7 +615,7 @@ export function TranscriptPanel({
                 }}
               >
                 <div
-                  className="text-[10px] font-mono mb-1"
+                  className="text-3xs font-mono mb-1"
                   style={{ color: "var(--muted)" }}
                 >
                   {fmtTs(c.start)} - {fmtTs(c.end)}

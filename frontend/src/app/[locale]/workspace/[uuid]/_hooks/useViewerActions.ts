@@ -74,13 +74,13 @@ export function useViewerActions(opts: UseViewerActionsOptions) {
     fillChatInput(`"${selectedText}"\n\n`, chatWasOpen, false);
   }, [isMobile, activeTab, panels.chat, fillChatInput]);
 
-  const pillClick = useCallback((sourceUuid: string, page: number, filename: string, sourceText?: string, startTime?: number, isExact?: boolean) => {
+  const pillClick = useCallback((sourceUuid: string, page: number, filename: string, sourceText?: string, startTime?: number, isExact?: boolean, hideTranscript?: boolean) => {
     const src = sources.find((s) => s.uuid === sourceUuid);
     const isMedia = _isMediaFile(filename);
     if (isMedia) {
       // isCitation marks this as a citation-chip jump so the transcript pins the cited
       // segment + shows its jump/dismiss bar, mirroring the PDF page-frame behaviour.
-      setViewerSource({ uuid: sourceUuid, filename, page: 0, startTime, isCitation: true, nonce: Date.now() });
+      setViewerSource({ uuid: sourceUuid, filename, page: 0, startTime, isCitation: true, hideTranscript, nonce: Date.now() });
       setPanels((prev) => ({ ...prev, quellen: true }));
       if (isMobile) setActiveTab("quellen");
       return;

@@ -29,23 +29,6 @@ router = APIRouter(tags=["ki-assistent: language-training"])
 _MAX_SET_SOURCES = 5
 
 
-def _media_source_uuids(source_uuids: list[str]) -> list[str]:
-    """Only the audio/video sources of a selection, in the order the learner picked them.
-
-    Hörverstehen is about spoken material, so a PDF that happens to be ticked as well
-    drops out instead of ending up in the set. Filtering beats refusing: the learner
-    usually has a whole module selected, not one file.
-    """
-    from src.services.aia_chunker import is_media_file
-
-    out: list[str] = []
-    for suuid in source_uuids:
-        source = db.get_aia_source(suuid)
-        if source and is_media_file(source.get("file_type") or ""):
-            out.append(suuid)
-    return out
-
-
 def _numbered_sources(ex_set: dict) -> list[dict]:
     """The set's sources as ``[{number, filename}]``, numbered in selection order.
 

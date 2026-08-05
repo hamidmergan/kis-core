@@ -7,14 +7,14 @@ import { SubviewHeader, type BreadcrumbItem, type ToolCategory } from "../layout
 import { setProgressPct } from "./_progress";
 
 export function ExerciseSetsOverview({
-  title, toolKey, sets, onBack, onSelect, onCreate, onDelete, onRetry, onDownload, sourceCount, mediaOnly, stats, breadcrumbs, category,
+  title, toolKey, sets, onBack, onSelect, onCreate, onDelete, onRetry, onDownload, sourceCount, stats, breadcrumbs, category,
 }: {
   title: string; toolKey?: string; sets: ExerciseSet[];
   onBack: () => void; onSelect: (s: ExerciseSet) => void;
   onCreate: () => void; onDelete: (id: number) => void;
   onRetry?: (id: number) => void;
   onDownload?: (s: ExerciseSet) => void;
-  sourceCount: number; mediaOnly?: boolean; stats?: StudentStats | null;
+  sourceCount: number; stats?: StudentStats | null;
   breadcrumbs?: BreadcrumbItem[];
   category?: ToolCategory;
 }) {
@@ -43,11 +43,6 @@ export function ExerciseSetsOverview({
                 : sourceCount <= 5
                   ? t("sourceStatus.few", { count: sourceCount })
                   : t("sourceStatus.many", { count: sourceCount })}
-            {/* Die Zahl zaehlt nur Ton und Bild. Ohne den Zusatz liest sich eine
-                ausgewaehlte PDF-Quelle, die hier gar nicht mitzaehlt, wie ein Fehler. */}
-            {mediaOnly && (
-              <span className="font-normal" style={{ opacity: 0.7 }}>{" "}{t("sourceStatus.mediaOnly")}</span>
-            )}
           </span>
         </div>
 
@@ -97,7 +92,7 @@ export function ExerciseSetsOverview({
                     {/* Which exercise type this is. Two grammar sets from one document
                         look identical otherwise, and the type is what the learner picked. */}
                     {!generating && s.grammar_type_label && (
-                      <span className="self-start text-[10px] font-semibold px-1.5 py-0.5 rounded"
+                      <span className="self-start text-3xs font-semibold px-1.5 py-0.5 rounded"
                         style={{ backgroundColor: "rgba(var(--kb-rgb),0.10)", color: "var(--kb)" }}>
                         {s.grammar_type_label}
                       </span>

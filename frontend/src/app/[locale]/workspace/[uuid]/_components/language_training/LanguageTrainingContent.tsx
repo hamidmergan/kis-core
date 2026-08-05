@@ -6,7 +6,6 @@ import { useTranslations } from "next-intl";
 import Spinner from "@/components/ui/Spinner";
 import { ExerciseSetsOverview } from "./ExerciseSetsOverview";
 import { ExerciseCompletion } from "./ExerciseCompletion";
-import { _isMediaFile } from "../../_utils";
 
 const loader = () => <div className="flex-1 flex items-center justify-center p-6"><Spinner size="md" /></div>;
 
@@ -45,7 +44,7 @@ interface LanguageTrainingContentProps {
   sources: Source[];
   refreshProgress: () => void;
   handleAskChat: (text: string) => void;
-  handlePillClick: (sourceUuid: string, page: number, filename: string, sourceText?: string, startTime?: number, isExact?: boolean) => void;
+  handlePillClick: (sourceUuid: string, page: number, filename: string, sourceText?: string, startTime?: number, isExact?: boolean, hideTranscript?: boolean) => void;
   chatLang: "de" | "en";
 }
 
@@ -72,16 +71,20 @@ export function LanguageTrainingContent(props: LanguageTrainingContentProps) {
     if (src) handlePillClick(src.uuid, page, filename, undefined, startTime, false);
   };
 
+  // Beim Hör- und Leseverstehen wird die Aufnahme OHNE Transkript geöffnet. Sonst
+  // steht der Text eben im linken Fenster und die Hörübung prüft wieder Lesen.
+  const onListeningSourceClick = (filename: string, page: number, startTime?: number) => {
+    const src = sources.find((s) => s.filename === filename);
+    if (src) handlePillClick(src.uuid, page, filename, undefined, startTime, false, true);
+  };
+
   const studioLabel = t("common.studio");
   const lernkartenLabel = t("tools.flashcards");
   const grammarLabel = t("tools.grammar");
   const listeningLabel = t("tools.listening");
-  // Für das Hörverstehen zählen nur Aufnahmen: ein ausgewähltes PDF darf den Knopf
-  // nicht freischalten, die Route würde den Satz ohnehin ablehnen.
-  const mediaSourceCount = selectedSourceIds.filter((id) => {
-    const src = sources.find((s) => s.uuid === id);
-    return src ? _isMediaFile(src.filename) : false;
-  }).length;
+  // Hör- und Leseverstehen zählt jede ausgewählte Quelle. Die Auswahl entscheidet über
+  // die Fertigkeit: nur Aufnahmen heißt Hören, nur Text heißt Lesen, beides heißt beides.
+  // Früher zählten hier nur Aufnahmen, weil die Route die PDFs weggefiltert hat.
 
   const toOverviewCrumb = { label: studioLabel, onClick: () => setSprachView("overview") };
   const toOverviewWithReset = { label: studioLabel, onClick: () => { setActiveSet(null); setSprachView("overview"); } };
@@ -204,8 +207,7 @@ export function LanguageTrainingContent(props: LanguageTrainingContentProps) {
             onDelete={(id) => deleteExerciseSet(id, "hoerverstehen")}
             onRetry={(id) => retryExerciseSet(id, "hoerverstehen")}
             onDownload={isAdmin ? downloadExerciseSet : undefined}
-            sourceCount={mediaSourceCount}
-            mediaOnly
+            sourceCount={selectedSourceIds.length}
             stats={pageStats}
             breadcrumbs={[toOverviewCrumb]}
             category="language_training"
@@ -218,7 +220,7 @@ export function LanguageTrainingContent(props: LanguageTrainingContentProps) {
             onBack={() => { setSprachView("hv-sets"); setActiveSet(null); refreshProgress(); }}
             onAnswer={(itemId, correct) => submitSingleAnswer(activeSet.id, itemId, correct)}
             onAskChat={handleAskChat}
-            onSourceClick={onSourceClick}
+            onSourceClick={onListeningSourceClick}
             breadcrumbs={[toOverviewWithReset, { label: listeningLabel, toolKey: "Listening", onClick: () => { setActiveSet(null); setSprachView("hv-sets"); } }]}
             chatLang={chatLang}
             badgeCategory="language_training"

@@ -325,16 +325,11 @@ export default function KiTutorWorkspacePage() {
   // Build the language_training content tree
   // Helper: sources a new exercise set is generated from (all selected ones, same cap of 5
   // as mindmap/data table, not just the first)
-  // Hörverstehen nimmt nur Aufnahmen, deshalb fallen PDFs schon vor der Obergrenze
-  // raus: sonst verbrauchen fünf Skripte den Platz, und es bleibt kein Video übrig.
-  // Die Route filtert ein zweites Mal, das hier ist die Anzeige.
-  const pickedSourceIds = createSetTool === "hoerverstehen"
-    ? selectedSourceIds.filter((id) => {
-        const src = sources.find((s) => s.uuid === id);
-        return src ? _isMediaFile(src.filename) : false;
-      })
-    : selectedSourceIds;
-  const setSourceUuids = pickedSourceIds.slice(0, 5);
+  // Hör- und Leseverstehen arbeitet auf der Auswahl wie jedes andere Werkzeug. Es
+  // bevorzugt eine Aufnahme und nimmt sonst Fließtext, entscheidet das aber selbst
+  // beim Wählen des Ausschnitts. Hier wird nichts mehr weggefiltert, sonst bekäme
+  // niemand Leseverstehen auf einer PDF.
+  const setSourceUuids = selectedSourceIds.slice(0, 5);
   const selectedSourcesForSet = setSourceUuids
     .map((id) => sources.find((s) => s.uuid === id))
     .filter((s): s is NonNullable<typeof s> => Boolean(s))

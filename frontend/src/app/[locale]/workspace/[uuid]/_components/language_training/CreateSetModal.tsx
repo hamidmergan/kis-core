@@ -17,7 +17,7 @@ function PickerOption({ selected, disabled, onClick, children }: {
 }) {
   return (
     <button type="button" onClick={onClick} disabled={disabled}
-      className={`group flex items-center gap-2 px-3 py-2 rounded-lg text-left text-[11px] font-medium text-foreground ${PICK_BOX} ${selected ? PICK_ON : PICK_OFF}`}>
+      className={`group flex items-center gap-2 px-3 py-2 rounded-lg text-left text-2xs font-medium text-foreground ${PICK_BOX} ${selected ? PICK_ON : PICK_OFF}`}>
       <span className={`w-3.5 h-3.5 rounded-full border-2 flex items-center justify-center shrink-0 transition-colors ${
         selected ? "border-kb" : `border-border ${disabled ? "" : "group-hover:border-kb"}`}`}>
         {selected && <span className="w-1.5 h-1.5 rounded-full bg-kb" />}
@@ -47,7 +47,7 @@ export function CreateSetModal({
   // The grammar tool rewrites sentences about the source content, so it has no
   // glossary mode at all.
   const isGrammar = tool === "grammatik";
-  // Hörverstehen fragt nach dem Inhalt einer Aufnahme, im Glossar gibt es keine.
+  // Hör- und Leseverstehen fragt zu den gewählten Quellen, im Glossar stehen nur Begriffe.
   const isListening = tool === "hoerverstehen";
   const [mode, setMode] = useState<"glossary" | "source">(
     isQuiz || isGrammar || isListening || glossaryCount === 0 ? "source" : "glossary",
@@ -86,30 +86,32 @@ export function CreateSetModal({
     return map[tool] || t("tools.exerciseFallback");
   })();
 
-  const canCreate = isGrammar ? Boolean(hasSource && grammarType) : !(isListening && !hasSource);
+  const canCreate = isGrammar
+    ? Boolean(hasSource && grammarType)
+    : !(isListening && !hasSource);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ backgroundColor: "rgba(0,0,0,0.25)" }} onClick={onClose}>
-      <div className="rounded-2xl p-5 w-[340px] max-h-[85vh] overflow-y-auto" style={{ backgroundColor: "var(--surface)", boxShadow: "0 8px 40px rgba(0,0,0,0.12)" }}
+      <div className="rounded-2xl p-5 w-85 max-h-[85vh] overflow-y-auto" style={{ backgroundColor: "var(--surface)", boxShadow: "0 8px 40px rgba(0,0,0,0.12)" }}
         onClick={(e) => e.stopPropagation()}>
         <h3 className="text-sm font-semibold mb-3">{t("createModal.title", { tool: toolLabel })}</h3>
 
         {/* Mode */}
-        <div className="text-[9px] font-semibold uppercase tracking-wide mb-1.5" style={{ color: "var(--muted)" }}>{t("createModal.sourceHeading")}</div>
+        <div className="text-3xs font-semibold uppercase tracking-wide mb-1.5" style={{ color: "var(--muted)" }}>{t("createModal.sourceHeading")}</div>
         <div className="flex flex-col gap-1.5 mb-3">
           {!isQuiz && !isGrammar && !isListening && (
             <PickerOption selected={mode === "glossary"} disabled={glossaryCount === 0}
               onClick={() => setMode("glossary")}>
-              {t("createModal.fromGlossary")} <span className="text-[10px] text-muted">{t("createModal.glossaryTermsCount", { count: glossaryCount })}</span>
+              {t("createModal.fromGlossary")} <span className="text-3xs text-muted">{t("createModal.glossaryTermsCount", { count: glossaryCount })}</span>
             </PickerOption>
           )}
           <PickerOption selected={mode === "source"} disabled={!hasSource}
             onClick={() => setMode("source")}>
-            {t("createModal.fromSelectedSource", { count: pickedSources.length })} {hasSource && <span className="text-[10px] text-muted inline-block max-w-[120px] truncate align-bottom" title={pickedSources.map((s) => s.filename).join("\n")}>({sourceHint})</span>}
+            {t("createModal.fromSelectedSource", { count: pickedSources.length })} {hasSource && <span className="text-3xs text-muted inline-block max-w-30 truncate align-bottom" title={pickedSources.map((s) => s.filename).join("\n")}>({sourceHint})</span>}
           </PickerOption>
           {!hasSource && (
-            <p className="text-[10px] ml-5" style={{ color: "#c4820e" }}>
-              {isListening ? t("createModal.noMediaHint") : t("createModal.noSourceHint")}
+            <p className="text-3xs ml-5" style={{ color: "#c4820e" }}>
+              {t("createModal.noSourceHint")}
             </p>
           )}
         </div>
@@ -117,13 +119,13 @@ export function CreateSetModal({
         {/* Grammar exercise type */}
         {isGrammar && (
           <>
-            <div className="text-[9px] font-semibold uppercase tracking-wide mb-1.5" style={{ color: "var(--muted)" }}>{t("createModal.grammarTypeHeading")}</div>
+            <div className="text-3xs font-semibold uppercase tracking-wide mb-1.5" style={{ color: "var(--muted)" }}>{t("createModal.grammarTypeHeading")}</div>
             <div className="flex flex-col gap-1.5 mb-3">
               {typesLoading && (
-                <p className="text-[10px]" style={{ color: "var(--muted)" }}>{t("common.loading")}</p>
+                <p className="text-3xs" style={{ color: "var(--muted)" }}>{t("common.loading")}</p>
               )}
               {!typesLoading && grammarTypes.length === 0 && (
-                <p className="text-[10px]" style={{ color: "#c4820e" }}>{t("createModal.noGrammarTypes")}</p>
+                <p className="text-3xs" style={{ color: "#c4820e" }}>{t("createModal.noGrammarTypes")}</p>
               )}
               {grammarTypes.map((gt) => (
                 /* Label only. The instruction is the worksheet line ("transform
@@ -139,7 +141,7 @@ export function CreateSetModal({
         )}
 
         {/* Count */}
-        <div className="text-[9px] font-semibold uppercase tracking-wide mb-1.5" style={{ color: "var(--muted)" }}>{isGrammar ? t("createModal.sentenceCountHeading") : t("createModal.countHeading")}</div>
+        <div className="text-3xs font-semibold uppercase tracking-wide mb-1.5" style={{ color: "var(--muted)" }}>{isGrammar ? t("createModal.sentenceCountHeading") : t("createModal.countHeading")}</div>
         <div className="flex gap-1.5 mb-4">
           {[5, 10, 15].map((n) => (
             <button key={n} type="button" onClick={() => setCount(n)}

@@ -1537,7 +1537,7 @@
           "karteikarten": "Flashcards",
           "grammar": "Grammar exercise",
           "quiz": "Quiz",
-          "listening": "Listening",
+          "listening": "Listening and reading",
           "exerciseFallback": "Exercise"
         },
         "common": {
@@ -1571,8 +1571,7 @@
           "none": "No source selected",
           "one": "1 source selected",
           "few": "{count} sources selected",
-          "many": "{count} sources available, only 5 are used",
-          "mediaOnly": "(audio and video only)"
+          "many": "{count} sources available, only 5 are used"
         },
         "createModal": {
           "title": "Create new {tool}",
@@ -1582,7 +1581,6 @@
           "fromSelectedSource": "{count, plural, =0 {From selected source} =1 {From selected source} other {From selected sources}}",
           "selectedSourcesCount": "{count} sources",
           "noSourceHint": "Select a source on the left to generate from it.",
-          "noMediaHint": "Select an audio or video source on the left.",
           "countHeading": "Count",
           "grammarTypeHeading": "Exercise type",
           "sentenceCountHeading": "Number of sentences",
@@ -1650,7 +1648,7 @@
           "glossaryCounter": "{count}/{max} glossary",
           "lernkarten": "Vocab cards",
           "grammar": "Grammar exercise",
-          "listening": "Listening",
+          "listening": "Listening and reading",
           "tileDesc": "Exercises"
         },
         "vocabFlashcards": {
@@ -1919,7 +1917,7 @@
           "mindmap": "Mind map",
           "lernkarten": "Vocab cards",
           "grammar": "Grammar exercise",
-          "listening": "Listening"
+          "listening": "Listening and reading"
         },
         "tileDescriptions": {
           "karteikarten": "Question and answer to test yourself.",
