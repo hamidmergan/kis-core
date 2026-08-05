@@ -1,4 +1,4 @@
-"""Grammatik-Übung: Katalog, Generierung und Prüfung.
+"""Grammatik-Übung: Generierung und Prüfung.
 
 Kein DB- und kein Netzzugriff. Der Generator bekommt einen Fake-Client, die
 Attribution wird ausgehängt (sie hat eigene Tests in test_aia_tool_attribution).
@@ -10,14 +10,8 @@ import types
 import pytest
 
 from src.features.ai_assistant.tasks.language_training._context import QuelleContext
-from src.services.aia_grammar_types import (
-    GRAMMAR_TYPES,
-    catalog_for_api,
-    example_pair,
-    get_grammar_type,
-    localized,
-)
 from src.features.ai_assistant.tasks.language_training._source_grammar import (
+    _INSTRUCTION,
     generate_grammar_from_source,
     is_usable_pair,
 )
@@ -26,10 +20,19 @@ from src.services import aia_grammar_check as gc
 
 MARKER = "\n\nADAPT-MARKER: pitch this at level A1."
 
-# Dieses Modul testet den Freitext-Zweig. Der Typ wird über seine id festgenagelt und
-# nicht über die Position, seit der Katalog auch Ankreuz-Typen führt
-# (die haben eigene Tests in test_grammar_quiz.py).
-_TEXT_TYPE = get_grammar_type("passive_present")
+# Ein Grammatikthema in der Form, die die Generierung aus der Datenbank baut. Früher
+# stand dieses dict im Code-Katalog, die Form ist absichtlich dieselbe geblieben, damit
+# sich an den Generatoren keine Zeile ändern musste.
+_TEXT_TYPE = {
+    "id": 1,
+    "label": "Passiv Präsens",
+    "rule": "Input: an active sentence in the present tense. Output: the same statement "
+            "in the passive voice, present tense.",
+    "example": {"before": "Hilde erklärt einen komplizierten Begriff.",
+                "after": "Ein komplizierter Begriff wird von Hilde erklärt."},
+    "examples": [{"before": "Hilde erklärt einen komplizierten Begriff.",
+                  "after": "Ein komplizierter Begriff wird von Hilde erklärt."}],
+}
 
 
 def _make_client(content):
@@ -59,55 +62,6 @@ def _ctx():
         source_by_name={"A.pdf": {"id": 1, "workspace_id": 7}},
         seen_pages_by_source={1: {4}},
     )
-
-
-# ─── Katalog ──────────────────────────────────────────────────────────────────
-
-def test_every_catalog_entry_has_the_fields_the_prompt_needs():
-    for entry in GRAMMAR_TYPES:
-        assert entry["id"]
-        assert entry["rule"]
-        assert localized(entry, "label", "de")
-        assert localized(entry, "instruction", "de")
-        # Freitext oder Ankreuzen, ein dritter Wert würde in der Weiche im Task
-        # still im Freitext-Zweig landen.
-        assert entry.get("format") in {"text", "choice"}
-
-
-def test_every_catalog_entry_ships_a_worked_example():
-    # It steers the generation call and is the fallback shown to the learner, so a
-    # type without one would leave the header empty.
-    for entry in GRAMMAR_TYPES:
-        for locale in ("de", "en"):
-            pair = example_pair(entry, locale)
-            assert pair["before"] and pair["after"]
-            assert pair["before"] != pair["after"]
-
-
-def test_catalog_ids_are_unique():
-    ids = [e["id"] for e in GRAMMAR_TYPES]
-    assert len(ids) == len(set(ids))
-
-
-def test_localized_falls_back_to_english_for_an_unknown_locale():
-    entry = GRAMMAR_TYPES[0]
-    assert localized(entry, "label", "fr") == entry["label"]["en"]
-
-
-def test_catalog_for_api_hides_the_model_rule():
-    for entry in catalog_for_api("de"):
-        assert set(entry) == {"id", "label", "instruction", "format"}
-
-
-def test_catalog_for_api_offers_every_type():
-    # There is no per-workspace filter: everyone sees the whole catalogue.
-    assert [e["id"] for e in catalog_for_api("de")] == [e["id"] for e in GRAMMAR_TYPES]
-
-
-def test_get_grammar_type_by_id_and_miss():
-    assert get_grammar_type(GRAMMAR_TYPES[0]["id"])["id"] == GRAMMAR_TYPES[0]["id"]
-    assert get_grammar_type("nope") is None
-    assert get_grammar_type(None) is None
 
 
 # ─── Generierung ──────────────────────────────────────────────────────────────
@@ -159,7 +113,7 @@ def _generate(response=_RESPONSE, count=2, adaptive_suffix=""):
 def test_generation_builds_items_title_and_header(attributed):
     items, title, header, _ = _generate()
     assert title == "Passiv im Datenmanagement"
-    assert header["instruction"] == _TEXT_TYPE["instruction"]["de"]
+    assert header["instruction"] == _INSTRUCTION["de"]
     assert header["pattern_front"] == "Hilde erklärt einen Begriff."
     assert header["pattern_back"] == "Ein Begriff wird von Hilde erklärt."
     assert [i["front"] for i in items] == [
@@ -279,8 +233,8 @@ def test_generation_prompt_carries_label_rule_and_adaptive_suffix(attributed):
     system = _system_of(calls)
     # The label names the target form. The learner-facing instruction does not, it
     # only points at the worked pair, so it is deliberately kept out of the prompt.
-    assert _TEXT_TYPE["label"]["de"] in system
-    assert _TEXT_TYPE["instruction"]["de"] not in system
+    assert _TEXT_TYPE["label"] in system
+    assert _INSTRUCTION["de"] not in system
     assert _TEXT_TYPE["rule"] in system
     assert MARKER in system
     # The whole point of the tool: sentences are written fresh from the source.
@@ -304,7 +258,7 @@ def test_generation_prompt_shows_the_worked_pair_as_a_shape_to_copy(attributed):
     # the format (same lesson as the overview prose fix).
     _, _, _, calls = _generate()
     system = _system_of(calls)
-    pair = example_pair(_TEXT_TYPE, "de")
+    pair = _TEXT_TYPE["example"]
     assert "SHAPE TO COPY" in system
     assert pair["before"] in system
     assert pair["after"] in system
@@ -319,7 +273,7 @@ def test_title_falls_back_to_the_type_label(attributed):
         "exercises": [{"before": b, "after": a} for b, a in (_GOOD, _GOOD2)],
     })
     _, title, _, _ = _generate(response, count=2)
-    assert title == _TEXT_TYPE["label"]["de"]
+    assert title == _TEXT_TYPE["label"]
 
 
 def test_missing_example_falls_back_to_the_catalogue_pattern(attributed):
@@ -329,10 +283,10 @@ def test_missing_example_falls_back_to_the_catalogue_pattern(attributed):
         "exercises": [{"before": b, "after": a} for b, a in (_GOOD, _GOOD2)],
     })
     _, _, header, _ = _generate(response, count=2)
-    shipped = example_pair(_TEXT_TYPE, "de")
+    shipped = _TEXT_TYPE["example"]
     assert header["pattern_front"] == shipped["before"]
     assert header["pattern_back"] == shipped["after"]
-    assert header["instruction"] == _TEXT_TYPE["instruction"]["de"]
+    assert header["instruction"] == _INSTRUCTION["de"]
 
 
 # ─── Prüfung: Normalisierung ─────────────────────────────────────────────────

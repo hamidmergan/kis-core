@@ -22,6 +22,19 @@ from src.features.ai_assistant.tasks.language_training._variation import (
 
 USED = ["Wissenschaftliches Arbeiten", "Wissenschaftliches Seminar"]
 
+# Ein Grammatikthema in der Form, die die Generierung aus der Datenbank baut.
+# Frueher kam dieses dict aus einem Code-Katalog, die Form ist absichtlich dieselbe
+# geblieben, damit sich an den Generatoren keine Zeile aendern musste.
+_TOPIC = {
+    "id": 1,
+    "label": "Passiv Präsens",
+    "rule": "Input: an active sentence in the present tense. Output: the passive.",
+    "example": {"before": "Hilde erklärt einen Begriff.",
+                "after": "Ein Begriff wird von Hilde erklärt."},
+    "examples": [{"before": "Hilde erklärt einen Begriff.",
+                  "after": "Ein Begriff wird von Hilde erklärt."}],
+}
+
 
 def _make_client(*contents):
     """Fake client. Each call returns the next content, the last one repeats."""
@@ -251,7 +264,6 @@ def test_quiz_prompt_carries_the_block(monkeypatch):
 
 def test_grammar_prompt_carries_the_block(monkeypatch):
     from src.features.ai_assistant.tasks.language_training import _source_grammar as mod
-    from src.services.aia_grammar_types import GRAMMAR_TYPES
     monkeypatch.setattr(mod, "attach_chips_cited", lambda *a, **k: None)
     client, calls = _make_client(json.dumps({
         "title": "T",
@@ -264,7 +276,7 @@ def test_grammar_prompt_carries_the_block(monkeypatch):
              "after": "Die Messwerte werden vom Server gespeichert."},
         ],
     }))
-    mod.generate_grammar_from_source(client, "m", _ctx(), GRAMMAR_TYPES[0], 2,
+    mod.generate_grammar_from_source(client, "m", _ctx(), _TOPIC, 2,
                                      locale="de", title_avoidance=MARKER)
     assert MARKER in _system_of(calls)
 

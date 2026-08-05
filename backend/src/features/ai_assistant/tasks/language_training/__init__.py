@@ -12,7 +12,8 @@ from src.celery_app import celery_app
 from src.limits import AIA_TOOL_SOFT_TIME_LIMIT, AIA_TOOL_TIME_LIMIT
 from src.features.ai_assistant.tasks._helpers import _get_llm_client
 from src.services.aia_adaptive_tools import build_adaptive_tool_suffix
-from src.services.aia_grammar_types import get_grammar_type
+from src.features.ai_assistant.repository.grammar_topics import catalog_entry
+from src.services.aia_grammar_topic import derive_topic
 
 from src.features.ai_assistant.tasks.language_training._context import (
     build_source_context,
@@ -31,9 +32,6 @@ from src.features.ai_assistant.tasks.language_training._source_flashcards import
 )
 from src.features.ai_assistant.tasks.language_training._source_grammar import (
     generate_grammar_from_source,
-)
-from src.features.ai_assistant.tasks.language_training._source_grammar_choice import (
-    generate_grammar_choice_from_source,
 )
 from src.features.ai_assistant.tasks.language_training._source_listening import (
     generate_listening_from_source,
@@ -109,12 +107,28 @@ def run_generate_exercise_set(self, set_id: int, workspace_id: int, tool: str,
 
             gtype = None
             if tool == "grammatik":
-                # The type was validated when the set was created; it is re-read here
-                # because the task may run long after the request.
-                gtype = get_grammar_type(ex_set.get("grammar_type"))
-                if not gtype:
+                # Das Thema wurde beim Anlegen geprüft, es wird hier neu gelesen, weil
+                # der Auftrag lange nach der Anfrage laufen kann.
+                topic = db.get_grammar_topic(ex_set.get("grammar_topic_id"))
+                if not topic:
                     db.fail_exercise_set(set_id)
                     return
+                spec = db.get_topic_spec(topic["id"], locale)
+                if not spec:
+                    # Erste Benutzung in dieser Sprache. Das trifft jeden Kurs, dessen
+                    # Thema in einer anderen Sprache angelegt wurde, denn Regel und
+                    # Beispiel hängen an der Sprache und nicht am Namen.
+                    derived = derive_topic(client, model, topic["name"], locale)
+                    if not derived:
+                        logger.warning(
+                            "KI Tutor: Thema {!r} liess sich in {} nicht ausarbeiten",
+                            topic["name"], locale,
+                        )
+                        db.fail_exercise_set(set_id)
+                        return
+                    spec = db.save_topic_spec(
+                        topic["id"], locale, derived["rule"], derived["examples"])
+                gtype = catalog_entry(topic, spec)
 
             def generate(from_ctx, how_many):
                 """One generation run against one context. Returns (items, title, header).
@@ -137,12 +151,8 @@ def run_generate_exercise_set(self, set_id: int, workspace_id: int, tool: str,
                         client, model, from_ctx, how_many, **shared)
                     return got, name, None
                 if tool == "grammatik":
-                    # The answer format belongs to the exercise type, not to the tool:
-                    # "choice" is ticked in the browser, everything else is free text
-                    # and gets marked by the check route.
-                    if gtype.get("format") == "choice":
-                        return generate_grammar_choice_from_source(
-                            client, model, from_ctx, gtype, how_many, **shared)
+                    # Nur Freitext. Das Ankreuz-Format war nie ein Thema, sondern ein
+                    # Format, und kommt mit der gleichmässigen Mischung zurück.
                     return generate_grammar_from_source(
                         client, model, from_ctx, gtype, how_many, **shared)
                 if tool == "hoerverstehen":

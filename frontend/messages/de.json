@@ -753,14 +753,10 @@
       },
       "anbieter": {
         "label": "Anbieter & Modelle",
-        "sub": "Gilt für beide Bereiche.",
-        "list": {
-          "label": "Anbieter",
-          "sub": "Endpunkte, Zugangsschlüssel und Erreichbarkeit."
-        },
-        "routes": {
-          "label": "Funktionen",
-          "sub": "Pro Funktion ein Anbieter und ein Modell."
+        "sub": "Endpunkte und Zugangsschlüssel, und welche Funktion welches Modell nutzt. Gilt für beide Bereiche.",
+        "tabs": {
+          "list": "Anbieter",
+          "routes": "Funktionen"
         }
       },
       "appearance": {

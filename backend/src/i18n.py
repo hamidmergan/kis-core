@@ -154,8 +154,26 @@ MESSAGES: dict[str, dict[str, str]] = {
         "en": "This exercise is being created right now or is already finished",
     },
     "grammar.typeInvalid": {
-        "de": "Aufgabentyp ist in diesem Workspace nicht verfügbar",
-        "en": "This exercise type is not available in this workspace",
+        "de": "Thema ist in diesem Workspace nicht verfügbar",
+        "en": "This topic is not available in this workspace",
+    },
+    "grammar.topicNotFound": {
+        "de": "Thema nicht gefunden",
+        "en": "Topic not found",
+    },
+    "grammar.topicNameEmpty": {
+        "de": "Bitte gib ein Thema ein, zum Beispiel „Konjunktiv II“",
+        "en": "Please enter a topic, for example “Konjunktiv II”",
+    },
+    "grammar.topicExists": {
+        "de": "Dieses Thema gibt es hier schon",
+        "en": "This topic already exists here",
+    },
+    "grammar.topicNotRecognized": {
+        "de": "Daraus lässt sich kein Grammatikthema machen. Versuche es mit einer "
+              "grammatischen Form, zum Beispiel „Konjunktiv II“ oder „Passiv Präteritum“.",
+        "en": "This does not describe a grammar topic. Try a grammatical form such as "
+              "“past passive” or “conditional”.",
     },
     "grammar.answerEmpty": {
         "de": "Bitte schreibe zuerst eine Antwort",

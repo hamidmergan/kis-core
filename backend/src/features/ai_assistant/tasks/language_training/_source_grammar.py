@@ -21,7 +21,6 @@ from src.features.ai_assistant.tasks.language_training._attribution import (
 )
 from src.features.ai_assistant.tasks.language_training._context import QuelleContext
 from src.services.aia_grammar_check import normalize
-from src.services.aia_grammar_types import example_pair, localized
 
 
 _SHAPE = (
@@ -38,6 +37,15 @@ _SHAPE = (
 # Fragezeichen quer über Schriftsysteme. Ein 'before' mit Fragezeichen ist keine
 # Aussage und damit nicht umformbar, egal in welcher Sprache.
 _QUESTION_MARKS = "?？؟;՞।"
+
+# Die Anweisung an den Lernenden. Sie nennt die Zielform bewusst NICHT, sie zeigt
+# sie: darunter steht das Musterpaar. Wortlaut vom Sprachenzentrum, wie auf dem
+# Papier-Arbeitsblatt. Früher hing sie am Katalogeintrag, aber sie war dort für
+# jedes Thema dieselbe.
+_INSTRUCTION = {
+    "de": "Bitte transformiere nach folgendem Muster:",
+    "en": "Please transform according to the following pattern:",
+}
 
 # Unter dieser Quote gilt ein Durchlauf als misslungen: lieber ein fehlgeschlagenes
 # Set als eine Übung, in der die Hälfte der Aufgaben unlösbar ist.
@@ -59,9 +67,9 @@ def generate_grammar_from_source(
     Empty items mean the run is unusable and the caller fails the set.
     """
     language = _language_label(locale)
-    instruction = localized(grammar_type, "instruction", locale)
-    target_form = localized(grammar_type, "label", locale)
-    shipped_example = example_pair(grammar_type, locale)
+    instruction = _INSTRUCTION.get(locale, _INSTRUCTION["en"])
+    target_form = grammar_type["label"]
+    shipped_example = grammar_type["example"]
     prompt = (
         _build_prompt(grammar_type, target_form, shipped_example, count, language)
         + adaptive_suffix + title_avoidance + coverage
@@ -108,7 +116,7 @@ def generate_grammar_from_source(
     # nothing for roughly half of them and the set ends up half cited, half not.
     attach_chips_cited(items, claims, ctx)
 
-    title = (data.get("title") or "").strip() or localized(grammar_type, "label", locale)
+    title = (data.get("title") or "").strip() or grammar_type["label"]
     return items, title, header
 
 

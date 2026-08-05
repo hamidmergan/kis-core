@@ -42,7 +42,9 @@ export default function AdminPage({ params }: { params: Promise<{ path?: string[
   const { section, page } = found;
   const base = page ? `${section.key}.${page.key}` : section.key;
 
-  const tabs = page?.tabs;
+  // Reiter kann sowohl eine Unterseite haben als auch ein Bereich, der selbst
+  // die Seite ist.
+  const tabs = page?.tabs ?? section.tabs;
   const wanted = search.get("ansicht");
   const active = tabs ? (tabs.find((x) => x.slug === wanted) ?? tabs[0]) : null;
   const Body = active ? active.Component : (page?.Component ?? section.Component);
@@ -60,7 +62,7 @@ export default function AdminPage({ params }: { params: Promise<{ path?: string[
 
       {tabs && active && (
         <PageTabs
-          base={`/admin/${section.slug}/${page!.slug}`}
+          base={page ? `/admin/${section.slug}/${page.slug}` : `/admin/${section.slug}`}
           tabs={tabs.map((x) => ({ slug: x.slug, label: ts(`${base}.tabs.${x.labelKey}`) }))}
           active={active.slug}
         />

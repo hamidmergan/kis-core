@@ -15,6 +15,19 @@ from src.features.ai_assistant.tasks.language_training._context import (
 
 MARKER = "\n\nCOVERAGE. The source material is split into 2 numbered sections."
 
+# Ein Grammatikthema in der Form, die die Generierung aus der Datenbank baut.
+# Frueher kam dieses dict aus einem Code-Katalog, die Form ist absichtlich dieselbe
+# geblieben, damit sich an den Generatoren keine Zeile aendern musste.
+_TOPIC = {
+    "id": 1,
+    "label": "Passiv Präsens",
+    "rule": "Input: an active sentence in the present tense. Output: the passive.",
+    "example": {"before": "Hilde erklärt einen Begriff.",
+                "after": "Ein Begriff wird von Hilde erklärt."},
+    "examples": [{"before": "Hilde erklärt einen Begriff.",
+                  "after": "Ein Begriff wird von Hilde erklärt."}],
+}
+
 
 def _ctx(*labels):
     return QuelleContext(
@@ -74,7 +87,6 @@ def test_quiz_prompt_carries_the_rule(monkeypatch):
 
 def test_grammar_prompt_carries_the_rule(monkeypatch):
     from src.features.ai_assistant.tasks.language_training import _source_grammar as mod
-    from src.services.aia_grammar_types import GRAMMAR_TYPES
     monkeypatch.setattr(mod, "attach_chips_cited", lambda *a, **k: None)
     client, calls = _make_client(json.dumps({
         "title": "T",
@@ -88,7 +100,7 @@ def test_grammar_prompt_carries_the_rule(monkeypatch):
         ],
     }))
     mod.generate_grammar_from_source(client, "m", _ctx("a.pdf", "b.pdf"),
-                                     GRAMMAR_TYPES[0], 2, locale="de", coverage=MARKER)
+                                     _TOPIC, 2, locale="de", coverage=MARKER)
     assert MARKER in _system_of(calls)
 
 
@@ -110,7 +122,6 @@ def test_every_generator_keeps_the_models_section_claim(monkeypatch):
     from src.features.ai_assistant.tasks.language_training import _source_cards as cards
     from src.features.ai_assistant.tasks.language_training import _source_flashcards as fc
     from src.features.ai_assistant.tasks.language_training import _source_grammar as gr
-    from src.services.aia_grammar_types import GRAMMAR_TYPES
     for mod in (mc, cards, fc):
         monkeypatch.setattr(mod, "attach_chips", lambda *a, **k: None)
     # Die Grammatik-Übung nimmt den gestaffelten Weg (Modell-Seite vor Rücksuche).
@@ -143,5 +154,5 @@ def test_every_generator_keeps_the_models_section_claim(monkeypatch):
         ],
     }))
     items, _, _ = gr.generate_grammar_from_source(
-        client, "m", _ctx("a.pdf", "b.pdf"), GRAMMAR_TYPES[0], 2, locale="de")
+        client, "m", _ctx("a.pdf", "b.pdf"), _TOPIC, 2, locale="de")
     assert [i["_section"] for i in items] == [2, 1]

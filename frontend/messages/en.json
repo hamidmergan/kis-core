@@ -753,14 +753,10 @@
       },
       "anbieter": {
         "label": "Providers & models",
-        "sub": "Applies to both areas.",
-        "list": {
-          "label": "Providers",
-          "sub": "Endpoints, API keys and reachability."
-        },
-        "routes": {
-          "label": "Features",
-          "sub": "One provider and one model per feature."
+        "sub": "Endpoints and API keys, and which feature uses which model. Applies to both areas.",
+        "tabs": {
+          "list": "Providers",
+          "routes": "Features"
         }
       },
       "appearance": {

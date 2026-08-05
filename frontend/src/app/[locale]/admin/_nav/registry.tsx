@@ -45,9 +45,10 @@ export type Rank = "product" | "admin" | "dev";
 /** Reihenfolge der Raenge in der Leiste. */
 export const RANKS: Rank[] = ["product", "admin", "dev"];
 
-/** Dritte Ebene: Reiter innerhalb einer Seite. Nur wo eine Seite selbst noch
- *  zerfaellt. Derzeit einmal, beim Sprachniveau: Einstufung und KI-Verhalten
- *  sind zwei Sichten auf denselben Gegenstand. */
+/** Reiter innerhalb einer Seite. Nur wo ein Gegenstand in zwei Sichten
+ *  zerfaellt: Sprachniveau (Einstufung und KI-Verhalten) und Anbieter (die
+ *  Anbieter selbst und die Zuordnung zu den Funktionen). Reiter stehen auf der
+ *  Seite, nicht in der Seitenleiste. */
 export interface AdminTab {
   slug: string;
   /** Schluessel unter admin.sections.<bereich>.<seite>.tabs */
@@ -72,7 +73,8 @@ export interface AdminPage {
   hidden?: true;
 }
 
-/** Erste Ebene. Ohne `pages` ist der Bereich selbst die Seite. */
+/** Erste Ebene. Ohne `pages` ist der Bereich selbst die Seite, entweder mit
+ *  einem `Component` oder mit eigenen `tabs`. */
 export interface AdminSection {
   slug: string;
   /** Schluessel unter admin.sections */
@@ -82,6 +84,8 @@ export interface AdminSection {
   rank: Rank;
   pages?: AdminPage[];
   Component?: ComponentType;
+  /** Schluessel unter admin.sections.<bereich>.tabs */
+  tabs?: AdminTab[];
 }
 
 import ToolReleasePage from "../_pages/werkzeuge/release";
@@ -151,15 +155,19 @@ export const SECTIONS: AdminSection[] = [
       { slug: "nutzung", key: "usage", world: "aia", Component: AiaUsagePage },
     ],
   },
+  // Ein Punkt in der Leiste, zwei Reiter auf der Seite. Anbieter und
+  // Funktionen sind zwei Sichten auf dieselbe Sache: erst traegt man einen
+  // Anbieter ein, dann sagt man welche Funktion ihn nutzt. Als zwei
+  // Unterpunkte sahen sie aus wie zwei Themen.
   {
     slug: "anbieter",
     key: "anbieter",
     Icon: Sparkle,
     world: "both",
     rank: "admin",
-    pages: [
-      { slug: "liste", key: "list", world: "both", Component: ProviderListPage },
-      { slug: "funktionen", key: "routes", world: "both", Component: ProviderRoutesPage },
+    tabs: [
+      { slug: "liste", labelKey: "list", Component: ProviderListPage },
+      { slug: "funktionen", labelKey: "routes", Component: ProviderRoutesPage },
     ],
   },
   {

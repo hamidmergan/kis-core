@@ -1,12 +1,12 @@
 "use client";
 
 /**
- * Dritte Ebene: Reiter innerhalb einer Seite.
+ * Reiter innerhalb einer Seite.
  *
- * Bewusst sparsam. Die zweite Ebene gehört in die Seitenleiste, weil sie zur
- * Navigation zählt. Reiter sind nur dann richtig, wenn eine Unterseite selbst
- * noch in zwei Ansichten desselben Gegenstands zerfällt. Im ganzen Adminbereich
- * trifft das genau einmal zu, beim Sprachniveau.
+ * Bewusst sparsam. Unterseiten gehören in die Seitenleiste, weil sie zur
+ * Navigation zählen. Reiter sind nur dann richtig, wenn ein Gegenstand in zwei
+ * Ansichten auf dieselbe Sache zerfällt. Im Adminbereich trifft das zweimal zu,
+ * beim Sprachniveau und bei den Anbietern.
  *
  * Der aktive Reiter steht in der Adresse (?ansicht=), damit ein Lesezeichen
  * auch die Ansicht trifft und die Zurück-Taste funktioniert.

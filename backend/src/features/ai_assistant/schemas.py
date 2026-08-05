@@ -127,8 +127,30 @@ class CreateSetBody(BaseModel):
     source_uuid: Optional[str] = None  # legacy single-source clients
     source_uuids: Optional[list[str]] = None  # preferred: all selected sources
     count: int = 10
-    # Only tool="grammatik": id of the catalogue entry the set is built from.
-    grammar_type: Optional[str] = None
+    # Only tool="grammatik": id of the workspace's grammar topic the set is built from.
+    grammar_topic_id: Optional[int] = None
+
+
+class GrammarExamplePair(BaseModel):
+    """Ein Musterpaar. Steuert das Modell und ist zugleich das, was der Dozent
+    prüft und der Lernende sieht."""
+    before: str = Field(..., max_length=500)
+    after: str = Field(..., max_length=500)
+
+
+class GrammarTopicPreviewBody(BaseModel):
+    """Der getippte Themenname. Kein Prompt, nur ein Name."""
+    name: str = Field(..., max_length=120)
+
+
+class GrammarTopicCreateBody(BaseModel):
+    name: str = Field(..., max_length=120)
+    rule: str = Field(..., max_length=4000)
+    examples: list[GrammarExamplePair]
+
+
+class GrammarTopicUpdateBody(BaseModel):
+    examples: list[GrammarExamplePair]
 
 
 class GrammarCheckBody(BaseModel):

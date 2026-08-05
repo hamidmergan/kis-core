@@ -15,12 +15,7 @@ from src.features.ai_assistant.routes._helpers import (
     _resolve_source_ids,
 )
 from src.features.ai_assistant import schemas
-from src.services.aia_grammar_types import (
-    GRAMMAR_TYPES,
-    catalog_for_api,
-    get_grammar_type,
-    localized,
-)
+from src.features.ai_assistant.repository.grammar_topics import catalog_entry
 
 router = APIRouter(tags=["ki-assistent: language-training"])
 
@@ -91,22 +86,22 @@ async def create_exercise_set(
             raise HTTPException(status_code=400, detail=t("ai.source.notSelected", locale))
         _resolve_source_ids(workspace, source_uuids, max_count=5, locale=locale)
 
-    grammar_type = None
+    grammar_topic_id = None
     if body.tool == "grammatik":
-        # The grammar tool rewrites sentences about the source content, so it has
-        # nothing to work with in glossary mode.
+        # Geübt wird an den Vorlesungsfolien: die Quellen liefern den Wortschatz, das
+        # Thema kommt vom Dozenten. Ohne Quellen gibt es also nichts umzuformen.
         if body.mode != "source":
             raise HTTPException(status_code=400, detail=t("ai.source.notSelected", locale))
-        known = {e["id"] for e in GRAMMAR_TYPES}
-        if not body.grammar_type or body.grammar_type not in known:
+        topic = db.get_grammar_topic(body.grammar_topic_id)
+        if not topic or topic["workspace_id"] != workspace["id"]:
             raise HTTPException(status_code=400, detail=t("grammar.typeInvalid", locale))
-        grammar_type = body.grammar_type
+        grammar_topic_id = topic["id"]
 
     placeholder = db.create_exercise_set_placeholder(
         workspace_id=workspace["id"], user_id=user_id, tool=body.tool,
         title="Wird generiert…", mode=body.mode,
         source_uuid=source_uuids[0] if source_uuids else None,
-        grammar_type=grammar_type,
+        grammar_topic_id=grammar_topic_id,
         source_uuids=source_uuids,
         requested_count=body.count,
     )
@@ -177,26 +172,6 @@ async def retry_exercise_set(
     return {"ok": True, "status": "generating"}
 
 
-@router.get("/ai-assistant/workspaces/{workspace_uuid}/grammar-types")
-async def list_grammar_types(
-    workspace_uuid: str,
-    current_user: dict = Depends(get_current_user),
-    locale: str = Depends(get_locale),
-):
-    """The grammar exercise types a learner can pick, in the UI language.
-
-    Same catalogue everywhere. It is served per workspace only because access is
-    checked here, not because the list differs.
-    """
-    user_id = current_user["user_id"]
-    workspace = db.get_aia_workspace(workspace_uuid)
-    if not workspace:
-        raise HTTPException(status_code=404, detail=t("workspace.notFound", locale))
-    if workspace["user_id"] != user_id and not db.is_student_enrolled(workspace["id"], user_id):
-        raise HTTPException(status_code=403, detail=t("workspace.accessDenied", locale))
-    return {"types": catalog_for_api(locale)}
-
-
 @router.post("/ai-assistant/workspaces/{workspace_uuid}/exercise-sets/{set_id}/items/{item_id}/check")
 async def check_grammar_answer(
     workspace_uuid: str,
@@ -238,8 +213,11 @@ async def check_grammar_answer(
     if not answer:
         raise HTTPException(status_code=400, detail=t("grammar.answerEmpty", locale))
 
-    gtype = get_grammar_type(ex_set.get("grammar_type"))
-    rule = gtype["rule"] if gtype else ""
+    # Die Regel steuert die Rueckmeldung. Sie haengt am Thema und an der Sprache,
+    # deshalb wird sie hier ueber beides geholt und nicht ueber einen Code-Eintrag.
+    topic = db.get_grammar_topic(ex_set.get("grammar_topic_id"))
+    spec = db.get_topic_spec(topic["id"], locale) if topic else None
+    rule = (spec or {}).get("rule") or ""
 
     # Only pay the burst budget when the answer actually needs the model.
     if not gc.is_exact_match(answer, item["back"]):
@@ -282,12 +260,12 @@ async def list_exercise_sets(
     for s in sets:
         if s.get("created_at") and hasattr(s["created_at"], "isoformat"):
             s["created_at"] = s["created_at"].isoformat() + "Z"
-        # Grammar sets carry a catalogue id. The list resolves it to the localised
-        # name here, so the card can say which exercise type it is without the
-        # frontend fetching the catalogue just to render a label.
-        entry = get_grammar_type(s.get("grammar_type"))
-        if entry:
-            s["grammar_type_label"] = localized(entry, "label", locale)
+        # Grammatik-Sets tragen ein Thema. Die Liste löst es hier zum Namen auf,
+        # damit die Karte sagen kann worum es geht, ohne dass die Oberfläche dafür
+        # eine zweite Anfrage stellt.
+        topic = db.get_grammar_topic(s.get("grammar_topic_id"))
+        if topic:
+            s["grammar_topic_name"] = topic["name"]
         s["sources"] = _numbered_sources(s)
     return {"sets": sets}
 
@@ -310,9 +288,9 @@ async def get_exercise_set(
         raise HTTPException(status_code=404, detail=t("set.notFound", locale))
     if ex_set.get("created_at") and hasattr(ex_set["created_at"], "isoformat"):
         ex_set["created_at"] = ex_set["created_at"].isoformat() + "Z"
-    entry = get_grammar_type(ex_set.get("grammar_type"))
-    if entry:
-        ex_set["grammar_type_label"] = localized(entry, "label", locale)
+    topic = db.get_grammar_topic(ex_set.get("grammar_topic_id"))
+    if topic:
+        ex_set["grammar_topic_name"] = topic["name"]
     # The numbered legend under the exercises, and the numbers the chips print.
     ex_set["sources"] = _numbered_sources(ex_set)
     return {"set": ex_set}
