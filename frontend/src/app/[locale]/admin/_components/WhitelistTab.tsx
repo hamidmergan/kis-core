@@ -114,7 +114,7 @@ export default function WhitelistTab({ adminEmail }: { adminEmail: string }) {
                     {email}
                   </span>
                   {isAdmin && (
-                    <span className="text-[10px] font-medium text-muted-soft bg-surface-dim px-1.5 py-0.5 rounded-full shrink-0">
+                    <span className="text-3xs font-medium text-muted-soft bg-surface-dim px-1.5 py-0.5 rounded-full shrink-0">
                       {t("whitelist.adminBadge")}
                     </span>
                   )}

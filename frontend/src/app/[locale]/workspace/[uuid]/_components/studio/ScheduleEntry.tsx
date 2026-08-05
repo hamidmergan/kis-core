@@ -41,7 +41,7 @@ export function ScheduleEntryCard({
     boxShadow: "0 1px 3px rgba(13,31,45,.04)",
     borderRadius: 12,
     padding: "12px 14px",
-    fontSize: 14,
+    fontSize: "0.875rem",
   };
 
   // Dedup: same (source_uuid, page, start_time) appears only once per entry,
@@ -91,7 +91,7 @@ export function ScheduleEntryCard({
             style={{
               color: entry.is_checked ? "var(--success-strong)" : "var(--foreground)",
               textDecoration: entry.is_checked ? "line-through" : "none",
-              fontSize: 14,
+              fontSize: "0.875rem",
             }}
           >
             {entry.title}
@@ -101,7 +101,7 @@ export function ScheduleEntryCard({
             if (!entry.due_time && !description) return null;
             return (
               <div
-                className="mt-1 text-[11.5px] flex items-center gap-1.5 flex-wrap"
+                className="mt-1 text-2xs flex items-center gap-1.5 flex-wrap"
                 
               >
                 {entry.due_time && (

@@ -166,7 +166,7 @@ export function GlossaryView({
                           tabIndex={0}
                           onClick={(e) => { e.stopPropagation(); onOpenSource?.(entry.filename, entry.page_number!, entry.term_de, entry.start_time); }}
                           onKeyDown={(e) => { if (e.key === "Enter") { e.stopPropagation(); e.currentTarget.click(); } }}
-                          className="inline-flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 rounded-full font-medium shrink-0 chip-cite cursor-pointer"
+                          className="inline-flex items-center gap-0.5 text-3xs px-1.5 py-0.5 rounded-full font-medium shrink-0 chip-cite cursor-pointer"
                           style={{ backgroundColor: "rgba(var(--kb-rgb),0.12)", color: "var(--kb)" }}
                         >
                           <ChipIcon size={8} weight="bold" /> {entry.filename ? _chunkLabel(entry.filename, entry.page_number!, entry.start_time, (key, vals) => tChip(key, vals)) : t("glossary.pageShort", { page: entry.page_number })}
@@ -181,7 +181,7 @@ export function GlossaryView({
                       <div className="px-3 pb-3 pt-1" onClick={(e) => e.stopPropagation()}>
                         {entry.base_form && entry.base_form.trim().toLowerCase() !== entry.term_de.trim().toLowerCase() && (
                           <div className="mb-2">
-                            <span className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: "var(--kb)" }}>{t("glossary.baseForm")}</span>
+                            <span className="text-3xs font-semibold uppercase tracking-wider" style={{ color: "var(--kb)" }}>{t("glossary.baseForm")}</span>
                             <p className="text-sm leading-relaxed mt-0.5" style={{ color: "var(--foreground)" }}>
                               {entry.base_form}
                             </p>
@@ -189,14 +189,14 @@ export function GlossaryView({
                         )}
                         {showTranslation && entry.example_sentence && (
                           <div className="mb-2">
-                            <span className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: "var(--kb)" }}>{t("glossary.context")}</span>
+                            <span className="text-3xs font-semibold uppercase tracking-wider" style={{ color: "var(--kb)" }}>{t("glossary.context")}</span>
                             <p className="text-sm italic leading-relaxed mt-0.5" >
                               „{entry.example_sentence}"
                             </p>
                           </div>
                         )}
                         <div>
-                          <span className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: "var(--kb)" }}>{t("glossary.explanation")}</span>
+                          <span className="text-3xs font-semibold uppercase tracking-wider" style={{ color: "var(--kb)" }}>{t("glossary.explanation")}</span>
                           <p className="text-sm leading-relaxed mt-0.5" style={{ color: "var(--foreground)", opacity: 0.8 }}>
                             {entry.definition}
                           </p>

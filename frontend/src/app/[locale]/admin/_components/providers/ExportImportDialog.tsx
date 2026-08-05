@@ -156,11 +156,11 @@ function ExportTab({
   return (
     <>
       <div className="p-5 space-y-5">
-        <p className="text-[12px] text-amber-700 dark:text-amber-400">
+        <p className="text-xs text-amber-700 dark:text-amber-400">
           {t("exportHint")}
         </p>
         <p
-          className={`text-[12px] ${
+          className={`text-xs ${
             apiKeyEncryptionEnabled
               ? "text-green-700 dark:text-green-400"
               : "text-muted"
@@ -214,7 +214,7 @@ function ExportTab({
           </ul>
         </section>
 
-        {error && <p className="text-[12px] text-error">{error}</p>}
+        {error && <p className="text-xs text-error">{error}</p>}
       </div>
 
       <div className="p-5 border-t border-border-soft flex justify-end gap-2">
@@ -310,7 +310,7 @@ function ImportTab({
           </p>
         )}
         {state.kind === "error" && (
-          <p className="text-[12px] text-error">{state.message}</p>
+          <p className="text-xs text-error">{state.message}</p>
         )}
         {state.kind === "previewed" && (
           <>
@@ -397,13 +397,13 @@ function ApiKeyRestoreNotice({ preview }: { preview: ImportPreviewResult }) {
   const unrecoverable = withEnvelope.filter((p) => !p.encrypted_key_recoverable);
   if (unrecoverable.length === 0) {
     return (
-      <p className="text-[12px] text-green-700 dark:text-green-400">
+      <p className="text-xs text-green-700 dark:text-green-400">
         {t("apiKeyRestoreOk", { count: withEnvelope.length })}
       </p>
     );
   }
   return (
-    <p className="text-[12px] text-amber-700 dark:text-amber-400">
+    <p className="text-xs text-amber-700 dark:text-amber-400">
       {t("apiKeyRestoreFailed", { count: unrecoverable.length })}
     </p>
   );
@@ -438,7 +438,7 @@ function PreviewBadge({ action }: { action: "create" | "update" }) {
     ? "bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300"
     : "bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300";
   return (
-    <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded ${classes}`}>
+    <span className={`text-3xs font-semibold px-1.5 py-0.5 rounded ${classes}`}>
       {t(action === "create" ? "new" : "merge")}
     </span>
   );

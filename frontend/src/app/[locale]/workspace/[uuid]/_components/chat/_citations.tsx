@@ -104,7 +104,7 @@ function CitationChip({ desc, onChipClick }: { desc: ChipDesc; onChipClick: Cita
       // Deliberately smaller than the surrounding prose (9px, tight padding, 1px margin):
       // chips are a side note, not a headline — at text-xs with 2px padding they dominated
       // the answer.
-      className="inline-flex items-center whitespace-nowrap text-[9px] px-[5px] py-px rounded-full font-medium chip-cite align-middle mx-px cursor-pointer"
+      className="inline-flex items-center whitespace-nowrap text-3xs px-[0.3125rem] py-px rounded-full font-medium chip-cite align-middle mx-px cursor-pointer"
       // Transparent border by default so the active state adds the yellow frame without
       // shifting layout. Yellow matches the viewer page frame (CITATION_HL_COLOR).
       style={{
@@ -142,7 +142,7 @@ function CitationChipGroup({ groupId, chips, onChipClick }: { groupId: string; c
   // chip's mx-px leaves a 3px gap, enough to read as two pills without drifting apart;
   // the fixed h-4 (border-box, like the chip's 1px transparent border) pins the pill to
   // exactly the chip's height, which padding around a square icon cannot.
-  const toggleCls = "chip-cite chip-toggle inline-flex items-center justify-center whitespace-nowrap text-[9px] h-4 px-1.5 rounded-full font-medium align-middle ml-0.5 cursor-pointer select-none";
+  const toggleCls = "chip-cite chip-toggle inline-flex items-center justify-center whitespace-nowrap text-3xs h-4 px-1.5 rounded-full font-medium align-middle ml-0.5 cursor-pointer select-none";
   const toggleStyle = {
     backgroundColor: "rgba(var(--kb-rgb),0.12)",
     color: "var(--kb)",

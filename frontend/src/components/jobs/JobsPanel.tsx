@@ -311,7 +311,7 @@ export default function JobsPanel() {
         <Stack size={17} weight="bold" aria-hidden="true" />
         <span className="hidden sm:inline text-sm font-medium">{tHeader("jobs")}</span>
         {attentionCount > 0 && (
-          <span className="absolute -top-0.5 -right-0.5 w-4 h-4 bg-white text-kb text-[9px] font-bold rounded-full flex items-center justify-center shadow">
+          <span className="absolute -top-0.5 -right-0.5 w-4 h-4 bg-white text-kb text-3xs font-bold rounded-full flex items-center justify-center shadow">
             {attentionCount}
           </span>
         )}

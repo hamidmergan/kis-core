@@ -129,7 +129,7 @@ export default function HeaderLanguageSwitch() {
       {open && (
         <ul
           role="listbox"
-          className="absolute right-0 top-full mt-2 z-50 min-w-[160px] rounded-xl py-1 text-sm"
+          className="absolute right-0 top-full mt-2 z-50 min-w-40 rounded-xl py-1 text-sm"
           style={{
             backgroundColor: "var(--background)",
             border: "1px solid var(--border)",

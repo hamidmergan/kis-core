@@ -140,7 +140,7 @@ export function GrammarExerciseView({
           <CaretLeft size={13} />
         </button>
         {breadcrumbs && breadcrumbs.length > 0 ? (
-          <div className="flex items-center gap-1 text-[12px] min-w-0 flex-1">
+          <div className="flex items-center gap-1 text-xs min-w-0 flex-1">
             {breadcrumbs.map((b, i) => {
               const bBadge = _getToolBadge(b.toolKey, "language_training");
               return (
@@ -157,7 +157,7 @@ export function GrammarExerciseView({
             <span className="font-semibold truncate" style={{ color: "var(--foreground)" }}>{exerciseSet.title.replace(TITLE_PREFIX_RE, "")}</span>
           </div>
         ) : (
-          <span className="text-[12px] font-semibold flex-1 truncate" style={{ color: "var(--foreground)" }}>{exerciseSet.title.replace(TITLE_PREFIX_RE, "")}</span>
+          <span className="text-xs font-semibold flex-1 truncate" style={{ color: "var(--foreground)" }}>{exerciseSet.title.replace(TITLE_PREFIX_RE, "")}</span>
         )}
         {minimize && (
           <button type="button" onClick={minimize}
@@ -184,7 +184,7 @@ export function GrammarExerciseView({
             {/* Same 15px as the sentence in the card below, so the task line and the
                 sentences the learner works on read at one size. The pair under it is
                 the platform's body size. */}
-            <p className="text-[15px] font-semibold leading-snug" style={{ color: "var(--foreground)" }}>
+            <p className="text-base font-semibold leading-snug" style={{ color: "var(--foreground)" }}>
               {exerciseSet.instruction}
             </p>
             {hasPattern && (
@@ -210,10 +210,10 @@ export function GrammarExerciseView({
           {/* The sentence to transform */}
           <div className="rounded-2xl overflow-hidden" style={{ backgroundColor: "var(--surface)", boxShadow: "0 4px 20px rgba(0,40,60,0.08)" }}>
             <div className="px-6 pt-5 pb-6 flex flex-col gap-3">
-              <div className="text-[11px] font-bold" style={{ color: "var(--muted)" }}>
+              <div className="text-2xs font-bold" style={{ color: "var(--muted)" }}>
                 {t("grammar.sentenceNo", { no: index + 1 })}
               </div>
-              <p className="text-[15px] font-semibold leading-snug" style={{ color: "var(--foreground)" }}>{card.front}</p>
+              <p className="text-base font-semibold leading-snug" style={{ color: "var(--foreground)" }}>{card.front}</p>
 
               <textarea
                 value={answer}
@@ -270,7 +270,7 @@ export function GrammarExerciseView({
                       return (
                         <button key={si} type="button"
                           onClick={() => { if (onSourceClick) onSourceClick(s.source_label, s.page_number ?? 1, s.start_time); }}
-                          className="chip-cite inline-flex items-center gap-0.5 text-[10px] font-medium px-2 py-1 rounded-full border-none cursor-pointer transition-colors"
+                          className="chip-cite inline-flex items-center gap-0.5 text-3xs font-medium px-2 py-1 rounded-full border-none cursor-pointer transition-colors"
                           style={{ color: "var(--kb)", backgroundColor: "rgba(var(--kb-rgb),0.07)" }}>
                           <ChipIcon size={10} weight="bold" /> {sourceTag(s.source_label, srcNumbers)}{_chunkLabel(s.source_label, s.page_number ?? 1, s.start_time, (key, vals) => tChip(key, vals))}
                         </button>

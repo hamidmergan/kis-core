@@ -127,7 +127,7 @@ export default function ParticipantsModal({ workspaceUuid, onClose, onRolesChang
 
                 {p.role === "tutor" && (
                   <span
-                    className="text-[11px] font-medium px-2 py-0.5 rounded-full whitespace-nowrap"
+                    className="text-2xs font-medium px-2 py-0.5 rounded-full whitespace-nowrap"
                     style={{ backgroundColor: "var(--kb)", color: "#fff" }}
                   >
                     {t("roleTutor")}

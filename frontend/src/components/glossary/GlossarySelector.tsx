@@ -173,7 +173,7 @@ export default function GlossarySelector({ values, onChange }: Props) {
                       : "border-border bg-surface text-foreground-soft"
                 }`}
               >
-                <span className="text-muted-soft text-[10px]">{index + 1}</span>
+                <span className="text-muted-soft text-3xs">{index + 1}</span>
                 {g.name}
                 <button
                   type="button"

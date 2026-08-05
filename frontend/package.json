@@ -9,6 +9,7 @@
     "start": "next start",
     "lint": "next lint",
     "check:i18n": "node check-i18n-keys.mjs",
+    "check:units": "node check-units.mjs",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:e2e": "playwright test"

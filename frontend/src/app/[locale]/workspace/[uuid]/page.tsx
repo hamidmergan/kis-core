@@ -547,7 +547,7 @@ export default function KiTutorWorkspacePage() {
   if (!initialized) {
     return (
       <ProtectedRoute>
-        <div className="flex flex-col overflow-hidden" style={{ height: "100vh" }}>
+        <div className="aia-scale flex flex-col overflow-hidden" style={{ height: "100vh" }}>
           {!hideHeader && <Header showLogout />}
           <div className="flex-1 flex items-center justify-center">
             <Spinner size="lg" />
@@ -559,6 +559,11 @@ export default function KiTutorWorkspacePage() {
 
   return (
     <ProtectedRoute>
+      {/* Der KI-Assistent bleibt auf der alten, kompakteren Schriftskala,
+          siehe .aia-scale in globals.css. display:contents reicht die
+          Variablen nach unten durch, ohne eine eigene Box zu bauen, und
+          erwischt so auch das Modal ausserhalb des 100vh-Rahmens. */}
+      <div className="aia-scale" style={{ display: "contents" }}>
       <div className="flex flex-col overflow-hidden mobile-flow" style={{ height: "100vh" }}>
         {!hideHeader && <Header showLogout />}
 
@@ -640,6 +645,7 @@ export default function KiTutorWorkspacePage() {
           }}
         />
       )}
+      </div>
     </ProtectedRoute>
   );
 }

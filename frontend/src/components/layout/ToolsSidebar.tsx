@@ -140,7 +140,7 @@ export default function ToolsSidebar() {
                   </span>
                   {!effectiveCollapsed && (
                     <span
-                      className="text-[15px] truncate"
+                      className="text-sm truncate"
                       style={{ color: "var(--foreground)" }}
                     >
                       {title}

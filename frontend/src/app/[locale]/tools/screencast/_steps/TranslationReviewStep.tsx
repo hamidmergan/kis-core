@@ -61,7 +61,7 @@ export default function TranslationReviewStep({
               <div className="aspect-video bg-surface flex items-center justify-center text-xs text-muted-soft">{t("common.loadingImage")}</div>
             )}
             {slide.unchanged && (
-              <span className="absolute top-1 left-1 rounded-full border border-warn-border bg-warn-bg px-1.5 py-0.5 text-[10px] font-medium text-warn-strong">
+              <span className="absolute top-1 left-1 rounded-full border border-warn-border bg-warn-bg px-1.5 py-0.5 text-3xs font-medium text-warn-strong">
                 {t("translationReview.unchangedBadge")}
               </span>
             )}

@@ -104,7 +104,7 @@ export default function StatsTab() {
                 <span className="text-success">{t("stats.ok", { n: tool.success })}</span>
                 {tool.failed > 0 && <span className="text-error">{t("stats.fail", { n: tool.failed })}</span>}
               </div>
-              <p className="text-[10px] text-muted-soft mt-1">
+              <p className="text-3xs text-muted-soft mt-1">
                 {tool.avg_seconds != null ? t("stats.avgPrefix", { duration: formatDuration(tool.avg_seconds) }) : ""}
               </p>
             </div>

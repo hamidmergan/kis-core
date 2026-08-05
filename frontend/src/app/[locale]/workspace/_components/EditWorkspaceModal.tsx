@@ -80,7 +80,7 @@ export default function EditWorkspaceModal({
             onChange={(e) => setDescription(e.target.value.slice(0, WORKSPACE_DESCRIPTION_MAX))}
             maxLength={WORKSPACE_DESCRIPTION_MAX}
             rows={8}
-            className="w-full rounded-lg border px-3 py-2 text-sm focus:outline-none resize-none flex-1 sm:min-h-[180px] lg:min-h-[260px]"
+            className="w-full rounded-lg border px-3 py-2 text-sm focus:outline-none resize-none flex-1 sm:min-h-45 lg:min-h-65"
             style={{ backgroundColor: "var(--background)", borderColor: "var(--border)", color: "var(--foreground)" }}
             placeholder={t("descriptionPlaceholder")}
           />

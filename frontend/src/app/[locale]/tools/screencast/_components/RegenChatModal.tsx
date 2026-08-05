@@ -101,7 +101,7 @@ export default function RegenChatModal({
     <>
       <div className="fixed inset-0 z-40" />
       <div
-        className={`fixed z-50 shadow-2xl flex flex-col overflow-hidden sm:inset-auto sm:top-16 sm:bottom-6 sm:right-6 sm:w-[380px] sm:rounded-2xl ${messages.length > 0 ? "inset-0 rounded-none" : "inset-x-0 bottom-0 rounded-t-2xl max-h-[60vh]"}`}
+        className={`fixed z-50 shadow-2xl flex flex-col overflow-hidden sm:inset-auto sm:top-16 sm:bottom-6 sm:right-6 sm:w-95 sm:rounded-2xl ${messages.length > 0 ? "inset-0 rounded-none" : "inset-x-0 bottom-0 rounded-t-2xl max-h-[60vh]"}`}
         style={{ backgroundColor: "var(--background)" }}
       >
         <div
@@ -110,7 +110,7 @@ export default function RegenChatModal({
         >
           <div className="flex items-center gap-2">
             <div
-              className="w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold text-white flex-shrink-0"
+              className="w-5 h-5 rounded-full flex items-center justify-center text-3xs font-bold text-white flex-shrink-0"
               style={{ backgroundColor: "var(--kb)" }}
             >
               KI
@@ -154,12 +154,12 @@ export default function RegenChatModal({
                 {!isUser && (
                   <div className="flex items-center gap-2 mb-0.5">
                     <div
-                      className="w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold text-white flex-shrink-0"
+                      className="w-5 h-5 rounded-full flex items-center justify-center text-3xs font-bold text-white flex-shrink-0"
                       style={{ backgroundColor: "var(--kb)" }}
                     >
                       KI
                     </div>
-                    <span className="text-[11px] font-medium" style={{ color: "var(--muted)" }}>
+                    <span className="text-2xs font-medium" style={{ color: "var(--muted)" }}>
                       {t("assistant")}
                     </span>
                   </div>
@@ -251,7 +251,7 @@ export default function RegenChatModal({
           {loading && (
             <div className="flex items-start gap-2">
               <div
-                className="w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold text-white flex-shrink-0"
+                className="w-5 h-5 rounded-full flex items-center justify-center text-3xs font-bold text-white flex-shrink-0"
                 style={{ backgroundColor: "var(--kb)" }}
               >
                 KI

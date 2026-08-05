@@ -39,7 +39,7 @@ export default function ProviderListCard({
         <div className="flex items-center justify-between gap-4">
           <div className="flex items-center gap-2 text-sm font-medium text-foreground">
             {t("list.title")}
-            <span className="bg-surface-dim text-muted text-[11px] font-mono px-1.5 py-0.5 rounded-full">
+            <span className="bg-surface-dim text-muted text-2xs font-mono px-1.5 py-0.5 rounded-full">
               {providers.length}
             </span>
           </div>
@@ -159,25 +159,25 @@ function ProviderRow({
         <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm font-medium text-foreground mb-0.5">
           <span className="truncate">{provider.name}</span>
           {!provider.enabled && (
-            <span className="inline-flex items-center text-[11px] font-medium px-1.5 py-0.5 rounded-full bg-surface-dim text-muted">
+            <span className="inline-flex items-center text-2xs font-medium px-1.5 py-0.5 rounded-full bg-surface-dim text-muted">
               {t("row.disabledChip")}
             </span>
           )}
           <StatusPill provider={provider} probing={probing} />
           {!provider.api_key_set && (
-            <span className="inline-flex items-center text-[11px] font-medium px-1.5 py-0.5 rounded-full bg-surface-dim text-muted">
+            <span className="inline-flex items-center text-2xs font-medium px-1.5 py-0.5 rounded-full bg-surface-dim text-muted">
               {t("row.noApiKeyChip")}
             </span>
           )}
         </div>
-        <div className="text-[11.5px] font-mono text-muted truncate">
+        <div className="text-2xs font-mono text-muted truncate">
           {provider.base_url}
           {provider.api_key_set && provider.api_key_last_chars && (
             <span className="ml-2">{t("row.keySuffix", { chars: provider.api_key_last_chars })}</span>
           )}
         </div>
         {provider.probe_status === "error" && provider.probe_error && (
-          <p className="mt-2 text-[11px] text-error">
+          <p className="mt-2 text-2xs text-error">
             {_PROBE_ERROR_CODES.has(provider.probe_error)
               ? t(`probeErrors.${provider.probe_error}` as Parameters<typeof t>[0])
               : provider.probe_error}
@@ -221,7 +221,7 @@ function StatusPill({ provider, probing }: { provider: Provider; probing?: boole
   const t = useTranslations("admin.providers");
   if (probing) {
     return (
-      <span className="inline-flex items-center gap-1 text-[11px] font-medium px-1.5 py-0.5 rounded-full bg-surface-dim text-muted">
+      <span className="inline-flex items-center gap-1 text-2xs font-medium px-1.5 py-0.5 rounded-full bg-surface-dim text-muted">
         <span className="w-1.5 h-1.5 rounded-full bg-muted animate-pulse" />
         {t("row.statusChecking")}
       </span>
@@ -229,7 +229,7 @@ function StatusPill({ provider, probing }: { provider: Provider; probing?: boole
   }
   if (provider.probe_status === "error") {
     return (
-      <span className="inline-flex items-center gap-1 text-[11px] font-medium px-1.5 py-0.5 rounded-full bg-error-bg text-error-strong">
+      <span className="inline-flex items-center gap-1 text-2xs font-medium px-1.5 py-0.5 rounded-full bg-error-bg text-error-strong">
         <span className="w-1.5 h-1.5 rounded-full bg-error" />
         {t("row.statusError")}
       </span>
@@ -237,14 +237,14 @@ function StatusPill({ provider, probing }: { provider: Provider; probing?: boole
   }
   if (!provider.probe_status) {
     return (
-      <span className="inline-flex items-center gap-1 text-[11px] font-medium px-1.5 py-0.5 rounded-full bg-warn-bg text-warn-strong">
+      <span className="inline-flex items-center gap-1 text-2xs font-medium px-1.5 py-0.5 rounded-full bg-warn-bg text-warn-strong">
         <span className="w-1.5 h-1.5 rounded-full bg-warn" />
         {t("row.statusUnprobed")}
       </span>
     );
   }
   return (
-    <span className="inline-flex items-center gap-1 text-[11px] font-medium px-1.5 py-0.5 rounded-full bg-success-bg text-success-strong">
+    <span className="inline-flex items-center gap-1 text-2xs font-medium px-1.5 py-0.5 rounded-full bg-success-bg text-success-strong">
       <span className="w-1.5 h-1.5 rounded-full bg-success" />
       {t("row.statusActive")}
     </span>

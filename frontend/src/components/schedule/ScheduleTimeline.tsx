@@ -126,21 +126,21 @@ export function ScheduleTimeline<T extends DatedEntry>({
                   className="font-bold leading-none"
                   style={{
                     color: urgency ?? (past_ && !today_ ? "var(--muted)" : "var(--foreground)"),
-                    fontSize: 17,
+                    fontSize: "1rem",
                   }}
                 >
                   {day}
                 </div>
                 <div
                   className="mt-0.5 font-semibold uppercase tracking-wider"
-                  style={{ color: urgency ?? "var(--muted)", fontSize: 10 }}
+                  style={{ color: urgency ?? "var(--muted)", fontSize: "0.625rem" }}
                 >
                   {month}
                 </div>
                 {year && (
                   <div
                     className="mt-0.5 font-semibold"
-                    style={{ color: "var(--error-strong)", fontSize: 9 }}
+                    style={{ color: "var(--error-strong)", fontSize: "0.625rem" }}
                   >
                     {year}
                   </div>
@@ -155,7 +155,7 @@ export function ScheduleTimeline<T extends DatedEntry>({
         {tbd.length > 0 && renderTbdCard && (
           <>
             <div
-              className="mt-2 mb-1 pl-[68px] text-[11px] font-semibold uppercase tracking-wider"
+              className="mt-2 mb-1 pl-17 text-2xs font-semibold uppercase tracking-wider"
               style={{ color: "var(--muted)" }}
             >
               {t("tbdHeading")}
@@ -182,7 +182,7 @@ export function ScheduleTimeline<T extends DatedEntry>({
                 <div className="text-right pr-1">
                   <div
                     className="font-semibold uppercase tracking-wider leading-tight"
-                    style={{ color: "var(--muted)", fontSize: 9 }}
+                    style={{ color: "var(--muted)", fontSize: "0.625rem" }}
                   >
                     {t("tbdLabel")}
                   </div>

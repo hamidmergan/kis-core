@@ -121,7 +121,7 @@ export default function ScreencastStepper({
               >
                 <span
                   className={`
-                    inline-flex items-center justify-center w-6 h-6 sm:w-7 sm:h-7 rounded-full text-[10px] sm:text-xs font-medium transition-colors flex-shrink-0
+                    inline-flex items-center justify-center w-6 h-6 sm:w-7 sm:h-7 rounded-full text-3xs sm:text-xs font-medium transition-colors flex-shrink-0
                     ${isActive ? "bg-kb text-white" : ""}
                     ${isDone ? "bg-kb/20 text-kb" : ""}
                     ${isSkipped ? "bg-surface text-border" : ""}
@@ -159,7 +159,7 @@ export default function ScreencastStepper({
                   )}
                 </span>
                 <span
-                  className={`text-[10px] sm:text-xs whitespace-nowrap ${
+                  className={`text-3xs sm:text-xs whitespace-nowrap ${
                     isSkipped
                       ? "text-border line-through"
                       : isActive

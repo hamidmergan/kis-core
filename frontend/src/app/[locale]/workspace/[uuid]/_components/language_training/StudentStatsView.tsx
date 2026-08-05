@@ -234,7 +234,7 @@ export function StudentStatsView({ stats, loading, workspaceUuid, onNavigateToSe
                     {/* Row labels — fixed */}
                     <div className="flex flex-col flex-shrink-0" style={{ paddingTop: cellSize + gap + 2, width: labelsColWidth, marginRight: labelsMarginRight }}>
                       {weekdayLabels.map(d => (
-                        <div key={d} className="flex items-center justify-end text-[10px] font-medium" style={{ height: cellSize, marginBottom: gap, color: "var(--muted)" }}>{d}</div>
+                        <div key={d} className="flex items-center justify-end text-3xs font-medium" style={{ height: cellSize, marginBottom: gap, color: "var(--muted)" }}>{d}</div>
                       ))}
                     </div>
                     {/* Grid with month headers */}
@@ -242,7 +242,7 @@ export function StudentStatsView({ stats, loading, workspaceUuid, onNavigateToSe
                       {/* Month labels */}
                       <div className="flex" style={{ marginBottom: gap, width: "fit-content" }}>
                         {monthLabels.map((m, i) => (
-                          <div key={i} className="text-[10px] font-medium" style={{
+                          <div key={i} className="text-3xs font-medium" style={{
                             width: m.colSpan * (cellSize + gap) - gap,
                             marginRight: gap,
                             color: "var(--muted)",
@@ -279,7 +279,7 @@ export function StudentStatsView({ stats, loading, workspaceUuid, onNavigateToSe
                                   }}
                                   title={t("stats.answersTooltip", { date: formatDay(d.day), count: d.answers })}
                                 >
-                                  {showDayNums && <span className="text-[10px] font-medium" style={{ color: isDarkBg ? "#fff" : "var(--muted)" }}>{dayNum}</span>}
+                                  {showDayNums && <span className="text-3xs font-medium" style={{ color: isDarkBg ? "#fff" : "var(--muted)" }}>{dayNum}</span>}
                                 </button>
                               );
                             })}
@@ -294,11 +294,11 @@ export function StudentStatsView({ stats, loading, workspaceUuid, onNavigateToSe
 
             {/* Legend */}
             <div className="flex items-center justify-center gap-2 mt-2">
-              <span className="text-[10px]" style={{ color: "var(--muted)" }}>{t("stats.less")}</span>
+              <span className="text-3xs" style={{ color: "var(--muted)" }}>{t("stats.less")}</span>
               {[0, 0.25, 0.5, 0.75, 1].map((v, i) => (
                 <div key={i} className="rounded-[3px]" style={{ width: 14, height: 14, backgroundColor: v === 0 ? `rgba(${heatRgb},0.07)` : `rgba(${heatRgb},${0.15 + v * 0.70})` }} />
               ))}
-              <span className="text-[10px]" style={{ color: "var(--muted)" }}>{t("stats.more")}</span>
+              <span className="text-3xs" style={{ color: "var(--muted)" }}>{t("stats.more")}</span>
             </div>
           </>
         )}
@@ -341,7 +341,7 @@ export function StudentStatsView({ stats, loading, workspaceUuid, onNavigateToSe
                       <div style={{ width: `${pct}%`, backgroundColor: accent }} />
                       {s.wrong > 0 && <div style={{ width: `${100 - pct}%`, backgroundColor: "var(--border)" }} />}
                     </div>
-                    <div className="flex items-center justify-between mt-1 text-[9px]" style={{ color: "var(--muted)" }}>
+                    <div className="flex items-center justify-between mt-1 text-3xs" style={{ color: "var(--muted)" }}>
                       <span className="px-1 py-0.5 rounded" style={{
                         backgroundColor: (TOOL_COLORS[s.tool] || { bg: "var(--surface)" }).bg,
                         color: (TOOL_COLORS[s.tool] || { color: "var(--muted)" }).color,
@@ -357,7 +357,7 @@ export function StudentStatsView({ stats, loading, workspaceUuid, onNavigateToSe
                 <button
                   type="button"
                   onClick={() => setShowAllSets(v => !v)}
-                  className="w-full text-[11px] font-medium py-2 rounded-lg transition-colors hover:bg-[var(--surface-dim)] hover:text-kb"
+                  className="w-full text-2xs font-medium py-2 rounded-lg transition-colors hover:bg-[var(--surface-dim)] hover:text-kb"
                   style={{ color: "var(--muted)", backgroundColor: "var(--surface)" }}
                 >
                   {showAllSets ? t("stats.showLess") : t("stats.showMore", { count: dayDetail.sets.length - DAY_DETAIL_LIMIT })}

@@ -4,7 +4,7 @@ import {
   BookOpenText,
   Cards,
   ClockCounterClockwise,
-  Headphones,
+  Article,
   PencilLine,
   Question,
   Table,
@@ -28,7 +28,7 @@ const ACTIVITY_TOOL_ICONS: Record<string, React.ComponentType<any>> = {
   flashcards: BookOpenText,
   quiz: Question,
   grammatik: PencilLine,
-  hoerverstehen: Headphones,
+  hoerverstehen: Article,
   data_table: Table,
   mindmap: TreeStructure,
 };

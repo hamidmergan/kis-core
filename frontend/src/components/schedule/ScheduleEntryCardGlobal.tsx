@@ -40,7 +40,7 @@ export function ScheduleEntryCardGlobal({
     boxShadow: "0 1px 3px rgba(13,31,45,.04)",
     borderRadius: 12,
     padding: "12px 14px",
-    fontSize: 13,
+    fontSize: "0.75rem",
     display: "flex",
     alignItems: "flex-start",
     gap: 10,
@@ -93,7 +93,7 @@ export function ScheduleEntryCardGlobal({
           style={{
             color: entry.is_checked ? "var(--success-strong)" : "var(--foreground)",
             textDecoration: entry.is_checked ? "line-through" : "none",
-            fontSize: 14,
+            fontSize: "0.875rem",
           }}
         >
           {entry.title}
@@ -101,7 +101,7 @@ export function ScheduleEntryCardGlobal({
 
         {(entry.due_time || description) && (
           <div
-            className="mt-1 text-[11.5px] flex items-center gap-1.5 flex-wrap"
+            className="mt-1 text-2xs flex items-center gap-1.5 flex-wrap"
             style={{ color: "var(--muted)" }}
           >
             {entry.due_time && (
@@ -123,7 +123,7 @@ export function ScheduleEntryCardGlobal({
           style={{ borderTop: "1px dashed var(--border)" }}
         >
           <span
-            className="inline-flex items-center gap-1 text-[11px] font-medium px-2 py-0.5 rounded-full"
+            className="inline-flex items-center gap-1 text-2xs font-medium px-2 py-0.5 rounded-full"
             style={{
               backgroundColor: isOwned ? "rgba(var(--kb-rgb),0.12)" : "transparent",
               border: isOwned ? "none" : "1px solid var(--border)",

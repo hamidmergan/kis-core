@@ -33,7 +33,7 @@ export function MiniStrip({
         />
       </span>
       <span
-        className="text-[10px] font-semibold tracking-widest uppercase select-none"
+        className="text-3xs font-semibold tracking-widest uppercase select-none"
         style={{ writingMode: "vertical-rl", transform: "rotate(180deg)" }}
       >
         {label}

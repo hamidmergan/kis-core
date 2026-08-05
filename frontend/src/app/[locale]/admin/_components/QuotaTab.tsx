@@ -155,7 +155,7 @@ export default function QuotaTab({ targetUserId, onConsumed, onBack }: QuotaTabP
         )}
 
         <div className="border border-border-soft rounded-xl bg-background overflow-x-auto">
-          <table className="w-full min-w-[640px] text-sm">
+          <table className="w-full min-w-160 text-sm">
             <thead className="bg-surface border-b border-border-soft">
               <tr>
                 <th className="text-left px-4 py-3 text-xs font-medium text-muted">{t("quota.colTool")}</th>

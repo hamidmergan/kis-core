@@ -269,7 +269,7 @@ function FeatureRow({
         </div>
         <div className="flex flex-col gap-1.5 mt-1">
           {eligible.length === 0 ? (
-            <span className="text-[11.5px] text-muted-soft italic">{t("routes.noEligible")}</span>
+            <span className="text-2xs text-muted-soft italic">{t("routes.noEligible")}</span>
           ) : (
             eligible.map((p) => {
               const modelVal = route?.provider_models?.[String(p.id)] ?? "";
@@ -309,10 +309,10 @@ function FeatureRow({
           <p className="text-xs text-muted-soft mt-0.5">{t(`featureDesc.${feature}`)}</p>
           <TestStatusLine state={testState} />
         </div>
-        <div className="flex flex-col gap-2 sm:items-end sm:max-w-[460px]">
+        <div className="flex flex-col gap-2 sm:items-end sm:max-w-115">
           <div className="flex flex-wrap gap-2 items-center sm:justify-end">
             {eligible.length === 0 ? (
-              <span className="text-[11.5px] text-muted-soft italic">{t("routes.noEligible")}</span>
+              <span className="text-2xs text-muted-soft italic">{t("routes.noEligible")}</span>
             ) : (
               eligible.map((p) => {
                 const on = userChoices.includes(p.id);
@@ -335,7 +335,7 @@ function FeatureRow({
           </div>
           {primary && (
             <div className="flex flex-col gap-1.5 w-full sm:flex-row sm:items-center sm:gap-2">
-              <label className="text-[11px] text-muted-soft whitespace-nowrap sm:ml-auto">
+              <label className="text-2xs text-muted-soft whitespace-nowrap sm:ml-auto">
                 {t("routes.modelForPrimary", { name: primary.name })}
               </label>
               <div className="flex gap-2 items-center">
@@ -346,7 +346,7 @@ function FeatureRow({
                     onBlur={(e) => onChangeModel(e.target.value.trim() || null)}
                     placeholder={primaryNeedsModel ? t("routes.modelPlaceholder") : t("routes.modelOptional")}
                     spellCheck={false}
-                    className="flex-1 sm:flex-none sm:w-[180px] text-xs px-2 py-1.5 border-2 border-border rounded-md font-mono hover:border-kb focus:outline-none focus:border-kb bg-background"
+                    className="flex-1 sm:flex-none sm:w-45 text-xs px-2 py-1.5 border-2 border-border rounded-md font-mono hover:border-kb focus:outline-none focus:border-kb bg-background"
                   />
                 <TestButton state={testState} disabled={!canTest || testsLocked} onClick={onTest} />
               </div>
@@ -446,7 +446,7 @@ function TestButton({
 function TestStatusLine({ state }: { state: TestState }) {
   const t = useTranslations("admin.providers");
   if (state.kind === "ok") {
-    return <p className="text-[11px] text-success mt-1">{t("routes.testOk")}</p>;
+    return <p className="text-2xs text-success mt-1">{t("routes.testOk")}</p>;
   }
   if (state.kind === "warning") {
     const knownWarnings = new Set([
@@ -456,7 +456,7 @@ function TestStatusLine({ state }: { state: TestState }) {
     const msg = knownWarnings.has(state.message)
       ? t(`routes.testErrors.${state.message}` as Parameters<typeof t>[0])
       : state.message;
-    return <p className="text-[11px] text-warn mt-1">{msg}</p>;
+    return <p className="text-2xs text-warn mt-1">{msg}</p>;
   }
   if (state.kind === "error") {
     const knownCodes = new Set([
@@ -477,7 +477,7 @@ function TestStatusLine({ state }: { state: TestState }) {
         ? t("routes.testErrors.invalid_model", { model: invalidModel[1] })
         : state.message;
     }
-    return <p className="text-[11px] text-error mt-1">{msg}</p>;
+    return <p className="text-2xs text-error mt-1">{msg}</p>;
   }
   return null;
 }

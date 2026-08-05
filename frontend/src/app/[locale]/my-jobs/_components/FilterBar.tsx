@@ -41,7 +41,7 @@ export function FilterBar({
         value={q}
         onChange={(e) => onQChange(e.target.value)}
         placeholder={t("search")}
-        className="flex-1 min-w-[220px] text-sm border-2 border-border rounded-md px-3 py-2 bg-background transition-colors hover:border-kb focus:outline-none focus:ring-2 focus:ring-kb focus:border-kb"
+        className="flex-1 min-w-55 text-sm border-2 border-border rounded-md px-3 py-2 bg-background transition-colors hover:border-kb focus:outline-none focus:ring-2 focus:ring-kb focus:border-kb"
       />
       <Select
         value={toolFilter}

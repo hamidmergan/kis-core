@@ -182,7 +182,7 @@ export default function KiTutorTab() {
                               <span
                                 className={`w-2 h-2 rounded-full shrink-0 ${m.is_active ? "bg-success-border" : "bg-border"}`}
                               />
-                              <span className="font-medium text-foreground-soft truncate max-w-[200px]">
+                              <span className="font-medium text-foreground-soft truncate max-w-50">
                                 {m.title}
                               </span>
                             </div>

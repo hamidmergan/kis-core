@@ -118,7 +118,7 @@ export default function UsersTab({ onOpenQuota }: { onOpenQuota: (userId: number
           value={q}
           onChange={(e) => setQ(e.target.value)}
           placeholder={t("users.searchPlaceholder")}
-          className="flex-1 min-w-[200px] text-sm border border-border rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-kb"
+          className="flex-1 min-w-50 text-sm border border-border rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-kb"
         />
         <input
           type="date"

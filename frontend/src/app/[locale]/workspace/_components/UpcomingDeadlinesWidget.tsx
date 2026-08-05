@@ -131,7 +131,7 @@ export default function UpcomingDeadlinesWidget() {
 
       {!collapsed && (
         <div className="p-8 overflow-x-auto">
-          <div className="min-w-[600px]">
+          <div className="min-w-150">
             <ScheduleTimeline
               entries={entries}
               renderCard={(entry, ctx) => (

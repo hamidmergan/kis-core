@@ -119,7 +119,7 @@ export function FlashcardsLearnView({
           style={{ backgroundColor: "var(--surface-dim)" }}>
           <CaretLeft size={13} />
         </button>
-        {breadcrumbs && breadcrumbs.length > 0 ? (<div className="flex items-center gap-1 text-[12px] min-w-0 flex-1">{breadcrumbs.map((b, i) => { const bBadge = _getToolBadge(b.toolKey, isVocab ? "language_training" : "learning_tools"); return (<React.Fragment key={i}>{bBadge ? (<button type="button" onClick={b.onClick} className="font-medium shrink-0 px-1.5 py-0.5 rounded opacity-60 hover:opacity-100 transition-opacity" style={{ backgroundColor: bBadge.bg, color: bBadge.color }}>{b.label}</button>) : (<button type="button" onClick={b.onClick} className="font-medium shrink-0 opacity-60 hover:opacity-100 transition-opacity" style={{ color: "var(--muted)" }}>{b.label}</button>)}<CaretRight size={9} weight="bold" style={{ opacity: 0.5 }} className="shrink-0" /></React.Fragment>); })}<span className="font-semibold truncate" style={{ color: "var(--foreground)" }}>{exerciseSet.title.replace(/^(Lernkarten|Grammatik-Übung|Quiz)\s*(aus|von)\s*/i, "")}</span></div>) : (<span className="text-[12px] font-semibold flex-1 truncate" style={{ color: "var(--foreground)" }}>{exerciseSet.title.replace(/^(Lernkarten|Grammatik-Übung|Quiz)\s*(aus|von)\s*/i, "")}</span>)}
+        {breadcrumbs && breadcrumbs.length > 0 ? (<div className="flex items-center gap-1 text-xs min-w-0 flex-1">{breadcrumbs.map((b, i) => { const bBadge = _getToolBadge(b.toolKey, isVocab ? "language_training" : "learning_tools"); return (<React.Fragment key={i}>{bBadge ? (<button type="button" onClick={b.onClick} className="font-medium shrink-0 px-1.5 py-0.5 rounded opacity-60 hover:opacity-100 transition-opacity" style={{ backgroundColor: bBadge.bg, color: bBadge.color }}>{b.label}</button>) : (<button type="button" onClick={b.onClick} className="font-medium shrink-0 opacity-60 hover:opacity-100 transition-opacity" style={{ color: "var(--muted)" }}>{b.label}</button>)}<CaretRight size={9} weight="bold" style={{ opacity: 0.5 }} className="shrink-0" /></React.Fragment>); })}<span className="font-semibold truncate" style={{ color: "var(--foreground)" }}>{exerciseSet.title.replace(/^(Lernkarten|Grammatik-Übung|Quiz)\s*(aus|von)\s*/i, "")}</span></div>) : (<span className="text-xs font-semibold flex-1 truncate" style={{ color: "var(--foreground)" }}>{exerciseSet.title.replace(/^(Lernkarten|Grammatik-Übung|Quiz)\s*(aus|von)\s*/i, "")}</span>)}
         {minimize && (
           <button type="button" onClick={minimize}
             className="w-7 h-7 flex items-center justify-center rounded-full btn-icon"
@@ -241,7 +241,7 @@ export function FlashcardsLearnView({
                     </div>
                     {/* Definition */}
                     <div>
-                      <span className="text-[10px] font-bold uppercase tracking-widest" >{t("flashcardsLearn.definition")}</span>
+                      <span className="text-3xs font-bold uppercase tracking-widest" >{t("flashcardsLearn.definition")}</span>
                       <p className="text-base leading-relaxed mt-1" style={{ color: "var(--foreground)" }}>{definition}</p>
                     </div>
                     {/* Word parts */}
@@ -249,7 +249,7 @@ export function FlashcardsLearnView({
                       const parts = wordPartsExplained.split("|").map(p => p.trim()).filter(Boolean);
                       return (
                         <div className="px-3 py-2.5 rounded-xl" style={{ backgroundColor: "var(--surface-dim)" }}>
-                          <span className="text-[10px] font-bold uppercase tracking-widest" >{t("flashcardsLearn.wordParts")}</span>
+                          <span className="text-3xs font-bold uppercase tracking-widest" >{t("flashcardsLearn.wordParts")}</span>
                           <p className="text-base font-semibold mt-1.5" style={{ color: "var(--foreground)" }}>{wordParts}</p>
                           {parts.length > 0 && (
                             <div className="flex flex-col gap-1 mt-2">
@@ -294,7 +294,7 @@ export function FlashcardsLearnView({
                     {/* Context sentence */}
                     {exampleSentence && (
                       <div className="px-3 py-2.5 rounded-xl" style={{ border: "1px solid var(--border)" }}>
-                        <span className="text-[10px] font-bold uppercase tracking-widest" >{t("flashcardsLearn.example")}</span>
+                        <span className="text-3xs font-bold uppercase tracking-widest" >{t("flashcardsLearn.example")}</span>
                         <p className="text-sm italic leading-relaxed mt-1" style={{ color: "var(--foreground)" }}>{exampleSentence}</p>
                       </div>
                     )}
@@ -317,7 +317,7 @@ export function FlashcardsLearnView({
                             return (
                             <button key={si} type="button"
                               onClick={() => { if (onSourceClick) onSourceClick(s.source_label, s.page_number ?? 1, s.start_time); }}
-                              className="chip-cite inline-flex items-center gap-0.5 text-[10px] font-medium px-2 py-1 rounded-full border-none cursor-pointer transition-colors"
+                              className="chip-cite inline-flex items-center gap-0.5 text-3xs font-medium px-2 py-1 rounded-full border-none cursor-pointer transition-colors"
                               style={{ color: "var(--kb)", backgroundColor: "rgba(var(--kb-rgb),0.07)" }}>
                               <ChipIcon size={10} weight="bold" /> {sourceTag(s.source_label, srcNumbers)}{_chunkLabel(s.source_label, s.page_number ?? 1, s.start_time, (key, vals) => tChip(key, vals))}
                             </button>
@@ -368,7 +368,7 @@ export function FlashcardsLearnView({
                   border: "1px solid var(--border)",
                   boxShadow: "0 4px 20px rgba(0,0,0,0.07)",
                 }}>
-                  <span className="text-[9px] font-bold uppercase tracking-widest" >{t("flashcardsLearn.questionLabel")}</span>
+                  <span className="text-3xs font-bold uppercase tracking-widest" >{t("flashcardsLearn.questionLabel")}</span>
                   <p className="text-sm text-center leading-relaxed font-semibold" style={{ color: "var(--foreground)" }} dangerouslySetInnerHTML={{ __html: _md(card.front) }} />
                   <div className="absolute bottom-3 left-4 right-4 flex items-center justify-between">
                     <span />
@@ -388,7 +388,7 @@ export function FlashcardsLearnView({
                   backgroundColor: "var(--kb)",
                   boxShadow: "0 4px 20px rgba(var(--kb-rgb),0.2)",
                 }}>
-                  <span className="text-[9px] font-bold uppercase tracking-widest" style={{ color: "rgba(255,255,255,0.35)" }}>{t("flashcardsLearn.answerLabel")}</span>
+                  <span className="text-3xs font-bold uppercase tracking-widest" style={{ color: "rgba(255,255,255,0.35)" }}>{t("flashcardsLearn.answerLabel")}</span>
                   <p className="text-sm text-center leading-relaxed font-semibold" style={{ color: "white" }} dangerouslySetInnerHTML={{ __html: _md(card.back) }} />
                   {/* Chat button */}
                   <div className="absolute bottom-3 left-4 right-4 flex items-center justify-end">
@@ -405,7 +405,7 @@ export function FlashcardsLearnView({
               </div>
             </div>
             {/* Actions */}
-            <div className="flex flex-wrap items-center justify-center gap-3 min-h-[48px]">
+            <div className="flex flex-wrap items-center justify-center gap-3 min-h-12">
               {flipped ? (
                 <>
                   <button key="again" type="button" onClick={() => answer(false)} title={t("common.again")}
@@ -447,7 +447,7 @@ export function FlashcardsLearnView({
                       return (
                       <button key={si} type="button"
                         onClick={() => { if (onSourceClick) onSourceClick(s.source_label, s.page_number ?? 1, s.start_time); }}
-                        className="chip-cite inline-flex items-center gap-0.5 text-[10px] font-medium px-2 py-1 rounded-full border-none cursor-pointer transition-colors"
+                        className="chip-cite inline-flex items-center gap-0.5 text-3xs font-medium px-2 py-1 rounded-full border-none cursor-pointer transition-colors"
                         style={{ color: "var(--kb)", backgroundColor: "rgba(var(--kb-rgb),0.07)" }}>
                         <ChipIcon size={10} weight="bold" /> {sourceTag(s.source_label, srcNumbers)}{_chunkLabel(s.source_label, s.page_number ?? 1, s.start_time, (key, vals) => tChip(key, vals))}
                       </button>

@@ -90,6 +90,9 @@ jobs:
       - name: i18n key parity
         run: npm run check:i18n
 
+      - name: No hard-coded pixel font sizes
+        run: npm run check:units
+
       - name: Run tests with coverage
         run: npx vitest run --coverage
 

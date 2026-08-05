@@ -127,7 +127,7 @@ export function VoicesEditor({ voices, onChange, baseUrl, apiKey, voicesPath, on
                     <span className="text-xs text-muted-soft truncate max-w-[6rem]">{v.name}</span>
                   )}
                   {v.language && (
-                    <span className="text-[10px] text-muted bg-surface border border-border px-1.5 py-0.5 rounded font-mono shrink-0">
+                    <span className="text-3xs text-muted bg-surface border border-border px-1.5 py-0.5 rounded font-mono shrink-0">
                       {v.language}
                     </span>
                   )}
@@ -162,14 +162,14 @@ export function VoicesEditor({ voices, onChange, baseUrl, apiKey, voicesPath, on
                   >
                     ✕
                   </button>
-                  <span className="text-muted-soft text-[10px] shrink-0">{isOpen ? "▲" : "▼"}</span>
+                  <span className="text-muted-soft text-3xs shrink-0">{isOpen ? "▲" : "▼"}</span>
                 </div>
 
                 {/* Expanded edit fields */}
                 {isOpen && (
                   <div className="px-3 pb-3 pt-2 grid grid-cols-2 gap-2 bg-surface/30 border-t border-border">
                     <div className="space-y-1">
-                      <label className="text-[10px] text-muted uppercase tracking-wide">
+                      <label className="text-3xs text-muted uppercase tracking-wide">
                         {t("voices.colVoiceId")} *
                       </label>
                       <input
@@ -180,7 +180,7 @@ export function VoicesEditor({ voices, onChange, baseUrl, apiKey, voicesPath, on
                       />
                     </div>
                     <div className="space-y-1">
-                      <label className="text-[10px] text-muted uppercase tracking-wide">
+                      <label className="text-3xs text-muted uppercase tracking-wide">
                         {t("voices.colName")}
                       </label>
                       <input
@@ -191,7 +191,7 @@ export function VoicesEditor({ voices, onChange, baseUrl, apiKey, voicesPath, on
                       />
                     </div>
                     <div className="space-y-1">
-                      <label className="text-[10px] text-muted uppercase tracking-wide">
+                      <label className="text-3xs text-muted uppercase tracking-wide">
                         {t("voices.colLang")}
                       </label>
                       <input
@@ -202,7 +202,7 @@ export function VoicesEditor({ voices, onChange, baseUrl, apiKey, voicesPath, on
                       />
                     </div>
                     <div className="space-y-1">
-                      <label className="text-[10px] text-muted uppercase tracking-wide">
+                      <label className="text-3xs text-muted uppercase tracking-wide">
                         {t("voices.colDesc")}
                       </label>
                       <input
@@ -224,7 +224,7 @@ export function VoicesEditor({ voices, onChange, baseUrl, apiKey, voicesPath, on
         <div className="border border-border rounded-md p-3 space-y-2">
           <div className="grid grid-cols-2 gap-2">
             <div className="space-y-1">
-              <label className="text-[10px] text-muted uppercase tracking-wide">
+              <label className="text-3xs text-muted uppercase tracking-wide">
                 {t("voices.colVoiceId")} *
               </label>
               <input
@@ -236,7 +236,7 @@ export function VoicesEditor({ voices, onChange, baseUrl, apiKey, voicesPath, on
               />
             </div>
             <div className="space-y-1">
-              <label className="text-[10px] text-muted uppercase tracking-wide">
+              <label className="text-3xs text-muted uppercase tracking-wide">
                 {t("voices.colName")}
               </label>
               <input
@@ -247,7 +247,7 @@ export function VoicesEditor({ voices, onChange, baseUrl, apiKey, voicesPath, on
               />
             </div>
             <div className="space-y-1">
-              <label className="text-[10px] text-muted uppercase tracking-wide">
+              <label className="text-3xs text-muted uppercase tracking-wide">
                 {t("voices.colLang")}
               </label>
               <input
@@ -258,7 +258,7 @@ export function VoicesEditor({ voices, onChange, baseUrl, apiKey, voicesPath, on
               />
             </div>
             <div className="space-y-1">
-              <label className="text-[10px] text-muted uppercase tracking-wide">
+              <label className="text-3xs text-muted uppercase tracking-wide">
                 {t("voices.colDesc")}
               </label>
               <input
@@ -268,7 +268,7 @@ export function VoicesEditor({ voices, onChange, baseUrl, apiKey, voicesPath, on
               />
             </div>
           </div>
-          <p className="text-[10px] text-muted-soft">{t("voices.langHint")}</p>
+          <p className="text-3xs text-muted-soft">{t("voices.langHint")}</p>
           <div className="flex gap-2 pt-1">
             <button
               type="button"
