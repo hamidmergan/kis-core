@@ -151,6 +151,30 @@ TTS_TIME_LIMIT                  = 5520   # 92 min, SIGKILL fallback
 SCREENCAST_SOFT_TIME_LIMIT      = 7200   # 120 min, SoftTimeLimitExceeded -> Job sauber auf failed
 SCREENCAST_TIME_LIMIT           = 7320   # 122 min, SIGKILL als letzte Instanz
 
+# Die Werkzeuge des KI-Tutors. Sie standen als nackte Zahlen in den Task-Dekoratoren,
+# jeder Wert an einer anderen Stelle.
+#
+# Ein Übungs-Set ist nicht ein Modell-Aufruf, sondern eine Kette: Generierung, beim
+# Grammatik-Quiz ein zweiter Wurf, ein Nachschlag für übersprungene Abschnitte und
+# zuletzt der Titel. Bei fünf Quellen sind das vier bis fünf Aufrufe hintereinander.
+#
+# Gemessen am 2026-08-05 über sieben Sets auf einer schnellen Maschine: 7, 10, 21, 24,
+# 47, 61 und 74 Sekunden. Der schlechteste Lauf verbrauchte also schon 74 der alten 120
+# Sekunden, und das an einem guten Tag. Das Schreibtempo des Anbieters schwankt gemessen
+# um den Faktor 25 (4 bis 200 Zeichen/s), damit reißt derselbe Lauf die alte Grenze ohne
+# jeden Fehler im Code. Ein Zeitüberlauf wirft die ganze Arbeit weg, deshalb jetzt so
+# grosszügig wie die Mindmap, die dieselbe Art Arbeit macht.
+#
+# Der Preis ist gering: der Arbeiter skaliert bis 16 Prozesse, ein hängender Auftrag
+# blockiert einen davon.
+AIA_TOOL_SOFT_TIME_LIMIT        = 300    # 5 min, SoftTimeLimitExceeded -> Set sauber auf failed
+AIA_TOOL_TIME_LIMIT             = 360    # 6 min, SIGKILL als letzte Instanz
+
+# Der Zeitplan geht über den ganzen Kurs statt über einen Satz Aufgaben und braucht
+# deshalb mehr Luft als die übrigen Werkzeuge.
+AIA_SCHEDULE_SOFT_TIME_LIMIT    = 600    # 10 min
+AIA_SCHEDULE_TIME_LIMIT         = 720    # 12 min
+
 # --- AI tutor source limits -------------------------------------------------
 AIA_SOURCE_MAX_PAGES                = 200     # max pages per PDF/DOCX/PPTX upload;
 # lange Skripte kapitelweise hochladen. Bis ~200 S. bleibt eine Quelle handhabbar; sehr

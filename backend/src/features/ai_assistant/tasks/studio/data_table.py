@@ -4,6 +4,7 @@ from langfuse.decorators import observe
 from loguru import logger
 
 from src.celery_app import celery_app
+from src.limits import AIA_TOOL_SOFT_TIME_LIMIT, AIA_TOOL_TIME_LIMIT
 from src import database as db
 
 from src.features.ai_assistant.tasks._helpers import (
@@ -12,7 +13,7 @@ from src.features.ai_assistant.tasks._helpers import (
 )
 
 @celery_app.task(bind=True, name="aia.generate_data_table", queue="aia",
-                 soft_time_limit=120, time_limit=180)
+                 soft_time_limit=AIA_TOOL_SOFT_TIME_LIMIT, time_limit=AIA_TOOL_TIME_LIMIT)
 @observe(name="aia-data_table")
 def run_generate_data_table(self, data_table_id: int, source_ids: list[int],
                               source_uuids: list[str], source_map: dict,

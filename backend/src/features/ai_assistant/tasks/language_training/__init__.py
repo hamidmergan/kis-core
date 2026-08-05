@@ -9,6 +9,7 @@ from loguru import logger
 
 from src import database as db
 from src.celery_app import celery_app
+from src.limits import AIA_TOOL_SOFT_TIME_LIMIT, AIA_TOOL_TIME_LIMIT
 from src.features.ai_assistant.tasks._helpers import _get_llm_client
 from src.services.aia_adaptive_tools import build_adaptive_tool_suffix
 from src.services.aia_grammar_types import get_grammar_type
@@ -45,7 +46,7 @@ from src.features.ai_assistant.tasks.language_training._variation import (
 
 
 @celery_app.task(bind=True, name="aia.generate_exercise_set", queue="aia",
-                 soft_time_limit=120, time_limit=180)
+                 soft_time_limit=AIA_TOOL_SOFT_TIME_LIMIT, time_limit=AIA_TOOL_TIME_LIMIT)
 @observe(name="aia-exercise-set")
 def run_generate_exercise_set(self, set_id: int, workspace_id: int, tool: str,
                               mode: str, count: int, source_uuid: str | None = None,

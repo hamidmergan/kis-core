@@ -14,6 +14,7 @@ from loguru import logger
 
 from src import database as db
 from src.celery_app import celery_app
+from src.limits import AIA_SCHEDULE_SOFT_TIME_LIMIT, AIA_SCHEDULE_TIME_LIMIT
 from src.features.ai_assistant.tasks._helpers import _get_llm_client
 
 from src.features.ai_assistant.tasks.studio.schedule._candidates import (
@@ -32,7 +33,7 @@ from src.features.ai_assistant.tasks.studio.schedule._titles import _fuzzy_same
 
 
 @celery_app.task(bind=True, name="aia.generate_schedule", queue="aia",
-                 soft_time_limit=600, time_limit=720)
+                 soft_time_limit=AIA_SCHEDULE_SOFT_TIME_LIMIT, time_limit=AIA_SCHEDULE_TIME_LIMIT)
 @observe(name="aia-schedule")
 def run_generate_schedule(self, job_id: int, workspace_id: int, user_id: int,
                           source_uuids: list[str]):

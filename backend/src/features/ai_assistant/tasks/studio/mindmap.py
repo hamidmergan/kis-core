@@ -4,12 +4,13 @@ from langfuse.decorators import langfuse_context, observe
 from loguru import logger
 
 from src.celery_app import celery_app
+from src.limits import AIA_TOOL_SOFT_TIME_LIMIT, AIA_TOOL_TIME_LIMIT
 from src import database as db
 from src.tool_prompts import AIA_MINDMAP_PROMPT
 from src.services.aia_adaptive_tools import build_adaptive_tool_suffix
 
 @celery_app.task(bind=True, name="aia.generate_mindmap", queue="aia",
-                 soft_time_limit=300, time_limit=360)
+                 soft_time_limit=AIA_TOOL_SOFT_TIME_LIMIT, time_limit=AIA_TOOL_TIME_LIMIT)
 @observe(name="aia-mindmap")
 def run_generate_mindmap(self, mindmap_id: int, source_ids: list[int], source_uuids: list[str],
                           locale: str = "de", _aia_job_uuid: str | None = None,
