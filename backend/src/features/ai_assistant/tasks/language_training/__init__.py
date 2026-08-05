@@ -171,14 +171,24 @@ def run_generate_exercise_set(self, set_id: int, workspace_id: int, tool: str,
                         set_id, len(gap_uuids), len(ctx.sections),
                     )
                     need = per_section_quota(len(ctx.sections), count) * len(gap_uuids)
-                    gap_ctx = build_source_context(gap_uuids, tool, count=need)
-                    if gap_ctx is not None:
-                        extra, _, _ = generate(gap_ctx, need)
-                        if extra:
-                            # The top-up numbers its own sections from 1, so its claims
-                            # have to be translated back before the two runs are merged.
-                            remap_sections(extra, gap_ctx, ctx)
-                            items = rebalance_to_count(items + extra, count)
+                    # Der Nachschlag ist eine Verbesserung und keine Voraussetzung. Er lief
+                    # bis 2026-08-05 im selben try wie alles andere und hat ein Set mit 14
+                    # fertigen Aufgaben mitgerissen, als sein Aufruf an einer Störung
+                    # scheiterte. Was fertig ist, wird gespeichert.
+                    try:
+                        gap_ctx = build_source_context(gap_uuids, tool, count=need)
+                        if gap_ctx is not None:
+                            extra, _, _ = generate(gap_ctx, need)
+                            if extra:
+                                # The top-up numbers its own sections from 1, so its claims
+                                # have to be translated back before the two runs are merged.
+                                remap_sections(extra, gap_ctx, ctx)
+                                items = rebalance_to_count(items + extra, count)
+                    except Exception as e:
+                        logger.warning(
+                            "KI Tutor: set {} top-up failed, keeping the {} items already "
+                            "generated: {}", set_id, len(items), e,
+                        )
 
         if not items:
             db.fail_exercise_set(set_id)
@@ -188,7 +198,13 @@ def run_generate_exercise_set(self, set_id: int, workspace_id: int, tool: str,
         # That call sees the whole document and keeps naming the document, and it is also
         # blind to a set that is still generating, so two sets started seconds apart both
         # came out with the same name. By now the other set is finished and visible.
-        title = resolve_set_title(client, model, workspace_id, tool, title, items)
+        #
+        # Auch das ist Kosmetik: ein Set mit vorläufigem Namen ist brauchbar, ein
+        # verlorenes Set nicht.
+        try:
+            title = resolve_set_title(client, model, workspace_id, tool, title, items)
+        except Exception as e:
+            logger.warning("KI Tutor: set {} keeps its provisional title: {}", set_id, e)
 
         db.finalize_exercise_set(set_id, title, items, header=header)
         logger.info("KI Tutor: exercise set {} generated ({} items)", set_id, len(items))

@@ -23,11 +23,16 @@ def _get_llm_client():
     from langfuse.openai import OpenAI
     from src.dependencies import _resolve_llm_provider
     _api_key, _base_url, _model, _provider = _resolve_llm_provider()
+    from src.features.ai_assistant.tasks._retry import RetryingClient
+    # max_retries=0 bleibt: die eingebaute Wiederholung des SDK unterscheidet nicht
+    # zwischen einer abgerissenen Verbindung und einer Absage wegen Überlastung, und
+    # eine 429 nachzuschlagen verschärft den hochschulweit geteilten Engpass. Die
+    # Unterscheidung trifft RetryingClient.
     client = OpenAI(api_key=_api_key, base_url=_base_url, max_retries=0, timeout=120)
     langfuse_context.update_current_observation(
         metadata={"provider": _provider, "base_url": _base_url, "model": _model},
     )
-    return client, _model, _provider
+    return RetryingClient(client), _model, _provider
 
 
 def _clean_llm_json(text: str) -> str:
