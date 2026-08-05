@@ -145,18 +145,17 @@ def run_index_source(self, source_uuid: str, locale: str = "de", _aia_job_uuid: 
                 )
                 chunk_ids.append(chunk_id)
 
-            # 7. Embed chunks. Batch size = admin-tunable chunks-per-request; each
-            # loop pass = one embedding request → fewer hits against the shared
-            # GWDG rate limit. Capped by the provider's _BATCH_SIZE ceiling.
+            # 7. Embed chunks. Die Schleife schreibt stückweise in die Datenbank und
+            # meldet Fortschritt, sie hält also den Speicher klein (bei 2560 Maßen
+            # sind 1000 Vektoren rund 20 MB). Wie viele Texte wirklich in EINEN
+            # Aufruf gehen, entscheidet der Client selbst: er startet bei
+            # AIA_EMBEDDING_BATCH_SIZE und halbiert, wenn der Endpunkt ablehnt.
             db.update_aia_source_progress(source_uuid, "embedding")
             _t_embed = time.monotonic()
             from src.limits import AIA_EMBEDDING_BATCH_SIZE
-            _EMBED_BATCH = int(
-                db.get_setting("aia_embedding_batch_size", str(AIA_EMBEDDING_BATCH_SIZE))
-            )
-            for i in range(0, len(chunks), _EMBED_BATCH):
-                batch_chunks = chunks[i: i + _EMBED_BATCH]
-                batch_ids = chunk_ids[i: i + _EMBED_BATCH]
+            for i in range(0, len(chunks), AIA_EMBEDDING_BATCH_SIZE):
+                batch_chunks = chunks[i: i + AIA_EMBEDDING_BATCH_SIZE]
+                batch_ids = chunk_ids[i: i + AIA_EMBEDDING_BATCH_SIZE]
                 texts = [c["content"] for c in batch_chunks]
                 vectors = provider.embed(texts)
                 if fingerprint is None and vectors:

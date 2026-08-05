@@ -12,6 +12,38 @@ from abc import ABC, abstractmethod
 
 from loguru import logger
 
+from src.limits import AIA_EMBEDDING_BATCH_SIZE
+
+# Wie oft ein zu grosser Stapel hoechstens halbiert wird, bevor der Aufruf
+# aufgibt. 3 reicht von 1000 bis 125 herunter und deckt jeden Anbieter ab, der
+# eine Eingabegrenze in dieser Groessenordnung hat. Die Schranke ist wichtig,
+# damit ein dauerhaft kaputter Endpunkt nicht hunderte Anfragen absetzt.
+_MAX_SHRINKS = 3
+# Pause vor dem zweiten Versuch, wenn das Kontingent des Anbieters voll ist.
+_RATE_LIMIT_PAUSE_SECONDS = 3
+
+# Vom Endpunkt gelernte Stapelgroessen, Schluessel ist (base_url, model).
+# Der Provider wird pro Upload neu gebaut, das Gedaechtnis lebt im Worker-
+# Prozess. Sonst wuerde jede Quelle die Grenze neu ertasten und dabei Aufrufe
+# am geteilten Rate-Limit verbrennen. Eingetragen wird nur eine Groesse, die der
+# Endpunkt wirklich angenommen hat, damit eine voruebergehende Stoerung den Wert
+# nicht dauerhaft nach unten zieht.
+_learned_batch_size: dict[tuple[str, str], int] = {}
+
+
+def _is_rate_limited(e: Exception) -> bool:
+    """True, wenn die Absage am vollen Kontingent liegt und nicht an der Groesse.
+
+    Der Unterschied entscheidet ueber die Reaktion: bei "zu gross" hilft ein
+    kleinerer Stapel, beim Rate-Limit macht Halbieren alles schlimmer, weil aus
+    einer Anfrage zwei werden. Die Zeichenpruefung faengt Proxys ab, die den
+    Statuscode nur in den Text schreiben.
+    """
+    if getattr(e, "status_code", None) == 429:
+        return True
+    text = str(e).lower()
+    return "429" in text or "rate limit" in text
+
 
 class EmbeddingProvider(ABC):
     @abstractmethod
@@ -35,13 +67,6 @@ class OpenAICompatEmbeddingProvider(EmbeddingProvider):
     multiple deployments are different instances of this same class.
     """
 
-    # Chunks (input texts) per embedding request. Higher = fewer requests against
-    # the shared GWDG rate limit (2/s, 15/min for the whole university). Measured
-    # safe on myLab qwen3-embedding-4b: 1000 OK (~13s), 2000 → 502. Each chunk is
-    # tiny (~300 tok, well under the model's 40k/input limit), so a full 1000-batch
-    # is fine. NOTE: the ingest loop's _EMBED_BATCH must be >= this to take effect.
-    _BATCH_SIZE = 1000
-
     def __init__(self, base_url: str, api_key: str, model: str) -> None:
         from langfuse.openai import OpenAI
         # 60s timeout: covers cold-start model loads on the first request after
@@ -49,25 +74,58 @@ class OpenAICompatEmbeddingProvider(EmbeddingProvider):
         # callers wrap this in to_thread so the event loop stays free.
         self._client = OpenAI(api_key=api_key, base_url=base_url, timeout=60.0)
         self._model = model
+        self._key = (base_url, model)
+
+    def _request(self, batch: list[str]) -> list[list[float]]:
+        """Ein Aufruf gegen den Endpunkt. Eigene Methode, damit die Stapel-Logik
+        in ``embed`` ohne echtes Netz pruefbar ist."""
+        response = self._client.embeddings.create(model=self._model, input=batch)
+        return [item.embedding for item in response.data]
 
     def embed(self, texts: list[str]) -> list[list[float]]:
+        """Embed texts, so wenige Aufrufe wie moeglich.
+
+        Die Stapelgroesse ist keine Einstellung, sondern wird am Endpunkt
+        gemessen. Start ist der fuer myLab qwen3-embedding-4b gemessene Wert
+        (1000 geht, 2000 laeuft in ein 502). Lehnt ein anderer Anbieter das ab,
+        halbiert der Aufruf und merkt sich die Groesse, die durchging.
+        """
+        size = _learned_batch_size.get(self._key, AIA_EMBEDDING_BATCH_SIZE)
         results: list[list[float]] = []
-        for i in range(0, len(texts), self._BATCH_SIZE):
-            batch = texts[i: i + self._BATCH_SIZE]
-            for attempt in range(2):
-                try:
-                    response = self._client.embeddings.create(
-                        model=self._model,
-                        input=batch,
+        pending = list(texts)
+        shrinks = 0
+
+        while pending:
+            batch = pending[:size]
+            try:
+                vectors = self._request(batch)
+            except Exception as e:
+                if _is_rate_limited(e):
+                    logger.warning(
+                        "Embedding: Kontingent voll bei {} Eingaben ({}), neuer Versuch in {}s",
+                        len(batch), e, _RATE_LIMIT_PAUSE_SECONDS,
                     )
-                    results.extend(item.embedding for item in response.data)
-                    break
-                except Exception as e:
-                    if attempt == 0:
-                        logger.warning("Embedding batch {}/{} failed (attempt 1): {} - retrying in 3s", i, len(texts), e)
-                        time.sleep(3)
-                    else:
-                        raise RuntimeError(f"Embedding request failed: {e}") from e
+                    time.sleep(_RATE_LIMIT_PAUSE_SECONDS)
+                    try:
+                        vectors = self._request(batch)
+                    except Exception as e2:
+                        raise RuntimeError(f"Embedding request failed: {e2}") from e2
+                elif size > 1 and shrinks < _MAX_SHRINKS:
+                    shrinks += 1
+                    size = max(1, size // 2)
+                    logger.warning(
+                        "Embedding: Endpunkt lehnt {} Eingaben ab ({}), neuer Versuch mit {}",
+                        len(batch), e, size,
+                    )
+                    continue
+                else:
+                    raise RuntimeError(f"Embedding request failed: {e}") from e
+
+            results.extend(vectors)
+            pending = pending[len(batch):]
+            if _learned_batch_size.get(self._key) != size:
+                _learned_batch_size[self._key] = size
+
         return results
 
 
