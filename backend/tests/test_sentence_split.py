@@ -1,6 +1,6 @@
 """Language-agnostic sentence splitter for per-sentence citation attribution.
 
-Prose answers (NotebookLM style) attach a source chip AFTER EACH SENTENCE, so the
+Prose answers attach a source chip AFTER EACH SENTENCE, so the
 attribution needs sentence boundaries. The splitter favours PRECISION over recall:
 a MISSED split just leaves two sentences sharing one chip (the old block behaviour,
 no regression), but a FALSE split would drop a chip into the middle of a sentence.

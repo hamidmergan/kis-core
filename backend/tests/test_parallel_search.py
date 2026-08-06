@@ -1,6 +1,6 @@
 """Concurrent pre-search for post-hoc citation attribution.
 
-The per-sentence NotebookLM chips search the DB once per sentence/clause. Done
+The per-sentence chips search the DB once per sentence/clause. Done
 sequentially that is the dominant cost of the post-answer pause (measured ~13.7s
 of a ~15.3s pause). The searches hit LOCAL Postgres (not the rate-limited GWDG
 embed API), so they can run concurrently. ``_parallel_search`` runs one search

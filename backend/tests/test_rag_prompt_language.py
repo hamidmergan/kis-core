@@ -39,20 +39,23 @@ def test_system_prompt_enforces_source_terminology():
 
 def test_system_prompt_defaults_to_mixed_prose_and_bullets():
     sp = aia_system_rag("de")
-    # NotebookLM style: the default is a MIX of short prose and bullets, decided from the
+    # The default is a MIX of short prose and bullets, decided from the
     # request in ANY language (no keyword list), NOT bullets-only. Pure bullets or pure
     # prose only when the request itself calls for it.
     assert "MIX OF SHORT PROSE AND BULLETS" in sp
     assert "PURE bullets" in sp and "PURE continuous prose" in sp
-    # The atomic-fact-per-unit rule survives so each sentence/bullet gets its own chip.
-    assert "ONE ATOMIC FACT PER SENTENCE AND PER BULLET" in sp
+    # Unrelated topics still stay in separate sentences so each one can be linked to its own
+    # passage — but the rule must NOT chop a statement and its qualifiers into a chain of
+    # short sentences. That chain was what produced a chip behind every five words.
+    assert "KEEP UNRELATED FACTS APART, BUT DO NOT CHOP UP RELATED ONES" in sp
+    assert "chain of short sentences that all open the same way" in sp
     # No separate, redundant summary block; the old bullets-only default is gone.
     assert "SEPARATE, redundant summary" in sp
     assert "DEFAULT TO BULLET POINTS" not in sp
 
 
 def test_overview_mode_is_prose_first_not_a_bullet_dump():
-    # NotebookLM style: a GENERIC overview must be a FLOWING PROSE briefing that weaves the
+    # A GENERIC overview must be a FLOWING PROSE briefing that weaves the
     # sources together, with bullets/tables only for genuine lists — NOT reduced to a
     # per-document bullet list. The old bullet-forcing wording ("2-4 bullets", "1-2 bullets
     # per source", "document by document") is what made "Überblick" come out as pure bullets.
