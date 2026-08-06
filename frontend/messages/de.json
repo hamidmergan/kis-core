@@ -765,7 +765,7 @@
       },
       "system": {
         "label": "System",
-        "sub": "Sperrt die Plattform. Wird auch für den Reindex gebraucht."
+        "sub": "Was für die ganze Plattform gilt."
       },
       "mascot": {
         "label": "Maskottchen",

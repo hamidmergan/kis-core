@@ -765,7 +765,7 @@
       },
       "system": {
         "label": "System",
-        "sub": "Locks the platform. Also needed for the reindex."
+        "sub": "What applies to the whole platform."
       },
       "mascot": {
         "label": "Mascots",
