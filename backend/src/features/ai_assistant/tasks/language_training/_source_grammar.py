@@ -30,7 +30,8 @@ _SHAPE = (
     '  {"kind": "transform", "before": "Sentence in the original form", '
     '"after": "The same sentence transformed", "explanation": "...", "page": 12},\n'
     '  {"kind": "cloze", "sentence": "Sentence with the target form replaced by ___", '
-    '"answer": "What belongs in the gap", "explanation": "...", "page": 12},\n'
+    '"answer": "What belongs in the gap", "options": ["...", "...", "...", "..."], '
+    '"correct_idx": 0, "explanation": "...", "page": 12},\n'
     '  {"kind": "statement", "statement": "A sentence that either shows the target '
     'form correctly or gets it wrong", "answer": true, "explanation": "...", '
     '"page": 12},\n'
@@ -49,18 +50,49 @@ _VERDICT_LABELS = {"de": ("Richtig", "Falsch"), "en": ("True", "False")}
 # Aussage und damit nicht umformbar, egal in welcher Sprache.
 _QUESTION_MARKS = "?？؟;՞।"
 
-# Die Anweisung an den Lernenden. Sie nennt die Zielform bewusst NICHT, sie zeigt
-# sie: darunter steht das Musterpaar. Wortlaut vom Sprachenzentrum, wie auf dem
-# Papier-Arbeitsblatt. Früher hing sie am Katalogeintrag, aber sie war dort für
-# jedes Thema dieselbe.
-_INSTRUCTION = {
-    "de": "Bitte transformiere nach folgendem Muster:",
-    "en": "Please transform according to the following pattern:",
+# Die Anweisung an den Lernenden, je Format eine.
+#
+# Sie steht AN der Aufgabe und nicht mehr über dem Set: ein gemischtes Set hat keine
+# gemeinsame Anweisung, denn Umformen, Ergänzen und Ankreuzen sind verschiedene
+# Tätigkeiten. Ohne sie sieht der Lernende einen nackten Satz und weiss nicht, was er
+# tun soll, auch nicht mit Eingabefeld davor. Genau so gemeldet am 2026-08-05.
+#
+# Anders als früher nennt sie die Zielform ausdrücklich. Der alte Wortlaut ("nach
+# folgendem Muster") zeigte auf ein Musterpaar über dem Set, das es nicht mehr gibt.
+_TASK_LINES = {
+    "de": {
+        "transform": "Setze den Satz ins {form}.",
+        "cloze": "Ergänze das fehlende Wort im {form}.",
+        "statement": "Steht der Satz korrekt im {form}?",
+        "choice": "Welcher Satz steht korrekt im {form}?",
+    },
+    "en": {
+        "transform": "Rewrite the sentence in the {form}.",
+        "cloze": "Fill in the missing word in the {form}.",
+        "statement": "Is the sentence correct in the {form}?",
+        "choice": "Which sentence is correct in the {form}?",
+    },
 }
+
+
+def task_line(kind: str, locale: str, target_form: str) -> str:
+    """Die Anweisung für ein Format, in der Sprache des Sets.
+
+    Sie wird immer gesetzt, auch wenn das Modell eine eigene liefert: eine fehlende
+    Anweisung macht die Aufgabe unlösbar, das darf nicht vom Modell abhängen.
+    """
+    lines = _TASK_LINES.get(locale, _TASK_LINES["en"])
+    return lines.get(kind, lines["transform"]).replace("{form}", target_form)
 
 # Unter dieser Quote gilt ein Durchlauf als misslungen: lieber ein fehlgeschlagenes
 # Set als eine Übung, in der die Hälfte der Aufgaben unlösbar ist.
 _MIN_USABLE_RATIO = 0.5
+
+# Bis zu drei Wuerfe, damit die bestellte Anzahl zusammenkommt. Die Filter werfen
+# weg, und wer zehn Aufgaben bestellt, will zehn. Mehr als drei bringt nichts: das
+# Anfragen-Kontingent ist hochschulweit geteilt, und wer dreimal nichts Brauchbares
+# liefert, liefert es beim vierten Mal auch nicht.
+_MAX_ATTEMPTS = 3
 
 # Die vier Darreichungsformen, in dieser Reihenfolge reihum verteilt. Das Format war
 # früher eine Wahl im Dialog, ist aber kein Thema, sondern eine Darreichungsform. Ein
@@ -85,6 +117,10 @@ _MIN_OPTION_OVERLAP = 0.5
 # So wird eine Lücke geschrieben. Ein einzelnes Zeichen wäre im Fließtext nicht zu
 # erkennen, drei Unterstriche sind es.
 GAP = "___"
+
+# Satzenden quer über Schriftsysteme. Steht eines direkt vor der Lücke, ist der Satz
+# fertig und die Lücke hängt nur hinten dran.
+_SENTENCE_ENDS = ".!?…。！？۔।"
 
 
 def item_plan(count: int) -> list[str]:
@@ -115,26 +151,71 @@ def generate_grammar_from_source(
     target_form = grammar_type["label"]
     shipped_example = grammar_type["example"]
     plan = item_plan(count)
-    prompt = (
-        _build_prompt(grammar_type, target_form, shipped_example, plan, language)
-        + adaptive_suffix + title_avoidance + coverage
-    )
-    messages = [
-        {"role": "system", "content": prompt},
-        {"role": "user", "content": f"Write the output in {language}.\n\nSources:\n\n{ctx.context}"},
-    ]
-    # Same temperature as the MC tools: enough wording variety, still JSON-safe. The real
-    # variation across runs comes from the rotating page subset in build_source_context.
-    response = client.chat.completions.create(model=model, messages=messages, temperature=0.6)
-    data = json.loads(_clean_llm_json(response.choices[0].message.content or ""))
+    user_msg = f"Write the output in {language}.\n\nSources:\n\n{ctx.context}"
 
-    exercises = list(data.get("exercises") or [])[:count]
-    items, claims = _build_items(exercises, locale, shipped_example)
+    def messages_for(wanted: list[str]) -> list[dict]:
+        prompt = (
+            _build_prompt(grammar_type, target_form, shipped_example, wanted, language)
+            + adaptive_suffix + title_avoidance + coverage
+        )
+        return [{"role": "system", "content": prompt},
+                {"role": "user", "content": user_msg}]
+    # Ein zweiter Wurf, wenn der erste zu wenig Brauchbares liefert. Die Filter werfen
+    # weg, und ohne Nachschlag kam bei zehn bestellten Aufgaben ein Set mit sieben
+    # heraus. Genau ein Nachschlag: das Anfragen-Kontingent teilt sich die ganze
+    # Hochschule, und wer zweimal hintereinander nichts Brauchbares liefert, liefert
+    # es beim dritten Mal erfahrungsgemäss auch nicht.
+    items: list[dict] = []
+    claims: list[str] = []
+    seen: set = set()
+    seen_exercises = 0
+    data: dict = {}
+    for attempt in range(_MAX_ATTEMPTS):
+        # Der Nachschlag fragt NUR nach dem, was noch fehlt. Ohne das kippt die
+        # Mischung: das Modell liefert beim zweiten Wurf am liebsten Ankreuz-Aufgaben,
+        # und bei zehn bestellten kamen fuenf davon heraus statt der geplanten zwei.
+        wanted = _missing(plan, items)
+        if not wanted:
+            break
+        # Same temperature as the MC tools: enough wording variety, still JSON-safe. The
+        # real variation comes from the rotating page subset in build_source_context.
+        response = client.chat.completions.create(
+            model=model, messages=messages_for(wanted), temperature=0.6)
+        data = json.loads(_clean_llm_json(response.choices[0].message.content or ""))
+        exercises = list(data.get("exercises") or [])[:count]
+        seen_exercises += len(exercises)
+        fresh, fresh_claims = _build_items(exercises, locale, shipped_example, target_form)
+        # Bis zum letzten Wurf gilt der Deckel je Format: was ueber den Plan
+        # hinausgeht, wird nicht genommen, sonst kippt die Mischung schon im ersten
+        # Wurf. Im LETZTEN Wurf zaehlt die Anzahl mehr als die Mischung, denn wer zehn
+        # bestellt hat, will zehn.
+        last_try = attempt == _MAX_ATTEMPTS - 1
+        room = {} if last_try else _room(plan, items)
+        for item, claim in zip(fresh, fresh_claims):
+            # Schluessel aus Aufgabentext UND Loesung. Seit die "welcher Satz ist
+            # korrekt?"-Bauart ihren Satz nicht mehr wiederholt, sehen zwei solche
+            # Aufgaben vorn gleich aus und nur die Loesung unterscheidet sie.
+            key = (normalize(item["front"]), normalize(item["back"]))
+            if key in seen:
+                continue
+            if not last_try:
+                kind = item.get("_kind")
+                if room.get(kind, 0) <= 0:
+                    continue
+                room[kind] -= 1
+            seen.add(key)
+            items.append(item)
+            claims.append(claim)
+        if len(items) >= count:
+            break
+        logger.info("KI Tutor: Grammatik-Wurf {} ergab {}/{} Aufgaben",
+                    attempt + 1, len(items), count)
+    items, claims = items[:count], claims[:count]
 
     # The model likes to slip back into comprehension questions ("Was bedeutet X?"),
     # which cannot be transformed and leave the learner stuck. Too many of those and
     # the whole run is thrown away rather than shipped half broken.
-    wanted = min(count, len(exercises)) or count
+    wanted = min(count, seen_exercises) or count
     if len(items) < max(1, int(wanted * _MIN_USABLE_RATIO)):
         logger.warning(
             "KI Tutor: grammar run discarded, only {}/{} sentences were usable",
@@ -147,6 +228,9 @@ def generate_grammar_from_source(
     # these sentences are invented and then transformed, so searching them back finds
     # nothing for roughly half of them and the set ends up half cited, half not.
     attach_chips_cited(items, claims, ctx)
+
+    for item in items:
+        item.pop("_kind", None)
 
     title = (data.get("title") or "").strip() or grammar_type["label"]
     # Kein Set-Kopf mehr: ein gemischtes Set hat kein gemeinsames Muster, das über
@@ -195,7 +279,10 @@ def _build_prompt(grammar_type: dict, target_form: str, example: dict,
         "- transform: the learner rewrites 'before' into 'after' themselves.\n"
         f"- cloze: take a sentence that ALREADY shows the target form and replace exactly "
         f"the part that carries it with {GAP}. 'answer' is what belongs in the gap and "
-        "must not appear anywhere else in the sentence, otherwise it can be read off.\n"
+        "must not appear anywhere else in the sentence, otherwise it can be read off. "
+        "Give four short options, all different, one of them exactly the answer, the "
+        "other three forms a learner actually confuses. 'correct_idx' points at the "
+        "answer and counts from 0.\n"
         "- statement: a sentence that either shows the target form correctly or gets it "
         "wrong. 'answer' is true when it is correct. About half of them are false, and a "
         "false one is wrong in exactly ONE detail of the form.\n"
@@ -222,6 +309,10 @@ def _build_prompt(grammar_type: dict, target_form: str, example: dict,
         "- Every sentence is exactly ONE sentence.\n"
         "- Do NOT use personal names. Write 'die Dozentin', 'das Team', 'according to the source' "
         "instead, matching the output language.\n"
+        # Der Musterssatz steht jetzt AN der Aufgabe, mit seiner Loesung darunter.
+        # Kommt er selbst als Aufgabe vor, muss der Lernende nur abschreiben.
+        "- The worked pair above is a SHAPE, never an exercise. Never reuse its "
+        "sentence, not as 'before', not in a gap sentence, not as an option.\n"
         + PAGE_RULE + "\n"
         + _SHAPE
     )
@@ -268,12 +359,16 @@ def is_usable_statement(text: str, verdict) -> bool:
     return len(text.split()) >= 3
 
 
-def is_usable_cloze(sentence: str, answer: str) -> bool:
+def is_usable_cloze(sentence: str, answer: str, options: list, correct_idx) -> bool:
     """Ob ein Lückensatz lösbar ist.
 
-    Der wichtigste Fall ist der letzte: steht die Lösung sonst noch im Satz, liest der
-    Lernende sie ab. Das Modell macht das gern, wenn das gesuchte Wort im Satz ein
-    zweites Mal vorkommt.
+    Vier Optionen zum Anklicken, keine freie Eingabe. Als Freitext war die Aufgabe
+    zu schwer und zu offen: bei "Die Arbeit wird von der Dozentin ___." kann man
+    vieles schreiben, und der Lernende raet, statt eine Form zu entscheiden.
+
+    Der Wortüberdeckungs-Filter des Ankreuzens gilt hier ausdrücklich NICHT. In eine
+    Lücke gehört ein Wort, keine Satzvariante, und vier Wortformen teilen sich naturgemäss
+    keine Wörter.
     """
     sentence = (sentence or "").strip()
     answer = (answer or "").strip()
@@ -284,8 +379,32 @@ def is_usable_cloze(sentence: str, answer: str) -> bool:
     # Nur eine Lücke und sonst nichts ist kein Satz, sondern ein leeres Feld.
     if len(sentence.replace(GAP, " ").split()) < 3:
         return False
-    return normalize(answer) not in normalize(sentence.replace(GAP, " ")).split(
-        "  ") and normalize(answer) not in normalize(sentence.replace(GAP, ""))
+    # Die Lücke muss IM Satz stehen, nicht dahinter. Gemeldet am 2026-08-05: der Satz
+    # war fertig ("... recherchiert.") und die Lücke hing hinten dran. Da fehlt nichts,
+    # der Lernende kann nur raten. Erkennbar daran, dass direkt vor der Lücke ein
+    # Satzende steht.
+    before_gap = sentence.split(GAP)[0].rstrip()
+    if before_gap and before_gap[-1] in _SENTENCE_ENDS:
+        return False
+    # Steht die Lösung sonst noch im Satz, liest der Lernende sie ab.
+    if normalize(answer) in normalize(sentence.replace(GAP, "")):
+        return False
+
+    if not options or len(options) != _OPTION_COUNT:
+        return False
+    if not isinstance(correct_idx, int) or isinstance(correct_idx, bool):
+        return False
+    if not 0 <= correct_idx < len(options):
+        return False
+    normalized = [normalize(opt) for opt in options]
+    if not all(normalized):
+        return False
+    # Zweimal dieselbe Antwort: der Lernende kann recht haben und falsch liegen.
+    if len(set(normalized)) != len(normalized):
+        return False
+    # Die markierte Option muss die Lösung sein, sonst zeigt die Ansicht das eine
+    # an und die Prüfung erwartet das andere.
+    return normalized[correct_idx] == normalize(answer)
 
 
 def is_usable_choice(task: str, sentence: str, options: list, correct_idx) -> bool:
@@ -315,8 +434,12 @@ def is_usable_choice(task: str, sentence: str, options: list, correct_idx) -> bo
     # dieselbe Antwort zweimal. Der Lernende kann recht haben und falsch liegen.
     if len(set(normalized)) != len(normalized):
         return False
-    # Eine Option, die den Satz wiederholt, formt nichts um.
-    if normalize(sentence) in normalized:
+    # Der Satz darf als RICHTIGE Option dastehen: das Modell baut die Aufgabe oft als
+    # "welche Form ist richtig?", und dann ist der Satz selbst die Loesung. Als FALSCHE
+    # Option bleibt er verboten, denn dann hiesse die Aufgabe "streiche das, was du
+    # ohnehin liest". Bis zum 2026-08-05 fielen dadurch reihenweise Aufgaben durch und
+    # die Sets kamen zu kurz heraus.
+    if normalize(sentence) in normalized and normalized[correct_idx] != normalize(sentence):
         return False
 
     correct = options[correct_idx]
@@ -326,8 +449,40 @@ def is_usable_choice(task: str, sentence: str, options: list, correct_idx) -> bo
     )
 
 
-def _build_items(exercises: list[dict], locale: str,
-                 example: dict) -> tuple[list[dict], list[str]]:
+def _room(plan: list[str], have: list[dict]) -> dict:
+    """Wie viele Aufgaben je Format noch in den Plan passen."""
+    want: dict[str, int] = {}
+    for kind in plan:
+        want[kind] = want.get(kind, 0) + 1
+    for item in have:
+        kind = item.get("_kind")
+        if kind in want:
+            want[kind] -= 1
+    return {kind: max(0, n) for kind, n in want.items()}
+
+
+def _missing(plan: list[str], have: list[dict]) -> list[str]:
+    """Welche Formate noch fehlen, damit der Nachschlag gezielt nachfragt.
+
+    Der Plan sagt, wie viele von jeder Art gewuenscht sind. Was schon da ist, wird
+    abgezogen. Herauskommt wieder eine Liste, die :func:`_plan_sentence` als Zahlensatz
+    in den Prompt schreibt.
+    """
+    want: dict[str, int] = {}
+    for kind in plan:
+        want[kind] = want.get(kind, 0) + 1
+    for item in have:
+        kind = item.get("_kind")
+        if kind in want and want[kind] > 0:
+            want[kind] -= 1
+    out: list[str] = []
+    for kind in KINDS:
+        out.extend([kind] * want.get(kind, 0))
+    return out
+
+
+def _build_items(exercises: list[dict], locale: str, example: dict,
+                 target_form: str) -> tuple[list[dict], list[str]]:
     """Item-Zeilen plus der Text, über den die Quelle zugeordnet wird.
 
     Alle vier Formate teilen eine Zeilenform: Aufgabentext in ``front``, erwartete
@@ -336,10 +491,12 @@ def _build_items(exercises: list[dict], locale: str,
     Set: eine unlösbare Aufgabe ist schlimmer als eine fehlende.
     """
     yes, no = _VERDICT_LABELS.get(locale, _VERDICT_LABELS["en"])
+    # Der Musterssatz und seine Loesung. Kommt einer davon als Aufgabe zurueck, steht
+    # die Antwort direkt darunter. Der Prompt verbietet es, das Modell haelt sich aber
+    # nicht daran, also steht die Sperre auch im Code.
+    banned = {normalize(example.get("before") or ""), normalize(example.get("after") or "")}
+    banned.discard("")
     items, claims = [], []
-    # Derselbe Satz zweimal ist verlorene Übungszeit. Am laufenden System gemessen:
-    # das Modell lieferte eine Umformung an Position 1 und noch einmal an Position 5.
-    seen: set = set()
     for ex in exercises:
         kind = (ex.get("kind") or "transform").strip().lower()
         built = _build_one(ex, kind, yes, no, example)
@@ -347,11 +504,16 @@ def _build_items(exercises: list[dict], locale: str,
             logger.debug("KI Tutor: Grammatik-Aufgabe verworfen ({}): {!r}", kind, ex)
             continue
         item, claim = built
-        key = normalize(item["front"])
-        if key in seen:
-            logger.debug("KI Tutor: Grammatik-Aufgabe doppelt: {!r}", item["front"])
+        if _repeats_example(item["front"], banned):
+            logger.debug("KI Tutor: Grammatik-Aufgabe wiederholt das Muster: {!r}",
+                         item["front"])
             continue
-        seen.add(key)
+        # Die Anweisung steht an JEDER Aufgabe. Ohne sie sieht der Lernende einen
+        # nackten Satz und weiss nicht, was zu tun ist. Leerzeile dazwischen, sonst
+        # ist nicht klar, worauf sich die Anweisung bezieht.
+        anweisung = task_line(kind, locale, target_form)
+        item["front"] = (f"**{anweisung}**\n\n{item['front']}" if item["front"]
+                         else f"**{anweisung}**")
         item["explanation"] = (ex.get("explanation") or "").strip() or None
         # Welchen nummerierten Abschnitt das Modell benutzt haben will. Wird nicht
         # gespeichert, der Aufrufer prüft damit die Abdeckung.
@@ -359,9 +521,31 @@ def _build_items(exercises: list[dict], locale: str,
         # Die Seite, aus der das Modell den Stoff genommen haben will. Liest und
         # entfernt attach_chips_cited, nachdem es sie gegen die gesehenen Seiten prüft.
         item["_page"] = ex.get("page")
+        # Welche Art die Aufgabe geworden ist. Nur fuer die Zaehlung des Nachschlags,
+        # vor dem Speichern wieder entfernt.
+        item["_kind"] = kind
         items.append(item)
         claims.append(claim)
     return items, claims
+
+
+def _repeats_example(front: str, banned: set) -> bool:
+    """Ob der Aufgabentext den Musterssatz wiederholt.
+
+    Auch als Lueckensatz: dort ist ein Wort durch die Luecke ersetzt, der Rest steht
+    aber wortgleich da. Deshalb wird die Luecke vorher entfernt und der Rest verglichen.
+    """
+    plain = normalize(front.replace(GAP, " "))
+    for text in banned:
+        if not text:
+            continue
+        if plain == text:
+            return True
+        # Luecken-Fassung: der Musterssatz ohne genau ein Wort.
+        words, ref = plain.split(), text.split()
+        if len(words) == len(ref) - 1 and all(w in ref for w in words):
+            return True
+    return False
 
 
 def _build_one(ex: dict, kind: str, yes: str, no: str, example: dict):
@@ -385,9 +569,13 @@ def _build_one(ex: dict, kind: str, yes: str, no: str, example: dict):
     if kind == "cloze":
         sentence = (ex.get("sentence") or "").strip()
         answer = (ex.get("answer") or "").strip()
-        if not is_usable_cloze(sentence, answer):
+        options = [str(o).strip() for o in (ex.get("options") or [])]
+        idx = ex.get("correct_idx")
+        if not is_usable_cloze(sentence, answer, options, idx):
             return None
-        return {"front": sentence, "back": answer}, sentence.replace(GAP, answer)
+        return ({"front": sentence, "back": options[idx],
+                 "options": options, "correct_idx": idx},
+                sentence.replace(GAP, answer))
 
     if kind == "statement":
         text = (ex.get("statement") or "").strip()
@@ -404,9 +592,12 @@ def _build_one(ex: dict, kind: str, yes: str, no: str, example: dict):
         idx = ex.get("correct_idx")
         if not is_usable_choice(task, sentence, options, idx):
             return None
-        # Leerzeile zwischen Anweisung und Satz: auf einer Zeile ist nicht klar,
-        # auf welchen Satz sich die Aufgabe bezieht.
-        return {"front": f"**{task}**\n\n{sentence}", "back": options[idx],
+        # Ist der Satz selbst die richtige Option, lautet die Aufgabe "welcher Satz
+        # ist korrekt?". Dann traegt die Anweisung alles Noetige und der Satz stuende
+        # zweimal da, oben und als erste Option. Bei der anderen Bauart ("hier ein
+        # Aktivsatz, waehle das Passiv") ist er die Vorlage und bleibt.
+        asks_which = normalize(sentence) == normalize(options[idx])
+        return {"front": "" if asks_which else sentence, "back": options[idx],
                 "options": options, "correct_idx": idx}, options[idx]
 
     # Eine Art, die es nicht gibt. Zu raten wäre schlimmer als wegzulassen.

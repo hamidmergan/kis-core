@@ -2,6 +2,7 @@ import React, { useContext, useEffect, useMemo, useRef, useState } from "react";
 import { CaretLeft, CaretRight, Check, Minus, SidebarSimple, X } from "@phosphor-icons/react";
 import { useTranslations } from "next-intl";
 import Spinner from "@/components/ui/Spinner";
+import IconButton from "@/components/ui/IconButton";
 import type { ExerciseItem, ExerciseItemSource, ExerciseSet, GrammarCheckResult } from "../../_types";
 import { _chunkLabel, _getChipIcon, _sourceChipKey } from "../../_utils";
 import { SetSourceLegend, sourceNumbers, sourceTag } from "./SetSourceLegend";
@@ -50,16 +51,25 @@ export function GrammarExerciseView({
   // instead of being shuffled like flashcards.
   const items: ExerciseItem[] = useMemo(() => exerciseSet.items || [], [exerciseSet.items]);
   const [index, setIndex] = useState(0);
-  const [answer, setAnswer] = useState("");
   const [checking, setChecking] = useState(false);
   const [checkError, setCheckError] = useState(false);
-  const [result, setResult] = useState<GrammarCheckResult | null>(null);
-  const [correctCount, setCorrectCount] = useState(0);
-  const [picked, setPicked] = useState<number | null>(null);
+  // Eingeklappt: das Muster ist Hilfe auf Abruf, nicht Teil der Aufgabe.
+  const [showPattern, setShowPattern] = useState(false);
+
+  // Alles je AUFGABE, nicht je Bildschirm. Nur so kann man vor und zurueck gehen:
+  // eine beantwortete Aufgabe zeigt beim Zurueckblaettern wieder ihr Ergebnis und
+  // ist gesperrt, eine unbeantwortete behaelt den angefangenen Text und bleibt offen.
+  const [results, setResults] = useState<Record<number, GrammarCheckResult>>({});
+  const [picks, setPicks] = useState<Record<number, number>>({});
+  const [drafts, setDrafts] = useState<Record<number, string>>({});
 
   const total = items.length;
   const card = items[index];
+  const result = card ? results[card.id] ?? null : null;
   const answered = result !== null;
+  const answer = card ? drafts[card.id] ?? "" : "";
+  const picked = card ? picks[card.id] ?? null : null;
+  const correctCount = Object.values(results).filter((r) => r.verdict === "correct").length;
 
   async function check() {
     if (!card || checking || answered || !answer.trim()) return;
@@ -76,17 +86,20 @@ export function GrammarExerciseView({
       );
       if (!res.ok) throw new Error("check failed");
       const data: GrammarCheckResult = await res.json();
-      setResult(data);
-      const isCorrect = data.verdict === "correct";
-      if (isCorrect) setCorrectCount((c) => c + 1);
-      onAnswer(card.id, isCorrect);
+      setResults((r) => ({ ...r, [card.id]: data }));
+      onAnswer(card.id, data.verdict === "correct");
     } catch {
       // The learner keeps the sentence and can try again; nothing is recorded.
-      setResult(null);
       setCheckError(true);
     } finally {
       setChecking(false);
     }
+  }
+
+  function goTo(next: number) {
+    setIndex(next);
+    setShowPattern(false);
+    setCheckError(false);
   }
 
   function advance() {
@@ -94,30 +107,22 @@ export function GrammarExerciseView({
       onFinish?.(correctCount, total);
       return;
     }
-    setIndex((i) => i + 1);
-    setAnswer("");
-    setPicked(null);
-    setResult(null);
-    setCheckError(false);
-  }
-
-  function skip() {
-    if (!card || answered) return;
-    onAnswer(card.id, false);
-    setResult({ verdict: "wrong", feedback: null, solution: card.back, explanation: card.explanation });
+    goTo(index + 1);
   }
 
   /** Ankreuzen entscheidet der Browser: die Lösung steht in der Aufgabe. */
   function pick(optionIndex: number) {
     if (!card || answered) return;
-    setPicked(optionIndex);
+    setPicks((p) => ({ ...p, [card.id]: optionIndex }));
     const isCorrect = optionIndex === card.correct_idx;
-    if (isCorrect) setCorrectCount((c) => c + 1);
     onAnswer(card.id, isCorrect);
-    setResult({
-      verdict: isCorrect ? "correct" : "wrong",
-      feedback: null, solution: card.back, explanation: card.explanation,
-    });
+    setResults((r) => ({
+      ...r,
+      [card.id]: {
+        verdict: isCorrect ? "correct" : "wrong",
+        feedback: null, solution: card.back, explanation: card.explanation,
+      },
+    }));
   }
 
   if (!card) return (
@@ -134,6 +139,13 @@ export function GrammarExerciseView({
   const pattern = card.extras?.pattern_front && card.extras?.pattern_back
     ? { front: card.extras.pattern_front, back: card.extras.pattern_back }
     : null;
+  // Anweisung und Satz stecken zusammen in front, getrennt durch eine Leerzeile.
+  // Die Anweisung gehoert ueber die Karte, wie frueher der Set-Kopf, der Satz
+  // hinein. Beides gross und fett uebereinander in der Karte machte sie schwer.
+  const [taskLine, sentence] = (() => {
+    const m = card.front.match(/^\*\*(.+?)\*\*\n\n([\s\S]+)$/);
+    return m ? [m[1], m[2]] : ["", card.front];
+  })();
   const verdictStyle = result ? VERDICT_STYLE[result.verdict] : null;
   const VerdictIcon = result?.verdict === "correct" ? Check : result?.verdict === "close" ? Minus : X;
   const verdictLabel = result
@@ -203,32 +215,31 @@ export function GrammarExerciseView({
 
       <div className="flex-1 overflow-y-auto p-4">
         <div className="mx-auto mt-1 sm:mt-3 w-full flex flex-col gap-3" style={{ maxWidth: 560 }}>
-          <div className="text-center text-xs font-semibold">{index + 1} / {total}</div>
+          {/* Welches Thema geübt wird. In der Liste steht es auf der Karte, beim Üben
+              fehlte es: die Anweisung nennt zwar die Form, aber erst ab der zweiten
+              Aufgabe weiss man, dass sie für das ganze Set gilt. Gleiche Machart wie
+              das Abzeichen in der Übersicht. */}
+          <div className="flex items-center gap-2">
+            {exerciseSet.grammar_topic_name && (
+              <span className="text-3xs font-semibold px-1.5 py-0.5 rounded"
+                style={{ backgroundColor: "rgba(var(--kb-rgb),0.10)", color: "var(--kb)" }}>
+                {exerciseSet.grammar_topic_name}
+              </span>
+            )}
+            {/* Der Zähler rutscht nach rechts, das Thema steht links. */}
+            <span className="text-xs font-semibold ml-auto">{index + 1} / {total}</span>
+          </div>
 
           {/* The sentence to transform */}
           <div className="rounded-2xl overflow-hidden" style={{ backgroundColor: "var(--surface)", boxShadow: "0 4px 20px rgba(0,40,60,0.08)" }}>
             <div className="px-6 pt-5 pb-6 flex flex-col gap-3">
-              <div className="text-2xs font-bold" style={{ color: "var(--muted)" }}>
-                {t("grammar.sentenceNo", { no: index + 1 })}
-              </div>
-              {/* Aufgabenzeile und Satz. Die Ankreuz-Aufgabe bringt ihre Anweisung
-                  fett in front mit, deshalb wird hier Markdown-Fett gerendert. */}
-              <p className="text-base font-semibold leading-snug whitespace-pre-line" style={{ color: "var(--foreground)" }}
-                dangerouslySetInnerHTML={{ __html: card.front.replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>") }} />
-
-              {/* Das Muster, direkt an der Aufgabe, die eines braucht. Es steht unter
-                  dem Satz und nicht darüber: der Lernende liest erst die Aufgabe. */}
-              {pattern && (
-                <div className="rounded-xl px-3 py-2" style={{ backgroundColor: "var(--surface-dim)" }}>
-                  <p className="text-xs leading-relaxed" style={{ color: "var(--foreground-soft)" }}>{pattern.front}</p>
-                  {/* Der Pfeil trägt die Richtung ohne Wort und braucht keine
-                      Übersetzung. Für einen Screenreader nur Zierde. */}
-                  <p className="text-xs leading-relaxed flex gap-1.5" style={{ color: "var(--foreground-soft)" }}>
-                    <span aria-hidden="true" className="shrink-0" style={{ color: "var(--kb)" }}>→</span>
-                    <span>{pattern.back}</span>
-                  </p>
-                </div>
+              {/* Anweisung direkt über dem Satz, auf den sie sich bezieht. Sie wechselt
+                  mit der Aufgabe, denn ein gemischtes Set hat keine gemeinsame. Fett
+                  hebt sie ab, ohne den Satz zu überstimmen. */}
+              {taskLine && (
+                <p className="text-sm font-bold leading-snug" style={{ color: "var(--foreground)" }}>{taskLine}</p>
               )}
+              <p className="text-sm leading-snug whitespace-pre-line" style={{ color: "var(--foreground)" }}>{sentence}</p>
 
               {isChoice ? (
                 <div className="flex flex-col gap-1.5">
@@ -254,7 +265,7 @@ export function GrammarExerciseView({
               ) : (
                 <textarea
                   value={answer}
-                  onChange={(e) => { setAnswer(e.target.value); setCheckError(false); }}
+                  onChange={(e) => { setDrafts((d) => ({ ...d, [card.id]: e.target.value })); setCheckError(false); }}
                   onKeyDown={(e) => {
                     // Enter checks, Shift+Enter keeps the newline for long sentences.
                     if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); void check(); }
@@ -267,23 +278,46 @@ export function GrammarExerciseView({
                 />
               )}
 
+              {/* Das Muster, eingeklappt und unter der Eingabe.
+                  Offen und über der Eingabe stand es dem Satz im Weg und lud zum
+                  Abschreiben ein. Wer nicht weiterweiss, klappt es auf. */}
+              {pattern && (
+                <div>
+                  <button type="button" onClick={() => setShowPattern((v) => !v)}
+                    aria-expanded={showPattern}
+                    className="inline-flex items-center gap-1 text-xs font-medium transition-colors hover:text-kb"
+                    style={{ color: "var(--muted)" }}>
+                    <CaretRight size={10} weight="bold"
+                      className={`transition-transform ${showPattern ? "rotate-90" : ""}`} />
+                    {t("grammar.example")}
+                  </button>
+                  {showPattern && (
+                    <div className="mt-1.5 rounded-xl px-3 py-2" style={{ backgroundColor: "var(--surface-dim)" }}>
+                      {/* Gleiche Groesse wie der Satz in der Aufgabe und wie die
+                          Erklaerung nach dem Pruefen: alles, was der Lernende LIEST,
+                          liest sich auf einer Stufe. Klein bleiben nur die Bedienteile. */}
+                      <p className="text-sm leading-relaxed" style={{ color: "var(--foreground-soft)" }}>{pattern.front}</p>
+                      {/* Der Pfeil trägt die Richtung ohne Wort und braucht keine
+                          Übersetzung. Für einen Screenreader nur Zierde. */}
+                      <p className="text-sm leading-relaxed flex gap-1.5" style={{ color: "var(--foreground-soft)" }}>
+                        <span aria-hidden="true" className="shrink-0" style={{ color: "var(--kb)" }}>→</span>
+                        <span>{pattern.back}</span>
+                      </p>
+                    </div>
+                  )}
+                </div>
+              )}
+
               {checkError && (
                 <p className="text-xs" style={{ color: "#d4453a" }}>{t("grammar.checkFailed")}</p>
               )}
 
               {!answered && !isChoice && (
-                <div className="flex items-center gap-2">
-                  <button type="button" onClick={skip}
-                    className="text-xs font-medium px-3 py-1.5 rounded-full transition-colors hover:bg-[var(--surface-dim)]"
-                    style={{ color: "var(--muted)" }}>
-                    {t("common.dontKnow")}
-                  </button>
-                  <button type="button" onClick={check} disabled={checking || !answer.trim()}
-                    className="btn-fill-accent flex-1 flex items-center justify-center gap-1.5 px-4 py-2 rounded-full text-xs font-semibold transition-all disabled:opacity-50">
-                    {checking ? <Spinner size="sm" /> : null}
-                    {checking ? t("grammar.checking") : t("grammar.check")}
-                  </button>
-                </div>
+                <button type="button" onClick={check} disabled={checking || !answer.trim()}
+                  className="btn-fill-accent w-full flex items-center justify-center gap-1.5 px-4 py-2 rounded-full text-xs font-semibold transition-all disabled:opacity-50">
+                  {checking ? <Spinner size="sm" /> : null}
+                  {checking ? t("grammar.checking") : t("grammar.check")}
+                </button>
               )}
 
               {result && verdictStyle && (
@@ -323,14 +357,21 @@ export function GrammarExerciseView({
             </div>
           </div>
 
-          {answered && (
-            <div className="flex justify-center">
-              <button type="button" onClick={advance}
-                className="btn-fill-accent px-5 py-2 rounded-full text-xs font-semibold transition-all">
-                {index + 1 >= total ? t("common.finish") : t("common.next")}
-              </button>
-            </div>
-          )}
+          {/* Zurueck und Weiter stehen immer da, auch unbeantwortet: wer eine Aufgabe
+              nicht loesen kann, blaettert weiter und kommt spaeter zurueck. Beantwortete
+              sind dann gesperrt, unbeantwortete weiter offen. */}
+          <div className="flex items-center justify-center gap-3">
+            <IconButton onClick={() => goTo(index - 1)} disabled={index === 0}
+              title={t("common.back")} aria-label={t("common.back")}
+              className="disabled:opacity-30">
+              <CaretLeft size={14} weight="bold" />
+            </IconButton>
+            <IconButton onClick={advance}
+              title={index + 1 >= total ? t("common.finish") : t("common.next")}
+              aria-label={index + 1 >= total ? t("common.finish") : t("common.next")}>
+              {index + 1 >= total ? <Check size={14} weight="bold" /> : <CaretRight size={14} weight="bold" />}
+            </IconButton>
+          </div>
 
           <SetSourceLegend
             sources={exerciseSet.sources}

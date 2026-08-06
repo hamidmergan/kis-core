@@ -52,6 +52,23 @@ def _client(content):
     ), calls
 
 
+def _client_queue(*contents):
+    """Fake-Client, der die Antworten der Reihe nach ausgibt. Die letzte wiederholt
+    sich, damit ein Test nicht an der Anzahl der Würfe hängt."""
+    calls = []
+    queue = list(contents)
+
+    def create(model, messages, **kwargs):
+        calls.append(messages)
+        content = queue[min(len(calls) - 1, len(queue) - 1)]
+        message = types.SimpleNamespace(content=content)
+        return types.SimpleNamespace(choices=[types.SimpleNamespace(message=message)])
+
+    return types.SimpleNamespace(
+        chat=types.SimpleNamespace(completions=types.SimpleNamespace(create=create))
+    ), calls
+
+
 def _ctx():
     return QuelleContext(
         context="[A.pdf, S. 4] Der Server speichert die Messwerte.",
@@ -65,7 +82,8 @@ _MIXED = json.dumps({"title": "Passiv üben", "exercises": [
     {"kind": "transform", "before": "Der Server speichert die Messwerte.",
      "after": "Die Messwerte werden vom Server gespeichert.", "page": 4},
     {"kind": "cloze", "sentence": "Die Messwerte ___ vom Server gespeichert.",
-     "answer": "werden", "page": 4},
+     "answer": "werden", "options": ["werden", "wurden", "sind", "waren"],
+     "correct_idx": 0, "page": 4},
     {"kind": "statement", "statement": "Die Messwerte werden vom Server gespeichert.",
      "answer": True, "page": 4},
     {"kind": "choice", "task": "Bilden Sie das Passiv.",
@@ -102,26 +120,36 @@ def test_the_prompt_orders_the_formats_by_number(attributed):
         assert f'3 of kind "{kind}"' in system
 
 
+def test_every_item_starts_with_a_bold_instruction(attributed):
+    """Ohne Anweisung ist auch ein Textfeld nutzlos: der Lernende sieht einen Satz
+    und weiss nicht, ob er umformen, ergaenzen oder ankreuzen soll."""
+    items, _, _, _ = _generate()
+    for item in items:
+        assert item["front"].startswith("**")
+        assert "**\n\n" in item["front"]
+
+
 def test_each_format_becomes_the_row_its_view_expects(attributed):
     items, _, _, _ = _generate()
     transform, cloze, statement, choice = items
 
     # Umformung: Freitext, keine Optionen.
-    assert transform["front"] == "Der Server speichert die Messwerte."
+    assert transform["front"].endswith("Der Server speichert die Messwerte.")
     assert transform["back"] == "Die Messwerte werden vom Server gespeichert."
     assert "options" not in transform
 
-    # Lücke: der Satz mit ___ steht vorne, die Lösung hinten.
+    # Lücke: der Satz mit ___ steht vorne, dazu vier Optionen zum Anklicken.
     assert "___" in cloze["front"]
     assert cloze["back"] == "werden"
-    assert "options" not in cloze
+    assert len(cloze["options"]) == 4
+    assert cloze["correct_idx"] == 0
 
     # Richtig/Falsch: zwei feste Optionen, nicht vom Modell benannt.
     assert statement["options"] == ["Richtig", "Falsch"]
     assert statement["correct_idx"] == 0
 
-    # Ankreuzen: Aufgabenzeile und Satz in front, vier Optionen.
-    assert choice["front"].startswith("**Bilden Sie das Passiv.**")
+    # Ankreuzen: Aufgabenzeile in front, vier Optionen.
+    assert choice["front"].startswith("**Welcher Satz steht korrekt im Passiv Präsens?**")
     assert len(choice["options"]) == 4
     assert choice["back"] == choice["options"][choice["correct_idx"]]
 
@@ -166,7 +194,8 @@ _GOOD_FOUR = [
     {"kind": "transform", "before": "Der Server speichert die Messwerte.",
      "after": "Die Messwerte werden vom Server gespeichert."},
     {"kind": "cloze", "sentence": "Die Messwerte ___ vom Server gespeichert.",
-     "answer": "werden"},
+     "answer": "werden", "options": ["werden", "wurden", "sind", "waren"],
+     "correct_idx": 0},
     {"kind": "statement", "statement": "Die Eingaben werden von der Software geprüft.",
      "answer": True},
     {"kind": "choice", "task": "Bilden Sie das Passiv.",
@@ -193,7 +222,7 @@ def test_an_unusable_item_of_any_kind_is_dropped(attributed):
     response = json.dumps({"title": "T", "exercises": _BAD_FOUR + _GOOD_FOUR})
     items, _, _, _ = _generate(response, count=8)
     assert len(items) == 4
-    assert [i["front"] for i in items][0] == "Der Server speichert die Messwerte."
+    assert items[0]["front"].endswith("Der Server speichert die Messwerte.")
 
 
 def test_a_run_where_most_items_fail_is_discarded_entirely(attributed):
@@ -231,6 +260,138 @@ def test_the_same_sentence_never_appears_twice(attributed):
     ]})
     items, _, _, _ = _generate(response, count=4)
     assert len(items) == 2
+
+
+def test_a_short_draw_is_topped_up_to_the_requested_count(attributed):
+    """Gemeldet: 10 bestellt, 7 bekommen. Die Filter werfen weg, aber nichts füllte
+    wieder auf. Ein zweiter Wurf holt die fehlenden nach, mehr nicht: das
+    Anfragen-Kontingent teilt sich die ganze Hochschule."""
+    thin = json.dumps({"title": "T", "exercises": _GOOD_FOUR + _BAD_FOUR})
+    full = json.dumps({"title": "T", "exercises": [
+        {"kind": "transform", "before": f"Das Team prüft die Quelle {i} genau.",
+         "after": f"Die Quelle {i} wird vom Team genau geprüft."} for i in range(4)
+    ]})
+    client, calls = _client_queue(thin, full)
+    items, _, _ = generate_grammar_from_source(
+        client, "m", _ctx(), _TOPIC, 8, locale="de")
+    assert len(items) == 8
+    assert len(calls) >= 2
+
+
+def test_the_top_up_asks_only_for_the_formats_that_are_missing(attributed):
+    """Sonst kippt die Mischung. Gemessen: bei 10 bestellten Aufgaben kamen 5 mit
+    vier Optionen heraus statt der geplanten 5 auf zwei Formate verteilt. Der
+    Nachschlag lieferte, was dem Modell am leichtesten faellt, naemlich Ankreuzen."""
+    only_transforms = json.dumps({"title": "T", "exercises": [
+        {"kind": "transform", "before": f"Das Team prüft die Quelle {i} genau.",
+         "after": f"Die Quelle {i} wird vom Team genau geprüft."} for i in range(4)
+    ]})
+    client, calls = _client_queue(only_transforms)
+    generate_grammar_from_source(client, "m", _ctx(), _TOPIC, 8, locale="de")
+
+    zweiter = calls[1][0]["content"]
+    # Umformungen sind voll, danach darf nicht mehr gefragt werden.
+    assert 'of kind "transform"' not in zweiter
+    for kind in ("cloze", "statement", "choice"):
+        assert f'of kind "{kind}"' in zweiter
+
+
+def test_a_surplus_of_one_format_is_capped_at_the_plan(attributed):
+    """Der erste Wurf liefert oft mehr Umformungen als geplant. Ohne Deckel landen
+    alle im Set und die Mischung kippt schon vor dem ersten Nachschlag.
+
+    Hier liefert Wurf 1 acht Umformungen und Wurf 2 die fehlenden Arten. Am Ende
+    duerfen nur die geplanten zwei Umformungen drin sein."""
+    many = json.dumps({"title": "T", "exercises": [
+        {"kind": "transform", "before": f"Das Team prüft die Quelle {i} genau.",
+         "after": f"Die Quelle {i} wird vom Team genau geprüft."} for i in range(8)
+    ]})
+    rest = json.dumps({"title": "T", "exercises": [
+        {"kind": "cloze", "sentence": f"Die Quelle {i} ___ vom Team geprüft.",
+         "answer": "wird", "options": ["wird", "werden", "wurde", "ist"],
+         "correct_idx": 0} for i in range(2)
+    ] + [
+        {"kind": "statement", "statement": f"Die Quelle {i} wird vom Team geprüft.",
+         "answer": True} for i in range(2)
+    ] + [
+        {"kind": "choice", "task": "Welche Form ist richtig?",
+         "sentence": f"Die Akte {i} wird vom Team geprüft.",
+         "options": [f"Die Akte {i} wird vom Team geprüft.",
+                     f"Die Akte {i} wird vom Team prüfen.",
+                     f"Die Akte {i} ist vom Team geprüft.",
+                     f"Die Akte {i} wurde vom Team geprüft."],
+         "correct_idx": 0} for i in range(2)
+    ]})
+    client, _ = _client_queue(many, rest)
+    items, _, _ = generate_grammar_from_source(
+        client, "m", _ctx(), _TOPIC, 8, locale="de")
+    umformungen = [i for i in items if "Setze den Satz" in i["front"]]
+    assert len(umformungen) == 2
+    assert len(items) == 8
+
+
+def test_the_last_draw_fills_up_with_whatever_it_gets(attributed):
+    """Am Ende zaehlt die Anzahl mehr als die Mischung. Wer zehn bestellt, will zehn,
+    auch wenn das Modell partout kein Ankreuzen liefert."""
+    many = json.dumps({"title": "T", "exercises": [
+        {"kind": "transform", "before": f"Das Team prüft die Quelle {i} genau.",
+         "after": f"Die Quelle {i} wird vom Team genau geprüft."} for i in range(8)
+    ]})
+    client, _ = _client_queue(many)
+    items, _, _ = generate_grammar_from_source(
+        client, "m", _ctx(), _TOPIC, 8, locale="de")
+    assert len(items) == 8
+
+
+def test_a_full_draw_costs_no_second_call(attributed):
+    client, calls = _client_queue(json.dumps({"title": "T", "exercises": _GOOD_FOUR}))
+    generate_grammar_from_source(client, "m", _ctx(), _TOPIC, 4, locale="de")
+    assert len(calls) == 1
+
+
+def test_the_top_up_never_repeats_a_sentence(attributed):
+    same = json.dumps({"title": "T", "exercises": _GOOD_FOUR})
+    client, _ = _client_queue(same, same)
+    items, _, _ = generate_grammar_from_source(
+        client, "m", _ctx(), _TOPIC, 8, locale="de")
+    fronts = [i["front"] for i in items]
+    assert len(fronts) == len(set(fronts))
+
+
+def test_an_exercise_that_repeats_the_worked_example_is_dropped(attributed):
+    """Am laufenden System gesehen: Aufgabe 1 war derselbe Satz wie das Muster, das
+    direkt darunter mit der Lösung stand. Der Lernende musste nur abschreiben.
+
+    Frueher fiel das nicht auf, weil das Muster einmal ueber dem ganzen Set stand.
+    Jetzt haengt es an der Aufgabe, also stehen beide uebereinander."""
+    ex = _TOPIC["example"]
+    response = json.dumps({"title": "T", "exercises": [
+        {"kind": "transform", "before": ex["before"], "after": ex["after"]},
+        {"kind": "transform", "before": "Das Team schreibt den Bericht.",
+         "after": "Der Bericht wird vom Team geschrieben."},
+    ]})
+    items, _, _, _ = _generate(response, count=2)
+    assert len(items) == 1
+    assert items[0]["front"].endswith("Das Team schreibt den Bericht.")
+
+
+def test_the_example_is_also_blocked_for_the_other_formats(attributed):
+    # Auch als Lueckensatz oder Ankreuz-Satz waere es der Musterssatz.
+    ex = _TOPIC["example"]
+    response = json.dumps({"title": "T", "exercises": [
+        {"kind": "cloze", "sentence": ex["before"].replace("erklärt", "___"),
+         "answer": "erklärt"},
+        {"kind": "transform", "before": "Das Team schreibt den Bericht.",
+         "after": "Der Bericht wird vom Team geschrieben."},
+    ]})
+    items, _, _, _ = _generate(response, count=2)
+    assert len(items) == 1
+
+
+def test_the_prompt_forbids_reusing_the_worked_example(attributed):
+    _, _, _, calls = _generate()
+    system = calls[0][0]["content"]
+    assert "never reuse" in system.lower()
 
 
 def test_an_unknown_kind_is_dropped_rather_than_guessed(attributed):
@@ -303,27 +464,135 @@ def test_a_statement_that_asks_something_is_dropped():
 
 # ─── Lückentext ──────────────────────────────────────────────────────────────
 
-def test_a_gap_sentence_needs_a_gap_and_an_answer():
-    assert is_usable_cloze("Das Buch ___ Dozentin ist interessant.", "der")
+_GAP_OPTIONS = ["der", "des", "dem", "den"]
+
+
+def test_a_gap_sentence_needs_a_gap_an_answer_and_four_options():
+    """Als Freitext war die Luecke zu schwer: bei "Die Arbeit wird von der Dozentin
+    ___." kann man alles Moegliche schreiben, und der Lernende raet. Mit vier
+    Optionen ist die Aufgabe loesbar und trotzdem eine Formentscheidung."""
+    assert is_usable_cloze("Das Buch ___ Dozentin ist interessant.", "der", _GAP_OPTIONS, 0)
+
+
+def test_a_gap_without_options_is_dropped():
+    assert not is_usable_cloze("Das Buch ___ Dozentin ist interessant.", "der", [], None)
+
+
+def test_a_gap_needs_exactly_four_options():
+    assert not is_usable_cloze("Das Buch ___ ist da.", "der", ["der", "des"], 0)
+
+
+def test_two_identical_options_drop_the_gap():
+    # Zweimal dieselbe Antwort: der Lernende kann recht haben und falsch liegen.
+    assert not is_usable_cloze("Das Buch ___ ist da.", "der", ["der", "der", "des", "dem"], 0)
+
+
+def test_the_marked_option_must_be_the_answer():
+    assert not is_usable_cloze("Das Buch ___ ist da.", "der", _GAP_OPTIONS, 1)
+
+
+def test_gap_options_may_be_single_words():
+    """Hier gilt der Wortueberdeckungs-Filter des Ankreuzens ausdruecklich NICHT.
+    In eine Luecke gehoert ein Wort, keine Satzvariante."""
+    assert is_usable_cloze("Der Bericht ___ geschrieben.", "wird",
+                           ["wird", "werden", "wurde", "ist"], 0)
 
 
 def test_a_sentence_without_a_gap_is_dropped():
-    assert not is_usable_cloze("Das Buch der Dozentin ist interessant.", "der")
+    assert not is_usable_cloze("Das Buch der Dozentin ist interessant.", "der", _GAP_OPTIONS, 0)
 
 
 def test_a_gap_without_an_answer_is_dropped():
-    assert not is_usable_cloze("Das Buch ___ Dozentin ist interessant.", "  ")
+    assert not is_usable_cloze("Das Buch ___ Dozentin ist interessant.", "  ", _GAP_OPTIONS, 0)
 
 
 def test_an_answer_that_already_stands_in_the_sentence_is_dropped():
     """Sonst liest der Lernende die Lösung im Aufgabentext ab. Genau das macht das
     Modell gern, wenn das gesuchte Wort im Satz noch einmal vorkommt."""
-    assert not is_usable_cloze("Der Titel ___ Buches steht der Titel.", "der Titel")
+    assert not is_usable_cloze("Der Titel ___ Buches steht der Titel.", "der Titel",
+                            ["der Titel", "des Titels", "dem Titel", "den Titel"], 0)
 
 
 def test_a_gap_that_swallows_the_whole_sentence_is_dropped():
     # Nur eine Lücke und sonst nichts ist keine Aufgabe, sondern ein leeres Feld.
-    assert not is_usable_cloze("___", "irgendwas")
+    assert not is_usable_cloze("___", "irgendwas", ["irgendwas", "b", "c", "d"], 0)
+
+
+def test_a_gap_hung_behind_a_finished_sentence_is_dropped():
+    """Am laufenden System gemeldet: der Satz war fertig und die Lücke hing hinten
+    dran. Da fehlt nichts, es gibt nichts zu füllen, und der Lernende raet."""
+    assert not is_usable_cloze(
+        "Die Literatur wird von den Studierenden recherchiert. ___", "wird",
+        ["wird", "werden", "wurde", "ist"], 0)
+
+
+def test_a_gap_at_the_end_but_inside_the_sentence_is_fine():
+    # Die Lücke darf am Satzende stehen, solange der Punkt DAHINTER kommt.
+    assert is_usable_cloze("Die Arbeit wird von der Dozentin ___.", "korrigiert",
+                        ["korrigiert", "korrigieren", "korrigierte", "korrigiert hat"], 0)
+
+
+@pytest.mark.parametrize("mark", [".", "!", "?", "…"])
+def test_no_sentence_end_may_stand_directly_before_the_gap(mark):
+    assert not is_usable_cloze(f"Der Bericht ist fertig{mark} ___", "wirklich",
+                            ["wirklich", "sehr", "ganz", "kaum"], 0)
+
+
+# ─── Die Anweisung an der Aufgabe ────────────────────────────────────────────
+
+def test_every_item_carries_its_own_task_line():
+    """Der gemeldete Fall: ein nackter Satz ohne Anweisung. Auch mit Textfeld weiss
+    niemand, ob umgeformt, ergänzt oder angekreuzt werden soll. Frueher stand die
+    Anweisung einmal ueber dem Set, ein gemischtes Set hat aber keine gemeinsame."""
+    from src.features.ai_assistant.tasks.language_training._source_grammar import task_line
+    for kind in KINDS:
+        assert task_line(kind, "de", "Passiv Präsens").strip()
+        assert task_line(kind, "en", "Passive present").strip()
+
+
+@pytest.mark.parametrize("kind", KINDS)
+def test_every_task_line_names_the_target_form(kind):
+    """Gemeldet: "Wähle die richtige Form." Form für was? Ohne die Zielform im Text
+    weiss der Lernende nicht, worauf er achten soll."""
+    from src.features.ai_assistant.tasks.language_training._source_grammar import task_line
+    assert "Passiv Präsens" in task_line(kind, "de", "Passiv Präsens")
+    assert "Passive present" in task_line(kind, "en", "Passive present")
+
+
+def test_a_choice_that_asks_which_is_correct_does_not_repeat_the_sentence(attributed):
+    """Steht der Satz oben UND als richtige Option darunter, liest man ihn zweimal.
+    Bei dieser Bauart traegt die Frage alles Noetige, der Satz ist Ballast."""
+    satz = "Die Ergebnisse werden von der Betreuerin überprüft."
+    response = json.dumps({"title": "T", "exercises": [
+        {"kind": "choice", "task": "Welche Form ist richtig?", "sentence": satz,
+         "options": [satz,
+                     "Die Ergebnisse sind von der Betreuerin überprüft.",
+                     "Die Ergebnisse werden von der Betreuerin überprüfen.",
+                     "Die Ergebnisse wurden von der Betreuerin überprüft."],
+         "correct_idx": 0},
+    ]})
+    items, _, _, _ = _generate(response, count=1)
+    assert satz not in items[0]["front"]
+
+
+def test_a_choice_that_transforms_keeps_its_sentence(attributed):
+    # Andere Bauart: der Satz ist die Vorlage und wird gebraucht.
+    response = json.dumps({"title": "T", "exercises": [
+        {"kind": "choice", "task": "Bilden Sie das Passiv.",
+         "sentence": "Die Software prüft die Eingaben.",
+         "options": ["Die Eingaben werden von der Software geprüft.",
+                     "Die Eingaben sind von der Software geprüft.",
+                     "Die Eingaben werden von der Software prüfen.",
+                     "Die Eingaben wurden von der Software geprüft."],
+         "correct_idx": 0},
+    ]})
+    items, _, _, _ = _generate(response, count=1)
+    assert "Die Software prüft die Eingaben." in items[0]["front"]
+
+
+def test_an_unknown_language_falls_back_to_english():
+    from src.features.ai_assistant.tasks.language_training._source_grammar import task_line
+    assert task_line("transform", "fr", "X") == task_line("transform", "en", "X")
 
 
 # ─── Die beiden übernommenen Filter laufen weiter ────────────────────────────
@@ -338,6 +607,35 @@ def test_the_choice_filter_still_rejects_four_content_options():
     assert not is_usable_choice(
         "Welche Gerichte wurden gekocht?", "Am Samstag wurde gekocht.",
         ["Pizza und Pasta", "Tacos und Fajitas", "Sushi und Tempura", "Suppe und Salat"],
+        0,
+    )
+
+
+def test_the_sentence_may_be_the_correct_option():
+    """Das Modell baut die Aufgabe oft als "welche Form ist richtig?" und stellt den
+    Satz selbst als richtige Option hinein. Das ist eine legitime Bauart, und mein
+    Filter hat sie bis zum 2026-08-05 verworfen. Dadurch fehlten Aufgaben im Set."""
+    satz = "Die Arbeit wird von der Dozentin korrigiert."
+    assert is_usable_choice(
+        "Welche Form ist richtig?", satz,
+        [satz,
+         "Die Arbeit wird von der Dozentin korrigieren.",
+         "Die Arbeit ist von der Dozentin korrigiert.",
+         "Die Arbeit wurde von der Dozentin korrigiert."],
+        0,
+    )
+
+
+def test_the_sentence_as_a_wrong_option_stays_forbidden():
+    """Andersherum bleibt es ein Verrat: steht der Satz als falsche Option da, ist
+    die Aufgabe "streiche das, was du schon liest"."""
+    satz = "Der Server speichert die Messwerte."
+    assert not is_usable_choice(
+        "Bilden Sie das Passiv.", satz,
+        ["Die Messwerte werden vom Server gespeichert.",
+         satz,
+         "Die Messwerte sind vom Server gespeichert.",
+         "Die Messwerte wurden vom Server gespeichert."],
         0,
     )
 

@@ -11,7 +11,6 @@ import pytest
 
 from src.features.ai_assistant.tasks.language_training._context import QuelleContext
 from src.features.ai_assistant.tasks.language_training._source_grammar import (
-    _INSTRUCTION,
     generate_grammar_from_source,
     is_usable_pair,
 )
@@ -116,7 +115,9 @@ def test_generation_builds_items_and_a_title(attributed):
     # Kein Set-Kopf mehr: ein gemischtes Set hat kein gemeinsames Muster, das über
     # allem stehen könnte. Es hängt an der Aufgabe, die eines braucht.
     assert header == {}
-    assert [i["front"] for i in items] == [
+    # Jede Aufgabe traegt ihre Anweisung vorn, sonst weiss der Lernende nicht,
+    # was er tun soll.
+    assert [i["front"].split("\n\n")[-1] for i in items] == [
         "Der Server speichert die Messwerte.",
         "Die Software prüft die Eingaben.",
     ]
@@ -187,7 +188,7 @@ _GOOD3 = ("Das Labor erhebt die Daten.", "Die Daten werden vom Labor erhoben.")
 def test_generation_drops_unusable_pairs_but_keeps_the_run(attributed):
     response = _exercises(_GOOD, _GOOD2, _GOOD3, ("Was bedeutet Normalisierung?", "Egal."))
     items, _, _, _ = _generate(response, count=4)
-    assert [i["front"] for i in items] == [_GOOD[0], _GOOD2[0], _GOOD3[0]]
+    assert [i["front"].split("\n\n")[-1] for i in items] == [_GOOD[0], _GOOD2[0], _GOOD3[0]]
 
 
 def test_generation_is_discarded_when_too_many_sentences_are_unusable(attributed):
@@ -234,7 +235,6 @@ def test_generation_prompt_carries_label_rule_and_adaptive_suffix(attributed):
     # The label names the target form. The learner-facing instruction does not, it
     # only points at the worked pair, so it is deliberately kept out of the prompt.
     assert _TEXT_TYPE["label"] in system
-    assert _INSTRUCTION["de"] not in system
     assert _TEXT_TYPE["rule"] in system
     assert MARKER in system
     # The whole point of the tool: sentences are written fresh from the source.

@@ -2,6 +2,7 @@ import React, { useContext, useEffect, useRef, useState } from "react";
 import { CaretLeft, CaretRight, Chat, Check, Lightbulb, Question, SidebarSimple } from "@phosphor-icons/react";
 import { useLocale, useTranslations } from "next-intl";
 import Spinner from "@/components/ui/Spinner";
+import IconButton from "@/components/ui/IconButton";
 import type { ExerciseItem, ExerciseItemSource, ExerciseSet, Source } from "../../_types";
 import { _chunkLabel, _getChipIcon, _md, _sourceChipKey } from "../../_utils";
 import { MinimizeContext } from "../../_context";
@@ -60,7 +61,10 @@ export function MCExerciseView({
   }, [exerciseSet.items]);
   const items = shuffledItems;
   const [index, setIndex] = useState(0);
-  const [selected, setSelected] = useState<number | null>(null);
+  // Die Wahl haengt an der AUFGABE, nicht am Bildschirm. Nur so kann man vor und
+  // zurueck gehen: eine beantwortete Aufgabe zeigt beim Zurueckblaettern wieder ihr
+  // Ergebnis und ist gesperrt, eine unbeantwortete bleibt offen.
+  const [picks, setPicks] = useState<Record<number, number>>({});
   const [results, setResults] = useState<{ item_id: number; correct: boolean }[]>([]);
   const [streak, setStreak] = useState(0);
   const [showResults, setShowResults] = useState(false);
@@ -79,12 +83,13 @@ export function MCExerciseView({
   // Chip numbering belongs to the SET, so a file keeps its number on every card
   // and matches the numbered legend at the bottom of the view.
   const srcNumbers = sourceNumbers(exerciseSet.sources);
+  const selected = card ? picks[card.id] ?? null : null;
   const answered = selected !== null;
   const isCorrect = answered && selected === card?.correct_idx;
 
   function select(optIdx: number) {
     if (answered || !card) return;
-    setSelected(optIdx);
+    setPicks((p) => ({ ...p, [card.id]: optIdx }));
     const correct = optIdx === card.correct_idx;
     setResults(prev => [...prev, { item_id: card.id, correct }]);
     if (correct) setStreak((s) => s + 1);
@@ -92,16 +97,16 @@ export function MCExerciseView({
     onAnswer(card.id, correct);
   }
 
+  function goTo(next: number) {
+    setIndex(next);
+    setHint(null);
+    // The pointer sits on the Weiter button, not on an option of the next card.
+    setHovered(null);
+  }
+
   function advance() {
-    if (index >= total - 1) {
-      setShowResults(true);
-    } else {
-      setIndex((i) => i + 1);
-      setSelected(null);
-      setHint(null);
-      // The pointer sits on the Weiter button, not on an option of the next card.
-      setHovered(null);
-    }
+    if (index >= total - 1) setShowResults(true);
+    else goTo(index + 1);
   }
 
   async function requestHint() {
@@ -159,7 +164,7 @@ export function MCExerciseView({
             })}
           </p>
           <div className="flex gap-3 mt-4">
-            <button type="button" onClick={() => { setShowResults(false); setIndex(0); setSelected(null); setResults([]); shuffledRef.current = false; }}
+            <button type="button" onClick={() => { setShowResults(false); setIndex(0); setPicks({}); setResults([]); shuffledRef.current = false; }}
               className="btn-outline-accent px-5 py-2 rounded-full text-xs font-semibold transition-all">
               {t("mcExercise.tryAgain")}
             </button>
@@ -307,14 +312,21 @@ export function MCExerciseView({
                   )}
                 </div>
               </div>
-              {(
-                <div className="flex justify-center">
-                  <button type="button" onClick={advance}
-                    className="btn-fill-accent px-5 py-2 rounded-full text-xs font-semibold transition-all">
-                    {index + 1 >= total ? t("common.finish") : t("common.next")}
-                  </button>
-                </div>
-              )}
+              {/* Zurueck und Weiter stehen immer da, auch unbeantwortet: wer eine
+                  Aufgabe nicht loesen kann, blaettert weiter und kommt spaeter zurueck.
+                  Beantwortete sind dann gesperrt, unbeantwortete weiter offen. */}
+              <div className="flex items-center justify-center gap-3">
+                <IconButton onClick={() => goTo(index - 1)} disabled={index === 0}
+                  title={t("common.back")} aria-label={t("common.back")}
+                  className="disabled:opacity-30">
+                  <CaretLeft size={14} weight="bold" />
+                </IconButton>
+                <IconButton onClick={advance}
+                  title={index + 1 >= total ? t("common.finish") : t("common.next")}
+                  aria-label={index + 1 >= total ? t("common.finish") : t("common.next")}>
+                  {index + 1 >= total ? <Check size={14} weight="bold" /> : <CaretRight size={14} weight="bold" />}
+                </IconButton>
+              </div>
 
               <SetSourceLegend
                 sources={exerciseSet.sources}

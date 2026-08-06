@@ -2,6 +2,7 @@ import React, { useContext, useEffect, useRef, useState } from "react";
 import { CaretLeft, CaretRight, Chat, Check, Lightbulb, Question, SidebarSimple, XIcon } from "@phosphor-icons/react";
 import { useLocale, useTranslations } from "next-intl";
 import Spinner from "@/components/ui/Spinner";
+import IconButton from "@/components/ui/IconButton";
 import type { ExerciseItem, ExerciseItemSource, ExerciseSet, Source } from "../../_types";
 import { _chunkLabel, _getChipIcon, _md, _sourceChipKey } from "../../_utils";
 import { MinimizeContext } from "../../_context";
@@ -64,6 +65,8 @@ export function FlashcardsLearnView({
   const total = items.length;
   const card = items[index];
   const isVocab = exerciseSet.tool === "flashcards";
+  // Schon bewertet? Dann sind die beiden Urteilsknoepfe gesperrt.
+  const rated = Boolean(card && card.id in results);
   // Chip numbering belongs to the SET, so a file keeps its number on every card
   // and matches the numbered legend at the bottom of the view.
   const srcNumbers = sourceNumbers(exerciseSet.sources);
@@ -71,21 +74,28 @@ export function FlashcardsLearnView({
   useEffect(() => { setFlipped(false); }, [index]);
 
   function answer(correct: boolean) {
-    if (!card) return;
-    const newResults = { ...results, [card.id]: correct };
-    setResults(newResults);
+    // Eine bewertete Karte bleibt bewertet. Wer zurueckblaettert, sieht sein Urteil
+    // und kann es nicht mehr aendern, offene Karten bleiben offen.
+    if (!card || card.id in results) return;
+    setResults((r) => ({ ...r, [card.id]: correct }));
     if (correct) setStreak((s) => s + 1);
     else setStreak(0);
     onAnswer(card.id, correct);
+  }
 
-    if (index >= total - 1) {
-      const pending = items.filter(it => !(it.id in newResults));
-      if (pending.length > 0) setShowPendingPrompt(true);
-      else setShowResults(true);
+  function goTo(next: number) {
+    setIndex(next);
+    setFlipped(false);
+  }
+
+  function advance() {
+    if (index < total - 1) {
+      goTo(index + 1);
       return;
     }
-    setIndex((i) => i + 1);
-    setFlipped(false);
+    const pending = items.filter((it) => !(it.id in results));
+    if (pending.length > 0) setShowPendingPrompt(true);
+    else setShowResults(true);
   }
 
   function goToFirstPending() {
@@ -338,11 +348,21 @@ export function FlashcardsLearnView({
                     </div>
                   </div>
                 </div>
-                {/* Next button */}
-                <button type="button" onClick={() => { answer(true); }}
-                  className="btn-soft-accent w-full py-2.5 rounded-xl text-sm font-semibold transition-all">
-                  {index >= total - 1 ? t("common.finish") : t("flashcardsLearn.nextTerm")} <CaretRight size={14} weight="bold" className="inline ml-0.5" style={{ verticalAlign: "-1px" }} />
-                </button>
+                {/* Zurueck und Weiter. Ein Vokabelbegriff wird nicht bewertet, er gilt
+                    als gesehen, sobald man ihn verlaesst. Zurueckblaettern aendert daran
+                    nichts, gesehen bleibt gesehen. */}
+                <div className="flex items-center justify-center gap-3">
+                  <IconButton onClick={() => goTo(index - 1)} disabled={index === 0}
+                    title={t("common.back")} aria-label={t("common.back")}
+                    className="disabled:opacity-30">
+                    <CaretLeft size={14} weight="bold" />
+                  </IconButton>
+                  <IconButton onClick={() => { answer(true); advance(); }}
+                    title={index >= total - 1 ? t("common.finish") : t("flashcardsLearn.nextTerm")}
+                    aria-label={index >= total - 1 ? t("common.finish") : t("flashcardsLearn.nextTerm")}>
+                    {index >= total - 1 ? <Check size={14} weight="bold" /> : <CaretRight size={14} weight="bold" />}
+                  </IconButton>
+                </div>
               </div>
             </div>
           </>;
@@ -409,7 +429,8 @@ export function FlashcardsLearnView({
               {flipped ? (
                 <>
                   <button key="again" type="button" onClick={() => answer(false)} title={t("common.again")}
-                    className="btn-outline-danger w-11 h-11 rounded-full flex items-center justify-center">
+                    disabled={rated}
+                    className="btn-outline-danger w-11 h-11 rounded-full flex items-center justify-center disabled:opacity-40">
                     <XIcon size={18} weight="bold" />
                   </button>
                   <button key="back-to-question" type="button" onClick={() => setFlipped(false)}
@@ -417,7 +438,8 @@ export function FlashcardsLearnView({
                     {t("common.showQuestion")}
                   </button>
                   <button key="knew" type="button" onClick={() => answer(true)} title={t("common.know")}
-                    className="btn-outline-success w-11 h-11 rounded-full flex items-center justify-center">
+                    disabled={rated}
+                    className="btn-outline-success w-11 h-11 rounded-full flex items-center justify-center disabled:opacity-40">
                     <Check size={18} weight="bold" />
                   </button>
                 </>
@@ -427,6 +449,20 @@ export function FlashcardsLearnView({
                   {t("common.showAnswer")}
                 </button>
               )}
+            </div>
+            {/* Zurueck und Weiter stehen immer da. Wer eine Karte nicht bewerten will,
+                blaettert weiter und kommt spaeter zurueck. */}
+            <div className="flex items-center justify-center gap-3">
+              <IconButton onClick={() => goTo(index - 1)} disabled={index === 0}
+                title={t("common.back")} aria-label={t("common.back")}
+                className="disabled:opacity-30">
+                <CaretLeft size={14} weight="bold" />
+              </IconButton>
+              <IconButton onClick={advance}
+                title={index + 1 >= total ? t("common.finish") : t("common.next")}
+                aria-label={index + 1 >= total ? t("common.finish") : t("common.next")}>
+                {index + 1 >= total ? <Check size={14} weight="bold" /> : <CaretRight size={14} weight="bold" />}
+              </IconButton>
             </div>
             {/* Source chips + filename legend */}
             {(() => {

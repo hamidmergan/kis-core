@@ -1800,7 +1800,8 @@
             "correct": "Richtig",
             "close": "Fast",
             "wrong": "Noch nicht richtig"
-          }
+          },
+          "example": "Beispiel"
         },
         "grammarTopics": {
           "addTopic": "+ Neues Thema",

@@ -1800,7 +1800,8 @@
             "correct": "Correct",
             "close": "Almost",
             "wrong": "Not right yet"
-          }
+          },
+          "example": "Example"
         },
         "grammarTopics": {
           "addTopic": "+ New topic",

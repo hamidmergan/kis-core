@@ -144,24 +144,15 @@ export function LanguageTrainingContent(props: LanguageTrainingContentProps) {
         );
       case "gr-learn": {
         if (!activeSet) return null;
-        // Ticking or writing is decided by the exercise type, and the finished set
-        // carries that decision in its data: a ticking set has options on its items.
-        // Reading it off the items keeps the sets that already exist working.
-        const isTicking = (activeSet.items || []).some((i) => (i.options?.length ?? 0) > 0);
+        // Immer die Grammatik-Ansicht. Sie entscheidet je AUFGABE, ob angekreuzt oder
+        // getippt wird.
+        //
+        // Vorher stand hier eine Weiche über das ganze Set: hatte eine einzige Aufgabe
+        // Optionen, ging alles in die Ankreuz-Ansicht. Seit ein Set die vier Formate
+        // mischt, traf das immer zu, und die Freitext-Aufgaben erschienen als nackter
+        // Satz ohne Eingabefeld. Gemeldet am 2026-08-05.
         const grammarCrumbs = [toOverviewWithReset, { label: grammarLabel, toolKey: "Grammar", onClick: () => { setActiveSet(null); setSprachView("gr-sets"); } }];
-        return isTicking ? (
-          <MCExerciseView
-            exerciseSet={activeSet}
-            onBack={() => { setSprachView("gr-sets"); setActiveSet(null); refreshProgress(); }}
-            onAnswer={(itemId, correct) => submitSingleAnswer(activeSet.id, itemId, correct)}
-            onAskChat={handleAskChat}
-            onSourceClick={onSourceClick}
-            breadcrumbs={grammarCrumbs}
-            chatLang={chatLang}
-            badgeCategory="language_training"
-            showChatHelp={false}
-          />
-        ) : (
+        return (
           <GrammarExerciseView
             exerciseSet={activeSet}
             workspaceUuid={workspaceUuid}

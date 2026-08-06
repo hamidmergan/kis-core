@@ -927,8 +927,17 @@ def init_db(admin_email: Optional[str] = None) -> None:
             """)
             # Die Textspalte zeigte auf einen Code-Eintrag, den es nicht mehr gibt. Kein
             # Bestandsschutz, wir sind auf dev: die alten Grammatik-Sets gehen mit.
-            cur.execute("DELETE FROM aia_exercise_sets WHERE tool = 'grammatik'")
-            cur.execute("ALTER TABLE aia_exercise_sets DROP COLUMN IF EXISTS grammar_type")
+            #
+            # NUR EINMAL, nämlich solange die alte Spalte noch da ist. Ohne diese Klammer
+            # lief das DELETE bei JEDEM Start und hat frisch erzeugte Sets gleich wieder
+            # weggeräumt. Genau so passiert am 2026-08-05.
+            cur.execute(
+                "SELECT 1 FROM information_schema.columns "
+                "WHERE table_name = 'aia_exercise_sets' AND column_name = 'grammar_type'"
+            )
+            if cur.fetchone():
+                cur.execute("DELETE FROM aia_exercise_sets WHERE tool = 'grammatik'")
+                cur.execute("ALTER TABLE aia_exercise_sets DROP COLUMN grammar_type")
             cur.execute(
                 "ALTER TABLE aia_exercise_sets ADD COLUMN IF NOT EXISTS grammar_topic_id "
                 "INTEGER REFERENCES aia_grammar_topics(id) ON DELETE SET NULL"
