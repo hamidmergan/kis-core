@@ -566,6 +566,56 @@ def test_clause_coverage_multi_fact_line_pdf():
     assert "[1, S. 12]" in out
 
 
+def test_clause_coverage_drops_a_passage_that_adds_nothing_to_the_line():
+    # Measured live: 7 of 13 extra chips cited a passage that covers NO word of the line the
+    # first passage was missing. Those are not co-sources, they are near-misses a clause
+    # search dragged in ("inklusive Abbildungen und Tabellen" is not a fact of its own).
+    # A coverage chip must earn its place by covering something new OF THE LINE.
+    line = "Die Arbeit umfasst sechs Seiten, inklusive Abbildungen und Tabellen."
+    search = _searcher({
+        "sechs Seiten": [_hit(1, 7, "Arbeit umfasst sechs Seiten Abbildungen Tabellen", 0.20)],
+        "inklusive Abbildungen": [_hit(1, 30, "Vorlesungsplan Termine Raeume Anmeldung", 0.30)],
+    })
+    out = _attribute_generic_text(line, search, {1: 1}, max_distance=0.6,
+                                  seen_pages_by_source={1: {7, 30}})
+    assert "[1, S. 7]" in out
+    assert "[1, S. 30]" not in out   # covers nothing of the line -> no chip
+
+
+def test_clause_coverage_keeps_a_second_DOCUMENT_even_for_the_same_fact():
+    # A workspace usually holds the slides AND the recording of the same session, so most
+    # facts exist twice: once written, once spoken. A second SOURCE is a second way in — one
+    # reader wants the slide, another wants to hear the passage — so it is kept even though
+    # it says the same thing. Only a second passage of the SAME file has to earn its place.
+    line = ("Das Seminar und das Projekt bauen aufeinander auf, "
+            "beide bereiten auf die spaetere Masterarbeit vor.")
+    slide = _hit(1, 2, "Seminar und Projekt bauen aufeinander auf Vorbereitung Masterarbeit", 0.20)
+    # SAME statement, other file: the recording of that slide.
+    talk = {"source_id": 2, "page_number": None,
+            "content": "Seminar und Projekt bauen aufeinander auf Vorbereitung Masterarbeit",
+            "vec_distance": 0.24, "start_time": 245.0}
+    search = _searcher({"Das Seminar und das Projekt": [slide],
+                        "beide bereiten auf die spaetere": [talk]})
+    out = _attribute_generic_text(line, search, {1: 1, 2: 2}, max_distance=0.6,
+                                  seen_pages_by_source={1: {2}, 2: set()})
+    assert "[1, S. 2]" in out      # the slide
+    assert "[2, 04:05]" in out     # the recording of the same fact stays
+
+
+def test_clause_coverage_keeps_a_passage_that_covers_a_new_fact():
+    # The case the coverage pass exists for stays intact: the second clause's passage
+    # carries words of the line the first passage does not have.
+    line = "Die Pruefung umfasst sechs Seiten, sowie eine muendliche Praesentation dazu."
+    search = _searcher({
+        "sechs Seiten": [_hit(1, 7, "Pruefung umfasst sechs Seiten Umfang", 0.20)],
+        "muendliche Praesentation": [_hit(1, 12, "muendliche Praesentation Fragekontext Dauer", 0.25)],
+    })
+    out = _attribute_generic_text(line, search, {1: 1}, max_distance=0.6,
+                                  seen_pages_by_source={1: {7, 12}})
+    assert "[1, S. 7]" in out
+    assert "[1, S. 12]" in out       # covers "muendliche Praesentation" -> earns its chip
+
+
 def test_clause_coverage_no_inflation_when_clauses_share_source():
     # Both clauses ground in the SAME page -> still ONE chip (dedup by target), no inflation.
     line = "Die Regel betrifft die Anmeldung, sowie auch die Abmeldung im selben Abschnitt."
@@ -576,10 +626,11 @@ def test_clause_coverage_no_inflation_when_clauses_share_source():
     assert out.count("[1, S. 5]") == 1
 
 
-# ── per-sentence attribution in PROSE (NotebookLM style) ──────────────────────
+# ── per-sentence attribution in PROSE ─────────────────────────────────────────
 # A prose paragraph attaches a chip AFTER EACH sentence (its own closest source), not one
-# aggregated chip at the paragraph end. Bullets, headings and table rows are unaffected —
-# they keep their end-of-unit chip.
+# aggregated chip at the paragraph end. Each sentence is searched on its OWN focused
+# vector, which is also what finds the source a diluted whole-paragraph vector misses.
+# Bullets, headings and table rows are unaffected — they keep their end-of-unit chip.
 
 def test_prose_paragraph_chips_each_sentence():
     line = ("Der Kurs vermittelt die Grundlagen des wissenschaftlichen Arbeitens. "
@@ -596,6 +647,78 @@ def test_prose_paragraph_chips_each_sentence():
     assert out.count("[1, S. 8]") == 1
 
 
+def test_prose_sentence_chips_capped_at_three():
+    # A chip STOP is a sentence, so the cap is per sentence: a comma-heavy sentence whose
+    # clauses each ground elsewhere shows at most three sources, matching the frontend's
+    # per-group ceiling of one visible chip plus two behind the caret.
+    line = ("Der Kurs behandelt die Grundlagen, die Abgabe der Hausarbeit, "
+            "das Kolloquium im Folgesemester, sowie die Anmeldung im Pruefungsamt.")
+    search = _searcher({
+        "Grundlagen": [_hit(1, 4, "Grundlagen wissenschaftliches Arbeiten", 0.2)],
+        "Abgabe der Hausarbeit": [_hit(1, 8, "Abgabe Hausarbeit Termin", 0.2)],
+        "Kolloquium": [_hit(1, 12, "Kolloquium Folgesemester", 0.2)],
+        "Anmeldung im Pruefungsamt": [_hit(1, 16, "Anmeldung Pruefungsamt Frist", 0.2)],
+    })
+    out = _attribute_generic_text(line, search, {1: 1}, max_distance=0.6,
+                                  seen_pages_by_source={1: {4, 8, 12, 16}})
+    assert out.count("[1, S.") == 3
+    assert "[1, S. 16]" not in out                  # the fourth source is dropped, not shown
+
+
+# ── an overview suppressor must not silence a whole BLOCK ─────────────────────
+# _names_many_laws and _enum_chip_unbacked exist to stop ONE chip being glued to a unit
+# that enumerates many sources, and they were calibrated on a unit = one sentence. A BLOCK
+# (a multi-sentence bullet) is several, where a single parenthetical ("(AND, OR, NOT)") or
+# one example list ("Vorträge, Poster, Workshops, Tutorien, Demos") would strip the chip off
+# everything around it. On the block path they are judged per sentence and only silence the
+# block when EVERY sentence trips them. Prose already chips per sentence and is unaffected.
+
+def test_bullet_keeps_chip_despite_one_abbreviation_list_sentence():
+    # Live case: search-strategy content whose third sentence mentions Boolean operators.
+    # "(AND, OR, NOT)" reads as three law abbreviations to _names_many_laws.
+    line = ("- Fuer die Literaturrecherche sollst du verschiedene Strategien nutzen. "
+            "Du kannst ein Schneeballsystem verwenden, indem du Literaturverzeichnisse durchsuchst. "
+            "Du sollst Boolesche Operationen (AND, OR, NOT) und Phrasensuche verwenden. "
+            "Du sollst Notizen machen und ein System fuer den Umgang mit Literatur aufbauen.")
+    search = _searcher({"Literaturrecherche": [_hit(1, 9, "Literaturrecherche Strategien Schneeballsystem", 0.24)]})
+    out = _attribute_generic_text(line, search, {1: 1}, max_distance=0.6, overview=True,
+                                  seen_pages_by_source={1: {9}})
+    assert "[1, S. 9]" in out
+
+
+def test_bullet_keeps_chip_despite_one_example_list_sentence():
+    # Live case: conference content whose third sentence lists session formats.
+    line = ("- Du lernst, wie wissenschaftliche Tagungen organisiert sind und ablaufen. "
+            "Die Ausrichter sind meist Hochschulen und Fachverbaende aus dem Fachgebiet. "
+            "Es gibt verschiedene Formate: Vortraege, Poster, Workshops, Tutorien, Demos. "
+            "Die angenommenen Beitraege werden im Tagungsband veroeffentlicht.")
+    search = _searcher({"Tagungen": [_hit(1, 15, "Tagungen Ausrichter Hochschulen Fachverbaende Tagungsband", 0.3)]})
+    out = _attribute_generic_text(line, search, {1: 1}, max_distance=0.6, overview=True,
+                                  seen_pages_by_source={1: {15}})
+    assert "[1, S. 15]" in out
+
+
+def test_single_line_enumeration_is_still_suppressed():
+    # The case the suppressors were built for is UNCHANGED: a lone line that is nothing but
+    # a many-law enumeration still gets no chip, because every sentence in it trips the gate.
+    line = "Die Regelungen stehen im (ZPO), im (MarkenG) und in (§ 21 StBerG) nebeneinander."
+    search = _searcher({"Regelungen": [_hit(1, 5, "eine Seite ueber die ZPO allein", 0.2)]})
+    out = _attribute_generic_text(line, search, {1: 1}, max_distance=0.6, overview=True,
+                                  seen_pages_by_source={1: {5}})
+    assert out == line
+
+
+def test_bullet_with_only_enumerating_sentences_stays_suppressed():
+    # A bullet whose EVERY sentence is a law enumeration stays chip-free — the suppressor
+    # is weakened per sentence, not switched off.
+    line = ("- Die Regelungen stehen im (ZPO), im (MarkenG) und in (§ 21 StBerG) nebeneinander. "
+            "Ergaenzend gelten die Vorgaben aus (UWG), (UmwG) und (BauGB) fuer diesen Bereich.")
+    search = _searcher({"Regelungen": [_hit(1, 5, "eine Seite ueber die ZPO allein", 0.2)]})
+    out = _attribute_generic_text(line, search, {1: 1}, max_distance=0.6, overview=True,
+                                  seen_pages_by_source={1: {5}})
+    assert out == line
+
+
 def test_prose_unsupported_sentence_gets_no_chip():
     line = ("Die Abgabe der Hausarbeit ist am 03.07.2026 faellig. "
             "Dieser vage Zusatz steht so nicht in den Quellen.")
@@ -605,7 +728,7 @@ def test_prose_unsupported_sentence_gets_no_chip():
     })
     out = _attribute_generic_text(line, search, {1: 1}, max_distance=0.6,
                                   seen_pages_by_source={1: {5, 8}})
-    assert "faellig [1, S. 8]." in out
+    assert "faellig [1, S. 8]." in out              # supported sentence keeps its own chip
     assert "[1, S. 5]" not in out                   # unsupported sentence stays chip-less
 
 
@@ -630,8 +753,8 @@ def test_prose_single_sentence_chip_at_end_unchanged():
     assert out == f"{line[:-1]} [1, S. 8]."
 
 
-def test_chip_goes_before_the_sentence_period_notebooklm_style():
-    # NotebookLM order: the source chip sits BEFORE the sentence-ending period, not after it.
+def test_chip_goes_before_the_sentence_period():
+    # The source chip sits BEFORE the sentence-ending period, not after it.
     line = "Die Abgabe der Hausarbeit ist am 03.07.2026 faellig und steht so hier."
     search = _searcher({"Abgabe der Hausarbeit": [_hit(1, 8, "Abgabe Hausarbeit 03.07.2026", 0.2)]})
     out = _attribute_generic_text(line, search, {1: 1}, max_distance=0.6,
@@ -641,7 +764,7 @@ def test_chip_goes_before_the_sentence_period_notebooklm_style():
 
 
 def test_bullet_chip_also_before_period():
-    # A bullet ending in a period gets the same NotebookLM order: chip before the period.
+    # A bullet ending in a period gets the same order: chip before the period.
     line = "- Der Kurs vermittelt die wissenschaftlichen Grundlagen im Seminar."
     search = _searcher({"wissenschaftlichen Grundlagen": [_hit(1, 4, "Grundlagen wissenschaftliches Arbeiten", 0.2)]})
     out = _attribute_generic_text(line, search, {1: 1}, max_distance=0.6,
@@ -660,11 +783,10 @@ def test_bullet_ending_in_bold_appends_chip_no_reorder():
     assert out == "- **Wörtliches Zitat vom Autor.** [1, S. 3]"
 
 
-def test_prose_block_multiline_bold_leadin_chips_per_sentence():
-    # The real NotebookLM-intro shape: a bold lead-in on its OWN line, then a 2-sentence
-    # prose line. The 2-line block must STILL chip per sentence on the prose line; the short
-    # bold lead-in stays chip-free. Regression: the multi-line block skipped per-sentence
-    # chipping and put ONE aggregated chip cluster at the block end.
+def test_bold_leadin_stays_chip_free_and_prose_below_chips_per_sentence():
+    # The real intro shape: a bold lead-in on its OWN line, then a 2-sentence prose line.
+    # The lead-in is a heading, so it stays chip-free AND does not swallow the prose below
+    # it — that line still gets a chip after each of its sentences.
     text = ("**Überblick**\n"
             "Der Kurs vermittelt die Grundlagen des wissenschaftlichen Arbeitens. "
             "Die Abgabe der Hausarbeit ist am 03.07.2026 faellig.")
@@ -676,9 +798,64 @@ def test_prose_block_multiline_bold_leadin_chips_per_sentence():
                                   seen_pages_by_source={1: {4, 8}})
     lines = out.split("\n")
     assert lines[0] == "**Überblick**"            # bold lead-in stays chip-free
-    assert "Arbeitens [1, S. 4]." in out          # sentence 1 gets its own chip
-    assert "faellig [1, S. 8]." in out            # sentence 2 gets its own chip
-    assert out.count("[1, S. 4]") == 1 and out.count("[1, S. 8]") == 1
+    assert "Arbeitens [1, S. 4]." in lines[1]     # sentence 1 keeps its own chip
+    assert lines[1].rstrip().endswith("faellig [1, S. 8].")
+
+
+# ── a HEADING is never a claim, in either shape ───────────────────────────────
+# A title names what follows, it asserts nothing, so a chip on it points at a page that
+# backs nothing — and lands in the middle of the heading. Models write titles both as
+# markdown "## Tipps" and as emphasis ("**Was ist Literaturrecherche**?"); both are titles.
+# Shape only, so it holds in every language.
+
+def test_markdown_heading_line_is_never_cited():
+    # Observed live: "### Tipps für die Suche [1, S. 9]" — a chip glued to a section title.
+    line = "### Tipps fuer die Literatursuche im Studium"
+    search = _searcher({"Literatursuche": [_hit(1, 9, "Literatursuche Stichwoerter Tipps", 0.2)]})
+    out = _attribute_generic_text(line, search, {1: 1}, max_distance=0.6,
+                                  seen_pages_by_source={1: {9}})
+    assert out == line
+
+
+def test_markdown_heading_does_not_swallow_the_paragraph_below():
+    text = ("### Tipps fuer die Literatursuche im Studium\n"
+            "Du solltest Stichwoerter sammeln und dabei auch an Synonyme denken.")
+    search = _searcher({"Stichwoerter": [_hit(1, 9, "Stichwoerter Synonyme sammeln", 0.2)]})
+    out = _attribute_generic_text(text, search, {1: 1}, max_distance=0.6,
+                                  seen_pages_by_source={1: {9}})
+    lines = out.split("\n")
+    assert lines[0] == "### Tipps fuer die Literatursuche im Studium"
+    assert lines[1].rstrip().endswith("denken [1, S. 9].")
+
+
+def test_bold_heading_line_is_never_cited():
+    line = "**Was ist eine Literaturrecherche im Studium**?"
+    search = _searcher({"Literaturrecherche": [_hit(1, 4, "Literaturrecherche Quellen Thema", 0.2)]})
+    out = _attribute_generic_text(line, search, {1: 1}, max_distance=0.6,
+                                  seen_pages_by_source={1: {4}})
+    assert out == line
+
+
+def test_bold_heading_does_not_swallow_the_paragraph_below():
+    # Heading and paragraph on consecutive lines (no blank line between them): the heading
+    # must start its own block, so the chip lands on the PARAGRAPH, never on the title.
+    text = ("**Was ist eine Literaturrecherche im Studium**?\n"
+            "Literaturrecherche bedeutet, dass du nach Quellen zu deinem Thema suchst.")
+    search = _searcher({"Literaturrecherche": [_hit(1, 4, "Literaturrecherche Quellen Thema", 0.2)]})
+    out = _attribute_generic_text(text, search, {1: 1}, max_distance=0.6,
+                                  seen_pages_by_source={1: {4}})
+    lines = out.split("\n")
+    assert lines[0] == "**Was ist eine Literaturrecherche im Studium**?"
+    assert lines[1].rstrip().endswith("suchst [1, S. 4].")
+
+
+def test_partially_bold_prose_line_is_still_cited():
+    # Emphasis INSIDE a sentence is not a heading — that line is a claim and keeps its chip.
+    line = "Die **Literaturrecherche** ist ein fester Teil des wissenschaftlichen Seminars."
+    search = _searcher({"Literaturrecherche": [_hit(1, 4, "Literaturrecherche Seminar Teil", 0.2)]})
+    out = _attribute_generic_text(line, search, {1: 1}, max_distance=0.6,
+                                  seen_pages_by_source={1: {4}})
+    assert out.rstrip().endswith("Seminars [1, S. 4].")
 
 
 # ── _attribution_subunits (what the caller pre-embeds in ONE batch) ───────────

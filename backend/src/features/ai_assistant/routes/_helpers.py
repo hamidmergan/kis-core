@@ -482,10 +482,11 @@ _MAX_CHIPS_PER_LINE = 3
 # are on-topic enough to pass 0.6 but are not where the claim actually came from. Genuine
 # co-sources (a fact stated on two pages / in two laws) sit at ~equal distance and stay.
 _MULTI_CHIP_MAX_DELTA = 0.08
-# Clause coverage: a multi-fact line is also attributed fact-by-fact, so a block may carry
-# up to this many chips total (line-level chips PLUS one per distinct clause source). A
-# ceiling so a comma-heavy sentence cannot explode into a chip pile.
-_COVERAGE_MAX_CHIPS_PER_LINE = 6
+# Clause coverage: a multi-fact unit is also attributed fact-by-fact, so ONE chip stop may
+# carry up to this many chips total (unit-level chips PLUS one per distinct clause source).
+# In prose a chip stop is a SENTENCE, so this is the per-sentence ceiling. Matches the
+# frontend's per-group cap: one visible chip plus two behind the caret.
+_COVERAGE_MAX_CHIPS_PER_LINE = 3
 # A line whose embedding is within this cosine distance of a canonical no-info SENTINEL is
 # an honest "the answer is not in the sources" refusal, NOT a claim — it must get NO chip,
 # even inside an otherwise-grounded COMPOUND answer (one sub-question answered, another
@@ -704,6 +705,28 @@ def _is_label_line(line: str) -> bool:
     return s.endswith(":")
 
 
+# A line wrapped ENTIRELY in bold, optionally followed by sentence punctuation:
+# ``**Überblick**``, ``**Was ist Literaturrecherche**?``. The inner text may not contain a
+# second emphasis run, so ``**A** und **B**`` (two emphasised words in one sentence) does
+# NOT match. Anchored at both ends, so a bullet ("- **Zitat.**") is not a heading either.
+_BOLD_HEADING_RE = re.compile(r"^(\*\*|__)(?:(?!\1).)+\1[\s.?!:]*$")
+
+
+def _is_heading_line(line: str) -> bool:
+    """A section TITLE, in either shape the model writes: a markdown ``## Tipps für die
+    Suche`` or a line set entirely in bold (``**Was ist Literaturrecherche**?``).
+
+    A title names what follows, it does not assert anything, so it must never carry a
+    citation chip — the chip would point at a page that backs nothing the title says, and
+    it lands right in the middle of the heading. The restated question at the top of an
+    answer is the worst case of this.
+
+    Both shapes are treated the same everywhere: own attribution block, no chip, never a
+    continuation of the paragraph above. Shape-only, no word lists → holds in every answer
+    language."""
+    return line.lstrip().startswith("#") or bool(_BOLD_HEADING_RE.match(line.strip()))
+
+
 def _needs_attribution(line: str) -> bool:
     """Whether a GENERIC answer line gets post-hoc attribution: substantial enough, not a
     table delimiter, not a colon-ending label, AND not already cited. Exposed so the caller
@@ -718,6 +741,7 @@ def _needs_attribution(line: str) -> bool:
     return (len(_line_dedup_key(line)) >= _DEDUP_MIN_KEY_LEN
             and not _is_table_delim(line)
             and not _is_label_line(line)
+            and not _is_heading_line(line)
             and not _HAS_CITE.search(line.rstrip()))
 
 
@@ -735,7 +759,7 @@ def _is_table_delim(line: str) -> bool:
 
 
 def _attach_chips(text: str, chip_str: str) -> str:
-    """Attach ``chip_str`` NotebookLM-style: BEFORE the sentence-ending punctuation when the
+    """Attach ``chip_str`` BEFORE the sentence-ending punctuation when the
     text ends in a plain '.', '!' or '?', so ``Satz.`` -> ``Satz [chip].``. If the text does
     NOT end in bare terminal punctuation (a trailing '**' emphasis marker, a closing quote, a
     table pipe, or no punctuation at all), the chip is simply appended — never inserted into
@@ -753,7 +777,7 @@ def _place_chip(line: str, chip_str: str) -> str:
     """Attach ``chip_str`` to a line. For a table row the chip goes INSIDE the last
     cell (before the closing pipe) so the row keeps its pipe-defined column count and
     GFM still parses the block as a table; otherwise it is attached via :func:`_attach_chips`
-    (before the sentence-ending period, NotebookLM-style)."""
+    (before the sentence-ending period)."""
     if _is_table_row(line):
         return re.sub(r"\s*\|\s*$", f" {chip_str} |", line.rstrip())
     return _attach_chips(line, chip_str)
@@ -769,6 +793,43 @@ def _in_scope(chunk: dict, scope_ids: Optional[set]) -> bool:
 
 # Comma/semicolon only — NOT colon: a colon would split clock times ("14:53") and ratios in
 # prose into junk fragments, and the comma already separates list items.
+# Content words for the coverage check: 4+ characters, case-folded. The length floor drops
+# function words (der/die/und, the/and/of) WITHOUT a per-language stop list, so this holds in
+# every answer language — the same shape-only rule the rest of attribution follows.
+_CONTENT_WORD_RE = re.compile(r"[^\W\d_]{4,}", re.UNICODE)
+
+
+def _content_words(text: str) -> set:
+    return {w.casefold() for w in _CONTENT_WORD_RE.findall(text or "")}
+
+
+def _extra_chip_earns_place(unit: str, primary: dict, extra: dict) -> bool:
+    """Whether an ADDITIONAL chip earns its place next to the closest one.
+
+    Two different rules, because "adds nothing" means different things across and within a
+    document:
+
+    - A DIFFERENT source always earns it, even for the very same fact. A workspace typically
+      holds the slides AND the recording of the same session, so most statements exist twice,
+      once written and once spoken. That is a second way in, not noise: one reader wants the
+      slide, another wants to hear the passage.
+    - A second passage of the SAME source has to cover a content word OF THE UNIT that the
+      closest passage does not already carry. A clause search always returns its nearest
+      chunk, even when the clause is not a fact of its own ("inklusive Abbildungen und
+      Tabellen"). Measured live, 7 of 13 extra chips cited a passage covering NO word the
+      first was missing — near misses, not co-sources. Overlap between the two passages
+      cannot catch this: they ARE different (mean overlap 0.17), just about something else.
+
+    Word sets only (4+ characters, case-folded), so no per-language stop list is involved."""
+    if primary.get("source_id") != extra.get("source_id"):
+        return True
+    unit_words = _content_words(unit)
+    if not unit_words:
+        return True
+    new_words = unit_words & _content_words(extra.get("content") or "")
+    return bool(new_words - _content_words(primary.get("content") or ""))
+
+
 _CLAUSE_SPLIT_RE = re.compile(r"[,;]")
 
 
@@ -949,7 +1010,7 @@ def _is_continuation(line: str) -> bool:
     if not s or _is_table_row(line):
         return False
     ls = line.lstrip()
-    if ls.startswith("#"):
+    if _is_heading_line(line):
         return False
     if re.match(r"[-*+]\s", ls) or re.match(r"\d+[.)]\s", ls):
         return False
@@ -966,7 +1027,7 @@ def _attr_blocks(lines: list[str]) -> list[list[int]]:
         if not lines[i].strip():
             i += 1
             continue
-        if _is_table_row(lines[i]) or lines[i].lstrip().startswith("#"):
+        if _is_table_row(lines[i]) or _is_heading_line(lines[i]):
             blocks.append([i])
             i += 1
             continue
@@ -982,17 +1043,34 @@ def _attr_blocks(lines: list[str]) -> list[list[int]]:
 def _is_prose_line(line: str) -> bool:
     """A plain PROSE paragraph line — NOT a list item, heading, or table row/delimiter.
 
-    Only prose lines get per-sentence citation chips (NotebookLM style); bullets and table
+    Only prose lines get per-sentence citation chips; bullets and table
     rows keep their single end-of-unit chip. Mirrors the exclusions in :func:`_is_continuation`
     so the two agree on what counts as a bullet/heading. Language-agnostic (structure only)."""
     ls = line.lstrip()
     if not ls.strip() or _is_table_row(line) or _is_table_delim(line):
         return False
-    if ls.startswith("#"):
+    if _is_heading_line(line):
         return False
     if re.match(r"[-*+]\s", ls) or re.match(r"\d+[.)]\s", ls):
         return False
     return True
+
+
+def _holds_for_every_sentence(text: str, predicate) -> bool:
+    """Whether ``predicate`` holds for EVERY sentence of ``text``.
+
+    The overview suppressors (:func:`_names_many_laws`, :func:`_enum_chip_unbacked`) exist to
+    stop ONE chip being glued to a unit that enumerates many sources, and they were
+    calibrated when a unit meant one sentence. A BLOCK can be several sentences (a
+    multi-sentence bullet), where a single parenthetical ("(AND, OR, NOT)") or one example
+    list would strip the chip off everything around it.
+
+    So on the block path they are judged sentence by sentence and only silence the block when
+    they hold throughout — for a genuine enumeration (one sentence, or a block that is nothing
+    but enumerations) the outcome is exactly as before. The prose path already judges each
+    sentence on its own and needs no wrapper."""
+    sents = _split_sentences(text) or [text]
+    return all(predicate(s) for s in sents)
 
 
 def _attribution_subunits(line: str) -> list[str]:
@@ -1076,7 +1154,7 @@ def _enum_chip_unbacked(text: str, content: str) -> bool:
 def _attribute_prose_line(sentences: list[str], search_one, source_id_to_qnum: dict, *,
                           context_chunks, seen_pages_by_source, scope_ids,
                           max_distance: float, guarantee: float, overview: bool) -> str:
-    """Rebuild a PROSE paragraph with a citation chip AFTER EACH sentence (NotebookLM style).
+    """Rebuild a PROSE paragraph with a citation chip AFTER EACH sentence.
 
     Each sentence is grounded on its OWN vector — whole-sentence closest source plus one
     coverage chip per distinct clause — reusing the exact block-path selector and gate
@@ -1100,7 +1178,11 @@ def _attribute_prose_line(sentences: list[str], search_one, source_id_to_qnum: d
                                               seen_pages_by_source, scope_ids)
                     cchips = _chips_for_line(ccands, source_id_to_qnum, max_distance,
                                              guarantee_dist=guarantee) if ccands else []
-                    if cchips and cchips[0] not in seen_targets:
+                    # A clause search ALWAYS returns its nearest chunk, so an extra chip must
+                    # earn its place: it only stays if its passage covers a word of the
+                    # SENTENCE the closest passage is missing.
+                    if (cchips and cchips[0] not in seen_targets
+                            and _extra_chip_earns_place(sent, cands[0], ccands[0])):
                         chips.append(cchips[0])
                         seen_targets.add(cchips[0])
                         if len(chips) >= _COVERAGE_MAX_CHIPS_PER_LINE:
@@ -1306,7 +1388,7 @@ def _attribute_generic_text(text: str, search_one, source_id_to_qnum: dict, offs
         # upstream — duplicate lines by _dedup_repeated_lines, redundant one-row tables /
         # model source-lists by answer-cleanup — so a citation is never sacrificed for tidiness.
         for blk in _attr_blocks(lines):
-            # NotebookLM-style per-sentence chips for a PROSE block — a block whose FIRST line
+            # Per-sentence chips for a PROSE block — a block whose FIRST line
             # is prose (not a bullet, heading, or table row). EACH line's sentences get their
             # OWN chip after the sentence, so a two-line intro ("**Überblick**\n<prose>") or a
             # multi-sentence paragraph is chipped sentence-by-sentence, not once at the end.
@@ -1325,7 +1407,7 @@ def _attribute_generic_text(text: str, search_one, source_id_to_qnum: dict, offs
                             guarantee=guarantee, overview=overview)
                 continue
             block_text = " ".join(lines[i] for i in blk)
-            if overview and _names_many_laws(block_text):
+            if overview and _holds_for_every_sentence(block_text, _names_many_laws):
                 continue
             agg: list[dict] = []
             for idx in blk:
@@ -1336,7 +1418,9 @@ def _attribute_generic_text(text: str, search_one, source_id_to_qnum: dict, offs
             # Overview: a spelled-out name-list whose cited chunk backs only one item is the
             # misleading "one chip on a many-source enumeration" case → leave it chip-free.
             # Content-gated so an in-source example list (chunk holds all items) keeps its chip.
-            if overview and _enum_chip_unbacked(block_text, agg[0].get("content") or ""):
+            _cited = agg[0].get("content") or ""
+            if overview and _holds_for_every_sentence(
+                    block_text, lambda s: _enum_chip_unbacked(s, _cited)):
                 continue
             chips = _chips_for_line(agg, source_id_to_qnum, max_distance,
                                     guarantee_dist=guarantee)
@@ -1351,7 +1435,10 @@ def _attribute_generic_text(text: str, search_one, source_id_to_qnum: dict, offs
                     for ccands in clause_cands_by_idx.get(idx, []):
                         cchips = _chips_for_line(ccands, source_id_to_qnum, max_distance,
                                                  guarantee_dist=guarantee)
-                        if cchips and cchips[0] not in seen_targets:
+                        # Same rule as the prose path: an extra chip must cover something of
+                        # the BLOCK that the closest passage does not already carry.
+                        if (cchips and cchips[0] not in seen_targets
+                                and _extra_chip_earns_place(block_text, agg[0], ccands[0])):
                             chips.append(cchips[0])
                             seen_targets.add(cchips[0])
                             if len(chips) >= _COVERAGE_MAX_CHIPS_PER_LINE:
