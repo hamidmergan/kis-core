@@ -5,7 +5,7 @@ import Spinner from "@/components/ui/Spinner";
 import Select from "@/components/ui/Select";
 import { langLabel } from "../../_types";
 import type { AddNoteExtras } from "../../_hooks/useNotes";
-import { buildTranscriptModes, cueIndexAtTime, type TranscriptMode } from "./_transcript";
+import { buildTranscriptModes, claimLineIndex, cueIndexAtTime, type TranscriptMode } from "./_transcript";
 import { CITATION_HL_COLOR } from "./_highlight";
 import { clearActiveChipTarget } from "../chat/_citations";
 
@@ -75,6 +75,8 @@ export function TranscriptPanel({
   onSaveNote,
   onOffChange,
   citationTime,
+  citationEndTime,
+  citationClaim,
   citationNonce,
   startOff = false,
 }: {
@@ -94,6 +96,14 @@ export function TranscriptPanel({
   // nonce, used to pin a navigable "citation highlight" the way the PDF viewer frames
   // the cited page.
   citationTime?: number;
+  // End of the CITED CHUNK, not of a cue. A chunk runs some 45 seconds and therefore
+  // covers several cues; marking only the cue at citationTime leaves the rest of the
+  // cited passage unmarked, and the sentence the answer rests on is regularly one cue
+  // further down — just past the marking, which reads as "the source does not say it".
+  citationEndTime?: number;
+  // The answer text the chip backs up. Used to find the ONE line of the passage that carries
+  // it, so the marking is that line rather than the whole minute the chunk covers.
+  citationClaim?: string;
   citationNonce?: number;
   // Beim Hör- und Leseverstehen startet das Transkript ausgeschaltet: wer mitlesen kann,
   // hört nicht zu. Es ist aber NICHT gesperrt, der Umschalter steht daneben und der
@@ -129,6 +139,14 @@ export function TranscriptPanel({
   // whether it is currently scrolled into view, and which way it lies relative to the
   // viewport (so the jump-back button can point an arrow at it).
   const [citationIdx, setCitationIdx] = useState<number>(-1);
+  // Last cue of the cited passage. Only used when NO single line stands out: then the whole
+  // passage is marked, because picking one would be guessing. Equal to citationIdx when the
+  // chunk fits in one cue or when no end is known (older messages carry no end_time).
+  const [citationEndIdx, setCitationEndIdx] = useState<number>(-1);
+  // Which line INSIDE the passage carries the claim, or -1 when none stands out clearly. It is
+  // both the marked line and the scroll target: centring the passage's first line would put a
+  // claim in the last one back at the bottom edge, which is the whole complaint.
+  const [citationClaimIdx, setCitationClaimIdx] = useState<number>(-1);
   const [citationInView, setCitationInView] = useState(true);
   const [citationDir, setCitationDir] = useState<"up" | "down">("down");
   const citationNonceRef = useRef<number | undefined>(undefined);
@@ -227,6 +245,11 @@ export function TranscriptPanel({
     return first ?? [];
   }, [cues, sourceLang]);
 
+  // The line the marking is actually on: the claim line when one was found, else the start of
+  // the span. Everything that points AT the marking uses this — the scroll, the jump-back
+  // button and its timestamp — so the button always names the place it takes you to.
+  const citationFocusIdx = citationClaimIdx >= 0 ? citationClaimIdx : citationIdx;
+
   // Drive currentIdx from the media element's time updates.
   useEffect(() => {
     const media = mediaRef.current;
@@ -290,26 +313,54 @@ export function TranscriptPanel({
     // them would scroll to the wrong place and consume the one-shot scroll before the new
     // cues load. We act once the loaded cues match the current source.
     if (cuesUuidRef.current !== sourceUuid) return;
-    if (citationTime == null || masterCues.length === 0) { setCitationIdx(-1); return; }
+    if (citationTime == null || masterCues.length === 0) {
+      setCitationIdx(-1); setCitationEndIdx(-1); setCitationClaimIdx(-1);
+      return;
+    }
     const idx = cueIndexAtTime(masterCues, citationTime);
     setCitationIdx(idx);
+    // Widen to every cue that STARTS before the chunk ends, so the marking covers the cited
+    // passage rather than its first few seconds. The small guard keeps a cue that begins
+    // exactly at the chunk's end out of it.
+    let endIdx = idx;
+    if (idx >= 0 && citationEndTime != null) {
+      while (endIdx + 1 < masterCues.length && masterCues[endIdx + 1].start < citationEndTime - 0.05) endIdx++;
+    }
+    setCitationEndIdx(endIdx);
+    // Which line of the span the answer rests on. Both language tracks go into the comparison,
+    // so a German answer still finds its line when the lecture is English and only the
+    // translation shares its wording. Computed HERE, not in a memo, because the scroll below
+    // needs it in the same pass — a memo would still hold the previous jump's value.
+    let claimIdx = -1;
+    if (idx >= 0 && endIdx > idx && citationClaim) {
+      const lines: string[] = [];
+      for (let i = idx; i <= endIdx; i++) {
+        const src = sourceLang ? cues[sourceLang]?.[i]?.text ?? "" : "";
+        const tgt = targetLang ? cues[targetLang]?.[i]?.text ?? "" : "";
+        lines.push(`${src} ${tgt}`);
+      }
+      const rel = claimLineIndex(citationClaim, lines);
+      if (rel >= 0) claimIdx = idx + rel;
+    }
+    setCitationClaimIdx(claimIdx);
     if (idx >= 0 && mode !== "off" && citationNonceRef.current !== citationNonce) {
       citationNonceRef.current = citationNonce;
+      const target = claimIdx >= 0 ? claimIdx : idx;
       requestAnimationFrame(() => {
-        itemRefs.current[idx]?.scrollIntoView({ block: "center", behavior: "instant" });
+        itemRefs.current[target]?.scrollIntoView({ block: "center", behavior: "instant" });
       });
     }
-  }, [citationNonce, citationTime, masterCues, sourceUuid, mode]);
+  }, [citationNonce, citationTime, citationEndTime, citationClaim, masterCues, cues, sourceLang, targetLang, sourceUuid, mode]);
 
   // Track whether the pinned cue is on-screen so the jump-back button only shows once
   // it has scrolled out of view (like the PDF jump button appearing after you page away).
   // Programmatic follow-scrolls fire scroll events too, so this stays in sync with both.
   useEffect(() => {
-    if (citationIdx < 0) { setCitationInView(true); return; }
+    if (citationFocusIdx < 0) { setCitationInView(true); return; }
     const list = listRef.current;
     if (!list) return;
     const check = () => {
-      const el = itemRefs.current[citationIdx];
+      const el = itemRefs.current[citationFocusIdx];
       if (!el) return;
       const er = el.getBoundingClientRect();
       const lr = list.getBoundingClientRect();
@@ -323,7 +374,7 @@ export function TranscriptPanel({
     // `mode` is a dep (unused in the body) because the list unmounts entirely in "off" mode:
     // its scroll listener goes with it, and coming back needs a fresh listener on the new list
     // plus a re-check, or `citationInView` would stay frozen at whatever it last was.
-  }, [citationIdx, mode]);
+  }, [citationFocusIdx, mode]);
 
   // User-initiated scroll disables follow mode until jump button is pressed.
   useEffect(() => {
@@ -362,13 +413,14 @@ export function TranscriptPanel({
   // Jump back to the pinned citation: ONLY scroll the transcript to the marking. The play
   // head and ongoing playback are left exactly where they are — no seek, no pause, no play.
   const jumpToCitation = () => {
-    if (citationIdx < 0) return;
-    itemRefs.current[citationIdx]?.scrollIntoView({ block: "center", behavior: "smooth" });
+    if (citationFocusIdx < 0) return;
+    // Same target as the original jump, so pressing the button twice never lands differently.
+    itemRefs.current[citationFocusIdx]?.scrollIntoView({ block: "center", behavior: "smooth" });
   };
 
   // Drop the pin AND the cited chip's yellow border in lockstep, exactly like the PDF
   // viewer's dismiss button (clearActiveChipTarget), so the chat chip stops looking active.
-  const dismissCitation = () => { setCitationIdx(-1); clearActiveChipTarget(); };
+  const dismissCitation = () => { setCitationIdx(-1); setCitationEndIdx(-1); setCitationClaimIdx(-1); clearActiveChipTarget(); };
 
   // Poll for the target VTT to appear after a translation task was dispatched.
   useEffect(() => {
@@ -579,7 +631,16 @@ export function TranscriptPanel({
       <div ref={listRef} className="flex-1 overflow-y-auto px-4 py-3">
         {masterCues.map((c, idx) => {
           const isCurrent = idx === currentIdx;
-          const isCitation = idx === citationIdx;
+          // Every cue of the cited passage wears the amber, not just the one the chip's
+          // timestamp lands on.
+          // ONE marking, never two shades of it. When a line clearly carries the claim it is
+          // the only one marked — the rest of the chunk is implementation detail the reader
+          // never asked about. Only when no line stands out does the whole span get marked,
+          // because then picking one would be guessing, and a guess that lands next to the
+          // sentence is the original bug: the answer's basis sitting just outside the marking.
+          const isCitation = citationClaimIdx >= 0
+            ? idx === citationClaimIdx
+            : citationIdx >= 0 && idx >= citationIdx && idx <= citationEndIdx;
           const isPast = currentIdx >= 0 && idx < currentIdx;
           const citationTint = `${CITATION_HL_COLOR}33`;  // ~20% amber, the pinned-segment tint
           const srcText = sourceLang ? cues[sourceLang]?.[idx]?.text : undefined;
@@ -664,7 +725,7 @@ export function TranscriptPanel({
 
       {/* Citation pin controls — same corner + pill design as the PDF viewer's page-frame
           bar. Icon-only with full text in title/aria. Shown while a citation is pinned. */}
-      {mode !== "off" && citationIdx >= 0 && masterCues[citationIdx] && (
+      {mode !== "off" && citationFocusIdx >= 0 && masterCues[citationFocusIdx] && (
         <div className="absolute bottom-6 right-4 z-10 flex items-center gap-1.5">
           {/* Jump-back: only after the pinned cue scrolled off-screen. Arrow points toward
               it, label is its timestamp. Click replays from there. */}
@@ -674,11 +735,11 @@ export function TranscriptPanel({
               onClick={jumpToCitation}
               className="flex items-center gap-1 pl-2 pr-2.5 py-1.5 rounded-full text-xs font-medium shadow-md btn-icon"
               style={{ backgroundColor: "var(--surface)", color: "var(--kb)", border: "1px solid var(--kb)" }}
-              title={t("jumpToHighlightTime", { time: fmtTs(masterCues[citationIdx].start) })}
-              aria-label={t("jumpToHighlightTime", { time: fmtTs(masterCues[citationIdx].start) })}
+              title={t("jumpToHighlightTime", { time: fmtTs(masterCues[citationFocusIdx].start) })}
+              aria-label={t("jumpToHighlightTime", { time: fmtTs(masterCues[citationFocusIdx].start) })}
             >
               {citationDir === "down" ? <ArrowDown size={13} weight="bold" /> : <ArrowUp size={13} weight="bold" />}
-              <span className="tabular-nums">{fmtTs(masterCues[citationIdx].start)}</span>
+              <span className="tabular-nums">{fmtTs(masterCues[citationFocusIdx].start)}</span>
             </button>
           )}
           <button

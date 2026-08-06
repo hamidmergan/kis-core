@@ -1120,3 +1120,12 @@ body.is-phone-landscape [title="Panel minimieren"] {
   20%      { transform: scale(1.1); opacity: 1; }
   40%      { transform: scale(.7); opacity: .4; }
 }
+
+/* Quellen-Stelle: normaler Inline-Fluss, KEIN inline-flex. Als inline-flex war die Gruppe
+   ein unteilbarer Kasten: passten Marke und Chips nicht mehr in den Zeilenrest, sprang
+   alles gemeinsam in die naechste Zeile und der Absatz wuchs um eine ganze Zeile, waehrend
+   der Zeiger nur darueberfuhr. Inline duerfen die Chips den Zeilenrest auffuellen und
+   zwischen sich umbrechen, die Marke bleibt stehen. */
+.chip-stop {
+  display: inline;
+}

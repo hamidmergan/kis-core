@@ -126,6 +126,16 @@ export interface ViewerState {
   isCitation?: boolean;
   nonce?: number;
   startTime?: number;
+  // End of the CITED passage, not of a single subtitle cue. A retrieval chunk runs some
+  // 45 seconds and therefore spans several cues, so marking only the cue at startTime
+  // leaves the rest of the cited passage unmarked — the sentence the answer rests on
+  // often sits in the second or third cue and reads as "not in the source". With the end
+  // the transcript marks the whole span.
+  endTime?: number;
+  // The piece of the ANSWER this chip backs up. The marked span runs about a minute, so the
+  // transcript uses this to weight the line carrying the claim over the rest of the span.
+  // Ranking among lines already known to be right, never a search.
+  citationClaim?: string;
 }
 
 export interface DataTableRowSource {

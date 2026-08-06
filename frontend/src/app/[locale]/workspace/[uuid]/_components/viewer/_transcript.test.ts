@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { buildTranscriptModes, cueIndexAtTime, type TimedCue } from "./_transcript";
+import { buildTranscriptModes, claimLineIndex, claimOverlap, claimTokens, cueIndexAtTime, type TimedCue } from "./_transcript";
 
 // `time` is now the chunk's EXACT start (a Whisper segment start, i.e. a VTT cue start),
 // resolved from source_pages — NOT the lossy whole-second display timestamp.
@@ -85,5 +85,54 @@ describe("buildTranscriptModes", () => {
         expect(modes[modes.length - 1]).toBe("off");
       }
     }
+  });
+});
+
+describe("claimLineIndex — which line of a cited passage carries the claim", () => {
+  // Verbatim from the reported case: the chip cited the chunk 48:11-48:56, whose two
+  // transcript lines are these. The date the answer rests on sits in the SECOND one.
+  const line1 = "spezieller darauf ein und vielleicht rufen wir dann noch so ein paar Dinge ins "
+    + "Gedächtnis. Wie gesagt, hier ist das in der Masterarbeit dann, worauf sie ja das "
+    + "wissenschaftliche Seminar vorbereiten soll, ist das auf jeden Fall ein sehr wichtiges "
+    + "Kriterium, dass sie das erfüllen.";
+  const line2 = "Und dann ab dem 22. April wird es, wie schon vorhin besprochen, offene "
+    + "Sprechstunden geben. Und alles Weitere, wann die Peer Reviews stattfinden sollen und so "
+    + "weiter und so fort, können Sie nochmal im Kursplan nachschauen.";
+
+  it("picks the line holding the date, not the one the timestamp starts at", () => {
+    const claim = "Der Kontakt läuft über das Fachforum sowie eine wöchentliche Sprechstunde, "
+      + "die ab dem 22. April wöchentlich stattfindet";
+    expect(claimLineIndex(claim, [line1, line2])).toBe(1);
+  });
+
+  it("matches across inflection without knowing any German", () => {
+    // "Sprechstunde" must find "Sprechstunden" — substring, no stemmer, no word list.
+    expect(claimOverlap(claimTokens("offene Sprechstunde"), line2)).toBeGreaterThan(0);
+  });
+
+  it("keeps the digits of a date, which are the discriminating token", () => {
+    expect(claimTokens("ab dem 22. April")).toContain("22");
+  });
+
+  it("stays out of it when the claim is too thin to decide", () => {
+    // "das"/"ist" survive the length rule and both sit in line1, which would hand it a
+    // confident win on function words alone. A claim this short may not decide anything.
+    expect(claimLineIndex("Das ist so.", [line1, line2])).toBe(-1);
+  });
+
+  it("stays out of it on a tie, when the claim is spread over both lines", () => {
+    const both = "Das wissenschaftliche Seminar hat ein wichtiges Kriterium erfüllt";
+    const a = "Das wissenschaftliche Seminar hat ein wichtiges Kriterium.";
+    expect(claimLineIndex(both, [a, a])).toBe(-1);
+  });
+
+  it("does not emphasise anything when the passage is a single line", () => {
+    expect(claimLineIndex("ab dem 22. April", [line2])).toBe(-1);
+  });
+
+  it("survives a script without spaces instead of guessing", () => {
+    // CJK has no word boundaries, so tokenising yields one long token that matches nothing
+    // or everything. Either way the guard decides: no clear winner, no emphasis.
+    expect(claimLineIndex("四月二十二日", ["二十二", "別の行"])).toBe(-1);
   });
 });

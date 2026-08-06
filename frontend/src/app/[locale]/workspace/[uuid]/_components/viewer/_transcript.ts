@@ -58,3 +58,77 @@ export function buildTranscriptModes(
   modes.push("off");
   return modes;
 }
+
+
+// --- Which line of a cited passage carries the claim ------------------------------------
+//
+// A citation chip points at a retrieval CHUNK, and the chunk is the smallest thing the
+// search knows: which sentence inside it produced the answer is recorded nowhere. With the
+// current chunker a chunk runs about a minute, i.e. three to four transcript lines, so
+// marking the whole chunk is correct but leaves the reader scanning ~160 spoken words for
+// one date.
+//
+// The chunk's lines are already on screen and the answer sentence stands right next to the
+// chip, so the pick is a comparison between three or four known candidates — NOT a search.
+// That is the whole reason this is safe where the earlier grounding attempts were not: the
+// worst case is emphasis on a neighbouring line INSIDE a block that stays correct, never a
+// jump to the wrong place.
+
+// Comparable tokens of a text. No stop-word list and no stemmer: those are per-language and
+// this has to hold for every language a course ships in. Instead, drop tokens shorter than
+// three characters, which removes most function words in alphabetic scripts, but KEEP short
+// tokens containing a digit — "22" in "ab dem 22. April" is precisely the discriminating
+// one. \p{L}/\p{N} so non-Latin scripts survive the strip.
+export function claimTokens(text: string): string[] {
+  const words = text
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N}]+/gu, " ")
+    .split(" ")
+    .filter((w) => w.length >= 3 || /\p{N}/u.test(w));
+  return [...new Set(words)];
+}
+
+// How many distinct claim tokens the line contains. Substring, not equality: it lets
+// "Sprechstunde" find "Sprechstunden" and "April" find "Aprils" without knowing a single
+// rule of German — the cheap stand-in for a stemmer that works the same in any language.
+export function claimOverlap(tokens: string[], line: string): number {
+  if (tokens.length === 0) return 0;
+  const hay = line.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, " ");
+  let n = 0;
+  for (const t of tokens) if (hay.includes(t)) n++;
+  return n;
+}
+
+/**
+ * The line of a cited passage that carries the claim, or -1 when none stands out.
+ *
+ * `lines` are the texts of the cited chunk's cues, in order; the returned index is relative
+ * to that array. Returning -1 is the DEFAULT, not a failure: without a clear winner every
+ * line keeps the same weight, because a guessed emphasis is worse than none — it sends the
+ * reader to the wrong sentence with the same confidence as a right one.
+ *
+ * Three conditions, each of which exists because dropping it produced a confident wrong
+ * pick in testing:
+ *   - the claim needs MIN_CLAIM_TOKENS of its own. Dropping short words catches most
+ *     function words but not all of them ("das", "ist", "und" survive the length rule in
+ *     German), so a three-word claim can win a line on function words alone.
+ *   - the winner needs MIN_HITS distinct matches, so one accidental word is not a verdict.
+ *   - the winner needs MARGIN more than the runner-up. A near-tie means the claim is spread
+ *     across both lines, which is exactly when the block should stay evenly marked.
+ */
+const MIN_CLAIM_TOKENS = 4;
+const MIN_HITS = 3;
+const MARGIN = 2;
+
+export function claimLineIndex(claim: string, lines: string[]): number {
+  if (lines.length < 2) return -1;
+  const tokens = claimTokens(claim);
+  if (tokens.length < MIN_CLAIM_TOKENS) return -1;
+  let best = -1, bestScore = 0, second = 0;
+  lines.forEach((line, i) => {
+    const score = claimOverlap(tokens, line);
+    if (score > bestScore) { second = bestScore; bestScore = score; best = i; }
+    else if (score > second) { second = score; }
+  });
+  return bestScore >= MIN_HITS && bestScore >= second + MARGIN ? best : -1;
+}

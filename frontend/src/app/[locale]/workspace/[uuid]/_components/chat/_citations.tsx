@@ -53,6 +53,9 @@ export type CitationChipClickHandler = (
   sourceText?: string,
   startTime?: number,
   isExact?: boolean,
+  // End of the cited chunk, so the transcript can mark the WHOLE cited passage instead
+  // of just the subtitle cue that happens to start at startTime.
+  endTime?: number,
 ) => void;
 
 
@@ -66,8 +69,14 @@ interface ChipDesc {
   clickUuid: string;
   clickPage: number;
   clickSeconds: number | undefined;
+  clickEndSeconds: number | undefined;
   clickHighlight: string | undefined;
   isExactSelection: boolean;
+  // The stretch of ANSWER text this chip backs up: everything between the previous chip stop
+  // and this one. Sent along on a media click so the transcript can weight the line that
+  // carries it inside the roughly minute-long marked span. Filled in when the chips are
+  // grouped, since only there is the previous stop known.
+  claim?: string;
   start: number;   // token span start in the answer text
   end: number;     // token span end in the answer text
 }
@@ -77,7 +86,7 @@ interface ChipDesc {
 // Clicking a chip only scrolls to the page/timestamp — no highlight — UNLESS it is a
 // popup/action-bar exact selection, which still passes its verbatim text to highlight.
 function CitationChip({ desc, onChipClick }: { desc: ChipDesc; onChipClick: CitationChipClickHandler }) {
-  const { filename, displayQNum, label, clickUuid, clickPage, clickSeconds, clickHighlight, isExactSelection } = desc;
+  const { filename, displayQNum, label, clickUuid, clickPage, clickSeconds, clickEndSeconds, clickHighlight, isExactSelection, claim } = desc;
   const targetKey = chipTargetKey(clickUuid, clickSeconds ? 0 : clickPage, clickSeconds);
   const isActive = useIsActiveChip(targetKey);
   // onPointerDown (not onClick) so chips remain clickable during active token stream:
@@ -91,9 +100,13 @@ function CitationChip({ desc, onChipClick }: { desc: ChipDesc; onChipClick: Cita
       clickUuid,
       clickSeconds ? 0 : clickPage,
       filename,
-      clickSeconds ? undefined : clickHighlight,
+      // PDF: verbatim text to highlight (popup selections only). Media: the answer text this
+      // chip backs up — the transcript ranks the lines of the marked span against it. Both
+      // are "the text belonging to this citation", which is what this slot has always meant.
+      clickSeconds ? claim : clickHighlight,
       clickSeconds,
       isExactSelection,
+      clickSeconds ? clickEndSeconds : undefined,
     );
   };
   return (
@@ -180,7 +193,7 @@ function CitationChipGroup({ groupId, chips, onChipClick }: { groupId: string; c
     // width; gap-y keeps the wrapped rows legible. Touch devices never fire these and keep
     // the click as their way in.
     <span
-      className="inline-flex flex-wrap items-center align-middle max-w-full gap-y-1"
+      className="chip-stop"
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
     >
@@ -238,6 +251,7 @@ export function parseCitations(
     displayQNum: number | null;
     label: string;
     clickSeconds: number | undefined;
+    clickEndSeconds: number | undefined;
     clickHighlight: string | undefined;
     isExactSelection: boolean;
   }
@@ -256,6 +270,11 @@ export function parseCitations(
     const displayQNum = singleSource ? null : (qNum ?? msgQmap.find(q => q.uuid === sourceUuid)?.qnum ?? null);
     const label = timestamp || _chunkLabel(filename, pageNum, undefined, tChip);
     let seconds = 0;
+    // End of the cited chunk. A chunk runs ~45s and covers SEVERAL subtitle cues, so the
+    // timestamp alone marks only its first cue: the sentence the answer actually rests on
+    // frequently sits in the next cue, just past the marking, and reads as missing from the
+    // source. Carried along so the transcript can mark the whole cited passage.
+    let endSeconds: number | undefined;
     if (timestamp) {
       const tp = timestamp.split(":").map(Number);
       seconds = tp.length === 3 ? tp[0] * 3600 + tp[1] * 60 + tp[2] : tp[0] * 60 + tp[1];
@@ -267,6 +286,7 @@ export function parseCitations(
         (s) => s.source_uuid === sourceUuid && s.start_time != null && Math.floor(s.start_time) === seconds,
       );
       if (exact?.start_time != null) seconds = exact.start_time;
+      if (exact?.end_time != null) endSeconds = exact.end_time;
     }
     // Popup/action-bar exact selection: the user marked this verbatim text, so the
     // chip still highlights it exactly (the ONLY remaining chip-driven highlight).
@@ -286,6 +306,7 @@ export function parseCitations(
       },
       sourceUuid, filename, displayQNum, label,
       clickSeconds: timestamp ? seconds : undefined,
+      clickEndSeconds: timestamp ? endSeconds : undefined,
       clickHighlight, isExactSelection,
     });
   }
@@ -321,6 +342,7 @@ export function parseCitations(
       clickUuid: head.sourceUuid,
       clickPage: head.fields.page,
       clickSeconds: head.clickSeconds,
+      clickEndSeconds: head.clickEndSeconds,
       clickHighlight: head.clickHighlight,
       isExactSelection: head.isExactSelection,
       start: head.fields.index,
@@ -353,7 +375,11 @@ export function parseCitations(
       n++;
     }
 
-    const kept = run.slice(0, MAX_CHIPS_PER_GROUP);
+    // What this stop backs up: the answer text since the previous stop. Not a sentence split
+    // — a period is not a sentence end in every language, and in German it is not even one in
+    // "22. April". The stretch between two chips is the claim by construction.
+    const claim = text.slice(last, first.start).trim();
+    const kept = run.slice(0, MAX_CHIPS_PER_GROUP).map(c => ({ ...c, claim }));
     nodes.push(
       first.isExactSelection
         ? <CitationChip key={first.key} desc={first} onChipClick={onChipClick} />
