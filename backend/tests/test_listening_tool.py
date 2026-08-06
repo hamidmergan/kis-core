@@ -439,7 +439,7 @@ def test_the_section_claim_travels_for_the_coverage_check(gen):
     assert items[0]["_section"] == 2
 
 
-# ── Zweiter Wurf ─────────────────────────────────────────────────────────────
+# ── Bis zur bestellten Anzahl ────────────────────────────────────────────────
 
 def test_a_mostly_filtered_run_gets_a_second_throw(gen):
     thin = _payload({"kind": "paraphrase", "question": "Was?",
@@ -452,14 +452,214 @@ def test_a_mostly_filtered_run_gets_a_second_throw(gen):
 
     items, _title = gen.generate_listening_from_source(client, "m", _ctx(), 4, locale="de")
 
-    assert len(calls) == 2
+    assert len(calls) >= 2
     assert len(items) == 2
 
 
-def test_a_full_run_is_not_thrown_twice(gen):
-    client, calls = _make_client(_payload(
+def test_a_short_draw_is_topped_up_to_the_requested_count(gen):
+    """Wer zehn Aufgaben bestellt, will zehn. Die Filter werfen weg, und ohne
+    Nachschlag kam ein kurzes Set heraus."""
+    thin = _payload({"kind": "statement", "statement": _STATEMENT, "answer": True})
+    rest = _payload({"kind": "paraphrase", "question": "Was heißt das?",
+                     "options": ["Die Werte gehen an die Auswertung", "B", "C", "D"],
+                     "correct_idx": 0})
+    client, calls = _make_client(thin, rest)
+
+    items, _title = gen.generate_listening_from_source(client, "m", _ctx(), 2, locale="de")
+
+    assert len(items) == 2
+    assert len(calls) == 2
+
+
+def test_the_top_up_asks_only_for_the_kinds_that_are_missing(gen):
+    """Sonst kippt die Mischung: der Nachschlag liefert, was dem Modell am
+    leichtesten faellt, und das sind Richtig/Falsch-Aussagen."""
+    statements = _payload(
         {"kind": "statement", "statement": _STATEMENT, "answer": True},
         {"kind": "statement", "statement": "Die Werte liegen ein Jahr lang.", "answer": True},
+    )
+    client, calls = _make_client(statements)
+
+    gen.generate_listening_from_source(client, "m", _ctx(), 4, locale="de")
+
+    zweiter = calls[1][0]["content"]
+    assert "Write exactly 2 items" in zweiter
+    assert 'of kind "statement"' not in zweiter
+    assert 'of kind "paraphrase"' in zweiter and 'of kind "reference"' in zweiter
+
+
+def test_the_top_up_lets_a_passage_be_used_again_in_other_words(gen):
+    """Das Material ist endlich. Steht die Anzahl noch nicht, darf dieselbe Stelle
+    ein zweites Mal drankommen, solange die Aufgabe anders gefragt ist."""
+    client, calls = _make_client(_payload(
+        {"kind": "statement", "statement": _STATEMENT, "answer": True}))
+
+    gen.generate_listening_from_source(client, "m", _ctx(), 4, locale="de")
+
+    assert "TOP-UP" not in calls[0][0]["content"]
+    assert "TOP-UP" in calls[1][0]["content"]
+
+
+def test_after_three_throws_it_gives_up(gen):
+    """Mehr als drei bringt nichts, und das Anfragen-Kontingent teilt sich die
+    ganze Hochschule."""
+    client, calls = _make_client(_payload(
+        {"kind": "paraphrase", "question": "Was?",
+         "options": ["Der Vertrag läuft aus", "B", "C", "D"], "correct_idx": 0}))
+
+    items, _title = gen.generate_listening_from_source(client, "m", _ctx(), 4, locale="de")
+
+    assert items == []
+    assert len(calls) == 3
+
+
+def test_an_item_dropped_for_quoting_a_recording_is_topped_up(gen):
+    """Die Sperre gegen abgedruckten Ton machte das Set kuerzer. Sie greift jetzt
+    in jedem Wurf, damit der naechste nachlegen kann."""
+    quoting = _payload({"kind": "paraphrase", "question": "Die Quelle sagt: \"Weg.\"",
+                        "options": ["Die Werte gehen an die Auswertung", "B", "C", "D"],
+                        "correct_idx": 0})
+    good = _payload({"kind": "statement", "statement": _STATEMENT, "answer": True})
+    client, calls = _make_client(quoting, good)
+
+    gen.attach_chips_cited = lambda items, claims, ctx, **kw: [
+        i.update(source_label="VL1.mp4",
+                 sources=[{"source_label": "VL1.mp4", "page_number": 1,
+                           "start_time": 42.0}]) for i in items]
+
+    items, _title = gen.generate_listening_from_source(client, "m", _ctx(both=True), 2,
+                                                       locale="de")
+
+    assert [i["front"] for i in items] == [_STATEMENT]
+    assert len(calls) > 1
+
+
+def test_after_a_recording_drop_the_top_up_asks_only_for_safe_kinds(gen):
+    """Die Sperre gegen abgedruckten Ton ist ein Leck, das sich sonst jeden Wurf
+    wiederholt: das Modell legt zitierende Aufgaben auf die Aufnahme, die Sperre wirft
+    sie weg, und das Set bleibt kurz. Gemessen am 2026-08-06: 9 von 10 bestellten.
+
+    Also bestellt der Nachschlag danach nur noch Arten, die dort nicht durchfallen
+    koennen.
+    """
+    client, calls = _make_client(_payload(
+        {"kind": "paraphrase", "question": "Die Quelle sagt: \"Weg.\"",
+         "options": ["Die Werte gehen an die Auswertung", "B", "C", "D"],
+         "correct_idx": 0}))
+
+    gen.attach_chips_cited = lambda items, claims, ctx, **kw: [
+        i.update(source_label="VL1.mp4",
+                 sources=[{"source_label": "VL1.mp4", "page_number": 1,
+                           "start_time": 42.0}]) for i in items]
+
+    gen.generate_listening_from_source(client, "m", _ctx(both=True), 4, locale="de")
+
+    zweiter = calls[1][0]["content"]
+    assert 'of kind "paraphrase"' not in zweiter
+    assert 'of kind "reference"' not in zweiter
+    assert 'of kind "statement"' in zweiter
+
+
+def test_the_same_question_in_other_words_is_not_taken_twice(gen):
+    """Der Nachschlag darf umformulieren, aber nicht dasselbe zweimal fragen.
+
+    Am laufenden System gemessen (2026-08-06): 'Worauf bezieht sich "es" in "Es wird
+    diskutiert."?' stand als Aufgabe 3 und, anders formuliert, noch einmal als Aufgabe
+    10 im selben Set. Wortgleich waren die beiden nicht, der alte Abgleich griff also
+    nicht.
+    """
+    client, _calls = _make_client(_payload(
+        {"kind": "reference", "question": "Worauf bezieht sich \"sie\" in \"Sie liegen dort\"?",
+         "options": ["die Messwerte", "B", "C", "D"], "correct_idx": 0},
+        {"kind": "reference",
+         "question": "Worauf bezieht sich das Wort \"sie\" in dem Satz \"Sie liegen dort\"?",
+         "options": ["die Messwerte", "B", "C", "D"], "correct_idx": 0},
+    ))
+
+    items, _title = gen.generate_listening_from_source(client, "m", _ctx(), 2, locale="de")
+
+    assert len(items) == 1
+
+
+def test_the_same_claim_with_an_extra_clause_is_not_taken_twice(gen):
+    """Am laufenden System gemessen (Set 1783): 'Die Literaturrecherche muss bis zum
+    15. Mai abgeschlossen sein.' und derselbe Satz mit anderem Monat und einem
+    Nebensatz standen beide im Set.
+
+    Der Anteil gemeinsamer Wörter reicht dagegen nicht: er teilt durch den LÄNGEREN
+    Satz, und ein angehängter Nebensatz verdünnt ihn unter jede Schwelle (hier 0,53).
+    Gezählt wird deshalb, wie viel vom kürzeren Satz im längeren steckt (hier 0,89).
+    """
+    client, _calls = _make_client(_payload(
+        {"kind": "statement", "answer": True,
+         "statement": "Die Literaturrecherche muss bis zum 15. Mai abgeschlossen sein."},
+        {"kind": "statement", "answer": False,
+         "statement": "Die Literaturrecherche muss bis zum 15. April abgeschlossen sein, "
+                      "damit die Arbeit rechtzeitig fertig wird."},
+    ))
+
+    items, _title = gen.generate_listening_from_source(client, "m", _ctx(), 2, locale="de")
+
+    assert len(items) == 1
+
+
+def test_two_questions_about_different_things_both_stay(gen):
+    """Die Gegenprobe. Der Doppler-Filter darf nicht jede zweite Aufgabe fressen,
+    nur weil zwei Sätze aus derselben Quelle dieselben Fachwörter tragen."""
+    client, _calls = _make_client(_payload(
+        {"kind": "statement", "statement": "Die Messwerte gehen an die Auswertung.",
+         "answer": True},
+        {"kind": "statement", "statement": "Der Server speichert alle zehn Sekunden.",
+         "answer": True},
+    ))
+
+    items, _title = gen.generate_listening_from_source(client, "m", _ctx(), 2, locale="de")
+
+    assert len(items) == 2
+
+
+def test_two_claims_about_one_deadline_are_not_the_same_claim(gen):
+    """Die enge Gegenprobe, ebenfalls aus Set 1783: wann die Recherche fertig sein
+    muss und wann sie beginnt, teilen fast den halben Satz und sind trotzdem zwei
+    Aufgaben. Sie liegen bei 0,56 und müssen bleiben."""
+    client, _calls = _make_client(_payload(
+        {"kind": "statement", "answer": True,
+         "statement": "Die Literaturrecherche muss bis zum 15. Mai abgeschlossen sein."},
+        {"kind": "statement", "answer": True,
+         "statement": "Die Literaturrecherche soll nach der Konferenz in der nächsten "
+                      "Woche beginnen und bis zum 15. laufen."},
+    ))
+
+    items, _title = gen.generate_listening_from_source(client, "m", _ctx(), 2, locale="de")
+
+    assert len(items) == 2
+
+
+def test_the_mix_is_capped_until_the_last_throw(gen):
+    """Wurf 1 und 2 nehmen nur so viele Aussagen, wie der Plan vorsieht. Im letzten
+    Wurf zaehlt die Anzahl mehr als die Mischung, sonst bleibt das Set kurz."""
+    client, calls = _make_client(_payload(*[
+        {"kind": "statement", "statement": satz, "answer": True} for satz in (
+            "Die Messwerte werden alle zehn Sekunden gespeichert.",
+            "Die Auswertung findet im Rechenzentrum statt.",
+            "Alte Werte verschwinden nach einem Jahr.",
+            "Der Server steht im Keller des Gebäudes.",
+        )
+    ]))
+
+    items, _title = gen.generate_listening_from_source(client, "m", _ctx(), 4, locale="de")
+
+    assert len(items) == 4
+    assert len(calls) == 3
+
+
+def test_a_full_run_is_not_thrown_twice(gen):
+    """Liefert ein Wurf die bestellte Anzahl in der bestellten Mischung, ist Schluss.
+    Ein weiterer Aufruf kostet nur vom hochschulweit geteilten Kontingent."""
+    client, calls = _make_client(_payload(
+        {"kind": "statement", "statement": _STATEMENT, "answer": True},
+        {"kind": "paraphrase", "question": "Was heißt das?",
+         "options": ["Die Werte gehen an die Auswertung", "B", "C", "D"], "correct_idx": 0},
     ))
 
     gen.generate_listening_from_source(client, "m", _ctx(), 2, locale="de")

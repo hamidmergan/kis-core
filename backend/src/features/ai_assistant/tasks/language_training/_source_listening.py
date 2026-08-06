@@ -32,6 +32,11 @@ from src.services.aia_grammar_check import normalize
 
 from src.features.ai_assistant.tasks.language_training._attribution import attach_chips_cited
 from src.features.ai_assistant.tasks.language_training._context import QuelleContext
+from src.features.ai_assistant.tasks.language_training._plan import (
+    plan_sentence,
+    room_left,
+    still_missing,
+)
 from src.features.ai_assistant.tasks.language_training._title import title_from_items
 
 
@@ -134,6 +139,47 @@ _EXAMPLE_MARKERS = (
     "bei sinkender temperatur arbeitet der verdichter weniger",
 )
 
+# Bis zu drei Würfe, damit die bestellte Anzahl zusammenkommt. Die Filter werfen weg,
+# und wer fünfzehn Aufgaben bestellt, will fünfzehn. Mehr als drei bringt nichts: das
+# Anfragen-Kontingent ist hochschulweit geteilt, und wer dreimal nichts Brauchbares
+# liefert, liefert es beim vierten Mal auch nicht.
+_MAX_ATTEMPTS = 3
+
+# Der Nachschlag hebt eine Regel des ersten Wurfs auf. Sie lautet dort, jede Aufgabe
+# müsse von einer ANDEREN Stelle kommen, und das ist richtig, solange genug Stellen da
+# sind. Steht die Anzahl danach nicht, ist genau diese Regel die Bremse: eine kurze
+# Quelle hat irgendwann keine unberührte Stelle mehr. Dann zählt die Anzahl mehr, und
+# dieselbe Stelle darf ein zweites Mal drankommen, sofern anders gefragt wird.
+#
+# Die schon geschriebenen Aufgaben werden dem Modell dabei NICHT vorgelegt. Das wurde
+# an anderer Stelle versucht und verworfen (siehe _variation): im Prompt wirken sie als
+# Muster und werden wörtlich abgeschrieben. Doppler fängt der Code ab.
+# Steckt so viel vom kürzeren Aufgabentext im längeren, gilt die Aufgabe als dieselbe,
+# nur anders formuliert. Sprach-unabhängig, keine Wortlisten.
+#
+# Gemessen und nicht geraten (2026-08-06, Sets 1780 und 1783). Dort standen je zwei
+# Aufgaben doppelt im Set, einmal dieselbe Frage ausführlicher gestellt (1,00) und
+# einmal derselbe Satz mit anderem Monat und einem Nebensatz dahinter (0,89). Zwei
+# Aufgaben, die wirklich nach Verschiedenem fragen, lagen bei 0,63 und darunter, auch
+# wenn sie dieselbe Sache betrafen. Die Grenze liegt dazwischen.
+#
+# Warum nicht overlap_ratio wie beim Ankreuzen: das teilt durch den LÄNGEREN Text, und
+# ein angehängter Nebensatz drückt den Wert damit unter jede brauchbare Schwelle. Der
+# zweite Fall oben käme so auf 0,53 und stünde heute noch doppelt im Set.
+_MAX_CONTAINED = 0.75
+
+# Darunter ist ein Aufgabentext zu kurz, um ihn über seine Wörter zu vergleichen: drei
+# Wörter stecken schnell in irgendeinem längeren Satz, ohne dasselbe zu meinen.
+_MIN_WORDS_TO_COMPARE = 4
+
+_AGAIN_RULE = (
+    "\nTOP-UP ROUND. The items you write now come ON TOP of items that already exist, "
+    "and they must all be new.\n"
+    "- You may go back to a passage an earlier item already used, as long as this item "
+    "asks about a DIFFERENT aspect of it or words the same point differently.\n"
+    "- Never write the same question or the same statement twice.\n"
+)
+
 
 def generate_listening_from_source(
     client, model,
@@ -145,44 +191,129 @@ def generate_listening_from_source(
     coverage: str = "",
     level: str | None = None,
 ) -> tuple[list[dict], str]:
-    """Ein Aufruf über den ganzen Kontext, wie beim Quiz. Liefert (items, title).
+    """Bis zu drei Würfe über den ganzen Kontext. Liefert (items, title).
 
-    Fällt der erste Wurf durch die Filter, wird EIN zweites Mal geworfen und ergänzt,
-    statt das Set wegzuwerfen. Die Fragearten hier sind enger gefasst als beim Quiz,
-    also fällt auch mehr durch.
+    Geworfen wird so lange, bis die bestellte Anzahl steht, höchstens aber dreimal.
+    Der Nachschlag fragt gezielt nach den Arten, die noch fehlen, sonst kippt die
+    Mischung: das Modell liefert am liebsten Richtig/Falsch-Aussagen.
+
+    Jeder Wurf wird sofort zugeordnet und gefiltert, nicht erst am Ende. Nur so weiss
+    der nächste Wurf, wie viele Aufgaben wirklich überlebt haben: die Sperre gegen
+    abgedruckten Ton (:func:`drop_quotes_on_recordings`) greift erst NACH der
+    Zuordnung, und sie hat Sets bisher stillschweigend verkürzt.
     """
     language = _language_label(locale)
     recordings = _recording_labels(ctx)
-    plan = item_plan(count, advanced=(level or "").upper() in _LEVELS_ADVANCED,
+    sections = _recording_sections(ctx, recordings)
+    advanced = (level or "").upper() in _LEVELS_ADVANCED
+    plan = item_plan(count, advanced=advanced,
                      text_ok=len(recordings) < len(ctx.source_by_name))
-    system = (_build_prompt(plan, language, _recording_sections(ctx, recordings))
-              + adaptive_suffix + title_avoidance + coverage)
     user = _build_user(ctx, language)
 
-    items, title = _one_call(client, model, system, user, ctx, locale, count)
-    if len(items) < max(1, count // 2):
-        more, _ = _one_call(client, model, system, user, ctx, locale, count)
-        fronts = {normalize(i["front"]) for i in items}
-        items += [i for i in more if normalize(i["front"]) not in fronts]
-        logger.info("Hör- und Leseverstehen: zweiter Wurf, jetzt {} Aufgaben", len(items))
+    items: list[dict] = []
+    seen: set[str] = set()
+    title = ""
+    lost_to_recordings = 0
+    for attempt in range(_MAX_ATTEMPTS):
+        wanted = still_missing(plan, items)
+        if not wanted:
+            break
+        # Hat die Aufnahme-Sperre schon zugeschlagen, wird nur noch bestellt, was sie
+        # nicht wegwerfen kann. Sonst wiederholt sich der Verlust in jedem Wurf: das
+        # Modell legt die zitierenden Arten wieder auf die Aufnahme, die Sperre wirft
+        # sie wieder weg, und das Set bleibt kurz. Gemessen am 2026-08-06: 9 von 10.
+        if lost_to_recordings:
+            wanted = item_plan(len(wanted), advanced=advanced, text_ok=False)
+        system = (_build_prompt(wanted, language, sections)
+                  + adaptive_suffix + title_avoidance + coverage
+                  + (_AGAIN_RULE if attempt else ""))
+        fresh, fresh_title = _one_call(client, model, system, user, ctx, locale, count)
+        title = title or fresh_title
+        # Bis zum letzten Wurf gilt der Deckel je Art. Im LETZTEN zählt die Anzahl mehr
+        # als die Mischung, denn wer fünfzehn bestellt hat, will fünfzehn. Nach einem
+        # Verlust an die Aufnahme-Sperre fällt er auch: die bestellten Arten stehen
+        # dann nicht mehr im Plan und würden am eigenen Deckel scheitern.
+        last_try = attempt == _MAX_ATTEMPTS - 1
+        open_run = last_try or lost_to_recordings
+        keep = _pick(fresh, seen, {} if open_run else room_left(plan, items))
+        if keep:
+            # Gestaffelt wie in der Grammatik-Übung: Datei und Seite, die das Modell selbst
+            # nennt, sonst die pgvector-Suche, sonst wenigstens die Datei. Die Angabe des
+            # Modells wurde hier lange erfragt und dann weggeworfen, weil eine reine Suche
+            # zuverlässiger schien. Sie ist es nicht: eine umformulierte Aussage findet
+            # sich oft nicht wieder, und dann stand die Aufgabe ganz ohne Quelle da. Für
+            # Aufnahmen zählt die Angabe weiterhin nicht, siehe attach_chips_cited.
+            attach_chips_cited(keep, [i.pop("_claim", "") for i in keep], ctx)
+            survived = drop_quotes_on_recordings(keep, recordings)
+            lost_to_recordings += len(keep) - len(survived)
+            items += survived
+        if len(items) >= count:
+            break
+        logger.info("Hör- und Leseverstehen: Wurf {} ergab {}/{} Aufgaben",
+                    attempt + 1, len(items), count)
     items = items[:count]
 
     if not items:
         return [], ""
 
-    # Gestaffelt wie in der Grammatik-Übung: Datei und Seite, die das Modell selbst nennt,
-    # sonst die pgvector-Suche, sonst wenigstens die Datei. Die Angabe des Modells wurde
-    # hier lange erfragt und dann weggeworfen, weil eine reine Suche zuverlässiger schien.
-    # Sie ist es nicht: eine umformulierte Aussage findet sich oft nicht wieder, und dann
-    # stand die Aufgabe ganz ohne Quelle da. Für Aufnahmen zählt die Angabe weiterhin
-    # nicht, siehe attach_chips_cited.
-    attach_chips_cited(items, [i.pop("_claim", "") for i in items], ctx)
-    items = drop_quotes_on_recordings(items, recordings)
-
-    if not items:
-        return [], ""
+    for item in items:
+        item.pop("_kind", None)
 
     return items, title or title_from_items(client, model, items, ctx.multi_label)
+
+
+def _pick(fresh: list[dict], seen: set, room: dict) -> list[dict]:
+    """Welche Aufgaben eines Wurfs ins Set dürfen. Merkt sich das Genommene in ``seen``.
+
+    Was am Deckel scheitert, wird NICHT gemerkt: im letzten Wurf gibt es keinen Deckel
+    mehr, und dann darf dieselbe Aufgabe doch noch hinein. Was genommen wurde, ist
+    gemerkt, auch wenn die Zuordnung es danach wieder aussortiert. Ein zweites Mal
+    fiele es aus demselben Grund wieder heraus.
+    """
+    keep = []
+    for item in fresh:
+        key = normalize(item["front"])
+        if key in seen or _too_close(key, seen):
+            continue
+        # Eine Art, die im Plan nicht vorkommt, hat keinen Deckel. Das Modell lässt das
+        # Feld manchmal weg, und eine Aufgabe wegen einer fehlenden Beschriftung
+        # wegzuwerfen wäre der falsche Preis.
+        kind = item.get("_kind") or ""
+        if kind in room:
+            if room[kind] <= 0:
+                continue
+            room[kind] -= 1
+        seen.add(key)
+        keep.append(item)
+    return keep
+
+
+def _too_close(key: str, seen: set) -> bool:
+    """Ob dieselbe Aufgabe schon dasteht, nur anders formuliert.
+
+    Der Nachschlag darf ausdrücklich zu einer Stelle zurückkehren (siehe
+    :data:`_AGAIN_RULE`), und genau das hat das Modell benutzt, um dieselbe Frage ein
+    zweites Mal zu stellen. Ein Vergleich auf Gleichheit greift dann nicht mehr.
+    """
+    return any(_contained(key, other) >= _MAX_CONTAINED for other in seen)
+
+
+def _contained(one: str, other: str) -> float:
+    """Anteil des KÜRZEREN Textes, der im längeren steckt. 0.0 bis 1.0.
+
+    Vielfachheit zählt mit: ein Wort, das einmal dasteht, deckt kein Wort ab, das
+    zweimal gebraucht wird.
+    """
+    short, long = sorted((one.split(), other.split()), key=len)
+    if len(short) < _MIN_WORDS_TO_COMPARE:
+        return 0.0
+    pool = list(long)
+    hits = 0
+    for word in short:
+        if word in pool:
+            pool.remove(word)
+            hits += 1
+    return hits / len(short)
 
 
 def drop_quotes_on_recordings(items: list[dict], recordings: list[str]) -> list[dict]:
@@ -199,7 +330,9 @@ def drop_quotes_on_recordings(items: list[dict], recordings: list[str]) -> list[
     heard = set(recordings)
     keep = []
     for item in items:
-        kind = item.pop("_kind", "")
+        # ``_kind`` bleibt an der Aufgabe: der Aufgabenplan zählt danach, wie viel von
+        # welcher Art schon steht. Entfernt wird es erst vor dem Speichern.
+        kind = item.get("_kind") or ""
         labels = {s.get("source_label") for s in item.get("sources") or []}
         labels.add(item.get("source_label"))
         if heard and kind in _QUOTING_KINDS and labels & heard:
@@ -245,14 +378,6 @@ def item_plan(count: int, *, advanced: bool, text_ok: bool) -> list[str]:
     return [cycle[i % len(cycle)] for i in range(max(0, count))]
 
 
-def _plan_sentence(plan: list[str]) -> str:
-    """Die Mischung als Zahlensatz."""
-    counts: dict[str, int] = {}
-    for kind in plan:
-        counts[kind] = counts.get(kind, 0) + 1
-    return ", ".join(f'{n} of kind "{kind}"' for kind, n in counts.items())
-
-
 def _build_prompt(plan: list[str], language: str, recordings: list[str]) -> str:
     kinds = list(dict.fromkeys(plan))
     rules = "".join(f"- {_KIND_RULES[k]}\n" for k in kinds if k in _KIND_RULES)
@@ -277,7 +402,7 @@ def _build_prompt(plan: list[str], language: str, recordings: list[str]) -> str:
         f"material. Everything you ask must be decidable from that material alone, never "
         f"from general knowledge. Write ALL questions, statements, options and answers in "
         f"{language}, regardless of the source language. Translate if needed.\n\n"
-        f"Write exactly {len(plan)} items: {_plan_sentence(plan)}. Take each item from a "
+        f"Write exactly {len(plan)} items: {plan_sentence(plan)}. Take each item from a "
         f"DIFFERENT place in the material, never several items about the same sentence.\n\n"
         f"The kinds:\n{rules}\n"
         "Respond ONLY with a JSON object. Every item carries its \"kind\". A statement "
@@ -368,6 +493,10 @@ def _build_items(exercises: list[dict], ctx: QuelleContext, locale: str) -> list
             # Die Fundstelle wird über die Aussage gesucht, nicht über "Richtig"/"Falsch":
             # die feste Beschriftung steht in keiner Quelle und würde die Suche verwässern.
             front, options, idx, claim = statement, [yes, no], (0 if verdict else 1), statement
+            # Die Art wird festgeschrieben, auch wenn das Modell das Feld weggelassen hat.
+            # Sonst zählt der Aufgabenplan sie nicht mit und der Nachschlag bestellt
+            # Richtig/Falsch-Aussagen, die längst dastehen.
+            kind = "statement"
         else:
             front = (exercise.get("question") or "").strip()
             options = [str(o).strip() for o in (exercise.get("options") or []) if str(o).strip()]

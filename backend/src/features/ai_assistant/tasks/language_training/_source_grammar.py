@@ -20,6 +20,11 @@ from src.features.ai_assistant.tasks.language_training._attribution import (
     attach_chips_cited,
 )
 from src.features.ai_assistant.tasks.language_training._context import QuelleContext
+from src.features.ai_assistant.tasks.language_training._plan import (
+    plan_sentence,
+    room_left,
+    still_missing,
+)
 from src.services.aia_grammar_check import normalize, overlap_ratio
 
 
@@ -174,7 +179,7 @@ def generate_grammar_from_source(
         # Der Nachschlag fragt NUR nach dem, was noch fehlt. Ohne das kippt die
         # Mischung: das Modell liefert beim zweiten Wurf am liebsten Ankreuz-Aufgaben,
         # und bei zehn bestellten kamen fuenf davon heraus statt der geplanten zwei.
-        wanted = _missing(plan, items)
+        wanted = still_missing(plan, items)
         if not wanted:
             break
         # Same temperature as the MC tools: enough wording variety, still JSON-safe. The
@@ -190,7 +195,7 @@ def generate_grammar_from_source(
         # Wurf. Im LETZTEN Wurf zaehlt die Anzahl mehr als die Mischung, denn wer zehn
         # bestellt hat, will zehn.
         last_try = attempt == _MAX_ATTEMPTS - 1
-        room = {} if last_try else _room(plan, items)
+        room = {} if last_try else room_left(plan, items)
         for item, claim in zip(fresh, fresh_claims):
             # Schluessel aus Aufgabentext UND Loesung. Seit die "welcher Satz ist
             # korrekt?"-Bauart ihren Satz nicht mehr wiederholt, sehen zwei solche
@@ -273,7 +278,7 @@ def _build_prompt(grammar_type: dict, target_form: str, example: dict,
         f"Target form: {target_form}\n"
         f"Transformation rule: {grammar_type['rule']}\n\n"
         + shape +
-        f"Write exactly {len(plan)} exercises: {_plan_sentence(plan)}. The SAME target "
+        f"Write exactly {len(plan)} exercises: {plan_sentence(plan)}. The SAME target "
         "form throughout, only the way the learner answers changes.\n\n"
         "What each kind is:\n"
         "- transform: the learner rewrites 'before' into 'after' themselves.\n"
@@ -316,14 +321,6 @@ def _build_prompt(grammar_type: dict, target_form: str, example: dict,
         + PAGE_RULE + "\n"
         + _SHAPE
     )
-
-
-def _plan_sentence(plan: list[str]) -> str:
-    """Die Mischung als Zahlensatz. Gezählt statt beschrieben, weil nur das wirkt."""
-    counts: dict[str, int] = {}
-    for kind in plan:
-        counts[kind] = counts.get(kind, 0) + 1
-    return ", ".join(f'{n} of kind "{kind}"' for kind, n in counts.items())
 
 
 def is_usable_pair(before: str, after: str) -> bool:
@@ -447,38 +444,6 @@ def is_usable_choice(task: str, sentence: str, options: list, correct_idx) -> bo
         overlap_ratio(opt, correct) >= _MIN_OPTION_OVERLAP
         for i, opt in enumerate(options) if i != correct_idx
     )
-
-
-def _room(plan: list[str], have: list[dict]) -> dict:
-    """Wie viele Aufgaben je Format noch in den Plan passen."""
-    want: dict[str, int] = {}
-    for kind in plan:
-        want[kind] = want.get(kind, 0) + 1
-    for item in have:
-        kind = item.get("_kind")
-        if kind in want:
-            want[kind] -= 1
-    return {kind: max(0, n) for kind, n in want.items()}
-
-
-def _missing(plan: list[str], have: list[dict]) -> list[str]:
-    """Welche Formate noch fehlen, damit der Nachschlag gezielt nachfragt.
-
-    Der Plan sagt, wie viele von jeder Art gewuenscht sind. Was schon da ist, wird
-    abgezogen. Herauskommt wieder eine Liste, die :func:`_plan_sentence` als Zahlensatz
-    in den Prompt schreibt.
-    """
-    want: dict[str, int] = {}
-    for kind in plan:
-        want[kind] = want.get(kind, 0) + 1
-    for item in have:
-        kind = item.get("_kind")
-        if kind in want and want[kind] > 0:
-            want[kind] -= 1
-    out: list[str] = []
-    for kind in KINDS:
-        out.extend([kind] * want.get(kind, 0))
-    return out
 
 
 def _build_items(exercises: list[dict], locale: str, example: dict,
