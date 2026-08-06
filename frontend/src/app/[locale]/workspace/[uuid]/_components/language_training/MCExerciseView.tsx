@@ -2,11 +2,11 @@ import React, { useContext, useEffect, useRef, useState } from "react";
 import { CaretLeft, CaretRight, Chat, Check, Lightbulb, Question, SidebarSimple } from "@phosphor-icons/react";
 import { useLocale, useTranslations } from "next-intl";
 import Spinner from "@/components/ui/Spinner";
-import IconButton from "@/components/ui/IconButton";
 import type { ExerciseItem, ExerciseItemSource, ExerciseSet, Source } from "../../_types";
 import { _chunkLabel, _getChipIcon, _md, _sourceChipKey } from "../../_utils";
 import { MinimizeContext } from "../../_context";
 import { _getToolBadge, type BreadcrumbItem } from "../layout/SubviewHeader";
+import { ExerciseNav } from "./ExerciseNav";
 import { SetSourceLegend, sourceNumbers, sourceTag } from "./SetSourceLegend";
 import { shuffleOptions } from "./_shuffle";
 
@@ -183,9 +183,6 @@ export function MCExerciseView({
           {/* Question Card */}
           <div className="flex-1 overflow-y-auto p-4">
             <div className="mx-auto mt-4 sm:mt-6 w-full flex flex-col gap-3" style={{ maxWidth: 560 }}>
-              <div className="text-center text-xs font-semibold" >
-                {index + 1} / {total}
-              </div>
               <div className="rounded-2xl flex flex-col gap-4 overflow-hidden" style={{ backgroundColor: "var(--surface)", boxShadow: "0 4px 20px rgba(0,40,60,0.08)" }}>
                 <div className="px-6 pt-5 pb-6 flex flex-col gap-4">
                   {/* Question text */}
@@ -315,18 +312,9 @@ export function MCExerciseView({
               {/* Zurueck und Weiter stehen immer da, auch unbeantwortet: wer eine
                   Aufgabe nicht loesen kann, blaettert weiter und kommt spaeter zurueck.
                   Beantwortete sind dann gesperrt, unbeantwortete weiter offen. */}
-              <div className="flex items-center justify-center gap-3">
-                <IconButton onClick={() => goTo(index - 1)} disabled={index === 0}
-                  title={t("common.back")} aria-label={t("common.back")}
-                  className="disabled:opacity-30">
-                  <CaretLeft size={14} weight="bold" />
-                </IconButton>
-                <IconButton onClick={advance}
-                  title={index + 1 >= total ? t("common.finish") : t("common.next")}
-                  aria-label={index + 1 >= total ? t("common.finish") : t("common.next")}>
-                  {index + 1 >= total ? <Check size={14} weight="bold" /> : <CaretRight size={14} weight="bold" />}
-                </IconButton>
-              </div>
+              <ExerciseNav index={index} total={total}
+                onPrev={() => goTo(index - 1)} onNext={advance}
+                backLabel={t("common.back")} nextLabel={t("common.next")} finishLabel={t("common.finish")} />
 
               <SetSourceLegend
                 sources={exerciseSet.sources}

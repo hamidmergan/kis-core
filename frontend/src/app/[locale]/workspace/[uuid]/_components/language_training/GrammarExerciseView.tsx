@@ -2,9 +2,9 @@ import React, { useContext, useEffect, useMemo, useRef, useState } from "react";
 import { CaretLeft, CaretRight, Check, Minus, SidebarSimple, X } from "@phosphor-icons/react";
 import { useTranslations } from "next-intl";
 import Spinner from "@/components/ui/Spinner";
-import IconButton from "@/components/ui/IconButton";
 import type { ExerciseItem, ExerciseItemSource, ExerciseSet, GrammarCheckResult } from "../../_types";
 import { _chunkLabel, _getChipIcon, _sourceChipKey } from "../../_utils";
+import { ExerciseNav } from "./ExerciseNav";
 import { SetSourceLegend, sourceNumbers, sourceTag } from "./SetSourceLegend";
 import { MinimizeContext } from "../../_context";
 import { _getToolBadge, type BreadcrumbItem } from "../layout/SubviewHeader";
@@ -219,16 +219,14 @@ export function GrammarExerciseView({
               fehlte es: die Anweisung nennt zwar die Form, aber erst ab der zweiten
               Aufgabe weiss man, dass sie für das ganze Set gilt. Gleiche Machart wie
               das Abzeichen in der Übersicht. */}
-          <div className="flex items-center gap-2">
-            {exerciseSet.grammar_topic_name && (
+          {exerciseSet.grammar_topic_name && (
+            <div className="flex items-center gap-2">
               <span className="text-3xs font-semibold px-1.5 py-0.5 rounded"
                 style={{ backgroundColor: "rgba(var(--kb-rgb),0.10)", color: "var(--kb)" }}>
                 {exerciseSet.grammar_topic_name}
               </span>
-            )}
-            {/* Der Zähler rutscht nach rechts, das Thema steht links. */}
-            <span className="text-xs font-semibold ml-auto">{index + 1} / {total}</span>
-          </div>
+            </div>
+          )}
 
           {/* The sentence to transform */}
           <div className="rounded-2xl overflow-hidden" style={{ backgroundColor: "var(--surface)", boxShadow: "0 4px 20px rgba(0,40,60,0.08)" }}>
@@ -360,18 +358,9 @@ export function GrammarExerciseView({
           {/* Zurueck und Weiter stehen immer da, auch unbeantwortet: wer eine Aufgabe
               nicht loesen kann, blaettert weiter und kommt spaeter zurueck. Beantwortete
               sind dann gesperrt, unbeantwortete weiter offen. */}
-          <div className="flex items-center justify-center gap-3">
-            <IconButton onClick={() => goTo(index - 1)} disabled={index === 0}
-              title={t("common.back")} aria-label={t("common.back")}
-              className="disabled:opacity-30">
-              <CaretLeft size={14} weight="bold" />
-            </IconButton>
-            <IconButton onClick={advance}
-              title={index + 1 >= total ? t("common.finish") : t("common.next")}
-              aria-label={index + 1 >= total ? t("common.finish") : t("common.next")}>
-              {index + 1 >= total ? <Check size={14} weight="bold" /> : <CaretRight size={14} weight="bold" />}
-            </IconButton>
-          </div>
+          <ExerciseNav index={index} total={total}
+            onPrev={() => goTo(index - 1)} onNext={advance}
+            backLabel={t("common.back")} nextLabel={t("common.next")} finishLabel={t("common.finish")} />
 
           <SetSourceLegend
             sources={exerciseSet.sources}

@@ -2,11 +2,11 @@ import React, { useContext, useEffect, useRef, useState } from "react";
 import { CaretLeft, CaretRight, Chat, Check, Lightbulb, Question, SidebarSimple, XIcon } from "@phosphor-icons/react";
 import { useLocale, useTranslations } from "next-intl";
 import Spinner from "@/components/ui/Spinner";
-import IconButton from "@/components/ui/IconButton";
 import type { ExerciseItem, ExerciseItemSource, ExerciseSet, Source } from "../../_types";
 import { _chunkLabel, _getChipIcon, _md, _sourceChipKey } from "../../_utils";
 import { MinimizeContext } from "../../_context";
 import { _getToolBadge, type BreadcrumbItem } from "../layout/SubviewHeader";
+import { ExerciseNav } from "./ExerciseNav";
 import { SetSourceLegend, sourceNumbers, sourceTag } from "./SetSourceLegend";
 
 export function FlashcardsLearnView({
@@ -237,9 +237,6 @@ export function FlashcardsLearnView({
           return <>
             <div className="flex-1 overflow-y-auto px-3 sm:px-4 pt-4 sm:pt-6 pb-3">
               <div className="mx-auto w-full flex flex-col gap-3" style={{ maxWidth: 560 }}>
-                <div className="text-center text-xs font-semibold" >
-                  {index + 1} / {total}
-                </div>
                 <div className="rounded-2xl overflow-hidden" style={{ backgroundColor: "var(--surface)", boxShadow: "0 4px 20px rgba(0,0,0,0.07)" }}>
                   <div className="p-5 flex flex-col gap-4">
                     {/* Term */}
@@ -351,18 +348,10 @@ export function FlashcardsLearnView({
                 {/* Zurueck und Weiter. Ein Vokabelbegriff wird nicht bewertet, er gilt
                     als gesehen, sobald man ihn verlaesst. Zurueckblaettern aendert daran
                     nichts, gesehen bleibt gesehen. */}
-                <div className="flex items-center justify-center gap-3">
-                  <IconButton onClick={() => goTo(index - 1)} disabled={index === 0}
-                    title={t("common.back")} aria-label={t("common.back")}
-                    className="disabled:opacity-30">
-                    <CaretLeft size={14} weight="bold" />
-                  </IconButton>
-                  <IconButton onClick={() => { answer(true); advance(); }}
-                    title={index >= total - 1 ? t("common.finish") : t("flashcardsLearn.nextTerm")}
-                    aria-label={index >= total - 1 ? t("common.finish") : t("flashcardsLearn.nextTerm")}>
-                    {index >= total - 1 ? <Check size={14} weight="bold" /> : <CaretRight size={14} weight="bold" />}
-                  </IconButton>
-                </div>
+                <ExerciseNav index={index} total={total}
+                  onPrev={() => goTo(index - 1)} onNext={() => { answer(true); advance(); }}
+                  backLabel={t("common.back")} nextLabel={t("flashcardsLearn.nextTerm")}
+                  finishLabel={t("common.finish")} />
               </div>
             </div>
           </>;
@@ -371,9 +360,6 @@ export function FlashcardsLearnView({
         // ── Karteikarten: flip card ──
         return <>
           <div className="flex-1 flex flex-col items-center px-3 sm:px-4 pt-4 sm:pt-6 pb-3 gap-3">
-            <div className="text-center text-xs font-semibold" >
-              {index + 1} / {total}
-            </div>
             <div className="w-full" style={{ perspective: 1200, maxWidth: 560, userSelect: "none" }}>
               <div style={{
                 position: "relative", width: "100%", minHeight: 300, transformStyle: "preserve-3d",
@@ -452,18 +438,9 @@ export function FlashcardsLearnView({
             </div>
             {/* Zurueck und Weiter stehen immer da. Wer eine Karte nicht bewerten will,
                 blaettert weiter und kommt spaeter zurueck. */}
-            <div className="flex items-center justify-center gap-3">
-              <IconButton onClick={() => goTo(index - 1)} disabled={index === 0}
-                title={t("common.back")} aria-label={t("common.back")}
-                className="disabled:opacity-30">
-                <CaretLeft size={14} weight="bold" />
-              </IconButton>
-              <IconButton onClick={advance}
-                title={index + 1 >= total ? t("common.finish") : t("common.next")}
-                aria-label={index + 1 >= total ? t("common.finish") : t("common.next")}>
-                {index + 1 >= total ? <Check size={14} weight="bold" /> : <CaretRight size={14} weight="bold" />}
-              </IconButton>
-            </div>
+            <ExerciseNav index={index} total={total}
+              onPrev={() => goTo(index - 1)} onNext={advance}
+              backLabel={t("common.back")} nextLabel={t("common.next")} finishLabel={t("common.finish")} />
             {/* Source chips + filename legend */}
             {(() => {
               const rawSrcs: ExerciseItemSource[] = card.sources?.length ? card.sources as ExerciseItemSource[] : cardSource ? [cardSource] : [];
