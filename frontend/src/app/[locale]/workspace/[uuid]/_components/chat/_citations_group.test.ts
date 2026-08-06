@@ -49,16 +49,45 @@ describe("parseCitations — adjacent-chip accordion", () => {
     expect(group.chips.map((c) => c.label)).toEqual(["S. 34", "S. 29", "S. 18"]);
   });
 
-  it("does NOT group chips separated by real text", () => {
+  it("does NOT merge chips separated by real text into one stop", () => {
     const text = "[1, S. 5] und auch [2, S. 8]";
     const nodes = parseCitations(text, msg, ["u1"], getFilename, noop);
-    // two standalone chips, no group
-    expect(shape(nodes)).toEqual(["CitationChip", "text", "CitationChip"]);
+    // two SEPARATE stops (each folded on its own), with the prose between them
+    expect(shape(nodes)).toEqual(["CitationChipGroup", "text", "CitationChipGroup"]);
   });
 
-  it("merges identical same-page chips first, so a lone result is not a group", () => {
+  it("wraps a single chip too, so nothing stays open in a folded text", () => {
+    // Every stop is collapsed behind its mark, however many chips it holds. A lone chip
+    // rendered bare would be the only visible source label on the page and read as noise.
     const text = "[1, S. 5] [1, S. 5]";
     const nodes = parseCitations(text, msg, ["u1"], getFilename, noop);
-    expect(shape(nodes)).toEqual(["CitationChip"]);
+    expect(shape(nodes)).toEqual(["CitationChipGroup"]);
+    expect(groupOf(nodes).chips).toHaveLength(1);   // the duplicate is merged away first
+  });
+});
+
+describe("parseCitations — hard ceiling of three chips per group", () => {
+  // A group carries at most 3 chips: one visible plus two behind the caret. Longer runs are
+  // trimmed, so opening a group can never unroll into a wall of pills. Chips arrive
+  // closest-first, so the dropped ones are the weakest matches.
+  const long = "…dazu. [4, S. 34] [4, S. 29] [4, S. 18] [4, S. 12] [4, S. 7]";
+
+  it("keeps only the first three chips of a longer run", () => {
+    const group = groupOf(parseCitations(long, msg, ["u4"], getFilename, noop));
+    expect(group.chips.map((c) => c.label)).toEqual(["S. 34", "S. 29", "S. 18"]);
+  });
+
+  it("consumes the WHOLE run, so a dropped chip leaves no raw token in the text", () => {
+    const nodes = parseCitations(long, msg, ["u4"], getFilename, noop);
+    // Only the leading prose is emitted as text: the capped-away "[4, S. 12] [4, S. 7]"
+    // must not reappear as literal text after the group.
+    expect(nodes.filter((n) => typeof n === "string")).toEqual(["…dazu. "]);
+  });
+
+  it("still folds a run of exactly three into one group", () => {
+    const text = "…dazu. [4, S. 34] [4, S. 29] [4, S. 18]";
+    const nodes = parseCitations(text, msg, ["u4"], getFilename, noop);
+    expect(shape(nodes)).toEqual(["text", "CitationChipGroup"]);
+    expect(groupOf(nodes).chips).toHaveLength(3);
   });
 });

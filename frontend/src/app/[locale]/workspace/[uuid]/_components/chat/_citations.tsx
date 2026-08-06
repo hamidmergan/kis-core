@@ -1,5 +1,4 @@
 import React from "react";
-import { CaretRight, CaretLeft } from "@phosphor-icons/react";
 import { _chunkLabel, type ChipLabelT } from "../../_utils";
 import type { ChatMessage } from "../../_types";
 import { citationPattern, citationsAreAdjacentSameTarget, stripCitations, type CitationFields } from "./_citation_parse";
@@ -126,54 +125,85 @@ function CitationChip({ desc, onChipClick }: { desc: ChipDesc; onChipClick: Cita
 // groups are removed.
 const _openChipGroups = new Set<string>();
 
-// A run of directly-adjacent chips (only whitespace between them). The first chip is
-// always shown; the rest stay behind a minimal chevron until the user opens the group.
-// Open shows every chip plus a back-chevron that folds the extras away again.
-function CitationChipGroup({ groupId, chips, onChipClick }: { groupId: string; chips: ChipDesc[]; onChipClick: CitationChipClickHandler }) {
-  const [open, setOpen] = React.useState(() => _openChipGroups.has(groupId));
-  const reveal = () => { _openChipGroups.add(groupId); setOpen(true); };
-  const collapse = () => { _openChipGroups.delete(groupId); setOpen(false); };
-  const hidden = chips.length - 1;
-  // The toggle is a pill of its own next to the chip — same tint and radius, caret only,
-  // no hidden count (the number carries no useful information; it still rides along in
-  // aria-label for screen readers). A bare caret was too small to aim at, so it gets the
-  // chip's background and padding back as a hit area — the pill carries the hit area, so
-  // the caret itself stays at the chips' 9px text size. ml-0.5 on top of the preceding
-  // chip's mx-px leaves a 3px gap, enough to read as two pills without drifting apart;
-  // the fixed h-4 (border-box, like the chip's 1px transparent border) pins the pill to
-  // exactly the chip's height, which padding around a square icon cannot.
-  const toggleCls = "chip-cite chip-toggle inline-flex items-center justify-center whitespace-nowrap text-3xs h-4 px-1.5 rounded-full font-medium align-middle ml-0.5 cursor-pointer select-none";
-  const toggleStyle = {
-    backgroundColor: "rgba(var(--kb-rgb),0.12)",
-    color: "var(--kb)",
-    border: "1px solid transparent",
-  } as const;
-  if (open) {
-    return (
-      // flex-wrap + max-w-full so a long row of chips wraps onto multiple lines instead of
-      // overflowing the message width; gap-y keeps the wrapped rows legible.
-      <span className="inline-flex flex-wrap items-center align-middle max-w-full gap-y-1">
-        {chips.map(c => <CitationChip key={c.key} desc={c} onChipClick={onChipClick} />)}
-        <span role="button" tabIndex={0}
-          onPointerDown={(e) => { if (e.button === 0) { e.stopPropagation(); collapse(); } }}
-          onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.stopPropagation(); collapse(); } }}
-          aria-label={`−${hidden}`} className={toggleCls} style={toggleStyle}
-        ><CaretLeft size={9} weight="bold" /></span>
-      </span>
-    );
-  }
+// The toggle used to be a PILL of its own: same tint, same radius, same height as a chip,
+// with a caret inside. Next to every chip that reads as a SECOND chip, and with a chip on
+// nearly every sentence the row of pills is what the eye sees instead of the text. So the
+// pill is gone and only a mark is left: the ring always, with a dot inside while there is
+// something to open. Opening empties the ring, so filled/hollow carries the state — no
+// caret, no count.
+//
+// The mark carries neither the chips' background nor their tint — it is grey, so it
+// recedes instead of competing. It still needs a real hit area, so the clickable span
+// stays 16px square (w-4 h-4) around a 10px drawing.
+function ChipToggleMark({ open }: { open: boolean }) {
   return (
-    <span className="inline-flex items-center align-middle">
-      <CitationChip desc={chips[0]} onChipClick={onChipClick} />
+    // Ring and dot share one opacity: at full strength the dot punched out of the ring and
+    // pulled the eye to a mark that is meant to sit quietly at the end of a sentence. The
+    // hover rule lifts both to 1 together.
+    <svg width="10" height="10" viewBox="0 0 10 10" aria-hidden="true" focusable="false" opacity="0.55">
+      <circle cx="5" cy="5" r="4" fill="none" stroke="currentColor" strokeWidth="1" />
+      {!open && <circle cx="5" cy="5" r="1.5" fill="currentColor" />}
+    </svg>
+  );
+}
+
+
+// One chip stop: EVERY chip of it, including the first, sits behind the mark. Closed, the
+// sentence ends in nothing but the small ring — the text reads as text again. Clicking the
+// ring reveals the source(s) and leaves the bare dot to fold them away.
+//
+// A stop with a single chip is wrapped exactly like one with three, otherwise lone chips
+// would stay open in a text where every other stop is collapsed, which reads as noise
+// rather than as a rule.
+function CitationChipGroup({ groupId, chips, onChipClick }: { groupId: string; chips: ChipDesc[]; onChipClick: CitationChipClickHandler }) {
+  // Two ways to be open, and they must not fight each other. PINNED is the deliberate one
+  // (a click on the mark) and survives remounts via _openChipGroups. HOVERED is transient:
+  // pointing at the stop reveals its sources for as long as the pointer stays, so you can
+  // skim an answer's provenance without clicking 38 times.
+  const [pinned, setPinned] = React.useState(() => _openChipGroups.has(groupId));
+  const [hovered, setHovered] = React.useState(false);
+  const open = pinned || hovered;
+  const pin = () => { _openChipGroups.add(groupId); setPinned(true); };
+  const unpin = () => { _openChipGroups.delete(groupId); setPinned(false); };
+  // No background and no border: the mark is not a pill. mx-px matches the chips' own
+  // spacing, w-4/h-4 is the hit area around the 10px drawing.
+  const toggleCls = "chip-toggle inline-flex items-center justify-center w-4 h-4 align-middle mx-px cursor-pointer select-none";
+  // --muted is the design's tone for secondary matter and already flips with the theme.
+  // The mark is a side note next to the sentence, not a call to action, so it stays grey
+  // while the chips it reveals keep the brand tint.
+  const toggleStyle = { color: "var(--muted)" } as const;
+  const action = pinned ? unpin : pin;
+  return (
+    // The hover handlers sit on the WRAPPER, not on the mark: once the chips are out, the
+    // pointer travels from the mark onto a chip to click it, and that must not count as
+    // leaving. flex-wrap + max-w-full so a long row wraps instead of overflowing the message
+    // width; gap-y keeps the wrapped rows legible. Touch devices never fire these and keep
+    // the click as their way in.
+    <span
+      className="inline-flex flex-wrap items-center align-middle max-w-full gap-y-1"
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+    >
+      {/* The mark comes FIRST and therefore never moves: opening grows the chips to its
+          right instead of pushing it along, so the pointer stays on the thing it just
+          opened and the eye keeps its anchor at the end of the sentence. */}
       <span role="button" tabIndex={0}
-        onPointerDown={(e) => { if (e.button === 0) { e.stopPropagation(); reveal(); } }}
-        onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.stopPropagation(); reveal(); } }}
-        aria-label={`+${hidden}`} className={toggleCls} style={toggleStyle}
-      ><CaretRight size={9} weight="bold" /></span>
+        onPointerDown={(e) => { if (e.button === 0) { e.stopPropagation(); action(); } }}
+        onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.stopPropagation(); action(); } }}
+        aria-label={`${pinned ? "−" : "+"}${chips.length}`} className={toggleCls} style={toggleStyle}
+      ><ChipToggleMark open={open} /></span>
+      {open && chips.map(c => <CitationChip key={c.key} desc={c} onChipClick={onChipClick} />)}
     </span>
   );
 }
 
+
+// Hard ceiling per group: one visible chip plus at most two behind the caret. Beyond that
+// an opened group unrolls into a wall of pills that says no more than the first three —
+// chips arrive closest-first, so the ones past the cap are the weakest matches anyway.
+// Kept here as well as in the backend gate, so a longer run from ANY producer (chat,
+// notes) is trimmed at render time rather than reaching the reader.
+const MAX_CHIPS_PER_GROUP = 3;
 
 // Parses inline citations like [Q1, S. 2], [1, 05:32], [S. 2] and replaces them with
 // CitationChip elements. Text outside matches is returned as-is. Chips are nav-only;
@@ -299,9 +329,11 @@ export function parseCitations(
     i = j;
   }
 
-  // Phase 2: emit text + chips. A maximal run of chips separated only by whitespace
-  // collapses into a CitationChipGroup (first chip shown, rest behind a chevron); lone
-  // chips render directly. Exact (popup) chips never fold into a group.
+  // Phase 2: emit text + chips. A maximal run of chips separated only by whitespace becomes
+  // ONE CitationChipGroup, which shows just its mark until opened — a run of one is wrapped
+  // the same way, so no chip stays open in a text where all the others are folded. Exact
+  // (popup) chips are the exception: they are the user's OWN selection, shown on demand and
+  // expected to be visible, so they render directly.
   const nodes: React.ReactNode[] = [];
   let last = 0;
   let k = 0;
@@ -321,20 +353,23 @@ export function parseCitations(
       n++;
     }
 
+    const kept = run.slice(0, MAX_CHIPS_PER_GROUP);
     nodes.push(
-      run.length > 1
-        ? <CitationChipGroup
+      first.isExactSelection
+        ? <CitationChip key={first.key} desc={first} onChipClick={onChipClick} />
+        : <CitationChipGroup
             key={first.key}
             // Content-based id (source+pages, not text position) so the open state is
             // restored after ANY remount. A collision just re-opens an identical group,
             // which is exactly what the user wants anyway.
-            groupId={`${msg.id ?? keyPrefix}#${run.map(c => `${c.clickUuid}:${c.clickPage}`).join(",")}`}
-            chips={run}
+            groupId={`${msg.id ?? keyPrefix}#${kept.map(c => `${c.clickUuid}:${c.clickPage}`).join(",")}`}
+            chips={kept}
             onChipClick={onChipClick}
-          />
-        : <CitationChip key={first.key} desc={first} onChipClick={onChipClick} />,
+          />,
     );
 
+    // Advance past the WHOLE run, not just the kept chips: a chip dropped by the cap must
+    // not leave its raw "[4, S. 12]" token behind as text.
     last = run[run.length - 1].end;
     k = n;
   }

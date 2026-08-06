@@ -272,11 +272,10 @@
 :root[data-theme="dark"] .chip-cite {
   color: #7BBDE5 !important;
 }
-/* Includes the expand/collapse toggle: it is a chip of its own (caret only), so it
-   carries the same tinted pill on dark as the citation chips next to it. */
 :root[data-theme="dark"] .chip-cite {
   background-color: rgba(91, 163, 206, 0.18) !important;
 }
+
 
 /* Dark Mode only: Quellen-hinzufuegen-Button — weisse Schrift, neutrale Border, Hover kb-blau (dashed bleibt). */
 :root[data-theme="dark"] .add-source-btn {
@@ -586,6 +585,15 @@ me-tpc:hover .mm-src-chip {
   }
   .chip-cite:hover:not(:disabled, [aria-disabled="true"]) {
     outline-color: var(--kb);
+  }
+
+  /* Aufklapp-Marke: kein Rahmen, der Hinweis ist die Marke selbst, die beim Zeigen
+     kraeftiger wird. Opacity sitzt am svg, damit Ring und Punkt gemeinsam aufhellen. */
+  .chip-toggle svg {
+    transition: opacity 120ms ease;
+  }
+  .chip-toggle:hover svg {
+    opacity: 1 !important;
   }
 
   /* Outlined Accent CTA: bg, accent border + text. Hover: invert (fill accent + on-accent text). */
