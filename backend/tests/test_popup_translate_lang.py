@@ -131,7 +131,8 @@ async def test_route_speichert_gueltige_sprache(fake_settings_route):
     await messages_route.update_user_settings(
         "abc", _body("es"), current_user={"user_id": 3}, locale="de",
     )
-    assert fake_settings_route[0][-1] == "es"
+    # Positionen: workspace, user, chat_lang, studio, popup_lang, sprachtrainer
+    assert fake_settings_route[0][4] == "es"
 
 
 @pytest.mark.asyncio

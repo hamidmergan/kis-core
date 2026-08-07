@@ -112,6 +112,13 @@ export default function KiTutorWorkspacePage() {
     setLanguageTrainingActive(moduleDetail?.language_training_active ?? false);
   }, [moduleDetail?.language_training_active]);
   const languageTrainingAvailable = moduleDetail?.language_training_enabled ?? false;
+  // Der Kurs gibt den Trainer frei, jede Person entscheidet danach für sich, ob
+  // sie ihn hier sehen will. Standard ist aus, sonst würde die Freigabe alle
+  // ungefragt in die Einstufung schicken. Angezeigt wird er nur, wenn beide
+  // Schalter an sind, deshalb hängt jede Anzeige unten an diesem abgeleiteten
+  // Flag und nicht mehr am Schalter des Kurses.
+  const [languageTrainingOptIn, setLanguageTrainingOptIn] = useState(false);
+  const language_trainingVisible = language_trainingActive && languageTrainingOptIn;
 
   // Language level diagnosis: triggered when the Sprachtrainer is on in this
   // workspace and the reader has no stored language_level. Fetched once at mount.
@@ -124,7 +131,7 @@ export default function KiTutorWorkspacePage() {
       .catch(() => { /* ignore */ });
     return () => { cancelled = true; };
   }, []);
-  const diagnosisActive = language_trainingActive && me !== null && me.language_level === null;
+  const diagnosisActive = language_trainingVisible && me !== null && me.language_level === null;
   // While diagnosis runs, sources & studio appear minimized and chat expanded so
   // the user focuses on the diagnosis panel. The MiniStrip buttons are disabled
   // separately, so the user can't re-expand them until the diagnosis is done or
@@ -222,6 +229,7 @@ export default function KiTutorWorkspacePage() {
       setChatLang(s.chat_lang);
       setStudioEnabled(s.studio_enabled);
       setPopupTranslateLang(s.popup_translate_lang);
+      setLanguageTrainingOptIn(s.language_training_active);
     },
   });
 
@@ -255,9 +263,14 @@ export default function KiTutorWorkspacePage() {
       method: "PATCH",
       credentials: "include",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ chat_lang: chatLang, studio_enabled: studioEnabled, popup_translate_lang: popupTranslateLang }),
+      body: JSON.stringify({
+        chat_lang: chatLang,
+        studio_enabled: studioEnabled,
+        popup_translate_lang: popupTranslateLang,
+        language_training_active: languageTrainingOptIn,
+      }),
     }).catch(() => { /* ignore */ });
-  }, [chatLang, studioEnabled, popupTranslateLang, initialized, uuid]);
+  }, [chatLang, studioEnabled, popupTranslateLang, languageTrainingOptIn, initialized, uuid]);
 
   // ─── Viewer + chat input actions (see useViewerActions) ─────────────────
   const {
@@ -384,7 +397,7 @@ export default function KiTutorWorkspacePage() {
       onDelete={deleteGlossaryEntry}
       onDeleteAll={deleteAllGlossaryEntries}
       stats={pageStats}
-      showTranslation={language_trainingActive}
+      showTranslation={language_trainingVisible}
       feedback={glossaryFeedback}
       onDismissFeedback={dismissFeedback}
     />
@@ -432,7 +445,7 @@ export default function KiTutorWorkspacePage() {
       studioView={studioView}
       setStudioView={setStudioView}
       langTrainingView={langTrainingView}
-      language_trainingActive={language_trainingActive}
+      language_trainingActive={language_trainingVisible}
       studioTabRequest={studioTabRequest}
       language_trainingContent={language_trainingContent}
       glossaryContent={glossaryContent}
@@ -578,6 +591,8 @@ export default function KiTutorWorkspacePage() {
           language_trainingActive={language_trainingActive}
           languageTrainingAvailable={languageTrainingAvailable}
           onToggleLanguageTraining={handleToggleLanguageTraining}
+          languageTrainingOptIn={languageTrainingOptIn}
+          onToggleLanguageTrainingOptIn={() => setLanguageTrainingOptIn((v) => !v)}
           isOwner={isOwner}
           hideHeader={hideHeader}
           onToggleHideHeader={() => setHideHeader((v) => !v)}

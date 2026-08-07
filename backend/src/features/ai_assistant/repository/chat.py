@@ -138,26 +138,29 @@ def get_aia_user_settings(workspace_id: int, user_id: int) -> dict:
         "chat_lang": "de",
         "studio_enabled": True,
         "popup_translate_lang": "en",
+        "language_training_active": False,
     }
 
-# aia_user_settings.language_training_active is legacy: the Sprachtrainer moved to a
-# per-workspace owner decision (aia_workspaces.language_training_active). The column
-# is left in place with its FALSE default so old rows stay readable, but nothing
-# writes or reads it any more.
+# Zwei Schalter, gleicher Name, verschiedene Tabellen. In aia_workspaces gibt die
+# Verwaltung des Kurses den Sprachtrainer frei, hier entscheidet jede Person für
+# sich, ob sie ihn in diesem Kurs sehen will. Beide müssen an sein, sonst bleibt
+# er weg. Standard ist aus, niemand wird ungefragt eingestuft.
 def upsert_aia_user_settings(
     workspace_id: int, user_id: int, chat_lang: str, studio_enabled: bool,
-    popup_translate_lang: str = "en",
+    popup_translate_lang: str = "en", language_training_active: bool = False,
 ) -> None:
     with get_connection() as conn:
         with conn.cursor() as cur:
             cur.execute(
-                """INSERT INTO aia_user_settings (workspace_id, user_id, chat_lang, studio_enabled, popup_translate_lang)
-                   VALUES (%s, %s, %s, %s, %s)
+                """INSERT INTO aia_user_settings (workspace_id, user_id, chat_lang, studio_enabled, popup_translate_lang, language_training_active)
+                   VALUES (%s, %s, %s, %s, %s, %s)
                    ON CONFLICT (workspace_id, user_id)
                    DO UPDATE SET chat_lang = EXCLUDED.chat_lang,
                                  studio_enabled = EXCLUDED.studio_enabled,
-                                 popup_translate_lang = EXCLUDED.popup_translate_lang""",
-                (workspace_id, user_id, chat_lang, studio_enabled, popup_translate_lang),
+                                 popup_translate_lang = EXCLUDED.popup_translate_lang,
+                                 language_training_active = EXCLUDED.language_training_active""",
+                (workspace_id, user_id, chat_lang, studio_enabled, popup_translate_lang,
+                 language_training_active),
             )
         conn.commit()
 

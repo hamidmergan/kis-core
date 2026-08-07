@@ -130,16 +130,29 @@ def test_build_suffix_reads_admin_behavior_override(monkeypatch):
 
 
 def test_build_suffix_is_gated_on_the_trainer_when_a_workspace_is_given(monkeypatch):
-    """Same gate the chat uses. The CEFR level is stored per user, so without it a
-    learner in a workspace whose owner never switched the Sprachtrainer on would
-    still get level-pitched cards while the chat answers plainly."""
+    """Same gate the chat uses, and it has two halves. The CEFR level is stored per
+    user, so without the workspace half a learner in a workspace whose owner never
+    released the Sprachtrainer would still get level-pitched cards while the chat
+    answers plainly. Without the personal half, someone who switched the trainer off
+    for themselves would keep getting them."""
     monkeypatch.setattr("src.database.get_user_language_level", lambda uid: {"language_level": "A1"})
     monkeypatch.setattr("src.database.get_setting", lambda k, d="": d)
+    monkeypatch.setattr(
+        "src.database.get_aia_user_settings",
+        lambda wid, uid: {"language_training_active": True},
+    )
     monkeypatch.setattr("src.database.is_language_training_active", lambda wid: False)
     assert build_adaptive_tool_suffix(7, 3) == ""
 
     monkeypatch.setattr("src.database.is_language_training_active", lambda wid: True)
     assert "A1" in build_adaptive_tool_suffix(7, 3)
+
+    # Released by the course, switched off by the person.
+    monkeypatch.setattr(
+        "src.database.get_aia_user_settings",
+        lambda wid, uid: {"language_training_active": False},
+    )
+    assert build_adaptive_tool_suffix(7, 3) == ""
 
 
 def test_build_suffix_without_a_workspace_stays_ungated(monkeypatch):

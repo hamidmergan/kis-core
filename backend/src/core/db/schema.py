@@ -749,6 +749,10 @@ def init_db(admin_email: Optional[str] = None) -> None:
             # Englisch als Standard, weil das die Sprache ist, in die am
             # häufigsten übersetzt wird. Codes aus i18n.TRANSCRIPT_LANGUAGES.
             cur.execute("ALTER TABLE aia_user_settings ADD COLUMN IF NOT EXISTS popup_translate_lang TEXT NOT NULL DEFAULT 'en'")
+            # Eigene Entscheidung je Person und Kurs, ob der freigegebene
+            # Sprachtrainer angezeigt wird. Steht auch im CREATE TABLE, hier für
+            # Datenbanken, die davor angelegt wurden.
+            cur.execute("ALTER TABLE aia_user_settings ADD COLUMN IF NOT EXISTS language_training_active BOOLEAN NOT NULL DEFAULT FALSE")
             cur.execute("""
                 CREATE TABLE IF NOT EXISTS aia_notes (
                     id           SERIAL PRIMARY KEY,

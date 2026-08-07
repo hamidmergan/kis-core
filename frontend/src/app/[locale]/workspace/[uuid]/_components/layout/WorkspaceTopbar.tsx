@@ -20,6 +20,9 @@ interface WorkspaceTopbarProps {
   /** Sprachtrainer offered on this platform at all (admin setting). */
   languageTrainingAvailable: boolean;
   onToggleLanguageTraining: () => void;
+  /** Eigene Entscheidung, ob der freigegebene Sprachtrainer angezeigt wird. */
+  languageTrainingOptIn: boolean;
+  onToggleLanguageTrainingOptIn: () => void;
   isOwner: boolean;
   hideHeader: boolean;
   onToggleHideHeader: () => void;
@@ -47,6 +50,7 @@ export function WorkspaceTopbar(props: WorkspaceTopbarProps) {
     showSettings, onToggleSettings, onCloseSettings,
     studioEnabled, onToggleStudio,
     language_trainingActive, languageTrainingAvailable, onToggleLanguageTraining,
+    languageTrainingOptIn, onToggleLanguageTrainingOptIn,
     isOwner, hideHeader, onToggleHideHeader,
     transcriptTargetLang, onChangeTranscriptTargetLang,
     popupTranslateLang, onChangePopupTranslateLang,
@@ -65,6 +69,8 @@ export function WorkspaceTopbar(props: WorkspaceTopbarProps) {
       language_trainingActive={language_trainingActive}
       languageTrainingAvailable={languageTrainingAvailable}
       onToggleLanguageTraining={onToggleLanguageTraining}
+      languageTrainingOptIn={languageTrainingOptIn}
+      onToggleLanguageTrainingOptIn={onToggleLanguageTrainingOptIn}
       isOwner={isOwner}
       transcriptTargetLang={transcriptTargetLang}
       onChangeTranscriptTargetLang={onChangeTranscriptTargetLang}

@@ -112,6 +112,14 @@ def build_adaptive_tool_suffix(user_id: int | None, workspace_id: int | None = N
     level = db.get_user_language_level(user_id)["language_level"]
     if not level:
         return ""
+    # Second half of the same gate: the owner released the trainer, but this
+    # learner switched it off for themselves, so their cards and mind maps stay
+    # plain like their chat answers. Read after the level check so the common
+    # case (no level at all) never touches the settings table.
+    if workspace_id is not None:
+        settings = db.get_aia_user_settings(workspace_id, user_id) or {}
+        if not settings.get("language_training_active", False):
+            return ""
     behavior = db.get_setting(ADAPTIVE_TOOL_BEHAVIOR_SETTING, DEFAULT_ADAPTIVE_TOOL_BEHAVIOR)
     example = example_for_level(level, parse_level_examples(db.get_setting(LEVEL_EXAMPLES_SETTING, "")))
     suffix, _ = adaptive_tool_appendix(level, behavior, example)

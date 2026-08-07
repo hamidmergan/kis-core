@@ -16,6 +16,9 @@ interface SettingsMenuProps {
   /** Sprachtrainer offered on this platform at all (admin setting). */
   languageTrainingAvailable: boolean;
   onToggleLanguageTraining: () => void;
+  /** Eigene Entscheidung, ob der freigegebene Sprachtrainer angezeigt wird. */
+  languageTrainingOptIn: boolean;
+  onToggleLanguageTrainingOptIn: () => void;
   isOwner: boolean;
   transcriptTargetLang: string;
   onChangeTranscriptTargetLang: (lang: string) => void;
@@ -99,6 +102,8 @@ export function SettingsMenu({
   language_trainingActive,
   languageTrainingAvailable,
   onToggleLanguageTraining,
+  languageTrainingOptIn,
+  onToggleLanguageTrainingOptIn,
   isOwner,
   transcriptTargetLang,
   onChangeTranscriptTargetLang,
@@ -145,6 +150,10 @@ export function SettingsMenu({
     void onResetLanguageLevel();
   };
 
+  // Erst Kurs und Person zusammen zeigen den Trainer an. Was unten daran haengt,
+  // das Niveau, richtet sich deshalb nach beiden, nicht nur nach der Freigabe.
+  const languageTrainingVisible = language_trainingActive && languageTrainingOptIn;
+
   const MASCOT_OPTIONS = [
     { value: "hilde" as const, label: t("mascotHilde") },
     { value: "francis" as const, label: t("mascotFrancis") },
@@ -174,11 +183,22 @@ export function SettingsMenu({
           checked={studioEnabled}
           onToggle={onToggleStudio}
         />
+        {/* Die Verwaltung des Kurses gibt den Trainer frei, hier entscheidet
+            jede Person fuer sich, ob sie ihn sieht. Ohne Freigabe ist die Zeile
+            ganz weg, sonst stuende hier ein Schalter, der nichts bewirkt. */}
+        {language_trainingActive && (
+          <ToggleRow
+            title={t("languageTrainingPersonalTitle")}
+            description={t("languageTrainingPersonalDescription")}
+            checked={languageTrainingOptIn}
+            onToggle={onToggleLanguageTrainingOptIn}
+          />
+        )}
         {/* Das Niveau haengt am Nutzer, der Sprachtrainer am Workspace. Ist er
             hier aus, wird das Niveau auch nirgends benutzt, dann hat es in den
             Einstellungen dieses Kurses nichts zu suchen. Gespeichert bleibt es,
             wer den Trainer wieder einschaltet, findet seine Einstufung vor. */}
-        {language_trainingActive && languageLevel && onResetLanguageLevel && (
+        {languageTrainingVisible && languageLevel && onResetLanguageLevel && (
           <div className="flex items-center justify-between gap-4">
             <div className="min-w-0 flex-1">
               <p className="text-sm font-medium" style={{ color: "var(--foreground)" }}>

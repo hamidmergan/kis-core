@@ -1075,11 +1075,13 @@ async def chat(
     chat_lang = _user_settings.get("chat_lang", "de")
 
     # Adaptive tutor behaviour is coupled to the Sprachtrainer: answers are only
-    # CEFR-pitched in workspaces whose owner switched the trainer on. Everywhere else
-    # they stay plain. The CEFR level is stored globally per user, so this
-    # per-workspace gate is also what stops it leaking into other workspaces.
+    # CEFR-pitched where the owner released the trainer AND the reader switched it
+    # on for themselves. Everywhere else they stay plain. The CEFR level is stored
+    # globally per user, so this per-workspace gate is also what stops it leaking
+    # into other workspaces, and the personal one keeps someone who turned the
+    # trainer off from getting level-pitched answers anyway.
     _adaptive_suffix, _applied_level = "", None
-    if db.is_language_training_active(workspace["id"]):
+    if db.is_language_training_active(workspace["id"]) and _user_settings.get("language_training_active", False):
         # A learner with a stored CEFR level gets answers pitched at that level,
         # calibrated with a sample of that level's language (the same per-level
         # examples the diagnosis uses). Empty setting or no level -> no change.

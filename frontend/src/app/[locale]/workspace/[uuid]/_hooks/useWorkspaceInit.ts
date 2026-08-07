@@ -11,6 +11,8 @@ interface WorkspaceSettings {
   chat_lang: "de" | "en";
   studio_enabled: boolean;
   popup_translate_lang: string;
+  /** Eigene Entscheidung, ob der freigegebene Sprachtrainer angezeigt wird. */
+  language_training_active: boolean;
 }
 
 interface UseWorkspaceInitOptions {
@@ -59,6 +61,7 @@ export function useWorkspaceInit(opts: UseWorkspaceInitOptions) {
             chat_lang: s.chat_lang ?? "de",
             studio_enabled: s.studio_enabled ?? true,
             popup_translate_lang: s.popup_translate_lang ?? "en",
+            language_training_active: s.language_training_active ?? false,
           });
         }
 

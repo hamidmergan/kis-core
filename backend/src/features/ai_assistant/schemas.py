@@ -85,6 +85,9 @@ class UserSettingsBody(BaseModel):
     studio_enabled: bool = True
     # Zielsprache der Auswahlleisten-Übersetzung, Code aus i18n.TRANSCRIPT_LANGUAGES.
     popup_translate_lang: str = "en"
+    # Eigene Entscheidung, ob der vom Kurs freigegebene Sprachtrainer angezeigt
+    # wird. Standard aus.
+    language_training_active: bool = False
 
 
 class NoteBody(BaseModel):
