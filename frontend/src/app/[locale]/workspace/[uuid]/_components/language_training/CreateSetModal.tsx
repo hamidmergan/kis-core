@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import type { ReactNode } from "react";
-import { Sparkle } from "@phosphor-icons/react";
+import { Plus, Sparkle } from "@phosphor-icons/react";
 import { useTranslations } from "next-intl";
 import type { GrammarTopic } from "../../_types";
 import { GrammarTopicForm } from "./GrammarTopicForm";
@@ -126,6 +126,17 @@ export function CreateSetModal({
           <>
             <div className="text-3xs font-semibold uppercase tracking-wide mb-1.5" style={{ color: "var(--muted)" }}>{t("createModal.grammarTypeHeading")}</div>
             <div className="flex flex-col gap-1.5 mb-3">
+              {canManage && !addingTopic && (
+                /* Anlegen ist Verwaltungsarbeit und keine Auswahl. Deshalb steht
+                   der Eintrag ueber der Liste und traegt den gestrichelten
+                   Hinzufuegen-Rahmen aus dem Bestand statt eines Auswahlpunkts.
+                   Lernende sehen ihn nicht, waehlen duerfen sie aus derselben Liste. */
+                <button type="button" onClick={() => setAddingTopic(true)}
+                  className={`add-source-btn w-full flex items-center gap-2 px-3 py-2 rounded-lg text-2xs font-medium border-dashed text-[var(--kb)] border-[rgba(var(--kb-rgb),0.35)] hover:border-[var(--kb)] ${PICK_BOX}`}>
+                  <Plus size={14} weight="bold" />
+                  <span>{t("grammarTopics.addTopic")}</span>
+                </button>
+              )}
               {typesLoading && (
                 <p className="text-3xs" style={{ color: "var(--muted)" }}>{t("common.loading")}</p>
               )}
@@ -140,13 +151,6 @@ export function CreateSetModal({
                   <span className="block font-semibold">{topic.name}</span>
                 </PickerOption>
               ))}
-              {canManage && !addingTopic && (
-                /* Anlegen ist Verwaltungsarbeit. Lernende sehen diesen Eintrag nicht,
-                   waehlen duerfen sie aus derselben Liste. */
-                <PickerOption selected={false} onClick={() => setAddingTopic(true)}>
-                  <span className="block font-semibold">{t("grammarTopics.addTopic")}</span>
-                </PickerOption>
-              )}
               {addingTopic && (
                 <GrammarTopicForm
                   workspaceUuid={workspaceUuid}

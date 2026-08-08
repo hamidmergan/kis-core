@@ -157,9 +157,14 @@ export function NotesStudio({
               {notes.map((note, idx) => {
                 const isExpanded = expandedId === note.id;
                 const { msg, qmap } = noteAsMessage(note);
-                const wrapCitations = (children: React.ReactNode) =>
+                // Note plus the start offset of the markdown node: that pair names a chip
+                // stop by its place, so two stops never share their open/closed state.
+                const wrapCitations = (
+                  children: React.ReactNode,
+                  node?: { position?: { start?: { offset?: number } } },
+                ) =>
                   withCitations(children, msg, activeSourceIds ?? [], getFilename, onChipClick,
-                    (key, vals) => tChip(key, vals));
+                    (key, vals) => tChip(key, vals), `n${note.id}#${node?.position?.start?.offset ?? 0}-`);
                 const isLast = idx === notes.length - 1;
                 const hasCustomTitle = !!(note.title && note.title.trim());
                 const isTitlePending = !hasCustomTitle && !!pendingTitleIds?.has(note.id);
@@ -253,18 +258,18 @@ export function NotesStudio({
                             remarkPlugins={[remarkGfm, remarkMath]}
                             rehypePlugins={[[rehypeKatex, KATEX_OPTIONS]]}
                             components={{
-                              p: ({ children }) => <p className="mb-2 last:mb-0">{wrapCitations(children)}</p>,
+                              p: ({ node, children }) => <p className="mb-2 last:mb-0">{wrapCitations(children, node)}</p>,
                               ul: ({ children }) => <ul className="list-disc pl-4 mb-2 space-y-0.5">{children}</ul>,
                               ol: ({ children }) => <ol className="list-decimal pl-4 mb-2 space-y-0.5">{children}</ol>,
-                              li: ({ children }) => <li className="leading-relaxed">{wrapCitations(children)}</li>,
+                              li: ({ node, children }) => <li className="leading-relaxed">{wrapCitations(children, node)}</li>,
                               strong: ({ children }) => <strong className="font-semibold">{children}</strong>,
                               em: ({ children }) => <em style={{ color: "var(--muted)" }}>{children}</em>,
-                              h1: ({ children }) => <p className="font-semibold mb-1">{wrapCitations(children)}</p>,
-                              h2: ({ children }) => <p className="font-semibold mb-1">{wrapCitations(children)}</p>,
-                              h3: ({ children }) => <p className="font-medium mb-1">{wrapCitations(children)}</p>,
+                              h1: ({ node, children }) => <p className="font-semibold mb-1">{wrapCitations(children, node)}</p>,
+                              h2: ({ node, children }) => <p className="font-semibold mb-1">{wrapCitations(children, node)}</p>,
+                              h3: ({ node, children }) => <p className="font-medium mb-1">{wrapCitations(children, node)}</p>,
                               table: ({ children }) => <div className="overflow-x-auto my-2"><table className="w-full text-sm border-collapse">{children}</table></div>,
                               th: ({ children }) => <th className="text-left px-2 py-1 font-medium border-b" style={{ borderColor: "var(--border)" }}>{children}</th>,
-                              td: ({ children }) => <td className="px-2 py-1 border-b" style={{ borderColor: "var(--border)" }}>{wrapCitations(children)}</td>,
+                              td: ({ node, children }) => <td className="px-2 py-1 border-b" style={{ borderColor: "var(--border)" }}>{wrapCitations(children, node)}</td>,
                               hr: () => <hr className="my-3" style={{ borderColor: "var(--border)" }} />,
                             }}
                           >

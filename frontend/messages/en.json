@@ -1804,7 +1804,7 @@
           "example": "Example"
         },
         "grammarTopics": {
-          "addTopic": "+ New topic",
+          "addTopic": "New topic",
           "nameLabel": "Which grammar should be practised?",
           "namePlaceholder": "e.g. past passive",
           "check": "Check",

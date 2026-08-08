@@ -1804,7 +1804,7 @@
           "example": "Beispiel"
         },
         "grammarTopics": {
-          "addTopic": "+ Neues Thema",
+          "addTopic": "Neues Thema",
           "nameLabel": "Welche Grammatik soll geübt werden?",
           "namePlaceholder": "z. B. Konjunktiv II",
           "check": "Prüfen",

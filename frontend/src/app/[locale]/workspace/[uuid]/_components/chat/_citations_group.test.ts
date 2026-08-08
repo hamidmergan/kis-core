@@ -26,12 +26,14 @@ function shape(nodes: ReturnType<typeof parseCitations>): string[] {
     typeof n === "string" ? "text" : ((n as ReactElement).type as { name?: string }).name ?? "?",
   );
 }
-type GroupProps = { chips: Array<{ displayQNum: number | null; label: string }> };
+type GroupProps = { groupId: string; chips: Array<{ displayQNum: number | null; label: string }> };
+function groupsOf(nodes: ReturnType<typeof parseCitations>): GroupProps[] {
+  return nodes
+    .filter((n) => typeof n !== "string" && ((n as ReactElement).type as { name?: string }).name === "CitationChipGroup")
+    .map((n) => (n as ReactElement).props as GroupProps);
+}
 function groupOf(nodes: ReturnType<typeof parseCitations>): GroupProps {
-  const node = nodes.find(
-    (n) => typeof n !== "string" && ((n as ReactElement).type as { name?: string }).name === "CitationChipGroup",
-  ) as ReactElement;
-  return node.props as GroupProps;
+  return groupsOf(nodes)[0];
 }
 
 describe("parseCitations — adjacent-chip accordion", () => {
@@ -63,6 +65,46 @@ describe("parseCitations — adjacent-chip accordion", () => {
     const nodes = parseCitations(text, msg, ["u1"], getFilename, noop);
     expect(shape(nodes)).toEqual(["CitationChipGroup"]);
     expect(groupOf(nodes).chips).toHaveLength(1);   // the duplicate is merged away first
+  });
+});
+
+describe("parseCitations — every stop has its own id", () => {
+  // The id is what the open/closed choice is stored under. Two stops sharing one id share
+  // one choice: opening either one opens BOTH as soon as the tree is rebuilt, e.g. when a
+  // chip click opens the viewer. So the id must name the PLACE, never the content.
+  it("gives two stops with identical sources different ids", () => {
+    const text = "Erstens dies. [1, S. 5] Zweitens das. [1, S. 5]";
+    const groups = groupsOf(parseCitations(text, msg, ["u1"], getFilename, noop));
+    expect(groups).toHaveLength(2);
+    expect(groups[0].groupId).not.toBe(groups[1].groupId);
+  });
+
+  it("gives media stops of the same file but different seconds different ids", () => {
+    // The worst case in practice: a media chip carries no page (0 for all of them), so an
+    // id built from source + page collapses every stop of one file into a single id.
+    const text = "Erstens dies. [1, 07:56] Zweitens das. [1, 27:30]";
+    const groups = groupsOf(parseCitations(text, msg, ["u1"], getFilename, noop));
+    expect(groups).toHaveLength(2);
+    expect(groups[0].groupId).not.toBe(groups[1].groupId);
+  });
+
+  it("gives the same stop in two paragraphs different ids", () => {
+    // Each markdown node parses on its own and its offsets restart at 0, so the prefix has
+    // to carry the message and the position of the node.
+    const text = "Dies. [1, S. 5]";
+    const a = groupOf(parseCitations(text, msg, ["u1"], getFilename, noop, "m7#0-"));
+    const b = groupOf(parseCitations(text, msg, ["u1"], getFilename, noop, "m7#84-"));
+    expect(a.groupId).not.toBe(b.groupId);
+  });
+
+  it("keeps the id of a stop stable while later text is still being written", () => {
+    // Streaming appends, so a stop that is already on screen keeps its position and must
+    // keep its id, otherwise an opened stop folds itself away mid-answer.
+    const partial = "Erstens dies. [1, S. 5] Zweitens";
+    const full = "Erstens dies. [1, S. 5] Zweitens das. [1, S. 9]";
+    const before = groupOf(parseCitations(partial, msg, ["u1"], getFilename, noop, "m7#0-"));
+    const after = groupOf(parseCitations(full, msg, ["u1"], getFilename, noop, "m7#0-"));
+    expect(after.groupId).toBe(before.groupId);
   });
 });
 

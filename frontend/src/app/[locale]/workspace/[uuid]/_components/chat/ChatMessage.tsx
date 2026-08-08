@@ -44,8 +44,16 @@ function _isTranslateNoop(output: string, input: string | undefined): boolean {
 }
 
 
+// The bit of a markdown node the citation code needs: where it starts in the answer text.
+// Structurally compatible with hast's Element, so react-markdown's `node` fits without
+// dragging the hast types in.
+type MarkdownNode = { position?: { start?: { offset?: number } } } | undefined;
+
 interface ChatMessageProps {
   msg: ChatMessageType;
+  // Stable name of this message inside the list, so two messages never share a chip stop id.
+  // Chat messages carry no id of their own, hence the list position as fallback.
+  msgKey: string;
   activeSourceIds: string[];
   getFilename: (uuid: string) => string;
   onChipClick: CitationChipClickHandler;
@@ -61,7 +69,7 @@ interface ChatMessageProps {
 
 
 function ChatMessageImpl({
-  msg, activeSourceIds, getFilename, onChipClick, onSaveNote, onRetry, loading,
+  msg, msgKey, activeSourceIds, getFilename, onChipClick, onSaveNote, onRetry, loading,
   variant = "francis", isLatest = false, collapseByDefault = false,
   popupActions, isAdmin = false,
 }: ChatMessageProps) {
@@ -97,9 +105,11 @@ function ChatMessageImpl({
     return () => ro.disconnect();
   }, [msg.content, msg.role]);
   const collapseAssistant = collapseByDefault && msg.role === "assistant" && isAssistantOverflow && !expandAssistantContent;
-  const wrapCitations = (children: React.ReactNode) =>
+  // Each markdown node hands its own start offset down: message plus offset names a chip
+  // stop by its place in the answer, which is what its open/closed state hangs on.
+  const wrapCitations = (children: React.ReactNode, node?: MarkdownNode) =>
     withCitations(children, msg, activeSourceIds, getFilename, onChipClick,
-      (key, vals) => tChip(key, vals));
+      (key, vals) => tChip(key, vals), `${msgKey}#${node?.position?.start?.offset ?? 0}-`);
 
 
   const isTranslatePopup = msg.popup_selection?.action_key === "translate";
@@ -244,18 +254,18 @@ function ChatMessageImpl({
                   remarkPlugins={[remarkGfm, remarkMath]}
                   rehypePlugins={[[rehypeKatex, KATEX_OPTIONS]]}
                   components={{
-                    p: ({ children }) => <p className="mb-2 last:mb-0">{wrapCitations(children)}</p>,
+                    p: ({ node, children }) => <p className="mb-2 last:mb-0">{wrapCitations(children, node)}</p>,
                     ul: ({ children }) => <ul className="list-disc pl-4 mb-2 space-y-0.5">{children}</ul>,
                     ol: ({ children }) => <ol className="list-decimal pl-4 mb-2 space-y-0.5">{children}</ol>,
-                    li: ({ children }) => <li className="leading-snug">{wrapCitations(children)}</li>,
+                    li: ({ node, children }) => <li className="leading-snug">{wrapCitations(children, node)}</li>,
                     strong: ({ children }) => <strong className="font-semibold">{children}</strong>,
-                    h1: ({ children }) => <p className="font-semibold mb-1">{wrapCitations(children)}</p>,
-                    h2: ({ children }) => <p className="font-semibold mb-1">{wrapCitations(children)}</p>,
-                    h3: ({ children }) => <p className="font-medium mb-1">{wrapCitations(children)}</p>,
+                    h1: ({ node, children }) => <p className="font-semibold mb-1">{wrapCitations(children, node)}</p>,
+                    h2: ({ node, children }) => <p className="font-semibold mb-1">{wrapCitations(children, node)}</p>,
+                    h3: ({ node, children }) => <p className="font-medium mb-1">{wrapCitations(children, node)}</p>,
                     table: ({ children }) => <div className="overflow-x-auto my-2"><table className="w-full min-w-[34rem] text-sm border-collapse">{children}</table></div>,
                     thead: ({ children }) => <thead className="border-b border-current/20">{children}</thead>,
                     th: ({ children }) => <th className="text-left px-2 py-1 font-semibold">{children}</th>,
-                    td: ({ children }) => <td className="px-2 py-1 border-t border-current/10">{wrapCitations(children)}</td>,
+                    td: ({ node, children }) => <td className="px-2 py-1 border-t border-current/10">{wrapCitations(children, node)}</td>,
                   }}
                 >
                   {_guardMathDollars(sanitizeCitationsForMarkdown(msg.content))}

@@ -385,10 +385,18 @@ export function parseCitations(
         ? <CitationChip key={first.key} desc={first} onChipClick={onChipClick} />
         : <CitationChipGroup
             key={first.key}
-            // Content-based id (source+pages, not text position) so the open state is
-            // restored after ANY remount. A collision just re-opens an identical group,
-            // which is exactly what the user wants anyway.
-            groupId={`${msg.id ?? keyPrefix}#${kept.map(c => `${c.clickUuid}:${c.clickPage}`).join(",")}`}
+            // The id names the PLACE, never the content: message + markdown node (both in
+            // keyPrefix) + the character offset of the stop inside this node. An id built
+            // from source+page instead collapsed whole answers into a handful of ids —
+            // messages carry no id, so every node fell back to the same prefix, and a media
+            // chip has no page (0 for all of them), so its second never entered the id. One
+            // measured answer had 126 stops on 56 ids, the worst shared by 34. They share
+            // one open/closed choice as well, so a chip click, which rebuilds the tree to
+            // fit in the viewer, unfolded all 34 at once.
+            //
+            // Position survives that rebuild just as well, and it survives streaming too:
+            // text only grows at the end, so a stop already on screen keeps its offset.
+            groupId={`${keyPrefix}${first.start}`}
             chips={kept}
             onChipClick={onChipClick}
           />,
@@ -404,6 +412,10 @@ export function parseCitations(
 }
 
 
+// nodePrefix names the message and the markdown node this text sits in. Without it the
+// chip keys and the group ids of two paragraphs would collide, because each node parses on
+// its own and its offsets start at 0 again. Callers build it from the message key plus the
+// node's offset in the markdown source (see ChatMessage/NotesStudio).
 export function withCitations(
   children: React.ReactNode,
   msg: ChatMessage,
@@ -411,11 +423,12 @@ export function withCitations(
   getFilename: (uuid: string) => string,
   onChipClick: CitationChipClickHandler,
   tChip?: ChipLabelT,
+  nodePrefix: string = "",
 ): React.ReactNode {
   const arr: React.ReactNode[] = Array.isArray(children) ? children : [children];
   return arr.flatMap((child, idx) =>
     typeof child === "string"
-      ? parseCitations(child, msg, activeSourceIds, getFilename, onChipClick, `c${idx}-`, tChip)
+      ? parseCitations(child, msg, activeSourceIds, getFilename, onChipClick, `${nodePrefix}c${idx}-`, tChip)
       : [child],
   );
 }

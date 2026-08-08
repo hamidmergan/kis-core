@@ -191,6 +191,7 @@ export function ChatPanel({
               <ChatMessage
                 key={msg.id ?? i}
                 msg={msg}
+                msgKey={String(msg.id ?? i)}
                 activeSourceIds={activeSourceIds}
                 getFilename={getFilename}
                 onChipClick={handleChipClick}

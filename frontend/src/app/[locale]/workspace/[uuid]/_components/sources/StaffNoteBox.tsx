@@ -44,8 +44,9 @@ export function StaffNoteBox({ text, links, isOwner, workspaceUuid, onEdit }: St
         <button
           type="button"
           onClick={onEdit}
-          className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-colors hover:bg-[var(--surface-dim)]"
-          style={{ color: "var(--accent)", border: "1px dashed rgba(0, 66, 97, 0.35)" }}
+          /* Rahmen und Hover kommen aus Klassen, nicht aus dem style-Attribut:
+             ein inline gesetzter Rahmen schlaegt jedes hover:border-... */
+          className="add-source-btn w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-colors border-2 border-dashed text-[var(--kb)] border-[rgba(var(--kb-rgb),0.35)] hover:border-[var(--kb)]"
         >
           <PushPin size={14} weight="bold" />
           <span>{t("emptyOwnerHint")}</span>
