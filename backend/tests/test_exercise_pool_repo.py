@@ -143,6 +143,26 @@ def test_the_take_is_random_and_excludes_what_the_person_had(fake_db):
     assert "random()" in sql, "der Reihe nach zu ziehen liesse den Rest liegen"
 
 
+def test_the_take_leaves_out_what_the_order_already_holds(fake_db):
+    """Die Abfrage kennt nur gespeicherte Saetze, und der entsteht erst am Ende.
+
+    Was ein frueherer Griff in denselben Vorrat schon geholt hat, muss sie deshalb
+    gesagt bekommen, sonst liefert sie es ein zweites Mal.
+    """
+    calls = fake_db(rows=[])
+    repo.take_from_pool(9, "quiz", None, 3, 5, exclude_ids=[11, 12])
+    sql, params = next((c[1], c[2]) for c in calls if c[0] == "execute")
+    assert "p.id <> ALL" in sql
+    assert [11, 12] in params
+
+
+def test_without_an_exclusion_the_take_stays_as_it_was(fake_db):
+    calls = fake_db(rows=[])
+    repo.take_from_pool(9, "quiz", None, 3, 5)
+    sql = next(c[1] for c in calls if c[0] == "execute")
+    assert "p.id <> ALL" not in sql
+
+
 def test_the_level_free_pool_is_matched_with_coalesce(fake_db):
     # Zwei NULL gelten in Postgres nicht als gleich, ein blosses `level = %s` wuerde
     # den niveaulosen Vorrat also nie treffen.

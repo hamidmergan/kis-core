@@ -60,14 +60,20 @@ def test_an_unreadable_level_falls_back_to_the_level_free_pool(monkeypatch):
 # --- ziehen --------------------------------------------------------------------
 
 def _stub_pool(monkeypatch, bestand: dict):
-    """``bestand`` bildet source_id auf die Fronts ab, die dort liegen."""
+    """``bestand`` bildet source_id auf die Fronts ab, die dort liegen.
+
+    Zustandslos, so wie die echte Abfrage. Die weiss nicht, was ein frueherer Aufruf
+    schon geliefert hat: sie laesst nur weg, was in einem **gespeicherten** Satz steckt,
+    und der entsteht erst am Ende des Auftrags. Ein Stub, der seinen Bestand aufbraucht,
+    macht genau den Doppler unsichtbar, um den es hier geht.
+    """
     gefragt = []
 
-    def take(source_id, tool, level, user_id, limit, topic_id=None):
+    def take(source_id, tool, level, user_id, limit, topic_id=None, exclude_ids=None):
         gefragt.append((source_id, limit, topic_id))
-        vorrat = bestand.get(source_id, [])
-        genommen, bestand[source_id] = vorrat[:limit], vorrat[limit:]
-        return [{"id": f"{source_id}-{f}", "front": f, "back": ""} for f in genommen]
+        raus = set(exclude_ids or ())
+        vorrat = [f for f in bestand.get(source_id, []) if f"{source_id}-{f}" not in raus]
+        return [{"id": f"{source_id}-{f}", "front": f, "back": ""} for f in vorrat[:limit]]
 
     monkeypatch.setattr("src.database.take_from_pool", take)
     monkeypatch.setattr("src.database.get_aia_source",
@@ -121,6 +127,42 @@ def test_a_failing_pool_read_means_everything_gets_generated(monkeypatch):
 
     monkeypatch.setattr("src.database.get_aia_source", boom)
     assert _pool.take(["u1"], "quiz", None, 1, 5) == []
+
+
+def test_a_pool_smaller_than_the_order_does_not_repeat_itself(monkeypatch):
+    """Der Normalfall bei einem wachsenden Vorrat: er gibt weniger her als bestellt.
+
+    Die zweite Runde fragt dieselbe Quelle noch einmal. Ohne Ausschluss liefert sie
+    dieselben Aufgaben, und der Satz haette jede zweimal.
+    """
+    _stub_pool(monkeypatch, {1: list("abcd")})
+    fronts = [i["front"] for i in _pool.take(["u1"], "quiz", None, 1, 10)]
+    assert fronts == list("abcd"), f"jede Aufgabe genau einmal, nicht {fronts}"
+
+
+def test_the_second_round_brings_new_tasks_and_not_the_first_ones_again(monkeypatch):
+    _stub_pool(monkeypatch, {1: list("abcdefgh"), 2: []})
+    fronts = [i["front"] for i in _pool.take(["u1", "u2"], "quiz", None, 1, 6)]
+    assert len(fronts) == len(set(fronts)), f"Doppler im selben Satz: {fronts}"
+    assert len(fronts) == 6, "Quelle 1 hat genug, die leere Quelle darf das nicht kosten"
+
+
+def test_the_same_task_from_two_sources_counts_once(monkeypatch):
+    """Zwei Quellen koennen dieselbe Aufgabe im Vorrat haben.
+
+    Der eindeutige Index sitzt je Quelle, ueber die Quellengrenze hinweg faengt er
+    nichts ab. Zwei Folienstaende zum selben Thema reichen dafuer.
+    """
+    _stub_pool(monkeypatch, {1: ["a"], 2: ["a"]})
+    fronts = [i["front"] for i in _pool.take(["u1", "u2"], "quiz", None, 1, 2)]
+    assert fronts == ["a"], f"derselbe Satz zweimal in einer Uebung: {fronts}"
+
+
+def test_an_exhausted_source_is_not_asked_again(monkeypatch):
+    """Wer weniger liefert als bestellt, ist leer. Eine zweite Abfrage kostet nur."""
+    gefragt = _stub_pool(monkeypatch, {1: ["a"], 2: ["b"]})
+    _pool.take(["u1", "u2"], "quiz", None, 1, 6)
+    assert [q[0] for q in gefragt] == [1, 2], "keine zweite Runde auf leere Vorraete"
 
 
 def test_pool_rows_carry_their_reference(monkeypatch):

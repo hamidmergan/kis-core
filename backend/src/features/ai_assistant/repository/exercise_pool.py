@@ -103,6 +103,7 @@ def pool_size(source_id: int, tool: str, level, topic_id=None) -> int:
 
 def take_from_pool(
     source_id: int, tool: str, level, user_id: int, limit: int, topic_id=None,
+    exclude_ids=None,
 ) -> list[dict]:
     """``limit`` Aufgaben aus dem Vorrat, die diese Person noch nicht hatte.
 
@@ -112,13 +113,23 @@ def take_from_pool(
     "Noch nicht gehabt" heisst: die Aufgabe steckte in keinem Satz dieser Person. Der
     Vermerk haengt an der Aufgabe und nicht am Niveau, ein Aufstieg von A2 auf B1 bringt
     also nichts durcheinander.
+
+    ``exclude_ids`` sind Zeilen, die derselbe Auftrag weiter oben schon geholt hat. Die
+    Bedingung daneben sieht die nicht: sie prueft **gespeicherte** Saetze, und der Satz
+    entsteht erst am Ende. Ohne diesen Ausschluss liefert ein zweiter Griff in denselben
+    Vorrat noch einmal, was der erste schon hatte.
     """
     if limit <= 0:
         return []
+    ausschluss = " AND p.id <> ALL(%s)" if exclude_ids else ""
+    werte = [source_id, tool, level, topic_id, user_id]
+    if exclude_ids:
+        werte.append(list(exclude_ids))
+    werte.append(limit)
     with get_connection() as conn:
         with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
             cur.execute(
-                """SELECT p.* FROM aia_exercise_pool p
+                f"""SELECT p.* FROM aia_exercise_pool p
                    WHERE p.source_id = %s AND p.tool = %s
                      AND COALESCE(p.level, '') = COALESCE(%s, '')
                      AND COALESCE(p.topic_id, 0) = COALESCE(%s, 0)
@@ -126,10 +137,10 @@ def take_from_pool(
                        SELECT 1 FROM aia_exercise_items i
                        JOIN aia_exercise_sets s ON i.set_id = s.id
                        WHERE i.pool_item_id = p.id AND s.user_id = %s
-                     )
+                     ){ausschluss}
                    ORDER BY random()
                    LIMIT %s""",
-                (source_id, tool, level, topic_id, user_id, limit),
+                tuple(werte),
             )
             return [dict(row) for row in cur.fetchall()]
 
@@ -154,6 +165,25 @@ def seen_fingerprints(user_id: int, tool: str, limit: int = 2000) -> list[str]:
             return [row[0] for row in cur.fetchall() if row[0]]
 
 
+def _materialize(bedingung: str, wert) -> int:
+    """Der gemeinsame Rueckschreib-Befehl. ``bedingung`` waehlt den Vorrat aus."""
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                f"""UPDATE aia_exercise_items i
+                   SET back = p.back, back_en = p.back_en, options = p.options,
+                       correct_idx = p.correct_idx, explanation = p.explanation,
+                       source_label = p.source_label, page_number = p.page_number,
+                       start_time = p.start_time, sources = p.sources, extras = p.extras
+                   FROM aia_exercise_pool p
+                   WHERE i.pool_item_id = p.id AND {bedingung}""",
+                (wert,),
+            )
+            zurueck = cur.rowcount
+        conn.commit()
+    return zurueck
+
+
 def materialize_pool_items(source_id: int) -> int:
     """Vorratsinhalt in die Saetze zurueckschreiben, die darauf zeigen.
 
@@ -163,21 +193,17 @@ def materialize_pool_items(source_id: int) -> int:
 
     Gibt die Zahl der zurueckgeschriebenen Aufgaben zurueck.
     """
-    with get_connection() as conn:
-        with conn.cursor() as cur:
-            cur.execute(
-                """UPDATE aia_exercise_items i
-                   SET back = p.back, back_en = p.back_en, options = p.options,
-                       correct_idx = p.correct_idx, explanation = p.explanation,
-                       source_label = p.source_label, page_number = p.page_number,
-                       start_time = p.start_time, sources = p.sources, extras = p.extras
-                   FROM aia_exercise_pool p
-                   WHERE i.pool_item_id = p.id AND p.source_id = %s""",
-                (source_id,),
-            )
-            zurueck = cur.rowcount
-        conn.commit()
-    return zurueck
+    return _materialize("p.source_id = %s", source_id)
+
+
+def materialize_pool_items_for_topic(topic_id: int) -> int:
+    """Dasselbe fuer den Vorrat eines Grammatikthemas.
+
+    Gebraucht beim Entfernen des Themas: sein Vorrat haengt per Fremdschluessel daran
+    und faellt mit. Die Saetze, die schon jemand gebaut hat, bleiben stehen und muessen
+    ihren Inhalt vorher bekommen.
+    """
+    return _materialize("p.topic_id = %s", topic_id)
 
 
 def clear_pool_for_source(source_id: int) -> int:

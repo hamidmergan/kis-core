@@ -88,20 +88,42 @@ def _take(uuids: list[str], tool: str, level, user_id: int, count: int,
         return []
     offen = count
     genommen: list[dict] = []
+    # Was diese Bestellung schon in der Hand hat. Die Abfrage weiss davon nichts, sie
+    # laesst nur weg, was in einem gespeicherten Satz steckt, und der wird erst am Ende
+    # geschrieben. Ohne diese beiden Merker holt die zweite Runde dasselbe noch einmal.
+    geholt: list = []       # Vorrats-ids, gehen als Ausschluss in die naechste Abfrage
+    texte: set[str] = set()  # deren Vergleichsformen, gegen Doppler ueber Quellen hinweg
+    leer: set = set()        # Quellen, die weniger geliefert haben als bestellt
     # Zwei Runden: erst der gleiche Anteil fuer jede Quelle, dann der Rest an die, die
     # noch etwas haben.
     for runde in (1, 2):
         for i, source_id in enumerate(source_ids):
             if offen <= 0:
                 break
+            if source_id in leer:
+                continue
             if runde == 1:
                 uebrig = len(source_ids) - i
                 will = min(offen, -(-offen // uebrig))  # aufgerundeter gleicher Anteil
             else:
                 will = offen
-            rows = db.take_from_pool(source_id, tool, level, user_id, will, topic_id)
-            genommen.extend(_as_item(r) for r in rows)
-            offen -= len(rows)
+            rows = db.take_from_pool(source_id, tool, level, user_id, will, topic_id,
+                                     exclude_ids=geholt or None)
+            if len(rows) < will:
+                # Weniger als bestellt heisst: mehr hat dieser Vorrat nicht. Ein zweites
+                # Mal zu fragen kostet nur eine Abfrage.
+                leer.add(source_id)
+            for row in rows:
+                geholt.append(row["id"])
+                # Zwei Quellen koennen dieselbe Aufgabe im Vorrat haben, der eindeutige
+                # Index sitzt je Quelle.
+                schluessel = item_key(row.get("front") or "")
+                if schluessel:
+                    if schluessel in texte:
+                        continue
+                    texte.add(schluessel)
+                genommen.append(_as_item(row))
+                offen -= 1
         if offen <= 0:
             break
     return genommen[:count]
