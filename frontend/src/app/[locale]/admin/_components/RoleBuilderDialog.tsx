@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import { useWorkspaceLabel } from "@/hooks/useWorkspaceLabel";
+import { backdropClose, newBackdropPress } from "@/components/ui/backdropClose";
 
 type AiaAccess = "none" | "read" | "edit";
 
@@ -36,6 +37,7 @@ export default function RoleBuilderDialog({ initial, availableTools, onClose, on
   const tTools = useTranslations("toolsSidebar.items");
   const ws = useWorkspaceLabel();
   const [name, setName] = useState(initial?.name ?? "");
+  const press = useRef(newBackdropPress()).current;
   const [aiaAccess, setAiaAccess] = useState<AiaAccess>(normalizeAia(initial?.aia_access));
   const [tools, setTools] = useState<Set<string>>(new Set(initial?.allowed_tools ?? []));
   const [saving, setSaving] = useState(false);
@@ -92,7 +94,7 @@ export default function RoleBuilderDialog({ initial, availableTools, onClose, on
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
-      onClick={onClose}
+      {...backdropClose(press, onClose)}
       role="dialog"
       aria-modal="true"
     >

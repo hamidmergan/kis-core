@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import { GraduationCap, X } from "@phosphor-icons/react";
 import Mascot from "@/components/ui/Mascot";
+import { backdropClose, newBackdropPress } from "@/components/ui/backdropClose";
 import { useMascotPref } from "@/hooks/useMascotPref";
 import { useLanguageDiagnosis } from "../../_hooks/useLanguageDiagnosis";
 import { DiagnosisResultScreen } from "./DiagnosisResultScreen";
@@ -34,6 +35,7 @@ export function LanguageDiagnosisPanel({
   const t = useTranslations("workspace.detail.languageTraining.diagnosis");
   const tChat = useTranslations("workspace.detail.chat");
   const [confirmAbort, setConfirmAbort] = useState(false);
+  const press = useRef(newBackdropPress()).current;
   const { variant } = useMascotPref();
 
   const { turns, status, result, errorMessage, send, retry, abort, questionCount, answerMaxChars } =
@@ -341,7 +343,7 @@ export function LanguageDiagnosisPanel({
       {confirmAbort && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
-          onClick={() => setConfirmAbort(false)}
+          {...backdropClose(press, () => setConfirmAbort(false))}
         >
           <div
             className="rounded-2xl p-6 max-w-sm w-full mx-4"

@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import Spinner from "@/components/ui/Spinner";
+import { backdropClose, newBackdropPress } from "@/components/ui/backdropClose";
 import { filterExportConfig } from "./_exportFilter";
 import { fetchExportConfig } from "./_api";
 import type { ImportPreviewResult, Provider } from "./_types";
@@ -30,6 +31,7 @@ export default function ExportImportDialog({
 }: Props) {
   const t = useTranslations("admin.providers.exportImport");
   const [tab, setTab] = useState<Tab>(initialTab);
+  const press = useRef(newBackdropPress()).current;
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
@@ -47,7 +49,7 @@ export default function ExportImportDialog({
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
-      onClick={handleBackdropClick}
+      {...backdropClose(press, handleBackdropClick)}
     >
       <div
         className="bg-background border border-border-soft rounded-xl shadow-xl w-full max-w-2xl max-h-[85vh] overflow-y-auto"

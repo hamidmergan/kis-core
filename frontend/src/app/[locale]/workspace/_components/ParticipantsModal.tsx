@@ -1,8 +1,9 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import Spinner from "@/components/ui/Spinner";
+import { backdropClose, newBackdropPress } from "@/components/ui/backdropClose";
 
 interface Participant {
   user_id: number;
@@ -28,6 +29,7 @@ interface Props {
 export default function ParticipantsModal({ workspaceUuid, onClose, onRolesChanged }: Props) {
   const t = useTranslations("workspace.list");
   const locale = useLocale();
+  const press = useRef(newBackdropPress()).current;
   const [participants, setParticipants] = useState<Participant[]>([]);
   const [canEdit, setCanEdit] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -90,7 +92,7 @@ export default function ParticipantsModal({ workspaceUuid, onClose, onRolesChang
     <div
       className="fixed inset-0 z-50 flex items-center justify-center p-4"
       style={{ backgroundColor: "rgba(0,0,0,0.4)" }}
-      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
+      {...backdropClose(press, onClose)}
     >
       <div
         className="w-full max-w-lg rounded-xl p-6 shadow-xl max-h-[80vh] overflow-y-auto"

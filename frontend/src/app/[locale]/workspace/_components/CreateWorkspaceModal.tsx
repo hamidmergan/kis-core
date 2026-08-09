@@ -1,8 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import { useWorkspaceLabel } from "@/hooks/useWorkspaceLabel";
+import { backdropClose, newBackdropPress } from "@/components/ui/backdropClose";
 import { WORKSPACE_TITLE_MAX, WORKSPACE_DESCRIPTION_MAX, type KiTutorWorkspace } from "../_shared";
 
 interface CreateWorkspaceModalProps {
@@ -13,6 +14,7 @@ interface CreateWorkspaceModalProps {
 export default function CreateWorkspaceModal({ onClose, onCreated }: CreateWorkspaceModalProps) {
   const t = useTranslations("workspace.list");
   const labels = useWorkspaceLabel();
+  const press = useRef(newBackdropPress()).current;
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [expiresAt, setExpiresAt] = useState("");
@@ -65,9 +67,7 @@ export default function CreateWorkspaceModal({ onClose, onCreated }: CreateWorks
     <div
       className="fixed inset-0 z-50 flex items-center justify-center p-4"
       style={{ backgroundColor: "rgba(0,0,0,0.4)" }}
-      onClick={(e) => {
-        if (e.target === e.currentTarget) onClose();
-      }}
+      {...backdropClose(press, onClose)}
     >
       <div
         className="w-full max-w-md rounded-xl p-4 sm:p-6 shadow-xl"

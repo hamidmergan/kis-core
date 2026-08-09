@@ -3,6 +3,8 @@
 import { useEffect, useRef, type ReactNode } from "react";
 import { useTranslations } from "next-intl";
 
+import { backdropClose, newBackdropPress } from "./backdropClose";
+
 interface ModalProps {
   open: boolean;
   onClose: () => void;
@@ -35,6 +37,7 @@ export default function Modal({
 }: ModalProps) {
   const t = useTranslations("common");
   const dialogRef = useRef<HTMLDivElement>(null);
+  const press = useRef(newBackdropPress()).current;
 
   useEffect(() => {
     if (!open || !closeOnEscape) return;
@@ -60,9 +63,7 @@ export default function Modal({
     <div
       className="fixed inset-0 z-50 flex items-center justify-center p-4"
       style={{ backgroundColor: "rgba(0, 0, 0, 0.5)" }}
-      onClick={() => {
-        if (closeOnBackdropClick) onClose();
-      }}
+      {...backdropClose(press, onClose, closeOnBackdropClick)}
       role="dialog"
       aria-modal="true"
     >

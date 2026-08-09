@@ -3,6 +3,7 @@ import { useTranslations } from "next-intl";
 import { CalendarBlank, CheckCircle, Files, PencilSimple, Plus, Sparkle, Trash } from "@phosphor-icons/react";
 import Spinner from "@/components/ui/Spinner";
 import { EmptyState } from "@/components/ui/EmptyState";
+import { backdropClose, newBackdropPress } from "@/components/ui/backdropClose";
 import type { ScheduleEntry, ScheduleData } from "../../_types";
 import {
   fetchSchedule,
@@ -32,6 +33,7 @@ export function ScheduleView({
 }) {
   const t = useTranslations("workspace.detail.studio.schedule");
   const tModal = useTranslations("workspace.detail.studio.schedule.modal");
+  const press = useRef(newBackdropPress()).current;
   const [entries, setEntries] = useState<ScheduleEntry[]>([]);
   const [processedUuids, setProcessedUuids] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
@@ -371,7 +373,7 @@ export function ScheduleView({
         <div
           className="fixed inset-0 z-50 flex items-center justify-center p-4"
           style={{ backgroundColor: "rgba(0,0,0,0.4)" }}
-          onClick={() => setConfirmDeleteAll(false)}
+          {...backdropClose(press, () => setConfirmDeleteAll(false))}
         >
           <div
             className="rounded-2xl w-full max-w-sm p-5"

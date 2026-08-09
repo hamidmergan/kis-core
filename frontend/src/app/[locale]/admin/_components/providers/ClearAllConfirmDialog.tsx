@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
+import { backdropClose, newBackdropPress } from "@/components/ui/backdropClose";
 import { useTranslations } from "next-intl";
 
 type Props = {
@@ -15,6 +16,7 @@ export default function ClearAllConfirmDialog({
 }: Props) {
   const t = useTranslations("admin.providers.clearAll");
   const [submitting, setSubmitting] = useState(false);
+  const press = useRef(newBackdropPress()).current;
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -38,7 +40,7 @@ export default function ClearAllConfirmDialog({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={handleBackdropClick}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" {...backdropClose(press, handleBackdropClick)}>
       <div className="bg-background rounded-xl shadow-xl max-w-sm w-full p-6" onClick={(e) => e.stopPropagation()}>
         <h3 className="text-base font-semibold mb-2">{t("title")}</h3>
         <p className="text-sm text-foreground-soft mb-1 whitespace-pre-line">

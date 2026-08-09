@@ -1,9 +1,11 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
-import { Plus, Sparkle } from "@phosphor-icons/react";
+import { Plus, Sparkle, Trash } from "@phosphor-icons/react";
 import { useTranslations } from "next-intl";
+import { backdropClose, newBackdropPress } from "@/components/ui/backdropClose";
 import type { GrammarTopic } from "../../_types";
 import { GrammarTopicForm } from "./GrammarTopicForm";
+import { nextTopicId } from "./_grammarTopics";
 
 // Every picker in this modal shares one look: 2px border, primary on hover,
 // primary + tint for the current choice (same classes as the quiz answers).
@@ -18,7 +20,7 @@ function PickerOption({ selected, disabled, onClick, children }: {
 }) {
   return (
     <button type="button" onClick={onClick} disabled={disabled}
-      className={`group flex items-center gap-2 px-3 py-2 rounded-lg text-left text-2xs font-medium text-foreground ${PICK_BOX} ${selected ? PICK_ON : PICK_OFF}`}>
+      className={`group w-full flex items-center gap-2 px-3 py-2 rounded-lg text-left text-2xs font-medium text-foreground ${PICK_BOX} ${selected ? PICK_ON : PICK_OFF}`}>
       <span className={`w-3.5 h-3.5 rounded-full border-2 flex items-center justify-center shrink-0 transition-colors ${
         selected ? "border-kb" : `border-border ${disabled ? "" : "group-hover:border-kb"}`}`}>
         {selected && <span className="w-1.5 h-1.5 rounded-full bg-kb" />}
@@ -56,6 +58,7 @@ export function CreateSetModal({
     isQuiz || isGrammar || isListening || glossaryCount === 0 ? "source" : "glossary",
   );
   const [count, setCount] = useState(isQuiz || isListening ? 5 : 10);
+  const press = useRef(newBackdropPress()).current;
 
   // Die Themen gehoeren dem Kurs und stehen in der Datenbank, nicht im Code. Ein
   // neues Thema erscheint hier also ohne Aenderung an der Oberflaeche.
@@ -64,6 +67,29 @@ export function CreateSetModal({
   const [typesLoading, setTypesLoading] = useState(false);
   const [addingTopic, setAddingTopic] = useState(false);
   const [reload, setReload] = useState(0);
+  // Das Thema, das gerade nach einer Bestaetigung fragt. Ein Thema gehoert dem
+  // ganzen Kurs und nimmt seinen Aufgaben-Vorrat mit, dafuer ist ein Fehlklick zu
+  // teuer. Fertige Saetze bleiben lesbar, darum kuemmert sich das Backend.
+  const [confirmTopicId, setConfirmTopicId] = useState<number | null>(null);
+  const [deleting, setDeleting] = useState(false);
+
+  async function removeTopic(topic: GrammarTopic) {
+    setDeleting(true);
+    try {
+      const res = await fetch(
+        `/api/ai-assistant/workspaces/${workspaceUuid}/grammar-topics/${topic.id}`,
+        { method: "DELETE", credentials: "include" },
+      );
+      if (!res.ok) return;
+      setTopicId((prev) => nextTopicId(topics, topic.id, prev));
+      setTopics((prev) => prev.filter((t) => t.id !== topic.id));
+      setConfirmTopicId(null);
+    } catch {
+      /* die Liste bleibt stehen, ein zweiter Versuch schadet nicht */
+    } finally {
+      setDeleting(false);
+    }
+  }
   useEffect(() => {
     if (!isGrammar) return;
     let cancelled = false;
@@ -96,7 +122,7 @@ export function CreateSetModal({
     : !(isListening && !hasSource);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ backgroundColor: "rgba(0,0,0,0.25)" }} onClick={onClose}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ backgroundColor: "rgba(0,0,0,0.25)" }} {...backdropClose(press, onClose)}>
       <div className="rounded-2xl p-5 w-85 max-h-[85vh] overflow-y-auto" style={{ backgroundColor: "var(--surface)", boxShadow: "0 8px 40px rgba(0,0,0,0.12)" }}
         onClick={(e) => e.stopPropagation()}>
         <h3 className="text-sm font-semibold mb-3">{t("createModal.title", { tool: toolLabel })}</h3>
@@ -144,12 +170,48 @@ export function CreateSetModal({
                 <p className="text-3xs" style={{ color: "#c4820e" }}>{t("createModal.noGrammarTypes")}</p>
               )}
               {!addingTopic && topics.map((topic) => (
-                /* Nur der Name. Die Anweisung an den Lernenden lautet fuer jedes
-                   Thema gleich und gehoert deshalb ueber die Saetze, nicht hierhin. */
-                <PickerOption key={topic.id} selected={topicId === topic.id}
-                  onClick={() => setTopicId(topic.id)}>
-                  <span className="block font-semibold">{topic.name}</span>
-                </PickerOption>
+                confirmTopicId === topic.id ? (
+                  /* Die Ruecknahme steht an der Stelle der Zeile und nicht in einem
+                     eigenen Fenster: die Liste bleibt sichtbar, und die Frage steht
+                     bei dem Thema, um das es geht. */
+                  <div key={topic.id} className={`flex flex-col gap-1.5 px-3 py-2 rounded-lg ${PICK_BOX} border-border bg-background`}>
+                    <span className="text-2xs text-foreground">
+                      {t("grammarTopics.deleteAsk", { name: topic.name })}
+                    </span>
+                    <div className="flex gap-1.5">
+                      <button type="button" disabled={deleting}
+                        onClick={() => removeTopic(topic)}
+                        className="px-3 py-1 rounded-full text-3xs font-semibold disabled:opacity-50"
+                        style={{ backgroundColor: "var(--error)", color: "var(--on-accent)" }}>
+                        {t("common.delete")}
+                      </button>
+                      <button type="button" onClick={() => setConfirmTopicId(null)}
+                        className="btn-cancel px-3 py-1 rounded-full text-3xs font-semibold"
+                        style={{ color: "var(--kb)", backgroundColor: "var(--surface)", border: "2px solid var(--border)" }}>
+                        {t("common.cancel")}
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  /* Nur der Name. Die Anweisung an den Lernenden lautet fuer jedes
+                     Thema gleich und gehoert deshalb ueber die Saetze, nicht hierhin.
+                     Der Papierkorb liegt ueber der Zeile statt in ihr: ein Knopf im
+                     Knopf waere kein gueltiges HTML. */
+                  <div key={topic.id} className="relative">
+                    <PickerOption selected={topicId === topic.id}
+                      onClick={() => setTopicId(topic.id)}>
+                      <span className={`block font-semibold ${canManage ? "pr-6" : ""}`}>{topic.name}</span>
+                    </PickerOption>
+                    {canManage && (
+                      <button type="button" onClick={() => setConfirmTopicId(topic.id)}
+                        className="absolute right-2 top-1/2 -translate-y-1/2 w-6 h-6 rounded-full flex items-center justify-center btn-icon"
+                        style={{ backgroundColor: "var(--surface-dim)" }}
+                        title={t("grammarTopics.deleteTopic")}>
+                        <Trash size={12} />
+                      </button>
+                    )}
+                  </div>
+                )
               ))}
               {addingTopic && (
                 <GrammarTopicForm

@@ -1,8 +1,9 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useTranslations } from "next-intl";
 import { Warning } from "@phosphor-icons/react";
+import { backdropClose, newBackdropPress } from "@/components/ui/backdropClose";
 import type { Feature } from "./_types";
 
 type Props = {
@@ -18,6 +19,7 @@ export default function DeleteProviderConfirmDialog({
   const t = useTranslations("admin.providers.delete");
   const tFeature = useTranslations("admin.providers.featureName");
   const [submitting, setSubmitting] = useState(false);
+  const press = useRef(newBackdropPress()).current;
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -44,7 +46,7 @@ export default function DeleteProviderConfirmDialog({
   const featureList = affectedFeatures.map((f) => tFeature(f)).join(", ");
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={handleBackdropClick}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" {...backdropClose(press, handleBackdropClick)}>
       <div className="bg-background border border-red-300 dark:border-red-700 rounded-xl shadow-xl w-full max-w-md" onClick={(e) => e.stopPropagation()}>
         <div className="p-5 bg-red-50 dark:bg-red-950/30 border-b border-red-200 dark:border-red-800 rounded-t-xl flex items-start gap-3">
           <Warning size={22} weight="fill" className="text-red-600 dark:text-red-400 shrink-0" />
