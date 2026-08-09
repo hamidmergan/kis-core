@@ -31,7 +31,9 @@ _PROMPT = (
     '"rule": "One paragraph in English naming the input form and the expected output '
     'form of the transformation", '
     '"examples": [{"before": "A sentence in the original form", '
-    '"after": "The same sentence transformed"}]}\n\n'
+    '"after": "The same sentence transformed"}], '
+    '"task_lines": {"transform": "...", "cloze": "...", "statement": "...", '
+    '"choice": "..."}}\n\n'
     "Rules:\n"
     '- "is_grammar" is false when the name does not describe a grammatical form at '
     "all, for example a subject such as photosynthesis, a person, or plain nonsense. "
@@ -43,6 +45,16 @@ _PROMPT = (
     "- Write the example in {language}, whatever language the topic name is written in.\n"
     "- Use no personal names. Write 'die Dozentin', 'das Team' or 'the lecturer' "
     "instead, matching the output language.\n"
+    '- "task_lines" are the four instructions a learner reads above an exercise, one per '
+    "exercise kind, in {language}. They MUST name this topic in a grammatically correct "
+    "sentence. Inflect it, do not paste the topic name into a fixed frame: for a plural "
+    "or feminine topic a frame like \"Setze den Satz ins ...\" produces nonsense.\n"
+    "  transform: the learner rewrites the sentence into this form.\n"
+    "  cloze: the learner fills one missing word in this form.\n"
+    "  statement: the learner judges whether the sentence is correct in this form.\n"
+    "  choice: the learner picks which of several sentences is correct in this form.\n"
+    "  Each is ONE short sentence, addressed to the learner, ending in a full stop or a "
+    "question mark. No quotes around the topic name.\n"
 )
 
 
@@ -62,9 +74,14 @@ def derive_topic(client, model, name: str, language: str) -> dict | None:
     # derive_topic, ein Import auf Modulebene ergäbe also einen Ringschluss. Die
     # beiden sind allgemeine Helfer für Modell-Ausgaben und liegen nur historisch
     # unter tasks/.
-    from src.features.ai_assistant.tasks._helpers import _clean_llm_json, _language_label
+    from src.features.ai_assistant.tasks._helpers import _clean_llm_json
 
-    label = _language_label(language)
+    # ``language`` darf der englische Sprachname sein ("German") oder der Sprachcode
+    # ("de"). Beides kommt vor, und ein durchgereichter Code landete sonst wortwoertlich
+    # im Prompt: "Write the example in de." Ein Test hat genau das gefunden.
+    from src.i18n import TRANSCRIPT_LANGUAGES
+    eintrag = TRANSCRIPT_LANGUAGES.get((language or "").lower())
+    label = eintrag["name"] if eintrag else (language or "German")
     messages = [
         {"role": "system", "content": _PROMPT.replace("{language}", label)},
         {"role": "user", "content": f"Topic: {name}\n\nWrite the example in {label}."},
@@ -91,7 +108,32 @@ def derive_topic(client, model, name: str, language: str) -> dict | None:
     if not rule or not examples:
         logger.info("Grammatik-Thema {!r} abgelehnt, Regel oder Beispiel fehlt", name)
         return None
-    return {"rule": rule, "examples": examples[:MAX_EXAMPLES]}
+    return {"rule": rule, "examples": examples[:MAX_EXAMPLES],
+            "task_lines": usable_task_lines(data.get("task_lines"))}
+
+
+# Die vier Aufgabenformate, fuer die es je eine Anweisung braucht.
+TASK_KINDS = ("transform", "cloze", "statement", "choice")
+
+
+def usable_task_lines(lines) -> dict:
+    """Die Anweisungszeilen, sofern alle vier brauchbar sind, sonst ein leeres dict.
+
+    Alles oder nichts: mit drei von vier Zeilen haette ein gemischtes Set eine Aufgabe
+    mit Modell-Anweisung und drei mit Schablone, und die eine faellt aus dem Ton. Leer
+    heisst, die alte Schablone greift, so wie vor diesem Feld.
+    """
+    if not isinstance(lines, dict):
+        return {}
+    fertig = {}
+    for kind in TASK_KINDS:
+        text = (lines.get(kind) or "").strip()
+        # Eine leere oder ein-Wort-Anweisung ist keine. Der Themenname allein reicht
+        # nicht, der steht ohnehin schon ueber dem Set.
+        if not text or len(text.split()) < 3:
+            return {}
+        fertig[kind] = text
+    return fertig
 
 
 def is_usable_pair(pair) -> bool:

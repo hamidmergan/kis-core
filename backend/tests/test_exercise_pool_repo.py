@@ -1,0 +1,176 @@
+"""Die Datenbankseite des Vorrats.
+
+Geschrieben, weil genau diese Schicht heute schon einmal einen fehlenden ``commit``
+durchgelassen hat: die Fachtests mocken sie weg, und ein einzelner Aufruf sieht ohne
+Commit richtig aus. Auffallen wuerde es erst beim zweiten.
+"""
+
+import json
+
+import pytest
+
+from src.features.ai_assistant.repository import exercise_pool as repo
+
+
+class _FakeCursor:
+    def __init__(self, rows, calls):
+        self._rows = list(rows)
+        self._calls = calls
+        self.rowcount = 0
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *exc):
+        return False
+
+    def execute(self, sql, params=None):
+        # Ungekuerzt: die Tests unten pruefen Bestandteile der Anweisung, ein Abschneiden
+        # wuerde sie stillschweigend gruen machen.
+        self._calls.append(("execute", " ".join(sql.split()), params))
+        self.rowcount = 3
+
+    def fetchone(self):
+        return self._rows.pop(0) if self._rows else None
+
+    def fetchall(self):
+        return list(self._rows)
+
+
+class _FakeConn:
+    def __init__(self, rows, calls):
+        self._rows = rows
+        self._calls = calls
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *exc):
+        return False
+
+    def cursor(self, **kwargs):
+        return _FakeCursor(self._rows, self._calls)
+
+    def commit(self):
+        self._calls.append(("commit", None, None))
+
+
+@pytest.fixture
+def fake_db(monkeypatch):
+    def _apply(rows=()):
+        calls: list[tuple] = []
+        monkeypatch.setattr(repo, "get_connection", lambda: _FakeConn(rows, calls))
+        return calls
+    return _apply
+
+
+def _art(*fingerprints):
+    return [{"front": f, "back": f.upper()} for f in fingerprints], list(fingerprints)
+
+
+# --- schreiben committen -------------------------------------------------------
+
+def test_storing_items_commits(fake_db):
+    calls = fake_db(rows=[(1,), (2,)])
+    items, fps = _art("a", "b")
+    repo.add_pool_items(9, "quiz", None, items, fps)
+    assert ("commit", None, None) in calls, "ohne commit sieht der naechste Aufruf nichts"
+
+
+def test_clearing_the_pool_commits(fake_db):
+    calls = fake_db()
+    repo.clear_pool_for_source(9)
+    assert [c[0] for c in calls].count("commit") >= 1
+
+
+def test_writing_back_the_content_commits(fake_db):
+    calls = fake_db()
+    repo.materialize_pool_items(9)
+    assert ("commit", None, None) in calls
+
+
+# --- einlagern -----------------------------------------------------------------
+
+def test_an_item_without_a_fingerprint_is_skipped(fake_db):
+    fake_db(rows=[(1,)])
+    items = [{"front": ""}, {"front": "b"}]
+    ids = repo.add_pool_items(9, "quiz", None, items, ["", "b"])
+    assert ids[0] is None
+
+
+def test_a_duplicate_returns_the_id_of_the_row_that_is_already_there(fake_db):
+    # ON CONFLICT DO NOTHING liefert keine Zeile zurueck, dann wird die vorhandene
+    # gesucht. So kann ein Satz auf eine Aufgabe zeigen, die jemand anderes erzeugt hat.
+    calls = fake_db(rows=[None, (42,)])
+    items, fps = _art("a")
+    assert repo.add_pool_items(9, "quiz", None, items, fps) == [42]
+    anweisungen = [c[1] for c in calls if c[0] == "execute"]
+    assert any("INSERT" in a for a in anweisungen)
+    assert any("SELECT id" in a for a in anweisungen)
+
+
+def test_json_fields_are_serialised(fake_db):
+    calls = fake_db(rows=[(1,)])
+    items = [{"front": "a", "back": "A", "options": ["x", "y"], "sources": [{"p": 1}]}]
+    repo.add_pool_items(9, "quiz", "B1", items, ["a"])
+    params = next(c[2] for c in calls if c[0] == "execute")
+    assert params[:5] == (9, "quiz", "B1", None, "a")   # ohne Thema
+    assert json.loads(params[8]) == ["x", "y"]          # options
+
+
+def test_storing_nothing_touches_no_connection(monkeypatch):
+    def boom():
+        raise AssertionError("es gibt nichts einzulagern")
+
+    monkeypatch.setattr(repo, "get_connection", boom)
+    assert repo.add_pool_items(9, "quiz", None, [], []) == []
+
+
+# --- lesen ---------------------------------------------------------------------
+
+def test_taking_nothing_touches_no_connection(monkeypatch):
+    def boom():
+        raise AssertionError("es wurde nichts angefordert")
+
+    monkeypatch.setattr(repo, "get_connection", boom)
+    assert repo.take_from_pool(9, "quiz", None, 1, 0) == []
+
+
+def test_the_take_is_random_and_excludes_what_the_person_had(fake_db):
+    calls = fake_db(rows=[])
+    repo.take_from_pool(9, "quiz", "B1", 3, 5)
+    sql = next(c[1] for c in calls if c[0] == "execute")
+    assert "random()" in sql, "der Reihe nach zu ziehen liesse den Rest liegen"
+
+
+def test_the_level_free_pool_is_matched_with_coalesce(fake_db):
+    # Zwei NULL gelten in Postgres nicht als gleich, ein blosses `level = %s` wuerde
+    # den niveaulosen Vorrat also nie treffen.
+    calls = fake_db(rows=[])
+    repo.take_from_pool(9, "quiz", None, 3, 5)
+    sql = " ".join(c[1] for c in calls if c[0] == "execute")
+    assert "COALESCE" in sql
+
+
+def test_the_size_is_read_per_pool(fake_db):
+    fake_db(rows=[(7,)])
+    assert repo.pool_size(9, "quiz", "B1") == 7
+
+
+def test_seen_fingerprints_reads_by_user_and_tool(fake_db):
+    calls = fake_db(rows=[("a",), ("b",)])
+    assert repo.seen_fingerprints(3, "quiz") == ["a", "b"]
+    params = next(c[2] for c in calls if c[0] == "execute")
+    assert params[0] == 3 and params[1] == "quiz"
+
+
+# --- aufraeumen ----------------------------------------------------------------
+
+def test_clearing_writes_the_content_back_before_deleting(fake_db):
+    """Sonst wird ein fertiger Satz leer, weil jemand die Quelle ausgetauscht hat."""
+    calls = fake_db()
+    repo.clear_pool_for_source(9)
+    anweisungen = [c[1] for c in calls if c[0] == "execute"]
+    assert anweisungen[0].startswith("UPDATE aia_exercise_items"), \
+        "erst zurueckschreiben, dann loeschen"
+    assert any("DELETE FROM aia_exercise_pool" in a for a in anweisungen)

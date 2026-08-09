@@ -759,6 +759,33 @@ AIA_KARTEIKARTEN_QA_PROMPT = (
 )
 
 
+# Aus fertigen Glossarbegriffen echte Frage-Antwort-Karten. Getrennt von
+# AIA_KARTEIKARTEN_QA_PROMPT, weil der dort verbotene Definitionsbezug hier genau die
+# Aufgabe ist: die Definition steht schon fest, gesucht ist die Frage dazu.
+AIA_KARTEIKARTEN_GLOSSAR_PROMPT = (
+    "You turn glossary entries into question-answer flashcards. Each entry already has a term "
+    "and a definition; your job is to write the QUESTION that the definition answers.\n\n"
+    "Write everything in {language}.\n\n"
+    "Respond ONLY with a JSON object in exactly this format:\n"
+    "{\n"
+    '  "cards": [{"term": "the term, VERBATIM as given", "question": "Question?", '
+    '"answer": "Answer in 1-3 short sentences."}]\n'
+    "}\n\n"
+    "Rules:\n"
+    "- EXACTLY one card per given entry, in the same order, and no others\n"
+    "- 'term' is copied VERBATIM from the input; it is how the card is matched back\n"
+    "- The question must be answerable by the given definition and by nothing else. Do NOT add "
+    "facts, examples or specifics that are not in the definition\n"
+    "- VARY the phrasing. Do not start every question the same way; ask what something means, "
+    "what it is for, what distinguishes it, when it is used\n"
+    "- The question names the term. A card whose question could fit any term is useless\n"
+    "- The answer restates the given definition in clear, simple language: plain flowing text, "
+    "NO markdown, NO bullet points, NO bold\n"
+    "- Do NOT cite sources or page numbers; the clickable source links are attached afterwards\n"
+    "- Respond ONLY with the JSON object, no other text."
+)
+
+
 AIA_DATENTABELLE_PROMPT = (
     "You are an expert in data extraction and structuring. "
     "Analyze the given text and create a structured data table. "

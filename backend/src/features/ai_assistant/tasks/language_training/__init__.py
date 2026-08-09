@@ -10,10 +10,9 @@ from loguru import logger
 from src import database as db
 from src.celery_app import celery_app
 from src.limits import AIA_TOOL_SOFT_TIME_LIMIT, AIA_TOOL_TIME_LIMIT
-from src.features.ai_assistant.tasks._helpers import _get_llm_client
+from src.features.ai_assistant.tasks._helpers import _get_llm_client, tool_output_language
 from src.services.aia_adaptive_tools import build_adaptive_tool_suffix
 from src.features.ai_assistant.repository.grammar_topics import catalog_entry
-from src.services.aia_grammar_check import normalize
 from src.services.aia_grammar_topic import derive_topic
 
 from src.features.ai_assistant.tasks.language_training._context import (
@@ -23,6 +22,16 @@ from src.features.ai_assistant.tasks.language_training._context import (
     per_section_quota,
     rebalance_to_count,
     remap_sections,
+)
+from src.features.ai_assistant.tasks.language_training._dedup import (
+    drop_repeats,
+    seen_by_user,
+)
+from src.features.ai_assistant.tasks.language_training._pool import (
+    pool_level,
+    store as store_in_pool,
+    take as take_from_pool,
+    uses_pool,
 )
 from src.features.ai_assistant.tasks.language_training._glossary import generate_from_glossary
 from src.features.ai_assistant.tasks.language_training._source_cards import (
@@ -53,9 +62,9 @@ def run_generate_exercise_set(self, set_id: int, workspace_id: int, tool: str,
                               locale: str = "de"):
     """Generate items for an exercise set (flashcards/karteikarten/quiz/grammatik).
 
-    `locale` controls the RAG sentinel string for source-cards generation
-    (the AIA_SYSTEM_RAG prompt builder). Defaults to 'de' so older queued
-    tasks keep working.
+    `locale` kommt vom Aufrufer, wird hier aber sofort durch die Unterrichtssprache des
+    Kursraums ersetzt: was der Lernende zu sehen bekommt, folgt dem Kurs und nicht der
+    Sprachwahl in seinem Kopf der Seite.
     """
     try:
         workspace = db.get_aia_workspace_by_id(workspace_id)
@@ -68,6 +77,13 @@ def run_generate_exercise_set(self, set_id: int, workspace_id: int, tool: str,
             db.fail_exercise_set(set_id)
             return
         user_id = ex_set["user_id"]
+
+        # Die Sprache der Aufgaben haengt am Kursraum, nicht an der Oberflaeche der
+        # Person. `locale` wird hier bewusst ueberschrieben: alles weiter unten, was den
+        # Lernenden erreicht (Anweisungszeile, Richtig/Falsch-Beschriftung, Grammatikregel
+        # und Musterbeispiel), soll in der Unterrichtssprache stehen und nicht in der
+        # Sprache, auf die jemand seine Knoepfe gestellt hat.
+        locale, language = tool_output_language(workspace_id)
 
         client, model, _ = _get_llm_client()
 
@@ -87,10 +103,15 @@ def run_generate_exercise_set(self, set_id: int, workspace_id: int, tool: str,
         header: dict | None = None
         # Stays None in glossary mode, which has no sources and therefore no sections.
         ctx = None
+        # Set in source mode so the duplicate filter below can order a refill. Glossary
+        # mode leaves it None: it draws from a finite term list, so a second run has
+        # nothing new to offer and the set is simply shorter.
+        refill = None
 
         if mode == "glossary":
             result = generate_from_glossary(client, model, workspace_id, user_id, tool, count,
-                                            locale=locale, adaptive_suffix=adaptive_suffix)
+                                            locale=locale, language=language,
+                                            adaptive_suffix=adaptive_suffix)
             if result is None:
                 db.fail_exercise_set(set_id)
                 return
@@ -101,10 +122,34 @@ def run_generate_exercise_set(self, set_id: int, workspace_id: int, tool: str,
             if not uuids:
                 db.fail_exercise_set(set_id)
                 return
-            ctx = build_source_context(uuids, tool, count=count)
-            if ctx is None:
-                db.fail_exercise_set(set_id)
-                return
+
+            # Erst der Vorrat, dann das Modell. Was frueher hier schon erzeugt wurde,
+            # liegt an der Quelle und steht allen offen; genommen wird nur, was diese
+            # Person noch nicht hatte. Reicht das, kostet die ganze Anfrage keinen
+            # einzigen Modellaufruf.
+            level = pool_level(adaptive_suffix, user_id)
+            # Die Grammatik-Uebung haengt zusaetzlich am gewaehlten Thema: aus demselben
+            # Text entsteht eine Passiv- oder eine Konjunktiv-Aufgabe. Ihr Vorrat trennt
+            # deshalb auch danach. Bei allen anderen Werkzeugen bleibt das Thema leer.
+            topic_id = ex_set.get("grammar_topic_id") if tool == "grammatik" else None
+            if uses_pool(tool, mode):
+                items = take_from_pool(uuids, tool, level, user_id, count, topic_id)
+                if items:
+                    logger.info("KI Tutor: set {} nimmt {} von {} aus dem Vorrat",
+                                set_id, len(items), count)
+
+            zu_erzeugen = count - len(items)
+            if zu_erzeugen <= 0:
+                # Der Vorrat hat gereicht. Kein Kontext, kein Aufruf, kein Fegen des
+                # Dokuments: der Titel weiter unten ist alles, was noch aussteht.
+                ctx = None
+            else:
+                ctx = build_source_context(uuids, tool, count=zu_erzeugen)
+                if ctx is None and not items:
+                    db.fail_exercise_set(set_id)
+                    return
+
+        if mode == "source" and ctx is not None:
 
             gtype = None
             if tool == "grammatik":
@@ -119,7 +164,7 @@ def run_generate_exercise_set(self, set_id: int, workspace_id: int, tool: str,
                     # Erste Benutzung in dieser Sprache. Das trifft jeden Kurs, dessen
                     # Thema in einer anderen Sprache angelegt wurde, denn Regel und
                     # Beispiel hängen an der Sprache und nicht am Namen.
-                    derived = derive_topic(client, model, topic["name"], locale)
+                    derived = derive_topic(client, model, topic["name"], language)
                     if not derived:
                         logger.warning(
                             "KI Tutor: Thema {!r} liess sich in {} nicht ausarbeiten",
@@ -128,7 +173,8 @@ def run_generate_exercise_set(self, set_id: int, workspace_id: int, tool: str,
                         db.fail_exercise_set(set_id)
                         return
                     spec = db.save_topic_spec(
-                        topic["id"], locale, derived["rule"], derived["examples"])
+                        topic["id"], locale, derived["rule"], derived["examples"],
+                        derived.get("task_lines"))
                 gtype = catalog_entry(topic, spec)
 
             def generate(from_ctx, how_many):
@@ -141,7 +187,8 @@ def run_generate_exercise_set(self, set_id: int, workspace_id: int, tool: str,
                 # not even evenly. It took equal numbered sections plus a stated quota
                 # per section to make the model use them all.
                 cov = coverage_rule(from_ctx, how_many)
-                shared = dict(locale=locale, adaptive_suffix=adaptive_suffix,
+                shared = dict(locale=locale, language=language,
+                              adaptive_suffix=adaptive_suffix,
                               title_avoidance=title_avoidance, coverage=cov)
                 if tool == "flashcards":
                     got, name = generate_flashcards_from_source(
@@ -168,19 +215,22 @@ def run_generate_exercise_set(self, set_id: int, workspace_id: int, tool: str,
                     client, model, from_ctx, how_many, **shared)
                 return got, name, None
 
-            items, title, header = generate(ctx, count)
+            refill = generate
+            # Erzeugt wird nur der Fehlbetrag. Was aus dem Vorrat kam, steht schon in
+            # ``items`` und wird am Ende davorgestellt.
+            neu, title, header = generate(ctx, zu_erzeugen)
 
             # Did every section actually get used? Measured: the grammar tool served all
             # five on its own, the quiz skipped the last one in both runs. So the sections
             # that came up empty get one more run of their own, and only then.
-            if items and len(ctx.sections) > 1:
-                gap_uuids = missing_section_uuids(items, ctx)
+            if neu and len(ctx.sections) > 1:
+                gap_uuids = missing_section_uuids(neu, ctx)
                 if gap_uuids:
                     logger.info(
                         "KI Tutor: set {} skipped {} of {} sections, topping up",
                         set_id, len(gap_uuids), len(ctx.sections),
                     )
-                    need = per_section_quota(len(ctx.sections), count) * len(gap_uuids)
+                    need = per_section_quota(len(ctx.sections), zu_erzeugen) * len(gap_uuids)
                     # Der Nachschlag ist eine Verbesserung und keine Voraussetzung. Er lief
                     # bis 2026-08-05 im selben try wie alles andere und hat ein Set mit 14
                     # fertigen Aufgaben mitgerissen, als sein Aufruf an einer Störung
@@ -196,15 +246,56 @@ def run_generate_exercise_set(self, set_id: int, workspace_id: int, tool: str,
                                 # Jeder Lauf sortiert seine eigenen Doppler aus, über die
                                 # Laufgrenze hinweg kann er das nicht. Gemessen: derselbe
                                 # Satz kam an Position 1 und noch einmal an Position 5.
-                                seen_fronts = {normalize(i["front"]) for i in items}
-                                extra = [i for i in extra
-                                         if normalize(i["front"]) not in seen_fronts]
-                                items = rebalance_to_count(items + extra, count)
+                                extra, _ = drop_repeats(
+                                    extra, [i.get("front", "") for i in neu])
+                                neu = rebalance_to_count(neu + extra, zu_erzeugen)
                     except Exception as e:
                         logger.warning(
                             "KI Tutor: set {} top-up failed, keeping the {} items already "
-                            "generated: {}", set_id, len(items), e,
+                            "generated: {}", set_id, len(neu), e,
                         )
+
+            # Was diese Person schon einmal bekommen hat, fliegt raus. Der Vorrat filtert
+            # das ueber die Verweise, frisch Erzeugtes hat noch keine.
+            gehabt = seen_by_user(user_id, tool)
+            if neu:
+                neu, wiederholt = drop_repeats(neu, gehabt + [i.get("front", "") for i in items])
+                if wiederholt:
+                    logger.info("KI Tutor: set {} hat {} Wiederholungen aussortiert",
+                                set_id, wiederholt)
+                    # Einmal nachbestellen, was der Filter gekostet hat. Ein zweiter
+                    # Anlauf lohnt den Aufruf nicht: kommt auch der wiederholt zurueck,
+                    # hat das Dokument nichts Neues mehr und ein kuerzerer Satz ist die
+                    # ehrliche Antwort.
+                    fehlt = zu_erzeugen - len(neu)
+                    if fehlt > 0:
+                        try:
+                            mehr, _, _ = generate(ctx, fehlt)
+                            if mehr:
+                                mehr, _ = drop_repeats(
+                                    mehr, gehabt + [i.get("front", "") for i in items + neu])
+                                neu = rebalance_to_count(neu + mehr, zu_erzeugen)
+                        except Exception as e:
+                            logger.warning(
+                                "KI Tutor: set {} behaelt seine {} eigenen Aufgaben, "
+                                "Nachschlag fehlgeschlagen: {}", set_id, len(neu), e,
+                            )
+
+            # Einlagern, damit der naechste Aufruf sie geschenkt bekommt. Setzt die
+            # Vorrats-id an den Aufgaben, die untergebracht werden konnten.
+            if neu and uses_pool(tool, mode):
+                store_in_pool(neu, ctx, tool, level, topic_id)
+
+            items = items + neu
+
+        # Der Glossar-Modus laeuft nicht ueber den Vorrat und braucht seinen eigenen
+        # Filter. Er zieht aus einer endlichen Begriffsliste, ein Nachschlag haette also
+        # nichts Neues anzubieten, und ein kuerzerer Satz ist die ehrliche Antwort.
+        if items and mode == "glossary":
+            items, wiederholt = drop_repeats(items, seen_by_user(user_id, tool))
+            if wiederholt:
+                logger.info("KI Tutor: set {} hat {} Wiederholungen aussortiert",
+                            set_id, wiederholt)
 
         if not items:
             db.fail_exercise_set(set_id)

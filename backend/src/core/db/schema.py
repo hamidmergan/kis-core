@@ -17,9 +17,50 @@ _REDIS_URL = os.environ.get("REDIS_URL", "redis://kis-redis:6379/0")
 from src.core.db.pool import get_connection
 
 
+# Wie lange eine Wanderung auf eine Tabellensperre wartet, bevor sie aufgibt. Ohne das
+# wartet ein ALTER TABLE unbegrenzt auf die Worker, die dieselbe Tabelle lesen, und ein
+# Neustart bei laufenden Workern endet in einer Verklemmung: der Migrator will die
+# Tabelle exklusiv, der Worker haelt sie lesend und will eine zweite. Postgres loest das
+# auf, indem es einen von beiden abschiesst, und das war bisher der Start des Backends.
+_MIGRATION_LOCK_TIMEOUT = "10s"
+# So oft wird es erneut versucht. Jede Anweisung in init_db ist idempotent
+# (IF NOT EXISTS / ADD COLUMN IF NOT EXISTS), ein zweiter Anlauf ist also gefahrlos.
+_MIGRATION_ATTEMPTS = 5
+
+
 def init_db(admin_email: Optional[str] = None) -> None:
+    """Schema anlegen und wandern. Wiederholt sich bei Sperrkonflikten.
+
+    Gemessen am 2026-08-08: ein Neustart des Backends waehrend die Celery-Worker liefen
+    endete mit ``DeadlockDetected`` beim ALTER TABLE, und danach mit
+    ``Application startup failed. Exiting.`` Das Backend kam nicht mehr hoch. Eine
+    begrenzte Wartezeit plus Wiederholung macht daraus eine Verzoegerung von Sekunden.
+    """
+    from loguru import logger
+
+    letzter: Exception | None = None
+    for versuch in range(1, _MIGRATION_ATTEMPTS + 1):
+        try:
+            _init_db(admin_email)
+            if versuch > 1:
+                logger.info("Datenbank-Wanderung im {}. Anlauf durch", versuch)
+            return
+        except (psycopg2.errors.DeadlockDetected, psycopg2.errors.LockNotAvailable) as e:
+            letzter = e
+            logger.warning(
+                "Datenbank-Wanderung: Sperrkonflikt im {}. Anlauf, neuer Versuch in {}s "
+                "({})", versuch, versuch, type(e).__name__,
+            )
+            import time
+            time.sleep(versuch)
+    raise letzter  # type: ignore[misc]
+
+
+def _init_db(admin_email: Optional[str] = None) -> None:
     with get_connection() as conn:
         with conn.cursor() as cur:
+            # Begrenzt jede einzelne Sperre in dieser Sitzung, siehe oben.
+            cur.execute(f"SET lock_timeout = '{_MIGRATION_LOCK_TIMEOUT}'")
             cur.execute("CREATE EXTENSION IF NOT EXISTS vector")
             # pg_trgm powers the typo-tolerant keyword anchor in hybrid_search_chunks:
             # a misspelled query word ("authoren") still matches a similar word in the
@@ -864,6 +905,99 @@ def init_db(admin_email: Optional[str] = None) -> None:
             """)
             # Migration: add sources JSONB to exercise_items
             cur.execute("ALTER TABLE aia_exercise_items ADD COLUMN IF NOT EXISTS sources JSONB")
+            # ─── Exercise pool ──────────────────────────────────
+            # Aufgaben werden nicht mehr bei jedem Klick neu erzeugt. Was einmal
+            # entstanden ist, liegt hier und steht allen im Kursraum offen. Wer
+            # Aufgaben anfordert, bekommt zuerst das, was schon da ist und was er
+            # selbst noch nicht hatte; nur der Fehlbetrag kostet einen Modellaufruf.
+            # Der Vorrat waechst als Nebenprodukt der Nutzung, es gibt keinen
+            # Bau-Auftrag.
+            #
+            # Ein Vorrat je Quelle, Werkzeug UND Sprachniveau: dieselbe Sache fuer A1
+            # und fuer C1 formuliert sind zwei verschiedene Aufgaben.
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS aia_exercise_pool (
+                    id          SERIAL PRIMARY KEY,
+                    source_id   INTEGER NOT NULL
+                                  REFERENCES aia_sources(id) ON DELETE CASCADE,
+                    tool        TEXT NOT NULL,
+                    level       TEXT,
+                    front       TEXT NOT NULL,
+                    back        TEXT NOT NULL,
+                    back_en     TEXT,
+                    options     JSONB,
+                    correct_idx INTEGER,
+                    explanation TEXT,
+                    source_label TEXT,
+                    page_number INTEGER,
+                    start_time  REAL,
+                    sources     JSONB,
+                    extras      JSONB,
+                    fingerprint TEXT NOT NULL,
+                    created_at  TIMESTAMP NOT NULL DEFAULT NOW()
+                )
+            """)
+            # Der Vorrat traegt dieselben Felder wie eine Aufgabe im Satz, damit ein
+            # Verweis dorthin nichts verliert. Nachtraeglich ergaenzte Spalten stehen
+            # hier, sonst bekommt sie eine bestehende Installation nie.
+            cur.execute("ALTER TABLE aia_exercise_pool ADD COLUMN IF NOT EXISTS back_en TEXT")
+            # Die Grammatik-Uebung haengt nicht nur an der Quelle, sondern am gewaehlten
+            # Thema: aus demselben Text entsteht eine Passiv- oder eine Konjunktiv-Aufgabe.
+            # Ihr Vorrat trennt deshalb zusaetzlich nach Thema. Bei allen anderen
+            # Werkzeugen bleibt die Spalte leer.
+            cur.execute(
+                "ALTER TABLE aia_exercise_pool ADD COLUMN IF NOT EXISTS topic_id INTEGER "
+                "REFERENCES aia_grammar_topics(id) ON DELETE CASCADE"
+            )
+            # Zwei NULL gelten in Postgres nicht als gleich, ein gewoehnlicher
+            # UNIQUE ueber `level` wuerde im niveaulosen Vorrat also jeden Doppler
+            # durchlassen. COALESCE macht daraus einen vergleichbaren Wert.
+            # Der alte Index kannte das Thema noch nicht und wuerde zwei Aufgaben zum
+            # selben Satz aus verschiedenen Themen faelschlich als Doppler abweisen.
+            cur.execute("DROP INDEX IF EXISTS uq_exercise_pool_item")
+            cur.execute(
+                "CREATE UNIQUE INDEX IF NOT EXISTS uq_exercise_pool_entry "
+                "ON aia_exercise_pool "
+                "(source_id, tool, COALESCE(level, ''), COALESCE(topic_id, 0), fingerprint)"
+            )
+            cur.execute("DROP INDEX IF EXISTS idx_exercise_pool_lookup")
+            cur.execute(
+                "CREATE INDEX IF NOT EXISTS idx_exercise_pool_find "
+                "ON aia_exercise_pool (source_id, tool, level, topic_id)"
+            )
+            # Ein Satz zeigt auf seine Vorratsaufgaben, statt sie zu kopieren. Alte
+            # Zeilen tragen weiter ihren eigenen Inhalt und bleiben lesbar, deshalb
+            # ist die Spalte nullable und es gibt keine Wanderung des Altbestands.
+            cur.execute(
+                "ALTER TABLE aia_exercise_items "
+                "ADD COLUMN IF NOT EXISTS pool_item_id INTEGER "
+                "REFERENCES aia_exercise_pool(id) ON DELETE SET NULL"
+            )
+            cur.execute(
+                "CREATE INDEX IF NOT EXISTS idx_exercise_items_pool "
+                "ON aia_exercise_items (pool_item_id)"
+            )
+            # ─── Context sweep cursors ──────────────────────────
+            # Where the last generation run stopped reading inside each of the
+            # coverage blocks of ONE source. A source larger than the context budget
+            # can never go in whole, so the run has to pick part of it; picking that
+            # part at random meant some pages came up over and over while others were
+            # structurally unreachable (measured on a 489-page PDF: page 1 appeared
+            # once in 30 runs). The cursors turn that draw into a sweep: every run
+            # continues where the last one stopped, so the document is covered
+            # completely and in the fewest possible runs before anything repeats.
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS aia_context_cursors (
+                    workspace_id INTEGER NOT NULL
+                                   REFERENCES aia_workspaces(id) ON DELETE CASCADE,
+                    source_id    INTEGER NOT NULL
+                                   REFERENCES aia_sources(id) ON DELETE CASCADE,
+                    tool         TEXT NOT NULL,
+                    cursors      JSONB NOT NULL,
+                    updated_at   TIMESTAMP NOT NULL DEFAULT NOW(),
+                    PRIMARY KEY (workspace_id, source_id, tool)
+                )
+            """)
             # The standalone Lückentext tool is gone: its gap sentences were the same
             # multiple-choice exercise under a second name, and they sat in the language
             # area although the gap is a technical term and not a grammar form. The quiz
@@ -909,6 +1043,16 @@ def init_db(admin_email: Optional[str] = None) -> None:
                     UNIQUE (topic_id, language)
                 )
             """)
+            # Die Anweisungszeile je Aufgabenformat, vom Modell formuliert statt aus
+            # einer Schablone. Die Schablone setzte den Themennamen stur ein und traf
+            # nur saechliche Einzahlwoerter: "Setze den Satz ins Perfekt." geht auf,
+            # "Setze den Satz ins Nebensaetze." nicht. Bei acht echten Themen war die
+            # Haelfte falsch. Beugung laesst sich nicht schablonisieren, und eine
+            # deutsche Grammatikregel im Code braeche bei der naechsten Hochschule.
+            # NULL heisst: noch nicht ausgearbeitet, dann greift die alte Schablone.
+            cur.execute(
+                "ALTER TABLE aia_grammar_topic_specs ADD COLUMN IF NOT EXISTS task_lines JSONB"
+            )
             cur.execute(
                 "CREATE INDEX IF NOT EXISTS idx_grammar_topics_workspace "
                 "ON aia_grammar_topics(workspace_id)"

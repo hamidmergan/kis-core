@@ -29,7 +29,11 @@ def run_generate_data_table(self, data_table_id: int, source_ids: list[int],
     from src.tool_prompts import AIA_DATENTABELLE_PROMPT
     from src.services.aia_adaptive_tools import build_adaptive_tool_suffix
 
-    language = "English" if (locale or "").lower().startswith("en") else "German"
+    from src.features.ai_assistant.tasks._helpers import tool_output_language
+    # Wie bei den Uebungs-Werkzeugen: der erzeugte Inhalt folgt der
+    # Unterrichtssprache des Kursraums, nicht der Sprachwahl der Person.
+    _erste = db.get_aia_source(source_uuids[0]) if source_uuids else None
+    _, language = tool_output_language((_erste or {}).get("workspace_id"))
 
     try:
         db.update_aia_data_table(data_table_id, "running")
@@ -37,17 +41,19 @@ def run_generate_data_table(self, data_table_id: int, source_ids: list[int],
 
         # Build context with source filenames for citations. Per-source budget from the admin
         # aia_tool_context_max_chars setting (shared by all generation tools, separate from the
-        # chat budget); each source goes in whole when it fits, otherwise it is sampled across
-        # the WHOLE document with a per-run jitter so a re-run covers other rows instead of
-        # always the first chunks.
-        import random
+        # chat budget); each source goes in whole when it fits, otherwise it is read as a sweep
+        # that resumes where the last run for this source stopped, so a re-run covers other
+        # rows instead of the same window again.
         from src.features.ai_assistant.tasks._context_budget import (
             tool_context_budget,
             select_chunks_for_budget,
+            read_cursors,
+            write_cursors,
         )
         _MEDIA_EXTS = {".mp3", ".mp4", ".m4a", ".wav", ".ogg", ".webm", ".flac", ".aac"}
         budget_per_source = max(1000, tool_context_budget() // max(1, len(source_ids)))
-        rng = random.Random()
+        sweep_workspace_id = (db.get_aia_source(source_uuids[0]) or {}).get("workspace_id") \
+            if source_uuids else None
         context_parts: list[str] = []
         # For post-hoc pgvector attribution (same gate as chat): which source/pages the model
         # actually saw, and the id->label map. Chips are clamped to these seen pages.
@@ -59,7 +65,11 @@ def run_generate_data_table(self, data_table_id: int, source_ids: list[int],
             filename = src_info.get("filename", f"Source {src_info.get('number', '?')}")
             source_id_to_label[sid] = filename
             is_media = any(filename.lower().endswith(ext) for ext in _MEDIA_EXTS)
-            for chunk in select_chunks_for_budget(chunks, budget_per_source, rng=rng):
+            picked, resume = select_chunks_for_budget(
+                chunks, budget_per_source,
+                cursors=read_cursors(sweep_workspace_id, sid, "datatable"))
+            write_cursors(sweep_workspace_id, sid, "datatable", resume)
+            for chunk in picked:
                 if is_media and chunk.get("start_time") is not None:
                     st = chunk["start_time"]
                     h, m, s = int(st // 3600), int((st % 3600) // 60), int(st % 60)

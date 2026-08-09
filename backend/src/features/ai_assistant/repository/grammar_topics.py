@@ -55,6 +55,9 @@ def catalog_entry(topic: dict, spec: dict) -> dict:
         "rule": spec.get("rule") or "",
         "example": examples[0] if examples else dict(_EMPTY_PAIR),
         "examples": examples,
+        # Die Anweisung je Aufgabenformat, beim Ausarbeiten des Themas mitformuliert.
+        # Leer bei Themen von vor diesem Feld, dann greift die Schablone.
+        "task_lines": dict(spec.get("task_lines") or {}),
     }
 
 
@@ -106,7 +109,7 @@ def get_topic_spec(topic_id: int, language: str) -> dict | None:
     with get_connection() as conn:
         with conn.cursor(cursor_factory=RealDictCursor) as cur:
             cur.execute(
-                "SELECT rule, examples FROM aia_grammar_topic_specs "
+                "SELECT rule, examples, task_lines FROM aia_grammar_topic_specs "
                 "WHERE topic_id = %s AND language = %s",
                 (topic_id, language),
             )
@@ -114,7 +117,8 @@ def get_topic_spec(topic_id: int, language: str) -> dict | None:
             return dict(row) if row else None
 
 
-def save_topic_spec(topic_id: int, language: str, rule: str, examples: list) -> dict:
+def save_topic_spec(topic_id: int, language: str, rule: str, examples: list,
+                    task_lines: dict | None = None) -> dict:
     """Legt die Ausarbeitung an oder ersetzt sie.
 
     Mehr als :data:`MAX_EXAMPLES` Paare werden abgeschnitten, statt sie
@@ -124,12 +128,15 @@ def save_topic_spec(topic_id: int, language: str, rule: str, examples: list) -> 
     with get_connection() as conn:
         with conn.cursor(cursor_factory=RealDictCursor) as cur:
             cur.execute(
-                "INSERT INTO aia_grammar_topic_specs (topic_id, language, rule, examples) "
-                "VALUES (%s, %s, %s, %s) "
+                "INSERT INTO aia_grammar_topic_specs "
+                "(topic_id, language, rule, examples, task_lines) "
+                "VALUES (%s, %s, %s, %s, %s) "
                 "ON CONFLICT (topic_id, language) DO UPDATE "
-                "SET rule = EXCLUDED.rule, examples = EXCLUDED.examples "
-                "RETURNING rule, examples",
-                (topic_id, language, rule, json.dumps(trimmed)),
+                "SET rule = EXCLUDED.rule, examples = EXCLUDED.examples, "
+                "    task_lines = EXCLUDED.task_lines "
+                "RETURNING rule, examples, task_lines",
+                (topic_id, language, rule, json.dumps(trimmed),
+                 json.dumps(task_lines) if task_lines else None),
             )
             row = dict(cur.fetchone())
         conn.commit()

@@ -150,6 +150,9 @@ class GrammarTopicCreateBody(BaseModel):
     name: str = Field(..., max_length=120)
     rule: str = Field(..., max_length=4000)
     examples: list[GrammarExamplePair]
+    # Die vier Anweisungszeilen aus der Vorschau. Optional: aeltere Clients schicken sie
+    # nicht, dann arbeitet der erste Uebungslauf das Thema nach.
+    task_lines: dict[str, str] | None = None
 
 
 class GrammarTopicUpdateBody(BaseModel):

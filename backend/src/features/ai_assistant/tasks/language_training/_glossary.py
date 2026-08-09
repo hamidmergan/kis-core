@@ -6,8 +6,8 @@ import random
 from loguru import logger
 
 from src import database as db
-from src.features.ai_assistant.tasks._helpers import _clean_llm_json, _language_label
-from src.tool_prompts import AIA_LERNKARTEN_PROMPT
+from src.features.ai_assistant.tasks._helpers import _clean_llm_json
+from src.tool_prompts import AIA_KARTEIKARTEN_GLOSSAR_PROMPT, AIA_LERNKARTEN_PROMPT
 
 from src.features.ai_assistant.tasks.language_training._title import title_from_glossary_terms
 
@@ -28,6 +28,7 @@ def generate_from_glossary(
     tool: str,
     count: int,
     locale: str = "de",
+    language: str = "German",
     adaptive_suffix: str = "",
 ) -> tuple[list[dict], str] | None:
     """Returns (items, title) oder None wenn kein Glossary vorhanden."""
@@ -37,21 +38,11 @@ def generate_from_glossary(
 
     selected = random.sample(glossary, min(count, len(glossary)))
     items: list[dict] = []
-    language = _language_label(locale)
 
     if tool == "flashcards":
         items = _generate_flashcards(client, model, selected, language, adaptive_suffix)
     elif tool == "karteikarten":
-        items = [
-            {
-                "front": e["term_de"],
-                "back": f"{e['term_en']} - {e['definition']}",
-                "source_label": e.get("filename", ""),
-                "page_number": e.get("page_number"),
-                "sources": _sources_for(e),
-            }
-            for e in selected
-        ]
+        items = _generate_karteikarten(client, model, selected, language, adaptive_suffix)
 
     title = title_from_glossary_terms(client, model, [e["term_de"] for e in selected])
     return items, title
@@ -67,6 +58,80 @@ def _plain_flashcard(e: dict) -> dict:
         "page_number": e.get("page_number"),
         "sources": _sources_for(e),
     }
+
+
+def _fallback_karteikarte(e: dict, language: str) -> dict:
+    """Karte ohne Modellaufruf: die Frage nach der Bedeutung des Begriffs.
+
+    Nur das Auffangnetz. Sie ist auf jeder Karte gleich formuliert und deshalb langweilig,
+    aber sie ist eine Frage, und eine langweilige Frage ist besser als gar keine.
+    """
+    frage = (f"What does \"{e['term_de']}\" mean?" if language == "English"
+             else f"Was bedeutet „{e['term_de']}\"?")
+    return {
+        "front": frage,
+        "back": e["definition"],
+        "source_label": e.get("filename", ""),
+        "page_number": e.get("page_number"),
+        "sources": _sources_for(e),
+    }
+
+
+def _generate_karteikarten(client, model, selected: list[dict], language: str,
+                           adaptive_suffix: str = "") -> list[dict]:
+    """Aus Glossarbegriffen echte Frage-Antwort-Karten machen.
+
+    Bis 2026-08-09 stand hier der Begriff selbst als Vorderseite und die Definition als
+    Rueckseite, ohne jeden Modellaufruf. Die Ansicht schreibt aber "FRAGE" darueber, und
+    "Literaturrecherche" ist keine Frage. Gemessen: 9 von 10 Karten aus dem Glossar hatten
+    eine Vorderseite ohne Frage, aus Quellen erzeugte 0 von 34.
+
+    Ein gebuendelter Aufruf fuer den ganzen Satz. Faellt er aus oder fehlt ein Begriff,
+    greift die feste Formulierung; ein Satz entsteht also in jedem Fall.
+    """
+    fallback = [_fallback_karteikarte(e, language) for e in selected]
+    try:
+        eintraege = "\n".join(
+            f"- {e['term_de']}: {e['definition']}" for e in selected
+        )
+        messages = [
+            {"role": "system", "content": (
+                AIA_KARTEIKARTEN_GLOSSAR_PROMPT.replace("{language}", language)
+                + adaptive_suffix
+            )},
+            {"role": "user", "content": (
+                f"Turn these {len(selected)} glossary entries into cards:\n\n{eintraege}"
+            )},
+        ]
+        response = client.chat.completions.create(model=model, messages=messages, temperature=0.5)
+        cards = json.loads(_clean_llm_json(response.choices[0].message.content or "")).get("cards") or []
+    except Exception as exc:  # noqa: BLE001 - eine feste Frage ist besser als ein Fehlschlag
+        logger.warning("Karteikarten aus dem Glossar: Aufruf fehlgeschlagen, feste "
+                       "Formulierung greift: {}", exc)
+        return fallback
+
+    nach_begriff: dict[str, dict] = {}
+    for c in cards:
+        begriff = (c.get("term") or "").strip().lower()
+        if begriff:
+            nach_begriff.setdefault(begriff, c)
+
+    items: list[dict] = []
+    for e, ersatz in zip(selected, fallback):
+        c = nach_begriff.get(e["term_de"].strip().lower())
+        frage = (c.get("question") or "").strip() if c else ""
+        antwort = (c.get("answer") or "").strip() if c else ""
+        if not frage or not antwort:
+            items.append(ersatz)
+            continue
+        items.append({
+            "front": frage,
+            "back": antwort,
+            "source_label": e.get("filename", ""),
+            "page_number": e.get("page_number"),
+            "sources": _sources_for(e),
+        })
+    return items
 
 
 def _generate_flashcards(client, model, selected: list[dict], language: str,

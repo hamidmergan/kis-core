@@ -181,6 +181,21 @@ def update_aia_source_summary(uuid: str, summary: str) -> None:
         conn.commit()
 
 def delete_aia_source(uuid: str) -> None:
+    """Quelle loeschen. Fertige Aufgabensaetze ueberleben das.
+
+    Der Aufgaben-Vorrat haengt per Fremdschluessel an der Quelle und verschwindet
+    mit ihr. Saetze, die auf Vorratsaufgaben zeigen, wuerden dabei leer werden, und
+    ein fertiger Satz gehoert der Person, die ihn gemacht hat. Deshalb wird der
+    Inhalt vorher in diese Saetze zurueckgeschrieben. Steht hier und nicht beim
+    Aufrufer, damit es nicht vergessen werden kann.
+    """
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute("SELECT id FROM aia_sources WHERE uuid = %s", (uuid,))
+            row = cur.fetchone()
+    if row:
+        from src.features.ai_assistant.repository.exercise_pool import materialize_pool_items
+        materialize_pool_items(row[0])
     with get_connection() as conn:
         with conn.cursor() as cur:
             cur.execute("DELETE FROM aia_sources WHERE uuid = %s", (uuid,))

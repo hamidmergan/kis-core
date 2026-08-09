@@ -2,7 +2,7 @@
 
 import json
 
-from src.features.ai_assistant.tasks._helpers import _clean_llm_json, _language_label
+from src.features.ai_assistant.tasks._helpers import _clean_llm_json
 from src.tool_prompts import AIA_LERNKARTEN_PROMPT
 
 from src.features.ai_assistant.tasks.language_training._attribution import attach_chips
@@ -15,13 +15,13 @@ def generate_flashcards_from_source(
     ctx: QuelleContext,
     count: int,
     locale: str = "de",
+    language: str = "German",
     adaptive_suffix: str = "",
     title_avoidance: str = "",
     coverage: str = "",
 ) -> tuple[list[dict], str]:
     # Explanations follow the UI language; the term itself (begriff) stays in the
     # source language for study and highlighting (see prompt LANGUAGE rule).
-    language = _language_label(locale)
     # adaptive_suffix pitches the definitions at the learner's CEFR level (empty
     # when they have no level); it OVERRIDES the prompt's default register.
     prompt = (
@@ -29,7 +29,8 @@ def generate_flashcards_from_source(
         + adaptive_suffix + title_avoidance + coverage
     )
     # No "avoid these existing cards" block: feeding them back made the model copy them.
-    # Variation comes from the rotating page subset in build_source_context. Only the
+    # Variation comes from the context sweep in build_source_context, and a repeat that
+    # still gets through is dropped afterwards by _dedup. Only the
     # TITLE gets a do-not-repeat list (title_avoidance), which has no such pull.
     messages = [
         {"role": "system", "content": prompt},
@@ -38,7 +39,7 @@ def generate_flashcards_from_source(
             f"keep the term itself in the source-text language:\n\n{ctx.context}"
         )},
     ]
-    # 0.6 for a little wording diversity; the real variation is the rotating page subset in
+    # 0.6 for a little wording diversity; the real variation is the context sweep in
     # build_source_context (different chunks per run). Still JSON-safe.
     response = client.chat.completions.create(model=model, messages=messages, temperature=0.6)
     answer = _clean_llm_json(response.choices[0].message.content or "")

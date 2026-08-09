@@ -1,13 +1,14 @@
 """Keeps generated sets from repeating themselves.
 
-Second variation lever next to the page rotation in ``_context``. The rotation moves the
-CONTEXT away from recently used pages; this module handles the one thing the rotation
-cannot touch, the set TITLE. The model never learns that a set already exists, so it
-names the document instead of the set and several sets end up sharing one title.
+The set TITLE, and only the title. The context sweep in ``_context_budget`` gives each run
+different material and ``_dedup`` drops any exercise that repeats an earlier one, but
+neither touches the name of the set: the model never learns that a set already exists, so
+it names the document instead of the set and several sets end up sharing one title.
 
 Only titles, deliberately. Listing the earlier ITEMS was tried and reverted: fed back into
 the prompt they act as few-shot material and the model copies them verbatim (see the
-comments in the generators). A title is a single short string with no such pull.
+comments in the generators). A title is a single short string with no such pull. That
+same finding is why ``_dedup`` filters after generation instead of warning beforehand.
 
 Language-agnostic by construction: nothing here inspects words, it only passes back text
 the model itself produced earlier.

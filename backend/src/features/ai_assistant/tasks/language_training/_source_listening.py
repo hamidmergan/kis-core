@@ -1,6 +1,6 @@
 """Hör- und Leseverstehen aus Quelltext (mode='source').
 
-Läuft mechanisch wie das Quiz: EIN rotierendes Fenster über alle gewählten Quellen,
+Läuft mechanisch wie das Quiz: EIN wanderndes Fenster über alle gewählten Quellen,
 eine Frage je Stelle, verteilt über die nummerierten Abschnitte des Kontexts. Fünfzehn
 Aufgaben kommen damit aus fünfzehn verschiedenen Stellen und nicht aus einem Absatz.
 
@@ -26,7 +26,7 @@ import json
 
 from loguru import logger
 
-from src.features.ai_assistant.tasks._helpers import _clean_llm_json, _language_label
+from src.features.ai_assistant.tasks._helpers import _clean_llm_json
 from src.services.aia_chunker import is_media_file
 from src.services.aia_grammar_check import normalize
 
@@ -186,6 +186,7 @@ def generate_listening_from_source(
     ctx: QuelleContext,
     count: int,
     locale: str = "de",
+    language: str = "German",
     adaptive_suffix: str = "",
     title_avoidance: str = "",
     coverage: str = "",
@@ -202,7 +203,6 @@ def generate_listening_from_source(
     abgedruckten Ton (:func:`drop_quotes_on_recordings`) greift erst NACH der
     Zuordnung, und sie hat Sets bisher stillschweigend verkürzt.
     """
-    language = _language_label(locale)
     recordings = _recording_labels(ctx)
     sections = _recording_sections(ctx, recordings)
     advanced = (level or "").upper() in _LEVELS_ADVANCED

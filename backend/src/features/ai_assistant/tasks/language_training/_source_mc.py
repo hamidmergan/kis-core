@@ -8,7 +8,7 @@ Sprachbereich, obwohl die Lücke ein Fachbegriff ist und kein Grammatikthema.
 
 import json
 
-from src.features.ai_assistant.tasks._helpers import _clean_llm_json, _language_label
+from src.features.ai_assistant.tasks._helpers import _clean_llm_json
 
 from src.features.ai_assistant.tasks.language_training._attribution import attach_chips
 from src.features.ai_assistant.tasks.language_training._context import QuelleContext
@@ -34,24 +34,25 @@ def generate_mc_from_source(
     ctx: QuelleContext,
     count: int,
     locale: str = "de",
+    language: str = "German",
     adaptive_suffix: str = "",
     title_avoidance: str = "",
     coverage: str = "",
 ) -> tuple[list[dict], str]:
-    language = _language_label(locale)
     # adaptive_suffix pitches questions/options at the learner's CEFR level; it
     # explicitly must not change the item count, the options or the correct answer.
     tool_prompt = _build_prompt(count, language) + adaptive_suffix + title_avoidance + coverage
     # No "already exists, avoid these" block: feeding the old questions back made the model
     # COPY them verbatim (it even reproduced a "laut Seite 7" question for a page no longer in
-    # context). Variation comes instead from the rotating page subset in build_source_context.
+    # context). Variation comes instead from the context sweep in build_source_context,
+    # with _dedup dropping anything that repeats an earlier set regardless.
     # The TITLE is the exception (title_avoidance): one short string, no few-shot pull.
     messages = [
         {"role": "system", "content": tool_prompt},
         {"role": "user", "content": f"Write the output in {language}.\n\nSources:\n\n{ctx.context}"},
     ]
     # 0.6 (not 0.3): a little sampling diversity for wording. The real variation comes from the
-    # rotating page subset in build_source_context (different chunks per run). Still JSON-safe.
+    # context sweep in build_source_context (a different window per run). Still JSON-safe.
     response = client.chat.completions.create(model=model, messages=messages, temperature=0.6)
     answer = _clean_llm_json(response.choices[0].message.content or "")
     data = json.loads(answer)

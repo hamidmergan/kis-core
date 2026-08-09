@@ -37,7 +37,10 @@ def _install(monkeypatch, sizes):
         by_id[i] = _chunks(i, pages, chars)
     monkeypatch.setattr("src.database.get_aia_source", lambda u: by_uuid.get(u))
     monkeypatch.setattr("src.database.get_chunks_by_source", lambda sid: by_id.get(sid, []))
-    monkeypatch.setattr("src.database.get_recent_exercise_pages", lambda w, t: [])
+    # The sweep position lives in the database. These tests are about the sections, so
+    # every call is a first run and nothing is written back.
+    monkeypatch.setattr("src.database.get_context_cursors", lambda w, s, t: [])
+    monkeypatch.setattr("src.database.set_context_cursors", lambda w, s, t, c: None)
     monkeypatch.setattr(
         "src.features.ai_assistant.tasks.language_training._context.tool_context_budget",
         lambda: 250000)

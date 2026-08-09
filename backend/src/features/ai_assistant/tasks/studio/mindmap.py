@@ -26,7 +26,11 @@ def run_generate_mindmap(self, mindmap_id: int, source_ids: list[int], source_uu
     """
     import json as _json
 
-    language = "English" if (locale or "").lower().startswith("en") else "German"
+    from src.features.ai_assistant.tasks._helpers import tool_output_language
+    # Wie bei den Uebungs-Werkzeugen: der erzeugte Inhalt folgt der
+    # Unterrichtssprache des Kursraums, nicht der Sprachwahl der Person.
+    _erste = db.get_aia_source(source_uuids[0]) if source_uuids else None
+    _, language = tool_output_language((_erste or {}).get("workspace_id"))
 
     try:
         db.update_aia_mindmap(mindmap_id, "running")

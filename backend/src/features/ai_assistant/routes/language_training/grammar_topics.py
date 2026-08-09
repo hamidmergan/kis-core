@@ -65,8 +65,13 @@ async def preview_topic(
         raise HTTPException(status_code=400, detail=t("grammar.topicNameEmpty", locale))
 
     client, model, _ = _get_llm_client()
+    # Regel und Musterbeispiel entstehen in der Unterrichtssprache des Kursraums, nicht
+    # in der Sprache, auf die der Dozent seine Oberflaeche gestellt hat.
+    from src.features.ai_assistant.tasks._helpers import tool_output_language
+    workspace = db.get_aia_workspace(workspace_uuid) or {}
+    _, sprache = tool_output_language(workspace.get("id"))
     try:
-        derived = derive_topic(client, model, name, locale)
+        derived = derive_topic(client, model, name, sprache)
     except Exception as e:
         # Der Dienst ist weg, nicht das Thema falsch. Wer hier "kein Grammatikthema"
         # liest, schreibt seinen völlig richtigen Namen um und wundert sich.
@@ -80,7 +85,8 @@ async def preview_topic(
                             detail=t("grammar.topicNotRecognized", locale))
     # Die Regel geht mit zurück, damit der zweite Aufruf sie nicht neu ableiten muss.
     # Angezeigt wird sie nicht, der Dozent beurteilt das Musterpaar.
-    return {"name": name, "rule": derived["rule"], "examples": derived["examples"]}
+    return {"name": name, "rule": derived["rule"], "examples": derived["examples"],
+            "task_lines": derived.get("task_lines") or {}}
 
 
 @router.post(_BASE)
@@ -102,7 +108,10 @@ async def create_topic(
 
     topic = db.create_grammar_topic(workspace["id"], name, user_id)
     pairs = [p.model_dump() for p in body.examples][:MAX_EXAMPLES]
-    db.save_topic_spec(topic["id"], locale, body.rule, pairs)
+    # Die Anweisungszeilen kommen aus der Vorschau mit. Fehlen sie, arbeitet der erste
+    # Uebungslauf das Thema ohnehin nach und traegt sie dann ein.
+    db.save_topic_spec(topic["id"], locale, body.rule, pairs,
+                       getattr(body, "task_lines", None))
     return {"topic": topic}
 
 
@@ -125,7 +134,10 @@ async def update_topic_examples(
     topic = _topic_in_workspace(topic_id, workspace, locale)
     spec = db.get_topic_spec(topic["id"], locale) or {"rule": ""}
     pairs = [p.model_dump() for p in body.examples][:MAX_EXAMPLES]
-    saved = db.save_topic_spec(topic["id"], locale, spec.get("rule") or "", pairs)
+    # Der Dozent korrigiert Beispiele, nicht Anweisungen. Die bleiben, wie sie sind,
+    # sonst waeren sie nach jeder Beispiel-Korrektur weg.
+    saved = db.save_topic_spec(topic["id"], locale, spec.get("rule") or "", pairs,
+                               spec.get("task_lines"))
     return {"topic": topic, "examples": saved["examples"]}
 
 

@@ -13,9 +13,43 @@ def _format_ts(seconds: float) -> str:
     return f"{s // 60:02d}:{s % 60:02d}"
 
 
-def _language_label(locale: str) -> str:
-    """Map a locale to the target language name used in generation prompts."""
-    return "English" if (locale or "").lower().startswith("en") else "German"
+# Die Sprache, in der die Werkzeuge ihre Aufgaben erzeugen, wenn der Kursraum nichts
+# anderes sagt. Deutsch, weil KIS an deutschen Hochschulen zum Deutschlernen benutzt wird.
+TOOL_OUTPUT_LANGUAGE = "German"
+
+
+def tool_output_language(workspace_id) -> tuple[str, str]:
+    """(Sprachcode, englischer Sprachname) fuer die erzeugten Inhalte dieses Kursraums.
+
+    NICHT die Oberflaechensprache der Person. Ein Deutschkurs bleibt ein Deutschkurs, auch
+    wenn jemand die Oberflaeche auf Englisch stellt; sonst bekaeme ein Lernender eine
+    englische Passiv-Uebung, an der es nichts zu ueben gibt. Statische Oberflaechentexte
+    folgen weiter der Sprachwahl, nur der erzeugte Inhalt nicht.
+
+    Die Sprache steht am Kursraum (``diagnosis_language``, Standard 'de'), und der Owner
+    setzt sie. Bewusst keine Erkennung aus der Quelle: eine Hochschule, die auf Franzoesisch
+    unterrichtet, stellt es einmal ein, und ein englisches Paper in einem Deutschkurs soll
+    die Uebungssprache nicht umwerfen.
+
+    Ist der Kursraum unbekannt oder nicht lesbar, gilt der Standard. Ein aelterer
+    eingereihter Auftrag ohne Kursraum bekommt also Deutsch statt eines Fehlers.
+    """
+    from src.i18n import DEFAULT_DIAGNOSIS_LANGUAGE, TRANSCRIPT_LANGUAGES
+
+    code = DEFAULT_DIAGNOSIS_LANGUAGE
+    if workspace_id:
+        from src import database as db
+        try:
+            workspace = db.get_aia_workspace_by_id(workspace_id) or {}
+            code = workspace.get("diagnosis_language") or DEFAULT_DIAGNOSIS_LANGUAGE
+        except Exception:  # noqa: BLE001 - der Standard ist eine brauchbare Antwort
+            pass
+    if code not in TRANSCRIPT_LANGUAGES:
+        # Ein Wert, den niemand mehr anbietet. Dann faellt AUCH der Code zurueck: sonst
+        # wuerde weiter unten eine Grammatikregel unter einem Code abgelegt, den kein
+        # Leser je wieder anfragt.
+        code = DEFAULT_DIAGNOSIS_LANGUAGE
+    return code, TRANSCRIPT_LANGUAGES[code]["name"]
 
 
 def _get_llm_client():

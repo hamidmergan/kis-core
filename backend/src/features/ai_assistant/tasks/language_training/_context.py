@@ -1,5 +1,6 @@
 """Context builder for mode='source': pulls chunks from N sources and packs them into a
-budget-limited, per-run-rotating context string for the LLM prompt."""
+budget-limited context string for the LLM prompt, sweeping a different window of each
+source on every run."""
 
 import random
 from dataclasses import dataclass, field
@@ -8,7 +9,8 @@ from src import database as db
 from src.features.ai_assistant.tasks._context_budget import (
     tool_context_budget,
     select_chunks_for_budget,
-    rotating_focus,
+    read_cursors,
+    write_cursors,
 )
 
 
@@ -196,17 +198,15 @@ def build_source_context(uuids: list[str], tool: str,
                          count: int | None = None) -> QuelleContext | None:
     """Build context string + meta maps from N sources. None = no content available.
 
-    Three things shape what the model sees:
+    Two things shape what the model sees:
 
-    * budget — a source goes in whole when it fits the admin ``aia_tool_context_max_chars``
-      budget (shared by all generation tools, separate from the chat budget), otherwise it is
-      sampled as contiguous windows spread across the whole document (``select_chunks_for_budget``).
-    * rotation — each run then keeps only a subset of the pages, rotating AWAY from the pages
-      that were just questioned (``rotating_focus`` + ``get_recent_exercise_pages``). This is a
-      HARD restriction on the context, not a prompt hint: the model demonstrably ignores a soft
-      "focus on these pages" instruction and reproduces the same salient questions, so we
-      instead change the chunks it is actually given. Across runs the whole document is
-      covered; within one run the model can't rehash the previous set.
+    * sweep — a source goes in whole when it fits the admin ``aia_tool_context_max_chars``
+      budget (shared by all generation tools, separate from the chat budget). A source that
+      is too big is read as a moving window per coverage block, resuming where the previous
+      run for this workspace+source+tool stopped (``select_chunks_for_budget`` plus the
+      cursors stored here). That is what makes two runs see different material, and unlike
+      the random sampling it replaced it also guarantees the document is covered completely
+      before anything repeats.
     * equal sections — with several sources every one of them is then cut to the SAME size
       and gets a numbered header. Without that step the per-source budget is only a
       ceiling: each source contributes its own length, so a one-hour transcript took 39%
@@ -239,27 +239,16 @@ def build_source_context(uuids: list[str], tool: str,
         return None
 
     workspace_id = source_by_name[first_label].get("workspace_id")
-    recent_pages = db.get_recent_exercise_pages(workspace_id, tool) if workspace_id else []
-
     budget_per_source = max(1000, tool_context_budget() // len(sources))
-    rng = random.Random()  # fresh per run -> different sampling/rotation each generation
+    rng = random.Random()  # only for the equal-section trim below
 
     picked_by_label: list[tuple[str, list[dict]]] = []
     for label, chunks in sources:
-        picked = select_chunks_for_budget(chunks, budget_per_source, rng=rng)
-        # Rotate this run's pages away from recently-questioned ones (variation lever for the
-        # common case where the whole document fits and the chunk set is otherwise identical).
-        #
-        # TODO ANPASSEN (hardcodiert): Anders als Mindmap und Datentabelle sehen die
-        # Uebungs-Tools (Karteikarten, Flashcards, Quiz, Lueckentext, Begriffe) hier NICHT
-        # den vollen Dateikontext, sondern pro Lauf nur ein rotierendes Subset von rund 55
-        # Prozent der Seiten (rotating_focus fraction=0.55, min_keep=4). Diese Werte stehen
-        # fest im Code und sind ueber kein Admin-Setting steuerbar. Wir muessen das System
-        # anpassen: die Fraction konfigurierbar machen oder das Verhalten an Mindmap und
-        # Datentabelle angleichen (voller Kontext), je nachdem was didaktisch gewollt ist.
-        pages_here = [c["page_number"] for c in picked]
-        keep = set(rotating_focus(pages_here, recent=recent_pages, rng=rng))
-        picked_by_label.append((label, [c for c in picked if c["page_number"] in keep]))
+        source_id = source_by_name[label]["id"]
+        picked, resume = select_chunks_for_budget(
+            chunks, budget_per_source, cursors=read_cursors(workspace_id, source_id, tool))
+        write_cursors(workspace_id, source_id, tool, resume)
+        picked_by_label.append((label, picked))
 
     # Equal sections. The smallest source sets the size, with a floor so one very short
     # document cannot starve the rest. Single source: nothing to balance.

@@ -669,6 +669,21 @@ me-tpc:hover .mm-src-chip {
     color: #fff;
     box-shadow: 0 4px 12px rgba(26,138,92,0.28);
   }
+  /* Die getroffene Wahl. Sie sieht aus wie der Hover-Zustand und bleibt voll
+     sichtbar, waehrend der nicht gewaehlte Knopf verblasst. So sagt die Karte,
+     was man gedrueckt hat, auch wenn man spaeter zurueckblaettert. */
+  .btn-outline-danger.is-picked,
+  .btn-outline-success.is-picked {
+    color: #fff;
+  }
+  .btn-outline-danger.is-picked {
+    background-color: #d4453a;
+    box-shadow: 0 4px 12px rgba(212,69,58,0.28);
+  }
+  .btn-outline-success.is-picked {
+    background-color: #1a8a5c;
+    box-shadow: 0 4px 12px rgba(26,138,92,0.28);
+  }
 }
 
 /* Sources panel: hovering "Alle auswählen" previews hover on per-source checkboxes */

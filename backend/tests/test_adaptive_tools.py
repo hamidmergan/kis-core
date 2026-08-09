@@ -188,8 +188,10 @@ def test_flashcards_empty_suffix_is_noop(monkeypatch):
     content = json.dumps({"title": "T", "cards": [{"begriff": "X", "definition": "Y"}]})
     client, calls = _make_client(content)
     ctx = types.SimpleNamespace(source_hint="Quelle", context="ctx", multi_label="T")
-    mod.generate_flashcards_from_source(client, "m", ctx, 1, locale="de", adaptive_suffix="")
-    expected = AIA_LERNKARTEN_PROMPT.replace("{count}", "1").replace("{language}", mod._language_label("de"))
+    # Die Sprache kommt jetzt vom Auftrag herein, nicht aus einer Konstante im Generator.
+    mod.generate_flashcards_from_source(client, "m", ctx, 1, locale="de",
+                                        language="German", adaptive_suffix="")
+    expected = AIA_LERNKARTEN_PROMPT.replace("{count}", "1").replace("{language}", "German")
     assert _system_of(calls) == expected
     assert "ADAPT-MARKER" not in _system_of(calls)
 

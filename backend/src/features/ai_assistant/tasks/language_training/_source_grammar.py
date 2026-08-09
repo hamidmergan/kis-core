@@ -13,7 +13,7 @@ import json
 
 from loguru import logger
 
-from src.features.ai_assistant.tasks._helpers import _clean_llm_json, _language_label
+from src.features.ai_assistant.tasks._helpers import _clean_llm_json
 
 from src.features.ai_assistant.tasks.language_training._attribution import (
     PAGE_RULE,
@@ -80,12 +80,23 @@ _TASK_LINES = {
 }
 
 
-def task_line(kind: str, locale: str, target_form: str) -> str:
+def task_line(kind: str, locale: str, target_form: str, eigene: dict | None = None) -> str:
     """Die Anweisung für ein Format, in der Sprache des Sets.
 
     Sie wird immer gesetzt, auch wenn das Modell eine eigene liefert: eine fehlende
     Anweisung macht die Aufgabe unlösbar, das darf nicht vom Modell abhängen.
+
+    ``eigene`` sind die beim Ausarbeiten des Themas formulierten Zeilen. Sie haben
+    Vorrang, weil die Schablone unten den Themennamen ungebeugt einsetzt und damit nur
+    sächliche Einzahlwörter trifft: "Setze den Satz ins Perfekt." geht auf, "Setze den
+    Satz ins Nebensätze." nicht. Bei acht echten Themen war die Hälfte falsch.
+
+    Themen von vor diesem Feld haben keine eigenen Zeilen, für die bleibt es bei der
+    Schablone. Sie ist damit der Rückfall und nicht mehr der Normalfall.
     """
+    fertig = (eigene or {}).get(kind)
+    if fertig and fertig.strip():
+        return fertig.strip()
     lines = _TASK_LINES.get(locale, _TASK_LINES["en"])
     return lines.get(kind, lines["transform"]).replace("{form}", target_form)
 
@@ -144,6 +155,11 @@ def generate_grammar_from_source(
     grammar_type: dict,
     count: int,
     locale: str = "de",
+    # Nur der Vollstaendigkeit halber entgegengenommen: die Uebungssaetze folgen der
+    # Sprache der Quelle, nicht der des Kursraums. Die Anweisungszeile und die
+    # Richtig/Falsch-Beschriftung haengen weiter an `locale`, das ist Geruest fuer den
+    # Lernenden und gehoert in die Unterrichtssprache.
+    language: str = "German",
     adaptive_suffix: str = "",
     title_avoidance: str = "",
     coverage: str = "",
@@ -152,15 +168,23 @@ def generate_grammar_from_source(
 
     Empty items mean the run is unusable and the caller fails the set.
     """
-    language = _language_label(locale)
     target_form = grammar_type["label"]
     shipped_example = grammar_type["example"]
     plan = item_plan(count)
-    user_msg = f"Write the output in {language}.\n\nSources:\n\n{ctx.context}"
+    # Bewusst KEINE Zielsprache: die Uebungssaetze bleiben in der Sprache der Quelle.
+    # Grammatik ist das einzige Werkzeug, bei dem die Sprache nicht das Mittel ist,
+    # sondern der Lernstoff. Geuebt wird an den Saetzen, die im Dokument stehen, und
+    # eine uebersetzte Passiv-Uebung uebt nichts: entweder erfindet das Modell
+    # deutsche Saetze zu einem englischen Text, oder es schreibt englische Saetze zu
+    # einem Thema wie "Konjunktiv II", das es auf Englisch nicht gibt.
+    #
+    # Die Sprache muss dafuer nirgends erkannt werden: das Modell hat den Quelltext
+    # vor sich und behaelt einfach dessen Sprache bei.
+    user_msg = f"Sources:\n\n{ctx.context}"
 
     def messages_for(wanted: list[str]) -> list[dict]:
         prompt = (
-            _build_prompt(grammar_type, target_form, shipped_example, wanted, language)
+            _build_prompt(grammar_type, target_form, shipped_example, wanted)
             + adaptive_suffix + title_avoidance + coverage
         )
         return [{"role": "system", "content": prompt},
@@ -183,13 +207,15 @@ def generate_grammar_from_source(
         if not wanted:
             break
         # Same temperature as the MC tools: enough wording variety, still JSON-safe. The
-        # real variation comes from the rotating page subset in build_source_context.
+        # real variation comes from the context sweep in build_source_context, and any
+        # repeat that still slips through is dropped afterwards by _dedup.
         response = client.chat.completions.create(
             model=model, messages=messages_for(wanted), temperature=0.6)
         data = json.loads(_clean_llm_json(response.choices[0].message.content or ""))
         exercises = list(data.get("exercises") or [])[:count]
         seen_exercises += len(exercises)
-        fresh, fresh_claims = _build_items(exercises, locale, shipped_example, target_form)
+        fresh, fresh_claims = _build_items(exercises, locale, shipped_example, target_form,
+                                           grammar_type.get("task_lines"))
         # Bis zum letzten Wurf gilt der Deckel je Format: was ueber den Plan
         # hinausgeht, wird nicht genommen, sonst kippt die Mischung schon im ersten
         # Wurf. Im LETZTEN Wurf zaehlt die Anzahl mehr als die Mischung, denn wer zehn
@@ -244,7 +270,7 @@ def generate_grammar_from_source(
 
 
 def _build_prompt(grammar_type: dict, target_form: str, example: dict,
-                  plan: list, language: str) -> str:
+                  plan: list) -> str:
     # The worked pair is given as a SHAPE TO COPY, not only as a rule. Rules alone
     # get ignored by the chat model, which then falls back to what it does most
     # often and returns comprehension questions instead of transformable sentences.
@@ -271,8 +297,9 @@ def _build_prompt(grammar_type: dict, target_form: str, example: dict,
         '  "Das Team wird geschrieben."\n\n'
     )
     return (
-        f"You build a grammar drill from the given source text. "
-        f"Write ALL sentences in {language}, regardless of the source-text language.\n\n"
+        "You build a grammar drill from the given source text. "
+        "Write ALL exercise sentences in the SAME language as the source text. "
+        "Do NOT translate them into any other language.\n\n"
         # The learner-facing instruction is deliberately NOT sent: it only says "follow
         # the pattern below" and names no form. The topic label does.
         f"Target form: {target_form}\n"
@@ -447,7 +474,8 @@ def is_usable_choice(task: str, sentence: str, options: list, correct_idx) -> bo
 
 
 def _build_items(exercises: list[dict], locale: str, example: dict,
-                 target_form: str) -> tuple[list[dict], list[str]]:
+                 target_form: str,
+                 eigene_zeilen: dict | None = None) -> tuple[list[dict], list[str]]:
     """Item-Zeilen plus der Text, über den die Quelle zugeordnet wird.
 
     Alle vier Formate teilen eine Zeilenform: Aufgabentext in ``front``, erwartete
@@ -476,7 +504,7 @@ def _build_items(exercises: list[dict], locale: str, example: dict,
         # Die Anweisung steht an JEDER Aufgabe. Ohne sie sieht der Lernende einen
         # nackten Satz und weiss nicht, was zu tun ist. Leerzeile dazwischen, sonst
         # ist nicht klar, worauf sich die Anweisung bezieht.
-        anweisung = task_line(kind, locale, target_form)
+        anweisung = task_line(kind, locale, target_form, eigene_zeilen)
         item["front"] = (f"**{anweisung}**\n\n{item['front']}" if item["front"]
                          else f"**{anweisung}**")
         item["explanation"] = (ex.get("explanation") or "").strip() or None

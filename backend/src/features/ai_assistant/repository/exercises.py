@@ -129,22 +129,38 @@ def finalize_exercise_set(
     with get_connection() as conn:
         with conn.cursor(cursor_factory=RealDictCursor) as cur:
             for i, item in enumerate(items):
+                # Eine Aufgabe aus dem Vorrat wird nicht kopiert, der Satz zeigt nur
+                # dorthin. Ihr Inhalt steht genau einmal, naemlich im Vorrat.
+                # ``front`` bleibt trotzdem gefuellt, weil die Spalte NOT NULL ist und
+                # weil sie die Vergleichsform fuer "hatte ich schon" traegt.
+                #
+                # Verschwindet der Vorrat, weil die Quelle geloescht oder neu
+                # hochgeladen wird, schreibt ``materialize_pool_items`` den Inhalt
+                # vorher in diese Zeilen zurueck. Ein fertiger Satz bleibt lesbar.
+                aus_vorrat = bool(item.get("pool_item_id"))
                 cur.execute(
                     """INSERT INTO aia_exercise_items
                        (set_id, position, front, back, back_en, options, correct_idx,
-                        source_label, page_number, explanation, start_time, sources, extras)
-                       VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)""",
+                        source_label, page_number, explanation, start_time, sources, extras,
+                        pool_item_id)
+                       VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)""",
                     (
                         set_id, i,
-                        item["front"], item["back"], item.get("back_en"),
-                        json.dumps(item.get("options")) if item.get("options") else None,
-                        item.get("correct_idx"),
-                        item.get("source_label"),
-                        item.get("page_number"),
-                        item.get("explanation"),
-                        item.get("start_time"),
-                        json.dumps(item.get("sources")) if item.get("sources") else None,
-                        json.dumps(item.get("extras")) if item.get("extras") else None,
+                        item["front"],
+                        "" if aus_vorrat else item["back"],
+                        None if aus_vorrat else item.get("back_en"),
+                        None if aus_vorrat or not item.get("options")
+                        else json.dumps(item.get("options")),
+                        None if aus_vorrat else item.get("correct_idx"),
+                        None if aus_vorrat else item.get("source_label"),
+                        None if aus_vorrat else item.get("page_number"),
+                        None if aus_vorrat else item.get("explanation"),
+                        None if aus_vorrat else item.get("start_time"),
+                        None if aus_vorrat or not item.get("sources")
+                        else json.dumps(item.get("sources")),
+                        None if aus_vorrat or not item.get("extras")
+                        else json.dumps(item.get("extras")),
+                        item.get("pool_item_id"),
                     ),
                 )
             head = header or {}
@@ -243,28 +259,6 @@ def get_recent_exercise_titles(
             )
             return [row[0] for row in cur.fetchall() if row[0]]
 
-def get_recent_exercise_pages(
-    workspace_id: int, tool: str, limit: int = 150,
-) -> list[int]:
-    """Page numbers cited by recent items of this workspace+tool.
-
-    Used to rotate the generation context AWAY from pages that were just questioned, so a new
-    set draws from other parts of the document (variation) instead of rehashing the same
-    salient pages every run."""
-    with get_connection() as conn:
-        with conn.cursor() as cur:
-            cur.execute(
-                """SELECT i.page_number
-                   FROM aia_exercise_items i
-                   JOIN aia_exercise_sets s ON i.set_id = s.id
-                   WHERE s.workspace_id = %s AND s.tool = %s AND s.status = 'ready'
-                     AND i.page_number IS NOT NULL
-                   ORDER BY s.created_at DESC, i.position ASC
-                   LIMIT %s""",
-                (workspace_id, tool, limit),
-            )
-            return [row[0] for row in cur.fetchall() if row[0] is not None]
-
 def get_exercise_set_with_items(set_id: int) -> dict | None:
     """Get a single set with all its items, enriching with chunk start_time where missing."""
     with get_connection() as conn:
@@ -274,8 +268,27 @@ def get_exercise_set_with_items(set_id: int) -> dict | None:
             if not ex_set:
                 return None
             ex_set = dict(ex_set)
+            # Aufgaben aus dem Vorrat stehen nur einmal, naemlich dort. Die Zeile im Satz
+            # ist ein Verweis, ihre Inhaltsspalten sind leer. COALESCE holt deshalb je
+            # Feld den Vorratswert, wo es einen gibt, und faellt sonst auf die Zeile
+            # zurueck: alte Saetze von vor dem Vorrat und Aufgaben ohne zuordenbare
+            # Quelle tragen ihren Inhalt weiter selbst.
             cur.execute(
-                "SELECT * FROM aia_exercise_items WHERE set_id = %s ORDER BY position",
+                """SELECT i.id, i.set_id, i.position, i.pool_item_id,
+                          COALESCE(p.front, i.front)               AS front,
+                          COALESCE(p.back, i.back)                 AS back,
+                          COALESCE(p.back_en, i.back_en)           AS back_en,
+                          COALESCE(p.options, i.options)           AS options,
+                          COALESCE(p.correct_idx, i.correct_idx)   AS correct_idx,
+                          COALESCE(p.explanation, i.explanation)   AS explanation,
+                          COALESCE(p.source_label, i.source_label) AS source_label,
+                          COALESCE(p.page_number, i.page_number)   AS page_number,
+                          COALESCE(p.start_time, i.start_time)     AS start_time,
+                          COALESCE(p.sources, i.sources)           AS sources,
+                          COALESCE(p.extras, i.extras)             AS extras
+                   FROM aia_exercise_items i
+                   LEFT JOIN aia_exercise_pool p ON p.id = i.pool_item_id
+                   WHERE i.set_id = %s ORDER BY i.position""",
                 (set_id,),
             )
             items = [dict(r) for r in cur.fetchall()]

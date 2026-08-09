@@ -134,6 +134,11 @@ def run_index_source(self, source_uuid: str, locale: str = "de", _aia_job_uuid: 
             # duplicate chunk rows polluting vector search. No-op on a first run.
             db.update_aia_source_progress(source_uuid, "chunking")
             db.delete_aia_chunks_by_source(source_id)
+            # Der Aufgaben-Vorrat haengt am Text dieser Quelle. Wird der ersetzt, sind
+            # die Aufgaben Fragen zu einem Dokument, das es so nicht mehr gibt. Fertige
+            # Saetze behalten ihren Inhalt, clear_pool_for_source schreibt ihn vorher
+            # zurueck. Beim ersten Durchlauf ist der Vorrat leer und das hier ein No-op.
+            db.clear_pool_for_source(source_id)
             chunk_ids: list[int] = []
             for chunk in chunks:
                 chunk_id = db.create_aia_chunk(

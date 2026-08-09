@@ -190,7 +190,7 @@ async def check_grammar_answer(
     from src.services import aia_grammar_check as gc
     # Imported here, not at module level: the tasks package pulls in the whole
     # generation chain and closes an import cycle back through the attribution.
-    from src.features.ai_assistant.tasks._helpers import _language_label
+    from src.features.ai_assistant.tasks._helpers import tool_output_language
 
     user_id = current_user["user_id"]
     workspace = db.get_aia_workspace(workspace_uuid)
@@ -235,7 +235,7 @@ async def check_grammar_answer(
             client, model,
             given=answer, expected=item["back"],
             prompt_sentence=item["front"], rule=rule,
-            language=_language_label(locale),
+            language=tool_output_language(workspace["id"])[1],
         )
 
     return {
