@@ -234,6 +234,11 @@ export function FlashcardsLearnView({
           const wordClass = card.extras?.word_class?.trim() || "";
           const singular = card.extras?.singular?.trim() || "";
           const plural = card.extras?.plural?.trim() || "";
+          // A noun without a plural (Wasser, Hunger) keeps its singular under the neutral
+          // label "Form", because the article is the point. A lone "Singular" row would
+          // promise a "Plural" row that never comes. A plural without a singular is dropped.
+          const showNumberPair = Boolean(singular && plural);
+          const showFormOnly = Boolean(singular && !plural);
           return <>
             <div className="flex-1 overflow-y-auto px-3 sm:px-4 pt-4 sm:pt-6 pb-3">
               <div className="mx-auto w-full flex flex-col gap-3" style={{ maxWidth: 560 }}>
@@ -275,8 +280,8 @@ export function FlashcardsLearnView({
                         </div>
                       );
                     })()}
-                    {/* Word class first, then singular/plural only when present, no box */}
-                    {(wordClass || singular || plural) && (
+                    {/* Word class first, then the number forms when present, no box */}
+                    {(wordClass || singular) && (
                       <div className="flex flex-col gap-1 px-1">
                         {wordClass && (
                           <div className="flex items-baseline gap-1.5 text-sm">
@@ -284,16 +289,22 @@ export function FlashcardsLearnView({
                             <span >{wordClass}</span>
                           </div>
                         )}
-                        {singular && (
-                          <div className="flex items-baseline gap-1.5 text-sm">
-                            <span className="font-semibold shrink-0" style={{ color: "var(--foreground)" }}>{t("flashcardsLearn.singular")}</span>
-                            <span >{singular}</span>
-                          </div>
+                        {showNumberPair && (
+                          <>
+                            <div className="flex items-baseline gap-1.5 text-sm">
+                              <span className="font-semibold shrink-0" style={{ color: "var(--foreground)" }}>{t("flashcardsLearn.singular")}</span>
+                              <span >{singular}</span>
+                            </div>
+                            <div className="flex items-baseline gap-1.5 text-sm">
+                              <span className="font-semibold shrink-0" style={{ color: "var(--foreground)" }}>{t("flashcardsLearn.plural")}</span>
+                              <span >{plural}</span>
+                            </div>
+                          </>
                         )}
-                        {plural && (
+                        {showFormOnly && (
                           <div className="flex items-baseline gap-1.5 text-sm">
-                            <span className="font-semibold shrink-0" style={{ color: "var(--foreground)" }}>{t("flashcardsLearn.plural")}</span>
-                            <span >{plural}</span>
+                            <span className="font-semibold shrink-0" style={{ color: "var(--foreground)" }}>{t("flashcardsLearn.form")}</span>
+                            <span >{singular}</span>
                           </div>
                         )}
                       </div>

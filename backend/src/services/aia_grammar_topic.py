@@ -30,6 +30,7 @@ _PROMPT = (
     '{"is_grammar": true, '
     '"rule": "One paragraph in English naming the input form and the expected output '
     'form of the transformation", '
+    '"label": "The exact name of the form you worked out, in {language}", '
     '"examples": [{"before": "A sentence in the original form", '
     '"after": "The same sentence transformed"}], '
     '"task_lines": {"transform": "...", "cloze": "...", "statement": "...", '
@@ -40,6 +41,11 @@ _PROMPT = (
     "Then return an empty rule and an empty list.\n"
     '- "rule" is read by another model and never by a learner. Name the input form '
     "and the output form precisely, the way a grammar reference would.\n"
+    '- "label" names the ONE form that the rule and the example actually describe, '
+    "not the broader area the teacher typed. Resolve an ambiguous name: German "
+    '"Passiv" covers nine different forms, so write "Passiv Präsens" when your example '
+    "is in the present tense. At most five words, the way a course topic is titled. "
+    "No quotes and no sentence.\n"
     "- Give exactly ONE example. 'before' and 'after' are each ONE sentence and must "
     "differ from each other, otherwise there is nothing to practise.\n"
     "- Write the example in {language}, whatever language the topic name is written in.\n"
@@ -81,10 +87,13 @@ def derive_topic(client, model, name: str, language: str) -> dict | None:
     # im Prompt: "Write the example in de." Ein Test hat genau das gefunden.
     from src.i18n import TRANSCRIPT_LANGUAGES
     eintrag = TRANSCRIPT_LANGUAGES.get((language or "").lower())
-    label = eintrag["name"] if eintrag else (language or "German")
+    # Nicht ``label``: so heisst seit dem Namensvorschlag das Feld, das das Modell
+    # zurückgibt. Zwei verschiedene Dinge unter einem Namen in einer Funktion.
+    sprach_label = eintrag["name"] if eintrag else (language or "German")
     messages = [
-        {"role": "system", "content": _PROMPT.replace("{language}", label)},
-        {"role": "user", "content": f"Topic: {name}\n\nWrite the example in {label}."},
+        {"role": "system", "content": _PROMPT.replace("{language}", sprach_label)},
+        {"role": "user",
+         "content": f"Topic: {name}\n\nWrite the example in {sprach_label}."},
     ]
     # Niedrige Temperatur: hier ist keine Vielfalt gefragt, sondern die gängigste
     # und damit sicherste Lesart des Themennamens. Ein Fehler beim Aufruf selbst
@@ -109,7 +118,11 @@ def derive_topic(client, model, name: str, language: str) -> dict | None:
         logger.info("Grammatik-Thema {!r} abgelehnt, Regel oder Beispiel fehlt", name)
         return None
     return {"rule": rule, "examples": examples[:MAX_EXAMPLES],
-            "task_lines": usable_task_lines(data.get("task_lines"))}
+            "task_lines": usable_task_lines(data.get("task_lines")),
+            # Welche Form das Modell aus dem getippten Namen gemacht hat. Das Formular
+            # bietet sie als Namen an, damit die Kachel nicht "passi" heisst, während
+            # die Aufgaben Passiv Präsens üben.
+            "label": usable_label(data.get("label"))}
 
 
 # Die vier Aufgabenformate, fuer die es je eine Anweisung braucht.
@@ -134,6 +147,26 @@ def usable_task_lines(lines) -> dict:
             return {}
         fertig[kind] = text
     return fertig
+
+
+# Ein Themenname und kein Satz. Länger heisst, das Modell hat die Frage nicht
+# verstanden, und ein Absatz auf einer Kachel wäre schlimmer als kein Vorschlag.
+MAX_LABEL_CHARS = 60
+
+
+def usable_label(value) -> str:
+    """Der Namensvorschlag, oder leer.
+
+    Leer ist kein Fehler und keine Absage. Der Vorschlag ist Komfort: er sagt dem
+    Dozenten, welche Form das Modell aus seinem getippten Namen gemacht hat. Ein
+    Thema ohne ihn wird angelegt wie vor diesem Feld.
+    """
+    if not isinstance(value, str):
+        return ""
+    text = value.strip()
+    if not text or len(text) > MAX_LABEL_CHARS or len(text.splitlines()) > 1:
+        return ""
+    return text
 
 
 def is_usable_pair(pair) -> bool:

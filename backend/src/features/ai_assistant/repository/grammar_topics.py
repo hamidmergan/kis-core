@@ -15,6 +15,9 @@ import json
 from psycopg2.extras import RealDictCursor
 
 from src.core.db.pool import get_connection
+from src.features.ai_assistant.repository.exercise_pool import (
+    materialize_pool_items_for_topic,
+)
 
 
 # Grundstock, damit niemand vor einer leeren Liste steht. Bewusst deutsch gedacht:
@@ -31,10 +34,11 @@ SEED_TOPICS = [
     {"name": "Adjektivdeklination"},
 ]
 
-# Mehr Paare zeigt die Ansicht nicht an, und mehr braucht das Modell auch nicht:
-# gemessen hat der Sprung von einem auf drei ausgearbeitete Beispiele die Ausbeute
-# des Grammatik-Quiz von 2 auf 7 von 10 gehoben, danach flacht es ab.
-MAX_EXAMPLES = 3
+# Genau ein Paar. Der Generator hat nie ein zweites gelesen: er baut aus dem
+# ersten die SHAPE TO COPY fuer das Modell und zeigt es dem Lernenden ueber der
+# Aufgabe. Paar zwei und drei lagen nur in der Tabelle herum und standen im
+# Formular als Felder, die nichts bewirkten.
+MAX_EXAMPLES = 1
 
 _EMPTY_PAIR = {"before": "", "after": ""}
 
@@ -99,6 +103,17 @@ def create_grammar_topic(workspace_id: int, name: str, created_by: int) -> dict:
 
 
 def delete_grammar_topic(topic_id: int) -> None:
+    """Thema entfernen, samt Ausarbeitung und Vorrat.
+
+    Vorher wandert der Inhalt des Vorrats in die Saetze, die darauf zeigen. Eine
+    Aufgabe aus dem Vorrat wird beim Bauen eines Satzes nicht kopiert, der Satz
+    verweist nur. Ohne diesen Schritt haette jemand mitten im Ueben ploetzlich
+    Aufgaben ohne Loesung, weil eine Lehrkraft aufgeraeumt hat.
+
+    Fertige Saetze bleiben also stehen. Sie verlieren nur den Themen-Namen ueber
+    den Aufgaben, denn ``grammar_topic_id`` wird dabei auf NULL gesetzt.
+    """
+    materialize_pool_items_for_topic(topic_id)
     with get_connection() as conn:
         with conn.cursor() as cur:
             cur.execute("DELETE FROM aia_grammar_topics WHERE id = %s", (topic_id,))

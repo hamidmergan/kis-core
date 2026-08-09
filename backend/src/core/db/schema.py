@@ -977,6 +977,21 @@ def _init_db(admin_email: Optional[str] = None) -> None:
                 "CREATE INDEX IF NOT EXISTS idx_exercise_items_pool "
                 "ON aia_exercise_items (pool_item_id)"
             )
+            # Hoer- und Leseverstehen baute bis zum 2026-08-09 auch Aufgaben mit vier
+            # Optionen und sah damit aus wie das Quiz. Es liefert jetzt nur noch
+            # Richtig/Falsch. Der Vorrat ueberlebt eine Umstellung aber, und ohne dieses
+            # einmalige Aufraeumen kaemen die alten Aufgaben weiter heraus und die
+            # Aenderung waere nicht zu sehen. Idempotent: danach passt keine Zeile mehr.
+            #
+            # Fertige Saetze bleiben unangetastet. Sie tragen ihren Inhalt selbst, jemand
+            # kann mitten darin stecken, und `pool_item_id` wird beim Loeschen nur auf
+            # NULL gesetzt.
+            cur.execute("""
+                DELETE FROM aia_exercise_pool
+                 WHERE tool = 'hoerverstehen'
+                   AND jsonb_typeof(options) = 'array'
+                   AND jsonb_array_length(options) > 2
+            """)
             # ─── Context sweep cursors ──────────────────────────
             # Where the last generation run stopped reading inside each of the
             # coverage blocks of ONE source. A source larger than the context budget
@@ -1057,22 +1072,39 @@ def _init_db(admin_email: Optional[str] = None) -> None:
                 "CREATE INDEX IF NOT EXISTS idx_grammar_topics_workspace "
                 "ON aia_grammar_topics(workspace_id)"
             )
-            # Grundstock für jeden Workspace, der noch keinen hat. Ohne Ausarbeitung:
-            # die entsteht beim ersten Benutzen in der jeweiligen Sprache, sonst kostete
-            # jeder Kurs acht Modell-Aufrufe, von denen die meisten nie gebraucht werden.
-            cur.execute("""
-                INSERT INTO aia_grammar_topics (workspace_id, name, created_by)
-                SELECT w.id, s.name, w.user_id
-                FROM aia_workspaces w
-                CROSS JOIN (VALUES ('Passiv Präsens'), ('Passiv mit Modalverb'),
-                                   ('Perfekt'), ('Präteritum'), ('Konjunktiv II'),
-                                   ('Relativsätze'), ('Nebensätze'),
-                                   ('Adjektivdeklination')) AS s(name)
-                WHERE NOT EXISTS (
-                    SELECT 1 FROM aia_grammar_topics t
-                    WHERE t.workspace_id = w.id AND t.name = s.name
+            # Grundstock für die Kurse, die es vor der Themen-Tabelle schon gab. Ohne
+            # Ausarbeitung: die entsteht beim ersten Benutzen in der jeweiligen Sprache,
+            # sonst kostete jeder Kurs acht Modell-Aufrufe, von denen die meisten nie
+            # gebraucht werden.
+            #
+            # GENAU EINMAL, festgehalten in `settings` wie die search_vector-Migration
+            # weiter unten. Vorher lief das bei jedem Start und hat jeden fehlenden der
+            # acht Namen neu angelegt. Damit war ein gelöschtes "Perfekt" nach dem
+            # nächsten Neustart wieder da, und das Entfernen von Themen wäre eine
+            # Täuschung. Neue Kurse bekommen ihren Grundstock beim Anlegen über
+            # `seed_grammar_topics`, nicht von hier.
+            seed_key = "grammar_topics_seeded"
+            cur.execute("SELECT value FROM settings WHERE key = %s", (seed_key,))
+            row = cur.fetchone()
+            if not (row and row[0] == "true"):
+                cur.execute("""
+                    INSERT INTO aia_grammar_topics (workspace_id, name, created_by)
+                    SELECT w.id, s.name, w.user_id
+                    FROM aia_workspaces w
+                    CROSS JOIN (VALUES ('Passiv Präsens'), ('Passiv mit Modalverb'),
+                                       ('Perfekt'), ('Präteritum'), ('Konjunktiv II'),
+                                       ('Relativsätze'), ('Nebensätze'),
+                                       ('Adjektivdeklination')) AS s(name)
+                    WHERE NOT EXISTS (
+                        SELECT 1 FROM aia_grammar_topics t
+                        WHERE t.workspace_id = w.id AND t.name = s.name
+                    )
+                """)
+                cur.execute(
+                    "INSERT INTO settings (key, value) VALUES (%s, 'true') "
+                    "ON CONFLICT (key) DO UPDATE SET value = 'true'",
+                    (seed_key,),
                 )
-            """)
             # Die Textspalte zeigte auf einen Code-Eintrag, den es nicht mehr gibt. Kein
             # Bestandsschutz, wir sind auf dev: die alten Grammatik-Sets gehen mit.
             #

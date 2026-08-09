@@ -1659,7 +1659,8 @@
           "wrongShort": "Incorrect",
           "downloadAsText": "Download as text file",
           "hint": "Hint",
-          "learnMore": "Learn more"
+          "learnMore": "Learn more",
+          "sourcesToggle": "{count, plural, =1 {1 source} other {# sources}}"
         },
         "sourceStatus": {
           "none": "No source selected",
@@ -1716,6 +1717,7 @@
           "wordClass": "Word class:",
           "singular": "Singular:",
           "plural": "Plural:",
+          "form": "Form:",
           "example": "Example",
           "translationPrefix": "EN:",
           "nextTerm": "Next term"
@@ -1810,11 +1812,15 @@
           "check": "Check",
           "accept": "Accept",
           "again": "Generate again",
-          "checkHint": "Does the pattern look right? You can overwrite it and add more.",
+          "understoodAs": "Understood as: {name}",
+          "useSuggestion": "Use this name",
+          "checkHint": "Does the pattern look right? You can overwrite it.",
           "beforePlaceholder": "Sentence before",
           "afterPlaceholder": "Sentence after",
-          "needExample": "Please keep at least one example pair",
-          "failed": "That did not work, please try again"
+          "needExample": "Please keep the example pair, both sentences and not the same one twice",
+          "failed": "That did not work, please try again",
+          "deleteTopic": "Remove topic",
+          "deleteAsk": "Remove “{name}” for everyone in this course?"
         }
       },
       "topbar": {
@@ -2036,7 +2042,7 @@
           "mindmap": "Show the topics of the selected sources as a tree",
           "lernkarten": "Explain technical terms from the selected sources with base form and example",
           "grammar": "Transform sentences from the selected sources following a pattern",
-          "listening": "Create questions about a text or a recording from the selected sources"
+          "listening": "Statements about a text or a recording from the selected sources, true or false"
         },
         "recent": {
           "heading": "Recent activity",

@@ -290,6 +290,35 @@ def test_every_transform_carries_the_topics_worked_pattern(attributed):
         assert item["extras"]["pattern_back"] == shipped["after"]
 
 
+def test_a_transform_carries_the_other_valid_wordings(attributed):
+    """Sie kosten beim Erzeugen nichts und ersparen jede Prüfung per Modell."""
+    response = json.dumps({
+        "title": "T",
+        "exercises": [{
+            "before": "Ich habe keine Zeit.",
+            "after": "Ich hätte Zeit.",
+            "also_ok": ["Ich würde Zeit haben.", "  ", "Ich habe keine Zeit."],
+        }],
+    })
+    items, _, _, _ = _generate(response, count=1)
+    # Leeres raus, und die unveraenderte Vorlage ist keine Loesung.
+    assert items[0]["extras"]["accepts"] == ["Ich würde Zeit haben."]
+
+
+def test_a_transform_without_other_wordings_carries_none(attributed):
+    response = json.dumps({
+        "title": "T",
+        "exercises": [{"before": _GOOD[0], "after": _GOOD[1]}],
+    })
+    items, _, _, _ = _generate(response, count=1)
+    assert "accepts" not in items[0]["extras"]
+
+
+def test_generation_asks_for_the_other_valid_wordings(attributed):
+    _, _, _, calls = _generate()
+    assert "also_ok" in _system_of(calls)
+
+
 # ─── Prüfung: Normalisierung ─────────────────────────────────────────────────
 
 @pytest.mark.parametrize("given", [
@@ -333,83 +362,37 @@ def test_overlap_ratio_bounds():
     assert 0 < gc.overlap_ratio("a b x", "a b c") < 1
 
 
-def test_heuristic_marks_a_near_miss_close_and_a_miss_wrong():
+def test_marking_a_near_miss_is_close_and_a_miss_is_wrong():
     expected = "Die Eingaben werden von der Software geprüft."
-    assert gc.heuristic_verdict(expected, expected) == gc.VERDICT_CORRECT
+    assert gc.mark_answer(expected, expected) == gc.VERDICT_CORRECT
     # One wrong form, everything else identical.
-    assert gc.heuristic_verdict(
+    assert gc.mark_answer(
         "Die Eingaben werden von der Software prüfen.", expected) == gc.VERDICT_CLOSE
-    assert gc.heuristic_verdict("Keine Ahnung.", expected) == gc.VERDICT_WRONG
+    assert gc.mark_answer("Keine Ahnung.", expected) == gc.VERDICT_WRONG
 
 
-# ─── Prüfung: Modell-Aufruf ──────────────────────────────────────────────────
+# ─── Prüfung: gültige Zweitfassungen ─────────────────────────────────────────
 
-def test_exact_answer_is_marked_without_any_model_call():
-    """The reason the two-stage check exists: the provider rate limit is shared
-    across the university, so a right answer must not cost a call."""
-    client, calls = _make_client("should never be used")
-    out = gc.check_answer(
-        client, "m",
-        given="Die Messwerte werden vom Server gespeichert.",
-        expected="Die Messwerte werden vom Server gespeichert.",
-        prompt_sentence="Der Server speichert die Messwerte.",
-        rule="r",
-    )
-    assert out == {"verdict": "correct", "feedback": None, "used_llm": False}
-    assert calls == []
+def test_an_accepted_wording_counts_as_correct():
+    # Konjunktiv II geht synthetisch und mit "würde", beides ist richtig. Ohne die
+    # mitgelieferte Zweitfassung faellt die zweite Form durch.
+    expected = "Das Smartphone wäre ein Zeitfresser."
+    variant = "Das Smartphone würde ein Zeitfresser sein."
+    assert gc.mark_answer(variant, expected, [variant]) == gc.VERDICT_CORRECT
+    assert gc.mark_answer(variant, expected) != gc.VERDICT_CORRECT
 
 
-def test_deviating_answer_asks_the_model_and_returns_its_verdict():
-    client, calls = _make_client(json.dumps({"verdict": "close", "feedback": "Partizip fehlt."}))
-    out = gc.check_answer(
-        client, "m",
-        given="Die Messwerte werden vom Server speichern.",
-        expected="Die Messwerte werden vom Server gespeichert.",
-        prompt_sentence="Der Server speichert die Messwerte.",
-        rule="RULE-MARKER",
-        language="German",
-    )
-    assert out["verdict"] == "close"
-    assert out["feedback"] == "Partizip fehlt."
-    assert out["used_llm"] is True
-    system = _system_of(calls)
-    assert "RULE-MARKER" in system
-    assert "German" in system
-    # The learner must not be handed the solution inside the feedback text.
-    assert "Never reveal the expected solution" in system
+def test_close_is_measured_against_the_nearest_wording():
+    expected = "Das Smartphone wäre ein Zeitfresser."
+    variant = "Das Smartphone würde ein Zeitfresser sein."
+    # An der Musterloesung gemessen waere das weit weg, an der Zweitfassung ist es fast.
+    assert gc.mark_answer(
+        "Das Smartphone würde ein Zeitfresser seien.", expected, [variant]
+    ) == gc.VERDICT_CLOSE
 
 
-def test_model_answer_in_a_code_fence_is_still_parsed():
-    fenced = "```json\n{\"verdict\": \"wrong\", \"feedback\": \"Falsche Zeit.\"}\n```"
-    client, _ = _make_client(fenced)
-    out = gc.check_answer(
-        client, "m", given="x", expected="y", prompt_sentence="z", rule="r")
-    assert out["verdict"] == "wrong"
-
-
-def test_unknown_verdict_falls_back_to_the_heuristic():
-    client, _ = _make_client(json.dumps({"verdict": "vielleicht", "feedback": "hm"}))
-    expected = "Die Eingaben werden von der Software geprüft."
-    out = gc.check_answer(
-        client, "m",
-        given="Die Eingaben werden von der Software prüfen.",
-        expected=expected, prompt_sentence="s", rule="r")
-    assert out["verdict"] == gc.VERDICT_CLOSE
-    assert out["used_llm"] is False
-    assert out["feedback"] is None
-
-
-def test_provider_error_falls_back_to_the_heuristic_instead_of_blocking():
-    def create(**kwargs):
-        raise RuntimeError("provider down")
-
-    client = types.SimpleNamespace(
-        chat=types.SimpleNamespace(completions=types.SimpleNamespace(create=create))
-    )
-    out = gc.check_answer(
-        client, "m",
-        given="Völlig daneben.",
-        expected="Die Eingaben werden von der Software geprüft.",
-        prompt_sentence="s", rule="r")
-    assert out["verdict"] == gc.VERDICT_WRONG
-    assert out["used_llm"] is False
+def test_the_check_module_has_no_model_client_at_all():
+    """Die Prüfung ist reiner Vergleich. Ein Aufruf pro getippter Antwort waere
+    der teuerste Weg zu einer Rueckmeldung, die schon beim Erzeugen entstanden ist."""
+    assert not hasattr(gc, "check_answer")
+    assert not hasattr(gc, "get_check_client")

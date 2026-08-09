@@ -86,7 +86,11 @@ async def preview_topic(
     # Die Regel geht mit zurück, damit der zweite Aufruf sie nicht neu ableiten muss.
     # Angezeigt wird sie nicht, der Dozent beurteilt das Musterpaar.
     return {"name": name, "rule": derived["rule"], "examples": derived["examples"],
-            "task_lines": derived.get("task_lines") or {}}
+            "task_lines": derived.get("task_lines") or {},
+            # Der Name der Form, die das Modell wirklich ausgearbeitet hat. Leer heisst,
+            # das Formular zeigt keine Zeile. Gespeichert wird er nie, er ist danach
+            # entweder der Name oder vergessen.
+            "suggested_name": derived.get("label") or ""}
 
 
 @router.post(_BASE)

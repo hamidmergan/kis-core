@@ -203,9 +203,10 @@ def run_generate_exercise_set(self, set_id: int, workspace_id: int, tool: str,
                     return generate_grammar_from_source(
                         client, model, from_ctx, gtype, how_many, **shared)
                 if tool == "hoerverstehen":
-                    # Läuft wie das Quiz über den ganzen Kontext, nur mit anderen
-                    # Fragearten. Das Sprachniveau entscheidet, ob Schlussfolgerungen
-                    # dabei sind, deshalb kommt es hier zusätzlich mit.
+                    # Läuft wie das Quiz über den ganzen Kontext, liefert aber nur
+                    # Richtig/Falsch-Aussagen. Das Sprachniveau entscheidet, ob eine
+                    # Aussage auch aus dem Material folgen darf, statt darin zu stehen,
+                    # deshalb kommt es hier zusätzlich mit.
                     got, name = generate_listening_from_source(
                         client, model, from_ctx, how_many,
                         level=db.get_user_language_level(user_id)["language_level"],

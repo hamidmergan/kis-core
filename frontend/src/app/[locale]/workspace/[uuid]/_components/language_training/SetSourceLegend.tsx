@@ -1,5 +1,8 @@
 "use client";
 
+import { useState } from "react";
+import { useTranslations } from "next-intl";
+import { CaretDown } from "@phosphor-icons/react";
 import { _getChipIcon } from "../../_utils";
 import type { ExerciseSetSource } from "../../_types";
 
@@ -35,6 +38,12 @@ export function SetSourceLegend({
   onSourceClick?: (filename: string) => void;
   className?: string;
 }) {
+  const t = useTranslations("workspace.detail.languageTraining.common");
+  /* Eingeklappt als Startzustand: bei vielen Quellen schiebt die Liste die Aufgabe
+     aus dem Bild, und gebraucht wird sie nur, wenn jemand eine Zahl nachschlaegt.
+     Die Zeile bleibt sichtbar, damit man sieht, dass es sie gibt. */
+  const [open, setOpen] = useState(false);
+
   if (!sources || sources.length === 0) return null;
   /* Size: the list is a footnote and reads as one. text-xs sits under the exercise
      text without dropping to the 10px floor, and nothing in it is bold, so the
@@ -42,7 +51,23 @@ export function SetSourceLegend({
      The icon follows the text, otherwise it shrinks to a dot next to it. */
   return (
     <div className={`flex flex-col gap-1 ${className}`}>
-      {sources.map((s) => {
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        aria-expanded={open}
+        className="flex items-center gap-1.5 text-xs leading-snug text-left min-w-0 hover-lighten transition-colors"
+        style={{ color: "var(--muted)" }}
+      >
+        <CaretDown
+          size={12}
+          weight="bold"
+          className="shrink-0 transition-transform"
+          style={{ transform: open ? "none" : "rotate(-90deg)" }}
+        />
+        <span className="truncate">{t("sourcesToggle", { count: sources.length })}</span>
+      </button>
+
+      {open && sources.map((s) => {
         const Icon = _getChipIcon(s.filename);
         return (
           <button
@@ -50,7 +75,7 @@ export function SetSourceLegend({
             type="button"
             onClick={() => onSourceClick?.(s.filename)}
             disabled={!onSourceClick}
-            className="flex items-center gap-1.5 text-xs leading-snug text-left min-w-0 disabled:cursor-default hover-lighten transition-colors"
+            className="flex items-center gap-1.5 pl-4 text-xs leading-snug text-left min-w-0 disabled:cursor-default hover-lighten transition-colors"
             style={{ color: "var(--muted)" }}
           >
             <Icon size={13} weight="regular" className="shrink-0" />

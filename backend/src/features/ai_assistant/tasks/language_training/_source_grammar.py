@@ -33,7 +33,8 @@ _SHAPE = (
     'and a short "explanation" naming the form that decides it:\n'
     '{"title": "Short topic title", "exercises": [\n'
     '  {"kind": "transform", "before": "Sentence in the original form", '
-    '"after": "The same sentence transformed", "explanation": "...", "page": 12},\n'
+    '"after": "The same sentence transformed", "also_ok": ["Another wording that is '
+    'just as correct"], "explanation": "...", "page": 12},\n'
     '  {"kind": "cloze", "sentence": "Sentence with the target form replaced by ___", '
     '"answer": "What belongs in the gap", "options": ["...", "...", "...", "..."], '
     '"correct_idx": 0, "explanation": "...", "page": 12},\n'
@@ -332,8 +333,27 @@ def _build_prompt(grammar_type: dict, target_form: str, example: dict,
         "learner, never a bare phrase.\n"
         "- Every 'before' MUST be a valid input for the transformation rule above. "
         "If the rule needs a modal verb, every sentence contains one.\n"
-        "- 'after' is the single expected solution, correct and complete, and it must "
+        "- 'after' is the expected solution, correct and complete, and it must "
         "differ from 'before'.\n"
+        # Die Antwort wird beim Pruefen nur noch verglichen, kein Modell urteilt mehr
+        # ueber sie. Deshalb muss JEDE gueltige Fassung schon hier dastehen, sonst
+        # bekommt ein Lernender fuer eine richtige Antwort ein Rot.
+        #
+        # Als REGEL formuliert liefert das Modell durchgehend eine leere Liste, gemessen
+        # am 2026-08-09 ueber ein ganzes Set. Erst das ausgearbeitete Beispiel fuellt sie.
+        # Dieselbe Lehre wie beim Aufgabenformat weiter oben.
+        "- 'also_ok' lists OTHER wordings of the same transformation that are just as "
+        "correct, up to two. Work them out for every sentence before you move on:\n"
+        '    before "Ich habe keine Zeit.", after "Ich hätte Zeit.", '
+        'also_ok ["Ich würde Zeit haben."]\n'
+        '    before "Der Server speichert die Messwerte.", '
+        'after "Die Messwerte werden vom Server gespeichert.", '
+        'also_ok ["Die Messwerte werden gespeichert."]\n'
+        "  Typical cases are a different word order, an equally correct alternative "
+        "form, and an optional part left out. The learner's answer is marked by "
+        "comparing it against 'after' and this list and nothing else, so a valid "
+        "wording missing here is marked as a mistake. An empty list is the rare "
+        "exception, only when no other correct wording exists at all.\n"
         # Deliberately NO length or complexity rule here. How hard a sentence is comes
         # from exactly one place, the learner's CEFR level (build_adaptive_tool_suffix).
         # A cap here would contradict that block at B2 and above, where it says not to
@@ -555,9 +575,21 @@ def _build_one(ex: dict, kind: str, yes: str, no: str, example: dict):
             return None
         # Nur die Umformung braucht ein Muster, sonst weiss der Lernende nicht wohin.
         # Bei den anderen Formaten wäre es Ballast.
-        return {"front": before, "back": after,
-                "extras": {"pattern_front": example["before"],
-                           "pattern_back": example["after"]}}, after
+        extras = {"pattern_front": example["before"],
+                  "pattern_back": example["after"]}
+        # Weitere gueltige Fassungen. Sie tragen die Pruefung: die laeuft ohne Modell
+        # und kennt nur, was hier steht. Durchgelassen wird nur, was auch als Loesung
+        # taugt, also eine echte Umformung und nicht schon die Musterloesung.
+        accepts, seen = [], {normalize(after)}
+        for alt in (ex.get("also_ok") or [])[:3]:
+            alt = str(alt).strip()
+            if not is_usable_pair(before, alt) or normalize(alt) in seen:
+                continue
+            seen.add(normalize(alt))
+            accepts.append(alt)
+        if accepts:
+            extras["accepts"] = accepts
+        return {"front": before, "back": after, "extras": extras}, after
 
     if kind == "cloze":
         sentence = (ex.get("sentence") or "").strip()

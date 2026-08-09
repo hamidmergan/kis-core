@@ -24,9 +24,9 @@ const VERDICT_STYLE: Record<GrammarCheckResult["verdict"], { fg: string; bg: str
  * ``options`` mitbringt:
  *
  * * mit Optionen wird angekreuzt, und das entscheidet der Browser selbst,
- * * ohne Optionen wird getippt (Umformung oder Lückentext), und das kann nur das
- *   Backend beurteilen. Nur eine abweichende Antwort kostet dort einen Modellaufruf,
- *   deshalb bleibt der Knopf auch bei einer richtigen Antwort flott.
+ * * ohne Optionen wird getippt (Umformung oder Lückentext), und das vergleicht das
+ *   Backend mit der Musterlösung und ihren gültigen Zweitfassungen. Kein Modell mehr:
+ *   die Erklärung steht seit dem Erzeugen an der Aufgabe.
  *
  * Das Musterpaar steht an der Aufgabe, die eines braucht, nicht mehr über dem Set:
  * ein gemischtes Set hat kein gemeinsames Muster, und eine Richtig/Falsch-Aufgabe
@@ -120,7 +120,7 @@ export function GrammarExerciseView({
       ...r,
       [card.id]: {
         verdict: isCorrect ? "correct" : "wrong",
-        feedback: null, solution: card.back, explanation: card.explanation,
+        solution: card.back, explanation: card.explanation,
       },
     }));
   }
@@ -326,8 +326,7 @@ export function GrammarExerciseView({
                   {result.verdict !== "correct" && (
                     <p className="mt-1.5 font-semibold">{t("grammar.solution", { solution: result.solution })}</p>
                   )}
-                  {result.feedback && <p className="mt-1 opacity-90">{result.feedback}</p>}
-                  {!result.feedback && result.explanation && <p className="mt-1 opacity-90">{result.explanation}</p>}
+                  {result.explanation && <p className="mt-1 opacity-90">{result.explanation}</p>}
                 </div>
               )}
 

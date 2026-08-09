@@ -17,7 +17,7 @@ import types
 
 import pytest
 
-from src.services.aia_grammar_topic import derive_topic
+from src.services.aia_grammar_topic import derive_topic, usable_label
 
 
 def _client(content):
@@ -114,13 +114,77 @@ def test_a_fenced_answer_is_still_parsed():
     assert derive_topic(client, "m", "Konjunktiv II", "de") is not None
 
 
-def test_more_than_three_examples_are_cut_back():
-    # Die Ansicht zeigt drei, mehr zu speichern hiesse sie stillschweigend zu verlieren.
+def test_only_the_first_example_is_kept():
+    # Der Generator liest nur das erste Paar, weitere zu speichern hiesse sie in der
+    # Tabelle abzulegen und nie wieder anzusehen.
     pairs = [{"before": f"Satz {i} hier.", "after": f"Umgeformt {i} hier."}
              for i in range(5)]
     client, _ = _client(json.dumps({"is_grammar": True, "rule": "r", "examples": pairs}))
     out = derive_topic(client, "m", "X", "de")
-    assert len(out["examples"]) == 3
+    assert out["examples"] == [{"before": "Satz 0 hier.", "after": "Umgeformt 0 hier."}]
+
+
+# ─── Der Namensvorschlag ─────────────────────────────────────────────────────
+
+def test_a_clean_name_comes_through():
+    assert usable_label("Passiv Präsens") == "Passiv Präsens"
+
+
+def test_surrounding_space_is_trimmed():
+    assert usable_label("  Perfekt  ") == "Perfekt"
+
+
+@pytest.mark.parametrize("value", [None, "", "   ", 42, ["Passiv"], {"a": 1}])
+def test_nothing_usable_is_no_suggestion(value):
+    """Leer ist kein Fehler. Der Vorschlag ist Komfort und keine Prüfstelle."""
+    assert usable_label(value) == ""
+
+
+def test_a_whole_paragraph_is_no_suggestion():
+    # Ein Modell, das statt eines Namens einen Absatz liefert, hat die Frage nicht
+    # verstanden. Ein Absatz auf einer Kachel wäre schlimmer als kein Vorschlag.
+    assert usable_label("x" * 61) == ""
+    assert usable_label("x" * 60) == "x" * 60
+
+
+def test_more_than_one_line_is_no_suggestion():
+    assert usable_label("Passiv Präsens\nund noch etwas") == ""
+    assert usable_label("Passiv Präsens\rund noch etwas") == ""
+
+
+def test_the_suggested_name_comes_back():
+    client, _ = _client(json.dumps({
+        "is_grammar": True, "rule": "r", "label": "Passiv Präsens",
+        "examples": [{"before": "Das Team schreibt den Bericht.",
+                      "after": "Der Bericht wird vom Team geschrieben."}],
+    }))
+    assert derive_topic(client, "m", "passi", "de")["label"] == "Passiv Präsens"
+
+
+def test_a_topic_without_a_suggested_name_is_still_created():
+    """Ein Modell, das die neue Zeile im Prompt überliest, darf kein Thema kosten.
+    Der Vorschlag ist Komfort und keine Prüfstelle."""
+    client, _ = _client(_GOOD)
+    out = derive_topic(client, "m", "Konjunktiv II", "de")
+    assert out is not None
+    assert out["label"] == ""
+
+
+def test_an_unusable_suggested_name_does_not_cost_the_topic():
+    client, _ = _client(json.dumps({
+        "is_grammar": True, "rule": "r", "label": "x" * 200,
+        "examples": [{"before": "Er kommt morgen.", "after": "Er käme morgen."}],
+    }))
+    out = derive_topic(client, "m", "Konjunktiv II", "de")
+    assert out is not None
+    assert out["label"] == ""
+
+
+def test_the_prompt_asks_for_the_suggested_name():
+    client, calls = _client(_GOOD)
+    derive_topic(client, "m", "Konjunktiv II", "de")
+    sent = " ".join(m["content"] for m in calls[0])
+    assert "label" in sent
 
 
 def test_a_broken_pair_is_dropped_but_the_good_ones_stay():

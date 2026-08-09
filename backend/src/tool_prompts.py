@@ -676,8 +676,8 @@ AIA_LERNKARTEN_PROMPT = (
     '      "word_parts_explained": "Teil1 = einfache Erklärung | Teil2 = einfache Erklärung",\n'
     '      "example_sentence": "Ein einfacher Beispielsatz mit dem Begriff, wie man ihn im Studienalltag benutzt.",\n'
     '      "word_class": "part of speech, in {language}",\n'
-    '      "singular": "singular form of the term with its article, or empty",\n'
-    '      "plural": "plural form of the term with its article, or empty",\n'
+    '      "singular": "singular form of the term with its article (fill for every noun)",\n'
+    '      "plural": "plural form of the term with its article (fill unless the noun has no plural at all)",\n'
     '      "begriff_en": "English translation",\n'
     '      "source_label": "Filename.pdf",\n'
     '      "page_number": 5\n'
@@ -719,11 +719,14 @@ AIA_LERNKARTEN_PROMPT = (
     "Example for 'Studienabbruchquote': 'Die Studienabbruchquote ist hoch, viele Studenten hören auf, bevor sie fertig sind.' "
     "The sentence should help the student understand the term in context.\n"
     "- word_class: the part of speech of the begriff, written in {language} (e.g. Nomen / Verb / Adjektiv, or noun / verb / adjective). Always fill this.\n"
-    "- singular and plural: ONLY for a term that is a single inflectable word (typically a noun). "
+    "- singular and plural: for a term that is a single inflectable word (typically a noun), fill BOTH fields. "
     "Give the term's singular form and its plural form in the source language, each WITH its definite article if that language uses one "
     "(German: singular='der Fluchtweg', plural='die Fluchtwege'). "
-    "Leave BOTH empty for multi-word terms, loanwords without a normal plural, verbs, adjectives, or languages that do not mark number this way. "
-    "Never invent a plural that does not really exist.\n"
+    "A plural that exists but is rarely used is still a plural and MUST be given: "
+    "'die Themenfindung' -> 'die Themenfindungen', 'die Zielsetzung' -> 'die Zielsetzungen'. "
+    "Leave the plural empty ONLY when the noun has no plural at all (German 'das Wasser', 'der Hunger'), and still fill the singular in that case. "
+    "Leave BOTH empty for multi-word terms, verbs, adjectives, and languages that do not mark number this way. "
+    "Never fill the plural without the singular, and never invent a form that does not really exist.\n"
     "- begriff_en: English translation of the term\n"
     "- source_label and page_number: the primary source from the [SourceName, S. X] tags\n"
     "- Only use terms from the given text\n"

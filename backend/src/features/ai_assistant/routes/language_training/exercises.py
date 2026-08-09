@@ -183,14 +183,12 @@ async def check_grammar_answer(
 ):
     """Mark one free-text grammar answer against its expected solution.
 
-    An exact match is answered without touching the model at all; only a deviating
-    answer costs a call. That matters because the provider rate limit is shared
-    across the whole university.
+    Pure comparison, no model call: the solution, its other valid wordings and the
+    explanation all exist since the set was generated. A call per typed answer was
+    the most expensive way to feedback that was already there, and the provider
+    rate limit is shared across the whole university.
     """
     from src.services import aia_grammar_check as gc
-    # Imported here, not at module level: the tasks package pulls in the whole
-    # generation chain and closes an import cycle back through the attribution.
-    from src.features.ai_assistant.tasks._helpers import tool_output_language
 
     user_id = current_user["user_id"]
     workspace = db.get_aia_workspace(workspace_uuid)
@@ -213,34 +211,11 @@ async def check_grammar_answer(
     if not answer:
         raise HTTPException(status_code=400, detail=t("grammar.answerEmpty", locale))
 
-    # Die Regel steuert die Rueckmeldung. Sie haengt am Thema und an der Sprache,
-    # deshalb wird sie hier ueber beides geholt und nicht ueber einen Code-Eintrag.
-    topic = db.get_grammar_topic(ex_set.get("grammar_topic_id"))
-    spec = db.get_topic_spec(topic["id"], locale) if topic else None
-    rule = (spec or {}).get("rule") or ""
-
-    # Only pay the burst budget when the answer actually needs the model.
-    if not gc.is_exact_match(answer, item["back"]):
-        enforce_aia_burst(user_id, locale)
-
-    client, model = gc.get_check_client()
-    if client is None:
-        result = {
-            "verdict": gc.heuristic_verdict(answer, item["back"]),
-            "feedback": None,
-            "used_llm": False,
-        }
-    else:
-        result = gc.check_answer(
-            client, model,
-            given=answer, expected=item["back"],
-            prompt_sentence=item["front"], rule=rule,
-            language=tool_output_language(workspace["id"])[1],
-        )
+    # Die anderen gueltigen Fassungen derselben Umformung, beim Erzeugen mitgeliefert.
+    accepts = (item.get("extras") or {}).get("accepts") or []
 
     return {
-        "verdict": result["verdict"],
-        "feedback": result["feedback"],
+        "verdict": gc.mark_answer(answer, item["back"], accepts),
         "solution": item["back"],
         "explanation": item.get("explanation"),
     }

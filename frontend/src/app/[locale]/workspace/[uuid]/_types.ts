@@ -183,7 +183,6 @@ export interface GrammarTopic {
 /** Result of marking one free-text grammar answer. */
 export interface GrammarCheckResult {
   verdict: "correct" | "close" | "wrong";
-  feedback?: string | null;
   solution: string;
   explanation?: string | null;
 }

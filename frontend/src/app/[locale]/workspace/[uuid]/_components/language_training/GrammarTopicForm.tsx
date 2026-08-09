@@ -21,7 +21,12 @@ import { useState } from "react";
 import { useTranslations } from "next-intl";
 import { ArrowClockwise, Sparkle } from "@phosphor-icons/react";
 
-import { exampleSlots, usablePairs, type ExamplePair } from "./_grammarTopics";
+import {
+  editedPair,
+  shownSuggestion,
+  usablePairs,
+  type ExamplePair,
+} from "./_grammarTopics";
 
 export function GrammarTopicForm({
   workspaceUuid,
@@ -35,6 +40,7 @@ export function GrammarTopicForm({
   const t = useTranslations("workspace.detail.languageTraining");
   const [name, setName] = useState("");
   const [rule, setRule] = useState("");
+  const [suggested, setSuggested] = useState("");
   const [pairs, setPairs] = useState<ExamplePair[]>([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -60,6 +66,7 @@ export function GrammarTopicForm({
         return;
       }
       setRule(data.rule);
+      setSuggested(data.suggested_name || "");
       setPairs(data.examples || []);
     } catch {
       setError(t("grammarTopics.failed"));
@@ -99,11 +106,13 @@ export function GrammarTopicForm({
     }
   }
 
-  function setPair(index: number, part: "before" | "after", value: string) {
-    const rows = exampleSlots(pairs);
-    rows[index] = { ...rows[index], [part]: value };
-    setPairs(rows);
+  function setPair(part: "before" | "after", value: string) {
+    setPairs([{ ...editedPair(pairs), [part]: value }]);
   }
+
+  // Nur nach dem Pruefen, und nur wenn der Vorschlag etwas anderes sagt als das
+  // Getippte. Sonst stuende hier bei jedem Thema eine Zeile, die nichts sagt.
+  const vorschlag = previewed ? shownSuggestion(name, suggested) : "";
 
   const field =
     "w-full px-2.5 py-1.5 rounded-lg text-xs bg-transparent text-foreground";
@@ -126,29 +135,47 @@ export function GrammarTopicForm({
         style={fieldStyle}
       />
 
+      {vorschlag && (
+        <div className="flex items-center gap-2">
+          <p className="text-3xs flex-1" style={{ color: "var(--muted)" }}>
+            {t("grammarTopics.understoodAs", { name: vorschlag })}
+          </p>
+          <button
+            type="button"
+            onClick={() => setName(vorschlag)}
+            className="btn-cancel px-2.5 py-1 rounded-full text-3xs font-semibold whitespace-nowrap"
+            style={{
+              color: "var(--kb)",
+              backgroundColor: "var(--surface)",
+              border: "2px solid var(--border)",
+            }}
+          >
+            {t("grammarTopics.useSuggestion")}
+          </button>
+        </div>
+      )}
+
       {previewed && (
         <>
           <p className="text-3xs mt-1" style={{ color: "var(--muted)" }}>
             {t("grammarTopics.checkHint")}
           </p>
-          {exampleSlots(pairs).map((pair, i) => (
-            <div key={i} className="flex flex-col gap-1">
-              <input
-                value={pair.before}
-                onChange={(e) => setPair(i, "before", e.target.value)}
-                placeholder={t("grammarTopics.beforePlaceholder")}
-                className={field}
-                style={fieldStyle}
-              />
-              <input
-                value={pair.after}
-                onChange={(e) => setPair(i, "after", e.target.value)}
-                placeholder={t("grammarTopics.afterPlaceholder")}
-                className={field}
-                style={fieldStyle}
-              />
-            </div>
-          ))}
+          <div className="flex flex-col gap-1">
+            <input
+              value={editedPair(pairs).before}
+              onChange={(e) => setPair("before", e.target.value)}
+              placeholder={t("grammarTopics.beforePlaceholder")}
+              className={field}
+              style={fieldStyle}
+            />
+            <input
+              value={editedPair(pairs).after}
+              onChange={(e) => setPair("after", e.target.value)}
+              placeholder={t("grammarTopics.afterPlaceholder")}
+              className={field}
+              style={fieldStyle}
+            />
+          </div>
         </>
       )}
 

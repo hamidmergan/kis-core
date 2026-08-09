@@ -1659,7 +1659,8 @@
           "wrongShort": "Falsch",
           "downloadAsText": "Als Textdatei herunterladen",
           "hint": "Tipp",
-          "learnMore": "Mehr erfahren"
+          "learnMore": "Mehr erfahren",
+          "sourcesToggle": "{count, plural, =1 {1 Quelle} other {# Quellen}}"
         },
         "sourceStatus": {
           "none": "Keine Quelle ausgewählt",
@@ -1714,8 +1715,9 @@
           "definition": "Definition",
           "wordParts": "Wortzerlegung",
           "wordClass": "Wortart:",
-          "singular": "Einzahl:",
-          "plural": "Mehrzahl:",
+          "singular": "Singular:",
+          "plural": "Plural:",
+          "form": "Form:",
           "example": "Beispiel",
           "translationPrefix": "EN:",
           "nextTerm": "Nächster Begriff"
@@ -1810,11 +1812,15 @@
           "check": "Prüfen",
           "accept": "Übernehmen",
           "again": "Nochmal erzeugen",
-          "checkHint": "Stimmt das Muster? Du kannst es überschreiben und weitere ergänzen.",
+          "understoodAs": "Verstanden als: {name}",
+          "useSuggestion": "Namen übernehmen",
+          "checkHint": "Stimmt das Muster? Du kannst es überschreiben.",
           "beforePlaceholder": "Satz vorher",
           "afterPlaceholder": "Satz nachher",
-          "needExample": "Bitte lass mindestens ein Musterpaar stehen",
-          "failed": "Das hat nicht geklappt, bitte nochmal versuchen"
+          "needExample": "Bitte lass das Musterpaar stehen, beide Sätze und nicht zweimal denselben",
+          "failed": "Das hat nicht geklappt, bitte nochmal versuchen",
+          "deleteTopic": "Thema entfernen",
+          "deleteAsk": "„{name}“ für alle im Kurs entfernen?"
         }
       },
       "topbar": {
@@ -2036,7 +2042,7 @@
           "mindmap": "Die Themen der ausgewählten Quellen als Baum darstellen",
           "lernkarten": "Fachwörter aus den ausgewählten Quellen mit Grundform und Beispiel erklären",
           "grammar": "Sätze aus den ausgewählten Quellen nach einem Muster umformen",
-          "listening": "Fragen zu einem Text oder einer Aufnahme aus den ausgewählten Quellen erstellen"
+          "listening": "Aussagen zu einem Text oder einer Aufnahme aus den ausgewählten Quellen, richtig oder falsch"
         },
         "recent": {
           "heading": "Letzte Aktivitäten",
