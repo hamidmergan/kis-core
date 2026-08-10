@@ -5,8 +5,8 @@ aber kein Thema, sondern eine Darreichungsform, und ein Lernender profitiert meh
 davon, dieselbe Form auf vier Arten zu üben als zehnmal auf eine.
 
 Der Plan ist eine ZAHL im Prompt, keine Absichtserklärung. Erfahrung aus dem
-Grammatik-Quiz und dem Hörverstehen: "stelle abwechslungsreiche Aufgaben" wirkt
-nicht, "genau 4 Aufgaben der Art X" wirkt.
+Grammatik-Quiz: "stelle abwechslungsreiche Aufgaben" wirkt nicht, "genau 4
+Aufgaben der Art X" wirkt.
 
 Kein DB- und kein Netzzugriff.
 """
@@ -341,6 +341,50 @@ def test_the_last_draw_fills_up_with_whatever_it_gets(attributed):
     items, _, _ = generate_grammar_from_source(
         client, "m", _ctx(), _TOPIC, 8, locale="de")
     assert len(items) == 8
+
+
+_BAD_CHOICE = {
+    "kind": "choice", "task": "Bilden Sie das Passiv.",
+    "sentence": "Der Server speichert die Messwerte.",
+    # Der Aufgabensatz steht als FALSCHE Option da, das verwirft der Filter jedes Mal.
+    "options": ["Die Messwerte werden vom Server gespeichert.",
+                "Der Server speichert die Messwerte.",
+                "Die Messwerte sind vom Server gespeichert.",
+                "Die Messwerte wurden vom Server gespeichert."],
+    "correct_idx": 0,
+}
+
+
+def test_the_last_draw_stops_asking_for_the_format_that_keeps_failing(attributed):
+    """Gemessen an Set 5599: dreimal dieselbe Art nachbestellt, dreimal am Filter
+    verworfen, vier von fuenf Aufgaben im Set.
+
+    Der Nachschlag fragt gezielt nach der fehlenden Art, und das ist richtig, solange
+    sie nur noch nicht dran war. Scheitert die Art selbst am Filter, ist genau diese
+    Frage die Sackgasse: es kommt dasselbe zurueck und wird wieder verworfen. Im letzten
+    Wurf zaehlt die Anzahl mehr als die Mischung, also wird nach einer Art gefragt, die
+    schon eine brauchbare Aufgabe geliefert hat."""
+    dauerhaft_schlecht = json.dumps({"title": "T", "exercises": _GOOD_FOUR[:3] + [_BAD_CHOICE]})
+    client, calls = _client_queue(dauerhaft_schlecht)
+    generate_grammar_from_source(client, "m", _ctx(), _TOPIC, 4, locale="de")
+
+    assert len(calls) == 3
+    dritter = calls[2][0]["content"]
+    assert 'of kind "choice"' not in dritter, "diese Art scheitert, sie noch einmal zu bestellen bringt nichts"
+    assert 'of kind "transform"' in dritter, "die Umformung hat geliefert, sie fuellt auf"
+
+
+def test_the_count_stands_even_when_one_format_never_works(attributed):
+    dauerhaft_schlecht = json.dumps({"title": "T", "exercises": _GOOD_FOUR[:3] + [_BAD_CHOICE]})
+    ersatz = json.dumps({"title": "T", "exercises": [
+        {"kind": "transform", "before": "Das Labor erhebt die Daten.",
+         "after": "Die Daten werden vom Labor erhoben."},
+    ]})
+    client, _ = _client_queue(dauerhaft_schlecht, dauerhaft_schlecht, ersatz)
+    items, _, _ = generate_grammar_from_source(
+        client, "m", _ctx(), _TOPIC, 4, locale="de")
+
+    assert len(items) == 4
 
 
 def test_a_full_draw_costs_no_second_call(attributed):

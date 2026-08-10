@@ -14,8 +14,8 @@ from src.features.ai_assistant.tasks.language_training import _pool
 
 # --- wer ueberhaupt mitmacht --------------------------------------------------
 
-@pytest.mark.parametrize("tool", ["flashcards", "karteikarten", "quiz", "hoerverstehen"])
-def test_the_four_source_tools_use_the_pool(tool):
+@pytest.mark.parametrize("tool", ["flashcards", "karteikarten", "quiz"])
+def test_the_three_source_tools_use_the_pool(tool):
     assert _pool.uses_pool(tool, "source") is True
 
 

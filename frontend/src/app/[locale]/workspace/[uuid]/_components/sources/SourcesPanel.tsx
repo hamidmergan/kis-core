@@ -8,8 +8,10 @@ import {
   Trash,
   Check,
   DotsThreeVertical,
+  PencilSimple,
 } from "@phosphor-icons/react";
 import type { Source, StaffNoteLink } from "../../_types";
+import { splitFilename } from "../../_utils";
 import { FileIcon, SourceStatus } from "./FileIcon";
 import { UploadErrorsBlock } from "./UploadErrorsBlock";
 import { StaffNoteBox } from "./StaffNoteBox";
@@ -22,6 +24,7 @@ export function SourcesPanel({
   onToggleSource,
   onOpenViewer,
   onDeleteSource,
+  onRenameSource,
   onRetrySource,
   onUpload,
   uploadProgress,
@@ -40,6 +43,7 @@ export function SourcesPanel({
   onToggleSource: (uuid: string) => void;
   onOpenViewer: (source: Source) => void;
   onDeleteSource: (uuid: string) => void;
+  onRenameSource?: (uuid: string, name: string) => Promise<void>;
   onRetrySource: (uuid: string) => void;
   onUpload: (files: File[]) => void;
   uploadProgress: { current: number; total: number; percent: number } | null;
@@ -59,6 +63,11 @@ export function SourcesPanel({
   const panelRef = useRef<HTMLDivElement>(null);
   const [deleteSourceId, setDeleteSourceId] = useState<string | null>(null);
   const [menuOpenId, setMenuOpenId] = useState<string | null>(null);
+  const [renameId, setRenameId] = useState<string | null>(null);
+  const [renameValue, setRenameValue] = useState("");
+  const [renameError, setRenameError] = useState<string | null>(null);
+  const [renameBusy, setRenameBusy] = useState(false);
+  const renameInputRef = useRef<HTMLInputElement>(null);
   const [compact, setCompact] = useState(false);
   const [staffNoteModalOpen, setStaffNoteModalOpen] = useState(false);
   const noteLinks = staffNoteLinks ?? [];
@@ -72,6 +81,12 @@ export function SourcesPanel({
     ro.observe(el);
     return () => ro.disconnect();
   }, []);
+
+  // Beim Oeffnen steht der Namensteil markiert im Feld, damit Ueberschreiben
+  // ohne vorheriges Markieren geht.
+  useEffect(() => {
+    if (renameId) renameInputRef.current?.select();
+  }, [renameId]);
 
   // A source is chat-ready once indexing is done (status "ready" with the
   // progress field cleared). Selecting an in-progress source would feed the
@@ -88,6 +103,35 @@ export function SourcesPanel({
       // select all ready
       sources.filter((s) => isFullyReady(s) && !selectedSourceIds.includes(s.uuid))
         .forEach((s) => onToggleSource(s.uuid));
+    }
+  }
+
+  function startRename(src: Source) {
+    setMenuOpenId(null);
+    setRenameError(null);
+    setRenameId(src.uuid);
+    setRenameValue(splitFilename(src.filename)[0]);
+  }
+
+  async function commitRename(src: Source) {
+    if (renameBusy || !onRenameSource) return;
+    const next = renameValue.trim();
+    // Unveraendert oder leer: einfach schliessen, kein Aufruf, keine Meldung.
+    if (!next || next === splitFilename(src.filename)[0]) {
+      setRenameId(null);
+      setRenameError(null);
+      return;
+    }
+    setRenameBusy(true);
+    try {
+      await onRenameSource(src.uuid, next);
+      setRenameId(null);
+      setRenameError(null);
+    } catch (e) {
+      // Das Feld bleibt offen, damit der abgelehnte Name gleich zu bessern ist.
+      setRenameError(e instanceof Error && e.message ? e.message : t("renameFailed"));
+    } finally {
+      setRenameBusy(false);
     }
   }
 
@@ -247,29 +291,62 @@ export function SourcesPanel({
                   </button>
                 </div>
 
-                <div
-                  onClick={() => { if (ready) onOpenViewer(src); }}
-                  onKeyDown={(e) => {
-                    if (ready && (e.key === "Enter" || e.key === " ")) {
-                      e.preventDefault();
-                      onOpenViewer(src);
-                    }
-                  }}
-                  role={ready ? "button" : undefined}
-                  tabIndex={ready ? 0 : undefined}
-                  title={ready ? t("openInViewer") : undefined}
-                  className={`flex-1 flex items-center gap-3 pl-3 pr-4 py-2.5 min-w-0 ${ready ? "cursor-pointer" : "cursor-default"}`}
-                >
-                  <FileIcon filename={src.filename} />
-                  <span
-                    className="flex-1 text-sm leading-snug truncate min-w-0 font-medium"
-                    style={{ color: "var(--foreground)" }}
-                    title={src.filename}
+                {renameId === src.uuid ? (
+                  <div className="flex-1 flex items-center gap-2 pl-3 pr-4 py-2.5 min-w-0">
+                    <FileIcon filename={src.filename} />
+                    <input
+                      ref={renameInputRef}
+                      value={renameValue}
+                      disabled={renameBusy}
+                      autoFocus
+                      placeholder={t("renamePlaceholder")}
+                      onChange={(e) => setRenameValue(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") { e.preventDefault(); commitRename(src); }
+                        if (e.key === "Escape") { e.preventDefault(); setRenameId(null); setRenameError(null); }
+                      }}
+                      onBlur={() => commitRename(src)}
+                      className="flex-1 min-w-0 text-sm px-2 py-1 rounded-md border-2 bg-background"
+                      style={{ borderColor: "var(--kb)", color: "var(--foreground)" }}
+                    />
+                    <span className="flex-shrink-0 text-sm" style={{ color: "var(--foreground-soft)" }}>
+                      {splitFilename(src.filename)[1]}
+                    </span>
+                  </div>
+                ) : (
+                  <div
+                    onClick={() => { if (ready) onOpenViewer(src); }}
+                    onKeyDown={(e) => {
+                      if (ready && (e.key === "Enter" || e.key === " ")) {
+                        e.preventDefault();
+                        onOpenViewer(src);
+                      }
+                    }}
+                    role={ready ? "button" : undefined}
+                    tabIndex={ready ? 0 : undefined}
+                    title={ready ? t("openInViewer") : undefined}
+                    className={`flex-1 flex items-center gap-3 pl-3 pr-4 py-2.5 min-w-0 ${ready ? "cursor-pointer" : "cursor-default"}`}
                   >
-                    {src.filename}
-                  </span>
-                  <SourceStatus status={src.status} progress={src.progress} />
-                </div>
+                    <FileIcon filename={src.filename} />
+                    <span
+                      className="flex-1 text-sm leading-snug truncate min-w-0 font-medium"
+                      style={{ color: "var(--foreground)" }}
+                      title={src.filename}
+                    >
+                      {src.filename}
+                    </span>
+                    <SourceStatus status={src.status} progress={src.progress} />
+                  </div>
+                )}
+
+                {renameId === src.uuid && renameError && (
+                  <div
+                    className="absolute left-4 right-4 top-full z-10 mt-1 rounded-lg px-3 py-2 text-xs leading-snug shadow-lg"
+                    style={{ backgroundColor: "#FEF2F2", border: "1px solid var(--error-border)", color: "var(--error-strong)" }}
+                  >
+                    {renameError}
+                  </div>
+                )}
 
                 {src.status === "failed" && src.error_message && (
                   <div
@@ -319,6 +396,17 @@ export function SourcesPanel({
                                   boxShadow: "rgba(0, 0, 0, 0.12) 0px 4px 16px",
                                 }}
                               >
+                                {onRenameSource && (
+                                  <button
+                                    type="button"
+                                    onClick={() => startRename(src)}
+                                    className="w-full flex items-center gap-2 px-4 py-2.5 text-base text-left hover:bg-[var(--surface-dim)] transition-colors"
+                                    style={{ color: "var(--foreground)" }}
+                                  >
+                                    <PencilSimple size={16} weight="bold" />
+                                    {t("rename")}
+                                  </button>
+                                )}
                                 <button
                                   type="button"
                                   onClick={() => { setMenuOpenId(null); setDeleteSourceId(src.uuid); }}

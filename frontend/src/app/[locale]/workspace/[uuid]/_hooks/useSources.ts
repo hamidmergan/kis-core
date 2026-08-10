@@ -63,6 +63,20 @@ export function useSources({ uuid, onModuleUpdate }: UseSourcesOptions) {
     } catch { /* ignore */ }
   }, [uuid]);
 
+  const renameSource = useCallback(async (srcUuid: string, name: string) => {
+    // Anders als loeschen und erneut versuchen schluckt das hier keinen Fehler:
+    // der Nutzer tippt gerade, ein abgelehnter Name muss ihm auffallen.
+    const res = await fetch(`/api/ai-assistant/workspaces/${uuid}/sources/${srcUuid}`, {
+      method: "PATCH",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name }),
+    });
+    const data = await res.json().catch(() => null);
+    if (!res.ok) throw new Error(typeof data?.detail === "string" ? data.detail : "");
+    setSources((prev) => prev.map((s) => (s.uuid === srcUuid ? { ...s, filename: data.filename } : s)));
+  }, [uuid]);
+
   const retrySource = useCallback(async (srcUuid: string) => {
     try {
       const res = await fetch(`/api/ai-assistant/workspaces/${uuid}/sources/${srcUuid}/retry`, { method: "POST", credentials: "include" });
@@ -155,6 +169,6 @@ export function useSources({ uuid, onModuleUpdate }: UseSourcesOptions) {
     selectedSourceIds, setSelectedSourceIds,
     uploadProgress,
     uploadErrors, setUploadErrors,
-    toggleSource, deleteSource, retrySource, uploadFiles,
+    toggleSource, deleteSource, renameSource, retrySource, uploadFiles,
   };
 }

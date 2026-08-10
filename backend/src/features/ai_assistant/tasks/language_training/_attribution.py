@@ -169,10 +169,10 @@ def _cited_page(value) -> int | None:
 def _named_source_id(item: dict, ctx: QuelleContext) -> int | None:
     """Source id the model named for this item, or None if it named nothing known.
 
-    Two ways to name one, because the tools ask differently: the listening tool asks for
-    the filename outright (``_source_label``), the others only for the numbered section
-    the coverage rule hands out (``_section``). A filename that is not in this context is
-    invented and counts as nothing.
+    Two ways to name one, because the tools ask differently: the quiz asks for the
+    filename outright on its true/false items (``_source_label``), the other kinds only
+    for the numbered section the coverage rule hands out (``_section``). A filename that
+    is not in this context is invented and counts as nothing.
     """
     label = (item.get("_source_label") or "").strip()
     if label and label in ctx.source_by_name:

@@ -16,6 +16,7 @@ from ._shared import (
     delete_aia_source_files,
     _convert_office_to_pdf_path, _mp4_faststart_path, _count_pages_path,
     _require_workspace_manage, _load_workspace_source, _save_source_file_path,
+    _workspace_label,
     _ALLOWED_EXTENSIONS, _MAX_UPLOAD_BYTES,
 )
 
@@ -113,12 +114,6 @@ async def upload_source(
     # Existing filenames, normalized for a case-insensitive duplicate check below.
     existing_names = {(s["filename"] or "").strip().lower() for s in existing_sources}
 
-    def _ws_label() -> str:
-        # Admin-configured workspace label (e.g. "Modul", "Kurs") so error
-        # messages match whatever students see elsewhere in the UI.
-        label_key = "workspace_label_singular_en" if locale == "en" else "workspace_label_singular_de"
-        return db.get_setting(label_key, db.get_setting("workspace_label_singular", "Workspace"))
-
     # Limit is admin-tunable at runtime via the settings tab; fall back to the
     # code constant when the DB setting is missing or unparseable.
     raw_limit = db.get_setting("aia_workspace_max_sources", str(AIA_WORKSPACE_MAX_SOURCES))
@@ -129,7 +124,7 @@ async def upload_source(
     if len(existing_sources) >= max_sources:
         raise HTTPException(
             status_code=409,
-            detail=t("ai.source.maxPerWorkspace", locale, max=max_sources, label=_ws_label()),
+            detail=t("ai.source.maxPerWorkspace", locale, max=max_sources, label=_workspace_label(locale)),
         )
 
     if not file.filename:
@@ -147,7 +142,7 @@ async def upload_source(
     if file.filename.strip().lower() in existing_names:
         raise HTTPException(
             status_code=409,
-            detail=t("ai.source.duplicateName", locale, name=file.filename, label=_ws_label()),
+            detail=t("ai.source.duplicateName", locale, name=file.filename, label=_workspace_label(locale)),
         )
 
     # Globale Bremse, jetzt prozessübergreifend über Redis. Wer keinen Platz
@@ -179,7 +174,7 @@ async def upload_source(
                 if stored_filename.strip().lower() in existing_names:
                     raise HTTPException(
                         status_code=409,
-                        detail=t("ai.source.duplicateName", locale, name=stored_filename, label=_ws_label()),
+                        detail=t("ai.source.duplicateName", locale, name=stored_filename, label=_workspace_label(locale)),
                     )
             elif ext == ".mp4":
                 logger.info("KI Tutor: applying MP4 faststart ({})", file.filename)

@@ -11,8 +11,6 @@ const loader = () => <div className="flex-1 flex items-center justify-center p-6
 
 const GrammarExerciseView = dynamic(() => import("./GrammarExerciseView").then((m) => ({ default: m.GrammarExerciseView })), { loading: loader, ssr: false });
 const FlashcardsLearnView = dynamic(() => import("./FlashcardsLearnView").then((m) => ({ default: m.FlashcardsLearnView })), { loading: loader, ssr: false });
-// The grammar quiz ticks its answer, so it runs in the same view the quiz uses.
-const MCExerciseView = dynamic(() => import("./MCExerciseView").then((m) => ({ default: m.MCExerciseView })), { loading: loader, ssr: false });
 
 import type {
   ExerciseSet,
@@ -48,7 +46,7 @@ interface LanguageTrainingContentProps {
   chatLang: "de" | "en";
 }
 
-const TITLE_PREFIX_RE = /^(Lernkarten|Grammatik-Übung|Quiz|Hörverstehen)\s*(aus|von)\s*/i;
+const TITLE_PREFIX_RE = /^(Lernkarten|Grammatik-Übung|Quiz)\s*(aus|von)\s*/i;
 
 export function LanguageTrainingContent(props: LanguageTrainingContentProps) {
   const {
@@ -71,20 +69,9 @@ export function LanguageTrainingContent(props: LanguageTrainingContentProps) {
     if (src) handlePillClick(src.uuid, page, filename, undefined, startTime, false);
   };
 
-  // Beim Hör- und Leseverstehen wird die Aufnahme OHNE Transkript geöffnet. Sonst
-  // steht der Text eben im linken Fenster und die Hörübung prüft wieder Lesen.
-  const onListeningSourceClick = (filename: string, page: number, startTime?: number) => {
-    const src = sources.find((s) => s.filename === filename);
-    if (src) handlePillClick(src.uuid, page, filename, undefined, startTime, false, true);
-  };
-
   const studioLabel = t("common.studio");
   const lernkartenLabel = t("tools.flashcards");
   const grammarLabel = t("tools.grammar");
-  const listeningLabel = t("tools.listening");
-  // Hör- und Leseverstehen zählt jede ausgewählte Quelle. Die Auswahl entscheidet über
-  // die Fertigkeit: nur Aufnahmen heißt Hören, nur Text heißt Lesen, beides heißt beides.
-  // Früher zählten hier nur Aufnahmen, weil die Route die PDFs weggefiltert hat.
 
   const toOverviewCrumb = { label: studioLabel, onClick: () => setSprachView("overview") };
   const toOverviewWithReset = { label: studioLabel, onClick: () => { setActiveSet(null); setSprachView("overview"); } };
@@ -180,41 +167,6 @@ export function LanguageTrainingContent(props: LanguageTrainingContentProps) {
             onRetryWrong={() => setSprachView("gr-learn")}
             onBack={() => { setSprachView("gr-sets"); setActiveSet(null); loadExerciseSets("grammatik"); }}
             breadcrumbs={[toOverviewWithReset, { label: grammarLabel, toolKey: "Grammar", onClick: () => { setActiveSet(null); setSprachView("gr-sets"); } }]}
-          />
-        ) : null;
-      // ─── Hörverstehen Sets Flow ────────────────────────────
-      // Angekreuzt wird wie beim Quiz, deshalb dieselbe Ansicht. Der Unterschied
-      // steckt in den Aufgaben (Richtig/Falsch kommt dazu) und in den Quellen
-      // (nur Ton und Bild), nicht in der Bedienung.
-      case "hv-sets":
-        return (
-          <ExerciseSetsOverview
-            title={listeningLabel}
-            toolKey="Listening"
-            sets={exerciseSets.filter((s) => s.tool === "hoerverstehen")}
-            onBack={() => setSprachView("overview")}
-            onSelect={(s) => { loadExerciseSet(s.id).then(() => setSprachView("hv-learn")); }}
-            onCreate={() => { setCreateSetTool("hoerverstehen"); setShowCreateModal(true); }}
-            onDelete={(id) => deleteExerciseSet(id, "hoerverstehen")}
-            onRetry={(id) => retryExerciseSet(id, "hoerverstehen")}
-            onDownload={isAdmin ? downloadExerciseSet : undefined}
-            sourceCount={selectedSourceIds.length}
-            stats={pageStats}
-            breadcrumbs={[toOverviewCrumb]}
-            category="language_training"
-          />
-        );
-      case "hv-learn":
-        return activeSet ? (
-          <MCExerciseView
-            exerciseSet={activeSet}
-            onBack={() => { setSprachView("hv-sets"); setActiveSet(null); refreshProgress(); }}
-            onAnswer={(itemId, correct) => submitSingleAnswer(activeSet.id, itemId, correct)}
-            onAskChat={handleAskChat}
-            onSourceClick={onListeningSourceClick}
-            breadcrumbs={[toOverviewWithReset, { label: listeningLabel, toolKey: "Listening", onClick: () => { setActiveSet(null); setSprachView("hv-sets"); } }]}
-            chatLang={chatLang}
-            badgeCategory="language_training"
           />
         ) : null;
       default:

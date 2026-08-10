@@ -707,7 +707,19 @@ AIA_LERNKARTEN_PROMPT = (
     "'Hilfsverb' -> 'Hilfe + Verb' (NOT 'Hilfs + Verb', the linking -s is dropped); "
     "'Brandverhütung' -> 'Brand + Verhütung' (NOT 'Brand + verhütung', a noun part is capitalised). "
     "If a slice is still not a real standalone word after this, do NOT split there - merge it into the neighbouring part instead.\n"
+    "- word_parts CAPITALISATION: capitalise ONLY the parts that are nouns. A part that is an adjective, a verb, "
+    "an adverb, a preposition or a number stays lowercase, because that is how it is written standing alone. "
+    "German examples: 'Primärliteratur' -> 'primär + Literatur' (NOT 'Primär + Literatur', 'primär' is an adjective); "
+    "'Hochschule' -> 'hoch + Schule'; 'Lesekompetenz' -> 'lesen + Kompetenz'; "
+    "'Studienabbruchquote' -> 'Studien + Abbruch + Quote' (all three are nouns, so all three are capitalised).\n"
     "- word_parts_explained: explain each part as simply as possible, the way you would explain it to a friend.\n"
+    "- word_parts_explained ARTICLE: in the label before the '=', a part that is a NOUN carries its definite article, "
+    "in the source language and matching that part's own gender. "
+    "A part that is not a noun gets NO article and stays lowercase. "
+    "German examples: 'der Inhalt = das, was im Text steht | das Verzeichnis = eine Liste'; "
+    "'primär = an erster Stelle | die Literatur = geschriebene Texte'. "
+    "The 'word_parts' line itself stays WITHOUT articles ('Inhalt + Verzeichnis', 'primär + Literatur') "
+    "- the articles appear only in word_parts_explained.\n"
     "- word_parts_explained WORD CLASS: the explanation MUST have the same word class as the part it explains. "
     "Explain a noun with a noun (or a noun phrase), a verb with a verb, an adjective with an adjective. "
     "German example: 'Verhütung = Schutz davor, dass etwas passiert' is correct, 'Verhütung = etwas verhindern' is WRONG (noun explained by a verb).\n"
@@ -736,6 +748,26 @@ AIA_LERNKARTEN_PROMPT = (
     "- Respond ONLY with the JSON object, no other text."
 )
 
+# Der Tipp, den der Lernende an der Aufgabe aufklappt. Er entsteht im SELBEN Aufruf wie
+# die Aufgabe. Vorher schickte der Tipp-Knopf eine Frage in den Chat: das kostete einen
+# Modellaufruf pro Klick, warf den Lernenden aus der Aufgabe und lief bei jedem Anbieter
+# ins Wartezimmer. Geteilt von Quiz und Karteikarten, damit die Regel nicht zweimal
+# gepflegt werden muss.
+#
+# Das Verbot steht als Gegenbeispiel und nicht als Absichtserklaerung. Erfahrung aus dem
+# Grammatik-Quiz: eine Regel, die das Modell an einem falschen Satz SIEHT, befolgt es,
+# eine bloss formulierte oft nicht.
+AIA_HINT_RULE = (
+    "- tip: ONE short sentence that helps a learner who is stuck, WITHOUT giving the answer away. "
+    "Point at where to look or what to think about: the situation, the comparison, or the example in "
+    "the source that carries the idea. Never name the answer, never name one of the options, and never "
+    "restate the answer in other words. Address the learner directly and write it in {language}.\n"
+    "  GOOD: \"Denk an das Beispiel der falsch kalibrierten Waage aus der Quelle.\"\n"
+    "  BAD: \"Die Antwort ist der systematische Fehler.\" (names the answer)\n"
+    "  BAD: \"Lies den Text noch einmal.\" (helps nobody)\n"
+)
+
+
 # One-call question+answer cards: generate the Q AND the A in a single LLM call
 # (no per-card RAG round-trip). Source links are attached post-hoc by pgvector
 # attribution, so the prompt forbids citing — same contract as the chat RAG prompt.
@@ -746,7 +778,8 @@ AIA_KARTEIKARTEN_QA_PROMPT = (
     "Respond ONLY with a JSON object in exactly this format:\n"
     "{\n"
     '  "title": "Short title summarizing the overall topic (in {language})",\n'
-    '  "cards": [{"question": "Question 1?", "answer": "Answer in 2-3 short sentences."}]\n'
+    '  "cards": [{"question": "Question 1?", "answer": "Answer in 2-3 short sentences.", '
+    '"tip": "One sentence that helps without giving the answer away."}]\n'
     "}\n\n"
     "Rules:\n"
     "- Exactly {count} cards\n"
@@ -758,6 +791,7 @@ AIA_KARTEIKARTEN_QA_PROMPT = (
     "- Each answer is 2-3 short sentences of plain flowing text: NO markdown, NO bullet points, NO bold.\n"
     "- Do NOT cite sources, page numbers, or document numbers in the answer - the clickable source links are attached automatically afterwards.\n"
     "- Do NOT use personal names; write 'laut Quelle' (German) or 'according to the source' (English), matching the output language.\n"
+    + AIA_HINT_RULE +
     "- Respond ONLY with the JSON object, no other text."
 )
 

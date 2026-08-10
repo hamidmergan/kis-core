@@ -77,10 +77,6 @@ async def create_exercise_set(
     # A set can be generated from every selected source, not just the first one.
     # source_uuid stays supported for older clients that only send a single UUID.
     source_uuids = body.source_uuids or ([body.source_uuid] if body.source_uuid else [])
-    if body.tool == "hoerverstehen" and body.mode != "source":
-        # Hör- und Leseverstehen fragt zu den gewählten Quellen, im Glossar stehen nur
-        # Einzelbegriffe. Auf Medien gefiltert wird nicht: wer eine PDF anhakt, übt Lesen.
-        raise HTTPException(status_code=400, detail=t("ai.source.notSelected", locale))
     if body.mode == "source":
         if not source_uuids:
             raise HTTPException(status_code=400, detail=t("ai.source.notSelected", locale))

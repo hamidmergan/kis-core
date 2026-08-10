@@ -13,6 +13,7 @@ from src.tool_prompts import AIA_KARTEIKARTEN_QA_PROMPT
 
 from src.features.ai_assistant.tasks.language_training._attribution import attach_chips
 from src.features.ai_assistant.tasks.language_training._context import QuelleContext
+from src.features.ai_assistant.tasks.language_training._hint import attach_hint
 
 
 def generate_cards_from_source(
@@ -64,6 +65,9 @@ def generate_cards_from_source(
     items = [{"front": c["question"].strip(), "back": c["answer"].strip(),
               # See _source_mc: the model's own section number, for the coverage check.
               "_section": c.get("section")} for c in cards]
+    # Der Tipp kommt aus derselben Antwort und nicht aus einem zweiten Aufruf.
+    for item, c in zip(items, cards):
+        attach_hint(item, c)
     claims = [f'{c["question"].strip()} {c["answer"].strip()}'.strip() for c in cards]
     # A card is one atomic Q+A, so multi=False -> exactly the single best-matching source.
     attach_chips(items, claims, ctx, multi=False)

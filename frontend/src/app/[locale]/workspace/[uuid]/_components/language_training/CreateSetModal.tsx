@@ -52,12 +52,10 @@ export function CreateSetModal({
   // The grammar tool rewrites sentences about the source content, so it has no
   // glossary mode at all.
   const isGrammar = tool === "grammatik";
-  // Hör- und Leseverstehen fragt zu den gewählten Quellen, im Glossar stehen nur Begriffe.
-  const isListening = tool === "hoerverstehen";
   const [mode, setMode] = useState<"glossary" | "source">(
-    isQuiz || isGrammar || isListening || glossaryCount === 0 ? "source" : "glossary",
+    isQuiz || isGrammar || glossaryCount === 0 ? "source" : "glossary",
   );
-  const [count, setCount] = useState(isQuiz || isListening ? 5 : 10);
+  const [count, setCount] = useState(isQuiz ? 5 : 10);
   const press = useRef(newBackdropPress()).current;
 
   // Die Themen gehoeren dem Kurs und stehen in der Datenbank, nicht im Code. Ein
@@ -112,14 +110,13 @@ export function CreateSetModal({
       flashcards: t("tools.flashcards"),
       grammatik: t("tools.grammar"),
       quiz: t("tools.quiz"),
-      hoerverstehen: t("tools.listening"),
     };
     return map[tool] || t("tools.exerciseFallback");
   })();
 
   const canCreate = isGrammar
     ? Boolean(hasSource && topicId && !addingTopic)
-    : !(isListening && !hasSource);
+    : true;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ backgroundColor: "rgba(0,0,0,0.25)" }} {...backdropClose(press, onClose)}>
@@ -130,7 +127,7 @@ export function CreateSetModal({
         {/* Mode */}
         <div className="text-3xs font-semibold uppercase tracking-wide mb-1.5" style={{ color: "var(--muted)" }}>{t("createModal.sourceHeading")}</div>
         <div className="flex flex-col gap-1.5 mb-3">
-          {!isQuiz && !isGrammar && !isListening && (
+          {!isQuiz && !isGrammar && (
             <PickerOption selected={mode === "glossary"} disabled={glossaryCount === 0}
               onClick={() => setMode("glossary")}>
               {t("createModal.fromGlossary")} <span className="text-3xs text-muted">{t("createModal.glossaryTermsCount", { count: glossaryCount })}</span>

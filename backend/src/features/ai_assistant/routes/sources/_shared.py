@@ -53,6 +53,17 @@ def _load_workspace_source(source_uuid: str, workspace: dict, locale: str) -> di
     return source
 
 
+def _workspace_label(locale: str) -> str:
+    """Vom Admin gesetzte Bezeichnung fuer einen Kursraum, etwa "Modul" oder "Kurs".
+
+    Steht hier, weil Hochladen und Umbenennen dieselbe Meldung ueber doppelte
+    Namen ausgeben. Zwei Kopien derselben Abfrage wuerden frueher oder spaeter
+    auseinanderlaufen.
+    """
+    key = "workspace_label_singular_en" if locale == "en" else "workspace_label_singular_de"
+    return db.get_setting(key, db.get_setting("workspace_label_singular", "Workspace"))
+
+
 __all__ = [
     "Path", "Optional",
     "APIRouter", "Depends", "File", "HTTPException", "Request", "UploadFile",
@@ -65,7 +76,7 @@ __all__ = [
     "stream_s3_object", "aia_transcript_prefix", "aia_vtt_key",
     "_convert_office_to_pdf", "_mp4_faststart", "_count_pages",
     "_convert_office_to_pdf_path", "_mp4_faststart_path", "_count_pages_path",
-    "_require_workspace_manage", "_load_workspace_source",
+    "_require_workspace_manage", "_load_workspace_source", "_workspace_label",
     "_save_source_file_path",
     "_ALLOWED_EXTENSIONS", "_MAX_UPLOAD_BYTES",
 ]

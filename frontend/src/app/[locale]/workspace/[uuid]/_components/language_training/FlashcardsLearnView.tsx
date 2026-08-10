@@ -7,6 +7,7 @@ import { _chunkLabel, _getChipIcon, _md, _sourceChipKey } from "../../_utils";
 import { MinimizeContext } from "../../_context";
 import { _getToolBadge, type BreadcrumbItem } from "../layout/SubviewHeader";
 import { ExerciseNav } from "./ExerciseNav";
+import { HintCard } from "./HintCard";
 import { SetSourceLegend, sourceNumbers, sourceTag } from "./SetSourceLegend";
 
 export function FlashcardsLearnView({
@@ -61,6 +62,8 @@ export function FlashcardsLearnView({
   const [streak, setStreak] = useState(0);
   const [showResults, setShowResults] = useState(false);
   const [showPendingPrompt, setShowPendingPrompt] = useState(false);
+  // Der Tipp steht fertig an der Karte, der Knopf klappt ihn nur auf.
+  const [showHint, setShowHint] = useState(false);
 
   const total = items.length;
   const card = items[index];
@@ -71,7 +74,7 @@ export function FlashcardsLearnView({
   // and matches the numbered legend at the bottom of the view.
   const srcNumbers = sourceNumbers(exerciseSet.sources);
 
-  useEffect(() => { setFlipped(false); }, [index]);
+  useEffect(() => { setFlipped(false); setShowHint(false); }, [index]);
 
   function answer(correct: boolean) {
     // Eine bewertete Karte bleibt bewertet. Wer zurueckblaettert, sieht sein Urteil
@@ -268,9 +271,13 @@ export function FlashcardsLearnView({
                               {parts.map((part, pi) => {
                                 const [term, ...rest] = part.split("=");
                                 const explanation = rest.join("=").trim();
+                                // Doppelpunkt wie bei Wortart/Singular/Plural, die ihn im
+                                // Sprachtext tragen. Hier steht das Wort vom Modell, also
+                                // haengt ihn die Ansicht an und nie zweimal.
+                                const label = term.trim().replace(/[:=]+$/, "");
                                 return (
                                   <div key={pi} className="flex items-baseline gap-1.5 text-sm">
-                                    <span className="font-semibold shrink-0" style={{ color: "var(--foreground)" }}>{term.trim()}</span>
+                                    <span className="font-semibold shrink-0" style={{ color: "var(--foreground)" }}>{label}:</span>
                                     {explanation && <span >{explanation}</span>}
                                   </div>
                                 );
@@ -389,8 +396,16 @@ export function FlashcardsLearnView({
                   <p className="text-sm text-center leading-relaxed font-semibold" style={{ color: "var(--foreground)" }} dangerouslySetInnerHTML={{ __html: _md(card.front) }} />
                   <div className="absolute bottom-3 left-4 right-4 flex items-center justify-between">
                     <span />
-                    {onAskChat && (
-                      <button type="button" onClick={(e) => { e.stopPropagation(); onAskChat(promptTip(card.front)); }}
+                    {(card.extras?.tip || onAskChat) && (
+                      <button type="button" aria-expanded={showHint}
+                        title={showHint ? t("common.hintHide") : t("common.hint")}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          // Karten aus der Zeit vor dem mitgelieferten Tipp haben keinen.
+                          // Fuer sie bleibt der alte Weg ueber den Chat.
+                          if (card.extras?.tip) setShowHint((v) => !v);
+                          else onAskChat?.(promptTip(card.front));
+                        }}
                         className="btn-soft-accent flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-full border-none cursor-pointer transition-colors">
                         <Lightbulb size={13} weight="bold" /> {t("common.hint")}
                       </button>
@@ -421,6 +436,14 @@ export function FlashcardsLearnView({
                 </div>
               </div>
             </div>
+            {/* Der Tipp steht UNTER der Karte und nicht auf ihr: die Karte dreht sich,
+                der Tipp gehoert aber zur Frage und nicht zur Rueckseite. Beim Umdrehen
+                ist er weg, dort steht die Antwort schon. */}
+            {showHint && !flipped && card.extras?.tip && (
+              <div className="w-full" style={{ maxWidth: 560 }}>
+                <HintCard text={card.extras.tip} />
+              </div>
+            )}
             {/* Actions */}
             <div className="flex flex-wrap items-center justify-center gap-3 min-h-12">
               {flipped ? (

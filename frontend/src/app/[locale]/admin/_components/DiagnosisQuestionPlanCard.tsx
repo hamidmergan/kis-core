@@ -81,7 +81,6 @@ const answerLines = (text: string): string[] =>
 export default function DiagnosisQuestionPlanCard() {
   const t = useTranslations("admin.diagnosisPlanCard");
   const [rows, setRows] = useState<Row[] | null>(null);
-  const [answerMax, setAnswerMax] = useState<number>(2000);
   const [defaultPlan, setDefaultPlan] = useState<PlanItem[]>([]);
   const [saving, setSaving] = useState(false);
   const [generating, setGenerating] = useState(false);
@@ -117,9 +116,6 @@ export default function DiagnosisQuestionPlanCard() {
         setDefaultPlan(def);
         const stored = (d.language_diagnosis_question_plan_de || "").trim();
         setRows(toRows(stored ? (JSON.parse(stored) as PlanItem[]) : def));
-        if (typeof d.language_diagnosis_answer_max_chars === "number") {
-          setAnswerMax(d.language_diagnosis_answer_max_chars);
-        }
       })
       .catch(() => setRows([]));
   }, []);
@@ -503,17 +499,6 @@ export default function DiagnosisQuestionPlanCard() {
           {t("generateWarningResult", { count: defaultPlan.length })}
         </p>
       </Modal>
-
-      <div className="mt-4">
-        <label className="text-xs text-muted">{t("answerMaxLabel")}</label>
-        <input
-          type="number" min={1} max={2000} value={answerMax}
-          onChange={(e) => setAnswerMax(Number(e.target.value))}
-          onBlur={() => void patch({ language_diagnosis_answer_max_chars: answerMax })}
-          disabled={busy}
-          className={`ml-2 w-24 ${inputClass}`}
-        />
-      </div>
 
       {error && (
         <p className="mt-2 text-xs text-warn bg-warn-bg border border-warn-border rounded-md px-3 py-2">

@@ -111,14 +111,6 @@ export function WorkspaceTopbar(props: WorkspaceTopbarProps) {
     return (
       <>
         <div className="flex items-center px-5 flex-shrink-0 relative" style={{ height: 48 }}>
-          <Link
-            href="/"
-            className="inline-flex items-center gap-1 text-xs font-medium transition-colors group flex-shrink-0"
-            style={{ color: "var(--kb)" }}
-          >
-            <BackArrow size={12} />
-            {t("backToOverview")}
-          </Link>
           <span className="absolute inset-0 flex items-center justify-center pointer-events-none">
             <h1 className="text-lg font-bold truncate px-16 pointer-events-auto select-text cursor-text" style={{ color: "var(--kb)" }}>
               {title}

@@ -4,7 +4,6 @@ export const TOOL_COLORS: Record<string, { bg: string; color: string }> = {
   karteikarten: { bg: "var(--badge-emerald-bg)", color: "var(--badge-emerald-fg)" },
   quiz:         { bg: "var(--badge-yellow-bg)",  color: "var(--badge-yellow-fg)" },
   grammatik:    { bg: "var(--badge-violet-bg)",  color: "var(--badge-violet-fg)" },
-  hoerverstehen: { bg: "var(--badge-blue-bg)",   color: "var(--badge-blue-fg)" },
   data_table:   { bg: "var(--badge-orange-bg)",  color: "var(--badge-orange-fg)" },
   mindmap:      { bg: "var(--badge-teal-bg)",    color: "var(--badge-teal-fg)" },
 };

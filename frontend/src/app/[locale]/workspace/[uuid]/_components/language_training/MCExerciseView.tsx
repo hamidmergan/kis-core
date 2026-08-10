@@ -7,6 +7,7 @@ import { _chunkLabel, _getChipIcon, _md, _sourceChipKey } from "../../_utils";
 import { MinimizeContext } from "../../_context";
 import { _getToolBadge, type BreadcrumbItem } from "../layout/SubviewHeader";
 import { ExerciseNav } from "./ExerciseNav";
+import { HintCard } from "./HintCard";
 import { SetSourceLegend, sourceNumbers, sourceTag } from "./SetSourceLegend";
 import { shuffleOptions } from "./_shuffle";
 
@@ -68,7 +69,9 @@ export function MCExerciseView({
   const [results, setResults] = useState<{ item_id: number; correct: boolean }[]>([]);
   const [streak, setStreak] = useState(0);
   const [showResults, setShowResults] = useState(false);
-  const [hint, setHint] = useState<string | null>(null);
+  // Der Tipp steht fertig an der Aufgabe, der Knopf klappt ihn nur auf. Der Ladezustand
+  // gilt allein dem Rueckfall in den Chat, den Aufgaben ohne Tipp noch brauchen.
+  const [showHint, setShowHint] = useState(false);
   const [hintLoading, setHintLoading] = useState(false);
   // Hover lives in state rather than in a CSS class: the border colour is set inline
   // (it also carries the right/wrong result), and an inline style always beats the
@@ -99,7 +102,7 @@ export function MCExerciseView({
 
   function goTo(next: number) {
     setIndex(next);
-    setHint(null);
+    setShowHint(false);
     // The pointer sits on the Weiter button, not on an option of the next card.
     setHovered(null);
   }
@@ -111,6 +114,9 @@ export function MCExerciseView({
 
   async function requestHint() {
     if (!card || hintLoading) return;
+    // Aufgaben aus der Zeit vor dem mitgelieferten Tipp haben keinen. Fuer sie bleibt
+    // der alte Weg: die Frage geht in den Chat und kostet dort einen Modellaufruf.
+    if (card.extras?.tip) { setShowHint((v) => !v); return; }
     setHintLoading(true);
     try {
       onAskChat(promptTip(card.front));
@@ -249,6 +255,9 @@ export function MCExerciseView({
                     <p className="text-xs leading-relaxed -mt-2" style={{ color: "var(--muted)" }}
                       dangerouslySetInnerHTML={{ __html: _md(card.explanation) }} />
                   )}
+                  {/* Der Tipp steht ueber den Quellen und unter den Optionen, also da,
+                      wo der Blick nach dem Lesen der Aufgabe schon ist. */}
+                  {showHint && card.extras?.tip && <HintCard text={card.extras.tip} />}
                   {/* Source chips + Hint */}
                   <div className="flex items-center justify-between mt-1 gap-2">
                     <div className="min-w-0">
@@ -286,7 +295,8 @@ export function MCExerciseView({
                       <div className="flex items-center gap-2 shrink-0">
                         {(
                           <button type="button" onClick={requestHint}
-                            disabled={hintLoading}
+                            disabled={hintLoading} aria-expanded={showHint}
+                            title={showHint ? t("common.hintHide") : t("common.hint")}
                             className="btn-soft-accent flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-full transition-all disabled:opacity-50">
                             <Lightbulb size={13} weight="bold" />
                             {hintLoading ? t("common.loading") : t("common.hint")}

@@ -1223,7 +1223,7 @@
     },
     "languageTrainerCard": {
       "title": "Sprachtrainer",
-      "description": "Der Sprachtrainer ist ein Übungsbereich im Studio für alle, die dem Kurs in einer Fremdsprache folgen. Er enthält Lernkarten für Fachbegriffe, eine Grammatik-Übung und eine Hörverstehen-Übung, jeweils aus den Quellen des Workspace gebaut. Ist er eingeschaltet, wird der Sprachstand einmalig eingestuft, und Chat-Antworten sowie Aufgaben werden auf dieses Niveau angepasst.",
+      "description": "Der Sprachtrainer ist ein Übungsbereich im Studio für alle, die dem Kurs in einer Fremdsprache folgen. Er enthält Lernkarten für Fachbegriffe und eine Grammatik-Übung, jeweils aus den Quellen des Workspace gebaut. Ist er eingeschaltet, wird der Sprachstand einmalig eingestuft, und Chat-Antworten sowie Aufgaben werden auf dieses Niveau angepasst.",
       "active": "Aktiv. Eigentümer und Tutoren entscheiden in den Workspace-Einstellungen, ob ihr Kurs den Sprachtrainer anbietet. Sie brauchen dafür passende Quellen zur Grammatik der Kurssprache.",
       "disabled": "Aus. Der Sprachtrainer taucht nirgendwo auf. Bereits getroffene Entscheidungen bleiben gespeichert und gelten wieder, sobald du hier einschaltest.",
       "toggleAria": "Sprachtrainer umschalten"
@@ -1635,7 +1635,6 @@
           "karteikarten": "Karteikarten",
           "grammar": "Grammatik-Übung",
           "quiz": "Quiz",
-          "listening": "Hör- und Leseverstehen",
           "exerciseFallback": "Übung"
         },
         "common": {
@@ -1663,6 +1662,8 @@
           "wrongShort": "Falsch",
           "downloadAsText": "Als Textdatei herunterladen",
           "hint": "Tipp",
+          "hintFrom": "Tipp von {name}:",
+          "hintHide": "Tipp ausblenden",
           "learnMore": "Mehr erfahren",
           "sourcesToggle": "{count, plural, =1 {1 Quelle} other {# Quellen}}"
         },
@@ -1748,7 +1749,6 @@
           "glossaryCounter": "{count}/{max} Glossar",
           "lernkarten": "Lernkarten",
           "grammar": "Grammatik-Übung",
-          "listening": "Hör- und Leseverstehen",
           "tileDesc": "Übungen"
         },
         "vocabFlashcards": {
@@ -1853,9 +1853,9 @@
         "studioTitle": "Studio",
         "studioDescription": "Studio-Panel mit Mindmaps, Notizen und Tools einblenden.",
         "languageTrainingPersonalTitle": "Sprachtrainer",
-        "languageTrainingPersonalDescription": "Blendet den Sprachtrainer für dich ein, mit Lernkarten, Grammatik-Übung und Hörverstehen. Beim Einschalten wirst du einmalig eingestuft, wenn du noch kein Sprachniveau hast. Gilt nur für dich und nur in diesem Workspace.",
+        "languageTrainingPersonalDescription": "Blendet den Sprachtrainer für dich ein, mit Lernkarten und Grammatik-Übung. Beim Einschalten wirst du einmalig eingestuft, wenn du noch kein Sprachniveau hast. Gilt nur für dich und nur in diesem Workspace.",
         "languageTrainingTitle": "Sprachtrainer",
-        "languageTrainingDescription": "Gibt den Sprachtrainer im Workspace frei, mit Lernkarten, Grammatik-Übung und Hörverstehen. Danach entscheidet jede Person in ihren eigenen Einstellungen, ob sie ihn nutzt. Alle Übungen werden aus den Quellen dieses Workspace gebaut. Dafür müssen passende Quellen zur Grammatik der Kurssprache hochgeladen sein, sonst sind die Übungen unbrauchbar. Gib das nur frei, wenn du weißt, welche Quellen hier liegen.",
+        "languageTrainingDescription": "Gibt den Sprachtrainer im Workspace frei, mit Lernkarten und Grammatik-Übung. Danach entscheidet jede Person in ihren eigenen Einstellungen, ob sie ihn nutzt. Alle Übungen werden aus den Quellen dieses Workspace gebaut. Dafür müssen passende Quellen zur Grammatik der Kurssprache hochgeladen sein, sonst sind die Übungen unbrauchbar. Gib das nur frei, wenn du weißt, welche Quellen hier liegen.",
         "translationModeTitle": "Übersetzung der Transkripte",
         "translationModeDescription": "Übersetzt Untertitel von Audio-/Video-Quellen in die unten gewählte Zielsprache. Die Quellsprache wird automatisch erkannt. Studierende können im Transkript-Panel zwischen Original und Übersetzung umschalten. Die Übersetzung läuft als Hintergrund-Job und kann ein paar Minuten dauern.",
         "translationModeOff": "Aus",
@@ -1935,6 +1935,9 @@
         "retry": "Erneut versuchen",
         "options": "Optionen",
         "delete": "Löschen",
+        "rename": "Umbenennen",
+        "renamePlaceholder": "Name der Quelle",
+        "renameFailed": "Umbenennen fehlgeschlagen.",
         "emptyHint": "Lade eine Quelle hoch.",
         "deleteTitle": "Quelle löschen?",
         "deleteFallback": "Quelle",
@@ -2036,8 +2039,7 @@
           "dataTable": "Datentabelle",
           "mindmap": "Mindmap",
           "lernkarten": "Lernkarten",
-          "grammar": "Grammatik-Übung",
-          "listening": "Hör- und Leseverstehen"
+          "grammar": "Grammatik-Übung"
         },
         "tileDescriptions": {
           "karteikarten": "Karten mit Frage und Antwort aus den ausgewählten Quellen erstellen",
@@ -2045,8 +2047,7 @@
           "dataTable": "Fakten aus den ausgewählten Quellen in einer Tabelle sammeln",
           "mindmap": "Die Themen der ausgewählten Quellen als Baum darstellen",
           "lernkarten": "Fachwörter aus den ausgewählten Quellen mit Grundform und Beispiel erklären",
-          "grammar": "Sätze aus den ausgewählten Quellen nach einem Muster umformen",
-          "listening": "Aussagen zu einem Text oder einer Aufnahme aus den ausgewählten Quellen, richtig oder falsch"
+          "grammar": "Sätze aus den ausgewählten Quellen nach einem Muster umformen"
         },
         "recent": {
           "heading": "Letzte Aktivitäten",
@@ -2176,8 +2177,7 @@
         "flashcards": "Lernkarten",
         "karteikarten": "Karteikarten",
         "grammatik": "Grammatik-Übung",
-        "quiz": "Quiz",
-        "hoerverstehen": "Hörverstehen"
+        "quiz": "Quiz"
       }
     },
     "list": {

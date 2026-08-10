@@ -15,6 +15,7 @@ from src.features.ai_assistant.repository.workspaces import *  # noqa: F401,F403
 from src.features.ai_assistant.repository.access_links import *  # noqa: F401,F403
 from src.features.ai_assistant.repository.enrollments import *  # noqa: F401,F403
 from src.features.ai_assistant.repository.sources import *  # noqa: F401,F403
+from src.features.ai_assistant.repository.source_rename import *  # noqa: F401,F403
 from src.features.ai_assistant.repository.chunks import *  # noqa: F401,F403
 from src.features.ai_assistant.repository.chat import *  # noqa: F401,F403
 from src.features.ai_assistant.repository.notes import *  # noqa: F401,F403

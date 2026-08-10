@@ -70,6 +70,7 @@ export default function KiTutorWorkspacePage() {
     uploadErrors, setUploadErrors,
     toggleSource: handleToggleSource,
     deleteSource: handleDeleteSource,
+    renameSource: handleRenameSource,
     retrySource: handleRetrySource,
     uploadFiles: handleUpload,
   } = useSources({ uuid, onModuleUpdate: (mod) => setWorkspaceDetail(mod) });
@@ -338,10 +339,6 @@ export default function KiTutorWorkspacePage() {
   // Build the language_training content tree
   // Helper: sources a new exercise set is generated from (all selected ones, same cap of 5
   // as mindmap/data table, not just the first)
-  // Hör- und Leseverstehen arbeitet auf der Auswahl wie jedes andere Werkzeug. Es
-  // bevorzugt eine Aufnahme und nimmt sonst Fließtext, entscheidet das aber selbst
-  // beim Wählen des Ausschnitts. Hier wird nichts mehr weggefiltert, sonst bekäme
-  // niemand Leseverstehen auf einer PDF.
   const setSourceUuids = selectedSourceIds.slice(0, 5);
   const selectedSourcesForSet = setSourceUuids
     .map((id) => sources.find((s) => s.uuid === id))
@@ -492,6 +489,7 @@ export default function KiTutorWorkspacePage() {
         onToggleSource={handleToggleSource}
         onOpenViewer={(src) => handleOpenViewer(src)}
         onDeleteSource={handleDeleteSource}
+        onRenameSource={handleRenameSource}
         onRetrySource={handleRetrySource}
         onUpload={handleUpload}
         uploadProgress={uploadProgress}
@@ -646,8 +644,7 @@ export default function KiTutorWorkspacePage() {
               // Studio tools stay in Studio
               setStudioView(createSetTool as StudioView);
             } else {
-              const prefix = createSetTool === "flashcards" ? "lk"
-                : createSetTool === "hoerverstehen" ? "hv" : "gr";
+              const prefix = createSetTool === "flashcards" ? "lk" : "gr";
               const setsView = `${prefix}-sets` as LanguageTrainingView;
               setSprachView(setsView);
             }

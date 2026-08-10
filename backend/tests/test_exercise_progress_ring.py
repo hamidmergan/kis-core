@@ -25,7 +25,7 @@ from src.features.ai_assistant.repository import exercises as repo  # noqa: E402
 
 # Jedes Werkzeug, das Antworten mitschreibt. Mindmap und Datentabelle haben
 # keinen Ring, weil man sie nicht beantwortet.
-WERKZEUGE = ("karteikarten", "quiz", "flashcards", "grammatik", "hoerverstehen")
+WERKZEUGE = ("karteikarten", "quiz", "flashcards", "grammatik")
 # Genau die Groessen, die im Anlegen-Dialog zur Wahl stehen.
 GROESSEN = (5, 10, 15)
 

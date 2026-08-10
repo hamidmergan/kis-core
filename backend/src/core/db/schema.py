@@ -27,6 +27,53 @@ _MIGRATION_LOCK_TIMEOUT = "10s"
 # (IF NOT EXISTS / ADD COLUMN IF NOT EXISTS), ein zweiter Anlauf ist also gefahrlos.
 _MIGRATION_ATTEMPTS = 5
 
+# Einmaliger Schritt, kein wiederholbarer. Siehe _reset_quiz_pool_once.
+_QUIZ_POOL_RESET_KEY = "quiz_pool_true_false_reset_done"
+
+
+def _reset_quiz_pool_once(cur) -> bool:
+    """Den Quiz-Vorrat einmalig wegwerfen, weil Richtig/Falsch dazugekommen ist.
+
+    Das Quiz zieht zuerst aus dem Vorrat, und die vorhandenen Zeilen kennen nur die zwei
+    Ankreuz-Arten. Ohne diesen Schritt kaeme weiter das Alte heraus und die Aenderung
+    waere unsichtbar.
+
+    Zwei Dinge sind hier wichtig.
+
+    Zurueckgeschrieben wird VOR dem Loeschen. Eine Aufgabe aus dem Vorrat wird nicht in
+    den Satz kopiert, der Satz zeigt nur dorthin, und die Inhaltsspalten seiner Zeile
+    sind leer. Ein blankes DELETE setzt den Verweis per ON DELETE SET NULL auf NULL und
+    macht damit jeden fertigen Satz leer, der darauf zeigt. Dieselbe Reihenfolge macht
+    ``clear_pool_for_source`` vor.
+
+    Und er laeuft genau einmal. Anders als beim abgeschafften Hoerverstehen entstehen
+    beim Quiz laufend neue Vorratszeilen, ein ungeschuetzter Schritt wuerde den Vorrat
+    bei jedem Neustart des Backends wieder wegwerfen. Der Schluessel in ``settings``
+    macht es wie die search_vector-Wanderung weiter unten in dieser Datei.
+
+    Gibt zurueck, ob der Schritt gelaufen ist.
+    """
+    cur.execute("SELECT value FROM settings WHERE key = %s", (_QUIZ_POOL_RESET_KEY,))
+    row = cur.fetchone()
+    if row and row[0] == "true":
+        return False
+    cur.execute(
+        """UPDATE aia_exercise_items i
+              SET back = p.back, back_en = p.back_en, options = p.options,
+                  correct_idx = p.correct_idx, explanation = p.explanation,
+                  source_label = p.source_label, page_number = p.page_number,
+                  start_time = p.start_time, sources = p.sources, extras = p.extras
+             FROM aia_exercise_pool p
+            WHERE i.pool_item_id = p.id AND p.tool = 'quiz'"""
+    )
+    cur.execute("DELETE FROM aia_exercise_pool WHERE tool = 'quiz'")
+    cur.execute(
+        """INSERT INTO settings (key, value) VALUES (%s, 'true')
+           ON CONFLICT (key) DO UPDATE SET value = 'true'""",
+        (_QUIZ_POOL_RESET_KEY,),
+    )
+    return True
+
 
 def _table_exists(cur, table: str) -> bool:
     """Gibt es die Tabelle schon?
@@ -1013,21 +1060,15 @@ def _init_db(admin_email: Optional[str] = None) -> None:
                 "CREATE INDEX IF NOT EXISTS idx_exercise_items_pool "
                 "ON aia_exercise_items (pool_item_id)"
             )
-            # Hoer- und Leseverstehen baute bis zum 2026-08-09 auch Aufgaben mit vier
-            # Optionen und sah damit aus wie das Quiz. Es liefert jetzt nur noch
-            # Richtig/Falsch. Der Vorrat ueberlebt eine Umstellung aber, und ohne dieses
-            # einmalige Aufraeumen kaemen die alten Aufgaben weiter heraus und die
-            # Aenderung waere nicht zu sehen. Idempotent: danach passt keine Zeile mehr.
+            # Das Hoer- und Leseverstehen wurde am 2026-08-10 abgeschafft. Der Code kennt
+            # das Werkzeug nicht mehr, seine Zeilen aber schon: sie stuenden weiter in der
+            # Statistik und in den letzten Aktivitaeten, ohne dass sich noch einer
+            # aufschlagen liesse. Deshalb hier einmal weg.
             #
-            # Fertige Saetze bleiben unangetastet. Sie tragen ihren Inhalt selbst, jemand
-            # kann mitten darin stecken, und `pool_item_id` wird beim Loeschen nur auf
-            # NULL gesetzt.
-            cur.execute("""
-                DELETE FROM aia_exercise_pool
-                 WHERE tool = 'hoerverstehen'
-                   AND jsonb_typeof(options) = 'array'
-                   AND jsonb_array_length(options) > 2
-            """)
+            # Die Saetze reissen ihre Aufgaben und den Fortschritt per ON DELETE CASCADE
+            # mit. Idempotent: danach passt keine Zeile mehr.
+            cur.execute("DELETE FROM aia_exercise_sets WHERE tool = 'hoerverstehen'")
+            cur.execute("DELETE FROM aia_exercise_pool WHERE tool = 'hoerverstehen'")
             # ─── Context sweep cursors ──────────────────────────
             # Where the last generation run stopped reading inside each of the
             # coverage blocks of ONE source. A source larger than the context budget
@@ -1216,6 +1257,16 @@ def _init_db(admin_email: Optional[str] = None) -> None:
             cur.execute("ALTER TABLE aia_exercise_items ADD COLUMN IF NOT EXISTS back_en TEXT")
             # Migration: add extras JSONB for Flashcards structured fields (word_parts etc.)
             cur.execute("ALTER TABLE aia_exercise_items ADD COLUMN IF NOT EXISTS extras JSONB")
+            # Der Quiz-Vorrat kennt nur die zwei Ankreuz-Arten, seit dem 2026-08-10
+            # stellt das Quiz auch Richtig/Falsch. Einmal leeren, sonst bleibt die
+            # Aenderung unsichtbar.
+            #
+            # Der Schritt steht HIER und nicht oben beim abgeschafften Hoerverstehen,
+            # obwohl er inhaltlich dorthin gehoert: er schreibt jede Inhaltsspalte
+            # zurueck, und start_time, back_en und extras entstehen erst in den drei
+            # Zeilen darueber. Auf einer leeren Datenbank brach init_db an genau dieser
+            # Stelle ab, gefunden mit scripts/check_fresh_schema.sh.
+            _reset_quiz_pool_once(cur)
             # The run boundary is gone. The progress ring counted only the answers
             # after this mark, and the browser set it when the learner answered the
             # first card of a session. Interrupting an exercise moved the mark into

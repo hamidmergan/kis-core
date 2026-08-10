@@ -40,6 +40,14 @@ export function _fileKind(filename: string): "pdf" | "video" | "audio" | "doc" {
   return "doc";
 }
 
+/** Trennt einen Dateinamen in Namensteil und Endung, etwa "a.pdf" zu ["a", ".pdf"].
+ *  Beim Umbenennen ist nur der Namensteil frei, die Endung bleibt fest, weil der
+ *  Dateityp an mehreren Stellen aus ihr gelesen wird. */
+export function splitFilename(filename: string): [string, string] {
+  const i = filename.lastIndexOf(".");
+  return i > 0 ? [filename.slice(0, i), filename.slice(i)] : [filename, ""];
+}
+
 export function _getChipIcon(filename: string) {
   const kind = _fileKind(filename);
   if (kind === "video") return FileVideo;

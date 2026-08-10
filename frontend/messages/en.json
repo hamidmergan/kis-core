@@ -1223,7 +1223,7 @@
     },
     "languageTrainerCard": {
       "title": "Language trainer",
-      "description": "The language trainer is a practice area in the studio for everyone following the course in a foreign language. It holds vocabulary cards for technical terms, a grammar exercise and a listening exercise, each built from the workspace sources. While it is on, every reader is assessed once and chat answers as well as exercises are pitched at that level.",
+      "description": "The language trainer is a practice area in the studio for everyone following the course in a foreign language. It holds vocabulary cards for technical terms and a grammar exercise, each built from the workspace sources. While it is on, every reader is assessed once and chat answers as well as exercises are pitched at that level.",
       "active": "Active. Owners and tutors decide in the workspace settings whether their course offers the language trainer. They need suitable sources on the grammar of the course language for it.",
       "disabled": "Off. The language trainer appears nowhere. Choices already made stay stored and apply again as soon as you switch this on.",
       "toggleAria": "Toggle language trainer"
@@ -1635,7 +1635,6 @@
           "karteikarten": "Flashcards",
           "grammar": "Grammar exercise",
           "quiz": "Quiz",
-          "listening": "Listening and reading",
           "exerciseFallback": "Exercise"
         },
         "common": {
@@ -1663,6 +1662,8 @@
           "wrongShort": "Incorrect",
           "downloadAsText": "Download as text file",
           "hint": "Hint",
+          "hintFrom": "Tip from {name}:",
+          "hintHide": "Hide hint",
           "learnMore": "Learn more",
           "sourcesToggle": "{count, plural, =1 {1 source} other {# sources}}"
         },
@@ -1748,7 +1749,6 @@
           "glossaryCounter": "{count}/{max} glossary",
           "lernkarten": "Vocab cards",
           "grammar": "Grammar exercise",
-          "listening": "Listening and reading",
           "tileDesc": "Exercises"
         },
         "vocabFlashcards": {
@@ -1853,9 +1853,9 @@
         "studioTitle": "Studio",
         "studioDescription": "Show the studio panel with mind maps, notes and tools.",
         "languageTrainingPersonalTitle": "Language trainer",
-        "languageTrainingPersonalDescription": "Shows the language trainer for you, with vocabulary cards, grammar exercise and listening. Switching it on assesses your language level once if you do not have one yet. Applies to you only and only in this workspace.",
+        "languageTrainingPersonalDescription": "Shows the language trainer for you, with vocabulary cards and grammar exercise. Switching it on assesses your language level once if you do not have one yet. Applies to you only and only in this workspace.",
         "languageTrainingTitle": "Language trainer",
-        "languageTrainingDescription": "Releases the language trainer in this workspace, with vocabulary cards, grammar exercise and listening. Everyone then decides in their own settings whether to use it. Every exercise is built from the sources of this workspace. That needs suitable sources on the grammar of the course language, otherwise the exercises are useless. Only release this when you know which sources are here.",
+        "languageTrainingDescription": "Releases the language trainer in this workspace, with vocabulary cards and grammar exercise. Everyone then decides in their own settings whether to use it. Every exercise is built from the sources of this workspace. That needs suitable sources on the grammar of the course language, otherwise the exercises are useless. Only release this when you know which sources are here.",
         "translationModeTitle": "Transcript translation",
         "translationModeDescription": "Translates subtitles of audio/video sources into the target language chosen below. The source language is detected automatically. Students can switch between original and translation in the transcript panel. Translation runs as a background job and can take a few minutes.",
         "translationModeOff": "Off",
@@ -1935,6 +1935,9 @@
         "retry": "Retry",
         "options": "Options",
         "delete": "Delete",
+        "rename": "Rename",
+        "renamePlaceholder": "Source name",
+        "renameFailed": "Renaming failed.",
         "emptyHint": "Upload a source.",
         "deleteTitle": "Delete source?",
         "deleteFallback": "Source",
@@ -2036,8 +2039,7 @@
           "dataTable": "Data table",
           "mindmap": "Mind map",
           "lernkarten": "Vocab cards",
-          "grammar": "Grammar exercise",
-          "listening": "Listening and reading"
+          "grammar": "Grammar exercise"
         },
         "tileDescriptions": {
           "karteikarten": "Create cards with question and answer from the selected sources",
@@ -2045,8 +2047,7 @@
           "dataTable": "Collect facts from the selected sources in a table",
           "mindmap": "Show the topics of the selected sources as a tree",
           "lernkarten": "Explain technical terms from the selected sources with base form and example",
-          "grammar": "Transform sentences from the selected sources following a pattern",
-          "listening": "Statements about a text or a recording from the selected sources, true or false"
+          "grammar": "Transform sentences from the selected sources following a pattern"
         },
         "recent": {
           "heading": "Recent activity",
@@ -2176,8 +2177,7 @@
         "flashcards": "Vocab cards",
         "karteikarten": "Flashcards",
         "grammatik": "Grammar exercise",
-        "quiz": "Quiz",
-        "hoerverstehen": "Listening"
+        "quiz": "Quiz"
       }
     },
     "list": {

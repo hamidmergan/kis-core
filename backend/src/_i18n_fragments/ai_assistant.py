@@ -51,10 +51,6 @@ MESSAGES: dict[str, dict[str, str]] = {
         "de": "Keine Source angegeben",
         "en": "No source specified",
     },
-    "ai.source.noMediaSelected": {
-        "de": "Für das Hörverstehen wird mindestens eine Audio- oder Videoquelle gebraucht",
-        "en": "Listening comprehension needs at least one audio or video source",
-    },
     "ai.source.allowedExtensions": {
         "de": "Nur {extensions} erlaubt",
         "en": "Only {extensions} allowed",
@@ -62,6 +58,14 @@ MESSAGES: dict[str, dict[str, str]] = {
     "ai.source.duplicateName": {
         "de": "Eine Source mit dem Namen \"{name}\" existiert bereits in diesem {label}.",
         "en": "A source named \"{name}\" already exists in this {label}.",
+    },
+    "ai.source.nameEmpty": {
+        "de": "Der Name darf nicht leer sein.",
+        "en": "The name must not be empty.",
+    },
+    "ai.source.nameTooLong": {
+        "de": "Der Name darf höchstens {max} Zeichen lang sein.",
+        "en": "The name may be at most {max} characters long.",
     },
     "ai.source.fileTooLargeMb": {
         "de": "Datei zu groß (max {max} MB)",

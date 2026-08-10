@@ -1,7 +1,7 @@
 """KI-Assistent Celery-Task: Exercise-Set-Generierung.
 
 Dispatcht je nach `mode` (glossary/source) und `tool`
-(flashcards/karteikarten/quiz/grammatik/hoerverstehen) an die passenden
+(flashcards/karteikarten/quiz/grammatik) an die passenden
 Handler-Module."""
 
 from langfuse.decorators import observe
@@ -43,14 +43,18 @@ from src.features.ai_assistant.tasks.language_training._source_flashcards import
 from src.features.ai_assistant.tasks.language_training._source_grammar import (
     generate_grammar_from_source,
 )
-from src.features.ai_assistant.tasks.language_training._source_listening import (
-    generate_listening_from_source,
-)
 from src.features.ai_assistant.tasks.language_training._source_mc import generate_mc_from_source
 from src.features.ai_assistant.tasks.language_training._variation import (
     build_title_avoidance_block,
     resolve_set_title,
 )
+
+
+# So oft wird nachbestellt, bis die verlangte Anzahl steht. Zwei Runden und nicht mehr:
+# das Anfragen-Kontingent teilt sich die ganze Hochschule. Eine Runde, die keine einzige
+# neue Aufgabe bringt, beendet den Nachschlag ohnehin sofort, denn dann hat das Dokument
+# nichts mehr herzugeben und ein kuerzerer Satz ist die ehrliche Antwort.
+_NACHSCHLAG_RUNDEN = 2
 
 
 @celery_app.task(bind=True, name="aia.generate_exercise_set", queue="aia",
@@ -202,16 +206,6 @@ def run_generate_exercise_set(self, set_id: int, workspace_id: int, tool: str,
                     # Ein Aufruf, vier Formate gleichmässig gemischt.
                     return generate_grammar_from_source(
                         client, model, from_ctx, gtype, how_many, **shared)
-                if tool == "hoerverstehen":
-                    # Läuft wie das Quiz über den ganzen Kontext, liefert aber nur
-                    # Richtig/Falsch-Aussagen. Das Sprachniveau entscheidet, ob eine
-                    # Aussage auch aus dem Material folgen darf, statt darin zu stehen,
-                    # deshalb kommt es hier zusätzlich mit.
-                    got, name = generate_listening_from_source(
-                        client, model, from_ctx, how_many,
-                        level=db.get_user_language_level(user_id)["language_level"],
-                        **shared)
-                    return got, name, None
                 got, name = generate_mc_from_source(
                     client, model, from_ctx, how_many, **shared)
                 return got, name, None
@@ -264,23 +258,40 @@ def run_generate_exercise_set(self, set_id: int, workspace_id: int, tool: str,
                 if wiederholt:
                     logger.info("KI Tutor: set {} hat {} Wiederholungen aussortiert",
                                 set_id, wiederholt)
-                    # Einmal nachbestellen, was der Filter gekostet hat. Ein zweiter
-                    # Anlauf lohnt den Aufruf nicht: kommt auch der wiederholt zurueck,
-                    # hat das Dokument nichts Neues mehr und ein kuerzerer Satz ist die
-                    # ehrliche Antwort.
-                    fehlt = zu_erzeugen - len(neu)
-                    if fehlt > 0:
-                        try:
-                            mehr, _, _ = generate(ctx, fehlt)
-                            if mehr:
-                                mehr, _ = drop_repeats(
-                                    mehr, gehabt + [i.get("front", "") for i in items + neu])
-                                neu = rebalance_to_count(neu + mehr, zu_erzeugen)
-                        except Exception as e:
-                            logger.warning(
-                                "KI Tutor: set {} behaelt seine {} eigenen Aufgaben, "
-                                "Nachschlag fehlgeschlagen: {}", set_id, len(neu), e,
-                            )
+
+            # Nachbestellen, bis die verlangte Anzahl steht. Wer zehn Aufgaben anklickt,
+            # will zehn, und es ist ihm gleich, warum es neun geworden sind.
+            #
+            # Genau daran hing der Fehler: einen Nachschlag gab es nur, wenn der
+            # Doppler-Filter etwas weggeworfen hatte, und dann genau einen. Die anderen
+            # Gruende blieben unbeantwortet -- das Modell liefert von sich aus weniger, und
+            # die Pruefungen der Werkzeuge werfen unloesbare Aufgaben weg (die
+            # Grammatik-Uebung tut das laufend). Deshalb kam derselbe
+            # Auftrag einmal mit zehn und einmal mit neun Aufgaben heraus.
+            for _ in range(_NACHSCHLAG_RUNDEN):
+                fehlt = zu_erzeugen - len(neu)
+                if fehlt <= 0:
+                    break
+                logger.info("KI Tutor: set {} hat {} von {} Aufgaben, bestellt {} nach",
+                            set_id, len(neu), zu_erzeugen, fehlt)
+                try:
+                    mehr, _, _ = generate(ctx, fehlt)
+                except Exception as e:
+                    # Der Nachschlag ist eine Verbesserung und keine Voraussetzung. Was
+                    # fertig ist, wird gespeichert.
+                    logger.warning(
+                        "KI Tutor: set {} behaelt seine {} eigenen Aufgaben, "
+                        "Nachschlag fehlgeschlagen: {}", set_id, len(neu), e,
+                    )
+                    break
+                if mehr:
+                    mehr, _ = drop_repeats(
+                        mehr, gehabt + [i.get("front", "") for i in items + neu])
+                if not mehr:
+                    # Keine einzige neue Aufgabe. Das Dokument hat nichts mehr, weiter zu
+                    # fragen kostet nur Anfragen.
+                    break
+                neu = rebalance_to_count(neu + mehr, zu_erzeugen)
 
             # Einlagern, damit der naechste Aufruf sie geschenkt bekommt. Setzt die
             # Vorrats-id an den Aufgaben, die untergebracht werden konnten.
@@ -316,6 +327,16 @@ def run_generate_exercise_set(self, set_id: int, workspace_id: int, tool: str,
 
         db.finalize_exercise_set(set_id, title, items, header=header)
         logger.info("KI Tutor: exercise set {} generated ({} items)", set_id, len(items))
+        if mode == "source" and len(items) < count:
+            # Bleibt ein Satz trotz Nachschlag zu kurz, steht das im Protokoll und nicht
+            # nur in der Ansicht des Lernenden. Sonst faellt es erst auf, wenn jemand
+            # nachzaehlt.
+            #
+            # Nur im Quellen-Modus: der Glossar-Modus zieht aus einer endlichen
+            # Begriffsliste, dort IST der kuerzere Satz die richtige Antwort und keine
+            # Warnung wert.
+            logger.warning("KI Tutor: set {} bleibt bei {} von {} bestellten Aufgaben",
+                           set_id, len(items), count)
 
     except Exception as e:
         logger.error("KI Tutor: exercise set {} generation failed: {}", set_id, e)

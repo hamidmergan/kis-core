@@ -125,7 +125,7 @@ class DataTableGenerateBody(BaseModel):
     active_source_ids: list[str]
 
 class CreateSetBody(BaseModel):
-    tool: str  # "flashcards" | "karteikarten" | "quiz" | "grammatik" | "hoerverstehen"
+    tool: str  # "flashcards" | "karteikarten" | "quiz" | "grammatik"
     mode: str = "glossary"  # "glossary" | "source"
     source_uuid: Optional[str] = None  # legacy single-source clients
     source_uuids: Optional[list[str]] = None  # preferred: all selected sources

@@ -11,6 +11,7 @@ import {
   _sourceChipKey,
   _chunkLabel,
   _getChipIcon,
+  splitFilename,
   parseFlashcards,
   parseQuiz,
 } from "./_utils";
@@ -315,5 +316,25 @@ describe("_mathToUnicode", () => {
 
   it("passes text without dollars straight through", () => {
     expect(_mathToUnicode("Ein Satz ohne Formeln.")).toBe("Ein Satz ohne Formeln.");
+  });
+});
+
+// ── splitFilename ────────────────────────────────────────────────────────────
+describe("splitFilename", () => {
+  it("trennt Namensteil und Endung", () => {
+    expect(splitFilename("vorlesung.pdf")).toEqual(["vorlesung", ".pdf"]);
+  });
+
+  it("trennt am letzten Punkt", () => {
+    expect(splitFilename("teil.1.woche.mp4")).toEqual(["teil.1.woche", ".mp4"]);
+  });
+
+  it("liefert eine leere Endung, wenn kein Punkt da ist", () => {
+    expect(splitFilename("ohnepunkt")).toEqual(["ohnepunkt", ""]);
+  });
+
+  it("behandelt einen fuehrenden Punkt als Namensteil", () => {
+    // ".gitignore" ist der Name, nicht eine Endung ohne Namen.
+    expect(splitFilename(".gitignore")).toEqual([".gitignore", ""]);
   });
 });

@@ -1,12 +1,10 @@
 """Der Aufgabenplan eines Sets: welche Art wie oft, und was davon noch fehlt.
 
-Zwei Werkzeuge bestellen ihre Aufgaben nach Arten gemischt, die Grammatik-Übung nach
-Darreichungsform und das Hör- und Leseverstehen nach Frageart. Beide brauchen dieselben
-drei Handgriffe, deshalb stehen sie hier und nicht zweimal:
+Die Grammatik-Übung bestellt ihre Aufgaben nach Darreichungsform gemischt. Dafür
+braucht sie drei Handgriffe, die hier stehen und nicht mitten im Werkzeug:
 
-* :func:`plan_sentence` schreibt den Plan als ZAHLENSATZ in den Prompt. Gemessen an
-  beiden Werkzeugen: "stelle abwechslungsreiche Aufgaben" wirkt nicht, "genau 4 Aufgaben
-  der Art X" wirkt.
+* :func:`plan_sentence` schreibt den Plan als ZAHLENSATZ in den Prompt. Gemessen:
+  "stelle abwechslungsreiche Aufgaben" wirkt nicht, "genau 4 Aufgaben der Art X" wirkt.
 * :func:`room_left` deckelt einen Wurf je Art, damit die Mischung nicht schon im ersten
   Wurf kippt.
 * :func:`still_missing` sagt dem Nachschlag, wonach er gezielt fragen soll.

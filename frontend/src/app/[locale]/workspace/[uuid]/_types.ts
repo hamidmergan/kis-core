@@ -189,8 +189,7 @@ export interface GrammarCheckResult {
 
 export type LanguageTrainingView = "overview"
   | "lk-sets" | "lk-learn"
-  | "gr-sets" | "gr-learn" | "gr-complete"
-  | "hv-sets" | "hv-learn";
+  | "gr-sets" | "gr-learn" | "gr-complete";
 
 /** One entry of a set's source legend: the number the chips print, and the file. */
 export interface ExerciseSetSource {
@@ -210,6 +209,9 @@ export interface ExerciseItemExtras {
    *  der Aufgabe, weil ein gemischtes Set kein gemeinsames Muster mehr hat. */
   pattern_front?: string;
   pattern_back?: string;
+  /** Der Tipp zur Aufgabe, im selben Aufruf entstanden wie die Aufgabe. Fehlt er,
+   *  stammt die Aufgabe aus der Zeit davor und der Knopf fragt wie früher den Chat. */
+  tip?: string;
   word_parts?: string;
   word_parts_explained?: string;
   example_sentence?: string;

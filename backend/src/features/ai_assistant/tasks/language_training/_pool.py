@@ -18,7 +18,7 @@ from src.features.ai_assistant.tasks.language_training._dedup import item_key
 # einzelnen Vorraete kleiner, kostet aber nichts. Wiederholt sich eine Kombination nie,
 # bleibt ihr Vorrat leer und die Anfrage ist genauso teuer wie vorher; wiederholt sie sich,
 # was in einem Kurs mit einem festen Grammatikthema der Normalfall ist, ist sie umsonst.
-POOL_TOOLS = frozenset({"flashcards", "karteikarten", "quiz", "hoerverstehen", "grammatik"})
+POOL_TOOLS = frozenset({"flashcards", "karteikarten", "quiz", "grammatik"})
 
 # Felder, die eine Vorratszeile mitbringt und eine Aufgabe im Satz braucht.
 _CARRIED = (

@@ -65,6 +65,8 @@ _QUESTION_MARKS = "?？؟;՞।"
 #
 # Anders als früher nennt sie die Zielform ausdrücklich. Der alte Wortlaut ("nach
 # folgendem Muster") zeigte auf ein Musterpaar über dem Set, das es nicht mehr gibt.
+# Der Verweis auf das Muster ist zurück, aber als Zusatz und nur beim Umformen, wo
+# das Muster heute an der Aufgabe hängt. Siehe :data:`_EXAMPLE_REF`.
 _TASK_LINES = {
     "de": {
         "transform": "Setze den Satz ins {form}.",
@@ -79,6 +81,24 @@ _TASK_LINES = {
         "choice": "Which sentence is correct in the {form}?",
     },
 }
+
+
+# Der Verweis auf das Muster, den die Umform-Anweisung bekommt.
+#
+# Warum überhaupt: eine Umformung hat oft mehr als eine richtige Fassung. "Der Bericht
+# wird geschrieben." und "Der Bericht wird vom Team geschrieben." sind beide Passiv,
+# und der Lernende soll es genau so machen wie im Muster. Das Muster steht über der
+# Aufgabe, aber die Anweisung zeigte bisher nicht darauf.
+#
+# Nur beim Umformen: die anderen drei Formate haben kein Muster an der Aufgabe (siehe
+# ``extras`` in :func:`_build_one`), dort zeigte der Verweis auf nichts.
+_EXAMPLE_REF = {"de": "nach dem Beispiel", "en": "following the example"}
+
+# Woran erkannt wird, dass eine Zeile schon auf das Muster zeigt. Das Wort allein und
+# nicht die ganze Wendung: das Modell formuliert den Verweis frei, wenn es ihn von
+# sich aus schreibt ("wie im Beispiel", "am Beispiel"), und zweimal derselbe Zusatz
+# liest sich schlecht.
+_EXAMPLE_WORDS = ("beispiel", "example")
 
 
 def task_line(kind: str, locale: str, target_form: str, eigene: dict | None = None) -> str:
@@ -97,9 +117,27 @@ def task_line(kind: str, locale: str, target_form: str, eigene: dict | None = No
     """
     fertig = (eigene or {}).get(kind)
     if fertig and fertig.strip():
-        return fertig.strip()
-    lines = _TASK_LINES.get(locale, _TASK_LINES["en"])
-    return lines.get(kind, lines["transform"]).replace("{form}", target_form)
+        line = fertig.strip()
+    else:
+        lines = _TASK_LINES.get(locale, _TASK_LINES["en"])
+        line = lines.get(kind, lines["transform"]).replace("{form}", target_form)
+    return _with_example_ref(line, locale) if kind == "transform" else line
+
+
+def _with_example_ref(line: str, locale: str) -> str:
+    """Die Umform-Anweisung mit dem Verweis auf das Muster.
+
+    Angehängt und nicht in die Schablone geschrieben: die Schablone ist nur der
+    Rückfall, der Normalfall sind die am Thema gespeicherten Zeilen. Die Themen, die
+    es schon gibt, bekämen den Verweis sonst nie.
+
+    Steht er schon da, bleibt die Zeile unverändert. Das Modell schreibt ihn manchmal
+    von sich aus mit, und zweimal derselbe Zusatz liest sich schlecht.
+    """
+    if any(wort in line.casefold() for wort in _EXAMPLE_WORDS):
+        return line
+    ref = _EXAMPLE_REF.get(locale, _EXAMPLE_REF["en"])
+    return f"{line.rstrip().rstrip('.!?').rstrip()}, {ref}."
 
 # Unter dieser Quote gilt ein Durchlauf als misslungen: lieber ein fehlgeschlagenes
 # Set als eine Übung, in der die Hälfte der Aufgaben unlösbar ist.
@@ -207,6 +245,13 @@ def generate_grammar_from_source(
         wanted = still_missing(plan, items)
         if not wanted:
             break
+        last_try = attempt == _MAX_ATTEMPTS - 1
+        if last_try:
+            # Im letzten Wurf zaehlt die Anzahl mehr als die Mischung, also wird nicht
+            # noch einmal nach der Art gefragt, die gerade zweimal am Filter gescheitert
+            # ist. Gemessen an Set 5599: dreimal "1 of kind choice" bestellt, dreimal
+            # dieselbe unbrauchbare Aufgabe bekommen, vier von fuenf Aufgaben im Set.
+            wanted = _fallback_kinds(items, wanted)
         # Same temperature as the MC tools: enough wording variety, still JSON-safe. The
         # real variation comes from the context sweep in build_source_context, and any
         # repeat that still slips through is dropped afterwards by _dedup.
@@ -221,7 +266,6 @@ def generate_grammar_from_source(
         # hinausgeht, wird nicht genommen, sonst kippt die Mischung schon im ersten
         # Wurf. Im LETZTEN Wurf zaehlt die Anzahl mehr als die Mischung, denn wer zehn
         # bestellt hat, will zehn.
-        last_try = attempt == _MAX_ATTEMPTS - 1
         room = {} if last_try else room_left(plan, items)
         for item, claim in zip(fresh, fresh_claims):
             # Schluessel aus Aufgabentext UND Loesung. Seit die "welcher Satz ist
@@ -268,6 +312,22 @@ def generate_grammar_from_source(
     # Kein Set-Kopf mehr: ein gemischtes Set hat kein gemeinsames Muster, das über
     # allem stehen könnte. Das Muster hängt an der Aufgabe, die eines braucht.
     return items, title, {}
+
+
+def _fallback_kinds(have: list[dict], missing: list[str]) -> list[str]:
+    """Welche Arten der letzte Wurf bestellt: die, die schon geliefert haben.
+
+    Was noch fehlt, ist genau das, was der Filter zweimal verworfen hat. Ein drittes Mal
+    danach zu fragen bringt dasselbe zurueck, und der Satz bleibt zu kurz. Eine Art, die
+    in diesem Set schon eine brauchbare Aufgabe hergegeben hat, gibt eher eine zweite her.
+
+    Hat noch keine geliefert, bleibt es bei den fehlenden: dann ist nicht die Art das
+    Problem, sondern der Wurf, und irgendetwas muss bestellt werden.
+    """
+    geklappt = [kind for kind in KINDS if any(i.get("_kind") == kind for i in have)]
+    if not geklappt:
+        return missing
+    return [geklappt[i % len(geklappt)] for i in range(len(missing))]
 
 
 def _build_prompt(grammar_type: dict, target_form: str, example: dict,

@@ -1,4 +1,4 @@
-"""Der Vorrat im fertigen Auftrag.
+"""Der Vorrat, die Doppler und die bestellte Anzahl im fertigen Auftrag.
 
 Zuerst der Vorrat, dann das Modell. Erzeugt wird nur der Fehlbetrag, und was dabei
 entsteht, wandert in den Vorrat und steht ab dann allen offen.
@@ -273,6 +273,76 @@ def test_a_set_that_is_nothing_but_repeats_does_not_get_saved(stack, monkeypatch
 
     assert seen["failed"] is True
     assert seen["finalized"] is None
+
+
+# --- Die bestellte Anzahl -----------------------------------------------------
+
+def test_a_short_run_is_topped_up_to_the_ordered_count(stack, monkeypatch):
+    """Der gemeldete Fehler: zehn bestellt, neun bekommen, im naechsten Lauf zehn.
+
+    Es muss nicht am Doppler-Filter liegen. Liefert das Modell einfach weniger, oder
+    werfen die Pruefungen des Werkzeugs eine unloesbare Aufgabe weg, stand dahinter
+    bis hierher kein Nachschlag: der Satz wurde zu kurz gespeichert.
+    """
+    mod, seen = stack
+    lauf = _generator(mod, monkeypatch, seen, _cards("a", "b"), _cards("c"))
+
+    _run(count=3)
+
+    assert lauf["n"] == 2, "zwei von drei ist zu wenig, das muss nachbestellt werden"
+    assert [i["front"] for i in seen["finalized"]["items"]] == ["a", "b", "c"]
+
+
+def test_the_top_up_keeps_going_until_the_count_stands(stack, monkeypatch):
+    """Mehr als ein Nachschlag, wenn auch der zweite Wurf zu wenig liefert."""
+    mod, seen = stack
+    lauf = _generator(mod, monkeypatch, seen,
+                      _cards("a"), _cards("b"), _cards("c"))
+
+    _run(count=3)
+
+    assert lauf["n"] == 3
+    assert [i["front"] for i in seen["finalized"]["items"]] == ["a", "b", "c"]
+
+
+def test_the_top_up_stops_when_a_round_brings_nothing_new(stack, monkeypatch):
+    """Eine Runde ohne eine neue Aufgabe beendet den Nachschlag sofort.
+
+    Dann hat das Dokument nichts mehr herzugeben, und ein kuerzerer Satz ist die
+    ehrliche Antwort. Weiterzufragen kostet nur Anfragen, die die ganze Hochschule
+    sich teilt.
+    """
+    mod, seen = stack
+    lauf = _generator(mod, monkeypatch, seen, _cards("a"), _cards("a"), _cards("b"))
+
+    _run(count=3)
+
+    assert lauf["n"] == 2
+    assert [i["front"] for i in seen["finalized"]["items"]] == ["a"]
+
+
+def test_the_top_up_has_an_upper_bound(stack, monkeypatch):
+    """Liefert jeder Wurf nur eine Aufgabe, wird nicht endlos nachbestellt."""
+    mod, seen = stack
+    lauf = _generator(mod, monkeypatch, seen,
+                      _cards("a"), _cards("b"), _cards("c"), _cards("d"))
+
+    _run(count=10)
+
+    assert lauf["n"] == 3, "ein Wurf und hoechstens zwei Nachschlaege"
+    assert len(seen["finalized"]["items"]) == 3
+
+
+def test_the_pool_counts_towards_the_ordered_number(stack, monkeypatch):
+    """Der Nachschlag zielt auf die bestellte Anzahl, nicht auf den Modell-Anteil."""
+    mod, seen = stack
+    monkeypatch.setattr(mod, "take_from_pool", lambda *a, **k: _pool_cards("a", "b"))
+    lauf = _generator(mod, monkeypatch, seen, _cards("c"), _cards("d"))
+
+    _run(count=4)
+
+    assert lauf["n"] == 2
+    assert [i["front"] for i in seen["finalized"]["items"]] == ["a", "b", "c", "d"]
 
 
 def test_a_pool_item_is_not_dropped_as_a_repeat(stack, monkeypatch):
