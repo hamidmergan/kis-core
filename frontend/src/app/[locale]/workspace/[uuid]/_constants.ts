@@ -6,6 +6,7 @@ export const TOOL_COLORS: Record<string, { bg: string; color: string }> = {
   grammatik:    { bg: "var(--badge-violet-bg)",  color: "var(--badge-violet-fg)" },
   data_table:   { bg: "var(--badge-orange-bg)",  color: "var(--badge-orange-fg)" },
   mindmap:      { bg: "var(--badge-teal-bg)",    color: "var(--badge-teal-fg)" },
+  wortschatz:   { bg: "var(--badge-rose-bg)",    color: "var(--badge-rose-fg)" },
 };
 
 // Studio form-input limits (frontend-only UX caps; backend stores TEXT without VARCHAR limit).

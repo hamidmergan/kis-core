@@ -11,6 +11,7 @@ const loader = () => <div className="flex-1 flex items-center justify-center p-6
 
 const GrammarExerciseView = dynamic(() => import("./GrammarExerciseView").then((m) => ({ default: m.GrammarExerciseView })), { loading: loader, ssr: false });
 const FlashcardsLearnView = dynamic(() => import("./FlashcardsLearnView").then((m) => ({ default: m.FlashcardsLearnView })), { loading: loader, ssr: false });
+const ClozeExerciseView = dynamic(() => import("./ClozeExerciseView").then((m) => ({ default: m.ClozeExerciseView })), { loading: loader, ssr: false });
 
 import type {
   ExerciseSet,
@@ -61,6 +62,9 @@ export function LanguageTrainingContent(props: LanguageTrainingContentProps) {
   // The grammar run reports its score when it finishes, so the summary screen can
   // show the real numbers rather than the placeholder the MC flows use.
   const [grammarScore, setGrammarScore] = React.useState<{ correct: number; total: number } | null>(null);
+  // Der Wortschatz-Lückentext meldet seine Punktzahl genauso wie die Grammatik-Übung,
+  // denn ein Satz ist EINE Aufgabe und die Lücken darin müssen einzeln gezählt werden.
+  const [clozeScore, setClozeScore] = React.useState<{ correct: number; total: number } | null>(null);
 
   const onSourceClick = (filename: string, page: number, startTime?: number) => {
     // Tool chips are nav-only, exactly like chat citations: jump to the page/timestamp,
@@ -72,6 +76,7 @@ export function LanguageTrainingContent(props: LanguageTrainingContentProps) {
   const studioLabel = t("common.studio");
   const lernkartenLabel = t("tools.flashcards");
   const grammarLabel = t("tools.grammar");
+  const vocabularyLabel = t("tools.vocabulary");
 
   const toOverviewCrumb = { label: studioLabel, onClick: () => setSprachView("overview") };
   const toOverviewWithReset = { label: studioLabel, onClick: () => { setActiveSet(null); setSprachView("overview"); } };
@@ -167,6 +172,57 @@ export function LanguageTrainingContent(props: LanguageTrainingContentProps) {
             onRetryWrong={() => setSprachView("gr-learn")}
             onBack={() => { setSprachView("gr-sets"); setActiveSet(null); loadExerciseSets("grammatik"); }}
             breadcrumbs={[toOverviewWithReset, { label: grammarLabel, toolKey: "Grammar", onClick: () => { setActiveSet(null); setSprachView("gr-sets"); } }]}
+          />
+        ) : null;
+      // ─── Wortschatz-Lückentext ─────────────────────────────
+      case "wo-sets":
+        return (
+          <ExerciseSetsOverview
+            title={vocabularyLabel}
+            toolKey="Cloze"
+            sets={exerciseSets.filter((s) => s.tool === "wortschatz")}
+            onBack={() => setSprachView("overview")}
+            onSelect={(s) => { loadExerciseSet(s.id).then(() => setSprachView("wo-learn")); }}
+            onCreate={() => { setCreateSetTool("wortschatz"); setShowCreateModal(true); }}
+            onDelete={(id) => deleteExerciseSet(id, "wortschatz")}
+            onRetry={(id) => retryExerciseSet(id, "wortschatz")}
+            onDownload={isAdmin ? downloadExerciseSet : undefined}
+            sourceCount={selectedSourceIds.length}
+            stats={pageStats}
+            breadcrumbs={[toOverviewCrumb]}
+            category="language_training"
+          />
+        );
+      case "wo-learn": {
+        if (!activeSet) return null;
+        const clozeCrumbs = [toOverviewWithReset, { label: vocabularyLabel, toolKey: "Cloze", onClick: () => { setActiveSet(null); setSprachView("wo-sets"); } }];
+        return (
+          <ClozeExerciseView
+            exerciseSet={activeSet}
+            onBack={() => { setSprachView("wo-sets"); setActiveSet(null); refreshProgress(); }}
+            onAnswer={(itemId, correct) => submitSingleAnswer(activeSet.id, itemId, correct)}
+            onSourceClick={onSourceClick}
+            onFinish={(correct, total) => { setClozeScore({ correct, total }); setSprachView("wo-complete"); }}
+            breadcrumbs={clozeCrumbs}
+          />
+        );
+      }
+      case "wo-complete":
+        return activeSet ? (
+          <ExerciseCompletion
+            title={activeSet.title}
+            toolKey="Cloze"
+            category="language_training"
+            // Der Satz ist EINE Aufgabe, gezählt werden aber die Lücken. Deshalb
+            // steht hier die Zahl aus der Übung und nicht card_count, das ist 1.
+            results={Array.from({ length: clozeScore?.total ?? 0 }, (_, i) => ({
+              item_id: i,
+              correct: i < (clozeScore?.correct ?? 0),
+            }))}
+            total={clozeScore?.total ?? 0}
+            onRetryWrong={() => setSprachView("wo-learn")}
+            onBack={() => { setSprachView("wo-sets"); setActiveSet(null); loadExerciseSets("wortschatz"); }}
+            breadcrumbs={[toOverviewWithReset, { label: vocabularyLabel, toolKey: "Cloze", onClick: () => { setActiveSet(null); setSprachView("wo-sets"); } }]}
           />
         ) : null;
       default:

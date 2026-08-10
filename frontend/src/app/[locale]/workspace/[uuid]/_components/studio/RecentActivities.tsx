@@ -7,6 +7,7 @@ import {
   PencilLine,
   Question,
   Table,
+  TextAlignLeft,
   TreeStructure,
 } from "@phosphor-icons/react";
 import { EmptyState } from "@/components/ui/EmptyState";
@@ -29,6 +30,7 @@ const ACTIVITY_TOOL_ICONS: Record<string, React.ComponentType<any>> = {
   grammatik: PencilLine,
   data_table: Table,
   mindmap: TreeStructure,
+  wortschatz: TextAlignLeft,
 };
 
 

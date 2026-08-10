@@ -1634,6 +1634,7 @@
           "flashcards": "Lernkarten",
           "karteikarten": "Karteikarten",
           "grammar": "Grammatik-Übung",
+          "vocabulary": "Wortschatz",
           "quiz": "Quiz",
           "exerciseFallback": "Übung"
         },
@@ -2053,7 +2054,8 @@
           "dataTable": "Datentabelle",
           "mindmap": "Mindmap",
           "lernkarten": "Lernkarten",
-          "grammar": "Grammatik-Übung"
+          "grammar": "Grammatik-Übung",
+          "vocabulary": "Wortschatz"
         },
         "tileDescriptions": {
           "karteikarten": "Karten mit Frage und Antwort aus den ausgewählten Quellen erstellen",
@@ -2061,7 +2063,8 @@
           "dataTable": "Fakten aus den ausgewählten Quellen in einer Tabelle sammeln",
           "mindmap": "Die Themen der ausgewählten Quellen als Baum darstellen",
           "lernkarten": "Fachwörter aus den ausgewählten Quellen mit Grundform und Beispiel erklären",
-          "grammar": "Sätze aus den ausgewählten Quellen nach einem Muster umformen"
+          "grammar": "Sätze aus den ausgewählten Quellen nach einem Muster umformen",
+          "vocabulary": "Einen Text aus den ausgewählten Quellen schreiben lassen, in dem die Fachbegriffe fehlen"
         },
         "recent": {
           "heading": "Letzte Aktivitäten",
@@ -2191,6 +2194,7 @@
         "flashcards": "Lernkarten",
         "karteikarten": "Karteikarten",
         "grammatik": "Grammatik-Übung",
+        "wortschatz": "Wortschatz",
         "quiz": "Quiz"
       }
     },
