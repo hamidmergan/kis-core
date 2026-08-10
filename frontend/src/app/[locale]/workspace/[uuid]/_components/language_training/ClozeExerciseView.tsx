@@ -66,17 +66,26 @@ export function ClozeExerciseView({
     [gaps],
   );
 
-  // Die Chips einmal gemischt, damit ihre Reihenfolge die Lösung nicht verrät.
-  // useState mit Startfunktion und nicht useMemo: die Reihenfolge darf sich beim
-  // Neuzeichnen nicht ändern.
-  const [chips] = useState(() => {
+  // Die Chips einmal gemischt, damit ihre Reihenfolge die Lösung nicht verrät. Die
+  // Ansicht öffnet sich mit der Listenzeile, BEVOR die Aufgabe nachgeladen ist: beim
+  // ersten Rendern ist item noch null und gaps damit leer. Ein useState-Initialisierer
+  // liefe genau einmal beim Mounten und fröre diesen leeren Stand für immer ein, die
+  // Chip-Reihe bliebe leer, obwohl der Text und die Eingabefelder (über ihre eigenen
+  // useMemo) richtig nachziehen. useMemo über die Aufgaben-Id läuft dagegen erneut,
+  // sobald die echte Aufgabe eintrifft, danach aber nicht mehr bei jedem Neuzeichnen
+  // (Tippen, Prüfen, Chip-Klick ändern die Id nicht). Genau einmal PRO SATZ, nicht
+  // einmal pro Mount.
+  const chips = useMemo(() => {
     const list = gaps.map((g, i) => ({ base: g.base, key: i }));
     for (let i = list.length - 1; i > 0; i--) {
       const j = Math.floor(Math.random() * (i + 1));
       [list[i], list[j]] = [list[j], list[i]];
     }
     return list;
-  });
+    // gaps absichtlich nicht in den deps: seine Identität hängt an item und würde bei
+    // jedem Objekt-Neuaufbau ohne echte Datenänderung mitmischen, item.id ist der
+    // stabile Schlüssel dafür, ob wirklich eine ANDERE Aufgabe vorliegt.
+  }, [item?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const [drafts, setDrafts] = useState<Record<number, string>>({});
   const [struck, setStruck] = useState<Record<number, boolean>>({});
