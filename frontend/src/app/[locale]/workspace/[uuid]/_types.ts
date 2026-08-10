@@ -189,7 +189,8 @@ export interface GrammarCheckResult {
 
 export type LanguageTrainingView = "overview"
   | "lk-sets" | "lk-learn"
-  | "gr-sets" | "gr-learn" | "gr-complete";
+  | "gr-sets" | "gr-learn" | "gr-complete"
+  | "wo-sets" | "wo-learn" | "wo-complete";
 
 /** One entry of a set's source legend: the number the chips print, and the file. */
 export interface ExerciseSetSource {
@@ -218,6 +219,20 @@ export interface ExerciseItemExtras {
   word_class?: string;
   singular?: string;
   plural?: string;
+  /** Wortschatz-Lückentext: je Lücke die Grundform, die als Chip unter dem Text
+   *  steht, und die Form, die hineingehört. Reihenfolge gleich der Nummerierung
+   *  der Platzhalter im Text. */
+  gaps?: { base: string; solution: string }[];
+  /** Wortschatz-Lückentext: die Anweisung und das gelöste Beispiel darüber. Sie
+   *  stehen an der AUFGABE und nicht in den Set-Spalten instruction/pattern_*,
+   *  die die Grammatik-Übung benutzt, weil der Vorrat nur Aufgaben mitführt. */
+  instruction?: string;
+  example?: { gapped: string; solved: string };
+  /** Set-Titel, redundant zu ExerciseSet.title. Wird nur gebraucht, wenn eine
+   *  Vorratszeile zum ersten Mal fertiggestellt wird (siehe run_cloze_set im
+   *  Backend), NICHT in der Übungsansicht: dort steht der Titel im Kopf, nicht
+   *  im Fliesstext der Aufgabe. */
+  title?: string;
 }
 
 export interface ExerciseItem {

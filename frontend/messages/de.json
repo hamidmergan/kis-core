@@ -1819,6 +1819,10 @@
           },
           "example": "Beispiel"
         },
+        "cloze": {
+          "check": "Prüfen",
+          "score": "{correct} von {total} richtig"
+        },
         "grammarTopics": {
           "addTopic": "Neues Thema",
           "nameLabel": "Welche Grammatik soll geübt werden?",
