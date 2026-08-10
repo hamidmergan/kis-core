@@ -20,6 +20,7 @@ node_modules/
 .vite/
 frontend/node_modules/
 frontend/.next/
+frontend/.next-verify/
 frontend/out/
 frontend/tsconfig.tsbuildinfo
 

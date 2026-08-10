@@ -63,9 +63,10 @@ def test_default_behavior_is_style_only_and_covers_the_bands():
     assert "not-in-sources sentence" in b
     # Grammar stays out of the model's remit unless a document states it.
     assert "language teacher" in b
-    assert "A1 or A2" in b
-    assert "B1:" in b
-    assert "B2:" in b
+    # Die Stufen kommen aus der Stufen-Leiter, der Text nennt sie nur noch ueber
+    # den Platzhalter. Die eigene A1/A2..C1/C2-Liste ist bewusst raus.
+    from src.services.aia_adaptive_chat import DESCRIPTION_PLACEHOLDER
+    assert DESCRIPTION_PLACEHOLDER in b
     assert "C1 or C2" in b
     # Consistent informal address, so it does not flip between du and Sie.
     assert '"du"' in b and '"Sie"' in b
@@ -162,3 +163,60 @@ def test_sources_guard_cannot_be_deleted_by_an_admin_edit():
     keeps the chat from inventing answers."""
     from src.services.aia_adaptive_chat import ADAPTIVE_SOURCES_GUARD, DEFAULT_ADAPTIVE_BEHAVIOR
     assert ADAPTIVE_SOURCES_GUARD not in DEFAULT_ADAPTIVE_BEHAVIOR
+
+
+# ─── Stufen-Leiter: die Beschreibung kommt aus der Karte ─────────────────────
+
+def test_appendix_substitutes_the_description():
+    from src.services.aia_adaptive_chat import adaptive_chat_appendix
+    suffix, applied = adaptive_chat_appendix(
+        "B1", "Stufe {level}: {description}", "", "Nebensaetze gehen."
+    )
+    assert "Stufe B1: Nebensaetze gehen." in suffix
+    assert applied == "B1"
+
+
+def test_appendix_leaves_no_placeholder_when_the_description_is_empty():
+    from src.services.aia_adaptive_chat import adaptive_chat_appendix
+    suffix, _ = adaptive_chat_appendix("B1", "Stufe {level}: {description}.", "", "")
+    assert "{description}" not in suffix
+
+
+def test_default_behavior_carries_the_description_placeholder():
+    from src.services.aia_adaptive_chat import DESCRIPTION_PLACEHOLDER
+    assert DESCRIPTION_PLACEHOLDER in DEFAULT_ADAPTIVE_BEHAVIOR
+
+
+def test_default_behavior_no_longer_carries_its_own_band_list():
+    """Die Stufen stehen in der Karte, nicht mehr doppelt im Verhaltenstext."""
+    b = DEFAULT_ADAPTIVE_BEHAVIOR
+    assert "- A1 or A2:" not in b
+    assert "- B1:" not in b
+    assert "- B2:" not in b
+    assert "- C1 or C2:" not in b
+
+
+def test_default_behavior_keeps_the_glossing_instruction():
+    """Der Auftrag zum Erklaeren von Fachwoertern darf nicht mit der Liste verschwinden."""
+    low = DEFAULT_ADAPTIVE_BEHAVIOR.lower()
+    assert "gloss" in low
+    assert "from the documents" in low
+
+
+def test_level_texts_reads_both_settings(monkeypatch):
+    import src.database as db
+    from src.services.aia_adaptive_chat import level_texts
+
+    store = {
+        "language_diagnosis_level_examples_de": '{"B1": "Ein B1-Satz."}',
+        "language_diagnosis_level_descriptions_de": '{"B1": "Nebensaetze gehen."}',
+    }
+    monkeypatch.setattr(db, "get_setting", lambda key, default="": store.get(key, default))
+    example, description = level_texts("B1")
+    assert example == "Ein B1-Satz."
+    assert description == "Nebensaetze gehen."
+
+
+def test_level_texts_without_a_level_is_empty():
+    from src.services.aia_adaptive_chat import level_texts
+    assert level_texts(None) == ("", "")

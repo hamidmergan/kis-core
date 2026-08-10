@@ -93,7 +93,6 @@ import ToolJobsPage from "../_pages/werkzeuge/jobs";
 import ToolStatsPage from "../_pages/werkzeuge/stats";
 
 import SourcesPage from "../_pages/assistent/sources";
-import AnswersPage from "../_pages/assistent/answers";
 import LanguageLevelPage from "../_pages/assistent/language-level";
 import AiBehaviourPage from "../_pages/assistent/behaviour";
 import AiaUsagePage from "../_pages/assistent/usage";
@@ -137,8 +136,10 @@ export const SECTIONS: AdminSection[] = [
     world: "aia",
     rank: "product",
     pages: [
+      // Quellen traegt auch die beiden Kontext-Budgets. Sie hatten einen
+      // eigenen Reiter "Antworten", der aber nichts ueber Antworten sagte:
+      // beide Zahlen zaehlen Quelltext.
       { slug: "quellen", key: "sources", world: "aia", Component: SourcesPage },
-      { slug: "antworten", key: "answers", world: "aia", Component: AnswersPage },
       // Eine Seite, zwei Reiter. Einstufung und KI-Verhalten gehoeren zum
       // selben Gegenstand: der eine Reiter schaltet den Test ein und legt fest
       // was er abfragt, der andere sagt wie die KI dabei fragt und urteilt.

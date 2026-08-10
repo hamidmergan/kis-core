@@ -34,6 +34,7 @@ from src.services.aia_diagnosis_chat import (
     DEFAULT_GERMAN_QUESTION_PLAN,
     DEFAULT_GRADING_RULES,
     DEFAULT_LEVEL_EXAMPLES,
+    _LEGACY_GRADING_RULES,
     EXAMPLE_LEVELS,
     GRADING_RULES_SETTING,
     LEVEL_EXAMPLES_SETTING,
@@ -41,10 +42,20 @@ from src.services.aia_diagnosis_chat import (
     MAX_PROMPT_CHARS,
     MIN_FREE_TEXT_QUESTIONS,
     QUESTION_PLAN_SETTING,
+    first_incomplete_question,
     question_plan_has_enough_free_text,
     question_plan_is_valid,
 )
-from src.services.aia_adaptive_chat import DEFAULT_ADAPTIVE_BEHAVIOR
+from src.services.aia_adaptive_chat import (
+    DEFAULT_ADAPTIVE_BEHAVIOR,
+    _LEGACY_ADAPTIVE_BEHAVIOR,
+)
+from src.services.aia_level_ladder import (
+    DEFAULT_LEVEL_DESCRIPTIONS,
+    LEVEL_DESCRIPTIONS_SETTING,
+    LEVELS,
+    resolve_prompt_setting,
+)
 
 router = APIRouter(tags=["admin: settings"])
 
@@ -121,18 +132,31 @@ async def get_settings(_admin=Depends(get_admin_user)):
         "language_diagnosis_answer_max_chars": int(
             db.get_setting(ANSWER_MAX_CHARS_SETTING, str(DEFAULT_ANSWER_MAX_CHARS))
         ),
-        "language_diagnosis_adaptive_behavior": db.get_setting(
-            ADAPTIVE_BEHAVIOR_SETTING, DEFAULT_ADAPTIVE_BEHAVIOR
+        # Die beiden Prompt-Texte laufen ueber resolve_prompt_setting: ein
+        # gespeicherter ALTER Standard (mit eigener Stufen-Liste) zaehlt als "nicht
+        # gesetzt", sonst zeigt die Karte weiter die Liste, die jetzt aus der
+        # Stufen-Leiter kommt.
+        "language_diagnosis_adaptive_behavior": resolve_prompt_setting(
+            db.get_setting(ADAPTIVE_BEHAVIOR_SETTING, ""),
+            _LEGACY_ADAPTIVE_BEHAVIOR,
+            DEFAULT_ADAPTIVE_BEHAVIOR,
         ),
         "language_diagnosis_adaptive_behavior_default": DEFAULT_ADAPTIVE_BEHAVIOR,
-        # LEVEL ASSIGNMENT: grading rules + per-level calibration examples.
-        "language_diagnosis_grading_rules": db.get_setting(
-            GRADING_RULES_SETTING, DEFAULT_GRADING_RULES
+        # LEVEL ASSIGNMENT: grading procedure + the Stufen-Leiter (descriptions and
+        # calibration examples per level).
+        "language_diagnosis_grading_rules": resolve_prompt_setting(
+            db.get_setting(GRADING_RULES_SETTING, ""),
+            _LEGACY_GRADING_RULES,
+            DEFAULT_GRADING_RULES,
         ),
         "language_diagnosis_grading_rules_default": DEFAULT_GRADING_RULES,
         "language_diagnosis_level_examples": db.get_setting(LEVEL_EXAMPLES_SETTING, ""),
         "language_diagnosis_level_examples_default": DEFAULT_LEVEL_EXAMPLES,
         "language_diagnosis_example_levels": EXAMPLE_LEVELS,
+        "language_diagnosis_level_descriptions": db.get_setting(
+            LEVEL_DESCRIPTIONS_SETTING, ""
+        ),
+        "language_diagnosis_level_descriptions_default": DEFAULT_LEVEL_DESCRIPTIONS,
     }
 
 
@@ -197,10 +221,20 @@ async def update_settings(
                 status_code=400,
                 detail=t("admin.settings.diagnosisPlanInvalid", locale),
             )
+        elif (incomplete := first_incomplete_question(stripped)) is not None:
+            # Eine halbe Zeile hat frueher bedeutet "das Modell schreibt die Frage
+            # waehrend des Tests". Diesen Weg gibt es nicht mehr, also darf sie gar
+            # nicht erst gespeichert werden. Die Meldung nennt die Zeilennummer.
+            raise HTTPException(
+                status_code=400,
+                detail=t("admin.settings.diagnosisPlanIncomplete", locale,
+                         number=incomplete),
+            )
         elif not question_plan_has_enough_free_text(stripped):
-            # A plan without enough free-text questions could only be graded on
-            # recognition (multiple choice), so the level would rest on nothing
-            # the learner actually produced. Reject it with a specific message.
+            # A plan without enough AI-judged free texts could only be graded on
+            # recognition (choice questions, and gaps with a solution key), so the
+            # level would rest on nothing the learner actually produced. Reject it
+            # with a specific message.
             raise HTTPException(
                 status_code=400,
                 detail=t("admin.settings.diagnosisPlanTooFewFreeText", locale,
@@ -268,6 +302,33 @@ async def update_settings(
                     detail=t("admin.settings.diagnosisExamplesInvalid", locale),
                 )
             db.set_setting(LEVEL_EXAMPLES_SETTING, stripped)
+
+    # Beschreibung je Stufe (JSON-Objekt). Leer bedeutet zuruecksetzen. Sonst muss
+    # es ein Objekt mit bekannten Stufen und String-Werten sein, damit ein Tippfehler
+    # nichts Unbrauchbares speichert. Gleiche Regel wie bei den Beispielen.
+    if body.language_diagnosis_level_descriptions is not None:
+        stripped = body.language_diagnosis_level_descriptions.strip()
+        if not stripped:
+            db.set_setting(LEVEL_DESCRIPTIONS_SETTING, "")
+        else:
+            try:
+                data = json.loads(stripped)
+            except json.JSONDecodeError:
+                data = None
+            valid = (
+                isinstance(data, dict)
+                and bool(data)
+                and all(
+                    k in LEVELS and isinstance(v, str)
+                    for k, v in data.items()
+                )
+            )
+            if not valid:
+                raise HTTPException(
+                    status_code=400,
+                    detail=t("admin.settings.diagnosisExamplesInvalid", locale),
+                )
+            db.set_setting(LEVEL_DESCRIPTIONS_SETTING, stripped)
 
     # UI label overrides for "Workspace" (per UI locale)
     for label_key in (

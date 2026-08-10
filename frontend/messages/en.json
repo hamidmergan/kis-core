@@ -732,11 +732,7 @@
         "sub": "The assistant inside a module.",
         "sources": {
           "label": "Sources",
-          "sub": "What may be uploaded and how it is indexed."
-        },
-        "answers": {
-          "label": "Answers",
-          "sub": "How much source text goes into a request."
+          "sub": "What may be uploaded, how it is indexed and how much of it goes into a request."
         },
         "level": {
           "label": "Language level",
@@ -1248,30 +1244,27 @@
       "toggleAria": "Toggle notice",
       "saveFailed": "Save failed."
     },
-    "diagnosisLanguage": {
-      "label": "Language",
-      "german": "German",
-      "hint": "German only for now. More languages will follow later."
-    },
     "languageDiagnosisCard": {
       "title": "Language diagnosis prompt",
       "description": "Controls how the AI asks, judges and grades in the diagnosis chat. Applies to every workspace. German only for now.",
-      "hint": "The placeholders '{language}' (language), '{grading}' (grading rules) and '{examples}' (language level examples) are filled in.",
+      "hint": "Controls the flow, the question style and the output format of the test. Four placeholders in the text are filled in: '{language}' with the language of the test, '{grading}' with the grading rules below, '{levels}' with the descriptions from the Levels A1 to C2 card and '{examples}' with the example sentences from there. A placeholder you delete is appended at the end, so the AI never loses it.",
       "reset": "Restore default",
       "saveFailed": "Saving failed"
     },
     "diagnosisPlanCard": {
       "title": "Question plan",
-      "description": "Defines which questions the diagnosis asks. Each row is one question with a type. The order is the order in the test and rises from easy to hard. Question text, options and solution are optional. When a question is fully filled in (a choice question with one correct option, a gap fill with a solution), it appears instantly with no AI call and is graded directly. Otherwise the AI writes the question. The AI assigns the level A1 to C2 at the end from the answers, not per question.",
-      "languageHint": "Write questions and options in the language the test assesses (default German).",
-      "freeTextHint": "At least 2 free-text questions (error correction or free writing) are required. Only then can the AI place the level from a real writing sample.",
+      "description": "Decides which questions the placement test asks. Each row is one question with one of two task types. Choice means clicking and needs answer options with at least one marked correct. Free text means typing and needs only the question text. The solution on a free text is optional and decides who marks it: with a solution the code checks the answer word for word, without one the AI judges it at the end. Anything that belongs before the question, a short reading text or an everyday situation, simply goes into the question text. The order is the order in the test and runs from easy to hard. Either you write everything yourself, or you let the AI write it once and read it through. The test itself then runs without a single AI call. The AI assigns the level A1 to C2 at the end from the answers, not per question.",
+      "languageHint": "The test is in German, so questions and options are too.",
+      "freeTextHint": "At least 2 free-text questions without a solution are required. Only those does the AI judge itself, and only they give the level a real writing sample.",
+      "judgedCount": "Free text without a solution, judged by the AI: {count} of at least {min}.",
       "questionLabel": "Question",
       "optionsLabel": "Answer options",
       "optionsHint": "Mark exactly one correct. Several are allowed if the question says so.",
       "optionPlaceholder": "Answer option",
-      "answersLabel": "Solution",
-      "answersHint": "In a gap fill the learner types the answer. One solution per line, every line counts as correct. Capitalisation and a final punctuation mark are ignored, accents and umlauts are not.",
-      "answersPlaceholder": "goes",
+      "answersLabel": "Solution (optional)",
+      "answersHint": "Leave it empty if the AI should judge the answer. If you enter a solution, the code checks the typed answer and this question needs no AI at all. One solution per line, every line counts as correct. Capitalisation and a final punctuation mark are ignored, accents and umlauts are not. Short solutions give the learner a one-line box, whole sentences the big one.",
+      "gradedByCodeHint": "Checked without AI. The typed answer has to match one of the solutions.",
+      "gradedByAiHint": "The AI judges this answer at the end, using the grading rules and the level examples from the AI behaviour tab. This row counts towards the required writing samples.",
       "correctLabel": "correct",
       "addOption": "Add option",
       "removeOption": "Remove option",
@@ -1281,37 +1274,48 @@
       "expandAll": "Expand all",
       "collapseAll": "Collapse all",
       "reset": "Restore default",
-      "verbatimPlaceholder": "Question text, optional",
+      "verbatimPlaceholder": "Question text",
       "answerMaxLabel": "Maximum answer length (characters)",
       "saveFailed": "Saving failed",
       "type": {
-        "gap fill": "Gap fill",
-        "multiple choice": "Choice",
-        "error correction": "Correct the error",
-        "reading comprehension": "Read and understand",
-        "situation": "Situation",
-        "free writing": "Free writing"
-      }
+        "choice": "Choice",
+        "freeText": "Free text"
+      },
+      "generate": "Let the AI write the questions",
+      "generating": "The AI is writing",
+      "generatingHint": "This takes about a minute. The AI writes a complete set of questions, and you can change every one of them afterwards.",
+      "generateConfirm": "Write them",
+      "generateCancel": "Cancel",
+      "generateFailed": "The AI could not write a set of questions. Please try again.",
+      "generateWarningResult": "You get {count} new questions with a fixed sequence of task types, from easy to hard. The number and the task types follow that sequence, not your current list."
     },
     "adaptiveBehaviorCard": {
       "title": "Adaptive answer behaviour",
       "description": "Controls how the AI answers learners in the normal chat, depending on their level. Only takes effect when a level is stored.",
-      "hint": "'{level}' is replaced with the level, '{example}' with that level's example from the Language level examples card.",
+      "hint": "Controls tone and wording. Three placeholders in the text are filled in, always for the learner's own level: '{level}' with the level itself, '{description}' with its description from the Levels A1 to C2 card and '{example}' with the example sentences from there. Delete a placeholder and that piece is simply missing.",
       "reset": "Restore default",
       "saveFailed": "Saving failed"
     },
     "diagnosisGradingCard": {
       "title": "Grading rules",
-      "description": "Defines how the AI decides the final level A1 to C2.",
+      "description": "Defines the procedure: what the AI looks at when placing a learner.",
+      "hint": "This text has no placeholders of its own. It is inserted into the language diagnosis prompt above at '{grading}'. What defines a level is not here, it lives in the Levels A1 to C2 card.",
       "reset": "Restore default",
       "saveFailed": "Saving failed"
     },
-    "diagnosisExamplesCard": {
-      "title": "Language level examples",
-      "description": "Example answers per level. They help the AI place free-text answers, and they tell the normal chat how to answer a given level.",
-      "hint": "Separate several examples per level with -- (double dash), a line break works too. Ideally the same context across all levels, so the AI sees the same idea at rising levels.",
+    "diagnosisLevelsCard": {
+      "title": "Levels A1 to C2",
+      "description": "What defines a level. The AI places learners by it in the test and writes by it in the chat.",
+      "hint": "Use the same situation for every level, so the AI sees one statement rising through the levels.",
+      "descriptionLabel": "How someone writes at this level",
+      "examplesLabel": "Example sentences",
+      "examplesHint": "One sentence per line.",
       "reset": "Restore default",
       "saveFailed": "Saving failed"
+    },
+    "diagnosisAdvanced": {
+      "title": "Advanced",
+      "description": "Prompt texts for test, chat and tools. Only touch these if you know what you are doing."
     },
     "workspaceLimitsCard": {
       "title": "Max sources per {label}",

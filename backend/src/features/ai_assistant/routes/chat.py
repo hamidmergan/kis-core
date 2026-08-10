@@ -38,15 +38,13 @@ from src.tool_prompts import (
 )
 from src.services.aia_adaptive_chat import (
     adaptive_chat_appendix,
-    example_for_level,
+    level_texts,
     seal_adaptive_suffix,
     DEFAULT_ADAPTIVE_BEHAVIOR,
+    _LEGACY_ADAPTIVE_BEHAVIOR,
 )
-from src.services.aia_diagnosis_chat import (
-    ADAPTIVE_BEHAVIOR_SETTING,
-    LEVEL_EXAMPLES_SETTING,
-    parse_level_examples,
-)
+from src.services.aia_diagnosis_chat import ADAPTIVE_BEHAVIOR_SETTING
+from src.services.aia_level_ladder import resolve_prompt_setting
 
 # Upper bound on the question length we hand to the LLM intent classifier.
 # Longer questions are nearly always topic-specific (no need for an LLM round-trip)
@@ -1083,17 +1081,22 @@ async def chat(
     _adaptive_suffix, _applied_level = "", None
     if db.is_language_training_active(workspace["id"]) and _user_settings.get("language_training_active", False):
         # A learner with a stored CEFR level gets answers pitched at that level,
-        # calibrated with a sample of that level's language (the same per-level
-        # examples the diagnosis uses). Empty setting or no level -> no change.
-        # Computed once here; appended to the USER message in each path below, right
-        # next to the question, which is where the model weights it most.
+        # calibrated with the description and a sample of that level's language
+        # (the same Stufen-Leiter the diagnosis places learners with). Empty
+        # setting or no level -> no change. Computed once here; appended to the
+        # USER message in each path below, right next to the question, which is
+        # where the model weights it most.
         _level = db.get_user_language_level(user_id)["language_level"]
-        _examples = parse_level_examples(db.get_setting(LEVEL_EXAMPLES_SETTING, ""))
-        _example = example_for_level(_level, _examples)
+        _example, _description = level_texts(_level)
         _adaptive_suffix, _applied_level = adaptive_chat_appendix(
             _level,
-            db.get_setting(ADAPTIVE_BEHAVIOR_SETTING, DEFAULT_ADAPTIVE_BEHAVIOR),
+            resolve_prompt_setting(
+                db.get_setting(ADAPTIVE_BEHAVIOR_SETTING, ""),
+                _LEGACY_ADAPTIVE_BEHAVIOR,
+                DEFAULT_ADAPTIVE_BEHAVIOR,
+            ),
             _example,
+            _description,
         )
 
     # Sealed OUTSIDE the trainer gate: the sources guard goes out on every chat, with

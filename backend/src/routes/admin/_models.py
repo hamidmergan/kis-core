@@ -71,6 +71,9 @@ class UpdateSettingsRequest(BaseModel):
     # Per-level calibration examples as a JSON object {"A1":..,..,"C1":..,"C2":..}.
     # Empty string restores the shipped defaults.
     language_diagnosis_level_examples: str | None = None
+    # Beschreibung je Stufe als JSON-Objekt {"A1":..,..,"C2":..}. Leerer String
+    # setzt auf die ausgelieferten Standards zurueck.
+    language_diagnosis_level_descriptions: str | None = None
 
 
 class ToggleToolRequest(BaseModel):

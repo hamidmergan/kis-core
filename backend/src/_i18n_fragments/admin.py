@@ -32,12 +32,20 @@ MESSAGES: dict[str, dict[str, str]] = {
         "en": "Diagnosis prompt is too long (max {max} characters)",
     },
     "admin.settings.diagnosisPlanInvalid": {
-        "de": "Fragen-Plan ist ungültig. Jede Zeile braucht eine Stufe und einen Fragetyp.",
-        "en": "Question plan is invalid. Each row needs a level and a question type.",
+        "de": "Fragen-Plan ist ungültig. Der Plan braucht mindestens eine Frage, und jede Frage braucht einen Fragetyp.",
+        "en": "Question plan is invalid. The plan needs at least one question, and every question needs a task type.",
+    },
+    "admin.settings.diagnosisPlanGenerationFailed": {
+        "de": "Die KI konnte keinen brauchbaren Fragensatz schreiben. Bitte noch einmal versuchen.",
+        "en": "The AI could not write a usable set of questions. Please try again.",
+    },
+    "admin.settings.diagnosisPlanIncomplete": {
+        "de": "Frage {number} ist noch nicht fertig. Jede Frage braucht einen Fragetext. Eine Auswahl-Frage braucht außerdem Antwortoptionen, davon mindestens eine als richtig markiert.",
+        "en": "Question {number} is not finished. Every question needs a question text. A choice question also needs answer options, with at least one marked correct.",
     },
     "admin.settings.diagnosisPlanTooFewFreeText": {
-        "de": "Der Plan braucht mindestens {min} Freitext-Fragen (Fehlerkorrektur oder freies Schreiben). Nur so kann die KI das Sprachniveau an einer echten Textprobe einstufen.",
-        "en": "The plan needs at least {min} free-text questions (error correction or free writing). Only then can the AI place the level from real written production.",
+        "de": "Der Plan braucht mindestens {min} Freitext-Fragen ohne Lösung. Nur die beurteilt die KI selbst, und nur so entsteht die Stufe aus einer echten Textprobe. Freitext-Fragen mit Lösung zählen hier nicht, die prüft der Code.",
+        "en": "The plan needs at least {min} free-text questions without a solution. Only those does the AI judge itself, and only they give the level a real writing sample. Free-text questions with a solution do not count here, the code checks those.",
     },
     "admin.settings.answerMaxCharsOutOfRange": {
         "de": "Antwortlänge muss zwischen {min} und {max} Zeichen liegen",

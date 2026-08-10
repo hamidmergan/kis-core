@@ -78,9 +78,10 @@ export function LanguageDiagnosisPanel({
   // A free-text question is one being answered that carries no options. It gets a
   // real textbox with a submit button, not the chat-style composer.
   const isFreeText = !!current && !(options && options.length > 0);
-  // A gap fill is answered with one word, so it gets a one-line box. The big
-  // four-row box is for whole sentences and reads as "write a lot" next to a
-  // sentence that is missing a single word.
+  // Eine Lücke wird mit einem Wort beantwortet, also gibt es ein einzeiliges
+  // Feld. Der Server entscheidet das an der Länge der hinterlegten Lösung. Der
+  // große Kasten ist für ganze Sätze und liest sich neben einem Satz, dem ein
+  // einziges Wort fehlt, wie "schreib viel".
   const isShort = current?.short ?? false;
 
   // Checkbox picks for a multi-correct question, and the free-text draft. Both
@@ -281,11 +282,12 @@ export function LanguageDiagnosisPanel({
             </div>
           )}
 
-          {/* Free-text tasks (error correction, free writing) get a real textbox
-              and an explicit submit button, since the learner writes whole
-              sentences. Cmd/Ctrl+Enter submits too. A gap fill gets a one-line
-              box instead, where plain Enter submits: there is only one word to
-              type, so waiting for a modifier would just feel stuck. */}
+          {/* Eine Schreibprobe bekommt einen echten Kasten und einen eigenen
+              Absenden-Knopf, denn dort schreibt der Lernende ganze Sätze.
+              Cmd/Strg+Enter sendet auch. Eine Lücke bekommt stattdessen ein
+              einzeiliges Feld, in dem schon Enter absendet: da ist nur ein Wort
+              zu tippen, und auf eine Zusatztaste zu warten fühlt sich an, als
+              klemme es. */}
           {isFreeText && (
             <div className="px-4 pt-3 pb-4">
               <div className="max-w-2xl mx-auto w-full flex flex-col gap-2">

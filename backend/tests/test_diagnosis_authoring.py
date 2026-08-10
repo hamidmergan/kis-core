@@ -3,9 +3,9 @@
 The diagnosis moves from "one LLM call per question" to expert-authored items.
 An option question carries its own options with a correct/incorrect flag, and is
 graded in code (no model) by comparing the learner's picks to the correct set.
-A free-text item carries the question text and an optional example answer; it is
-still judged by the one final LLM call. A slot with neither is "auto" and the
-model generates it as before.
+A free-text item carries the question text; it is still judged by the one final
+LLM call. Eine unfertige Zeile gibt es nicht mehr: frueher schrieb das Modell die
+Frage dann waehrend des Tests, heute faellt der ganze Plan auf den Standard zurueck.
 
 These tests pin the parsing (backwards compatible with the old band/type/text
 plans), the mode a slot resolves to, and the all-or-nothing grading.
@@ -18,12 +18,10 @@ import pytest
 import random
 
 from src.services.aia_diagnosis_chat import (
+    CHOICE_TYPE,
     DEFAULT_GERMAN_QUESTION_PLAN,
-    OPTION_QUESTION_TYPES,
-    QUESTION_PLAN,
-    TYPED_ANSWER_QUESTION_TYPES,
+    FREE_TEXT_TYPE,
     answered_items,
-    auto_question_payload,
     build_grading_brief,
     correct_values,
     grade_selection,
@@ -31,34 +29,64 @@ from src.services.aia_diagnosis_chat import (
     is_multi_correct,
     manual_question_payload,
     option_values,
-    parse_auto_question,
     parse_question_plan,
     question_mode,
     question_plan_is_valid,
-    resolve_question_plan,
-    validate_auto_options,
+    wants_short_box,
     DiagnosisChatError,
 )
 
 
 # ─── Parsing: options + example, backwards compatible ──────────────────────
 
-def test_parse_keeps_type_text_plans_working_and_strips_legacy_band():
-    """The old shape (type, optional verbatim text) still parses; a legacy band is
-    dropped, since questions no longer carry a level."""
+def test_parse_strips_a_legacy_band_from_a_written_out_plan():
+    """Eine alte Zeile trug eine CEFR-Stufe; die faellt weg statt abgelehnt zu werden."""
     raw = json.dumps([
-        {"band": "A1", "type": "gap fill"},
+        {"band": "A1", "type": "gap fill", "text": "Ich ___ Student.", "answers": ["bin"]},
         {"band": "B2", "type": "free writing", "text": "Schreibe drei Sätze."},
     ])
     assert parse_question_plan(raw) == [
-        {"type": "gap fill"},
-        {"type": "free writing", "text": "Schreibe drei Sätze."},
+        {"type": FREE_TEXT_TYPE, "text": "Ich ___ Student.", "answers": ["bin"]},
+        {"type": FREE_TEXT_TYPE, "text": "Schreibe drei Sätze."},
     ]
+
+
+def test_parse_maps_the_six_old_names_onto_two_task_types():
+    """Ein Plan aus der Zeit der sechs Arten oeffnet unveraendert. Die drei
+    Auswahl-Namen waren im Code Wort fuer Wort dasselbe, und Lueckentext,
+    Fehlerkorrektur und freies Schreiben unterschieden sich nur darin, ob eine
+    Loesung dastand. Genau das bleibt erhalten, ohne Datenwanderung."""
+    raw = json.dumps([
+        {"type": CHOICE_TYPE, "text": "Q1",
+         "options": [{"text": "a", "correct": True}, {"text": "b", "correct": False}]},
+        {"type": "reading comprehension", "text": "Q2",
+         "options": [{"text": "a", "correct": True}, {"text": "b", "correct": False}]},
+        {"type": "situation", "text": "Q3",
+         "options": [{"text": "a", "correct": True}, {"text": "b", "correct": False}]},
+        {"type": "gap fill", "text": "Ich ___ Student.", "answers": ["bin"]},
+        {"type": "error correction", "text": "Verbessere den Satz."},
+        {"type": "free writing", "text": "Schreibe drei Sätze."},
+    ])
+    plan = parse_question_plan(raw)
+    assert [step["type"] for step in plan] == [
+        CHOICE_TYPE, CHOICE_TYPE, CHOICE_TYPE,
+        FREE_TEXT_TYPE, FREE_TEXT_TYPE, FREE_TEXT_TYPE,
+    ]
+    # Und jede Zeile wird weiter genau so bewertet wie vorher.
+    assert [question_mode(step) for step in plan] == [
+        "manual_options", "manual_options", "manual_options",
+        "manual_typed", "manual_text", "manual_text",
+    ]
+
+
+def test_parse_rejects_a_type_that_never_existed():
+    assert parse_question_plan(json.dumps([{"type": "essay", "text": "Q"}])) \
+        == DEFAULT_GERMAN_QUESTION_PLAN
 
 
 def test_parse_accepts_options_with_correct_flags():
     raw = json.dumps([{
-        "band": "A1", "type": "multiple choice",
+        "band": "A1", "type": CHOICE_TYPE,
         "text": "Ich ___ jeden Tag zur Arbeit.",
         "options": [
             {"text": "gehe", "correct": True},
@@ -79,7 +107,7 @@ def test_parse_accepts_options_with_correct_flags():
 
 def test_parse_accepts_a_typed_answer_key():
     raw = json.dumps([{
-        "type": "gap fill",
+        "type": FREE_TEXT_TYPE,
         "text": "Ich ___ jeden Tag zur Arbeit.",
         "answers": ["gehe", " fahre "],
     }])
@@ -108,18 +136,28 @@ def test_parse_reads_a_legacy_gap_fill_with_options_as_an_answer_key():
 
 
 def test_parse_falls_back_on_an_empty_typed_answer_key():
-    raw = json.dumps([{"type": "gap fill", "text": "Q", "answers": []}])
-    assert parse_question_plan(raw) == QUESTION_PLAN
+    """Ein leeres Feld ist etwas anderes als ein leeres Array: wer gar keine
+    Loesung will, laesst den Schluessel weg. Ein leeres Array ist kaputt."""
+    raw = json.dumps([{"type": FREE_TEXT_TYPE, "text": "Q", "answers": []}])
+    assert parse_question_plan(raw) == DEFAULT_GERMAN_QUESTION_PLAN
 
 
 def test_parse_falls_back_on_a_blank_typed_answer():
-    raw = json.dumps([{"type": "gap fill", "text": "Q", "answers": ["gehe", "  "]}])
-    assert parse_question_plan(raw) == QUESTION_PLAN
+    raw = json.dumps([{"type": FREE_TEXT_TYPE, "text": "Q", "answers": ["gehe", "  "]}])
+    assert parse_question_plan(raw) == DEFAULT_GERMAN_QUESTION_PLAN
+
+
+def test_parse_keeps_a_free_text_without_a_solution():
+    """Die Loesung ist freiwillig. Ohne sie ist die Zeile fertig, nicht kaputt."""
+    raw = json.dumps([{"type": FREE_TEXT_TYPE, "text": "Schreibe drei Sätze."}])
+    assert parse_question_plan(raw) == [
+        {"type": FREE_TEXT_TYPE, "text": "Schreibe drei Sätze."},
+    ]
 
 
 def test_parse_accepts_multiple_correct_options():
     raw = json.dumps([{
-        "band": "A1", "type": "multiple choice", "text": "Was passt?",
+        "band": "A1", "type": CHOICE_TYPE, "text": "Was passt?",
         "options": [
             {"text": "eins", "correct": True},
             {"text": "zwei", "correct": True},
@@ -146,33 +184,33 @@ def test_parse_falls_back_to_default_on_options_without_a_correct_one():
     """A single structural problem reverts the whole plan to the shipped default,
     so the diagnosis always runs on a usable plan (existing philosophy)."""
     raw = json.dumps([{
-        "band": "A1", "type": "multiple choice", "text": "Q",
+        "band": "A1", "type": CHOICE_TYPE, "text": "Q",
         "options": [{"text": "a", "correct": False}, {"text": "b", "correct": False}],
     }])
-    assert parse_question_plan(raw) == QUESTION_PLAN
+    assert parse_question_plan(raw) == DEFAULT_GERMAN_QUESTION_PLAN
 
 
 def test_parse_falls_back_on_option_with_empty_text():
     raw = json.dumps([{
-        "band": "A1", "type": "multiple choice", "text": "Q",
+        "band": "A1", "type": CHOICE_TYPE, "text": "Q",
         "options": [{"text": "", "correct": True}, {"text": "b", "correct": False}],
     }])
-    assert parse_question_plan(raw) == QUESTION_PLAN
+    assert parse_question_plan(raw) == DEFAULT_GERMAN_QUESTION_PLAN
 
 
 def test_parse_falls_back_on_too_few_options():
     raw = json.dumps([{
-        "band": "A1", "type": "multiple choice", "text": "Q",
+        "band": "A1", "type": CHOICE_TYPE, "text": "Q",
         "options": [{"text": "only", "correct": True}],
     }])
-    assert parse_question_plan(raw) == QUESTION_PLAN
+    assert parse_question_plan(raw) == DEFAULT_GERMAN_QUESTION_PLAN
 
 
 def test_parse_drops_options_on_free_text_types():
-    """Options make no sense on error correction / free writing and are stripped,
-    rather than nuking the plan, so a stray field from the editor is forgiving."""
+    """Optionen ergeben an einem Freitext keinen Sinn und fallen weg, statt den
+    Plan zu kippen, damit ein liegengebliebenes Feld aus dem Editor nicht stoert."""
     raw = json.dumps([{
-        "band": "B2", "type": "free writing", "text": "Schreib was.",
+        "band": "B2", "type": FREE_TEXT_TYPE, "text": "Schreib was.",
         "options": [{"text": "x", "correct": True}, {"text": "y", "correct": False}],
     }])
     step = parse_question_plan(raw)[0]
@@ -183,41 +221,35 @@ def test_parse_drops_options_on_free_text_types():
 # ─── Question mode ─────────────────────────────────────────────────────────
 
 def test_mode_manual_options_needs_text_and_options():
-    step = {"band": "A1", "type": "multiple choice", "text": "Q",
+    step = {"band": "A1", "type": CHOICE_TYPE, "text": "Q",
             "options": [{"text": "a", "correct": True}, {"text": "b", "correct": False}]}
     assert question_mode(step) == "manual_options"
 
 
 def test_mode_manual_typed_needs_text_and_a_solution():
-    step = {"type": "gap fill", "text": "Ich ___ Student.", "answers": ["bin"]}
+    step = {"type": FREE_TEXT_TYPE, "text": "Ich ___ Student.", "answers": ["bin"]}
     assert question_mode(step) == "manual_typed"
 
 
 def test_mode_manual_text_for_free_text_with_text():
-    step = {"band": "A2", "type": "error correction", "text": "Verbessere: ..."}
+    step = {"band": "A2", "type": FREE_TEXT_TYPE, "text": "Verbessere: ..."}
     assert question_mode(step) == "manual_text"
 
 
-def test_mode_auto_when_option_type_has_text_but_no_options():
-    """Half-authored (question but no answer key) stays auto: the model fills it,
-    so the expert is never forced to complete a row before the test works."""
-    step = {"band": "A1", "type": "multiple choice", "text": "Q"}
-    assert question_mode(step) == "auto"
-
-
-def test_mode_auto_when_a_gap_fill_has_text_but_no_solution():
-    assert question_mode({"type": "gap fill", "text": "Ich ___ Student."}) == "auto"
-
-
-def test_mode_auto_for_bare_band_type():
-    assert question_mode({"band": "A1", "type": "gap fill"}) == "auto"
-    assert question_mode({"band": "B2", "type": "free writing"}) == "auto"
+def test_mode_follows_the_solution_not_the_name():
+    """Der eigentliche Punkt der Zusammenlegung: bei einem Freitext entscheidet
+    die Loesung, wer bewertet, nicht die Aufgabenart. Mit Loesung prueft der Code,
+    ohne Loesung liest die KI. Ein vierter Modus, in dem das Modell die Frage
+    waehrend des Tests schreibt, ist entfallen."""
+    assert question_mode({"type": CHOICE_TYPE, "text": "Q"}) == "manual_options"
+    assert question_mode({"type": FREE_TEXT_TYPE, "text": "Q", "answers": ["x"]}) == "manual_typed"
+    assert question_mode({"type": FREE_TEXT_TYPE, "text": "Q"}) == "manual_text"
 
 
 # ─── Deterministic grading (all-or-nothing) ────────────────────────────────
 
 def _opt_step(*pairs):
-    return {"band": "A1", "type": "multiple choice", "text": "Q",
+    return {"band": "A1", "type": CHOICE_TYPE, "text": "Q",
             "options": [{"text": t, "correct": c} for t, c in pairs]}
 
 
@@ -282,7 +314,7 @@ def test_option_values_are_authoring_order_without_flags():
 # ─── Typed answers (gap fill): forgiving where it carries no meaning ────────
 
 def _gap_step(*answers):
-    return {"type": "gap fill", "text": "Ich ___ jeden Tag zur Arbeit.",
+    return {"type": FREE_TEXT_TYPE, "text": "Ich ___ jeden Tag zur Arbeit.",
             "answers": list(answers)}
 
 
@@ -326,44 +358,13 @@ def test_grade_typed_skipped_answer_is_wrong():
 
 
 def test_grade_typed_without_a_key_is_never_correct():
-    assert grade_typed({"type": "gap fill", "text": "Q"}, "gehe") is False
-
-
-# ─── Single-correct enforcement for AUTO (model-generated) options ─────────
-
-def test_validate_auto_options_accepts_exactly_one_correct():
-    opts = [{"text": "gehe", "correct": True},
-            {"text": "gehst", "correct": False},
-            {"text": "geht", "correct": False},
-            {"text": "gehen", "correct": False}]
-    assert validate_auto_options(opts) == opts
-
-
-def test_validate_auto_options_rejects_two_correct():
-    """The exact bug from the screenshot: 'ging' and 'gehe' both marked right."""
-    opts = [{"text": "geht", "correct": False},
-            {"text": "ging", "correct": True},
-            {"text": "gehen", "correct": False},
-            {"text": "gehe", "correct": True}]
-    with pytest.raises(DiagnosisChatError):
-        validate_auto_options(opts)
-
-
-def test_validate_auto_options_rejects_zero_correct():
-    opts = [{"text": "a", "correct": False}, {"text": "b", "correct": False}]
-    with pytest.raises(DiagnosisChatError):
-        validate_auto_options(opts)
-
-
-def test_validate_auto_options_rejects_too_few():
-    with pytest.raises(DiagnosisChatError):
-        validate_auto_options([{"text": "only", "correct": True}])
+    assert grade_typed({"type": FREE_TEXT_TYPE, "text": "Q"}, "gehe") is False
 
 
 # ─── Client payloads: never leak the answer key ────────────────────────────
 
 def test_manual_option_payload_hides_correct_flags_and_shuffles():
-    step = {"band": "A1", "type": "multiple choice", "text": "Ich ___ Student.",
+    step = {"band": "A1", "type": CHOICE_TYPE, "text": "Ich ___ Student.",
             "options": [{"text": "bin", "correct": True},
                         {"text": "ist", "correct": False},
                         {"text": "sind", "correct": False},
@@ -380,22 +381,26 @@ def test_manual_option_payload_hides_correct_flags_and_shuffles():
 def test_manual_typed_payload_keeps_the_solution_server_side():
     """The learner types, so shipping the key would hand them the answer. Only the
     question and the one-line hint travel."""
-    step = {"type": "gap fill", "text": "Ich ___ Student.", "answers": ["bin"]}
+    step = {"type": FREE_TEXT_TYPE, "text": "Ich ___ Student.", "answers": ["bin"]}
     payload = manual_question_payload(step)
     assert payload == {"done": False, "message": "Ich ___ Student.", "short": True}
     assert "bin" not in str(payload["message"])
 
 
-def test_auto_payload_marks_a_generated_gap_fill_short():
-    parsed = parse_auto_question(
-        '{"done": false, "message": "Ich ___ Student."}', want_options=False,
-    )
-    assert auto_question_payload(parsed, short=True)["short"] is True
-    assert "short" not in auto_question_payload(parsed)
+def test_a_long_solution_keeps_the_big_answer_box():
+    """Die Feldgroesse hing frueher am Typ 'gap fill'. Den gibt es nicht mehr, also
+    sagt die Loesung es: ein Wort heisst einzeilig, ein ganzer richtiger Satz
+    (etwa bei einer Fehlerkorrektur mit Loesung) heisst grosses Feld."""
+    long_step = {"type": FREE_TEXT_TYPE, "text": "Verbessere den Satz.",
+                 "answers": ["Gestern habe ich einen sehr langen Film gesehen."]}
+    assert wants_short_box(long_step) is False
+    assert "short" not in manual_question_payload(long_step)
+    assert wants_short_box({"type": FREE_TEXT_TYPE, "text": "Q", "answers": ["gehe"]}) is True
+    assert wants_short_box({"type": FREE_TEXT_TYPE, "text": "Q"}) is False
 
 
 def test_manual_option_payload_marks_multi():
-    step = {"band": "A1", "type": "multiple choice", "text": "Q",
+    step = {"band": "A1", "type": CHOICE_TYPE, "text": "Q",
             "options": [{"text": "a", "correct": True},
                         {"text": "b", "correct": True},
                         {"text": "c", "correct": False}]}
@@ -403,38 +408,9 @@ def test_manual_option_payload_marks_multi():
 
 
 def test_manual_free_text_payload_has_no_options():
-    step = {"band": "B2", "type": "free writing", "text": "Schreib drei Sätze."}
+    step = {"band": "B2", "type": FREE_TEXT_TYPE, "text": "Schreib drei Sätze."}
     payload = manual_question_payload(step)
     assert payload == {"done": False, "message": "Schreib drei Sätze."}
-
-
-def test_auto_payload_strips_flags_and_is_single():
-    parsed = parse_auto_question(
-        '{"done": false, "message": "Ich ___ Student.", "options": ['
-        '{"text": "bin", "correct": true}, {"text": "ist", "correct": false},'
-        '{"text": "sind", "correct": false}, {"text": "seid", "correct": false}]}',
-        want_options=True,
-    )
-    payload = auto_question_payload(parsed, rng=random.Random(2))
-    assert payload["multi"] is False
-    assert sorted(payload["options"]) == ["bin", "ist", "seid", "sind"]
-    assert "correct" not in str(payload)
-
-
-def test_parse_auto_question_free_text_needs_no_options():
-    parsed = parse_auto_question(
-        '{"done": false, "message": "Schreib drei Sätze über deinen Tag."}',
-        want_options=False,
-    )
-    assert parsed == {"message": "Schreib drei Sätze über deinen Tag."}
-
-
-def test_parse_auto_question_rejects_two_correct():
-    raw = ('{"done": false, "message": "Ich ___ zur Arbeit.", "options": ['
-           '{"text": "gehe", "correct": true}, {"text": "ging", "correct": true},'
-           '{"text": "geht", "correct": false}, {"text": "gehen", "correct": false}]}')
-    with pytest.raises(DiagnosisChatError):
-        parse_auto_question(raw, want_options=True)
 
 
 # ─── Transcript pairing + grading brief ────────────────────────────────────
@@ -456,7 +432,7 @@ def test_answered_items_pairs_questions_with_answers():
 
 
 def test_grading_brief_gives_a_fixed_result_for_clean_authored_picks():
-    plan = [{"band": "A1", "type": "multiple choice", "text": "Ich ___ Student.",
+    plan = [{"band": "A1", "type": CHOICE_TYPE, "text": "Ich ___ Student.",
              "options": [{"text": "bin", "correct": True},
                          {"text": "ist", "correct": False}]}]
     history = [
@@ -470,7 +446,7 @@ def test_grading_brief_gives_a_fixed_result_for_clean_authored_picks():
 
 
 def test_grading_brief_marks_a_wrong_authored_pick_incorrect():
-    plan = [{"band": "A1", "type": "multiple choice", "text": "Q",
+    plan = [{"band": "A1", "type": CHOICE_TYPE, "text": "Q",
              "options": [{"text": "bin", "correct": True},
                          {"text": "ist", "correct": False}]}]
     history = [
@@ -481,7 +457,7 @@ def test_grading_brief_marks_a_wrong_authored_pick_incorrect():
 
 
 def test_grading_brief_grades_a_typed_gap_fill_in_code():
-    plan = [{"type": "gap fill", "text": "Ich ___ Student.", "answers": ["bin"]}]
+    plan = [{"type": FREE_TEXT_TYPE, "text": "Ich ___ Student.", "answers": ["bin"]}]
     history = [
         {"role": "assistant", "content": "Ich ___ Student."},
         {"role": "user", "content": "Bin."},
@@ -492,7 +468,7 @@ def test_grading_brief_grades_a_typed_gap_fill_in_code():
 
 
 def test_grading_brief_marks_a_wrong_typed_gap_fill_incorrect():
-    plan = [{"type": "gap fill", "text": "Ich ___ Student.", "answers": ["bin"]}]
+    plan = [{"type": FREE_TEXT_TYPE, "text": "Ich ___ Student.", "answers": ["bin"]}]
     history = [
         {"role": "assistant", "content": "Ich ___ Student."},
         {"role": "user", "content": "ist"},
@@ -500,20 +476,19 @@ def test_grading_brief_marks_a_wrong_typed_gap_fill_incorrect():
     assert "INCORRECT" in build_grading_brief(plan, history)
 
 
-def test_grading_brief_leaves_an_unauthored_gap_fill_to_the_model():
-    """No solution stored, so the model wrote the question and judges the word."""
-    plan = [{"type": "gap fill"}]
+def test_grading_brief_marks_a_missed_gap_fill_incorrect():
+    """Der Loesungsschluessel ist immer da, also steht das Urteil im Bericht fest."""
+    plan = [{"type": FREE_TEXT_TYPE, "text": "Ich ___ Student.", "answers": ["bin"]}]
     history = [
         {"role": "assistant", "content": "Ich ___ Student."},
-        {"role": "user", "content": "bin"},
+        {"role": "user", "content": "ist"},
     ]
     brief = build_grading_brief(plan, history)
-    assert "RESULT" not in brief
-    assert "Decide whether the word fits the blank" in brief
+    assert "RESULT (already graded in code, use exactly this): INCORRECT." in brief
 
 
 def test_grading_brief_defers_free_worded_pick_to_the_model():
-    plan = [{"band": "A1", "type": "multiple choice", "text": "Q",
+    plan = [{"band": "A1", "type": CHOICE_TYPE, "text": "Q",
              "options": [{"text": "bin", "correct": True},
                          {"text": "ist", "correct": False}]}]
     history = [
@@ -530,7 +505,7 @@ def test_grading_brief_defers_free_worded_pick_to_the_model():
 def test_grading_brief_for_free_text_has_no_example_line():
     """The per-question example is gone; the brief just asks the model to judge the
     answer's level (against the global calibration examples in the system prompt)."""
-    plan = [{"type": "error correction", "text": "Verbessere: Ich habe gegangen."}]
+    plan = [{"type": FREE_TEXT_TYPE, "text": "Verbessere: Ich habe gegangen."}]
     history = [
         {"role": "assistant", "content": "Verbessere: Ich habe gegangen."},
         {"role": "user", "content": "Ich bin gegangen."},
@@ -541,35 +516,28 @@ def test_grading_brief_for_free_text_has_no_example_line():
     assert "Ich bin gegangen." in brief
 
 
-# ─── Language-aware default resolution ─────────────────────────────────────
+# ─── Default resolution ────────────────────────────────────────────────────
 
-def test_resolve_uses_german_authored_set_for_german_with_no_config():
-    assert resolve_question_plan("", "de") is DEFAULT_GERMAN_QUESTION_PLAN
-    assert resolve_question_plan("   ", "de") is DEFAULT_GERMAN_QUESTION_PLAN
-
-
-def test_resolve_uses_language_agnostic_default_for_other_languages():
-    """Any non-German diagnosis with no config falls back to the model-generated
-    plan, so a fresh install in any language still works out of the box."""
-    assert resolve_question_plan("", "en") is QUESTION_PLAN
-    assert resolve_question_plan("", "uk") is QUESTION_PLAN
-    assert resolve_question_plan("", None) is QUESTION_PLAN
+def test_no_stored_plan_uses_the_shipped_german_set():
+    assert parse_question_plan("") is DEFAULT_GERMAN_QUESTION_PLAN
+    assert parse_question_plan("   ") is DEFAULT_GERMAN_QUESTION_PLAN
 
 
-def test_resolve_prefers_a_stored_admin_plan_over_the_defaults():
+def test_a_stored_admin_plan_wins_over_the_default():
     import json as _json
-    stored = _json.dumps([{"type": "free writing", "text": "Schreib was."}])
-    plan = resolve_question_plan(stored, "de")
-    assert plan == [{"type": "free writing", "text": "Schreib was."}]
+    stored = _json.dumps([{"type": FREE_TEXT_TYPE, "text": "Schreib was."}])
+    assert parse_question_plan(stored) == [{"type": FREE_TEXT_TYPE, "text": "Schreib was."}]
 
 
 # ─── Save-path validation ──────────────────────────────────────────────────
 
 def test_plan_is_valid_accepts_old_and_new_shapes():
+    """Struktur-Pruefung. Ob eine Zeile fertig ist, prueft first_incomplete_question
+    (siehe test_diagnosis_plan_complete)."""
     import json as _json
     assert question_plan_is_valid(_json.dumps([{"band": "A1", "type": "gap fill"}]))
     assert question_plan_is_valid(_json.dumps([{
-        "band": "A1", "type": "multiple choice", "text": "Q",
+        "band": "A1", "type": CHOICE_TYPE, "text": "Q",
         "options": [{"text": "a", "correct": True}, {"text": "b", "correct": False}],
     }]))
     assert question_plan_is_valid(_json.dumps([{
@@ -586,10 +554,19 @@ def test_plan_is_valid_accepts_old_and_new_shapes():
 def test_plan_is_valid_rejects_a_broken_solution():
     import json as _json
     assert not question_plan_is_valid(_json.dumps([{
-        "type": "gap fill", "text": "Q", "answers": [],
+        "type": FREE_TEXT_TYPE, "text": "Q", "answers": [],
     }]))
     assert not question_plan_is_valid(_json.dumps([{
-        "type": "gap fill", "text": "Q", "answers": ["gehe", 7],
+        "type": FREE_TEXT_TYPE, "text": "Q", "answers": ["gehe", 7],
+    }]))
+
+
+def test_plan_is_valid_accepts_a_free_text_without_a_solution():
+    """Kein Loesungsschluessel heisst: die KI beurteilt das. Das ist der Normalfall
+    und darf nicht am Speicherweg scheitern."""
+    import json as _json
+    assert question_plan_is_valid(_json.dumps([{
+        "type": FREE_TEXT_TYPE, "text": "Schreibe drei Sätze.",
     }]))
 
 
@@ -602,40 +579,40 @@ def test_plan_is_valid_rejects_muck():
         "type": "gap fill",
         "options": [{"text": "only", "correct": False}, {"text": "b", "correct": False}],
     }]))
+    assert not question_plan_is_valid(_json.dumps([{"type": "free text", "text": 7}]))
 
 
 # ─── The shipped German set is well-formed and fully authored ──────────────
 
-def test_german_default_matches_the_type_sequence():
-    assert [s["type"] for s in DEFAULT_GERMAN_QUESTION_PLAN] == \
-        [s["type"] for s in QUESTION_PLAN]
+def test_german_default_uses_both_task_types():
+    types = [s["type"] for s in DEFAULT_GERMAN_QUESTION_PLAN]
+    assert set(types) == {CHOICE_TYPE, FREE_TEXT_TYPE}
     # No question carries a band any more: level is read from the answers.
     assert all("band" not in s for s in DEFAULT_GERMAN_QUESTION_PLAN)
 
 
 def test_german_default_has_no_auto_slots():
-    """Every slot is fully authored, so a German diagnosis spends zero calls on
-    questions: option slots are manual_options, gap fills manual_typed, free-text
-    slots manual_text."""
+    """Jede Zeile ist fertig ausgeschrieben, also kostet eine deutsche Einstufung
+    null Aufrufe fuer Fragen: Auswahl ist manual_options, Freitext mit Loesung ist
+    manual_typed, Freitext ohne Loesung ist manual_text."""
     for step in DEFAULT_GERMAN_QUESTION_PLAN:
-        if step["type"] in OPTION_QUESTION_TYPES:
+        if step["type"] == CHOICE_TYPE:
             assert question_mode(step) == "manual_options"
-        elif step["type"] in TYPED_ANSWER_QUESTION_TYPES:
+        elif step.get("answers"):
             assert question_mode(step) == "manual_typed"
         else:
             assert question_mode(step) == "manual_text"
 
 
-def test_german_default_gap_fill_carries_a_solution_not_options():
+def test_german_default_free_text_never_carries_options():
     for step in DEFAULT_GERMAN_QUESTION_PLAN:
-        if step["type"] in TYPED_ANSWER_QUESTION_TYPES:
-            assert step["answers"], step["text"]
+        if step["type"] == FREE_TEXT_TYPE:
             assert "options" not in step, step["text"]
 
 
 def test_german_default_option_slots_are_single_correct():
     for step in DEFAULT_GERMAN_QUESTION_PLAN:
-        if step["type"] in OPTION_QUESTION_TYPES:
+        if step["type"] == CHOICE_TYPE:
             assert len(correct_values(step)) == 1, step["text"]
 
 
@@ -648,31 +625,62 @@ def test_german_default_round_trips_through_parse_and_validation():
 
 # ─── Free-text minimum (save-path policy, separate from structural validity) ─
 
-def test_count_free_text_questions():
-    from src.services.aia_diagnosis_chat import count_free_text_questions
+def test_count_judged_questions_ignores_free_text_with_a_solution():
+    """Gezaehlt wird nur, was die KI wirklich liest. Ein Lueckensatz mit Loesung
+    ist keine Schreibprobe, auch wenn er im selben Aufgabentyp steckt."""
+    from src.services.aia_diagnosis_chat import count_judged_questions
     plan = [
-        {"band": "A1", "type": "gap fill"},
-        {"band": "A2", "type": "error correction"},
-        {"band": "B2", "type": "free writing"},
+        {"type": FREE_TEXT_TYPE, "text": "Ich ___ da.", "answers": ["bin"]},
+        {"type": FREE_TEXT_TYPE, "text": "Verbessere den Satz."},
+        {"type": FREE_TEXT_TYPE, "text": "Schreibe drei Sätze."},
     ]
-    assert count_free_text_questions(plan) == 2
-    assert count_free_text_questions([{"band": "A1", "type": "multiple choice"}]) == 0
+    assert count_judged_questions(plan) == 2
+    assert count_judged_questions([{"type": CHOICE_TYPE, "text": "Q"}]) == 0
 
 
 def test_plan_needs_at_least_two_free_text():
     import json as _json
     from src.services.aia_diagnosis_chat import question_plan_has_enough_free_text
+    choice = {"type": CHOICE_TYPE, "text": "Q",
+              "options": [{"text": "a", "correct": True}, {"text": "b", "correct": False}]}
     too_few = _json.dumps([
-        {"band": "A1", "type": "gap fill"},
-        {"band": "A2", "type": "multiple choice"},
-        {"band": "B2", "type": "error correction"},
+        {"type": FREE_TEXT_TYPE, "text": "Ich ___ da.", "answers": ["bin"]},
+        choice,
+        {"type": FREE_TEXT_TYPE, "text": "Verbessere den Satz."},
     ])
     enough = _json.dumps([
-        {"band": "A2", "type": "error correction"},
-        {"band": "B2", "type": "free writing"},
+        {"type": FREE_TEXT_TYPE, "text": "Verbessere den Satz."},
+        {"type": FREE_TEXT_TYPE, "text": "Schreibe drei Sätze."},
     ])
     assert not question_plan_has_enough_free_text(too_few)
     assert question_plan_has_enough_free_text(enough)
+
+
+def test_a_solution_on_every_free_text_fails_the_minimum():
+    """Der Weg, auf dem man die Pflicht-Schreibproben aus Versehen loswird: ueberall
+    eine Loesung eintragen. Dann prueft nur noch der Code und die Stufe hinge an
+    nichts."""
+    import json as _json
+    from src.services.aia_diagnosis_chat import question_plan_has_enough_free_text
+    all_solved = _json.dumps([
+        {"type": FREE_TEXT_TYPE, "text": "Ich ___ da.", "answers": ["bin"]},
+        {"type": FREE_TEXT_TYPE, "text": "Ich ___ Student.", "answers": ["bin"]},
+        {"type": FREE_TEXT_TYPE, "text": "Er ___ Arzt.", "answers": ["ist"]},
+    ])
+    assert not question_plan_has_enough_free_text(all_solved)
+
+
+def test_the_minimum_still_reads_a_plan_written_with_the_old_names():
+    """Ein gespeicherter Plan von vor der Zusammenlegung darf nicht ploetzlich
+    durchfallen, wenn die Verwaltung ihn nur oeffnet und wieder speichert."""
+    import json as _json
+    from src.services.aia_diagnosis_chat import question_plan_has_enough_free_text
+    old = _json.dumps([
+        {"type": "gap fill", "text": "Ich ___ da.", "answers": ["bin"]},
+        {"type": "error correction", "text": "Verbessere den Satz."},
+        {"type": "free writing", "text": "Schreibe drei Sätze."},
+    ])
+    assert question_plan_has_enough_free_text(old)
 
 
 def test_plan_free_text_check_is_robust_to_muck():
@@ -681,12 +689,11 @@ def test_plan_free_text_check_is_robust_to_muck():
     assert not question_plan_has_enough_free_text('{"not": "a list"}')
 
 
-def test_shipped_plans_meet_the_free_text_minimum():
-    """Regression: a default must never dip below the enforced floor, or a fresh
+def test_the_shipped_plan_meets_the_free_text_minimum():
+    """Regression: the default must never dip below the enforced floor, or a fresh
     install would ship a plan the save path would then reject."""
     import json as _json
     from src.services.aia_diagnosis_chat import (
-        question_plan_has_enough_free_text, QUESTION_PLAN, DEFAULT_GERMAN_QUESTION_PLAN,
+        question_plan_has_enough_free_text, DEFAULT_GERMAN_QUESTION_PLAN,
     )
-    assert question_plan_has_enough_free_text(_json.dumps(QUESTION_PLAN))
     assert question_plan_has_enough_free_text(_json.dumps(DEFAULT_GERMAN_QUESTION_PLAN))

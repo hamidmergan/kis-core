@@ -7,6 +7,12 @@ const backendUrl = process.env.BACKEND_URL || "http://localhost:8000";
 
 const nextConfig: NextConfig = {
   output: "standalone",
+  // Ein Probe-Build darf den laufenden Dev-Server nicht abschiessen: beide
+  // schreiben sonst in dasselbe .next und :3000 ist danach kaputt. Mit
+  // NEXT_DIST_DIR=.next-verify baut die Probe daneben. Next schreibt dabei
+  // next-env.d.ts und tsconfig.json auf den Probe-Ordner um, die beiden also
+  // hinterher zuruecksetzen (git checkout).
+  ...(process.env.NEXT_DIST_DIR ? { distDir: process.env.NEXT_DIST_DIR } : {}),
   reactStrictMode: true,
   webpack: (config) => {
     // Required for react-pdf (pdfjs-dist uses canvas which doesn't exist in SSR)

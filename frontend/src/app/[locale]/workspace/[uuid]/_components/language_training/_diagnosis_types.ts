@@ -30,9 +30,9 @@ export interface ChatTurn {
   /** Assistant option question: several options may be correct, so the learner
    *  picks with checkboxes instead of a single radio choice. */
   multi?: boolean;
-  /** Assistant typed question (gap fill): the answer is a single word, so the
-   *  learner gets a one-line box instead of the one meant for whole sentences.
-   *  Display only, it never travels back. */
+  /** Assistant free text whose solution is short: the answer is a single word or
+   *  phrase, so the learner gets a one-line box instead of the one meant for
+   *  whole sentences. Display only, it never travels back. */
   short?: boolean;
   /** User turn: the option values the learner clicked. Absent when they typed a
    *  free answer, which the final grading call interprets. */

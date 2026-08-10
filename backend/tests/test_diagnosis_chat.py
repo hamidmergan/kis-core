@@ -1,10 +1,10 @@
 """Language diagnosis: prompt rendering, question generation and verdict parsing.
 
-The diagnosis serves expert-authored questions with no model call and grades
-option answers in code; only auto (model-generated) slots and the single final
-grading call touch the LLM. This module pins the shared prompt, the auto-question
-generation messages, the final grading messages and the verdict parser. The
-authoring data model and deterministic grading live in test_diagnosis_authoring.
+Jede Frage kommt ausgeschrieben aus dem Plan und wird ohne Modellaufruf
+ausgeliefert, Auswahl- und Tippantworten bewertet der Code. Nur der eine
+Abschluss-Aufruf spricht mit dem Modell. Dieses Modul haelt den gemeinsamen Prompt,
+die Nachrichten der Abschlussbewertung und den Verdikt-Parser fest. Datenmodell und
+deterministische Bewertung liegen in test_diagnosis_authoring.
 """
 
 import json
@@ -14,23 +14,21 @@ import pytest
 
 from src.features.ai_assistant.routes.language_training.diagnosis import (
     _rejects_json_mode,
-    build_auto_messages,
 )
 from src.services.aia_diagnosis_chat import (
-    AUTO_OPTIONS_DIRECTIVE,
     DEFAULT_DIAGNOSIS_PROMPT,
+    DEFAULT_GERMAN_QUESTION_PLAN,
     FINAL_INSTRUCTION,
-    KICKOFF_MESSAGE,
-    QUESTION_COUNT,
-    QUESTION_PLAN,
     PROMPT_PLACEHOLDER,
     DiagnosisChatError,
     build_final_messages,
-    next_question_message,
+    count_judged_questions,
     parse_question_plan,
     parse_turn_response,
     render_system_prompt,
 )
+
+QUESTION_COUNT = len(DEFAULT_GERMAN_QUESTION_PLAN)
 
 
 # ─── Rendering ─────────────────────────────────────────────────────────────
@@ -69,13 +67,16 @@ def test_default_prompt_is_usable_out_of_the_box():
     assert "informal second person" in DEFAULT_DIAGNOSIS_PROMPT
 
 
-def test_default_prompt_defines_all_six_task_types():
-    """The six types are the backbone of the test, one per question."""
-    for task_type in ("gap fill", "multiple choice", "error correction",
-                      "reading comprehension", "free writing", "situation"):
-        assert task_type in DEFAULT_DIAGNOSIS_PROMPT
+def test_default_prompt_defines_both_task_types():
+    """Zwei Arten tragen den Test, und der Prompt muss dieselben zwei Namen
+    benutzen wie der Plan, sonst beschreibt er eine Aufgabe, die es nicht gibt."""
+    assert "choice" in DEFAULT_DIAGNOSIS_PROMPT
+    assert "free text" in DEFAULT_DIAGNOSIS_PROMPT
+    # Die alten sechs Namen kommen nicht wieder vor.
+    for gone in ("gap fill", "reading comprehension", "free writing"):
+        assert gone not in DEFAULT_DIAGNOSIS_PROMPT
     # The type is dictated per question, not chosen by the model.
-    assert "THE TASK TYPES are" in DEFAULT_DIAGNOSIS_PROMPT
+    assert "THERE ARE TWO TASK TYPES" in DEFAULT_DIAGNOSIS_PROMPT
 
 
 def test_default_prompt_returns_options_as_structured_data_not_letters():
@@ -146,12 +147,13 @@ def test_default_prompt_places_from_the_learners_answers_not_a_question_label():
 
 
 def test_default_prompt_uses_the_full_cefr_ladder():
-    """The scale runs A1..C2; the grading rules and output format must offer all
+    """The scale runs A1..C2; the level ladder and output format must offer all
     six, and the old collapsed 'B1+' outcome must be gone everywhere."""
     from src.services.aia_diagnosis_chat import DEFAULT_GRADING_RULES
+    from src.services.aia_level_ladder import DEFAULT_LEVEL_DESCRIPTIONS
     assert "B1+" not in DEFAULT_GRADING_RULES
-    for level in ("C1:", "C2:"):
-        assert level in DEFAULT_GRADING_RULES
+    for level in ("C1", "C2"):
+        assert DEFAULT_LEVEL_DESCRIPTIONS[level].strip()
     # The OUTPUT FORMAT constrains the verdict to the six CEFR levels.
     assert '"A1", "A2", "B1", "B2", "C1", "C2"' in DEFAULT_DIAGNOSIS_PROMPT
     assert "B1+" not in DEFAULT_DIAGNOSIS_PROMPT
@@ -293,60 +295,10 @@ def test_parse_accepts_a_final_turn_without_scores():
     assert "skill_scores" not in result
 
 
-# ─── Auto-question generation messages ─────────────────────────────────────
-
-def test_build_auto_messages_dictates_the_slot_and_keeps_a_user_turn():
-    messages = build_auto_messages("SYS", 1, QUESTION_PLAN)
-    assert [m["role"] for m in messages] == ["system", "user", "system"]
-    assert messages[0]["content"] == "SYS"
-    assert messages[1]["content"] == KICKOFF_MESSAGE
-    assert "question 1 of" in messages[2]["content"]
-    assert "gap fill" in messages[2]["content"]
-
-
-def test_build_auto_messages_for_a_later_slot():
-    messages = build_auto_messages("SYS", 3, QUESTION_PLAN)
-    assert "question 3 of" in messages[-1]["content"]
-    assert "error correction" in messages[-1]["content"]  # Q3 is error correction
-
-
-def test_next_question_message_appends_structured_options_for_option_types():
-    msg = next_question_message(2, QUESTION_PLAN)  # multiple choice
-    assert AUTO_OPTIONS_DIRECTIVE.strip() in msg
-    assert '"options"' in msg
-    assert "EXACTLY ONE" in msg
-    # And no letter-position wording survives.
-    assert not re.search(r"position [abcd]\)", msg)
-
-
-def test_next_question_message_has_no_options_directive_for_free_text():
-    msg = next_question_message(3, QUESTION_PLAN)  # error correction -> no options
-    assert AUTO_OPTIONS_DIRECTIVE.strip() not in msg
-    assert "error correction" in msg
-    assert "3 of" in msg  # difficulty follows position, not a band
-
-
-def test_next_question_message_has_no_options_directive_for_a_gap_fill():
-    """Gap fill is typed, not picked, so the model must not invent options."""
-    msg = next_question_message(1, QUESTION_PLAN)  # Q1 is gap fill
-    assert AUTO_OPTIONS_DIRECTIVE.strip() not in msg
-    assert "gap fill" in msg
-
-
-def test_next_question_message_uses_verbatim_text_when_present():
-    plan = [{"band": "A1", "type": "multiple choice",
-             "text": "Fülle die Lücke: Ich ___ Student."}]
-    msg = next_question_message(1, plan)
-    assert "Ich ___ Student." in msg
-    assert "1 of 1" in msg
-    # An option type with text but no answer key still asks for structured options.
-    assert AUTO_OPTIONS_DIRECTIVE.strip() in msg
-
-
 # ─── Final grading messages ────────────────────────────────────────────────
 
 def test_build_final_messages_carries_the_record_to_one_user_turn():
-    plan = [{"band": "A1", "type": "multiple choice", "text": "Ich ___ Student.",
+    plan = [{"band": "A1", "type": "choice", "text": "Ich ___ Student.",
              "options": [{"text": "bin", "correct": True},
                          {"text": "ist", "correct": False}]}]
     history = [
@@ -363,52 +315,51 @@ def test_build_final_messages_carries_the_record_to_one_user_turn():
 
 # ─── Plan shape ────────────────────────────────────────────────────────────
 
-def test_plan_is_twelve_type_only_slots():
+def test_plan_is_twelve_written_out_slots():
     assert QUESTION_COUNT == 12
-    # Questions carry no band any more: only a task type.
-    assert all(set(step) <= {"type"} for step in QUESTION_PLAN)
-    types = [step["type"] for step in QUESTION_PLAN]
-    assert set(types) == {"gap fill", "multiple choice", "error correction",
-                          "reading comprehension", "situation", "free writing"}
-    # At least two free-text slots, since free text carries the placement.
-    free_text = sum(t in {"error correction", "free writing"} for t in types)
-    assert free_text >= 2
+    # Fragen tragen keine Stufe, nur eine Aufgabenart, und jede ist ausgeschrieben.
+    assert all("text" in step for step in DEFAULT_GERMAN_QUESTION_PLAN)
+    assert all("band" not in step for step in DEFAULT_GERMAN_QUESTION_PLAN)
+    types = [step["type"] for step in DEFAULT_GERMAN_QUESTION_PLAN]
+    assert set(types) == {"choice", "free text"}
+    # At least two slots the AI judges, since free writing carries the placement.
+    assert count_judged_questions(DEFAULT_GERMAN_QUESTION_PLAN) >= 2
 
 
 # ─── Admin-configurable question plan (old shapes stay valid) ──────────────
 
 def test_parse_question_plan_empty_returns_default():
-    assert parse_question_plan("") == QUESTION_PLAN
-    assert parse_question_plan("   ") == QUESTION_PLAN
+    assert parse_question_plan("") == DEFAULT_GERMAN_QUESTION_PLAN
+    assert parse_question_plan("   ") == DEFAULT_GERMAN_QUESTION_PLAN
 
 
 def test_parse_question_plan_invalid_json_returns_default():
-    assert parse_question_plan("{not json") == QUESTION_PLAN
+    assert parse_question_plan("{not json") == DEFAULT_GERMAN_QUESTION_PLAN
 
 
 def test_parse_question_plan_rejects_bad_type():
-    bad_type = json.dumps([{"type": "essay"}])
-    assert parse_question_plan(bad_type) == QUESTION_PLAN
+    bad_type = json.dumps([{"type": "essay", "text": "Was auch immer."}])
+    assert parse_question_plan(bad_type) == DEFAULT_GERMAN_QUESTION_PLAN
 
 
 def test_parse_question_plan_ignores_a_legacy_band():
     """Older plans carried a CEFR band; it is now stripped, not rejected."""
-    raw = json.dumps([{"band": "A1", "type": "gap fill"},
-                      {"band": "C2", "type": "free writing"}])
+    raw = json.dumps([{"band": "A1", "type": "free writing", "text": "Schreibe etwas."},
+                      {"band": "C2", "type": "free writing", "text": "Schreibe mehr."}])
     assert parse_question_plan(raw) == [
-        {"type": "gap fill"},
-        {"type": "free writing"},
+        {"type": "free text", "text": "Schreibe etwas."},
+        {"type": "free text", "text": "Schreibe mehr."},
     ]
 
 
-def test_parse_question_plan_accepts_valid_plan_with_optional_text():
+def test_parse_question_plan_accepts_a_written_out_plan():
     raw = json.dumps([
-        {"type": "gap fill"},
-        {"type": "free writing", "text": "Schreibe drei Sätze über deinen Tag."},
+        {"type": "free text", "text": "Ich ___ zur Arbeit.", "answers": ["gehe"]},
+        {"type": "free text", "text": "Schreibe drei Sätze über deinen Tag."},
     ])
     assert parse_question_plan(raw) == [
-        {"type": "gap fill"},
-        {"type": "free writing", "text": "Schreibe drei Sätze über deinen Tag."},
+        {"type": "free text", "text": "Ich ___ zur Arbeit.", "answers": ["gehe"]},
+        {"type": "free text", "text": "Schreibe drei Sätze über deinen Tag."},
     ]
 
 
@@ -472,30 +423,38 @@ def test_example_items_splits_on_dash_and_newline_keeps_hyphen_word():
 def test_assemble_system_prompt_fills_both_placeholders():
     from src.services.aia_diagnosis_chat import (
         assemble_system_prompt, DEFAULT_DIAGNOSIS_PROMPT, DEFAULT_GRADING_RULES,
-        DEFAULT_LEVEL_EXAMPLES, GRADING_PLACEHOLDER, EXAMPLES_PLACEHOLDER,
+        DEFAULT_LEVEL_EXAMPLES, GRADING_PLACEHOLDER, LEVELS_PLACEHOLDER,
+        EXAMPLES_PLACEHOLDER,
     )
+    from src.services.aia_level_ladder import DEFAULT_LEVEL_DESCRIPTIONS
     out = assemble_system_prompt(
-        DEFAULT_DIAGNOSIS_PROMPT, DEFAULT_GRADING_RULES, DEFAULT_LEVEL_EXAMPLES, "German"
+        DEFAULT_DIAGNOSIS_PROMPT, DEFAULT_GRADING_RULES, DEFAULT_LEVEL_DESCRIPTIONS,
+        DEFAULT_LEVEL_EXAMPLES, "German",
     )
     assert GRADING_PLACEHOLDER not in out
+    assert LEVELS_PLACEHOLDER not in out
     assert EXAMPLES_PLACEHOLDER not in out
     assert "{language}" not in out
     assert "LEVEL ASSIGNMENT" in out
     assert "CALIBRATION EXAMPLES" in out
     assert "Am Samstag gehe ich ins Kino." in out
+    assert DEFAULT_LEVEL_DESCRIPTIONS["B1"] in out
 
 
 def test_assemble_system_prompt_appends_when_placeholders_missing():
     from src.services.aia_diagnosis_chat import (
         assemble_system_prompt, DEFAULT_GRADING_RULES, DEFAULT_LEVEL_EXAMPLES,
     )
+    from src.services.aia_level_ladder import DEFAULT_LEVEL_DESCRIPTIONS
     out = assemble_system_prompt(
         "A custom prompt with no placeholders.", DEFAULT_GRADING_RULES,
-        DEFAULT_LEVEL_EXAMPLES, "German",
+        DEFAULT_LEVEL_DESCRIPTIONS, DEFAULT_LEVEL_EXAMPLES, "German",
     )
     assert "LEVEL ASSIGNMENT" in out
     assert "CALIBRATION EXAMPLES" in out
     assert "Am Samstag gehe ich ins Kino." in out
+    assert "These describe a typical learner at each outcome:" in out
+    assert DEFAULT_LEVEL_DESCRIPTIONS["A1"] in out
 
 
 def test_default_prompt_carries_both_placeholders_once():
@@ -546,3 +505,65 @@ def test_diagnosis_config_defaults(monkeypatch):
     out = asyncio.run(route.config(current_user={"user_id": 1}))
     assert out["question_count"] == QUESTION_COUNT
     assert out["answer_max_chars"] == 2000
+
+
+# ─── Stufen-Leiter: die Beschreibungen kommen aus der Karte ──────────────────
+
+def test_prompt_carries_the_levels_placeholder():
+    """Die Stufen-Beschreibungen kommen aus der Karte, nicht aus dem Prompt-Text."""
+    from src.services.aia_diagnosis_chat import LEVELS_PLACEHOLDER
+    assert LEVELS_PLACEHOLDER in DEFAULT_DIAGNOSIS_PROMPT
+    assert "These describe a typical learner at each outcome:" in DEFAULT_DIAGNOSIS_PROMPT
+
+
+def test_grading_rules_no_longer_carry_the_level_list():
+    """Die Liste steht jetzt in der Stufen-Leiter, nicht mehr doppelt hier."""
+    from src.services.aia_diagnosis_chat import DEFAULT_GRADING_RULES
+    assert "These describe a typical learner" not in DEFAULT_GRADING_RULES
+    assert "- A1:" not in DEFAULT_GRADING_RULES
+    assert "- C2:" not in DEFAULT_GRADING_RULES
+    # Das Verfahren bleibt vollstaendig.
+    assert "OVERALL quality" in DEFAULT_GRADING_RULES
+    assert "Recognition is not production" in DEFAULT_GRADING_RULES
+
+
+def test_assemble_fills_the_levels_block():
+    from src.services.aia_diagnosis_chat import assemble_system_prompt
+    out = assemble_system_prompt(
+        "LEVEL ASSIGNMENT\n{grading}\n\nLadder:\n{levels}\n\nEx:\n{examples}\nSprache {language}.",
+        "Regeln.",
+        {"A1": "Ganz einfach.", "B1": "Mittel."},
+        {"A1": "Ein Satz."},
+        "Deutsch",
+    )
+    assert "- A1: Ganz einfach." in out
+    assert "- B1: Mittel." in out
+    assert "{levels}" not in out
+    assert "Sprache Deutsch." in out
+
+
+def test_assemble_appends_the_levels_block_when_the_placeholder_is_gone():
+    """Ein angepasster Prompt darf die Stufen nicht verlieren."""
+    from src.services.aia_diagnosis_chat import assemble_system_prompt
+    out = assemble_system_prompt(
+        "Nur Text ohne Platzhalter.",
+        "Regeln.",
+        {"A1": "Ganz einfach."},
+        {"A1": "Ein Satz."},
+        "Deutsch",
+    )
+    assert "These describe a typical learner at each outcome:" in out
+    assert "- A1: Ganz einfach." in out
+
+
+def test_legacy_grading_rules_are_recognised_as_the_old_default():
+    """Wer den Text angefasst und zurueckgesetzt hat, bekommt den neuen Standard."""
+    from src.services.aia_diagnosis_chat import (
+        DEFAULT_GRADING_RULES,
+        _LEGACY_GRADING_RULES,
+    )
+    from src.services.aia_level_ladder import resolve_prompt_setting
+    assert "- A1:" in _LEGACY_GRADING_RULES
+    assert resolve_prompt_setting(
+        _LEGACY_GRADING_RULES, _LEGACY_GRADING_RULES, DEFAULT_GRADING_RULES
+    ) == DEFAULT_GRADING_RULES

@@ -732,11 +732,7 @@
         "sub": "Der Assistent im Modul.",
         "sources": {
           "label": "Quellen",
-          "sub": "Was hochgeladen werden darf und wie es eingelesen wird."
-        },
-        "answers": {
-          "label": "Antworten",
-          "sub": "Wie viel Quelltext in eine Anfrage geht."
+          "sub": "Was hochgeladen werden darf, wie es eingelesen wird und wie viel davon in eine Anfrage geht."
         },
         "level": {
           "label": "Sprachniveau",
@@ -1248,30 +1244,27 @@
       "toggleAria": "Hinweis umschalten",
       "saveFailed": "Speichern fehlgeschlagen."
     },
-    "diagnosisLanguage": {
-      "label": "Sprache",
-      "german": "Deutsch",
-      "hint": "Aktuell nur Deutsch. Weitere Sprachen folgen später."
-    },
     "languageDiagnosisCard": {
       "title": "Sprachdiagnose-Prompt",
       "description": "Steuert, wie die KI im Diagnose-Chat fragt, bewertet und einstuft. Gilt für alle Workspaces. Aktuell nur Deutsch.",
-      "hint": "Die Platzhalter '{language}' (Sprache), '{grading}' (Einstufungs-Regeln) und '{examples}' (Sprachniveau-Beispiele) werden ersetzt.",
+      "hint": "Steuert Ablauf, Fragestil und Ausgabeformat des Tests. Vier Platzhalter im Text werden ersetzt: '{language}' durch die Sprache des Tests, '{grading}' durch die Einstufungs-Regeln von unten, '{levels}' durch die Beschreibungen aus der Karte Stufen A1 bis C2 und '{examples}' durch die Beispielsätze von dort. Ein Platzhalter, den du löschst, wird hinten angehängt, damit die KI ihn nie verliert.",
       "reset": "Auf Standard zurücksetzen",
       "saveFailed": "Speichern fehlgeschlagen"
     },
     "diagnosisPlanCard": {
       "title": "Fragen-Plan",
-      "description": "Legt fest, welche Fragen die Diagnose stellt. Jede Zeile ist eine Frage mit Fragetyp. Die Reihenfolge ist die Reihenfolge im Test und geht von leicht nach schwer. Fragetext, Optionen und Lösung sind optional. Ist eine Frage komplett ausgefüllt (Auswahl-Frage mit einer richtigen Option, Lücke füllen mit einer Lösung), erscheint sie sofort ohne KI-Aufruf und wird direkt bewertet. Sonst formuliert die KI die Frage. Die Stufe A1 bis C2 vergibt die KI am Ende aus den Antworten, nicht pro Frage.",
-      "languageHint": "Schreibe Fragen und Optionen in der Sprache, die der Test prüft (Standard Deutsch).",
-      "freeTextHint": "Mindestens 2 Freitext-Fragen (Fehler korrigieren oder frei schreiben) sind Pflicht. Nur so kann die KI das Niveau an einer echten Textprobe einstufen.",
+      "description": "Legt fest, welche Fragen die Einstufung stellt. Jede Zeile ist eine Frage mit einer von zwei Aufgabenarten. Auswahl heißt anklicken und braucht Antwortoptionen mit mindestens einer richtigen. Freitext heißt selbst tippen und braucht nur den Fragetext. Die Lösung beim Freitext ist freiwillig und entscheidet, wer prüft: mit Lösung prüft der Code die Antwort Wort für Wort, ohne Lösung beurteilt die KI sie am Ende. Was vor der Frage stehen soll, etwa ein kurzer Lesetext oder eine Alltagssituation, schreibst du einfach mit in den Fragetext. Die Reihenfolge ist die Reihenfolge im Test und geht von leicht nach schwer. Entweder du tippst alles selbst, oder du lässt es einmal von der KI schreiben und liest es durch. Der Test selbst läuft danach ohne einen einzigen KI-Aufruf. Die Stufe A1 bis C2 vergibt die KI am Ende aus den Antworten, nicht pro Frage.",
+      "languageHint": "Der Test ist auf Deutsch, Fragen und Antwortoptionen also auch.",
+      "freeTextHint": "Mindestens 2 Freitext-Fragen ohne Lösung sind Pflicht. Nur die beurteilt die KI selbst, und nur so entsteht die Stufe an einer echten Textprobe.",
+      "judgedCount": "Freitext ohne Lösung, den die KI beurteilt: {count} von mindestens {min}.",
       "questionLabel": "Frage",
       "optionsLabel": "Antwortoptionen",
       "optionsHint": "Genau eine als richtig markieren. Mehrere möglich, dann muss es in der Frage stehen.",
       "optionPlaceholder": "Antwortoption",
-      "answersLabel": "Lösung",
-      "answersHint": "Bei Lücke füllen tippt der Lernende die Antwort. Eine Lösung pro Zeile, jede Zeile gilt als richtig. Groß- und Kleinschreibung und ein Satzzeichen am Ende sind egal, Umlaute nicht.",
-      "answersPlaceholder": "gehe",
+      "answersLabel": "Lösung (freiwillig)",
+      "answersHint": "Leer lassen, wenn die KI die Antwort beurteilen soll. Trägst du eine Lösung ein, prüft der Code die getippte Antwort und für diese Frage wird keine KI gebraucht. Eine Lösung pro Zeile, jede Zeile gilt als richtig. Groß- und Kleinschreibung und ein Satzzeichen am Ende sind egal, Umlaute nicht. Kurze Lösungen ergeben beim Lernenden ein einzeiliges Feld, ganze Sätze das große.",
+      "gradedByCodeHint": "Wird ohne KI geprüft. Die getippte Antwort muss zu einer der Lösungen passen.",
+      "gradedByAiHint": "Die KI beurteilt diese Antwort am Ende, mit den Einstufungs-Regeln und den Beispielsätzen aus dem Reiter KI-Verhalten. Diese Zeile zählt zu den Pflicht-Textproben.",
       "correctLabel": "richtig",
       "addOption": "Option hinzufügen",
       "removeOption": "Option entfernen",
@@ -1281,37 +1274,48 @@
       "expandAll": "Alle aufklappen",
       "collapseAll": "Alle zuklappen",
       "reset": "Auf Standard zurücksetzen",
-      "verbatimPlaceholder": "Fragetext, optional",
+      "verbatimPlaceholder": "Fragetext",
       "answerMaxLabel": "Maximale Antwortlänge (Zeichen)",
       "saveFailed": "Speichern fehlgeschlagen",
       "type": {
-        "gap fill": "Lücke füllen",
-        "multiple choice": "Auswahl",
-        "error correction": "Fehler korrigieren",
-        "reading comprehension": "Lesen und verstehen",
-        "situation": "Situation",
-        "free writing": "Frei schreiben"
-      }
+        "choice": "Auswahl",
+        "freeText": "Freitext"
+      },
+      "generate": "Fragen von der KI schreiben lassen",
+      "generating": "Die KI schreibt gerade",
+      "generatingHint": "Das dauert etwa eine Minute. Die KI schreibt einen kompletten Fragensatz, danach kannst du jede Frage ändern.",
+      "generateConfirm": "Schreiben lassen",
+      "generateCancel": "Abbrechen",
+      "generateFailed": "Die KI konnte keinen Fragensatz schreiben. Bitte noch einmal versuchen.",
+      "generateWarningResult": "Es entstehen {count} neue Fragen mit fest vorgegebenen Aufgabenarten, von leicht nach schwer. Anzahl und Aufgabenarten richten sich danach, nicht nach deiner jetzigen Liste."
     },
     "adaptiveBehaviorCard": {
       "title": "Adaptives Antwortverhalten",
       "description": "Steuert, wie die KI im normalen Chat auf Lernende antwortet, je nach ihrem Niveau. Wirkt nur, wenn ein Niveau gespeichert ist.",
-      "hint": "'{level}' wird durch das Niveau ersetzt, '{example}' durch das Beispiel dieser Stufe aus der Card Sprachniveau-Beispiele.",
+      "hint": "Steuert Ton und Wortwahl. Drei Platzhalter im Text werden ersetzt, immer für die eine Stufe des Lernenden: '{level}' durch die Stufe selbst, '{description}' durch ihre Beschreibung aus der Karte Stufen A1 bis C2 und '{example}' durch die Beispielsätze von dort. Löschst du einen Platzhalter, fehlt die Angabe einfach.",
       "reset": "Auf Standard zurücksetzen",
       "saveFailed": "Speichern fehlgeschlagen"
     },
     "diagnosisGradingCard": {
       "title": "Einstufungs-Regeln",
-      "description": "Legt fest, wie die KI am Ende die Stufe A1 bis C2 bestimmt.",
+      "description": "Legt das Verfahren fest: worauf die KI beim Einstufen achtet.",
+      "hint": "Dieser Text hat selbst keine Platzhalter. Er wird oben im Sprachdiagnose-Prompt an der Stelle '{grading}' eingesetzt. Was eine Stufe ausmacht, steht nicht hier, sondern in der Karte Stufen A1 bis C2.",
       "reset": "Auf Standard zurücksetzen",
       "saveFailed": "Speichern fehlgeschlagen"
     },
-    "diagnosisExamplesCard": {
-      "title": "Sprachniveau-Beispiele",
-      "description": "Beispielantworten pro Stufe. Sie helfen der KI, freie Antworten einzuordnen, und geben dem normalen Chat vor, wie er auf ein Niveau antwortet.",
-      "hint": "Mehrere Beispiele pro Stufe mit -- (Doppelbindestrich) trennen, ein neuer Zeilenumbruch geht auch. Am besten für alle Stufen der gleiche Kontext, dann sieht die KI dieselbe Aussage auf steigendem Niveau.",
+    "diagnosisLevelsCard": {
+      "title": "Stufen A1 bis C2",
+      "description": "Was eine Stufe ausmacht. Die KI stuft danach im Test ein und antwortet danach im Chat.",
+      "hint": "Am besten für alle Stufen dieselbe Situation, dann sieht die KI dieselbe Aussage auf steigendem Niveau.",
+      "descriptionLabel": "So schreibt jemand auf dieser Stufe",
+      "examplesLabel": "Beispielsätze",
+      "examplesHint": "Ein Satz pro Zeile.",
       "reset": "Auf Standard zurücksetzen",
       "saveFailed": "Speichern fehlgeschlagen"
+    },
+    "diagnosisAdvanced": {
+      "title": "Erweitert",
+      "description": "Prompt-Texte für Test, Chat und Werkzeuge. Nur anfassen, wenn du weißt, was du tust."
     },
     "workspaceLimitsCard": {
       "title": "Maximale Quellen pro {label}",

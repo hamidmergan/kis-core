@@ -10,13 +10,15 @@
 import { useTranslations } from "next-intl";
 import DiagnosisQuestionPlanCard from "../../_components/DiagnosisQuestionPlanCard";
 import { useSetting } from "../../_settings/SettingsProvider";
-import { SettingCard, ToggleSetting } from "../../_settings/fields";
+import { ToggleSetting } from "../../_settings/fields";
 
 export default function LanguageLevelPage() {
   const tTrainer = useTranslations("admin.languageTrainerCard");
-  const tLang = useTranslations("admin.diagnosisLanguage");
   const trainer = useSetting<boolean>("language_training_enabled", false);
 
+  // Eine gesperrte Auswahl mit genau einer Option sah nach Einstellung aus, war
+  // aber keine: der Test ist deutsch. Der Hinweis darauf steht jetzt in der Karte
+  // Fragen-Plan, wo man ihn beim Schreiben der Fragen auch braucht.
   return (
     <div className="space-y-4">
       <ToggleSetting
@@ -26,23 +28,6 @@ export default function LanguageLevelPage() {
         disabledText={tTrainer("disabled")}
         hint={tTrainer("description")}
         label={tTrainer("toggleAria")}
-      />
-
-      {/* Die Sprache ist noch nicht wählbar, das Feld steht hier, damit sichtbar
-          bleibt worauf sich der Test bezieht. */}
-      <SettingCard
-        title={tLang("label")}
-        description={tLang("hint")}
-        control={
-          <select
-            value="de"
-            disabled
-            aria-label={tLang("label")}
-            className="rounded-lg border border-border bg-background px-3 py-1.5 text-sm text-foreground disabled:opacity-60 disabled:cursor-not-allowed"
-          >
-            <option value="de">{tLang("german")}</option>
-          </select>
-        }
       />
 
       <DiagnosisQuestionPlanCard />

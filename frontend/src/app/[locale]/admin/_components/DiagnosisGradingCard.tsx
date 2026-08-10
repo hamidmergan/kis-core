@@ -74,7 +74,8 @@ export default function DiagnosisGradingCard() {
   const isDefault = rules.trim() === fallback.trim();
 
   return (
-    <CollapsibleCard title={t("title")} badge="{grading}" description={t("description")}>
+    <CollapsibleCard title={t("title")} description={t("description")}>
+      <p className="mb-2 text-xs text-muted-soft">{t("hint")}</p>
       <textarea
         value={rules}
         onChange={(e) => { setRules(e.target.value); setError(null); }}

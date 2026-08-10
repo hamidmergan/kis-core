@@ -60,11 +60,11 @@ def test_empty_history_is_not_an_empty_run():
 
 # ─── The endpoint ──────────────────────────────────────────────────────────
 
-from unittest.mock import patch  # noqa: E402
+from unittest.mock import AsyncMock, patch  # noqa: E402
 
 from fastapi.testclient import TestClient  # noqa: E402
 
-from src.services.aia_diagnosis_chat import resolve_question_plan  # noqa: E402
+from src.services.aia_diagnosis_chat import parse_question_plan  # noqa: E402
 
 ROUTE = "src.features.ai_assistant.routes.language_training.diagnosis"
 
@@ -86,23 +86,16 @@ def client(monkeypatch):
     app.dependency_overrides[require_aia_access] = lambda: None
     app.dependency_overrides[get_current_user] = lambda: {"user_id": 1}
     # A real client would need a provider; if the empty branch ever reaches for
-    # one, the patched _call_llm below records it.
+    # one, the patched _ask below records it.
     app.dependency_overrides[get_llm_client] = lambda: object()
     yield TestClient(app)
     app.dependency_overrides.clear()
     get_settings.cache_clear()
 
 
-def _fake_completion(content: str):
-    """Shape the OpenAI client returns: ``.choices[0].message.content``."""
-    message = type("Msg", (), {"content": content})()
-    choice = type("Choice", (), {"message": message})()
-    return type("Completion", (), {"choices": [choice]})()
-
-
 def _full_skip_history() -> list[dict]:
     """A finished German run in which every single question was skipped."""
-    total = len(resolve_question_plan("", "de"))
+    total = len(parse_question_plan(""))
     return _run(*[""] * total)
 
 
@@ -112,7 +105,7 @@ def test_all_skipped_gives_a_fixed_a1_without_asking_the_model(client):
          patch(f"{ROUTE}.db.is_language_training_active", return_value=True), \
          patch(f"{ROUTE}.db.get_setting", side_effect=lambda key, default="": default), \
          patch(f"{ROUTE}.db.set_user_language_level") as save, \
-         patch(f"{ROUTE}._call_llm") as call_llm:
+         patch(f"{ROUTE}._ask") as call_llm:
         response = client.post(
             "/ai-assistant/language-diagnosis/turn",
             json={"workspace_uuid": "ws-1", "history": _full_skip_history()},
@@ -142,10 +135,9 @@ def test_a_single_answer_still_goes_to_the_model(client):
          patch(f"{ROUTE}.db.get_setting", side_effect=lambda key, default="": default), \
          patch(f"{ROUTE}.db.set_user_language_level"), \
          patch(f"{ROUTE}.enforce_aia_burst"), \
-         patch(f"{ROUTE}._call_llm") as call_llm:
-        call_llm.return_value = _fake_completion(
-            '{"done": true, "message": "Weiter so.", "level": "A2"}'
-        )
+         patch(f"{ROUTE}._ask", new=AsyncMock(
+             return_value='{"done": true, "message": "Weiter so.", "level": "A2"}',
+         )) as call_llm:
         response = client.post(
             "/ai-assistant/language-diagnosis/turn",
             json={"workspace_uuid": "ws-1", "history": history},
@@ -153,4 +145,4 @@ def test_a_single_answer_still_goes_to_the_model(client):
 
     assert response.status_code == 200
     assert response.json()["level"] == "A2"
-    call_llm.assert_called_once()
+    assert call_llm.await_count == 1

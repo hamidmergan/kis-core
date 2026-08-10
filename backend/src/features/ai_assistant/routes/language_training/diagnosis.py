@@ -35,29 +35,28 @@ from src.services.aia_diagnosis_chat import (
     DEFAULT_DIAGNOSIS_PROMPT,
     DEFAULT_GRADING_RULES,
     FORCE_FINISH_MESSAGE,
+    _LEGACY_GRADING_RULES,
     GRADING_RULES_SETTING,
-    KICKOFF_MESSAGE,
     LEVEL_EXAMPLES_SETTING,
     MAX_HISTORY_MESSAGES,
     MAX_MESSAGE_CHARS,
     MAX_OPTIONS,
-    OPTION_QUESTION_TYPES,
     QUESTION_PLAN_SETTING,
     REPAIR_MESSAGE,
-    TYPED_ANSWER_QUESTION_TYPES,
     DiagnosisChatError,
     assemble_system_prompt,
-    auto_question_payload,
     build_final_messages,
     is_empty_run,
     manual_question_payload,
-    next_question_message,
-    parse_auto_question,
     parse_level_examples,
     parse_question_plan,
     parse_turn_response,
-    question_mode,
-    resolve_question_plan,
+)
+from src.services.aia_json_llm import _rejects_json_mode, ask_json  # noqa: F401
+from src.services.aia_level_ladder import (
+    LEVEL_DESCRIPTIONS_SETTING,
+    parse_level_descriptions,
+    resolve_prompt_setting,
 )
 
 router = APIRouter(tags=["ki-assistent: language-diagnosis"])
@@ -85,88 +84,18 @@ class TurnBody(BaseModel):
     history: list[TurnMessage] = Field(default_factory=list, max_length=MAX_HISTORY_MESSAGES)
 
 
-# Providers are admin-configured OpenAI-compatible endpoints, and not all of them
-# accept response_format. Probe once per process instead of paying a rejected call
-# on every single turn.
-_json_mode_supported = True
-
-
-def _rejects_json_mode(exc: Exception) -> bool:
-    """True when the provider turned down response_format itself.
-
-    Deliberately narrow: only a 400 that actually names the field counts. A 429
-    or a context-length 400 must not switch JSON mode off for the whole process.
-    """
-    if getattr(exc, "status_code", None) != 400:
-        return False
-    text = str(exc).lower()
-    return "response_format" in text or "json" in text
-
-
-def _create(llm, messages: list[dict], *, json_mode: bool):
-    kwargs = {
-        "model": llm._model,
-        "messages": messages,
-        "temperature": 0.4,
-        **(llm._extra_body and {"extra_body": llm._extra_body} or {}),
-    }
-    if json_mode:
-        kwargs["response_format"] = {"type": "json_object"}
-    return llm._client.chat.completions.create(**kwargs)
-
-
-def _call_llm(llm, messages: list[dict]):
-    """One completion, in JSON mode where the provider supports it.
-
-    JSON mode matters more here than elsewhere: the prompt asks the model to be
-    conversational AND to answer in JSON, and without the constraint it drifts
-    into plain prose often enough that the repair pass fires regularly, doubling
-    the request volume against a shared rate limit.
-    """
-    global _json_mode_supported
-    if _json_mode_supported:
-        try:
-            return _create(llm, messages, json_mode=True)
-        except Exception as exc:
-            if not _rejects_json_mode(exc):
-                raise
-            logger.warning("Language diagnosis: provider rejected JSON mode, "
-                           "falling back to prompt-only for this process: {}", exc)
-            _json_mode_supported = False
-    return _create(llm, messages, json_mode=False)
-
-
-def _diagnosis_language_name(workspace: dict) -> str:
-    """English name of the workspace's diagnosis language, for the prompt."""
-    code = workspace.get("diagnosis_language") or DEFAULT_DIAGNOSIS_LANGUAGE
-    entry = TRANSCRIPT_LANGUAGES.get(code) or TRANSCRIPT_LANGUAGES[DEFAULT_DIAGNOSIS_LANGUAGE]
-    return entry["name"]
-
-
-def build_auto_messages(system_prompt: str, number: int, plan: list[dict]) -> list[dict]:
-    """Messages that ask the model to GENERATE question ``number`` (1-based).
-
-    Only used for auto slots: an expert-authored question is served straight from
-    the plan with no model call. The staircase is fixed and there is no reaction,
-    so the transcript is not needed here; the trailing system turn dictates the
-    number, band and type (and, for option types, the structured-options shape).
-    A kickoff user turn keeps a user role before the model speaks.
-    """
-    return [
-        {"role": "system", "content": system_prompt},
-        {"role": "user", "content": KICKOFF_MESSAGE},
-        {"role": "system", "content": next_question_message(number, plan)},
-    ]
+# Der Test ist deutsch, deshalb steht der Sprachname im Prompt fest. Frueher kam er
+# aus dem Kursraum-Feld ``diagnosis_language``; die Fragen sind aber immer deutsch,
+# also haette ein anderer Sprachname nur bedeutet, dass deutsche Fragen nach einem
+# fremden Massstab bewertet werden.
+DIAGNOSIS_LANGUAGE_NAME = TRANSCRIPT_LANGUAGES[DEFAULT_DIAGNOSIS_LANGUAGE]["name"]
 
 
 async def _ask(llm, messages: list[dict], user_id: int, locale: str) -> str:
-    try:
-        response = await asyncio.to_thread(_call_llm, llm, messages)
-        return response.choices[0].message.content or ""
-    except Exception as exc:
-        logger.error("Language diagnosis LLM call failed for user {}: {}", user_id, exc)
-        raise HTTPException(status_code=502,
-                            detail=t("ai.languageDiagnosis.llmUnavailable", locale))
+    """Der eine Abschluss-Aufruf. Die Anbindung liegt in aia_json_llm, damit der
+    Adminbereich beim Erzeugen dieselbe benutzt statt einer Kopie."""
+    return await ask_json(llm, messages, locale=locale,
+                          what=f"Language diagnosis (user {user_id})")
 
 
 async def _run_turn(llm, messages: list[dict], user_id: int, locale: str) -> dict:
@@ -200,38 +129,6 @@ async def _run_turn(llm, messages: list[dict], user_id: int, locale: str) -> dic
                             detail=t("ai.languageDiagnosis.invalidResponse", locale))
 
 
-async def _run_auto(llm, messages: list[dict], want_options: bool,
-                    user_id: int, locale: str) -> dict:
-    """Generate one auto (model-built) question, with a single repair attempt.
-
-    For an option task the model must return a structured ``options`` array with
-    exactly one correct; :func:`parse_auto_question` rejects a two-correct item so
-    the repair fires rather than showing the learner a broken question.
-    """
-    raw = await _ask(llm, messages, user_id, locale)
-    try:
-        return parse_auto_question(raw, want_options)
-    except DiagnosisChatError as exc:
-        logger.warning("Language diagnosis auto question unusable for user {}: {} | raw: {!r}",
-                       user_id, exc, raw[:500])
-
-    repaired = await _ask(
-        llm,
-        [*messages,
-         {"role": "assistant", "content": raw},
-         {"role": "system", "content": REPAIR_MESSAGE}],
-        user_id,
-        locale,
-    )
-    try:
-        return parse_auto_question(repaired, want_options)
-    except DiagnosisChatError as exc:
-        logger.warning("Language diagnosis auto repair failed for user {}: {} | raw: {!r}",
-                       user_id, exc, repaired[:500])
-        raise HTTPException(status_code=502,
-                            detail=t("ai.languageDiagnosis.invalidResponse", locale))
-
-
 @router.post("/ai-assistant/language-diagnosis/turn")
 async def turn(
     body: TurnBody,
@@ -247,36 +144,28 @@ async def turn(
     if not db.is_language_training_active(workspace["id"]):
         raise HTTPException(status_code=403, detail=t("ai.workspace.languageTrainingOff", locale))
 
-    plan = resolve_question_plan(
-        db.get_setting(QUESTION_PLAN_SETTING, ""),
-        workspace.get("diagnosis_language") or DEFAULT_DIAGNOSIS_LANGUAGE,
-    )
+    plan = parse_question_plan(db.get_setting(QUESTION_PLAN_SETTING, ""))
     total = len(plan)
     history = [m.model_dump(exclude_none=True) for m in body.history]
     answered = sum(1 for m in history if m["role"] == "user")
 
     system_prompt = assemble_system_prompt(
         db.get_setting("language_diagnosis_prompt", DEFAULT_DIAGNOSIS_PROMPT),
-        db.get_setting(GRADING_RULES_SETTING, DEFAULT_GRADING_RULES),
+        resolve_prompt_setting(
+            db.get_setting(GRADING_RULES_SETTING, ""),
+            _LEGACY_GRADING_RULES,
+            DEFAULT_GRADING_RULES,
+        ),
+        parse_level_descriptions(db.get_setting(LEVEL_DESCRIPTIONS_SETTING, "")),
         parse_level_examples(db.get_setting(LEVEL_EXAMPLES_SETTING, "")),
-        _diagnosis_language_name(workspace),
+        DIAGNOSIS_LANGUAGE_NAME,
     )
 
-    # Still questions to ask: serve the next slot. An expert-authored question is
-    # returned straight from the plan with NO model call; only an auto slot spends
-    # a call. This is the whole point of the redesign, so most turns are instant.
+    # Es sind noch Fragen offen: die naechste kommt direkt aus dem Plan, ohne
+    # Modellaufruf. Jede Zeile im Plan ist ausgeschrieben, es gibt nichts mehr zu
+    # erzeugen. Der Lernende wartet also zwischen zwei Fragen nie.
     if answered < total:
-        step = plan[answered]
-        mode = question_mode(step)
-        if mode in ("manual_options", "manual_typed", "manual_text"):
-            return manual_question_payload(step)
-        enforce_aia_burst(user_id, locale)
-        messages = build_auto_messages(system_prompt, answered + 1, plan)
-        want_options = step["type"] in OPTION_QUESTION_TYPES
-        parsed = await _run_auto(llm, messages, want_options, user_id, locale)
-        return auto_question_payload(
-            parsed, short=step["type"] in TYPED_ANSWER_QUESTION_TYPES
-        )
+        return manual_question_payload(plan[answered])
 
     # Nothing given anywhere: there is nothing to grade. The level is fixed in
     # code rather than left to a model that would pick between the lower bands at

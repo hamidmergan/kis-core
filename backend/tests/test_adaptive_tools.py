@@ -84,9 +84,10 @@ def test_default_behavior_overrides_covers_bands_and_guards_format():
     version -- forbid changing the item count / JSON / correct answer."""
     b = DEFAULT_ADAPTIVE_TOOL_BEHAVIOR
     assert "OVERRIDES" in b
-    assert "A1 or A2" in b
-    assert "B1:" in b
-    assert "B2:" in b
+    # Die Stufen kommen aus der Stufen-Leiter, der Text nennt sie nur noch ueber
+    # den Platzhalter. Die eigene A1/A2..C1/C2-Liste ist bewusst raus.
+    from src.services.aia_adaptive_tools import DESCRIPTION_PLACEHOLDER
+    assert DESCRIPTION_PLACEHOLDER in b
     assert "C1 or C2" in b
     assert '"du"' in b and '"Sie"' in b
     # The format guard is what makes it safe to append to a tool prompt.
@@ -315,3 +316,33 @@ def test_glossary_extract_passes_the_workspace_to_the_gate(monkeypatch):
         "ws-uuid", body, {"user_id": 7}, llm, "de",
     ))
     assert seen["args"] == (7, 42)
+
+
+# ─── Stufen-Leiter: die Beschreibung kommt aus der Karte ─────────────────────
+
+def test_tool_appendix_substitutes_the_description():
+    from src.services.aia_adaptive_tools import adaptive_tool_appendix
+    suffix, applied = adaptive_tool_appendix(
+        "A2", "Stufe {level}: {description}", "", "Einfache Hauptsaetze."
+    )
+    assert "Stufe A2: Einfache Hauptsaetze." in suffix
+    assert applied == "A2"
+
+
+def test_tool_default_carries_the_description_placeholder():
+    from src.services.aia_adaptive_tools import (
+        DESCRIPTION_PLACEHOLDER,
+        DEFAULT_ADAPTIVE_TOOL_BEHAVIOR,
+    )
+    assert DESCRIPTION_PLACEHOLDER in DEFAULT_ADAPTIVE_TOOL_BEHAVIOR
+
+
+def test_tool_default_no_longer_carries_its_own_band_list():
+    from src.services.aia_adaptive_tools import DEFAULT_ADAPTIVE_TOOL_BEHAVIOR
+    b = DEFAULT_ADAPTIVE_TOOL_BEHAVIOR
+    assert "- A1 or A2:" not in b
+    assert "- B1:" not in b
+    assert "- B2:" not in b
+    assert "- C1 or C2:" not in b
+    # Die Formatregel bleibt, sie ist der eigentliche Wert dieses Textes.
+    assert "DO NOT change the requested number of items" in b

@@ -6,6 +6,7 @@ admin.router`) continue to work unchanged."""
 
 from fastapi import APIRouter
 
+from src.routes.admin.diagnosis_plan import router as _diagnosis_plan_router
 from src.routes.admin.jobs import router as _jobs_router
 from src.routes.admin.load import router as _load_router
 from src.routes.admin.ldap_users import router as _ldap_users_router
@@ -20,6 +21,7 @@ from src.routes.admin.users import router as _users_router
 
 router = APIRouter(prefix="/admin")
 router.include_router(_settings_router)
+router.include_router(_diagnosis_plan_router)
 router.include_router(_maintenance_router)
 router.include_router(_tools_router)
 router.include_router(_users_router)
