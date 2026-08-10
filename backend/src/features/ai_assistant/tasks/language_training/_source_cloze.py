@@ -237,4 +237,91 @@ def generate_cloze_from_source(
     return [item], title
 
 
-__all__ = ["clean_gaps", "generate_cloze_from_source", "placeholders"]
+def usable_flashcard_set(ex_set: dict | None, workspace_id: int, user_id: int) -> bool:
+    """Ob dieses Lernkarten-Set die Wörter für einen Lückentext liefern darf.
+
+    Es muss existieren, diesem Kursraum und dieser Person gehören, wirklich ein
+    Lernkarten-Set sein und fertig. Ein fremdes Set wäre ein Blick in die Ablage
+    einer anderen Person, ein unfertiges hätte keine Karten herzugeben.
+
+    Prüft absichtlich NICHT, ob das Set auch wirklich Karten enthält: dafür bräuchte
+    es die Karten selbst und nicht nur die Satz-Zeile, und diese Funktion bleibt eine
+    reine Prüfung ohne Datenbankzugriff. Ein Set ohne Karten fängt die Route separat
+    ab, mit denselben ``items``, die sie ohnehin schon geladen hat.
+    """
+    return bool(
+        ex_set
+        and ex_set.get("workspace_id") == workspace_id
+        and ex_set.get("user_id") == user_id
+        and ex_set.get("tool") == "flashcards"
+        and ex_set.get("status") == "ready"
+    )
+
+
+def run_cloze_set(set_id, ex_set, user_id, count, client, model,
+                  locale, language, adaptive_suffix, uuids) -> None:
+    """Einen Lückentext-Satz fertigstellen: Vorrat, sonst erzeugen, dann speichern.
+
+    Steht hier und nicht im Verteiler, damit der Verteiler nicht um einen zweiten
+    Ablauf wächst. Er behält eine Verzweigung, den Rest trägt dieses Modul.
+    """
+    from src import database as db
+    from src.features.ai_assistant.tasks.language_training._context import build_source_context
+    from src.features.ai_assistant.tasks.language_training._pool import (
+        pool_level, store as store_in_pool, take as take_from_pool, uses_pool,
+    )
+
+    mode = ex_set.get("mode") or "source"
+    if not uuids:
+        db.fail_exercise_set(set_id)
+        return
+
+    # Aus Lernkarten: die Vorderseiten sind die Wortliste. Hat das Set weniger
+    # Karten als bestellt, gibt es eben weniger Lücken.
+    words = None
+    if mode == "cards":
+        karten = db.get_exercise_set_with_items(ex_set.get("flashcard_set_id"))
+        if not karten or not karten.get("items"):
+            db.fail_exercise_set(set_id)
+            return
+        words = [i["front"] for i in karten["items"] if (i.get("front") or "").strip()]
+        count = min(count, len(words))
+        if not words:
+            # Karten mit ausschliesslich leeren Vorderseiten: syntaktisch ein Set mit
+            # Eintraegen, inhaltlich keiner. Sonst liefe ``words=[]`` weiter in den
+            # Erzeuger, wo eine leere Liste etwas anderes bedeutet als kein Auftrag
+            # (siehe Modulkopf) und die Prüfung dort alles verwerfen wuerde.
+            db.fail_exercise_set(set_id)
+            return
+
+    level = pool_level(adaptive_suffix, user_id)
+    # Eine Vorratszeile ist ein GANZER Text, deshalb genau einer und nicht `count`.
+    if uses_pool(tool="wortschatz", mode=mode):
+        aus_vorrat = take_from_pool(uuids, "wortschatz", level, user_id, 1)
+        if aus_vorrat:
+            logger.info("KI Tutor: Satz {} nimmt seinen Text aus dem Vorrat", set_id)
+            db.finalize_exercise_set(set_id, ex_set.get("title") or "Lückentext",
+                                     aus_vorrat)
+            return
+
+    ctx = build_source_context(uuids, "wortschatz", count=count)
+    if ctx is None:
+        db.fail_exercise_set(set_id)
+        return
+    result = generate_cloze_from_source(
+        client, model, ctx, count, words=words, locale=locale, language=language,
+        adaptive_suffix=adaptive_suffix,
+    )
+    if result is None:
+        db.fail_exercise_set(set_id)
+        return
+    items, title = result
+    if uses_pool(tool="wortschatz", mode=mode):
+        store_in_pool(items, ctx, "wortschatz", level)
+    # Kein header=: Anweisung und Beispiel hängen in extras an der Aufgabe, damit
+    # sie den Vorrat überleben.
+    db.finalize_exercise_set(set_id, title, items)
+
+
+__all__ = ["clean_gaps", "generate_cloze_from_source", "placeholders",
+           "run_cloze_set", "usable_flashcard_set"]

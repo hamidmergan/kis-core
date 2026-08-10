@@ -125,8 +125,8 @@ class DataTableGenerateBody(BaseModel):
     active_source_ids: list[str]
 
 class CreateSetBody(BaseModel):
-    tool: str  # "flashcards" | "karteikarten" | "quiz" | "grammatik"
-    mode: str = "glossary"  # "glossary" | "source"
+    tool: str  # "flashcards" | "karteikarten" | "quiz" | "grammatik" | "wortschatz"
+    mode: str = "glossary"  # "glossary" | "source" | "cards"
     source_uuid: Optional[str] = None  # legacy single-source clients
     source_uuids: Optional[list[str]] = None  # preferred: all selected sources
     count: int = 10
@@ -135,6 +135,9 @@ class CreateSetBody(BaseModel):
     # Only tool="grammatik": which of the four exercise formats the learner picked.
     # Absent means mixed, which is the normal case and the only way to say it.
     grammar_kinds: Optional[list[str]] = None
+    # Nur tool="wortschatz" mit mode="cards": das Lernkarten-Set, dessen Begriffe die
+    # Lücken werden. Der Text kommt trotzdem aus den Quellen.
+    flashcard_set_id: Optional[int] = None
 
 
 class GrammarExamplePair(BaseModel):

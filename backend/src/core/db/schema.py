@@ -1208,6 +1208,13 @@ def _init_db(admin_email: Optional[str] = None) -> None:
             cur.execute("ALTER TABLE aia_exercise_sets ADD COLUMN IF NOT EXISTS instruction TEXT")
             cur.execute("ALTER TABLE aia_exercise_sets ADD COLUMN IF NOT EXISTS pattern_front TEXT")
             cur.execute("ALTER TABLE aia_exercise_sets ADD COLUMN IF NOT EXISTS pattern_back TEXT")
+            # Nur der Wortschatz-Lückentext aus Lernkarten füllt das. Es steht am Satz
+            # und nicht nur im Auftrag, weil der Neuversuch eines fehlgeschlagenen
+            # Satzes seine Einstellungen aus dieser Zeile liest.
+            cur.execute(
+                "ALTER TABLE aia_exercise_sets ADD COLUMN IF NOT EXISTS flashcard_set_id "
+                "INTEGER REFERENCES aia_exercise_sets(id) ON DELETE SET NULL"
+            )
             # Every source the set was generated from, in the order the learner picked
             # them. source_uuid only ever held the first one, so neither the count nor a
             # stable numbering for the citation chips was recoverable from the row.

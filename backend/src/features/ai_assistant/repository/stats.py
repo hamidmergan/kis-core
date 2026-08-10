@@ -19,7 +19,7 @@ from src.core.db.pool import get_connection
 # Which tool belongs to which of the two areas the statistics are split into. Named
 # once because the split is asked three times below (summary, heatmap, day view), and
 # a tool missing from one of them shows up as practised time that never happened.
-LANGUAGE_TRAINING_TOOLS = ("flashcards", "grammatik")
+LANGUAGE_TRAINING_TOOLS = ("flashcards", "grammatik", "wortschatz")
 LERNTOOLS_TOOLS = ("karteikarten", "quiz")
 
 

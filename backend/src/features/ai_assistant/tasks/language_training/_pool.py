@@ -18,7 +18,12 @@ from src.features.ai_assistant.tasks.language_training._dedup import item_key
 # einzelnen Vorraete kleiner, kostet aber nichts. Wiederholt sich eine Kombination nie,
 # bleibt ihr Vorrat leer und die Anfrage ist genauso teuer wie vorher; wiederholt sie sich,
 # was in einem Kurs mit einem festen Grammatikthema der Normalfall ist, ist sie umsonst.
-POOL_TOOLS = frozenset({"flashcards", "karteikarten", "quiz", "grammatik"})
+#
+# Der Lückentext ist dabei, aber nur beim Erzeugen aus den Quellen. Eine Vorratszeile
+# ist bei ihm ein GANZER Text und nicht eine einzelne Aufgabe, denn ein Set ist eine
+# Aufgabe. Aus Lernkarten läuft er unter mode='cards' und fällt damit von selbst aus
+# uses_pool heraus: zwei Personen haben nicht dieselben Karten.
+POOL_TOOLS = frozenset({"flashcards", "karteikarten", "quiz", "grammatik", "wortschatz"})
 
 # Felder, die eine Vorratszeile mitbringt und eine Aufgabe im Satz braucht.
 _CARRIED = (
