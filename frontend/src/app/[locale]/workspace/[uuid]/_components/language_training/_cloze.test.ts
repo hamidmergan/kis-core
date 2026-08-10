@@ -21,6 +21,14 @@ describe("normalizeAnswer", () => {
     // unterscheiden sich nur in der Schreibweise des Bindestriches, nicht in der Sache.
     expect(normalizeAnswer("E-Mail")).toBe(normalizeAnswer("E Mail"));
   });
+
+  it("faltet ß zu ss, wie casefold() im Backend", () => {
+    // toLowerCase() allein kennt diese Faltung nicht (ß ist im Deutschen schon
+    // klein). Beide Schreibrichtungen müssen gleich normalisieren, sonst zählt
+    // "Anschluß"/"anschluss" im Browser nur als fast richtig statt richtig.
+    expect(normalizeAnswer("Anschluß")).toBe(normalizeAnswer("anschluss"));
+    expect(normalizeAnswer("Straße")).toBe(normalizeAnswer("strasse"));
+  });
 });
 
 describe("checkGap", () => {
@@ -58,5 +66,10 @@ describe("checkGap", () => {
     // Bindestriche und Schrägstriche sind typografische Variationen derselben Antwort.
     expect(checkGap("E Mail", "E-Mail")).toBe("correct");
     expect(checkGap("und oder", "und/oder")).toBe("correct");
+  });
+
+  it("wertet ß und ss in beiden Richtungen als richtig, wie das Backend", () => {
+    expect(checkGap("anschluss", "Anschluß")).toBe("correct");
+    expect(checkGap("Straße", "strasse")).toBe("correct");
   });
 });

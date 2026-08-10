@@ -99,7 +99,10 @@ export function ClozeExerciseView({
   const correctCount = verdicts?.filter((v) => v === "correct").length ?? 0;
 
   function check() {
-    if (!item || checked) return;
+    // Ohne die Laengen-Wache waere [] hier ein gueltiges Urteil: [].every(...) ist
+    // in JavaScript immer true, und eine Aufgabe ohne Luecken (kaputte extras.gaps)
+    // ginge damit als gekonnt durch, obwohl nie etwas geprueft wurde.
+    if (!item || checked || gaps.length === 0) return;
     const urteile = gaps.map((g, i) => checkGap(drafts[i] ?? "", g.solution));
     setVerdicts(urteile);
     // Der Satz ist EINE Aufgabe. Sie gilt als gekonnt, wenn jede Lücke sitzt.
@@ -215,7 +218,6 @@ function GapInput({ value, onChange, verdict, locked, solution, width }: {
         value={value}
         disabled={locked}
         onChange={(e) => onChange(e.target.value)}
-        size={width}
         className="px-1.5 py-0.5 rounded text-sm text-center border-b-2 bg-transparent outline-none"
         style={{
           borderColor: style ? style.fg : "var(--border)",

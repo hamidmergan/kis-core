@@ -292,7 +292,11 @@ def test_a_very_long_front_still_gets_a_storable_fingerprint(monkeypatch):
     _pool.store(items, _ctx(**{"A.pdf": {"id": 1}}), "wortschatz", None)
 
     assert len(fingerprints_gesehen) == 1
-    assert len(fingerprints_gesehen[0].encode("utf-8")) <= _pool._FINGERPRINT_HASH_THRESHOLD
+    # Fester Wert und NICHT _pool._FINGERPRINT_HASH_THRESHOLD: die Konstante ist genau
+    # das, was dieser Test bewachen soll. Ein Vergleich gegen sie selbst wuerde gruen
+    # bleiben, auch wenn jemand sie ueber die Btree-Grenze anhoebe (rund 2700 Byte in
+    # der Praxis, siehe Kommentar an der Konstante) und der Fehler wieder einzoege.
+    assert len(fingerprints_gesehen[0].encode("utf-8")) <= 2700
     # Kommt trotzdem an: store() traegt die vom Aufruf zurueckgegebene id ein, genau
     # wie bei jedem anderen Werkzeug auch.
     assert items[0]["pool_item_id"] == f"neu-{fingerprints_gesehen[0]}"

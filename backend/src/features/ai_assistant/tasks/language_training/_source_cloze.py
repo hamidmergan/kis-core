@@ -126,11 +126,15 @@ def _mix_rule(count: int) -> str:
         "ending there); a noun the sentence needs in the plural while its dictionary "
         "form is singular; a noun in a grammatical case that visibly changes its "
         "written form.\n"
-        "- The gaps must not all be the same part of speech. Mix nouns, verbs, and "
-        "adjectives across the gaps.\n"
     )
+    # Bei genau einer Luecke widerspricht "nicht alle dieselbe Wortart" der Zeile
+    # darueber ("At least 1 of the 1 gaps"): mit einer einzigen Luecke gibt es keine
+    # Mischung, die Vorgabe waere unerfuellbar. Erreichbar, wenn ein Lernkarten-Set
+    # nur ein einziges brauchbares Wort beisteuert (siehe run_cloze_set).
     if bestellt > 1:
         zeile += (
+            "- The gaps must not all be the same part of speech. Mix nouns, verbs, and "
+            "adjectives across the gaps.\n"
             "- At least one gap must keep the dictionary form completely unchanged. "
             "Copying the same word into every gap fails this exercise just as much as "
             "changing it in every gap.\n"
@@ -278,7 +282,6 @@ def generate_cloze_from_source(
     ctx: QuelleContext,
     count: int,
     words: list[str] | None = None,
-    locale: str = "de",
     language: str = "German",
     adaptive_suffix: str = "",
     title_avoidance: str = "",
@@ -352,6 +355,13 @@ def generate_cloze_from_source(
         # prüft item.get("_page")). Ohne ihn griffe die erste Stufe der Zuordnung nie,
         # jeder Lauf zahlte die Suche, obwohl das Modell die Seite schon genannt hat.
         "_page": data.get("page"),
+        # Bei diesem Werkzeug ist die Luecken-Zahl eine Eigenschaft der ZEILE und nicht
+        # die Zahl der geholten Zeilen (die bleibt bei einem Text immer 1). _kind traegt
+        # sie in den Vorrat (siehe exercise_pool.py), damit eine spaetere Anfrage gezielt
+        # nach einem Text mit GENAU der bestellten Luecken-Zahl fragen kann (run_cloze_set
+        # unten), statt irgendeinen gespeicherten Text zu bekommen, egal wie viele
+        # Luecken er traegt. Wird vor dem Speichern des Satzes wieder entfernt.
+        "_kind": str(len(gaps)),
     }
     # Ein Text, ein Satz Quellen-Chips. Der Lückentext ist aus dem Material NEU
     # geschrieben und findet sich deshalb oft nicht wörtlich wieder, darum die
@@ -385,16 +395,25 @@ def usable_flashcard_set(ex_set: dict | None, workspace_id: int, user_id: int) -
 
 
 def run_cloze_set(set_id, ex_set, user_id, count, client, model,
-                  locale, language, adaptive_suffix, uuids) -> None:
+                  language, adaptive_suffix, uuids) -> None:
     """Einen Lückentext-Satz fertigstellen: Vorrat, sonst erzeugen, dann speichern.
 
     Steht hier und nicht im Verteiler, damit der Verteiler nicht um einen zweiten
     Ablauf wächst. Er behält eine Verzweigung, den Rest trägt dieses Modul.
+
+    Kein ``locale``-Parameter: die anderen Erzeuger brauchen es fuer feste
+    de/en-Beschriftungen (Richtig/Falsch, Aufgaben-Zeilen), dieser Lückentext hat
+    keine -- Anweisung, Beispiel und Titel schreibt das Modell selbst in `language`,
+    Python haelt dafuer kein eigenes Woerterbuch. Ein ungenutzter Parameter waere
+    hier nur eine zweite Kopie desselben Fehlers, den diese Aenderung gerade behebt.
     """
     from src import database as db
     from src.features.ai_assistant.tasks.language_training._context import build_source_context
     from src.features.ai_assistant.tasks.language_training._pool import (
         pool_level, store as store_in_pool, take as take_from_pool, uses_pool,
+    )
+    from src.features.ai_assistant.tasks.language_training._variation import (
+        build_title_avoidance_block,
     )
 
     mode = ex_set.get("mode") or "source"
@@ -423,7 +442,14 @@ def run_cloze_set(set_id, ex_set, user_id, count, client, model,
     level = pool_level(adaptive_suffix, user_id)
     # Eine Vorratszeile ist ein GANZER Text, deshalb genau einer und nicht `count`.
     if uses_pool(tool="wortschatz", mode=mode):
-        aus_vorrat = take_from_pool(uuids, "wortschatz", level, user_id, 1)
+        # Die bestellte Anzahl ist bei diesem Werkzeug eine Eigenschaft der ZEILE und
+        # nicht die Zahl der geholten Zeilen (die bleibt immer 1). Ohne "kinds" gaebe
+        # der Vorrat irgendeinen gespeicherten Text zurueck, egal wie viele Luecken er
+        # traegt -- ein Lernender, der 5 Luecken bestellt, bekaeme still einen
+        # gespeicherten 15-Luecken-Text. kinds filtert auf die Luecken-Zahl, die
+        # generate_cloze_from_source unter _kind einlagert.
+        aus_vorrat = take_from_pool(uuids, "wortschatz", level, user_id, 1,
+                                    kinds=[str(count)])
         if aus_vorrat:
             logger.info("KI Tutor: Satz {} nimmt seinen Text aus dem Vorrat", set_id)
             # Der Titel steht in extras.title (siehe generate_cloze_from_source), denn
@@ -435,13 +461,25 @@ def run_cloze_set(set_id, ex_set, user_id, count, client, model,
             db.finalize_exercise_set(set_id, titel, aus_vorrat)
             return
 
-    ctx = build_source_context(uuids, "wortschatz", count=count)
+    # Kein count= hier: build_source_context traegt die Zahl nur in die
+    # Abschnitts-Kopfzeile als Quote je Abschnitt (siehe per_section_quota in
+    # _context.py). Bei zwei oder mehr Quellen wuerde diese Quote verlangen, "mindestens
+    # Q Eintraege" aus jedem Abschnitt zu nehmen -- ein Begriff, den der Lückentext-Prompt
+    # gar nicht kennt (er kennt Lücken, keine "Eintraege"), und der dem einen
+    # zusammenhaengenden Text widerspricht, den generate_cloze_from_source bauen soll:
+    # verteilt ueber mehrere Abschnitte zerlegte er den Text in ein Patchwork.
+    # generate_cloze_from_source bekommt die bestellte Zahl ohnehin direkt als eigenes
+    # Argument, dafuer braucht es die Kopfzeile nicht.
+    ctx = build_source_context(uuids, "wortschatz")
     if ctx is None:
         db.fail_exercise_set(set_id)
         return
+    # Ohne diesen Block bekaeme ein zweites Set aus demselben Dokument leicht denselben
+    # Titel: die anderen Werkzeuge lesen ihn schon, der Lückentext tat es bisher nicht.
+    title_avoidance = build_title_avoidance_block(ex_set.get("workspace_id"), "wortschatz")
     result = generate_cloze_from_source(
-        client, model, ctx, count, words=words, locale=locale, language=language,
-        adaptive_suffix=adaptive_suffix,
+        client, model, ctx, count, words=words, language=language,
+        adaptive_suffix=adaptive_suffix, title_avoidance=title_avoidance,
     )
     if result is None:
         db.fail_exercise_set(set_id)
@@ -449,6 +487,12 @@ def run_cloze_set(set_id, ex_set, user_id, count, client, model,
     items, title = result
     if uses_pool(tool="wortschatz", mode=mode):
         store_in_pool(items, ctx, "wortschatz", level)
+    # _kind hat seinen Zweck erfuellt, sobald der Vorrat ihn gesehen hat (oder, ausserhalb
+    # des Vorrats, gar nicht gebraucht wurde). Im gespeicherten Satz hat er nichts
+    # verloren, dort traegt die Aufgabe ihre Anweisung schon selbst (dieselbe Regel wie
+    # bei der Grammatik-Uebung, siehe _plan.py).
+    for item in items:
+        item.pop("_kind", None)
     # Kein header=: Anweisung und Beispiel hängen in extras an der Aufgabe, damit
     # sie den Vorrat überleben.
     db.finalize_exercise_set(set_id, title, items)

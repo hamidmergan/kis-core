@@ -342,6 +342,18 @@ def test_die_formen_mischung_steht_als_zahl_im_auftrag():
     assert "At least 3 of the 10 gaps" in auftrag
 
 
+def test_bei_einer_einzigen_luecke_fehlt_die_wortart_mischung():
+    # Bei bestellt=1 verlangt die Zeile darueber "At least 1 of the 1 gaps" -- mit
+    # nur einer Luecke gibt es keine Mischung mehrerer Wortarten, die Vorgabe waere
+    # unerfuellbar. Reale Fehlform: ein Lernkarten-Set steuert genau ein brauchbares
+    # Wort bei (siehe run_cloze_set, count = min(bestellt, len(words))).
+    client, calls = _client(_GOOD)
+    generate_cloze_from_source(client, "m", _ctx(), 1)
+    auftrag = calls[0][0]["content"]
+    assert "must not all be the same part of speech" not in auftrag
+    assert "At least 1 of the 1 gaps" in auftrag
+
+
 def test_die_formen_mischung_nennt_die_erzwingenden_satzstellen():
     # Gemessen an Satz 7044 (BRAO91.pdf): die blosse Zahl half nichts, 0 von 10 Luecken
     # aenderten die Form (vorher, ohne jede Zahl, war es bei Satz 7043 1 von 10). Acht

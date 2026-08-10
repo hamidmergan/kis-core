@@ -104,7 +104,7 @@ def run_generate_exercise_set(self, set_id: int, workspace_id: int, tool: str,
         # Die drei Schritte hier sind alles, was er braucht.
         if tool == "wortschatz":
             run_cloze_set(set_id, ex_set, user_id, count, client, model,
-                          locale, language, adaptive_suffix,
+                          language, adaptive_suffix,
                           source_uuids or ([source_uuid] if source_uuid else []))
             return
 

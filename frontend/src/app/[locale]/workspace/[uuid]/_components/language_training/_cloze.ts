@@ -20,6 +20,13 @@ const PARENS_RE = /\([^)]*\)/g;
 const PUNCT_RE = /\p{P}/gu;
 const WS_RE = /\s+/g;
 
+// Faltet "ß" auf "ss", wie das Backend es tut. JavaScripts toLowerCase() kennt diese
+// Faltung nicht (ß ist im Deutschen schon klein), Pythons casefold() am Ende von
+// normalize() in aia_grammar_check.py aber schon. Ohne diese Zeile bewertet der
+// Browser "Anschluß" gegen "anschluss" als nur fast richtig statt richtig, und genau
+// solche Schreibweisen sind im deutschen Fachwortschatz haeufig.
+const SHARP_S_RE = /ß/g;
+
 export function normalizeAnswer(text: string): string {
   if (!text) return "";
   return text
@@ -27,7 +34,8 @@ export function normalizeAnswer(text: string): string {
     .replace(PUNCT_RE, " ")
     .replace(WS_RE, " ")
     .trim()
-    .toLowerCase();
+    .toLowerCase()
+    .replace(SHARP_S_RE, "ss");
 }
 
 /** Levenshtein-Abstand, zwei Zeilen statt der ganzen Matrix. */
