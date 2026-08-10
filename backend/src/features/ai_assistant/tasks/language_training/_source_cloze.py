@@ -196,14 +196,17 @@ def generate_cloze_from_source(
             "example": {"gapped": (beispiel.get("gapped") or "").strip(),
                         "solved": (beispiel.get("solved") or "").strip()},
         },
-        "page": data.get("page"),
+        # Mit Unterstrich, weil _attribution.py genau dieses Feld liest (_cited_chip
+        # prüft item.get("_page")). Ohne ihn griffe die erste Stufe der Zuordnung nie,
+        # jeder Lauf zahlte die Suche, obwohl das Modell die Seite schon genannt hat.
+        "_page": data.get("page"),
     }
     # Ein Text, ein Satz Quellen-Chips. Der Lückentext ist aus dem Material NEU
     # geschrieben und findet sich deshalb oft nicht wörtlich wieder, darum die
-    # gestaffelte Zuordnung: erst die Seite, die das Modell selbst genannt hat,
-    # dann die Suche, dann wenigstens die Datei.
+    # gestaffelte Zuordnung: erst die Seite, die das Modell selbst genannt hat (kostenlos,
+    # kein Suchaufruf), dann die Suche, dann wenigstens die Datei. attach_chips_cited
+    # entfernt _page nach dem Lesen selbst, hier bleibt nichts mehr aufzuräumen.
     attach_chips_cited([item], [item["back"]], ctx)
-    item.pop("page", None)
 
     title = (data.get("title") or "").strip() or ctx.multi_label
     return [item], title

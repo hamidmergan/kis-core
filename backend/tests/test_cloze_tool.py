@@ -100,6 +100,27 @@ def test_die_aufgabe_traegt_text_loesung_und_grundformen(attributed):
     assert [g["base"] for g in item["extras"]["gaps"]] == ["arbeiten", "wechseln"]
 
 
+def test_die_zitierte_seite_erreicht_die_zuordnung_mit_unterstrich(monkeypatch):
+    # _attribution.py liest item.get("_page"), nicht item.get("page") (siehe _cited_chip).
+    # Nur mit dem Unterstrich greift die erste, kostenlose Stufe der gestaffelten
+    # Zuordnung ueberhaupt, sonst zahlt jeder Lauf die Suche, obwohl das Modell die
+    # Seite schon genannt hat. Die Attrappe zeichnet auf, was sie bekommen hat, statt
+    # nichts zu tun, damit genau das geprueft werden kann.
+    empfangen = []
+
+    def aufzeichnen(items, claims, ctx, **kw):
+        empfangen.extend(items)
+        return items
+
+    monkeypatch.setattr(
+        "src.features.ai_assistant.tasks.language_training._source_cloze"
+        ".attach_chips_cited", aufzeichnen)
+    client, _ = _client(_GOOD)
+    generate_cloze_from_source(client, "m", _ctx(), 2)
+    assert empfangen[0]["_page"] == 12
+    assert "page" not in empfangen[0]
+
+
 def test_anweisung_und_beispiel_haengen_an_der_aufgabe(attributed):
     # Nicht am Satz: der Vorrat traegt Aufgaben und keine Set-Spalten. Stuenden sie
     # in instruction/pattern_*, kaeme ein Text aus dem Vorrat ohne Anweisung an.
