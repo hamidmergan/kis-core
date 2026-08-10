@@ -68,13 +68,17 @@ def placeholders(text: str) -> list[int]:
     return [int(m.group(1)) for m in _PLACEHOLDER_RE.finditer(text or "")]
 
 
-def _is_usable(gap: dict, words: list[str] | None, gesehen: set[str]) -> bool:
+def _is_usable(gap, words: list[str] | None, gesehen: set[str]) -> bool:
     """Ob diese Lücke stehen bleiben darf.
 
     Eine Lücke ohne Lösung ist unlösbar, eine doppelte Grundform stünde zweimal
     als Chip unter dem Text, und bei Lernkarten gehört alles weg, was nicht auf
-    einer Karte steht.
+    einer Karte steht. Kein Dict ist ebenfalls unbrauchbar, nicht abstürzend: das
+    Modell schreibt ``"gaps"`` gelegentlich als Liste blosser Strings statt als
+    Liste von Objekten, und das ist ein misslungener Durchlauf, kein Programmfehler.
     """
+    if not isinstance(gap, dict):
+        return False
     base = (gap.get("base") or "").strip()
     solution = (gap.get("solution") or "").strip()
     if not base or not solution:
@@ -94,20 +98,33 @@ def clean_gaps(text: str, gaps: list[dict], words: list[str] | None):
     Sonst risse ein Satz auseinander, und der Lernende bekäme einen Text, der
     mitten im Wort aufhört. Fehlt auch die Lösung, bleibt an der Stelle nichts.
 
-    Gibt (Text, Lücken) zurück. Die Nummern laufen danach wieder lückenlos von 1.
+    Eine Lücke zählt nur mit, wenn ihr Platzhalter auch WIRKLICH im Text steht. Sonst
+    schreibt das Modell drei brauchbare Lücken, setzt aber nur zwei Platzhalter, und
+    der dritte Chip haette keine Stelle im Text, an der er geuebt wird -- ein Ablenker,
+    und Ablenker sind zweimal ausdruecklich verworfen worden.
+
+    Gibt (Text, Lücken) zurück. Die Nummern laufen danach wieder lückenlos von 1, und
+    es gibt nie mehr Lücken als Platzhalter im zurückgegebenen Text (und umgekehrt).
     """
+    text = text or ""
+    im_text = set(placeholders(text))
     gesehen: set[str] = set()
     behalten: list[dict] = []
     ersatz: dict[int, str] = {}
     for i, gap in enumerate(gaps or [], start=1):
+        if i not in im_text:
+            # Keine Stelle im Text, an der diese Nummer steht -- weder ein Chip noch
+            # eine Ersetzung ist hier noetig, es gibt schlicht nichts zu tun.
+            continue
         if _is_usable(gap, words, gesehen):
             gesehen.add(normalize(gap["base"]))
             behalten.append({"base": gap["base"].strip(),
                              "solution": gap["solution"].strip()})
             ersatz[i] = "{{%d}}" % len(behalten)
         else:
-            ersatz[i] = (gap.get("solution") or "").strip()
-    neu = _PLACEHOLDER_RE.sub(lambda m: ersatz.get(int(m.group(1)), ""), text or "")
+            loesung = gap.get("solution") if isinstance(gap, dict) else None
+            ersatz[i] = (loesung or "").strip()
+    neu = _PLACEHOLDER_RE.sub(lambda m: ersatz.get(int(m.group(1)), ""), text)
     return neu, behalten
 
 
@@ -174,8 +191,16 @@ def generate_cloze_from_source(
         return None
     if not isinstance(data, dict):
         return None
+    # Falsche Form ist ein misslungener Durchlauf und kein Absturz: 'text' fehlt oder
+    # ist keine Zeichenkette, oder 'gaps' ist gar keine Liste (z.B. ein einzelnes
+    # Objekt statt einer Aufzaehlung). Ohne diese Pruefung wuerde re.sub weiter unten
+    # bei einem Nicht-String-Text mit TypeError abstuerzen, statt None zu liefern wie
+    # jeder andere schlechte Antwortpfad hier auch.
+    if not isinstance(data.get("text"), str) or not isinstance(data.get("gaps"), list):
+        logger.warning("KI Tutor: Lückentext-Antwort hatte die falsche Form")
+        return None
 
-    text, gaps = clean_gaps(data.get("text") or "", data.get("gaps") or [], words)
+    text, gaps = clean_gaps(data.get("text"), data.get("gaps"), words)
     bestellt = max(1, count)
     if not gaps or len(gaps) < bestellt * _MIN_USABLE_RATIO:
         logger.warning("KI Tutor: Lückentext hatte nur {} von {} brauchbaren Lücken",

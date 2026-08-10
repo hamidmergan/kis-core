@@ -170,6 +170,38 @@ def test_bei_lernkarten_kommt_nur_durch_was_auf_einer_karte_steht():
     assert [g["base"] for g in gaps] == ["arbeiten"]
 
 
+def test_eine_luecke_ohne_platzhalter_im_text_wird_kein_ablenker_chip():
+    # Reale Fehlform: das Modell liefert drei brauchbare Lücken, vergisst aber den
+    # dritten Platzhalter im Text zu setzen. Ein Chip ohne zugehörige Lücke im Text
+    # wäre ein Ablenker, und Ablenker sind zweimal ausdrücklich verworfen worden.
+    drei = dict(_GOOD,
+               text="Die Anlage {{1}} wieder, der Techniker {{2}} den Filter.",
+               gaps=[
+                   {"base": "arbeiten", "solution": "arbeitet"},
+                   {"base": "wechseln", "solution": "gewechselt"},
+                   {"base": "prüfen", "solution": "geprüft"},
+               ])
+    text, gaps = clean_gaps(drei["text"], drei["gaps"], None)
+    assert len(gaps) == len(placeholders(text))
+    assert len(gaps) == 2
+
+
+def test_platzhalter_luecke_wird_beim_durchnummerieren_uebersprungen():
+    # Reale Fehlform: das Modell lässt {{2}} aus und springt direkt zu {{3}}. Die
+    # Nummern müssen trotzdem lückenlos ab 1 laufen, sonst zeigt die Ansicht eine
+    # Lücke "3" ohne dass es eine Lücke "2" je gab.
+    spruenge = dict(_GOOD,
+                    text="Die Anlage {{1}} wieder, der Filter wurde {{3}}.",
+                    gaps=[
+                        {"base": "arbeiten", "solution": "arbeitet"},
+                        {"base": "prüfen", "solution": "geprüft"},
+                        {"base": "wechseln", "solution": "gewechselt"},
+                    ])
+    text, gaps = clean_gaps(spruenge["text"], spruenge["gaps"], None)
+    assert placeholders(text) == [1, 2]
+    assert len(gaps) == 2
+
+
 def test_ein_durchlauf_ohne_brauchbare_luecke_gilt_als_misslungen():
     leer = dict(_GOOD, gaps=[
         {"base": "", "solution": ""},
@@ -182,6 +214,46 @@ def test_ein_durchlauf_ohne_brauchbare_luecke_gilt_als_misslungen():
 def test_eine_unlesbare_antwort_gilt_als_misslungen():
     client, _ = _client("kein JSON")
     assert generate_cloze_from_source(client, "m", _ctx(), 2) is None
+
+
+def test_luecken_als_stringliste_gilt_als_misslungen():
+    # Reale Fehlform: das Modell schreibt "gaps": ["arbeiten", "wechseln"] statt
+    # Objekten mit base/solution. Ohne Formprüfung würde gap.get("base") auf einem
+    # str einen AttributeError werfen statt None zurückzugeben.
+    kaputt = dict(_GOOD, gaps=["arbeiten", "wechseln"])
+    client, _ = _client(kaputt)
+    assert generate_cloze_from_source(client, "m", _ctx(), 2) is None
+
+
+def test_text_ohne_zeichenkette_gilt_als_misslungen():
+    # Reale Fehlform: 'text' fehlt oder kommt als Liste zurück. re.sub auf einem
+    # Nicht-String würde einen TypeError werfen statt None zurückzugeben.
+    liste_statt_text = dict(_GOOD, text=["A", "B"])
+    client, _ = _client(liste_statt_text)
+    assert generate_cloze_from_source(client, "m", _ctx(), 2) is None
+
+    ohne_text = {k: v for k, v in _GOOD.items() if k != "text"}
+    client, _ = _client(ohne_text)
+    assert generate_cloze_from_source(client, "m", _ctx(), 2) is None
+
+
+def test_die_schwelle_zaehlt_die_bestellte_menge_nicht_die_rueckgabe():
+    # Deckt eine Regressionslücke: die Mindestquote muss an der BESTELLTEN Anzahl
+    # (count) gemessen werden, nicht an irgendeiner anderen Zahl aus der Antwort. Zehn
+    # bestellt, aber zwei der vier Lücken sind Dubletten und fallen raus, es bleiben
+    # zwei. Das ist deutlich unter der Hälfte von zehn. Ein Vergleich gegen die Zahl
+    # der zurückgegebenen Lücken (hier 4) statt gegen die bestellte (10) fiele hier
+    # nicht auf, weil 2 < 4*0.5 ebenfalls falsch wäre.
+    viele = dict(_GOOD,
+                text="A {{1}} B {{2}} C {{3}} D {{4}}.",
+                gaps=[
+                    {"base": "arbeiten", "solution": "arbeitet"},
+                    {"base": "wechseln", "solution": "gewechselt"},
+                    {"base": "Arbeiten", "solution": "arbeitet"},
+                    {"base": "Wechseln", "solution": "gewechselt"},
+                ])
+    client, _ = _client(viele)
+    assert generate_cloze_from_source(client, "m", _ctx(), 10) is None
 
 
 def test_die_kartenliste_steht_im_auftrag_an_das_modell(attributed):
