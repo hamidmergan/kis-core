@@ -638,21 +638,24 @@ export default function KiTutorWorkspacePage() {
           workspaceUuid={uuid}
           canManage={isOwner}
           onClose={() => setShowCreateModal(false)}
-          onCreate={async (mode, count, grammarTopicId, grammarKinds) => {
+          onCreate={async (mode, count, grammarTopicId, grammarKinds, flashcardSetId) => {
             setShowCreateModal(false);
             if (createSetTool === "quiz" || createSetTool === "karteikarten") {
               // Studio tools stay in Studio
               setStudioView(createSetTool as StudioView);
             } else {
-              const prefix = createSetTool === "flashcards" ? "lk" : "gr";
+              const prefix = createSetTool === "flashcards" ? "lk"
+                : createSetTool === "wortschatz" ? "wo" : "gr";
               const setsView = `${prefix}-sets` as LanguageTrainingView;
               setSprachView(setsView);
             }
             await createExerciseSet(
               createSetTool, mode, count,
-              mode === "source" ? setSourceUuids : undefined,
+              // Auch der Kartenweg braucht die Quellen: der Text kommt aus ihnen.
+              mode === "glossary" ? undefined : setSourceUuids,
               grammarTopicId,
               grammarKinds,
+              flashcardSetId,
             );
             const poll = setInterval(() => loadExerciseSets(createSetTool), 3000);
             setTimeout(() => clearInterval(poll), 120000);

@@ -46,7 +46,7 @@ export function CreateSetModal({
   workspaceUuid: string;
   onClose: () => void;
   onCreate: (mode: string, count: number, grammarTopicId?: number,
-             grammarKinds?: string[]) => void;
+             grammarKinds?: string[], flashcardSetId?: number) => void;
   /** Eigentuemer oder Tutor. Nur die duerfen Themen anlegen. */
   canManage?: boolean;
 }) {
@@ -61,8 +61,11 @@ export function CreateSetModal({
   // The grammar tool rewrites sentences about the source content, so it has no
   // glossary mode at all.
   const isGrammar = tool === "grammatik";
-  const [mode, setMode] = useState<"glossary" | "source">(
-    isQuiz || isGrammar || glossaryCount === 0 ? "source" : "glossary",
+  // Der Wortschatz-Lueckentext kennt keinen Glossar-Weg. Er schreibt einen Text aus
+  // den Quellen, dafuer braucht er den Quelltext und keine Begriffsliste.
+  const isVocabulary = tool === "wortschatz";
+  const [mode, setMode] = useState<"glossary" | "source" | "cards">(
+    isQuiz || isGrammar || isVocabulary || glossaryCount === 0 ? "source" : "glossary",
   );
   const [count, setCount] = useState(isQuiz ? 5 : 10);
   const press = useRef(newBackdropPress()).current;
@@ -86,6 +89,30 @@ export function CreateSetModal({
   // Beim Umschalten sind alle vier an. Abzuhaken ist weniger Arbeit, als vier leere
   // Kaestchen zu fuellen.
   const [formats, setFormats] = useState<GrammarFormat[]>([...GRAMMAR_FORMATS]);
+
+  // Die eigenen Lernkarten-Sets fuer den Kartenweg des Lueckentexts. Die Liste kommt
+  // schon nach Person gefiltert von der Route, hier bleibt nur der Fertig-Status zu
+  // pruefen: ein Satz, der noch entsteht, hat keine Karten herzugeben.
+  const [flashcardSets, setFlashcardSets] = useState<{ id: number; title: string }[]>([]);
+  const [flashcardSetId, setFlashcardSetId] = useState<number | null>(null);
+  const [flashcardSetsLoading, setFlashcardSetsLoading] = useState(false);
+  useEffect(() => {
+    if (!isVocabulary) return;
+    let cancelled = false;
+    setFlashcardSetsLoading(true);
+    fetch(`/api/ai-assistant/workspaces/${workspaceUuid}/exercise-sets?tool=flashcards`,
+      { credentials: "include" })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (cancelled || !data?.sets) return;
+        const fertig = data.sets.filter((s: { status?: string }) => s.status === "ready");
+        setFlashcardSets(fertig);
+        setFlashcardSetId((prev) => prev ?? fertig[0]?.id ?? null);
+      })
+      .catch(() => { /* dann bleibt nur der Weg ueber die Quellen */ })
+      .finally(() => { if (!cancelled) setFlashcardSetsLoading(false); });
+    return () => { cancelled = true; };
+  }, [isVocabulary, workspaceUuid]);
 
   async function removeTopic(topic: GrammarTopic) {
     setDeleting(true);
@@ -126,6 +153,7 @@ export function CreateSetModal({
       flashcards: t("tools.flashcards"),
       grammatik: t("tools.grammar"),
       quiz: t("tools.quiz"),
+      wortschatz: t("tools.vocabulary"),
     };
     return map[tool] || t("tools.exerciseFallback");
   })();
@@ -133,7 +161,11 @@ export function CreateSetModal({
   const canCreate = isGrammar
     ? Boolean(hasSource && topicId && !addingTopic
               && formatChoiceReady(pickFormats, formats))
-    : true;
+    : isVocabulary
+      // Der Text kommt immer aus den Quellen, auch im Kartenweg. Der braucht
+      // zusaetzlich ein gewaehltes Lernkarten-Set.
+      ? Boolean(hasSource && (mode !== "cards" || flashcardSetId))
+      : true;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ backgroundColor: "rgba(0,0,0,0.25)" }} {...backdropClose(press, onClose)}>
@@ -144,7 +176,7 @@ export function CreateSetModal({
         {/* Mode */}
         <div className="text-3xs font-semibold uppercase tracking-wide mb-1.5" style={{ color: "var(--muted)" }}>{t("createModal.sourceHeading")}</div>
         <div className="flex flex-col gap-1.5 mb-3">
-          {!isQuiz && !isGrammar && (
+          {!isQuiz && !isGrammar && !isVocabulary && (
             <PickerOption selected={mode === "glossary"} disabled={glossaryCount === 0}
               onClick={() => setMode("glossary")}>
               {t("createModal.fromGlossary")} <span className="text-3xs text-muted">{t("createModal.glossaryTermsCount", { count: glossaryCount })}</span>
@@ -154,12 +186,40 @@ export function CreateSetModal({
             onClick={() => setMode("source")}>
             {t("createModal.fromSelectedSource", { count: pickedSources.length })} {hasSource && <span className="text-3xs text-muted inline-block max-w-30 truncate align-bottom" title={pickedSources.map((s) => s.filename).join("\n")}>({sourceHint})</span>}
           </PickerOption>
+          {isVocabulary && (
+            <PickerOption selected={mode === "cards"} disabled={!hasSource || flashcardSets.length === 0}
+              onClick={() => setMode("cards")}>
+              {t("createModal.fromFlashcards")}
+            </PickerOption>
+          )}
           {!hasSource && (
             <p className="text-3xs ml-5" style={{ color: "#c4820e" }}>
               {t("createModal.noSourceHint")}
             </p>
           )}
+          {isVocabulary && hasSource && !flashcardSetsLoading && flashcardSets.length === 0 && (
+            // Sonst bleibt der Kartenweg nur ausgegraut, ohne dass klar wird,
+            // warum er sich nicht waehlen laesst.
+            <p className="text-3xs ml-5" style={{ color: "#c4820e" }}>
+              {t("createModal.noFlashcardSets")}
+            </p>
+          )}
         </div>
+
+        {/* Flashcard set choice, cloze from cards only */}
+        {isVocabulary && mode === "cards" && (
+          <div className="flex flex-col gap-1.5 mb-3">
+            {flashcardSetsLoading && (
+              <p className="text-3xs" style={{ color: "var(--muted)" }}>{t("common.loading")}</p>
+            )}
+            {!flashcardSetsLoading && flashcardSets.map((s) => (
+              <PickerOption key={s.id} selected={flashcardSetId === s.id}
+                onClick={() => setFlashcardSetId(s.id)}>
+                <span className="block font-semibold">{s.title}</span>
+              </PickerOption>
+            ))}
+          </div>
+        )}
 
         {/* Grammar exercise type */}
         {isGrammar && (
@@ -277,7 +337,11 @@ export function CreateSetModal({
         )}
 
         {/* Count */}
-        <div className="text-3xs font-semibold uppercase tracking-wide mb-1.5" style={{ color: "var(--muted)" }}>{isGrammar ? t("createModal.sentenceCountHeading") : t("createModal.countHeading")}</div>
+        <div className="text-3xs font-semibold uppercase tracking-wide mb-1.5" style={{ color: "var(--muted)" }}>
+          {isGrammar ? t("createModal.sentenceCountHeading")
+            : isVocabulary ? t("createModal.gapCountHeading")
+            : t("createModal.countHeading")}
+        </div>
         <div className="flex gap-1.5 mb-4">
           {[5, 10, 15].map((n) => (
             <button key={n} type="button" onClick={() => setCount(n)}
@@ -299,6 +363,7 @@ export function CreateSetModal({
             mode, count,
             isGrammar && topicId ? topicId : undefined,
             isGrammar ? sentKinds(pickFormats, formats) : undefined,
+            isVocabulary && mode === "cards" && flashcardSetId ? flashcardSetId : undefined,
           )}
             disabled={!canCreate}
             className="btn-fill-accent flex-1 flex items-center justify-center gap-1.5 py-2 rounded-full text-xs font-semibold transition-all disabled:opacity-50">

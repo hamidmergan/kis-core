@@ -1695,7 +1695,10 @@
             "choice": "Multiple choice"
           },
           "sentenceCountHeading": "Number of sentences",
-          "noGrammarTypes": "No exercise type enabled. The owner sets this in the settings menu."
+          "noGrammarTypes": "No exercise type enabled. The owner sets this in the settings menu.",
+          "fromFlashcards": "From a flashcard set",
+          "gapCountHeading": "Gaps",
+          "noFlashcardSets": "No flashcard set ready yet. Create one first."
         },
         "exerciseSets": {
           "emptyText": "Select sources and press Create.",

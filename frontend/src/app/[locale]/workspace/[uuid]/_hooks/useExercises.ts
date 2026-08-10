@@ -46,7 +46,7 @@ export function useExercises({ uuid }: UseExercisesOptions) {
     } catch { /* ignore */ }
   }, [uuid]);
 
-  const createExerciseSet = useCallback(async (tool: string, mode: string, count: number, sourceUuids?: string[], grammarTopicId?: number, grammarKinds?: string[]) => {
+  const createExerciseSet = useCallback(async (tool: string, mode: string, count: number, sourceUuids?: string[], grammarTopicId?: number, grammarKinds?: string[], flashcardSetId?: number) => {
     try {
       // api.fetch attaches Accept-Language from the NEXT_LOCALE cookie so the
       // backend generates the set in the UI language (raw fetch defaulted to de).
@@ -64,6 +64,8 @@ export function useExercises({ uuid }: UseExercisesOptions) {
           // Nur die Grammatik-Uebung sendet das, und auch die nur bei einer echten
           // Auswahl. Fehlt es, ist das Set gemischt.
           grammar_kinds: grammarKinds,
+          // Nur der Wortschatz-Lueckentext aus Lernkarten schickt das mit.
+          flashcard_set_id: flashcardSetId,
         }),
       });
       if (res.ok) {
