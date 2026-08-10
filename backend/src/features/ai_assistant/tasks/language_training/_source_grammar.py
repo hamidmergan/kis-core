@@ -278,8 +278,15 @@ def generate_grammar_from_source(
             key = (normalize(item["front"]), normalize(item["back"]))
             if key in seen:
                 continue
+            kind = item.get("_kind")
+            # Eine abgewaehlte Art wird IMMER verworfen, auch im letzten Wurf. Dort
+            # faellt der Deckel je Format, damit die bestellte Anzahl zusammenkommt,
+            # aber ein abgehaktes Kaestchen ist keine Vorliebe bei der Mischung
+            # sondern ein Ausschluss. Ohne diese Sperre kam bei "nur Umformen" eine
+            # Richtig/Falsch-Aufgabe heraus, nachgestellt am 2026-08-10.
+            if kinds and kind not in kinds:
+                continue
             if not last_try:
-                kind = item.get("_kind")
                 if room.get(kind, 0) <= 0:
                     continue
                 room[kind] -= 1

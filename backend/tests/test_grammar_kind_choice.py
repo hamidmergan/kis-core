@@ -8,6 +8,7 @@ Kein DB- und kein Netzzugriff.
 
 import json
 import types
+import pytest
 
 from src.features.ai_assistant.tasks.language_training._source_grammar import (
     KINDS,
@@ -107,21 +108,49 @@ def test_without_a_choice_the_prompt_names_all_four():
 
 # --- Der Nachschlag -----------------------------------------------------------
 
-_GOOD_TRANSFORM = {
-    "kind": "transform",
-    "before": "Der Server speichert die Messwerte.",
-    "after": "Die Messwerte werden vom Server gespeichert.",
-    "also_ok": ["Die Messwerte werden gespeichert."],
+_ONLY_STATEMENT = {
+    "kind": "statement",
+    "statement": "Die Messwerte werden vom Server gespeichert.",
+    "answer": True,
 }
 
-# Der Aufgabensatz steht als FALSCHE Option da. Genau das verwirft der Filter jedes Mal.
-_BAD_CLOZE = {
-    "kind": "cloze",
-    "sentence": "Die Messwerte werden vom Server gespeichert. ___",
-    "answer": "gespeichert",
-    "options": ["gespeichert", "speichert", "speichern", "gespeichern"],
-    "correct_idx": 0,
-}
+
+@pytest.fixture
+def no_db_attachment(monkeypatch):
+    """Mock attach_chips_cited damit der Test ohne Datenbankzugriff laeuft."""
+    monkeypatch.setattr(
+        "src.features.ai_assistant.tasks.language_training._source_grammar"
+        ".attach_chips_cited", lambda items, claims, ctx, **kw: None)
+
+
+def test_an_unchosen_kind_is_always_rejected_even_on_the_last_draw(no_db_attachment):
+    """Ein abgehaktes Kaestchen ist ein Ausschluss, keine Vorliebe. Auch im letzten Wurf
+    wird ein Format, das nicht in der Auswahl steht, verworfen. Ohne diese Sperre kaeme
+    eine Richtig/Falsch-Aufgabe heraus, obwohl der Lernende nur "Umformen" ausgewaehlt hat."""
+    antwort = json.dumps({"title": "T", "exercises": [_ONLY_STATEMENT]})
+    client, _ = _client_queue(antwort)
+
+    items, _, _ = generate_grammar_from_source(
+        client, "m", _ctx(), _TOPIC, 2,
+        locale="de", kinds=["transform"])
+
+    # Es wurde eine Richtig/Falsch-Aufgabe angeboten, aber sie haette nicht akzeptiert
+    # werden duerfen: die Art steht nicht in der Auswahl.
+    assert items == []
+
+
+def test_an_unchosen_kind_is_accepted_when_gemischt(no_db_attachment):
+    """Ohne Auswahl (Gemischt) werden alle vier Arten akzeptiert, auch im letzten Wurf."""
+    antwort = json.dumps({"title": "T", "exercises": [_ONLY_STATEMENT]})
+    client, _ = _client_queue(antwort)
+
+    items, _, _ = generate_grammar_from_source(
+        client, "m", _ctx(), _TOPIC, 1,
+        locale="de", kinds=None)
+
+    # Ohne Auswahl ist Richtig/Falsch erlaubt.
+    assert len(items) == 1
+    assert "Steht der Satz korrekt" in items[0]["front"]
 
 
 def _client_queue(*contents):
@@ -139,19 +168,3 @@ def _client_queue(*contents):
     return types.SimpleNamespace(
         chat=types.SimpleNamespace(completions=types.SimpleNamespace(create=create))
     ), calls
-
-
-def test_the_last_draw_never_asks_for_a_kind_that_was_not_chosen():
-    """Der Nachschlag greift auf eine Art zurueck, die schon geliefert hat. Ohne die
-    Auswahl kaeme dabei ein abgewaehltes Format heraus, und der Lernende bekaeme
-    genau das, was er weggeklickt hat."""
-    antwort = json.dumps({"title": "T", "exercises": [_GOOD_TRANSFORM, _BAD_CLOZE]})
-    client, calls = _client_queue(antwort)
-
-    generate_grammar_from_source(client, "m", _ctx(), _TOPIC, 4,
-                                 locale="de", kinds=["transform", "cloze"])
-
-    letzter = calls[-1][0]["content"]
-    assert 'of kind "statement"' not in letzter
-    assert 'of kind "choice"' not in letzter
-    assert 'of kind "transform"' in letzter
