@@ -1032,6 +1032,13 @@ def _init_db(admin_email: Optional[str] = None) -> None:
                 "ALTER TABLE aia_exercise_pool ADD COLUMN IF NOT EXISTS topic_id INTEGER "
                 "REFERENCES aia_grammar_topics(id) ON DELETE CASCADE"
             )
+            # Welche Darreichungsform eine Grammatik-Aufgabe hat: Umformen, Luecke
+            # fuellen, Richtig oder falsch, Ankreuzen. Nur so kann der Vorrat eine
+            # Formatauswahl bedienen, statt blind auszuliefern, was gerade daliegt.
+            # Bei allen anderen Werkzeugen bleibt die Spalte leer. Altbestand hat sie
+            # ebenfalls leer und faellt damit bei einer Auswahl durch den Filter, was
+            # richtig ist: ausliefern wuerde die Auswahl brechen.
+            cur.execute("ALTER TABLE aia_exercise_pool ADD COLUMN IF NOT EXISTS kind TEXT")
             # Zwei NULL gelten in Postgres nicht als gleich, ein gewoehnlicher
             # UNIQUE ueber `level` wuerde im niveaulosen Vorrat also jeden Doppler
             # durchlassen. COALESCE macht daraus einen vergleichbaren Wert.

@@ -114,8 +114,9 @@ def test_json_fields_are_serialised(fake_db):
     items = [{"front": "a", "back": "A", "options": ["x", "y"], "sources": [{"p": 1}]}]
     repo.add_pool_items(9, "quiz", "B1", items, ["a"])
     params = next(c[2] for c in calls if c[0] == "execute")
-    assert params[:5] == (9, "quiz", "B1", None, "a")   # ohne Thema
-    assert json.loads(params[8]) == ["x", "y"]          # options
+    assert params[:5] == (9, "quiz", "B1", None, None)  # ohne Thema, kind ist auch None
+    assert params[5] == "a"                              # fingerprint
+    assert json.loads(params[9]) == ["x", "y"]          # options
 
 
 def test_storing_nothing_touches_no_connection(monkeypatch):
@@ -194,3 +195,29 @@ def test_clearing_writes_the_content_back_before_deleting(fake_db):
     assert anweisungen[0].startswith("UPDATE aia_exercise_items"), \
         "erst zurueckschreiben, dann loeschen"
     assert any("DELETE FROM aia_exercise_pool" in a for a in anweisungen)
+
+
+# --- die Darreichungsform ------------------------------------------------------
+
+def test_the_kind_of_a_grammar_item_is_stored(fake_db):
+    """Ohne die Art kann der Vorrat eine Formatauswahl nicht bedienen: er wuesste
+    nicht, was er da liegen hat."""
+    calls = fake_db(rows=[(5,)])
+    repo.add_pool_items(
+        9, "grammatik", "B1",
+        [{"front": "f", "back": "b", "_kind": "cloze"}], ["fp"], 4)
+
+    sql, params = calls[0][1], calls[0][2]
+    assert "kind" in sql
+    # Auf der Position geprueft und nicht nur auf Vorkommen: die Werte haengen an der
+    # Reihenfolge der Spaltenliste, und ein Verrutschen wuerde die Art still in die
+    # Nachbarspalte schreiben.
+    assert params[4] == "cloze"
+
+
+def test_an_item_without_a_kind_stores_null(fake_db):
+    """Jedes andere Werkzeug hat keine Arten. Die Spalte bleibt dort leer."""
+    calls = fake_db(rows=[(5,)])
+    repo.add_pool_items(9, "quiz", None, [{"front": "f", "back": "b"}], ["fp"])
+
+    assert calls[0][2][4] is None

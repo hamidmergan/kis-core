@@ -35,7 +35,10 @@ def _as_row(item: dict, source_id: int, tool: str, level, topic_id, fingerprint:
             values.append(json.dumps(value) if value else None)
         else:
             values.append(value)
-    return (source_id, tool, level, topic_id, fingerprint, *values)
+    # Die Art steht am Item unter ``_kind``, mit Unterstrich: sie ist ein Hilfsfeld der
+    # Erzeugung und wird nicht in den fertigen Satz geschrieben. In den Vorrat gehoert
+    # sie trotzdem, denn nur dort steht sie ueber den Lauf hinaus.
+    return (source_id, tool, level, topic_id, item.get("_kind"), fingerprint, *values)
 
 
 def add_pool_items(
@@ -60,9 +63,9 @@ def add_pool_items(
                     continue
                 cur.execute(
                     f"""INSERT INTO aia_exercise_pool
-                        (source_id, tool, level, topic_id, fingerprint,
+                        (source_id, tool, level, topic_id, kind, fingerprint,
                          {", ".join(_ITEM_FIELDS)})
-                        VALUES ({", ".join(["%s"] * (5 + len(_ITEM_FIELDS)))})
+                        VALUES ({", ".join(["%s"] * (6 + len(_ITEM_FIELDS)))})
                         ON CONFLICT (source_id, tool, COALESCE(level, ''),
                                      COALESCE(topic_id, 0), fingerprint)
                         DO NOTHING
