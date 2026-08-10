@@ -169,14 +169,19 @@ GAP = "___"
 _SENTENCE_ENDS = ".!?…。！？۔।"
 
 
-def item_plan(count: int) -> list[str]:
-    """Welche Aufgabe welches Format bekommt, reihum über :data:`KINDS`.
+def item_plan(count: int, kinds=None) -> list[str]:
+    """Welche Aufgabe welches Format bekommt, reihum über die gewählten Formate.
 
     Als ZAHL im Prompt und nicht als Absichtserklärung. Erfahrung aus dem
     Grammatik-Quiz und dem Hörverstehen: "stelle abwechslungsreiche Aufgaben" wirkt
     nicht, "genau 4 Aufgaben der Art X" wirkt.
+
+    ``kinds`` ist die Auswahl des Lernenden. Leer oder ``None`` heisst gemischt, also
+    alle vier. Reihum heisst auch hier: geht die Anzahl nicht glatt auf, bekommen die
+    vorderen Formate einen mehr.
     """
-    return [KINDS[i % len(KINDS)] for i in range(max(0, count))]
+    verfuegbar = list(kinds) if kinds else list(KINDS)
+    return [verfuegbar[i % len(verfuegbar)] for i in range(max(0, count))]
 
 
 def generate_grammar_from_source(
@@ -193,6 +198,10 @@ def generate_grammar_from_source(
     adaptive_suffix: str = "",
     title_avoidance: str = "",
     coverage: str = "",
+    # Die gewaehlten Aufgabenformate. Leer oder None heisst gemischt, also alle vier.
+    # Steuert nur die Verteilung, nicht die Filter: kein Format ist neu und keines
+    # faellt weg.
+    kinds: list[str] | None = None,
 ) -> tuple[list[dict], str, dict]:
     """Returns (items, title, header). ``header`` holds instruction + example pair.
 
@@ -200,7 +209,7 @@ def generate_grammar_from_source(
     """
     target_form = grammar_type["label"]
     shipped_example = grammar_type["example"]
-    plan = item_plan(count)
+    plan = item_plan(count, kinds)
     # Bewusst KEINE Zielsprache: die Uebungssaetze bleiben in der Sprache der Quelle.
     # Grammatik ist das einzige Werkzeug, bei dem die Sprache nicht das Mittel ist,
     # sondern der Lernstoff. Geuebt wird an den Saetzen, die im Dokument stehen, und
