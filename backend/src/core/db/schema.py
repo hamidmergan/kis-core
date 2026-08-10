@@ -28,6 +28,23 @@ _MIGRATION_LOCK_TIMEOUT = "10s"
 _MIGRATION_ATTEMPTS = 5
 
 
+def _table_exists(cur, table: str) -> bool:
+    """Gibt es die Tabelle schon?
+
+    Fuer Aufraeum-Schritte am Altbestand (UPDATE, DELETE), die eine Tabelle lesen,
+    die weiter unten erst entsteht. Auf einer gewachsenen Datenbank ist sie laengst
+    da und der Schritt laeuft; auf einer LEEREN gibt es nichts aufzuraeumen, und
+    ohne diese Frage braeche der ganze Start ab. Eine neue Hochschule faengt immer
+    mit einer leeren Datenbank an, dort zaehlt das.
+
+    Nicht dasselbe wie eine Strukturaenderung: ein fehlendes ``ADD COLUMN`` wird
+    auch auf einer frischen Datenbank gebraucht, das gehoert an die richtige
+    Stelle gezogen statt uebersprungen.
+    """
+    cur.execute("SELECT to_regclass(%s) IS NOT NULL", (f"public.{table}",))
+    return bool(cur.fetchone()[0])
+
+
 def init_db(admin_email: Optional[str] = None) -> None:
     """Schema anlegen und wandern. Wiederholt sich bei Sperrkonflikten.
 
@@ -540,20 +557,23 @@ def _init_db(admin_email: Optional[str] = None) -> None:
                   AND t.role = 'tutor'
                   AND k.role <> 'tutor'
             """)
-            cur.execute("""
-                UPDATE aia_messages m
-                SET enrollment_id = behalten.id
-                FROM aia_enrollments e
-                JOIN (
-                    SELECT DISTINCT ON (workspace_id, user_id) id, workspace_id, user_id
-                    FROM aia_enrollments
-                    ORDER BY workspace_id, user_id, created_at, id
-                ) behalten
-                  ON behalten.workspace_id = e.workspace_id
-                 AND behalten.user_id = e.user_id
-                WHERE m.enrollment_id = e.id
-                  AND e.id <> behalten.id
-            """)
+            # aia_messages entsteht weiter unten. Auf einer leeren Datenbank gibt es
+            # keine Nachrichten umzuhaengen, dort faellt der Schritt einfach weg.
+            if _table_exists(cur, "aia_messages"):
+                cur.execute("""
+                    UPDATE aia_messages m
+                    SET enrollment_id = behalten.id
+                    FROM aia_enrollments e
+                    JOIN (
+                        SELECT DISTINCT ON (workspace_id, user_id) id, workspace_id, user_id
+                        FROM aia_enrollments
+                        ORDER BY workspace_id, user_id, created_at, id
+                    ) behalten
+                      ON behalten.workspace_id = e.workspace_id
+                     AND behalten.user_id = e.user_id
+                    WHERE m.enrollment_id = e.id
+                      AND e.id <> behalten.id
+                """)
             cur.execute("""
                 DELETE FROM aia_enrollments e
                 USING (
