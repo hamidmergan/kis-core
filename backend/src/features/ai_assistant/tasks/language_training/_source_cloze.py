@@ -207,19 +207,27 @@ def generate_cloze_from_source(
                        len(gaps), bestellt)
         return None
 
+    # Der Titel wird VOR dem Item bestimmt, weil er selbst mit in extras wandert.
+    # Ohne das traegt eine Vorratszeile keinen Titel: ein Satz aus dem Vorrat wird
+    # nie ueber generate_cloze_from_source finalisiert (siehe run_cloze_set), sein
+    # Titel kaeme sonst nur aus der noch nicht fertigen Satz-Zeile, und die traegt an
+    # dieser Stelle immer den Platzhalter "Wird generiert...".
+    title = (data.get("title") or "").strip() or ctx.multi_label
+
     beispiel = data.get("example") or {}
     item = {
         "front": text,
         "back": _solved(text, gaps),
-        # Anweisung und Beispiel stehen HIER und nicht in den Set-Spalten
-        # instruction/pattern_*, die die Grammatik-Übung benutzt. Der Vorrat trägt
-        # Aufgaben und keine Set-Spalten: ein Text aus dem Vorrat käme sonst ohne
-        # Anweisung an, und der Lernende sähe Lücken ohne zu wissen, was zu tun ist.
+        # Anweisung, Beispiel und Titel stehen HIER und nicht in den Set-Spalten
+        # instruction/pattern_*/title, die die Grammatik-Übung bzw. die Satz-Zeile
+        # benutzen. Der Vorrat trägt Aufgaben und keine Set-Spalten: ein Text aus dem
+        # Vorrat käme sonst ohne Anweisung und ohne eigenen Titel an.
         "extras": {
             "gaps": gaps,
             "instruction": (data.get("instruction") or "").strip(),
             "example": {"gapped": (beispiel.get("gapped") or "").strip(),
                         "solved": (beispiel.get("solved") or "").strip()},
+            "title": title,
         },
         # Mit Unterstrich, weil _attribution.py genau dieses Feld liest (_cited_chip
         # prüft item.get("_page")). Ohne ihn griffe die erste Stufe der Zuordnung nie,
@@ -233,7 +241,6 @@ def generate_cloze_from_source(
     # entfernt _page nach dem Lesen selbst, hier bleibt nichts mehr aufzuräumen.
     attach_chips_cited([item], [item["back"]], ctx)
 
-    title = (data.get("title") or "").strip() or ctx.multi_label
     return [item], title
 
 
@@ -300,8 +307,13 @@ def run_cloze_set(set_id, ex_set, user_id, count, client, model,
         aus_vorrat = take_from_pool(uuids, "wortschatz", level, user_id, 1)
         if aus_vorrat:
             logger.info("KI Tutor: Satz {} nimmt seinen Text aus dem Vorrat", set_id)
-            db.finalize_exercise_set(set_id, ex_set.get("title") or "Lückentext",
-                                     aus_vorrat)
+            # Der Titel steht in extras.title (siehe generate_cloze_from_source), denn
+            # ex_set traegt an dieser Stelle immer noch den Platzhalter "Wird
+            # generiert...": diese Zeile wird erst hier zum ersten Mal fertiggestellt.
+            # Eine Vorratszeile von vor dieser Aenderung hat noch keinen Titel in
+            # extras, deshalb der Rueckfall.
+            titel = (aus_vorrat[0].get("extras") or {}).get("title") or "Lückentext"
+            db.finalize_exercise_set(set_id, titel, aus_vorrat)
             return
 
     ctx = build_source_context(uuids, "wortschatz", count=count)

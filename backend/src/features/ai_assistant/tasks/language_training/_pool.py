@@ -8,6 +8,8 @@ ab dann allen im Kursraum offen.
 Nicht jedes Werkzeug macht mit, siehe ``POOL_TOOLS``.
 """
 
+import hashlib
+
 from loguru import logger
 
 from src import database as db
@@ -55,6 +57,32 @@ def pool_level(adaptive_suffix: str, user_id: int | None) -> str | None:
         return db.get_user_language_level(user_id)["language_level"] or None
     except Exception:  # noqa: BLE001 - ohne Niveau ist der niveaulose Vorrat richtig
         return None
+
+
+# Der eindeutige Index auf aia_exercise_pool ist ein gewoehnlicher Btree, und dessen
+# Zeilen duerfen hoechstens rund ein Drittel einer Datenbankseite gross sein, in der
+# Praxis um die 2700 Byte. Bei jedem Werkzeug ausser dem Lueckentext ist `front` ein
+# kurzer Satz und bleibt weit darunter. Der Lueckentext legt einen ganzen Text hinein,
+# und der kann diese Grenze reissen. Das INSERT bricht dann mit einer Ausnahme ab,
+# store() faengt sie ab und loggt nur eine Warnung, also faellt nirgends ein Fehler
+# auf, aber der Vorrat fuellt sich fuer dieses Werkzeug nie. Unterhalb der Schwelle
+# bleibt der Fingerabdruck Byte fuer Byte, wie item_key() ihn liefert: aendert er sich
+# fuer kurze Fronten, bekaeme derselbe Inhalt vor und nach dieser Aenderung zwei
+# verschiedene Werte, und der Dopplerschutz liesse fuer jede bestehende Zeile genau
+# einen Doppler durch.
+_FINGERPRINT_HASH_THRESHOLD = 1000
+
+
+def _fingerprint(front: str) -> str:
+    """Vergleichswert fuer den eindeutigen Vorrats-Index, laengensicher.
+
+    Kurze Vorderseiten liefert das genau wie ``item_key`` selbst. Erst darueber tritt
+    ein Hash an die Stelle des Rohtexts, siehe ``_FINGERPRINT_HASH_THRESHOLD``.
+    """
+    schluessel = item_key(front)
+    if len(schluessel.encode("utf-8")) <= _FINGERPRINT_HASH_THRESHOLD:
+        return schluessel
+    return hashlib.sha256(schluessel.encode("utf-8")).hexdigest()
 
 
 def _as_item(row: dict) -> dict:
@@ -167,7 +195,7 @@ def store(items: list[dict], ctx, tool: str, level, topic_id=None) -> None:
             gruppe = gruppe[:platz]
             ids = db.add_pool_items(
                 source_id, tool, level, gruppe,
-                [item_key(i.get("front", "")) for i in gruppe],
+                [_fingerprint(i.get("front", "")) for i in gruppe],
                 topic_id,
             )
             for item, pool_id in zip(gruppe, ids):

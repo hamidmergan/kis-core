@@ -122,7 +122,7 @@ async def create_exercise_set(
                       if body.flashcard_set_id else None)
             # usable_flashcard_set prüft Besitz, Werkzeug und Status ohne Kenntnis der
             # Karten selbst. Ob wirklich welche drin sind, steht erst in den items, die
-            # hier schon geladen sind - ein Set kann "ready" sein und trotzdem leer,
+            # hier schon geladen sind. Ein Set kann "ready" sein und trotzdem leer,
             # zum Beispiel wenn seine einzige Karte danach gelöscht wurde.
             if not usable_flashcard_set(karten, workspace["id"], user_id) or not karten.get("items"):
                 raise HTTPException(status_code=400,
