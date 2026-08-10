@@ -26,6 +26,7 @@ from src.features.ai_assistant.tasks.language_training._plan import (
     still_missing,
 )
 from src.services.aia_grammar_check import normalize, overlap_ratio
+from src.services.aia_grammar_formats import KINDS
 
 
 _SHAPE = (
@@ -148,16 +149,6 @@ _MIN_USABLE_RATIO = 0.5
 # Anfragen-Kontingent ist hochschulweit geteilt, und wer dreimal nichts Brauchbares
 # liefert, liefert es beim vierten Mal auch nicht.
 _MAX_ATTEMPTS = 3
-
-# Die vier Darreichungsformen, in dieser Reihenfolge reihum verteilt. Das Format war
-# früher eine Wahl im Dialog, ist aber kein Thema, sondern eine Darreichungsform. Ein
-# Lernender profitiert mehr davon, dieselbe Form auf vier Arten zu üben als zehnmal
-# auf eine.
-#
-# Die Reihenfolge ist eine Entscheidung: geht die Anzahl nicht glatt auf, bekommen die
-# vorderen Formate einen mehr. Vorne steht deshalb die Umformung, die das eigentliche
-# Können prüft, hinten das Ankreuzen, das am meisten hilft.
-KINDS = ("transform", "cloze", "statement", "choice")
 
 # Vier Optionen beim Ankreuzen. Weniger sieht nach einem Fehler aus, mehr passt nicht
 # mehr auf die Karte.
