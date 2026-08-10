@@ -27,6 +27,7 @@ def test_a_set_is_stored_with_its_topic_not_with_a_catalogue_id():
     params = inspect.signature(create_exercise_set_placeholder).parameters
     assert "grammar_topic_id" in params
     assert "grammar_type" not in params
+    assert "grammar_kinds" in params
 
 
 def test_every_seed_topic_carries_a_name():
