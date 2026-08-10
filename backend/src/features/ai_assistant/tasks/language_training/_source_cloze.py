@@ -39,8 +39,9 @@ _SHAPE = (
     'Respond ONLY with a JSON object:\n'
     '{"title": "Short topic title", '
     '"instruction": "What the learner has to do, one or two sentences", '
-    '"example": {"gapped": "A short sentence with ___ and the base form in brackets", '
-    '"solved": "the word that belongs in that gap"}, '
+    '"example": {"gapped": "One short DEMO sentence with ___ where a word is missing, '
+    'about DIFFERENT material than the passage below", '
+    '"solved": "the same demo sentence with the gap correctly filled in"}, '
     '"text": "A coherent passage where the target words are replaced by {{1}}, {{2}}, ...", '
     '"page": 12, '
     '"gaps": [{"base": "the dictionary form of the word", '
@@ -53,8 +54,16 @@ _RULES = (
     "unrelated sentences. It must read as if it came from the material.\n"
     "- Number the placeholders {{1}}, {{2}} and so on, without gaps, in the order "
     "they appear. The gaps array is in the same order.\n"
-    "- Mix the forms: some gaps take the dictionary form unchanged, others need it "
-    "inflected. The learner has to decide, that is the exercise.\n"
+    # Gemessen an Satz 7043 (BewG85.pdf): das Modell schrieb die Grundform in Klammern
+    # direkt hinter jeden Platzhalter, bei 10 von 10 Luecken, und loeste die Aufgabe damit
+    # selbst. Die Beispiel-Konvention ("gapped"/"solved") war ins Passagen-Feld gewandert,
+    # obwohl die alte Regel schon "never write a solution somewhere else" verlangte -- aus
+    # Modellsicht ist eine Klammer ein Hinweis, keine zweite Nennung. Diese Regel benennt
+    # die Klammer ausdruecklich, und _strip_answer_hints raeumt weiter unten auf, was
+    # trotzdem durchrutscht.
+    "- At each gap, the passage contains ONLY the placeholder, nothing beside it: no "
+    "parenthesis, no bracket, no hint, no base form, no translation, no synonym next to "
+    "its own gap. The chips shown below the text are the ONLY place a base form appears.\n"
     "- Never use the same base word twice.\n"
     "- Never write a solution somewhere else in the passage, that gives it away.\n"
     "- 'base' is always the plain dictionary form, that is what the learner sees.\n"
@@ -63,9 +72,85 @@ _RULES = (
 )
 
 
+def _min_inflected(count: int) -> int:
+    """Wie viele der bestellten Lücken mindestens eine geänderte Form brauchen.
+
+    Rund ein Drittel, mindestens eine, nie alle. Gemessen an Satz 7043: 9 von 10
+    Lösungen waren byte-identisch mit der Grundform, obwohl der Prompt schon die
+    Absichtserklärung "mix the forms" enthielt. Eine Zahl steuert dieses Modell,
+    eine Absicht nicht -- dieselbe Erfahrung, die den Formate-Mix der Grammatik-
+    Übung zu ``item_plan`` als Zahl gemacht hat statt zu einem Wunsch im Fliesstext.
+    """
+    bestellt = max(1, count)
+    if bestellt == 1:
+        return 1
+    ziel = max(1, round(bestellt / 3))
+    return min(ziel, bestellt - 1)  # nie alle, sonst bleibt keine unveraenderte Luecke
+
+
+def _mix_rule(count: int) -> str:
+    """Prompt-Zeile, die die Formen-Mischung als Zahl verlangt statt als Absicht."""
+    bestellt = max(1, count)
+    n = _min_inflected(bestellt)
+    zeile = (
+        f"- At least {n} of the {bestellt} gaps must need a form DIFFERENT from the "
+        "dictionary form (a different ending, tense, case, or number) to be correct."
+    )
+    if bestellt > 1:
+        zeile += (
+            " At least one gap must keep the dictionary form completely unchanged. "
+            "Copying the same word into every gap fails this exercise just as much as "
+            "changing it in every gap.\n"
+        )
+    else:
+        zeile += "\n"
+    return zeile
+
+
 def placeholders(text: str) -> list[int]:
     """Die Platzhalter-Nummern in der Reihenfolge, in der sie im Text stehen."""
     return [int(m.group(1)) for m in _PLACEHOLDER_RE.finditer(text or "")]
+
+
+# Eine Klammer direkt hinter einem Platzhalter, mit wenig Inhalt. Die Längengrenze
+# haelt die Suche schnell und verhindert, dass eine ganz andere Klammer weiter hinten
+# im Satz aus Versehen mitgenommen wird.
+_GAP_HINT_RE = re.compile(r"(\{\{(\d+)\}\})[ \t]*\(([^)]{1,80})\)")
+
+
+def _strip_answer_hints(text: str, gaps: list) -> str:
+    """Entfernt eine Klammer direkt nach einem Platzhalter, wenn ihr Inhalt die
+    Grundform oder die Lösung genau dieser Lücke ist.
+
+    Gemessen an Satz 7043 (BewG85.pdf, 10 von 10 Lücken betroffen): das Modell übernahm
+    die Klammer-Konvention aus dem Beispielfeld in den FLIESSTEXT, "{{1}} (gemeiner
+    Wert)" verriet die Lösung direkt neben ihrer eigenen Lücke, die Chips darunter
+    wurden überflüssig. Die Prompt-Regel allein reicht nicht zuverlässig, deshalb räumt
+    der Code auf, was das Modell trotzdem schreibt.
+
+    Läuft VOR der Platzhalter-Buchführung in :func:`clean_gaps`, damit die Nummerierung
+    den bereinigten Text sieht und nicht die Klammer mitzählt. Eine Klammer, deren
+    Inhalt zu keiner der beiden Fassungen passt, ist gewöhnliche Prosa und bleibt stehen,
+    zum Beispiel ein Verweis wie "(siehe Anlage 3)".
+    """
+    if not text or not gaps:
+        return text
+
+    def ersetze(m: re.Match) -> str:
+        platzhalter, nummer_text, inhalt = m.group(1), m.group(2), m.group(3)
+        nummer = int(nummer_text)
+        if not (1 <= nummer <= len(gaps)):
+            return m.group(0)
+        gap = gaps[nummer - 1]
+        if not isinstance(gap, dict):
+            return m.group(0)
+        verraten = {normalize(gap.get("base") or ""), normalize(gap.get("solution") or "")}
+        verraten.discard("")
+        if verraten and normalize(inhalt) in verraten:
+            return platzhalter
+        return m.group(0)
+
+    return _GAP_HINT_RE.sub(ersetze, text)
 
 
 def _is_usable(gap, words: list[str] | None, gesehen: set[str]) -> bool:
@@ -154,7 +239,7 @@ def _build_prompt(count: int, language: str, words: list[str] | None) -> str:
             "Pick the words yourself: the technical terms of the source material, the "
             "ones a learner of the subject has to know.\n\n"
         )
-    return kopf + auftrag + _SHAPE + _RULES + PAGE_RULE
+    return kopf + auftrag + _SHAPE + _RULES + _mix_rule(count) + PAGE_RULE
 
 
 def generate_cloze_from_source(
@@ -200,7 +285,10 @@ def generate_cloze_from_source(
         logger.warning("KI Tutor: Lückentext-Antwort hatte die falsche Form")
         return None
 
-    text, gaps = clean_gaps(data.get("text"), data.get("gaps"), words)
+    # Erst die verratenen Klammern raus, DANN die Platzhalter-Buchführung -- sonst
+    # zaehlte clean_gaps eine Klammer mit, die gleich wieder verschwindet.
+    roh_text = _strip_answer_hints(data.get("text"), data.get("gaps"))
+    text, gaps = clean_gaps(roh_text, data.get("gaps"), words)
     bestellt = max(1, count)
     if not gaps or len(gaps) < bestellt * _MIN_USABLE_RATIO:
         logger.warning("KI Tutor: Lückentext hatte nur {} von {} brauchbaren Lücken",

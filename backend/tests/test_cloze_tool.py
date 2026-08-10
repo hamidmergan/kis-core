@@ -261,3 +261,82 @@ def test_die_kartenliste_steht_im_auftrag_an_das_modell(attributed):
     generate_cloze_from_source(client, "m", _ctx(), 2, words=["arbeiten", "wechseln"])
     auftrag = "\n".join(m["content"] for m in calls[0])
     assert "arbeiten" in auftrag and "wechseln" in auftrag
+
+
+# ─── Verratene Loesungen in Klammern (Satz 7043, BewG85.pdf) ─────────────────────
+#
+# Live-Lauf am echten Modell: 10 von 10 Luecken kamen als "{{n}} (Grundform)" zurueck,
+# das Modell hatte die Klammer-Konvention aus dem Beispielfeld in die Passage
+# uebernommen. Die Chips unter dem Text waren damit ueberfluessig, die Aufgabe loeste
+# sich selbst. Die Prompt-Regel allein reicht nicht zuverlaessig, deshalb raeumt
+# _strip_answer_hints auf, was trotzdem durchrutscht.
+
+def test_klammer_mit_grundform_nach_luecke_wird_entfernt(attributed):
+    # Der genaue Fehler aus Satz 7043: "{{1}} (gemeiner Wert)" bei einer Luecke mit
+    # base "gemeiner Wert". Die Klammer verschwindet, die Luecke bleibt brauchbar.
+    verraten = dict(_GOOD,
+                    text="Man nutzt oft den {{1}} (gemeiner Wert) für Gebäude.",
+                    gaps=[{"base": "gemeiner Wert", "solution": "gemeinen Wert"}])
+    client, _ = _client(verraten)
+    result = generate_cloze_from_source(client, "m", _ctx(), 1)
+    assert result is not None
+    items, _ = result
+    front = items[0]["front"]
+    assert "gemeiner Wert" not in front
+    assert "{{1}}" in front
+    assert len(items[0]["extras"]["gaps"]) == 1
+
+
+def test_klammer_mit_loesung_nach_luecke_wird_entfernt(attributed):
+    # Dieselbe Fehlform wie in Satz 7043, nur mit der abgewandelten Form statt der
+    # Grundform in der Klammer -- das Modell verraet die Loesung auf beide Arten.
+    verraten = dict(_GOOD,
+                    text="Man nutzt oft den {{1}} (gemeinen Wert) für Gebäude.",
+                    gaps=[{"base": "gemeiner Wert", "solution": "gemeinen Wert"}])
+    client, _ = _client(verraten)
+    result = generate_cloze_from_source(client, "m", _ctx(), 1)
+    assert result is not None
+    items, _ = result
+    front = items[0]["front"]
+    assert "gemeinen Wert" not in front
+    assert "{{1}}" in front
+
+
+def test_unabhaengige_klammer_nach_luecke_bleibt_stehen(attributed):
+    # Eine Klammer, die nichts mit der Luecke zu tun hat, ist gewoehnliche Prosa (ein
+    # Verweis) und darf nicht verschwinden, sonst zerstoert die Bereinigung Saetze,
+    # die nie ein Hinweis waren.
+    harmlos = dict(_GOOD,
+                   text="Man nutzt oft den {{1}} (siehe Anlage 3) für Gebäude.",
+                   gaps=[{"base": "gemeiner Wert", "solution": "gemeinen Wert"}])
+    client, _ = _client(harmlos)
+    result = generate_cloze_from_source(client, "m", _ctx(), 1)
+    assert result is not None
+    items, _ = result
+    assert "(siehe Anlage 3)" in items[0]["front"]
+
+
+def test_klammer_fern_von_der_luecke_bleibt_stehen(attributed):
+    # Nur eine Klammer DIREKT nach dem Platzhalter gilt als Verdacht auf einen
+    # Hinweis. Eine an anderer Stelle im selben Satz ist gewoehnliche Prosa.
+    fern = dict(_GOOD,
+               text="Der Wert (siehe Anlage 3) wird mit dem {{1}} berechnet.",
+               gaps=[{"base": "gemeiner Wert", "solution": "gemeinen Wert"}])
+    client, _ = _client(fern)
+    result = generate_cloze_from_source(client, "m", _ctx(), 1)
+    assert result is not None
+    items, _ = result
+    front = items[0]["front"]
+    assert "(siehe Anlage 3)" in front
+    assert "{{1}}" in front
+
+
+def test_die_formen_mischung_steht_als_zahl_im_auftrag():
+    # Gemessen an Satz 7043: 9 von 10 Loesungen blieben unveraendert, obwohl der Prompt
+    # schon die Absichtserklaerung "mix the forms" enthielt. Absichten steuern dieses
+    # Modell nicht, eine Zahl schon -- dieselbe Lehre wie beim Formate-Mix der
+    # Grammatik-Uebung (item_plan).
+    client, calls = _client(_GOOD)
+    generate_cloze_from_source(client, "m", _ctx(), 10)
+    auftrag = calls[0][0]["content"]
+    assert "At least 3 of the 10 gaps" in auftrag
