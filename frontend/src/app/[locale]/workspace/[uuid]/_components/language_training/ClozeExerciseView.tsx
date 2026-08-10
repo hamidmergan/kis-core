@@ -1,4 +1,5 @@
 import React, { useMemo, useState } from "react";
+import { CaretRight } from "@phosphor-icons/react";
 import { useTranslations } from "next-intl";
 import type { ExerciseSet } from "../../_types";
 import { checkGap, type ClozeVerdict } from "./_cloze";
@@ -89,6 +90,9 @@ export function ClozeExerciseView({
 
   const [drafts, setDrafts] = useState<Record<number, string>>({});
   const [struck, setStruck] = useState<Record<number, boolean>>({});
+  // Eingeklappt: das Beispiel ist Hilfe auf Abruf und nicht Teil der Aufgabe.
+  // Genauso haelt es die Grammatik-Uebung mit ihrem Musterpaar.
+  const [showExample, setShowExample] = useState(false);
   const [verdicts, setVerdicts] = useState<ClozeVerdict[] | null>(null);
   // Ob geprueft wurde, unabhaengig davon, ob jede Luecke ein eigenes Urteil bekam.
   // Sperrt so wirklich JEDES Feld (Vorgabe), auch ein Platzhalter ohne passenden
@@ -125,10 +129,28 @@ export function ClozeExerciseView({
           <p className="text-xs" style={{ color: "var(--muted)" }}>{instruction}</p>
         )}
         {example?.gapped && example?.solved && (
-          <div className="rounded-xl px-3 py-2 text-xs"
-            style={{ backgroundColor: "var(--surface-dim)" }}>
-            <div>{example.gapped}</div>
-            <div style={{ color: "var(--kb)" }}>→ {example.solved}</div>
+          <div>
+            <button type="button" onClick={() => setShowExample((v) => !v)}
+              aria-expanded={showExample}
+              className="inline-flex items-center gap-1 text-xs font-medium transition-colors hover:text-kb"
+              style={{ color: "var(--muted)" }}>
+              <CaretRight size={10} weight="bold"
+                className={`transition-transform ${showExample ? "rotate-90" : ""}`} />
+              {t("cloze.example")}
+            </button>
+            {showExample && (
+              <div className="mt-1.5 rounded-xl px-3 py-2" style={{ backgroundColor: "var(--surface-dim)" }}>
+                {/* Gleiche Groesse wie der Lueckentext selbst: alles, was der Lernende
+                    LIEST, liest sich auf einer Stufe. Klein bleiben nur die Bedienteile. */}
+                <p className="text-sm leading-relaxed" style={{ color: "var(--foreground-soft)" }}>{example.gapped}</p>
+                {/* Der Pfeil traegt die Richtung ohne Wort und braucht keine
+                    Uebersetzung. Fuer einen Screenreader nur Zierde. */}
+                <p className="text-sm leading-relaxed flex gap-1.5" style={{ color: "var(--foreground-soft)" }}>
+                  <span aria-hidden="true" className="shrink-0" style={{ color: "var(--kb)" }}>→</span>
+                  <span>{example.solved}</span>
+                </p>
+              </div>
+            )}
           </div>
         )}
 
@@ -158,10 +180,14 @@ export function ClozeExerciseView({
               type="button"
               onClick={() => setStruck((s) => ({ ...s, [c.key]: !s[c.key] }))}
               className="px-2.5 py-1 rounded-full text-2xs font-medium border-2 transition-colors"
+              // Neutrales Grau aus der hauseigenen Skala und nicht die Rose-Farbe der
+              // Kachel. Ein Chip ist Material zum Einsetzen und keine Wertung, eine
+              // Farbe daran wuerde eine Bedeutung behaupten, die es nicht gibt. Die
+              // beiden Werte sind fuer hell und dunkel getrennt hinterlegt.
               style={{
-                backgroundColor: "var(--badge-rose-bg)",
-                color: "var(--badge-rose-fg)",
-                borderColor: "transparent",
+                backgroundColor: "var(--surface-dim)",
+                color: "var(--foreground)",
+                borderColor: "var(--border)",
                 textDecoration: struck[c.key] ? "line-through" : "none",
                 opacity: struck[c.key] ? 0.5 : 1,
               }}

@@ -1825,7 +1825,8 @@
         },
         "cloze": {
           "check": "Check",
-          "score": "{correct} of {total} correct"
+          "score": "{correct} of {total} correct",
+          "example": "Example"
         },
         "grammarTopics": {
           "addTopic": "New topic",
