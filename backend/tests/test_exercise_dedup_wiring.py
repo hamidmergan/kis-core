@@ -55,7 +55,7 @@ def stack(monkeypatch):
     monkeypatch.setattr(
         mod, "store_in_pool",
         lambda items, ctx, tool, level, topic_id=None:
-            seen["eingelagert"].append((tool, level, list(items), topic_id)))
+            seen["eingelagert"].append((tool, level, [dict(i) for i in items], topic_id)))
 
     class _Ctx:
         sections = {1: "A.pdf"}
@@ -189,7 +189,7 @@ def test_the_grammar_pool_is_asked_with_its_topic(stack, monkeypatch):
     mod, seen = stack
     gefragt = {}
 
-    def _take(uuids, tool, level, user_id, count, topic_id=None):
+    def _take(uuids, tool, level, user_id, count, topic_id=None, kinds=None):
         gefragt.update(tool=tool, topic_id=topic_id)
         return []
 
@@ -359,3 +359,109 @@ def test_a_pool_item_is_not_dropped_as_a_repeat(stack, monkeypatch):
     _run(count=2)
 
     assert [i["front"] for i in seen["finalized"]["items"]] == ["a", "b"]
+
+
+# --- Die Formatauswahl --------------------------------------------------------
+
+def _grammar_generator(mod, monkeypatch, *runden):
+    """Wie ``_generator``, aber fuer die Grammatik-Uebung.
+
+    Sie hat eine eigene Rueckgabe (Aufgaben, Titel, Kopf) und einen eigenen Namen,
+    deshalb reicht der Helfer weiter oben nicht: der haengt an
+    ``generate_mc_from_source``. Haelt zusaetzlich fest, mit welcher Formatauswahl
+    erzeugt wurde.
+    """
+    lauf = {"n": 0, "kinds": "nie gerufen"}
+
+    def _gen(client, model, ctx, gtype, how_many, **k):
+        lauf["n"] += 1
+        lauf["kinds"] = k.get("kinds")
+        return list(runden[min(lauf["n"], len(runden)) - 1]), "T", {}
+
+    monkeypatch.setattr(mod, "generate_grammar_from_source", _gen)
+    return lauf
+
+
+def _pool_spy(monkeypatch, mod):
+    """Faengt ab, mit welcher Formatauswahl der Vorrat gefragt wurde."""
+    gefragt = {"kinds": "nie gerufen"}
+
+    def _take(uuids, tool, level, user_id, count, topic_id=None, kinds=None):
+        gefragt["kinds"] = kinds
+        return []
+
+    monkeypatch.setattr(mod, "take_from_pool", _take)
+    return gefragt
+
+
+def test_the_format_choice_reaches_the_pool(stack, monkeypatch):
+    """Der Vorrat wird VOR dem Modell gefragt. Ohne die Auswahl liefert er
+    abgewaehlte Formate aus, und zwar ohne dass je ein Modell im Spiel war."""
+    mod, seen = stack
+    monkeypatch.setattr(mod.db, "get_exercise_set_with_items", lambda _id: {
+        "user_id": 1, "grammar_type": None, "grammar_topic_id": 99,
+        "grammar_kinds": ["transform", "cloze"],
+    })
+    gefragt = _pool_spy(monkeypatch, mod)
+    _grammar_generator(mod, monkeypatch, _cards("a", "b", "c"))
+
+    _run(count=3, tool="grammatik")
+
+    assert gefragt["kinds"] == ["transform", "cloze"]
+
+
+def test_the_format_choice_reaches_the_generator(stack, monkeypatch):
+    mod, seen = stack
+    monkeypatch.setattr(mod.db, "get_exercise_set_with_items", lambda _id: {
+        "user_id": 1, "grammar_type": None, "grammar_topic_id": 99,
+        "grammar_kinds": ["choice"],
+    })
+    lauf = _grammar_generator(mod, monkeypatch, _cards("a", "b", "c"))
+
+    _run(count=3, tool="grammatik")
+
+    assert lauf["kinds"] == ["choice"]
+
+
+def test_a_mixed_set_asks_for_everything(stack, monkeypatch):
+    """Ein Satz ohne Auswahl, also der Normalfall und jeder Satz von vor dieser
+    Spalte. Vorrat und Erzeugung duerfen dann keine Einschraenkung sehen."""
+    mod, seen = stack
+    gefragt = _pool_spy(monkeypatch, mod)
+    lauf = _grammar_generator(mod, monkeypatch, _cards("a", "b", "c"))
+
+    _run(count=3, tool="grammatik")
+
+    assert gefragt["kinds"] is None
+    assert lauf["kinds"] is None
+
+
+def test_a_stale_kind_in_the_column_does_not_break_the_run(stack, monkeypatch):
+    """Ein Satz kann aelter sein als die heutigen Formate. Ein Kuerzel, das es nicht
+    mehr gibt, macht daraus eine gemischte Uebung und keinen Fehlschlag."""
+    mod, seen = stack
+    monkeypatch.setattr(mod.db, "get_exercise_set_with_items", lambda _id: {
+        "user_id": 1, "grammar_type": None, "grammar_topic_id": 99,
+        "grammar_kinds": ["malen"],
+    })
+    lauf = _grammar_generator(mod, monkeypatch, _cards("a", "b", "c"))
+
+    _run(count=3, tool="grammatik")
+
+    assert lauf["kinds"] is None
+    assert seen["failed"] is False
+
+
+def test_the_pool_gets_the_kind_the_finished_set_does_not(stack, monkeypatch):
+    """``_kind`` ist ein Hilfsfeld der Erzeugung. Es faehrt bis in den Vorrat mit,
+    denn nur dort steht die Art ueber diesen Lauf hinaus. Im gespeicherten Satz hat
+    es nichts verloren, dort traegt jede Aufgabe ihre Anweisung schon selbst."""
+    mod, seen = stack
+    _grammar_generator(mod, monkeypatch,
+                       [{"front": "a", "back": "A", "_kind": "transform"}])
+
+    _run(count=1, tool="grammatik")
+
+    eingelagert = seen["eingelagert"][0][2]
+    assert eingelagert[0]["_kind"] == "transform", "der Vorrat braucht die Art"
+    assert all("_kind" not in i for i in seen["finalized"]["items"])

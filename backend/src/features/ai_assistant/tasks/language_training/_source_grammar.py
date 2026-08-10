@@ -199,8 +199,8 @@ def generate_grammar_from_source(
     title_avoidance: str = "",
     coverage: str = "",
     # Die gewaehlten Aufgabenformate. Leer oder None heisst gemischt, also alle vier.
-    # Steuert nur die Verteilung, nicht die Filter: kein Format ist neu und keines
-    # faellt weg.
+    # Steuert die Verteilung UND filtert: eine Aufgabe einer abgewaehlten Art wird bei
+    # jedem Wurf verworfen, auch beim letzten.
     kinds: list[str] | None = None,
 ) -> tuple[list[dict], str, dict]:
     """Returns (items, title, header). ``header`` holds instruction + example pair.
@@ -316,8 +316,9 @@ def generate_grammar_from_source(
     # nothing for roughly half of them and the set ends up half cited, half not.
     attach_chips_cited(items, claims, ctx)
 
-    for item in items:
-        item.pop("_kind", None)
+    # ``_kind`` bleibt an der Aufgabe. Es traegt die Darreichungsform in den Vorrat,
+    # und nur dort steht sie ueber diesen Lauf hinaus. Der Aufrufer entfernt es, sobald
+    # eingelagert ist.
 
     title = (data.get("title") or "").strip() or grammar_type["label"]
     # Kein Set-Kopf mehr: ein gemischtes Set hat kein gemeinsames Muster, das über

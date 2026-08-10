@@ -13,6 +13,7 @@ from src.limits import AIA_TOOL_SOFT_TIME_LIMIT, AIA_TOOL_TIME_LIMIT
 from src.features.ai_assistant.tasks._helpers import _get_llm_client, tool_output_language
 from src.services.aia_adaptive_tools import build_adaptive_tool_suffix
 from src.features.ai_assistant.repository.grammar_topics import catalog_entry
+from src.services.aia_grammar_formats import clean_kinds
 from src.services.aia_grammar_topic import derive_topic
 
 from src.features.ai_assistant.tasks.language_training._context import (
@@ -136,8 +137,14 @@ def run_generate_exercise_set(self, set_id: int, workspace_id: int, tool: str,
             # Text entsteht eine Passiv- oder eine Konjunktiv-Aufgabe. Ihr Vorrat trennt
             # deshalb auch danach. Bei allen anderen Werkzeugen bleibt das Thema leer.
             topic_id = ex_set.get("grammar_topic_id") if tool == "grammatik" else None
+            # Die gewaehlten Aufgabenformate. Noch einmal gesaeubert, weil der Satz
+            # aelter sein kann als die heutigen Formate: ein Kuerzel, das es nicht mehr
+            # gibt, soll den Auftrag nicht schief machen. None heisst gemischt.
+            kinds = (clean_kinds(ex_set.get("grammar_kinds"))
+                     if tool == "grammatik" else None)
             if uses_pool(tool, mode):
-                items = take_from_pool(uuids, tool, level, user_id, count, topic_id)
+                items = take_from_pool(uuids, tool, level, user_id, count, topic_id,
+                                       kinds=kinds)
                 if items:
                     logger.info("KI Tutor: set {} nimmt {} von {} aus dem Vorrat",
                                 set_id, len(items), count)
@@ -203,9 +210,9 @@ def run_generate_exercise_set(self, set_id: int, workspace_id: int, tool: str,
                         client, model, from_ctx, how_many, **shared)
                     return got, name, None
                 if tool == "grammatik":
-                    # Ein Aufruf, vier Formate gleichmässig gemischt.
+                    # Ein Aufruf, die gewaehlten Formate gleichmässig gemischt.
                     return generate_grammar_from_source(
-                        client, model, from_ctx, gtype, how_many, **shared)
+                        client, model, from_ctx, gtype, how_many, kinds=kinds, **shared)
                 got, name = generate_mc_from_source(
                     client, model, from_ctx, how_many, **shared)
                 return got, name, None
@@ -297,6 +304,12 @@ def run_generate_exercise_set(self, set_id: int, workspace_id: int, tool: str,
             # Vorrats-id an den Aufgaben, die untergebracht werden konnten.
             if neu and uses_pool(tool, mode):
                 store_in_pool(neu, ctx, tool, level, topic_id)
+
+            # Die Darreichungsform hat ihren Zweck erfuellt, sie steht jetzt im Vorrat.
+            # Im fertigen Satz hat sie nichts verloren, dort traegt jede Aufgabe ihre
+            # Anweisung schon selbst.
+            for item in neu:
+                item.pop("_kind", None)
 
             items = items + neu
 
