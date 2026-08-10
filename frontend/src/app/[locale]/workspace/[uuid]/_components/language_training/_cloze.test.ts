@@ -15,6 +15,12 @@ describe("normalizeAnswer", () => {
     expect(normalizeAnswer("")).toBe("");
     expect(normalizeAnswer("   ")).toBe("");
   });
+
+  it("ersetzt Bindestriche durch Leerzeichen, wie im Backend", () => {
+    // Beide Formen müssen normalisiert gleichwertig sein: E-Mail und E Mail
+    // unterscheiden sich nur in der Schreibweise des Bindestriches, nicht in der Sache.
+    expect(normalizeAnswer("E-Mail")).toBe(normalizeAnswer("E Mail"));
+  });
 });
 
 describe("checkGap", () => {
@@ -46,5 +52,11 @@ describe("checkGap", () => {
   it("nennt eine leere Eingabe falsch", () => {
     expect(checkGap("", "arbeitet")).toBe("wrong");
     expect(checkGap("   ", "arbeitet")).toBe("wrong");
+  });
+
+  it("akzeptiert Bindestriche und Schrägstriche als unwichtig", () => {
+    // Bindestriche und Schrägstriche sind typografische Variationen derselben Antwort.
+    expect(checkGap("E Mail", "E-Mail")).toBe("correct");
+    expect(checkGap("und oder", "und/oder")).toBe("correct");
   });
 });

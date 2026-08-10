@@ -24,7 +24,7 @@ export function normalizeAnswer(text: string): string {
   if (!text) return "";
   return text
     .replace(PARENS_RE, " ")
-    .replace(PUNCT_RE, "")
+    .replace(PUNCT_RE, " ")
     .replace(WS_RE, " ")
     .trim()
     .toLowerCase();
