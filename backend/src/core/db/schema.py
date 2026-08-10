@@ -905,6 +905,22 @@ def _init_db(admin_email: Optional[str] = None) -> None:
             """)
             # Migration: add sources JSONB to exercise_items
             cur.execute("ALTER TABLE aia_exercise_items ADD COLUMN IF NOT EXISTS sources JSONB")
+            # Grammatikthemen. Steht VOR dem Vorrat, weil dessen `topic_id` hierher
+            # zeigt: eine Fremdschluessel-Spalte laesst sich nicht auf eine Tabelle
+            # legen, die es noch nicht gibt. Auf einer Datenbank, die die Tabelle schon
+            # hatte, faellt die Reihenfolge nicht auf, auf einer aelteren bricht der
+            # ganze Start ab. Regel, Beispiele und Grundstock stehen weiter unten, die
+            # brauchen die Reihenfolge nicht.
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS aia_grammar_topics (
+                    id           SERIAL PRIMARY KEY,
+                    workspace_id INTEGER NOT NULL
+                                   REFERENCES aia_workspaces(id) ON DELETE CASCADE,
+                    name         TEXT NOT NULL,
+                    created_by   INTEGER,
+                    created_at   TIMESTAMP NOT NULL DEFAULT NOW()
+                )
+            """)
             # ─── Exercise pool ──────────────────────────────────
             # Aufgaben werden nicht mehr bei jedem Klick neu erzeugt. Was einmal
             # entstanden ist, liegt hier und steht allen im Kursraum offen. Wer
@@ -1036,17 +1052,8 @@ def _init_db(admin_email: Optional[str] = None) -> None:
             #
             # Zwei Tabellen, weil ein Thema nur ein Name ist, Regel und Beispiele aber
             # zusätzlich an der Sprache hängen: "Konjunktiv II" braucht auf Deutsch ein
-            # anderes Beispiel als derselbe Kurs auf Englisch.
-            cur.execute("""
-                CREATE TABLE IF NOT EXISTS aia_grammar_topics (
-                    id           SERIAL PRIMARY KEY,
-                    workspace_id INTEGER NOT NULL
-                                   REFERENCES aia_workspaces(id) ON DELETE CASCADE,
-                    name         TEXT NOT NULL,
-                    created_by   INTEGER,
-                    created_at   TIMESTAMP NOT NULL DEFAULT NOW()
-                )
-            """)
+            # anderes Beispiel als derselbe Kurs auf Englisch. Die Themen-Tabelle selbst
+            # steht weiter oben, der Vorrat verweist schon auf sie.
             cur.execute("""
                 CREATE TABLE IF NOT EXISTS aia_grammar_topic_specs (
                     id        SERIAL PRIMARY KEY,
