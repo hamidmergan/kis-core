@@ -3,9 +3,17 @@ import type { ReactNode } from "react";
 import { Plus, Sparkle, Trash } from "@phosphor-icons/react";
 import { useTranslations } from "next-intl";
 import { backdropClose, newBackdropPress } from "@/components/ui/backdropClose";
+import Checkbox from "@/components/ui/Checkbox";
 import type { GrammarTopic } from "../../_types";
 import { GrammarTopicForm } from "./GrammarTopicForm";
 import { nextTopicId } from "./_grammarTopics";
+import {
+  GRAMMAR_FORMATS,
+  formatChoiceReady,
+  sentKinds,
+  toggleFormat,
+  type GrammarFormat,
+} from "./_grammarFormats";
 
 // Every picker in this modal shares one look: 2px border, primary on hover,
 // primary + tint for the current choice (same classes as the quiz answers).
@@ -37,7 +45,8 @@ export function CreateSetModal({
   tool: string; glossaryCount: number; selectedSources?: { uuid: string; filename: string }[] | null;
   workspaceUuid: string;
   onClose: () => void;
-  onCreate: (mode: string, count: number, grammarTopicId?: number) => void;
+  onCreate: (mode: string, count: number, grammarTopicId?: number,
+             grammarKinds?: string[]) => void;
   /** Eigentuemer oder Tutor. Nur die duerfen Themen anlegen. */
   canManage?: boolean;
 }) {
@@ -70,6 +79,13 @@ export function CreateSetModal({
   // teuer. Fertige Saetze bleiben lesbar, darum kuemmert sich das Backend.
   const [confirmTopicId, setConfirmTopicId] = useState<number | null>(null);
   const [deleting, setDeleting] = useState(false);
+  // Gemischt ist der Standard, genau das Verhalten von vor dieser Wahl. Die vier
+  // Kaestchen klappen erst bei "Selbst waehlen" auf, damit der Dialog beim Oeffnen
+  // so kurz bleibt wie bisher.
+  const [pickFormats, setPickFormats] = useState(false);
+  // Beim Umschalten sind alle vier an. Abzuhaken ist weniger Arbeit, als vier leere
+  // Kaestchen zu fuellen.
+  const [formats, setFormats] = useState<GrammarFormat[]>([...GRAMMAR_FORMATS]);
 
   async function removeTopic(topic: GrammarTopic) {
     setDeleting(true);
@@ -115,7 +131,8 @@ export function CreateSetModal({
   })();
 
   const canCreate = isGrammar
-    ? Boolean(hasSource && topicId && !addingTopic)
+    ? Boolean(hasSource && topicId && !addingTopic
+              && formatChoiceReady(pickFormats, formats))
     : true;
 
   return (
@@ -225,6 +242,40 @@ export function CreateSetModal({
           </>
         )}
 
+        {/* Grammar exercise format */}
+        {isGrammar && (
+          <>
+            <div className="text-3xs font-semibold uppercase tracking-wide mb-1.5" style={{ color: "var(--muted)" }}>{t("createModal.formatHeading")}</div>
+            <div className="flex flex-col gap-1.5 mb-3">
+              <PickerOption selected={!pickFormats} onClick={() => setPickFormats(false)}>
+                {t("createModal.formatMixed")}
+              </PickerOption>
+              <PickerOption selected={pickFormats} onClick={() => setPickFormats(true)}>
+                {t("createModal.formatPick")}
+              </PickerOption>
+              {pickFormats && (
+                /* Eingerueckt unter dem Auswahlpunkt, zu dem sie gehoeren. Kaestchen
+                   aus dem Bestand, damit sie aussehen wie ueberall sonst. */
+                <div className="flex flex-col gap-1.5 ml-5 mt-0.5">
+                  {GRAMMAR_FORMATS.map((format) => (
+                    <Checkbox
+                      key={format}
+                      checked={formats.includes(format)}
+                      onChange={() => setFormats((prev) => toggleFormat(prev, format))}
+                      label={t(`createModal.format.${format}`)}
+                    />
+                  ))}
+                  {formats.length === 0 && (
+                    <p className="text-3xs" style={{ color: "#c4820e" }}>
+                      {t("createModal.formatNoneHint")}
+                    </p>
+                  )}
+                </div>
+              )}
+            </div>
+          </>
+        )}
+
         {/* Count */}
         <div className="text-3xs font-semibold uppercase tracking-wide mb-1.5" style={{ color: "var(--muted)" }}>{isGrammar ? t("createModal.sentenceCountHeading") : t("createModal.countHeading")}</div>
         <div className="flex gap-1.5 mb-4">
@@ -244,7 +295,11 @@ export function CreateSetModal({
             style={{ color: "var(--kb)", backgroundColor: "var(--surface)", border: "2px solid var(--border)" }}>
             {t("common.cancel")}
           </button>
-          <button type="button" onClick={() => onCreate(mode, count, isGrammar && topicId ? topicId : undefined)}
+          <button type="button" onClick={() => onCreate(
+            mode, count,
+            isGrammar && topicId ? topicId : undefined,
+            isGrammar ? sentKinds(pickFormats, formats) : undefined,
+          )}
             disabled={!canCreate}
             className="btn-fill-accent flex-1 flex items-center justify-center gap-1.5 py-2 rounded-full text-xs font-semibold transition-all disabled:opacity-50">
             <Sparkle size={12} weight="bold" />
