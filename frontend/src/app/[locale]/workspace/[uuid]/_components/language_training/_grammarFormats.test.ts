@@ -59,4 +59,14 @@ describe("toggleFormat", () => {
   it("may empty the list, the create button guards that", () => {
     expect(toggleFormat(["cloze"], "cloze")).toEqual([]);
   });
+
+  it("preserves catalogue order when toggled in reverse-catalogue click order", () => {
+    // Wenn der Nutzer "choice" klickt, dann "transform" (umgekehrte Reihenfolge),
+    // muss das Ergebnis Katalogordnung haben, nicht Klickordnung.
+    // Das unterscheidet toggleFormat (filter ueber Katalog) von einer naiven
+    // append/remove-Implementierung, die ["choice","transform"] ergeben wuerde.
+    const afterChoice = toggleFormat([], "choice");
+    const afterTransform = toggleFormat(afterChoice, "transform");
+    expect(afterTransform).toEqual(["transform", "choice"]);
+  });
 });

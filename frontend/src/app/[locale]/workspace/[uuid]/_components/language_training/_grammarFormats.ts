@@ -33,7 +33,7 @@ export function sentKinds(
   if (gewaehlt.length === 0 || gewaehlt.length === GRAMMAR_FORMATS.length) {
     return undefined;
   }
-  return [...gewaehlt];
+  return gewaehlt;
 }
 
 /** Ob die Formatauswahl den Erstellen-Knopf freigibt. */
