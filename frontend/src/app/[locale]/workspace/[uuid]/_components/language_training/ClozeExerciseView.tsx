@@ -117,9 +117,11 @@ export function ClozeExerciseView({
 
   return (
     <div className="flex flex-col h-full">
+      {/* Kein toolKey: der Satztitel ist der Name des Uebungssatzes und steht
+          schlicht in Schriftfarbe, so wie bei Grammatik und Karteikarten. Die
+          Farbmarke traegt nur das Werkzeug im Pfad davor. */}
       <SubviewHeader
         title={exerciseSet.title}
-        toolKey="Cloze"
         category="language_training"
         onBack={onBack}
         breadcrumbs={breadcrumbs}

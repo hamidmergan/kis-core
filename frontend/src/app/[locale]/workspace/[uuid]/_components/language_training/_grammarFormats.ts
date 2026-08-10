@@ -20,15 +20,11 @@ export type GrammarFormat = (typeof GRAMMAR_FORMATS)[number];
 /**
  * Was an das Backend geht, oder `undefined` fuer gemischt.
  *
- * Gemischt sendet NICHTS. Alle vier anzuhaken ist sachlich gemischt und sendet
- * deshalb ebenfalls nichts. Zwei Schreibweisen fuer denselben Zustand waeren zwei
- * Faelle, die frueher oder spaeter auseinanderlaufen.
+ * Alle vier anzuhaken ist sachlich gemischt und sendet deshalb nichts. Zwei
+ * Schreibweisen fuer denselben Zustand waeren zwei Faelle, die frueher oder
+ * spaeter auseinanderlaufen.
  */
-export function sentKinds(
-  pick: boolean,
-  checked: GrammarFormat[],
-): string[] | undefined {
-  if (!pick) return undefined;
+export function sentKinds(checked: GrammarFormat[]): string[] | undefined {
   const gewaehlt = GRAMMAR_FORMATS.filter((f) => checked.includes(f));
   if (gewaehlt.length === 0 || gewaehlt.length === GRAMMAR_FORMATS.length) {
     return undefined;
@@ -36,12 +32,9 @@ export function sentKinds(
   return gewaehlt;
 }
 
-/** Ob die Formatauswahl den Erstellen-Knopf freigibt. */
-export function formatChoiceReady(
-  pick: boolean,
-  checked: GrammarFormat[],
-): boolean {
-  return !pick || checked.length > 0;
+/** Ob die Formatauswahl den Erstellen-Knopf freigibt. Mindestens eins muss an sein. */
+export function formatChoiceReady(checked: GrammarFormat[]): boolean {
+  return checked.length > 0;
 }
 
 /** Ein Kaestchen umlegen. Die Reihenfolge bleibt die des Katalogs. */

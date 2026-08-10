@@ -1685,8 +1685,6 @@
           "countHeading": "Anzahl",
           "grammarTypeHeading": "Thema",
           "formatHeading": "Aufgabenformat",
-          "formatMixed": "Gemischt",
-          "formatPick": "Selbst wählen",
           "formatNoneHint": "Mindestens ein Format auswählen.",
           "format": {
             "transform": "Umformen",

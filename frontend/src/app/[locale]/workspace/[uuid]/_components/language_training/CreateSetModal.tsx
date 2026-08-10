@@ -82,12 +82,8 @@ export function CreateSetModal({
   // teuer. Fertige Saetze bleiben lesbar, darum kuemmert sich das Backend.
   const [confirmTopicId, setConfirmTopicId] = useState<number | null>(null);
   const [deleting, setDeleting] = useState(false);
-  // Gemischt ist der Standard, genau das Verhalten von vor dieser Wahl. Die vier
-  // Kaestchen klappen erst bei "Selbst waehlen" auf, damit der Dialog beim Oeffnen
-  // so kurz bleibt wie bisher.
-  const [pickFormats, setPickFormats] = useState(false);
-  // Beim Umschalten sind alle vier an. Abzuhaken ist weniger Arbeit, als vier leere
-  // Kaestchen zu fuellen.
+  // Alle vier sind an, das ist gemischt und damit das Verhalten von vorher.
+  // Abzuhaken ist weniger Arbeit, als vier leere Kaestchen zu fuellen.
   const [formats, setFormats] = useState<GrammarFormat[]>([...GRAMMAR_FORMATS]);
 
   // Die eigenen Lernkarten-Sets fuer den Kartenweg des Lueckentexts. Die Liste kommt
@@ -160,7 +156,7 @@ export function CreateSetModal({
 
   const canCreate = isGrammar
     ? Boolean(hasSource && topicId && !addingTopic
-              && formatChoiceReady(pickFormats, formats))
+              && formatChoiceReady(formats))
     : isVocabulary
       // Der Text kommt immer aus den Quellen, auch im Kartenweg. Der braucht
       // zusaetzlich ein gewaehltes Lernkarten-Set.
@@ -306,31 +302,22 @@ export function CreateSetModal({
         {isGrammar && (
           <>
             <div className="text-3xs font-semibold uppercase tracking-wide mb-1.5" style={{ color: "var(--muted)" }}>{t("createModal.formatHeading")}</div>
+            {/* Kaestchen aus dem Bestand, damit sie aussehen wie ueberall sonst.
+                Alle vier an heisst gemischt, dafuer braucht es keinen eigenen
+                Auswahlpunkt. */}
             <div className="flex flex-col gap-1.5 mb-3">
-              <PickerOption selected={!pickFormats} onClick={() => setPickFormats(false)}>
-                {t("createModal.formatMixed")}
-              </PickerOption>
-              <PickerOption selected={pickFormats} onClick={() => setPickFormats(true)}>
-                {t("createModal.formatPick")}
-              </PickerOption>
-              {pickFormats && (
-                /* Eingerueckt unter dem Auswahlpunkt, zu dem sie gehoeren. Kaestchen
-                   aus dem Bestand, damit sie aussehen wie ueberall sonst. */
-                <div className="flex flex-col gap-1.5 ml-5 mt-0.5">
-                  {GRAMMAR_FORMATS.map((format) => (
-                    <Checkbox
-                      key={format}
-                      checked={formats.includes(format)}
-                      onChange={() => setFormats((prev) => toggleFormat(prev, format))}
-                      label={t(`createModal.format.${format}`)}
-                    />
-                  ))}
-                  {formats.length === 0 && (
-                    <p className="text-3xs" style={{ color: "#c4820e" }}>
-                      {t("createModal.formatNoneHint")}
-                    </p>
-                  )}
-                </div>
+              {GRAMMAR_FORMATS.map((format) => (
+                <Checkbox
+                  key={format}
+                  checked={formats.includes(format)}
+                  onChange={() => setFormats((prev) => toggleFormat(prev, format))}
+                  label={t(`createModal.format.${format}`)}
+                />
+              ))}
+              {formats.length === 0 && (
+                <p className="text-3xs" style={{ color: "#c4820e" }}>
+                  {t("createModal.formatNoneHint")}
+                </p>
               )}
             </div>
           </>
@@ -362,7 +349,7 @@ export function CreateSetModal({
           <button type="button" onClick={() => onCreate(
             mode, count,
             isGrammar && topicId ? topicId : undefined,
-            isGrammar ? sentKinds(pickFormats, formats) : undefined,
+            isGrammar ? sentKinds(formats) : undefined,
             isVocabulary && mode === "cards" && flashcardSetId ? flashcardSetId : undefined,
           )}
             disabled={!canCreate}

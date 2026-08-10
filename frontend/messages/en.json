@@ -1685,8 +1685,6 @@
           "countHeading": "Count",
           "grammarTypeHeading": "Topic",
           "formatHeading": "Exercise format",
-          "formatMixed": "Mixed",
-          "formatPick": "Choose yourself",
           "formatNoneHint": "Pick at least one format.",
           "format": {
             "transform": "Rewrite",
