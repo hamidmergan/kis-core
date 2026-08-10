@@ -103,3 +103,55 @@ def test_without_a_choice_the_prompt_names_all_four():
     prompt = calls[0][0]["content"]
     for kind in KINDS:
         assert f'of kind "{kind}"' in prompt
+
+
+# --- Der Nachschlag -----------------------------------------------------------
+
+_GOOD_TRANSFORM = {
+    "kind": "transform",
+    "before": "Der Server speichert die Messwerte.",
+    "after": "Die Messwerte werden vom Server gespeichert.",
+    "also_ok": ["Die Messwerte werden gespeichert."],
+}
+
+# Der Aufgabensatz steht als FALSCHE Option da. Genau das verwirft der Filter jedes Mal.
+_BAD_CLOZE = {
+    "kind": "cloze",
+    "sentence": "Die Messwerte werden vom Server gespeichert. ___",
+    "answer": "gespeichert",
+    "options": ["gespeichert", "speichert", "speichern", "gespeichern"],
+    "correct_idx": 0,
+}
+
+
+def _client_queue(*contents):
+    """Fake-Client, der die Antworten der Reihe nach ausgibt. Die letzte wiederholt
+    sich, damit ein Test nicht an der Anzahl der Würfe hängt."""
+    calls = []
+    queue = list(contents)
+
+    def create(model, messages, **kwargs):
+        calls.append(messages)
+        content = queue.pop(0) if len(queue) > 1 else queue[0]
+        message = types.SimpleNamespace(content=content)
+        return types.SimpleNamespace(choices=[types.SimpleNamespace(message=message)])
+
+    return types.SimpleNamespace(
+        chat=types.SimpleNamespace(completions=types.SimpleNamespace(create=create))
+    ), calls
+
+
+def test_the_last_draw_never_asks_for_a_kind_that_was_not_chosen():
+    """Der Nachschlag greift auf eine Art zurueck, die schon geliefert hat. Ohne die
+    Auswahl kaeme dabei ein abgewaehltes Format heraus, und der Lernende bekaeme
+    genau das, was er weggeklickt hat."""
+    antwort = json.dumps({"title": "T", "exercises": [_GOOD_TRANSFORM, _BAD_CLOZE]})
+    client, calls = _client_queue(antwort)
+
+    generate_grammar_from_source(client, "m", _ctx(), _TOPIC, 4,
+                                 locale="de", kinds=["transform", "cloze"])
+
+    letzter = calls[-1][0]["content"]
+    assert 'of kind "statement"' not in letzter
+    assert 'of kind "choice"' not in letzter
+    assert 'of kind "transform"' in letzter

@@ -251,7 +251,11 @@ def generate_grammar_from_source(
             # noch einmal nach der Art gefragt, die gerade zweimal am Filter gescheitert
             # ist. Gemessen an Set 5599: dreimal "1 of kind choice" bestellt, dreimal
             # dieselbe unbrauchbare Aufgabe bekommen, vier von fuenf Aufgaben im Set.
-            wanted = _fallback_kinds(items, wanted)
+            #
+            # Der Rueckgriff bleibt dabei INNERHALB der gewaehlten Formate. Sonst
+            # bekaeme der Lernende im letzten Wurf genau das Format, das er
+            # weggeklickt hat.
+            wanted = _fallback_kinds(items, wanted, kinds)
         # Same temperature as the MC tools: enough wording variety, still JSON-safe. The
         # real variation comes from the context sweep in build_source_context, and any
         # repeat that still slips through is dropped afterwards by _dedup.
@@ -314,17 +318,21 @@ def generate_grammar_from_source(
     return items, title, {}
 
 
-def _fallback_kinds(have: list[dict], missing: list[str]) -> list[str]:
+def _fallback_kinds(have: list[dict], missing: list[str], kinds=None) -> list[str]:
     """Welche Arten der letzte Wurf bestellt: die, die schon geliefert haben.
 
     Was noch fehlt, ist genau das, was der Filter zweimal verworfen hat. Ein drittes Mal
     danach zu fragen bringt dasselbe zurueck, und der Satz bleibt zu kurz. Eine Art, die
     in diesem Set schon eine brauchbare Aufgabe hergegeben hat, gibt eher eine zweite her.
 
+    ``kinds`` ist die Auswahl des Lernenden und begrenzt, worauf zurueckgegriffen werden
+    darf. Leer oder ``None`` heisst gemischt, also alle vier.
+
     Hat noch keine geliefert, bleibt es bei den fehlenden: dann ist nicht die Art das
     Problem, sondern der Wurf, und irgendetwas muss bestellt werden.
     """
-    geklappt = [kind for kind in KINDS if any(i.get("_kind") == kind for i in have)]
+    erlaubt = [k for k in KINDS if not kinds or k in kinds]
+    geklappt = [kind for kind in erlaubt if any(i.get("_kind") == kind for i in have)]
     if not geklappt:
         return missing
     return [geklappt[i % len(geklappt)] for i in range(len(missing))]
