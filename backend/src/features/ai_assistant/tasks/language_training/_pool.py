@@ -60,7 +60,7 @@ def _as_item(row: dict) -> dict:
 
 
 def take(uuids: list[str], tool: str, level, user_id: int, count: int,
-         topic_id=None) -> list[dict]:
+         topic_id=None, kinds=None) -> list[dict]:
     """Bis zu ``count`` Aufgaben aus den Vorraeten der gewaehlten Quellen.
 
     Gleichmaessig auf die Quellen verteilt. Gibt eine Quelle weniger her, ruecken die
@@ -70,18 +70,21 @@ def take(uuids: list[str], tool: str, level, user_id: int, count: int,
 
     Ein Fehler beim Lesen liefert eine leere Liste. Der Vorrat ist eine Abkuerzung und
     keine Voraussetzung: faellt er aus, wird eben alles erzeugt, so wie vorher.
+
+    ``kinds`` ist die Formatauswahl der Grammatik-Uebung und wird unveraendert an die
+    Abfrage weitergereicht. Ohne sie holt der Vorrat wie bisher alles.
     """
     if not uuids or count <= 0 or not user_id:
         return []
     try:
-        return _take(uuids, tool, level, user_id, count, topic_id)
+        return _take(uuids, tool, level, user_id, count, topic_id, kinds)
     except Exception as e:  # noqa: BLE001
         logger.warning("KI Tutor: Vorrat nicht lesbar, es wird erzeugt: {}", e)
         return []
 
 
 def _take(uuids: list[str], tool: str, level, user_id: int, count: int,
-          topic_id=None) -> list[dict]:
+          topic_id=None, kinds=None) -> list[dict]:
     quellen = [db.get_aia_source(u) for u in uuids]
     source_ids = [q["id"] for q in quellen if q and q.get("id")]
     if not source_ids:
@@ -108,7 +111,7 @@ def _take(uuids: list[str], tool: str, level, user_id: int, count: int,
             else:
                 will = offen
             rows = db.take_from_pool(source_id, tool, level, user_id, will, topic_id,
-                                     exclude_ids=geholt or None)
+                                     exclude_ids=geholt or None, kinds=kinds)
             if len(rows) < will:
                 # Weniger als bestellt heisst: mehr hat dieser Vorrat nicht. Ein zweites
                 # Mal zu fragen kostet nur eine Abfrage.

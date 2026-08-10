@@ -69,7 +69,7 @@ def _stub_pool(monkeypatch, bestand: dict):
     """
     gefragt = []
 
-    def take(source_id, tool, level, user_id, limit, topic_id=None, exclude_ids=None):
+    def take(source_id, tool, level, user_id, limit, topic_id=None, exclude_ids=None, kinds=None):
         gefragt.append((source_id, limit, topic_id))
         raus = set(exclude_ids or ())
         vorrat = [f for f in bestand.get(source_id, []) if f"{source_id}-{f}" not in raus]

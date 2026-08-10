@@ -106,7 +106,7 @@ def pool_size(source_id: int, tool: str, level, topic_id=None) -> int:
 
 def take_from_pool(
     source_id: int, tool: str, level, user_id: int, limit: int, topic_id=None,
-    exclude_ids=None,
+    exclude_ids=None, kinds=None,
 ) -> list[dict]:
     """``limit`` Aufgaben aus dem Vorrat, die diese Person noch nicht hatte.
 
@@ -121,13 +121,22 @@ def take_from_pool(
     Bedingung daneben sieht die nicht: sie prueft **gespeicherte** Saetze, und der Satz
     entsteht erst am Ende. Ohne diesen Ausschluss liefert ein zweiter Griff in denselben
     Vorrat noch einmal, was der erste schon hatte.
+
+    ``kinds`` ist die Formatauswahl der Grammatik-Uebung. Gesetzt kommen nur Aufgaben
+    dieser Arten heraus. Zeilen ohne Art, also der Altbestand und jedes andere
+    Werkzeug, fallen dabei durch, denn ``NULL = ANY(...)`` ist nicht wahr. Genau so
+    gewollt: eine Aufgabe unbekannter Art auszuliefern wuerde die Auswahl brechen.
+    Ohne ``kinds`` bleibt die Abfrage, was sie war, und holt auch den Altbestand.
     """
     if limit <= 0:
         return []
     ausschluss = " AND p.id <> ALL(%s)" if exclude_ids else ""
+    formate = " AND p.kind = ANY(%s)" if kinds else ""
     werte = [source_id, tool, level, topic_id, user_id]
     if exclude_ids:
         werte.append(list(exclude_ids))
+    if kinds:
+        werte.append(list(kinds))
     werte.append(limit)
     with get_connection() as conn:
         with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
@@ -140,7 +149,7 @@ def take_from_pool(
                        SELECT 1 FROM aia_exercise_items i
                        JOIN aia_exercise_sets s ON i.set_id = s.id
                        WHERE i.pool_item_id = p.id AND s.user_id = %s
-                     ){ausschluss}
+                     ){ausschluss}{formate}
                    ORDER BY random()
                    LIMIT %s""",
                 tuple(werte),

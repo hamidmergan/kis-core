@@ -221,3 +221,32 @@ def test_an_item_without_a_kind_stores_null(fake_db):
     repo.add_pool_items(9, "quiz", None, [{"front": "f", "back": "b"}], ["fp"])
 
     assert calls[0][2][4] is None
+
+
+def test_a_format_choice_narrows_the_take(fake_db):
+    calls = fake_db()
+    repo.take_from_pool(9, "grammatik", None, 3, 5, 4, kinds=["transform", "cloze"])
+
+    sql, params = calls[0][1], calls[0][2]
+    assert "p.kind = ANY(%s)" in sql
+    assert ["transform", "cloze"] in params
+
+
+def test_without_a_format_choice_the_take_stays_as_it_was(fake_db):
+    """Gemischt holt alles, auch Altbestand ohne Art. Sonst waere der ganze
+    bestehende Vorrat mit einem Schlag wertlos."""
+    calls = fake_db()
+    repo.take_from_pool(9, "quiz", None, 3, 5)
+
+    assert "p.kind" not in calls[0][1]
+
+
+def test_the_exclusion_and_the_format_choice_keep_their_order(fake_db):
+    """Beide haengen einen Platzhalter an dieselbe Anweisung. Laufen Text und Werte
+    auseinander, sucht die Abfrage stillschweigend nach dem Falschen."""
+    calls = fake_db()
+    repo.take_from_pool(9, "grammatik", None, 3, 5, 4,
+                        exclude_ids=[11], kinds=["cloze"])
+
+    params = calls[0][2]
+    assert list(params).index([11]) < list(params).index(["cloze"])
