@@ -340,3 +340,22 @@ def test_die_formen_mischung_steht_als_zahl_im_auftrag():
     generate_cloze_from_source(client, "m", _ctx(), 10)
     auftrag = calls[0][0]["content"]
     assert "At least 3 of the 10 gaps" in auftrag
+
+
+def test_die_formen_mischung_nennt_die_erzwingenden_satzstellen():
+    # Gemessen an Satz 7044 (BRAO91.pdf): die blosse Zahl half nichts, 0 von 10 Luecken
+    # aenderten die Form (vorher, ohne jede Zahl, war es bei Satz 7043 1 von 10). Acht
+    # von zehn Luecken waren Nomen im Fall ohne sichtbaren Unterschied (Nominativ/
+    # Akkusativ bei Femininum/Neutrum), die Verben standen nach einem Modalverb. Die
+    # Zahl allein zwingt nichts, wenn das Modell eine Stelle waehlt, an der sich gar
+    # nichts aendern KANN -- der Prompt muss also sagen, welche Wortart und welche
+    # Satzstelle eine Aenderung ueberhaupt erzwingt.
+    client, calls = _client(_GOOD)
+    generate_cloze_from_source(client, "m", _ctx(), 10)
+    auftrag = calls[0][0]["content"]
+    assert "agree with its subject" in auftrag
+    assert "adjective" in auftrag and "ending" in auftrag
+    assert "plural" in auftrag
+    assert "grammatical case" in auftrag
+    assert "does NOT count towards this number" in auftrag
+    assert "must not all be the same part of speech" in auftrag

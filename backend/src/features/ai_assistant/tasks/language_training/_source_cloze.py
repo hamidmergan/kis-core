@@ -75,11 +75,20 @@ _RULES = (
 def _min_inflected(count: int) -> int:
     """Wie viele der bestellten Lücken mindestens eine geänderte Form brauchen.
 
-    Rund ein Drittel, mindestens eine, nie alle. Gemessen an Satz 7043: 9 von 10
-    Lösungen waren byte-identisch mit der Grundform, obwohl der Prompt schon die
-    Absichtserklärung "mix the forms" enthielt. Eine Zahl steuert dieses Modell,
-    eine Absicht nicht -- dieselbe Erfahrung, die den Formate-Mix der Grammatik-
-    Übung zu ``item_plan`` als Zahl gemacht hat statt zu einem Wunsch im Fliesstext.
+    Rund ein Drittel, mindestens eine, nie alle. Die Zahl allein STEUERT das Modell
+    nicht zuverlässig, sie sagt nur, wie viele Lücken es TREFFEN soll -- gemessen an
+    Satz 7044 (BRAO91.pdf): 0 von 10 Lücken änderten die Form, obwohl der Prompt schon
+    "At least 3 of the 10 gaps" verlangte (vorher, nur mit der Absicht "mix the forms"
+    und ohne Zahl, war es bei Satz 7043 1 von 10 -- die Zahl allein machte es also nicht
+    besser). Der Grund: ob sich eine Form überhaupt ändert, entscheiden WORTART und
+    SATZSTELLE, die das Modell selbst wählt, nicht diese Zahl. Acht von zehn Lücken in
+    Satz 7044 waren Nomen im Nominativ/Akkusativ von Femininum/Neutrum (dort ändert
+    sich im Deutschen sichtbar nichts), die beiden Verben standen direkt nach einem
+    Modalverb (dort ist der Infinitiv schon die Grundform) -- das Modell konnte die
+    Zahl nur durch Zufall erfüllen, weil es beim Bau des Satzes zufällig Stellen traf,
+    die gar keine Änderung verlangen. Die Zahl bleibt (dieser Wert), wirkt aber erst
+    zusammen mit :func:`_mix_rule`, die dem Modell jetzt sagt, WELCHE Wortart und
+    WELCHE Satzstelle eine Änderung überhaupt erzwingt.
     """
     bestellt = max(1, count)
     if bestellt == 1:
@@ -89,21 +98,43 @@ def _min_inflected(count: int) -> int:
 
 
 def _mix_rule(count: int) -> str:
-    """Prompt-Zeile, die die Formen-Mischung als Zahl verlangt statt als Absicht."""
+    """Prompt-Zeilen für die Formen-Mischung: die Zahl UND die Satzstelle, die sie
+    überhaupt erst erzwingt.
+
+    Die Zahl allein reicht nicht (siehe :func:`_min_inflected`): ein Nomen im
+    Nominativ/Akkusativ von Femininum/Neutrum oder ein Verb direkt nach einem
+    Modalverb erfüllt die Zahl nie, egal wie oft man sie verlangt, weil sich an
+    solchen Stellen im Deutschen nichts sichtbar ändert. Die Regeln unten nennen
+    deshalb WELCHE Wortart und WELCHE Position eine Änderung erzwingt, in
+    grammatischen Kategorien statt an deutschen Beispielen, damit der Prompt auch
+    für die anderen Ausgabesprachen trägt. Ausserdem: 8 von 10 Lücken in Satz 7044
+    waren Nomen, eine einzige Wortart lässt sich zu leicht auf eine Stelle ohne
+    sichtbaren Unterschied schieben, deshalb die Mischungs-Regel am Ende.
+    """
     bestellt = max(1, count)
     n = _min_inflected(bestellt)
     zeile = (
         f"- At least {n} of the {bestellt} gaps must need a form DIFFERENT from the "
-        "dictionary form (a different ending, tense, case, or number) to be correct."
+        "dictionary form (a different ending, tense, case, or number) to be correct. "
+        "A gap whose dictionary form already fits the sentence unchanged does NOT "
+        "count towards this number, whichever word it is. Build the SENTENCE around a "
+        "slot that FORCES the change, never pick a term first and hope the sentence "
+        "happens to need a different form.\n"
+        "- Slots that force a change: a verb the sentence needs to agree with its "
+        "subject (never right after a modal verb, never a bare infinitive); an "
+        "adjective placed directly in front of the noun it describes (it takes an "
+        "ending there); a noun the sentence needs in the plural while its dictionary "
+        "form is singular; a noun in a grammatical case that visibly changes its "
+        "written form.\n"
+        "- The gaps must not all be the same part of speech. Mix nouns, verbs, and "
+        "adjectives across the gaps.\n"
     )
     if bestellt > 1:
         zeile += (
-            " At least one gap must keep the dictionary form completely unchanged. "
+            "- At least one gap must keep the dictionary form completely unchanged. "
             "Copying the same word into every gap fails this exercise just as much as "
             "changing it in every gap.\n"
         )
-    else:
-        zeile += "\n"
     return zeile
 
 
