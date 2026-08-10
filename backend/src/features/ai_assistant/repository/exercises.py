@@ -61,6 +61,7 @@ def create_exercise_set_placeholder(
     workspace_id: int, user_id: int, tool: str, title: str,
     mode: str, source_uuid: str | None, grammar_topic_id: int | None = None,
     source_uuids: list[str] | None = None, requested_count: int | None = None,
+    grammar_kinds: list[str] | None = None,
 ) -> dict:
     """Create a placeholder set with status='generating'. Returns the set.
 
@@ -73,17 +74,24 @@ def create_exercise_set_placeholder(
 
     ``requested_count`` is the size the learner picked. It is kept because a retry has
     to generate the same size, and card_count is 0 on a set that never finished.
+
+    ``grammar_kinds`` sind die gewaehlten Aufgabenformate der Grammatik-Uebung. NULL
+    heisst gemischt, also alle vier, und das ist der Normalfall. Ein zweiter Anlauf
+    liest die Spalte wieder und uebt damit dieselbe Auswahl wie der erste.
     """
     with get_connection() as conn:
         with conn.cursor(cursor_factory=RealDictCursor) as cur:
             cur.execute(
                 """INSERT INTO aia_exercise_sets
                    (workspace_id, user_id, tool, title, mode, source_uuid, card_count,
-                    status, grammar_topic_id, source_uuids, requested_count)
-                   VALUES (%s, %s, %s, %s, %s, %s, 0, 'generating', %s, %s::jsonb, %s)
+                    status, grammar_topic_id, source_uuids, requested_count,
+                    grammar_kinds)
+                   VALUES (%s, %s, %s, %s, %s, %s, 0, 'generating', %s, %s::jsonb, %s,
+                           %s::jsonb)
                    RETURNING *""",
                 (workspace_id, user_id, tool, title, mode, source_uuid, grammar_topic_id,
-                 json.dumps(list(source_uuids or [])), requested_count),
+                 json.dumps(list(source_uuids or [])), requested_count,
+                 json.dumps(grammar_kinds) if grammar_kinds else None),
             )
             ex_set = dict(cur.fetchone())
         conn.commit()

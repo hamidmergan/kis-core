@@ -132,6 +132,9 @@ class CreateSetBody(BaseModel):
     count: int = 10
     # Only tool="grammatik": id of the workspace's grammar topic the set is built from.
     grammar_topic_id: Optional[int] = None
+    # Only tool="grammatik": which of the four exercise formats the learner picked.
+    # Absent means mixed, which is the normal case and the only way to say it.
+    grammar_kinds: Optional[list[str]] = None
 
 
 class GrammarExamplePair(BaseModel):

@@ -16,6 +16,7 @@ from src.features.ai_assistant.routes._helpers import (
 )
 from src.features.ai_assistant import schemas
 from src.features.ai_assistant.repository.grammar_topics import catalog_entry
+from src.services.aia_grammar_formats import clean_kinds
 
 router = APIRouter(tags=["ki-assistent: language-training"])
 
@@ -83,6 +84,7 @@ async def create_exercise_set(
         _resolve_source_ids(workspace, source_uuids, max_count=5, locale=locale)
 
     grammar_topic_id = None
+    grammar_kinds = None
     if body.tool == "grammatik":
         # Geübt wird an den Vorlesungsfolien: die Quellen liefern den Wortschatz, das
         # Thema kommt vom Dozenten. Ohne Quellen gibt es also nichts umzuformen.
@@ -92,6 +94,11 @@ async def create_exercise_set(
         if not topic or topic["workspace_id"] != workspace["id"]:
             raise HTTPException(status_code=400, detail=t("grammar.typeInvalid", locale))
         grammar_topic_id = topic["id"]
+        # Was der Browser sendet, wird gesaeubert und nicht geglaubt. Unbekannte
+        # Kuerzel fliegen raus, statt die Anfrage abzuweisen: sie kommen von einem
+        # aelteren oder neueren Browser, und eine gemischte Uebung ist eine bessere
+        # Antwort als ein Fehler.
+        grammar_kinds = clean_kinds(body.grammar_kinds)
 
     placeholder = db.create_exercise_set_placeholder(
         workspace_id=workspace["id"], user_id=user_id, tool=body.tool,
@@ -100,6 +107,7 @@ async def create_exercise_set(
         grammar_topic_id=grammar_topic_id,
         source_uuids=source_uuids,
         requested_count=body.count,
+        grammar_kinds=grammar_kinds,
     )
 
     from src.tasks.aia_tasks import run_generate_exercise_set

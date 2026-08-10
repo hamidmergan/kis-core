@@ -1197,6 +1197,14 @@ def _init_db(admin_email: Optional[str] = None) -> None:
                 "ALTER TABLE aia_exercise_sets ADD COLUMN IF NOT EXISTS grammar_topic_id "
                 "INTEGER REFERENCES aia_grammar_topics(id) ON DELETE SET NULL"
             )
+            # Die gewaehlten Aufgabenformate der Grammatik-Uebung, als JSON-Liste von
+            # Kuerzeln. NULL heisst gemischt, also alle vier, und das ist der
+            # Normalfall. Jeder Satz von vor dieser Spalte ist damit richtig
+            # eingeordnet, ohne dass etwas gewandert werden muss.
+            cur.execute(
+                "ALTER TABLE aia_exercise_sets ADD COLUMN IF NOT EXISTS "
+                "grammar_kinds JSONB"
+            )
             cur.execute("ALTER TABLE aia_exercise_sets ADD COLUMN IF NOT EXISTS instruction TEXT")
             cur.execute("ALTER TABLE aia_exercise_sets ADD COLUMN IF NOT EXISTS pattern_front TEXT")
             cur.execute("ALTER TABLE aia_exercise_sets ADD COLUMN IF NOT EXISTS pattern_back TEXT")
