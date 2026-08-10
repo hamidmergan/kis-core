@@ -38,6 +38,7 @@ from src.features.ai_assistant.tasks.language_training._glossary import generate
 from src.features.ai_assistant.tasks.language_training._source_cards import (
     generate_cards_from_source,
 )
+from src.features.ai_assistant.tasks.language_training._source_cloze import run_cloze_set
 from src.features.ai_assistant.tasks.language_training._source_flashcards import (
     generate_flashcards_from_source,
 )
@@ -96,6 +97,16 @@ def run_generate_exercise_set(self, set_id: int, workspace_id: int, tool: str,
         # the chat does. Empty string when the learner has no level yet, so the
         # tools keep their shipped register.
         adaptive_suffix = build_adaptive_tool_suffix(user_id, workspace_id)
+
+        # Der Wortschatz-Lückentext geht seinen eigenen Weg und nicht durch die
+        # Maschinerie darunter. Ein Set ist bei ihm EINE Aufgabe, es gibt also nichts
+        # nachzubestellen, nichts zu entdoppeln und keine Abschnittsquote zu erfüllen.
+        # Die drei Schritte hier sind alles, was er braucht.
+        if tool == "wortschatz":
+            run_cloze_set(set_id, ex_set, user_id, count, client, model,
+                          language, adaptive_suffix,
+                          source_uuids or ([source_uuid] if source_uuid else []))
+            return
 
         # Names the titles this workspace already uses for this tool, so a second set
         # from the same document does not end up with the same name. Only the title,

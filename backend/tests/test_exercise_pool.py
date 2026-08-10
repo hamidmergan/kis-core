@@ -268,3 +268,44 @@ def test_a_tool_without_a_topic_stores_none(monkeypatch):
     items = [{"front": "a", "source_label": "A.pdf"}]
     _pool.store(items, _ctx(**{"A.pdf": {"id": 1}}), "quiz", None)
     assert gespeichert[0][4] is None
+
+
+# --- Fingerabdruck: laengensicher fuer den Btree-Index --------------------------
+
+def test_a_very_long_front_still_gets_a_storable_fingerprint(monkeypatch):
+    # Der eindeutige Index auf aia_exercise_pool ist ein Btree, dessen Zeilen nur rund
+    # 2700 Byte gross sein duerfen. Beim Lueckentext ist "front" ein ganzer Text und
+    # kann das reissen. Ohne die Kappung in _fingerprint() wuerde das INSERT dann mit
+    # einer Ausnahme scheitern, store() faengt sie ab und loggt nur eine Warnung, und
+    # der Vorrat fuellte sich fuer dieses Werkzeug nie, obwohl nichts sichtbar kaputt
+    # wirkt.
+    fingerprints_gesehen = []
+
+    def add(source_id, tool, level, items, fingerprints, topic_id=None):
+        fingerprints_gesehen.extend(fingerprints)
+        return [f"neu-{f}" for f in fingerprints]
+
+    monkeypatch.setattr("src.database.add_pool_items", add)
+    monkeypatch.setattr("src.database.pool_size", lambda *a: 0)
+    langer_text = "Die Anlage arbeitet seit gestern wieder ohne Stoerung. " * 100
+    items = [{"front": langer_text, "source_label": "A.pdf"}]
+    _pool.store(items, _ctx(**{"A.pdf": {"id": 1}}), "wortschatz", None)
+
+    assert len(fingerprints_gesehen) == 1
+    # Fester Wert und NICHT _pool._FINGERPRINT_HASH_THRESHOLD: die Konstante ist genau
+    # das, was dieser Test bewachen soll. Ein Vergleich gegen sie selbst wuerde gruen
+    # bleiben, auch wenn jemand sie ueber die Btree-Grenze anhoebe (rund 2700 Byte in
+    # der Praxis, siehe Kommentar an der Konstante) und der Fehler wieder einzoege.
+    assert len(fingerprints_gesehen[0].encode("utf-8")) <= 2700
+    # Kommt trotzdem an: store() traegt die vom Aufruf zurueckgegebene id ein, genau
+    # wie bei jedem anderen Werkzeug auch.
+    assert items[0]["pool_item_id"] == f"neu-{fingerprints_gesehen[0]}"
+
+
+def test_a_short_front_keeps_its_established_fingerprint():
+    # Bestehende Vorratszeilen wurden mit item_key() roh gespeichert. Aenderte sich der
+    # Fingerabdruck kurzer Fronten mit, bekaeme derselbe Inhalt vor und nach dieser
+    # Aenderung zwei verschiedene Werte, und der Dopplerschutz liesse fuer jede
+    # bestehende Zeile genau einen Doppler durch.
+    kurz = "Der Satz wird gebildet."
+    assert _pool._fingerprint(kurz) == _pool.item_key(kurz)

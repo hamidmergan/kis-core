@@ -1634,6 +1634,7 @@
           "flashcards": "Vocab cards",
           "karteikarten": "Flashcards",
           "grammar": "Grammar exercise",
+          "vocabulary": "Vocabulary",
           "quiz": "Quiz",
           "exerciseFallback": "Exercise"
         },
@@ -1694,7 +1695,10 @@
             "choice": "Multiple choice"
           },
           "sentenceCountHeading": "Number of sentences",
-          "noGrammarTypes": "No exercise type enabled. The owner sets this in the settings menu."
+          "noGrammarTypes": "No exercise type enabled. The owner sets this in the settings menu.",
+          "fromFlashcards": "From a flashcard set",
+          "gapCountHeading": "Gaps",
+          "noFlashcardSets": "No flashcard set ready yet. Create one first."
         },
         "exerciseSets": {
           "emptyText": "Select sources and press Create.",
@@ -1817,6 +1821,11 @@
             "close": "Almost",
             "wrong": "Not right yet"
           },
+          "example": "Example"
+        },
+        "cloze": {
+          "check": "Check",
+          "score": "{correct} of {total} correct",
           "example": "Example"
         },
         "grammarTopics": {
@@ -2049,7 +2058,8 @@
           "dataTable": "Data table",
           "mindmap": "Mind map",
           "lernkarten": "Vocab cards",
-          "grammar": "Grammar exercise"
+          "grammar": "Grammar exercise",
+          "vocabulary": "Vocabulary"
         },
         "tileDescriptions": {
           "karteikarten": "Create cards with question and answer from the selected sources",
@@ -2057,7 +2067,8 @@
           "dataTable": "Collect facts from the selected sources in a table",
           "mindmap": "Show the topics of the selected sources as a tree",
           "lernkarten": "Explain technical terms from the selected sources with base form and example",
-          "grammar": "Transform sentences from the selected sources following a pattern"
+          "grammar": "Transform sentences from the selected sources following a pattern",
+          "vocabulary": "Have a text written from the selected sources with its key terms missing"
         },
         "recent": {
           "heading": "Recent activity",
@@ -2187,6 +2198,7 @@
         "flashcards": "Vocab cards",
         "karteikarten": "Flashcards",
         "grammatik": "Grammar exercise",
+        "wortschatz": "Vocabulary",
         "quiz": "Quiz"
       }
     },

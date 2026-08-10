@@ -100,6 +100,35 @@ async def create_exercise_set(
         # Antwort als ein Fehler.
         grammar_kinds = clean_kinds(body.grammar_kinds)
 
+    flashcard_set_id = None
+    if body.tool == "wortschatz":
+        # Lokal importiert wie run_generate_exercise_set weiter unten: ein
+        # Modulkopf-Import von hier aus dem Werkzeug-Paket schliesst einen Kreis
+        # (routes/__init__.py haengt schon an tasks/language_training ueber die
+        # Zuordnung, tasks/language_training haengt jetzt an dieser Route). Der
+        # lokale Import bricht ihn, weil er erst beim Aufruf laeuft und nicht beim
+        # Laden des Moduls, wenn der Kreis noch offen ist.
+        from src.features.ai_assistant.tasks.language_training._source_cloze import (
+            usable_flashcard_set,
+        )
+        # Der Text kommt IMMER aus den Quellen, auch wenn die Wörter von Karten
+        # stammen. Ohne Quelle gäbe es also nichts zu schreiben. Die Prüfung oben
+        # greift nur bei mode='source', der Kartenweg liefe daran vorbei.
+        if body.mode not in ("source", "cards") or not source_uuids:
+            raise HTTPException(status_code=400, detail=t("ai.source.notSelected", locale))
+        _resolve_source_ids(workspace, source_uuids, max_count=5, locale=locale)
+        if body.mode == "cards":
+            karten = (db.get_exercise_set_with_items(body.flashcard_set_id)
+                      if body.flashcard_set_id else None)
+            # usable_flashcard_set prüft Besitz, Werkzeug und Status ohne Kenntnis der
+            # Karten selbst. Ob wirklich welche drin sind, steht erst in den items, die
+            # hier schon geladen sind. Ein Set kann "ready" sein und trotzdem leer,
+            # zum Beispiel wenn seine einzige Karte danach gelöscht wurde.
+            if not usable_flashcard_set(karten, workspace["id"], user_id) or not karten.get("items"):
+                raise HTTPException(status_code=400,
+                                    detail=t("ai.flashcardSet.invalid", locale))
+            flashcard_set_id = karten["id"]
+
     placeholder = db.create_exercise_set_placeholder(
         workspace_id=workspace["id"], user_id=user_id, tool=body.tool,
         title="Wird generiert…", mode=body.mode,
@@ -107,6 +136,7 @@ async def create_exercise_set(
         grammar_topic_id=grammar_topic_id,
         source_uuids=source_uuids,
         requested_count=body.count,
+        flashcard_set_id=flashcard_set_id,
         grammar_kinds=grammar_kinds,
     )
 

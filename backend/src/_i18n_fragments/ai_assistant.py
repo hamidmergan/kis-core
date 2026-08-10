@@ -91,6 +91,11 @@ MESSAGES: dict[str, dict[str, str]] = {
         "de": "Konvertierung nach PDF fehlgeschlagen",
         "en": "Conversion to PDF failed",
     },
+    # Wortschatz-Lückentext aus Lernkarten
+    "ai.flashcardSet.invalid": {
+        "de": "Das gewählte Lernkarten-Set gibt es nicht.",
+        "en": "That flashcard set does not exist.",
+    },
     # Chat / RAG
     "ai.chat.noIndexedSources": {
         "de": "Keine indizierten Sources vorhanden",
