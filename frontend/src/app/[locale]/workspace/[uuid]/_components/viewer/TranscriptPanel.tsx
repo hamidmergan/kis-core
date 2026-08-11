@@ -245,6 +245,17 @@ export function TranscriptPanel({
     return first ?? [];
   }, [cues, sourceLang]);
 
+  // The whole recording, both tracks, one entry per cue. It is the yardstick for how common a
+  // word is HERE, which is what decides whether that word may point at a line further down.
+  const claimCorpus = useMemo(() => {
+    const src = sourceLang ? cues[sourceLang] : undefined;
+    const tgt = targetLang ? cues[targetLang] : undefined;
+    const n = Math.max(src?.length ?? 0, tgt?.length ?? 0);
+    const out: string[] = [];
+    for (let i = 0; i < n; i++) out.push(`${src?.[i]?.text ?? ""} ${tgt?.[i]?.text ?? ""}`);
+    return out;
+  }, [cues, sourceLang, targetLang]);
+
   // The line the marking is actually on: the claim line when one was found, else the start of
   // the span. Everything that points AT the marking uses this — the scroll, the jump-back
   // button and its timestamp — so the button always names the place it takes you to.
@@ -339,7 +350,7 @@ export function TranscriptPanel({
         const tgt = targetLang ? cues[targetLang]?.[i]?.text ?? "" : "";
         lines.push(`${src} ${tgt}`);
       }
-      const rel = claimLineIndex(citationClaim, lines);
+      const rel = claimLineIndex(citationClaim, lines, claimCorpus);
       if (rel >= 0) claimIdx = idx + rel;
     }
     setCitationClaimIdx(claimIdx);
@@ -350,7 +361,7 @@ export function TranscriptPanel({
         itemRefs.current[target]?.scrollIntoView({ block: "center", behavior: "instant" });
       });
     }
-  }, [citationNonce, citationTime, citationEndTime, citationClaim, masterCues, cues, sourceLang, targetLang, sourceUuid, mode]);
+  }, [citationNonce, citationTime, citationEndTime, citationClaim, masterCues, cues, claimCorpus, sourceLang, targetLang, sourceUuid, mode]);
 
   // Track whether the pinned cue is on-screen so the jump-back button only shows once
   // it has scrolled out of view (like the PDF jump button appearing after you page away).

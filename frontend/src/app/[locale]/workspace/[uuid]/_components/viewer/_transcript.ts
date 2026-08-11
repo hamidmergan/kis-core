@@ -99,6 +99,29 @@ export function claimOverlap(tokens: string[], line: string): number {
   return n;
 }
 
+// Only tokens that are RARE in this recording say anything about which line a claim came
+// from. The length rule alone does not get there: "die", "und", "dem", "wie", "bei" all
+// clear three characters and every one of them counted as a hit, so a pick could be decided
+// by five words that are in every second cue. Which words those are is per-language and per
+// recording, so it is measured, not listed: a token sitting in more than COMMON_SHARE of the
+// transcript's cues cannot discriminate between two of them and is dropped.
+//
+// Needs enough cues to measure against — in a handful of lines an ordinary content word
+// easily clears any share — so below MIN_CORPUS_LINES the tokens are handed back untouched.
+const COMMON_SHARE = 0.15;
+const MIN_CORPUS_LINES = 8;
+
+export function discriminatingTokens(tokens: string[], corpus: string[]): string[] {
+  if (corpus.length < MIN_CORPUS_LINES) return tokens;
+  const hays = corpus.map((l) => l.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, " "));
+  const limit = hays.length * COMMON_SHARE;
+  return tokens.filter((t) => {
+    let df = 0;
+    for (const h of hays) if (h.includes(t) && ++df > limit) return false;
+    return true;
+  });
+}
+
 /**
  * The line of a cited passage that carries the claim, or -1 when none stands out.
  *
@@ -113,16 +136,27 @@ export function claimOverlap(tokens: string[], line: string): number {
  *     function words but not all of them ("das", "ist", "und" survive the length rule in
  *     German), so a three-word claim can win a line on function words alone.
  *   - the winner needs MIN_HITS distinct matches, so one accidental word is not a verdict.
- *   - the winner needs MARGIN more than the runner-up. A near-tie means the claim is spread
- *     across both lines, which is exactly when the block should stay evenly marked.
+ *   - the winner needs DOMINANCE times the runner-up. Anything less means the claim is spread
+ *     across the lines, which is exactly when the block should stay evenly marked.
+ *
+ * `corpus` is every cue of the transcript. Given it, only words that are rare in this
+ * recording get to vote (see discriminatingTokens), which is what makes those counts mean
+ * anything at all.
+ *
+ * Both numbers come from measuring the real recording rather than from taste. A claim
+ * summarising two lines at once scored 6 against 4 on the lines it summarised; a claim resting
+ * on one date scored 3 against 0 and 4 against 0. "One or two hits ahead" cannot separate
+ * those, "twice as much" separates them with room to spare. Before the rare-word filter even
+ * the ratio could not: the same two cases were 11:8 and 5:3, i.e. both around 1.5.
  */
 const MIN_CLAIM_TOKENS = 4;
 const MIN_HITS = 3;
-const MARGIN = 2;
+const DOMINANCE = 2;
 
-export function claimLineIndex(claim: string, lines: string[]): number {
+export function claimLineIndex(claim: string, lines: string[], corpus?: string[]): number {
   if (lines.length < 2) return -1;
-  const tokens = claimTokens(claim);
+  const raw = claimTokens(claim);
+  const tokens = corpus ? discriminatingTokens(raw, corpus) : raw;
   if (tokens.length < MIN_CLAIM_TOKENS) return -1;
   let best = -1, bestScore = 0, second = 0;
   lines.forEach((line, i) => {
@@ -130,5 +164,5 @@ export function claimLineIndex(claim: string, lines: string[]): number {
     if (score > bestScore) { second = bestScore; bestScore = score; best = i; }
     else if (score > second) { second = score; }
   });
-  return bestScore >= MIN_HITS && bestScore >= second + MARGIN ? best : -1;
+  return bestScore >= MIN_HITS && bestScore >= second * DOMINANCE ? best : -1;
 }

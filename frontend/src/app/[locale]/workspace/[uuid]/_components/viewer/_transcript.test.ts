@@ -136,3 +136,52 @@ describe("claimLineIndex — which line of a cited passage carries the claim", (
     expect(claimLineIndex("四月二十二日", ["二十二", "別の行"])).toBe(-1);
   });
 });
+
+describe("claimLineIndex — a summarising claim must not pick a line", () => {
+  // The second reported case, verbatim from the recording (cues 14:01 and 14:24). The chip
+  // pointed at the first line, the marking landed on the second, and the reader saw the blue
+  // playing line and the yellow marking sitting on two different places.
+  //
+  // Both lines carry half of the answer sentence: "Extended Abstract" and "Abgabe" are in the
+  // first, "zwei Seiten" and "Peer-Review" in the second. Neither may win.
+  const line1 = "Ende Mai, genau, da ist die freiwillige Abgabe. Da würden sie quasi in dem "
+    + "Extended Abstract beschreiben, wie weit sie gekommen sind. Also das muss noch gar nicht "
+    + "fertig sein oder so. Sie haben ja Zeit bis Anfang Juli quasi alles zu machen. Das heißt, "
+    + "das Extended Abstract würde das umfassen, was sie bis dahin recherchiert haben, was sie "
+    + "bis dahin herausgefunden haben, sag ich mal.";
+  const line2 = "Und das soll so ungefähr zwei Seiten lang sein, zusätzlich zum "
+    + "Literaturverzeichnis. Und danach würde eigentlich so ein Peer-Review-Prozess folgen, "
+    + "während der ersten Präsenz. Aber die beiden Punkte, wie gesagt, sind freiwillig. Die "
+    + "waren früher Bestandteil der Prüfungsvorleistung. Aber die sind sehr hilfreich und "
+    + "deswegen habe ich sie hier noch drin gelassen. Zwar ist freiwillige Punkte, aber ja, "
+    + "trotzdem wichtig.";
+  const claim = "Zusätzlich gibt es freiwillige Angebote zur Unterstützung, wie die Abgabe einer "
+    + "Ideenskizze (Extended Abstract) von etwa zwei Seiten und die Teilnahme an einem "
+    + "Peer-Review-Verfahren, bei dem Studierende gegenseitig Feedback geben";
+
+  // Stands in for the other 135 cues of that recording: the filler words recur throughout, the
+  // words carrying the claim appear nowhere else.
+  const filler = Array.from({ length: 20 }, (_, i) =>
+    `Und dann gibt es, wie gesagt, bei dem Punkt ${i} von die Sache und das war es.`);
+  const corpus = [...filler, line1, line2];
+
+  it("leaves the whole passage marked when the claim summarises all of it", () => {
+    // Measured on the real transcript: 6 against 4 once the common words are out. One line
+    // being half again as full as the other is not a line standing out.
+    expect(claimLineIndex(claim, [line1, line2], corpus)).toBe(-1);
+  });
+
+  it("still picks the line that really does stand out", () => {
+    // Measured on the same recording: 3 against 0 for the date the answer rested on.
+    const dateLine = "Und dann ab dem 22. April wird es offene Sprechstunden geben.";
+    const otherLine = "Und dann gibt es, wie gesagt, bei dem Punkt von die Sache und das war es.";
+    const dateClaim = "Der Kontakt läuft über eine wöchentliche Sprechstunde, die ab dem 22. April stattfindet";
+    expect(claimLineIndex(dateClaim, [otherLine, dateLine], [...filler, otherLine, dateLine])).toBe(1);
+  });
+
+  it("keeps its hands off when the recording is too short to say what is common", () => {
+    // Under MIN_CORPUS_LINES nothing is dropped, so every filler word still counts and the
+    // scores stay too close for anything to win. Never a confident pick on thin evidence.
+    expect(claimLineIndex(claim, [line1, line2], [line1, line2])).toBe(-1);
+  });
+});
