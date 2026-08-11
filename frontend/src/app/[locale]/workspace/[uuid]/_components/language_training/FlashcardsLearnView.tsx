@@ -375,6 +375,12 @@ export function FlashcardsLearnView({
                   onPrev={() => goTo(index - 1)} onNext={() => { answer(true); advance(); }}
                   backLabel={t("common.back")} nextLabel={t("flashcardsLearn.nextTerm")}
                   finishLabel={t("common.finish")} />
+
+                <SetSourceLegend
+                  sources={exerciseSet.sources}
+                  onSourceClick={(f) => onSourceClick?.(f, 1)}
+                  className="pt-1"
+                />
               </div>
             </div>
           </>;

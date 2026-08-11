@@ -4,6 +4,7 @@ import { Plus, Sparkle, Trash } from "@phosphor-icons/react";
 import { useTranslations } from "next-intl";
 import { backdropClose, newBackdropPress } from "@/components/ui/backdropClose";
 import Checkbox from "@/components/ui/Checkbox";
+import Select from "@/components/ui/Select";
 import type { GrammarTopic } from "../../_types";
 import { GrammarTopicForm } from "./GrammarTopicForm";
 import { nextTopicId } from "./_grammarTopics";
@@ -64,9 +65,9 @@ export function CreateSetModal({
   // Der Wortschatz-Lueckentext kennt keinen Glossar-Weg. Er schreibt einen Text aus
   // den Quellen, dafuer braucht er den Quelltext und keine Begriffsliste.
   const isVocabulary = tool === "wortschatz";
-  const [mode, setMode] = useState<"glossary" | "source" | "cards">(
-    isQuiz || isGrammar || isVocabulary || glossaryCount === 0 ? "source" : "glossary",
-  );
+  // Der Weg ueber die Quellen ist ueberall der Standard, auch wo es ein Glossar
+  // gibt. Das Glossar ist der Sonderfall und steht darum an zweiter Stelle.
+  const [mode, setMode] = useState<"glossary" | "source" | "cards">("source");
   const [count, setCount] = useState(isQuiz ? 5 : 10);
   const press = useRef(newBackdropPress()).current;
 
@@ -172,16 +173,16 @@ export function CreateSetModal({
         {/* Mode */}
         <div className="text-3xs font-semibold uppercase tracking-wide mb-1.5" style={{ color: "var(--muted)" }}>{t("createModal.sourceHeading")}</div>
         <div className="flex flex-col gap-1.5 mb-3">
+          <PickerOption selected={mode === "source"} disabled={!hasSource}
+            onClick={() => setMode("source")}>
+            {t("createModal.fromSelectedSource", { count: pickedSources.length })} {hasSource && <span className="text-3xs text-muted inline-block max-w-30 truncate align-bottom" title={pickedSources.map((s) => s.filename).join("\n")}>({sourceHint})</span>}
+          </PickerOption>
           {!isQuiz && !isGrammar && !isVocabulary && (
             <PickerOption selected={mode === "glossary"} disabled={glossaryCount === 0}
               onClick={() => setMode("glossary")}>
               {t("createModal.fromGlossary")} <span className="text-3xs text-muted">{t("createModal.glossaryTermsCount", { count: glossaryCount })}</span>
             </PickerOption>
           )}
-          <PickerOption selected={mode === "source"} disabled={!hasSource}
-            onClick={() => setMode("source")}>
-            {t("createModal.fromSelectedSource", { count: pickedSources.length })} {hasSource && <span className="text-3xs text-muted inline-block max-w-30 truncate align-bottom" title={pickedSources.map((s) => s.filename).join("\n")}>({sourceHint})</span>}
-          </PickerOption>
           {isVocabulary && (
             <PickerOption selected={mode === "cards"} disabled={!hasSource || flashcardSets.length === 0}
               onClick={() => setMode("cards")}>
@@ -202,19 +203,25 @@ export function CreateSetModal({
           )}
         </div>
 
-        {/* Flashcard set choice, cloze from cards only */}
+        {/* Flashcard set choice, cloze from cards only. Ein Auswahlfeld statt
+            einer zweiten Kaestchen-Liste: sonst sieht der gewaehlte Satz
+            genauso aus wie der gewaehlte Weg darueber, obwohl er eine Ebene
+            tiefer liegt. */}
         {isVocabulary && mode === "cards" && (
-          <div className="flex flex-col gap-1.5 mb-3">
-            {flashcardSetsLoading && (
-              <p className="text-3xs" style={{ color: "var(--muted)" }}>{t("common.loading")}</p>
-            )}
-            {!flashcardSetsLoading && flashcardSets.map((s) => (
-              <PickerOption key={s.id} selected={flashcardSetId === s.id}
-                onClick={() => setFlashcardSetId(s.id)}>
-                <span className="block font-semibold">{s.title}</span>
-              </PickerOption>
-            ))}
-          </div>
+          <>
+            <div className="text-3xs font-semibold uppercase tracking-wide mb-1.5" style={{ color: "var(--muted)" }}>{t("createModal.flashcardSetHeading")}</div>
+            <div className="mb-3">
+              {flashcardSetsLoading ? (
+                <p className="text-3xs" style={{ color: "var(--muted)" }}>{t("common.loading")}</p>
+              ) : (
+                <Select
+                  value={flashcardSetId != null ? String(flashcardSetId) : ""}
+                  onChange={(v) => setFlashcardSetId(Number(v))}
+                  options={flashcardSets.map((s) => ({ value: String(s.id), label: s.title }))}
+                />
+              )}
+            </div>
+          </>
         )}
 
         {/* Grammar exercise type */}

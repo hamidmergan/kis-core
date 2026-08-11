@@ -1696,7 +1696,8 @@
           "noGrammarTypes": "No exercise type enabled. The owner sets this in the settings menu.",
           "fromFlashcards": "From a flashcard set",
           "gapCountHeading": "Gaps",
-          "noFlashcardSets": "No flashcard set ready yet. Create one first."
+          "noFlashcardSets": "No flashcard set ready yet. Create one first.",
+          "flashcardSetHeading": "Flashcard set"
         },
         "exerciseSets": {
           "emptyText": "Select sources and press Create.",

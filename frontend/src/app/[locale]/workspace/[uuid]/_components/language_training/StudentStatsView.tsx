@@ -176,18 +176,15 @@ export function StudentStatsView({ stats, loading, workspaceUuid, onNavigateToSe
     t("stats.weekdays.su"),
   ];
 
-  // Die laufende Woche, Montag bis Sonntag. filteredHeatmap endet immer auf heute,
-  // darum reicht Zaehlen vom Ende. Tage nach heute liefert das Backend nicht,
-  // die bleiben als null leer stehen.
-  const todayDow = (() => {
-    const dow = new Date(today + "T12:00:00+02:00").getDay();
-    return dow === 0 ? 6 : dow - 1;
-  })();
-  const weekStartIdx = filteredHeatmap.length - 1 - todayDow;
-  const weekRow: (HeatmapDay | null)[] = Array.from(
-    { length: 7 },
-    (_, i) => filteredHeatmap[weekStartIdx + i] ?? null,
-  );
+  // Die letzten sieben Tage, heute steht ganz rechts. filteredHeatmap endet
+  // immer auf heute, darum reicht das Abschneiden vom Ende.
+  const weekRow: HeatmapDay[] = filteredHeatmap.slice(-7);
+
+  // Das Kuerzel steht am Tag selbst, weil die Zeile nicht mehr auf Montag beginnt.
+  function weekdayLabel(dayStr: string) {
+    const dow = new Date(dayStr + "T12:00:00+02:00").getDay(); // 0=Sonntag
+    return weekdayLabels[dow === 0 ? 6 : dow - 1];
+  }
 
   // Eine Kachel, geteilt von Wochenzeile und vollem Kalender.
   function dayCell(d: HeatmapDay, cellSize: number, showDayNums: boolean) {
@@ -224,7 +221,7 @@ export function StudentStatsView({ stats, loading, workspaceUuid, onNavigateToSe
         <div className="flex items-center justify-between mb-2">
           <h3 className="text-sm font-semibold">{t("stats.activity")}</h3>
           <div className="flex items-center gap-1">
-            {/* Der Zeitraum gilt nur fuer den vollen Kalender, die Wochenzeile ist immer die laufende Woche. */}
+            {/* Der Zeitraum gilt nur fuer den vollen Kalender, die Wochenzeile zeigt immer die letzten sieben Tage. */}
             {calendarOpen && ([["30", t("stats.period30")], ["180", t("stats.period180")]] as [StatsPeriod, string][]).map(([val, label]) => (
               <button
                 key={val}
@@ -266,7 +263,7 @@ export function StudentStatsView({ stats, loading, workspaceUuid, onNavigateToSe
               <span>{t("stats.answersCount", { count: periodAnswers })}</span>
             </div>
 
-            {/* ── Kalender: laufende Woche als eine Zeile, aufgeklappt das volle Raster ── */}
+            {/* ── Kalender: letzte sieben Tage als eine Zeile, aufgeklappt das volle Raster ── */}
             <div ref={heatmapContainerRef} className="p-1 w-full overflow-x-auto">
             {!calendarOpen ? (() => {
               const cellSize = heatmapContainerWidth === 0
@@ -274,12 +271,10 @@ export function StudentStatsView({ stats, loading, workspaceUuid, onNavigateToSe
                 : Math.max(28, Math.min(56, Math.floor((heatmapContainerWidth - 8 - 6 * gap) / 7)));
               return (
                 <div className="flex justify-center" style={{ gap }}>
-                  {weekRow.map((d, i) => (
-                    <div key={i} className="flex flex-col items-center gap-0.5">
-                      <span className="text-3xs font-medium" style={{ color: "var(--muted)" }}>{weekdayLabels[i]}</span>
-                      {d
-                        ? dayCell(d, cellSize, cellSize >= 18)
-                        : <div className="rounded-[4px]" style={{ width: cellSize, height: cellSize, backgroundColor: `rgba(${heatRgb},0.03)` }} />}
+                  {weekRow.map(d => (
+                    <div key={d.day} className="flex flex-col items-center gap-0.5">
+                      <span className="text-3xs font-medium" style={{ color: "var(--muted)" }}>{weekdayLabel(d.day)}</span>
+                      {dayCell(d, cellSize, cellSize >= 18)}
                     </div>
                   ))}
                 </div>

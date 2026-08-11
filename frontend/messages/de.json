@@ -1696,7 +1696,8 @@
           "noGrammarTypes": "Kein Aufgabentyp freigeschaltet. Der Owner stellt das im Zahnrad ein.",
           "fromFlashcards": "Aus einem Lernkarten-Satz",
           "gapCountHeading": "Lücken",
-          "noFlashcardSets": "Noch kein fertiges Lernkarten-Set vorhanden. Lege zuerst eins an."
+          "noFlashcardSets": "Noch kein fertiges Lernkarten-Set vorhanden. Lege zuerst eins an.",
+          "flashcardSetHeading": "Lernkarten-Satz"
         },
         "exerciseSets": {
           "emptyText": "Wähle Quellen aus und drücke auf Erstellen.",
