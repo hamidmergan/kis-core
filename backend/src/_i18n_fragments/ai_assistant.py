@@ -67,6 +67,30 @@ MESSAGES: dict[str, dict[str, str]] = {
         "de": "Der Name darf höchstens {max} Zeichen lang sein.",
         "en": "The name may be at most {max} characters long.",
     },
+    "ai.chapter.notFound": {
+        "de": "Das Kapitel wurde nicht gefunden.",
+        "en": "The chapter was not found.",
+    },
+    "ai.chapter.nameEmpty": {
+        "de": "Der Name des Kapitels darf nicht leer sein.",
+        "en": "The chapter name must not be empty.",
+    },
+    "ai.chapter.nameTooLong": {
+        "de": "Der Name des Kapitels darf höchstens {max} Zeichen lang sein.",
+        "en": "The chapter name may be at most {max} characters long.",
+    },
+    "ai.chapter.duplicateName": {
+        "de": "Ein Kapitel mit dem Namen \"{name}\" gibt es hier schon.",
+        "en": "A chapter named \"{name}\" already exists here.",
+    },
+    "ai.chapter.tooMany": {
+        "de": "Mehr als {max} Kapitel sind nicht möglich.",
+        "en": "More than {max} chapters are not possible.",
+    },
+    "ai.chapter.badDirection": {
+        "de": "Richtung muss \"up\" oder \"down\" sein.",
+        "en": "Direction must be \"up\" or \"down\".",
+    },
     "ai.source.fileTooLargeMb": {
         "de": "Datei zu groß (max {max} MB)",
         "en": "File too large (max {max} MB)",

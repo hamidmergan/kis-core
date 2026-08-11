@@ -717,6 +717,30 @@ def _init_db(admin_email: Optional[str] = None) -> None:
             cur.execute("""
                 ALTER TABLE aia_sources ADD COLUMN IF NOT EXISTS summary TEXT
             """)
+            # Kapitel gliedern die Quellenliste eines Kursraums. Rein zur
+            # Uebersicht: welche Quellen der Chat bekommt, entscheidet weiterhin
+            # allein der Haken an der Datei.
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS aia_chapters (
+                    id           SERIAL PRIMARY KEY,
+                    uuid         TEXT NOT NULL UNIQUE,
+                    workspace_id INTEGER NOT NULL
+                                   REFERENCES aia_workspaces(id) ON DELETE CASCADE,
+                    name         TEXT NOT NULL,
+                    position     INTEGER NOT NULL DEFAULT 0,
+                    created_at   TIMESTAMP NOT NULL DEFAULT NOW()
+                )
+            """)
+            cur.execute("""
+                CREATE INDEX IF NOT EXISTS idx_aia_chapters_workspace
+                ON aia_chapters (workspace_id, position)
+            """)
+            # SET NULL statt CASCADE: ein geloeschtes Kapitel darf keine Quelle
+            # mitnehmen, die Dateien rutschen zurueck nach "Ohne Kapitel".
+            cur.execute("""
+                ALTER TABLE aia_sources ADD COLUMN IF NOT EXISTS chapter_id INTEGER
+                    REFERENCES aia_chapters(id) ON DELETE SET NULL
+            """)
             cur.execute("""
                 CREATE TABLE IF NOT EXISTS aia_chunks (
                     id          SERIAL PRIMARY KEY,

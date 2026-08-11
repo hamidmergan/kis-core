@@ -1,22 +1,24 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import {
   SidebarSimple,
   Plus,
   FilePdf,
-  ArrowCounterClockwise,
-  Trash,
+  FileAudio,
+  FileVideo,
+  FolderSimplePlus,
   Check,
-  DotsThreeVertical,
-  PencilSimple,
 } from "@phosphor-icons/react";
-import type { Source, StaffNoteLink } from "../../_types";
-import { splitFilename } from "../../_utils";
-import { FileIcon, SourceStatus } from "./FileIcon";
+import type { Chapter, Source, StaffNoteLink } from "../../_types";
 import { UploadErrorsBlock } from "./UploadErrorsBlock";
 import { StaffNoteBox } from "./StaffNoteBox";
 import { StaffNoteEditModal } from "./StaffNoteEditModal";
+import { SourceRow } from "./SourceRow";
+import { ChapterHead } from "./ChapterHead";
 import { EmptyState } from "@/components/ui/EmptyState";
+import IconButton from "@/components/ui/IconButton";
+
+const CLOSED_KEY_PREFIX = "kis-chapters-closed-";
 
 export function SourcesPanel({
   sources,
@@ -37,6 +39,12 @@ export function SourcesPanel({
   staffNoteText,
   staffNoteLinks,
   onStaffNoteSave,
+  chapters,
+  onCreateChapter,
+  onRenameChapter,
+  onDeleteChapter,
+  onMoveChapter,
+  onSetSourceChapter,
 }: {
   sources: Source[];
   selectedSourceIds: string[];
@@ -56,21 +64,37 @@ export function SourcesPanel({
   staffNoteText?: string | null;
   staffNoteLinks?: StaffNoteLink[];
   onStaffNoteSave?: (text: string | null, links: StaffNoteLink[]) => Promise<void>;
+  /** Gliederung der Liste. Leer heisst: eine Liste wie bisher, ohne Gruppen. */
+  chapters?: Chapter[];
+  onCreateChapter?: (name: string) => Promise<void>;
+  onRenameChapter?: (uuid: string, name: string) => Promise<void>;
+  onDeleteChapter?: (uuid: string) => void;
+  onMoveChapter?: (uuid: string, direction: "up" | "down") => void;
+  onSetSourceChapter?: (sourceUuid: string, chapterUuid: string | null) => void;
 }) {
   const t = useTranslations("workspace.detail.sources");
   const tPanels = useTranslations("workspace.detail.panels");
   const fileInputRef = useRef<HTMLInputElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
+  const newChapterRef = useRef<HTMLInputElement>(null);
   const [deleteSourceId, setDeleteSourceId] = useState<string | null>(null);
+  const [deleteChapterTarget, setDeleteChapterTarget] = useState<Chapter | null>(null);
   const [menuOpenId, setMenuOpenId] = useState<string | null>(null);
+  const [menuMode, setMenuMode] = useState<"root" | "chapter">("root");
   const [renameId, setRenameId] = useState<string | null>(null);
-  const [renameValue, setRenameValue] = useState("");
-  const [renameError, setRenameError] = useState<string | null>(null);
-  const [renameBusy, setRenameBusy] = useState(false);
-  const renameInputRef = useRef<HTMLInputElement>(null);
   const [compact, setCompact] = useState(false);
   const [staffNoteModalOpen, setStaffNoteModalOpen] = useState(false);
+  const [creatingChapter, setCreatingChapter] = useState(false);
+  const [newChapterName, setNewChapterName] = useState("");
+  const [newChapterError, setNewChapterError] = useState<string | null>(null);
+  const [newChapterBusy, setNewChapterBusy] = useState(false);
+  const [closedChapters, setClosedChapters] = useState<string[]>([]);
+  const [dragOver, setDragOver] = useState(false);
   const noteLinks = staffNoteLinks ?? [];
+  const chapterList = useMemo(
+    () => [...(chapters ?? [])].sort((a, b) => a.position - b.position),
+    [chapters]
+  );
 
   useEffect(() => {
     const el = panelRef.current;
@@ -82,11 +106,26 @@ export function SourcesPanel({
     return () => ro.disconnect();
   }, []);
 
-  // Beim Oeffnen steht der Namensteil markiert im Feld, damit Ueberschreiben
-  // ohne vorheriges Markieren geht.
+  // Zugeklappte Kapitel ueberleben den Seitenwechsel, sonst muesste ein Kurs mit
+  // zehn Kapiteln bei jedem Besuch neu zusammengeklappt werden.
   useEffect(() => {
-    if (renameId) renameInputRef.current?.select();
-  }, [renameId]);
+    try {
+      const saved = localStorage.getItem(CLOSED_KEY_PREFIX + workspaceUuid);
+      if (saved) setClosedChapters(JSON.parse(saved));
+    } catch { /* ignore */ }
+  }, [workspaceUuid]);
+
+  useEffect(() => {
+    if (creatingChapter) newChapterRef.current?.focus();
+  }, [creatingChapter]);
+
+  function toggleChapterOpen(uuid: string) {
+    setClosedChapters((prev) => {
+      const next = prev.includes(uuid) ? prev.filter((id) => id !== uuid) : [...prev, uuid];
+      try { localStorage.setItem(CLOSED_KEY_PREFIX + workspaceUuid, JSON.stringify(next)); } catch { /* ignore */ }
+      return next;
+    });
+  }
 
   // A source is chat-ready once indexing is done (status "ready" with the
   // progress field cleared). Selecting an in-progress source would feed the
@@ -106,44 +145,64 @@ export function SourcesPanel({
     }
   }
 
-  function startRename(src: Source) {
-    setMenuOpenId(null);
-    setRenameError(null);
-    setRenameId(src.uuid);
-    setRenameValue(splitFilename(src.filename)[0]);
+  // Ein Kapitel je Quelle. Was auf ein geloeschtes oder fremdes Kapitel zeigt,
+  // landet bei "Ohne Kapitel", damit keine Datei unsichtbar wird.
+  const known = new Set(chapterList.map((c) => c.uuid));
+  const loose = sources.filter((s) => !s.chapter_uuid || !known.has(s.chapter_uuid));
+
+  async function commitNewChapter() {
+    if (newChapterBusy || !onCreateChapter) return;
+    const name = newChapterName.trim();
+    if (!name) { setCreatingChapter(false); setNewChapterError(null); return; }
+    setNewChapterBusy(true);
+    try {
+      await onCreateChapter(name);
+      setCreatingChapter(false);
+      setNewChapterName("");
+      setNewChapterError(null);
+    } catch (e) {
+      setNewChapterError(e instanceof Error && e.message ? e.message : t("chapterCreateFailed"));
+    } finally {
+      setNewChapterBusy(false);
+    }
   }
 
-  async function commitRename(src: Source) {
-    if (renameBusy || !onRenameSource) return;
-    const next = renameValue.trim();
-    // Unveraendert oder leer: einfach schliessen, kein Aufruf, keine Meldung.
-    if (!next || next === splitFilename(src.filename)[0]) {
-      setRenameId(null);
-      setRenameError(null);
-      return;
-    }
-    setRenameBusy(true);
-    try {
-      await onRenameSource(src.uuid, next);
-      setRenameId(null);
-      setRenameError(null);
-    } catch (e) {
-      // Das Feld bleibt offen, damit der abgelehnte Name gleich zu bessern ist.
-      setRenameError(e instanceof Error && e.message ? e.message : t("renameFailed"));
-    } finally {
-      setRenameBusy(false);
-    }
+  function renderRow(src: Source, nested: boolean) {
+    return (
+      <SourceRow
+        key={src.uuid}
+        src={src}
+        checked={selectedSourceIds.includes(src.uuid)}
+        isOwner={isOwner}
+        compact={compact}
+        nested={nested}
+        chapters={chapterList}
+        menuOpen={menuOpenId === src.uuid}
+        menuMode={menuMode}
+        onMenuOpen={(open) => { setMenuOpenId(open ? src.uuid : null); setMenuMode("root"); }}
+        onMenuMode={setMenuMode}
+        renaming={renameId === src.uuid}
+        onRenameStart={() => setRenameId(src.uuid)}
+        onRenameEnd={() => setRenameId(null)}
+        onToggle={onToggleSource}
+        onOpenViewer={onOpenViewer}
+        onDelete={setDeleteSourceId}
+        onRename={onRenameSource}
+        onRetry={onRetrySource}
+        onMoveToChapter={onSetSourceChapter}
+      />
+    );
   }
 
   return (
     <div ref={panelRef} className="sources-panel flex flex-col h-full">
-      {/* Panel header */}
+      {/* Panel header. Anlegen sitzt hier, deshalb kostet es keine eigene Zeile. */}
       {!hideHeader && (
         <div
-          className="flex items-center justify-between px-4 py-3 flex-shrink-0"
+          className="flex items-center gap-1.5 px-4 py-3 flex-shrink-0"
           style={{ borderBottom: "1px solid var(--border)" }}
         >
-          <span className="text-base font-semibold tracking-wide" style={{ color: "var(--foreground)" }}>
+          <span className="flex-1 min-w-0 truncate text-base font-semibold tracking-wide" style={{ color: "var(--foreground)" }}>
             {t("title")}
             {sources.length > 0 && (
               <span className="ml-1.5 font-normal" style={{ color: "var(--foreground-soft)" }}>
@@ -151,65 +210,72 @@ export function SourcesPanel({
               </span>
             )}
           </span>
-          <button
-            type="button"
-            onClick={onMinimize}
-            className="w-7 h-7 flex items-center justify-center rounded-full btn-icon"
-            style={{ backgroundColor: "var(--surface-dim)" }}
-            title={tPanels("minimize")}
-          >
+          {isOwner && (
+            <>
+              {/* Anlegen in Hausblau, Ansicht bleibt grau. Der Strich zieht die Grenze. */}
+              <IconButton
+                onClick={() => fileInputRef.current?.click()}
+                title={t("addSources")}
+                aria-label={t("addSources")}
+                className="text-[var(--kb)]"
+                style={{ backgroundColor: "rgba(var(--kb-rgb),0.10)" }}
+              >
+                <Plus size={14} weight="bold" />
+              </IconButton>
+              {onCreateChapter && (
+                <IconButton
+                  onClick={() => { setCreatingChapter(true); setNewChapterError(null); }}
+                  title={t("addChapter")}
+                  aria-label={t("addChapter")}
+                  className="text-[var(--kb)]"
+                  style={{ backgroundColor: "rgba(var(--kb-rgb),0.10)" }}
+                >
+                  <FolderSimplePlus size={14} weight="bold" />
+                </IconButton>
+              )}
+              <span className="mx-1 flex-shrink-0" style={{ width: 1, height: 18, backgroundColor: "var(--border)" }} />
+            </>
+          )}
+          <IconButton onClick={onMinimize} title={tPanels("minimize")}>
             <SidebarSimple size={13} />
-          </button>
+          </IconButton>
         </div>
       )}
 
-      {/* Upload button + drag-and-drop (lecturer) */}
+      {/* Das Dateifeld liegt ausserhalb der Kopfzeile, damit es auch dann da ist,
+          wenn die Kopfzeile ausgeblendet ist (mobil). */}
       {isOwner && (
-        <div
-          className="px-4 py-3 flex-shrink-0 transition-colors duration-150"
-          style={{ borderBottom: "1px solid var(--border)" }}
-          onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); }}
-          onDragEnter={(e) => { e.preventDefault(); e.stopPropagation(); e.currentTarget.style.backgroundColor = "rgba(var(--kb-rgb),0.06)"; }}
-          onDragLeave={(e) => { e.preventDefault(); e.stopPropagation(); if (!e.currentTarget.contains(e.relatedTarget as Node)) e.currentTarget.style.backgroundColor = ""; }}
-          onDrop={(e) => {
-            e.preventDefault(); e.stopPropagation(); e.currentTarget.style.backgroundColor = "";
-            const fs = Array.from(e.dataTransfer.files ?? []);
-            if (fs.length > 0) onUpload(fs);
+        <input
+          ref={fileInputRef}
+          type="file"
+          multiple
+          accept=".pdf,.docx,.pptx,.mp3,.mp4,.wav,.flac,.m4a,.webm"
+          className="hidden"
+          onChange={(e) => {
+            const fs = Array.from(e.target.files ?? []);
+            if (fs.length > 0) { onUpload(fs); e.target.value = ""; }
           }}
-        >
-          <input
-            ref={fileInputRef}
-            type="file"
-            multiple
-            accept=".pdf,.docx,.pptx,.mp3,.mp4,.wav,.flac,.m4a,.webm"
-            className="hidden"
-            onChange={(e) => {
-              const fs = Array.from(e.target.files ?? []);
-              if (fs.length > 0) { onUpload(fs); e.target.value = ""; }
-            }}
-          />
-          <button
-            type="button"
-            onClick={() => fileInputRef.current?.click()}
-            className="add-source-btn w-full flex items-center justify-center gap-2 py-2 rounded-lg text-base font-medium border-2 border-dashed transition-colors text-[var(--kb)] bg-[rgba(var(--kb-rgb),0.08)] border-[rgba(var(--kb-rgb),0.3)] hover:bg-[rgba(var(--kb-rgb),0.16)] hover:border-[var(--kb)]"
-          >
-            <Plus size={15} weight="bold" />
-            {t("addSources")}
-          </button>
+        />
+      )}
+
+      {/* Fortschritt und Fehler des Hochladens. Stehen direkt unter dem Knopf,
+          der sie ausgeloest hat, und sind sonst nicht da. */}
+      {isOwner && (uploadProgress !== null || uploadErrors.length > 0) && (
+        <div className="px-4 py-2 flex-shrink-0" style={{ borderBottom: "1px solid var(--border)" }}>
           {uploadProgress !== null && (
-            <div className="mt-2">
+            <>
               <div className="h-1 rounded-full overflow-hidden" style={{ backgroundColor: "var(--border)" }}>
                 <div
                   className="h-full rounded-full transition-all duration-200"
                   style={{ width: `${uploadProgress.percent}%`, backgroundColor: "var(--kb)" }}
                 />
               </div>
-              <p className="text-xs mt-1" >
+              <p className="text-xs mt-1">
                 {uploadProgress.total > 1
                   ? t("uploadingMulti", { current: uploadProgress.current, total: uploadProgress.total, percent: uploadProgress.percent })
                   : t("uploadingSingle", { percent: uploadProgress.percent })}
               </p>
-            </div>
+            </>
           )}
           {uploadErrors.length > 0 && (
             <UploadErrorsBlock errors={uploadErrors} onDismiss={onDismissUploadErrors} />
@@ -226,6 +292,44 @@ export function SourcesPanel({
           workspaceUuid={workspaceUuid}
           onEdit={() => setStaffNoteModalOpen(true)}
         />
+      )}
+
+      {/* Neues Kapitel */}
+      {creatingChapter && (
+        <div
+          className="relative px-3 py-2 flex items-center gap-2 flex-shrink-0"
+          style={{ backgroundColor: "var(--surface-dim)", borderBottom: "1px solid var(--border)" }}
+        >
+          <input
+            ref={newChapterRef}
+            value={newChapterName}
+            disabled={newChapterBusy}
+            placeholder={t("chapterNamePlaceholder")}
+            onChange={(e) => setNewChapterName(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") { e.preventDefault(); commitNewChapter(); }
+              if (e.key === "Escape") { e.preventDefault(); setCreatingChapter(false); setNewChapterError(null); }
+            }}
+            className="flex-1 min-w-0 text-sm px-2 py-1 rounded-md border-2 bg-background"
+            style={{ borderColor: "var(--kb)", color: "var(--foreground)" }}
+          />
+          <button
+            type="button"
+            onClick={commitNewChapter}
+            disabled={newChapterBusy}
+            className="px-3 py-1.5 text-sm rounded-lg btn-primary flex-shrink-0"
+          >
+            {t("chapterCreate")}
+          </button>
+          {newChapterError && (
+            <div
+              className="absolute left-3 right-3 top-full z-10 mt-1 rounded-lg px-3 py-2 text-xs leading-snug shadow-lg"
+              style={{ backgroundColor: "#FEF2F2", border: "1px solid var(--error-border)", color: "var(--error-strong)" }}
+            >
+              {newChapterError}
+            </div>
+          )}
+        </div>
       )}
 
       {/* Select all row */}
@@ -247,186 +351,109 @@ export function SourcesPanel({
           >
             {allSelected && <Check size={11} weight="bold" />}
           </button>
-          <span className="text-sm" >
+          <span className="text-sm">
             {t("selectAll")}
           </span>
         </label>
       )}
 
-      {/* Source list */}
-      <div className="flex-1 overflow-y-auto">
+      {/* Source list. Die ganze Liste nimmt gezogene Dateien an, den Rahmen
+          dazu gibt es nur waehrend des Ziehens. */}
+      <div
+        className="relative flex-1 overflow-y-auto"
+        onDragOver={isOwner ? (e) => { e.preventDefault(); e.stopPropagation(); } : undefined}
+        onDragEnter={isOwner ? (e) => { e.preventDefault(); e.stopPropagation(); setDragOver(true); } : undefined}
+        onDragLeave={isOwner ? (e) => {
+          e.preventDefault(); e.stopPropagation();
+          if (!e.currentTarget.contains(e.relatedTarget as Node)) setDragOver(false);
+        } : undefined}
+        onDrop={isOwner ? (e) => {
+          e.preventDefault(); e.stopPropagation(); setDragOver(false);
+          const fs = Array.from(e.dataTransfer.files ?? []);
+          if (fs.length > 0) onUpload(fs);
+        } : undefined}
+      >
+        {dragOver && (
+          <div
+            className="absolute inset-1.5 z-30 rounded-xl border-2 border-dashed flex items-center justify-center text-sm font-semibold pointer-events-none"
+            style={{
+              borderColor: "var(--kb)",
+              backgroundColor: "rgba(var(--kb-rgb),0.08)",
+              color: "var(--kb)",
+            }}
+          >
+            {t("dropHere")}
+          </div>
+        )}
+
         {sources.length === 0 ? (
           <EmptyState
             size="lg"
-            icon={<FilePdf size={32} weight="bold" />}
-            text={t("emptyHint")}
+            icon={
+              <span className="flex items-center gap-3">
+                <FilePdf size={32} weight="bold" />
+                <FileAudio size={32} weight="bold" />
+                <FileVideo size={32} weight="bold" />
+              </span>
+            }
+            text={isOwner ? t("emptyHint") : t("emptyHintStudent")}
           />
         ) : (
-          sources.map((src) => {
-            const checked = selectedSourceIds.includes(src.uuid);
-            const ready = isFullyReady(src);
-            return (
+          <>
+            {chapterList.map((chapter, i) => {
+              const mine = sources.filter((s) => s.chapter_uuid === chapter.uuid);
+              const open = !closedChapters.includes(chapter.uuid);
+              return (
+                <div key={chapter.uuid}>
+                  <ChapterHead
+                    chapter={chapter}
+                    count={mine.length}
+                    open={open}
+                    isOwner={isOwner}
+                    compact={compact}
+                    isFirst={i === 0}
+                    isLast={i === chapterList.length - 1}
+                    menuOpen={menuOpenId === chapter.uuid}
+                    onMenuOpen={(o) => setMenuOpenId(o ? chapter.uuid : null)}
+                    renaming={renameId === chapter.uuid}
+                    onRenameStart={() => setRenameId(chapter.uuid)}
+                    onRenameEnd={() => setRenameId(null)}
+                    onToggleOpen={() => toggleChapterOpen(chapter.uuid)}
+                    onRename={onRenameChapter ?? (async () => {})}
+                    onMove={onMoveChapter ?? (() => {})}
+                    onDelete={setDeleteChapterTarget}
+                  />
+                  {open && mine.length === 0 && (
+                    <p
+                      className="px-4 py-3 text-sm"
+                      style={{ color: "var(--muted)", borderBottom: "1px solid var(--border)" }}
+                    >
+                      {t("chapterEmpty")}
+                    </p>
+                  )}
+                  {open && mine.map((src) => renderRow(src, true))}
+                </div>
+              );
+            })}
+
+            {/* Ohne Kapitel bekommt nur dann eine Ueberschrift, wenn es
+                ueberhaupt Kapitel gibt. Ohne Gliederung bleibt es die
+                schlichte Liste von vorher. */}
+            {loose.length > 0 && chapterList.length > 0 && (
               <div
-                key={src.uuid}
-                className="group relative flex items-center transition-colors hover:bg-[var(--surface-dim)]"
+                className="flex items-center gap-2 pl-3 pr-2 py-2"
                 style={{ borderBottom: "1px solid var(--border)" }}
               >
-                <div className="flex-shrink-0 pl-4 py-2.5">
-                  <button
-                    type="button"
-                    onClick={() => { if (ready) onToggleSource(src.uuid); }}
-                    disabled={!ready}
-                    aria-label={checked ? t("deselectSource") : t("selectSource")}
-                    title={!ready ? t("stillProcessing") : undefined}
-                    className={`source-checkbox flex-shrink-0 w-5 h-5 rounded-md flex items-center justify-center transition-colors border-2 ${
-                      checked
-                        ? "border-[var(--kb)] bg-[var(--kb)]"
-                        : ready
-                        ? "border-[var(--border)] bg-background hover:border-[var(--kb)]"
-                        : "border-[var(--border)] bg-background"
-                    }`}
-                    style={{ color: "#fff" }}
-                  >
-                    {checked && <Check size={11} weight="bold" />}
-                  </button>
-                </div>
-
-                {renameId === src.uuid ? (
-                  <div className="flex-1 flex items-center gap-2 pl-3 pr-4 py-2.5 min-w-0">
-                    <FileIcon filename={src.filename} />
-                    <input
-                      ref={renameInputRef}
-                      value={renameValue}
-                      disabled={renameBusy}
-                      autoFocus
-                      placeholder={t("renamePlaceholder")}
-                      onChange={(e) => setRenameValue(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter") { e.preventDefault(); commitRename(src); }
-                        if (e.key === "Escape") { e.preventDefault(); setRenameId(null); setRenameError(null); }
-                      }}
-                      onBlur={() => commitRename(src)}
-                      className="flex-1 min-w-0 text-sm px-2 py-1 rounded-md border-2 bg-background"
-                      style={{ borderColor: "var(--kb)", color: "var(--foreground)" }}
-                    />
-                    <span className="flex-shrink-0 text-sm" style={{ color: "var(--foreground-soft)" }}>
-                      {splitFilename(src.filename)[1]}
-                    </span>
-                  </div>
-                ) : (
-                  <div
-                    onClick={() => { if (ready) onOpenViewer(src); }}
-                    onKeyDown={(e) => {
-                      if (ready && (e.key === "Enter" || e.key === " ")) {
-                        e.preventDefault();
-                        onOpenViewer(src);
-                      }
-                    }}
-                    role={ready ? "button" : undefined}
-                    tabIndex={ready ? 0 : undefined}
-                    title={ready ? t("openInViewer") : undefined}
-                    className={`flex-1 flex items-center gap-3 pl-3 pr-4 py-2.5 min-w-0 ${ready ? "cursor-pointer" : "cursor-default"}`}
-                  >
-                    <FileIcon filename={src.filename} />
-                    <span
-                      className="flex-1 text-sm leading-snug truncate min-w-0 font-medium"
-                      style={{ color: "var(--foreground)" }}
-                      title={src.filename}
-                    >
-                      {src.filename}
-                    </span>
-                    <SourceStatus status={src.status} progress={src.progress} />
-                  </div>
-                )}
-
-                {renameId === src.uuid && renameError && (
-                  <div
-                    className="absolute left-4 right-4 top-full z-10 mt-1 rounded-lg px-3 py-2 text-xs leading-snug shadow-lg"
-                    style={{ backgroundColor: "#FEF2F2", border: "1px solid var(--error-border)", color: "var(--error-strong)" }}
-                  >
-                    {renameError}
-                  </div>
-                )}
-
-                {src.status === "failed" && src.error_message && (
-                  <div
-                    className="absolute left-4 right-4 top-full z-10 mt-1 rounded-lg px-3 py-2 text-xs leading-snug shadow-lg"
-                    style={{ backgroundColor: "#FEF2F2", border: "1px solid var(--error-border)", color: "var(--error-strong)" }}
-                  >
-                    {src.error_message}
-                  </div>
-                )}
-
-                {!compact && (
-                  <>
-                    {isOwner && src.status === "failed" && (
-                      <div className="flex-shrink-0 flex items-center justify-center px-1 py-2.5">
-                        <button
-                          type="button"
-                          onClick={() => onRetrySource(src.uuid)}
-                          className="w-7 h-7 flex items-center justify-center rounded-full btn-icon"
-                          style={{ backgroundColor: "var(--surface-dim)" }}
-                          title={t("retry")}
-                        >
-                          <ArrowCounterClockwise size={13} weight="bold" />
-                        </button>
-                      </div>
-                    )}
-                    {isOwner && (
-                      <div className="flex-shrink-0 flex items-center justify-center pl-1 pr-2 py-2.5">
-                        <div className="relative">
-                          <button
-                            type="button"
-                            onClick={() => setMenuOpenId(menuOpenId === src.uuid ? null : src.uuid)}
-                            className="w-7 h-7 flex items-center justify-center rounded-full btn-icon"
-                            style={{ backgroundColor: "var(--surface-dim)" }}
-                            title={t("options")}
-                          >
-                            <DotsThreeVertical size={16} weight="bold" />
-                          </button>
-                          {menuOpenId === src.uuid && (
-                            <>
-                              <div className="fixed inset-0 z-40" onClick={() => setMenuOpenId(null)} />
-                              <div
-                                className="absolute right-0 top-9 z-50 rounded-xl py-1"
-                                style={{
-                                  backgroundColor: "var(--surface)",
-                                  border: "1px solid var(--border)",
-                                  minWidth: 180,
-                                  boxShadow: "rgba(0, 0, 0, 0.12) 0px 4px 16px",
-                                }}
-                              >
-                                {onRenameSource && (
-                                  <button
-                                    type="button"
-                                    onClick={() => startRename(src)}
-                                    className="w-full flex items-center gap-2 px-4 py-2.5 text-base text-left hover:bg-[var(--surface-dim)] transition-colors"
-                                    style={{ color: "var(--foreground)" }}
-                                  >
-                                    <PencilSimple size={16} weight="bold" />
-                                    {t("rename")}
-                                  </button>
-                                )}
-                                <button
-                                  type="button"
-                                  onClick={() => { setMenuOpenId(null); setDeleteSourceId(src.uuid); }}
-                                  className="w-full flex items-center gap-2 px-4 py-2.5 text-base text-left hover:bg-[var(--surface-dim)] transition-colors"
-                                  style={{ color: "rgb(185, 28, 28)" }}
-                                >
-                                  <Trash size={16} weight="bold" />
-                                  {t("delete")}
-                                </button>
-                              </div>
-                            </>
-                          )}
-                        </div>
-                      </div>
-                    )}
-                  </>
-                )}
+                <span className="flex-1 text-sm font-medium truncate" style={{ color: "var(--foreground-soft)" }}>
+                  {t("noChapter")}
+                </span>
+                <span className="text-xs flex-shrink-0" style={{ color: "var(--foreground-soft)" }}>
+                  {loose.length}
+                </span>
               </div>
-            );
-          })
+            )}
+            {loose.map((src) => renderRow(src, chapterList.length > 0))}
+          </>
         )}
       </div>
 
@@ -461,6 +488,36 @@ export function SourcesPanel({
               </button>
               <button
                 onClick={() => { onDeleteSource(deleteSourceId); setDeleteSourceId(null); }}
+                className="px-4 py-2 text-sm btn-danger rounded-lg"
+              >
+                {t("delete")}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Kapitel loeschen. Andere Warnung als bei der Quelle, weil hier nichts
+          verloren geht. */}
+      {deleteChapterTarget && (
+        <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
+          <div className="bg-background rounded-xl shadow-xl max-w-sm w-full p-6">
+            <h3 className="text-base font-semibold mb-2">{t("deleteChapterTitle")}</h3>
+            <p className="text-sm text-foreground-soft mb-1 break-all">
+              <span className="font-medium">{deleteChapterTarget.name}</span>
+            </p>
+            <p className="text-sm text-foreground-soft mb-6">
+              {t("deleteChapterWarning")}
+            </p>
+            <div className="flex gap-3 justify-end">
+              <button
+                onClick={() => setDeleteChapterTarget(null)}
+                className="btn-cancel px-4 py-2 text-sm btn-secondary rounded-lg"
+              >
+                {t("cancel")}
+              </button>
+              <button
+                onClick={() => { onDeleteChapter?.(deleteChapterTarget.uuid); setDeleteChapterTarget(null); }}
                 className="px-4 py-2 text-sm btn-danger rounded-lg"
               >
                 {t("delete")}

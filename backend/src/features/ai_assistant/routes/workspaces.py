@@ -193,6 +193,10 @@ async def get_workspace(
     if is_owner:
         db.touch_aia_workspace_visited(workspace_uuid)
     sources = db.get_aia_sources_by_workspace(workspace["id"])
+    chapters = db.get_aia_chapters_by_workspace(workspace["id"])
+    # Die Quelle kennt nur die interne id ihres Kapitels. Nach aussen geht
+    # ausschliesslich die uuid, wie ueberall sonst auch.
+    chapter_uuid_by_id = {c["id"]: c["uuid"] for c in chapters}
     links = db.get_access_links_by_workspace(workspace["id"])
     # Tutors manage the workspace like its owner, so the UI follows can_manage.
     # is_owner stays literal ownership, it is not a permission.
@@ -228,6 +232,10 @@ async def get_workspace(
             workspace["enroll_code_expires"].isoformat() + "Z" if workspace.get("enroll_code_expires") else None
         ),
         "created_at": workspace["created_at"].isoformat() + "Z" if workspace["created_at"] else None,
+        "chapters": [
+            {"uuid": c["uuid"], "name": c["name"], "position": c["position"]}
+            for c in chapters
+        ],
         "sources": [
             {
                 "uuid": s["uuid"],
@@ -236,6 +244,7 @@ async def get_workspace(
                 "chunk_count": s["chunk_count"],
                 "error_message": s.get("error_message"),
                 "progress": s.get("progress"),
+                "chapter_uuid": chapter_uuid_by_id.get(s.get("chapter_id")),
                 "created_at": s["created_at"].isoformat() + "Z" if s["created_at"] else None,
             }
             for s in sources

@@ -16,6 +16,16 @@ export interface Source {
   status: "pending" | "indexing" | "ready" | "failed";
   error_message?: string | null;
   progress?: IndexingProgress | null;
+  /** Kapitel, in dem die Quelle in der Liste steht. null heisst "Ohne Kapitel". */
+  chapter_uuid?: string | null;
+}
+
+/** Kapitel gliedern die Quellenliste. Reine Optik: die Auswahl fuer Chat und
+ *  Werkzeuge haengt weiterhin am Haken der einzelnen Datei. */
+export interface Chapter {
+  uuid: string;
+  name: string;
+  position: number;
 }
 
 // The list of target languages comes from the backend (GET /ai-assistant/
@@ -55,6 +65,7 @@ export interface WorkspaceDetail {
   language_training_enabled?: boolean;
   staff_note_text?: string | null;
   staff_note_links?: StaffNoteLink[];
+  chapters?: Chapter[];
   sources: Source[];
 }
 

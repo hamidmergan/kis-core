@@ -18,6 +18,7 @@ import { _isMediaFile } from "./_utils";
 import { NOTE_BODY_MAX } from "./_constants";
 import { usePanelLayout } from "./_hooks/usePanelLayout";
 import { useSources } from "./_hooks/useSources";
+import { useChapters } from "./_hooks/useChapters";
 import { useMindmap } from "./_hooks/useMindmap";
 import { useDataTable } from "./_hooks/useDataTable";
 import { useNotes } from "./_hooks/useNotes";
@@ -74,6 +75,24 @@ export default function KiTutorWorkspacePage() {
     retrySource: handleRetrySource,
     uploadFiles: handleUpload,
   } = useSources({ uuid, onModuleUpdate: (mod) => setWorkspaceDetail(mod) });
+
+  // Kapitel gliedern nur die Quellenliste. Sie stehen absichtlich neben den
+  // Quellen und nicht in ihnen: die Auswahl fuer Chat und Werkzeuge bleibt der
+  // Haken an der einzelnen Datei.
+  const {
+    chapters, setChapters,
+    createChapter: handleCreateChapter,
+    renameChapter: handleRenameChapter,
+    deleteChapter: handleDeleteChapter,
+    moveChapter: handleMoveChapter,
+    setSourceChapter: handleSetSourceChapter,
+  } = useChapters({ uuid, setSources });
+
+  // Der Kursraum ist die eine Quelle der Wahrheit. Beim Laden und bei jedem
+  // Nachfassen kommt die Gliederung frisch mit.
+  useEffect(() => {
+    if (moduleDetail?.chapters) setChapters(moduleDetail.chapters);
+  }, [moduleDetail?.chapters, setChapters]);
 
   const [viewerSource, setViewerSource] = useState<ViewerState | null>(null);
 
@@ -501,6 +520,12 @@ export default function KiTutorWorkspacePage() {
         staffNoteText={moduleDetail?.staff_note_text ?? null}
         staffNoteLinks={moduleDetail?.staff_note_links ?? []}
         onStaffNoteSave={handleStaffNoteSave}
+        chapters={chapters}
+        onCreateChapter={handleCreateChapter}
+        onRenameChapter={handleRenameChapter}
+        onDeleteChapter={handleDeleteChapter}
+        onMoveChapter={handleMoveChapter}
+        onSetSourceChapter={handleSetSourceChapter}
         {...(hh ? { hideHeader: true } : {})}
       />
     );
