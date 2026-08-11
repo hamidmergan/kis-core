@@ -9,6 +9,7 @@ import type { ChatMessage, Source, SourceQmap, SourceRef, StudentStats } from ".
 import { _getChipIcon, _guardMathDollars, _mathToUnicode } from "../../_utils";
 import { withCitations, type CitationChipClickHandler } from "../chat/_citations";
 import { SubviewHeader, type BreadcrumbItem } from "../layout/SubviewHeader";
+import { StudioSourceLegend } from "./StudioSourceLegend";
 import Spinner from "@/components/ui/Spinner";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { NOTE_TITLE_MAX, NOTE_BODY_MAX, NOTE_BODY_WARN_AT, KATEX_OPTIONS } from "../../_constants";
@@ -278,7 +279,11 @@ export function NotesStudio({
                         </div>
 
                         {qmap.length > 0 && (
-                          <div className="mt-3 flex flex-wrap gap-x-3 gap-y-1">
+                          <StudioSourceLegend
+                            count={qmap.length}
+                            className="mt-3"
+                            listClassName="flex flex-wrap gap-x-3 gap-y-1 pl-4"
+                          >
                             {qmap.map((s) => {
                               const ChipIcon = _getChipIcon(s.filename);
                               return (
@@ -297,7 +302,7 @@ export function NotesStudio({
                                 </span>
                               );
                             })}
-                          </div>
+                          </StudioSourceLegend>
                         )}
 
                         <div className="flex items-center justify-between mt-3">

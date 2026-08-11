@@ -2063,6 +2063,7 @@
       "studio": {
         "panelTitle": "Studio",
         "minimizePanel": "Minimize panel",
+        "sourcesToggle": "{count, plural, =1 {1 source} other {# sources}}",
         "tabs": {
           "tools": "Tools",
           "glossary": "Glossary",

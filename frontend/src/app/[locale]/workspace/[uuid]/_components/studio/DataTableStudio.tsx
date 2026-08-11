@@ -7,6 +7,7 @@ import type { DataTableData, DataTableRowSource, DataTableSource, Source, Studen
 import { _getChipIcon, _isMediaFile, _sourceChipKey } from "../../_utils";
 import { MinimizeContext } from "../../_context";
 import { SubviewHeader, _getToolBadge, type BreadcrumbItem } from "../layout/SubviewHeader";
+import { StudioSourceLegend } from "./StudioSourceLegend";
 
 export function DataTableStudio({
   table, sources, loading, onGenerate, onBack,
@@ -291,13 +292,13 @@ export function DataTableStudio({
               })()}
 
               {sources.length > 0 && (
-                <div className="flex flex-col gap-1 pt-2">
+                <StudioSourceLegend count={sources.length} className="pt-2">
                   {sources.map((s) => (
-                    <p key={s.number} className="text-xs leading-snug text-[var(--muted)]">
+                    <p key={s.number} className="text-xs leading-snug pl-4 text-[var(--muted)]">
                       [{s.number}] {s.filename}
                     </p>
                   ))}
-                </div>
+                </StudioSourceLegend>
               )}
             </div>
           )}

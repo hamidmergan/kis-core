@@ -23,6 +23,7 @@ import type { Source, StudentStats } from "../../_types";
 import { _getChipIcon, _isMediaFile } from "../../_utils";
 import { MinimizeContext } from "../../_context";
 import { SubviewHeader, _getToolBadge, type BreadcrumbItem } from "../layout/SubviewHeader";
+import { StudioSourceLegend } from "./StudioSourceLegend";
 
 export interface MindmapNodeData {
   topic: string;
@@ -492,13 +493,18 @@ export function MindmapStudio({
                 style={{ minHeight: 300 }}
               />
               {sourceIndexRef.current.size > 0 && (
-                <div className="flex flex-wrap gap-x-4 gap-y-1 px-4 py-2 flex-shrink-0" style={{ borderTop: "1px solid var(--border)" }}>
+                <StudioSourceLegend
+                  count={sourceIndexRef.current.size}
+                  className="px-4 py-2 flex-shrink-0"
+                  listClassName="flex flex-wrap gap-x-4 gap-y-1 pl-4"
+                  style={{ borderTop: "1px solid var(--border)" }}
+                >
                   {Array.from(sourceIndexRef.current.entries()).map(([filename, num]) => (
                     <span key={num} className="text-xs leading-snug text-[var(--muted)]">
                       [{num}] {filename}
                     </span>
                   ))}
-                </div>
+                </StudioSourceLegend>
               )}
             </>
           )}

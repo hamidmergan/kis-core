@@ -17,6 +17,7 @@ import {
 } from "../../_api/schedule";
 import { ScheduleTimeline } from "./ScheduleTimeline";
 import { ScheduleEntryEditModal, type EditInput } from "./ScheduleEntryEditModal";
+import { StudioSourceLegend } from "./StudioSourceLegend";
 
 interface SourceLike { uuid: string; filename: string; }
 
@@ -339,13 +340,17 @@ export function ScheduleView({
               onPillClick={onPillClick}
             />
             {sourceLegend.length > 0 && (
-              <div className="flex flex-col gap-1 pt-4 mt-4 border-t border-dashed" style={{ borderColor: "var(--border)" }}>
+              <StudioSourceLegend
+                count={sourceLegend.length}
+                className="pt-4 mt-4 border-t border-dashed"
+                style={{ borderColor: "var(--border)" }}
+              >
                 {sourceLegend.map((s) => (
-                  <p key={s.number} className="text-xs leading-snug text-[var(--muted)]">
+                  <p key={s.number} className="text-xs leading-snug pl-4 text-[var(--muted)]">
                     [{s.number}] {s.filename}
                   </p>
                 ))}
-              </div>
+              </StudioSourceLegend>
             )}
           </>
         )}
