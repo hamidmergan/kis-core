@@ -1773,6 +1773,7 @@
           "loading": "Statistik wird geladen…",
           "emptyData": "Noch keine Daten vorhanden. Starte Übungen, um deine Statistik zu sehen.",
           "activity": "Aktivität",
+          "calendar": "Kalender",
           "period30": "30 Tage",
           "period180": "6 Monate",
           "noActivityRange": "Noch keine Aktivitäten in diesem Zeitraum.",
@@ -1795,7 +1796,10 @@
             "sa": "Sa",
             "su": "So"
           },
-          "setCorrectFraction": "{correct}/{total} richtig"
+          "setCorrectFraction": "{correct}/{total} richtig",
+          "run": "Durchgang {n}",
+          "runEarlier": "Früher",
+          "runScore": "{correct}/{total} richtig"
         },
         "mastery": {
           "exercisesCount": "{count, plural, =1 {1 Übung} other {# Übungen}}",

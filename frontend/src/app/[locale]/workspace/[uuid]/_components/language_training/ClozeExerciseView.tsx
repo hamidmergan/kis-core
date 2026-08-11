@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useMemo, useRef, useState } from "react";
 import { CaretRight } from "@phosphor-icons/react";
 import { useTranslations } from "next-intl";
 import type { ExerciseSet } from "../../_types";
@@ -28,7 +28,7 @@ export function ClozeExerciseView({
 }: {
   exerciseSet: ExerciseSet;
   onBack: () => void;
-  onAnswer: (itemId: number, correct: boolean) => void;
+  onAnswer: (itemId: number, correct: boolean, newRun: boolean) => void;
   onSourceClick?: (filename: string, page: number, startTime?: number) => void;
   onFinish?: (correct: number, total: number) => void;
   breadcrumbs?: BreadcrumbItem[];
@@ -98,6 +98,8 @@ export function ClozeExerciseView({
   // Sperrt so wirklich JEDES Feld (Vorgabe), auch ein Platzhalter ohne passenden
   // gaps-Eintrag, statt an einem einzelnen Urteil festzumachen.
   const checked = verdicts !== null;
+  // Ein Aufbau der Ansicht ist ein Durchgang.
+  const runGemeldetRef = useRef(false);
 
   const gefuellt = Object.values(drafts).some((v) => v.trim());
   const correctCount = verdicts?.filter((v) => v === "correct").length ?? 0;
@@ -110,7 +112,9 @@ export function ClozeExerciseView({
     const urteile = gaps.map((g, i) => checkGap(drafts[i] ?? "", g.solution));
     setVerdicts(urteile);
     // Der Satz ist EINE Aufgabe. Sie gilt als gekonnt, wenn jede Lücke sitzt.
-    onAnswer(item.id, urteile.every((u) => u === "correct"));
+    const neuerDurchgang = !runGemeldetRef.current;
+    runGemeldetRef.current = true;
+    onAnswer(item.id, urteile.every((u) => u === "correct"), neuerDurchgang);
   }
 
   if (!item) return null;

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { ChartBar, ClockCounterClockwise } from "@phosphor-icons/react";
+import { CaretDown, CaretUp, ChartBar, ClockCounterClockwise } from "@phosphor-icons/react";
 import { useLocale, useTranslations } from "next-intl";
 import type { HeatmapDay, StudentStats } from "../../_types";
 import { TOOL_COLORS } from "../../_constants";
@@ -8,9 +8,17 @@ import { EmptyState } from "@/components/ui/EmptyState";
 
 type StatsPeriod = "30" | "180";
 
+interface DayRun {
+  run_no: number | null;
+  correct: number;
+  total: number;
+  first_answer: string;
+  last_answer: string;
+}
+
 interface DayDetail {
   day: string;
-  sets: { set_id: number; tool: string; mode: string; title: string; answers: number; correct: number; wrong: number; first_answer: string | null; last_answer: string | null }[];
+  sets: { set_id: number; tool: string; mode: string; title: string; answers: number; correct: number; wrong: number; runs: DayRun[] }[];
   total_answers: number;
   total_correct: number;
   total_wrong: number;
@@ -24,6 +32,9 @@ export function StudentStatsView({ stats, loading, workspaceUuid, onNavigateToSe
   const locale = useLocale();
   const dateLocale = locale === "en" ? "en-US" : "de-DE";
   const [period, setPeriod] = useState<StatsPeriod>("30");
+  // Der volle Kalender ist ueber 400px hoch und schiebt das Tagesdetail aus dem
+  // Blick. Standard ist darum die laufende Woche als eine Zeile.
+  const [calendarOpen, setCalendarOpen] = useState(false);
 
   // Responsive heatmap: adjust cells to container width
   const observerRef = useRef<ResizeObserver | null>(null);
@@ -70,7 +81,11 @@ export function StudentStatsView({ stats, loading, workspaceUuid, onNavigateToSe
   // ── Expand/collapse for day detail (limit to 10 entries) ──
   const DAY_DETAIL_LIMIT = 10;
   const [showAllSets, setShowAllSets] = useState(false);
-  useEffect(() => { setShowAllSets(false); }, [selectedDay]);
+  // Wer einen Satz an einem Tag zwanzigmal uebt, haette sonst zwanzig Zeilen in
+  // einem Kasten und schoebe damit alle anderen Uebungen des Tages nach unten.
+  const RUN_LIMIT = 5;
+  const [openRuns, setOpenRuns] = useState<Record<number, boolean>>({});
+  useEffect(() => { setShowAllSets(false); setOpenRuns({}); }, [selectedDay]);
 
   if (loading) return (
     <div className="flex-1 flex items-center justify-center p-4">
@@ -150,14 +165,67 @@ export function StudentStatsView({ stats, loading, workspaceUuid, onNavigateToSe
     }
   }
 
+  const gap = 4;
+  const weekdayLabels = [
+    t("stats.weekdays.mo"),
+    t("stats.weekdays.tu"),
+    t("stats.weekdays.we"),
+    t("stats.weekdays.th"),
+    t("stats.weekdays.fr"),
+    t("stats.weekdays.sa"),
+    t("stats.weekdays.su"),
+  ];
+
+  // Die laufende Woche, Montag bis Sonntag. filteredHeatmap endet immer auf heute,
+  // darum reicht Zaehlen vom Ende. Tage nach heute liefert das Backend nicht,
+  // die bleiben als null leer stehen.
+  const todayDow = (() => {
+    const dow = new Date(today + "T12:00:00+02:00").getDay();
+    return dow === 0 ? 6 : dow - 1;
+  })();
+  const weekStartIdx = filteredHeatmap.length - 1 - todayDow;
+  const weekRow: (HeatmapDay | null)[] = Array.from(
+    { length: 7 },
+    (_, i) => filteredHeatmap[weekStartIdx + i] ?? null,
+  );
+
+  // Eine Kachel, geteilt von Wochenzeile und vollem Kalender.
+  function dayCell(d: HeatmapDay, cellSize: number, showDayNums: boolean) {
+    const isSelected = selectedDay?.day === d.day;
+    const dayNum = new Date(d.day + "T12:00:00+02:00").getDate();
+    const isToday = d.day === today;
+    const intensity = d.answers > 0 ? Math.min(d.answers / maxAns, 1) : 0;
+    const isDarkBg = intensity >= 0.5;
+    return (
+      <button
+        key={d.day}
+        type="button"
+        onClick={() => selectDay(d)}
+        className={`heatmap-cell rounded-[4px] transition-all flex items-center justify-center${isSelected ? " is-selected" : ""}`}
+        style={{
+          width: cellSize,
+          height: cellSize,
+          backgroundColor: heatColor(d.answers),
+          outline: isSelected ? `2px solid ${accent}` : `0 solid var(--kb)`,
+          outlineOffset: 1,
+          borderBottom: isToday && !isSelected ? "2.5px solid var(--muted)" : "none",
+        }}
+        title={t("stats.answersTooltip", { date: formatDay(d.day), count: d.answers })}
+      >
+        {showDayNums && <span className="text-3xs font-medium" style={{ color: isDarkBg ? "#fff" : "var(--muted)" }}>{dayNum}</span>}
+      </button>
+    );
+  }
+
   return (
     <div className="flex-1 overflow-y-auto px-4 pb-4 space-y-4">
       {/* ── Period selector + period summary ── */}
       <div className="mt-4">
         <div className="flex items-center justify-between mb-2">
           <h3 className="text-sm font-semibold">{t("stats.activity")}</h3>
-          <div className="flex gap-1">
-            {([["30", t("stats.period30")], ["180", t("stats.period180")]] as [StatsPeriod, string][]).map(([val, label]) => (
+          <div className="flex items-center gap-1">
+            {/* Der Zeitraum gilt nur fuer den vollen Kalender, die Wochenzeile ist immer die laufende Woche. */}
+            {calendarOpen && ([["30", t("stats.period30")], ["180", t("stats.period180")]] as [StatsPeriod, string][]).map(([val, label]) => (
               <button
                 key={val}
                 type="button"
@@ -171,6 +239,16 @@ export function StudentStatsView({ stats, loading, workspaceUuid, onNavigateToSe
                 {label}
               </button>
             ))}
+            <button
+              type="button"
+              onClick={() => setCalendarOpen(o => !o)}
+              className="flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium transition-colors"
+              style={{ color: "var(--muted)" }}
+              aria-expanded={calendarOpen}
+            >
+              {t("stats.calendar")}
+              {calendarOpen ? <CaretUp size={12} weight="bold" /> : <CaretDown size={12} weight="bold" />}
+            </button>
           </div>
         </div>
 
@@ -186,12 +264,27 @@ export function StudentStatsView({ stats, loading, workspaceUuid, onNavigateToSe
             <div className="flex gap-3 mb-2 text-xs" style={{ color: "var(--muted)" }}>
               <span>{t("stats.activeDays", { count: periodActiveDays })}</span>
               <span>{t("stats.answersCount", { count: periodAnswers })}</span>
-              {periodAnswers > 0 && <span>{t("stats.percentCorrect", { pct: periodAccuracy })}</span>}
             </div>
 
-            {/* ── Heatmap ── */}
-            {(() => {
-              const gap = 4;
+            {/* ── Kalender: laufende Woche als eine Zeile, aufgeklappt das volle Raster ── */}
+            <div ref={heatmapContainerRef} className="p-1 w-full overflow-x-auto">
+            {!calendarOpen ? (() => {
+              const cellSize = heatmapContainerWidth === 0
+                ? 44
+                : Math.max(28, Math.min(56, Math.floor((heatmapContainerWidth - 8 - 6 * gap) / 7)));
+              return (
+                <div className="flex justify-center" style={{ gap }}>
+                  {weekRow.map((d, i) => (
+                    <div key={i} className="flex flex-col items-center gap-0.5">
+                      <span className="text-3xs font-medium" style={{ color: "var(--muted)" }}>{weekdayLabels[i]}</span>
+                      {d
+                        ? dayCell(d, cellSize, cellSize >= 18)
+                        : <div className="rounded-[4px]" style={{ width: cellSize, height: cellSize, backgroundColor: `rgba(${heatRgb},0.03)` }} />}
+                    </div>
+                  ))}
+                </div>
+              );
+            })() : (() => {
               const labelsColWidth = 22;
               const labelsMarginRight = 8;
               const padding = 8;
@@ -219,17 +312,7 @@ export function StudentStatsView({ stats, loading, workspaceUuid, onNavigateToSe
                   monthLabels[monthLabels.length - 1].colSpan++;
                 }
               }
-              const weekdayLabels = [
-                t("stats.weekdays.mo"),
-                t("stats.weekdays.tu"),
-                t("stats.weekdays.we"),
-                t("stats.weekdays.th"),
-                t("stats.weekdays.fr"),
-                t("stats.weekdays.sa"),
-                t("stats.weekdays.su"),
-              ];
               return (
-                <div ref={heatmapContainerRef} className="p-1 w-full overflow-x-auto">
                   <div className="flex mx-auto" style={{ width: "fit-content" }}>
                     {/* Row labels — fixed */}
                     <div className="flex flex-col flex-shrink-0" style={{ paddingTop: cellSize + gap + 2, width: labelsColWidth, marginRight: labelsMarginRight }}>
@@ -256,43 +339,18 @@ export function StudentStatsView({ stats, loading, workspaceUuid, onNavigateToSe
                       <div className="flex" style={{ gap, width: "fit-content" }}>
                         {heatmapWeeks.map((week, wi) => (
                           <div key={wi} className="flex flex-col" style={{ gap }}>
-                            {week.map(d => {
-                              const isSelected = selectedDay?.day === d.day;
-                              const dateObj = new Date(d.day + "T12:00:00+02:00");
-                              const dayNum = dateObj.getDate();
-                              const isToday = d.day === today;
-                              const intensity = d.answers > 0 ? Math.min(d.answers / maxAns, 1) : 0;
-                              const isDarkBg = intensity >= 0.5;
-                              return (
-                                <button
-                                  key={d.day}
-                                  type="button"
-                                  onClick={() => selectDay(d)}
-                                  className={`heatmap-cell rounded-[4px] transition-all flex items-center justify-center${isSelected ? " is-selected" : ""}`}
-                                  style={{
-                                    width: cellSize,
-                                    height: cellSize,
-                                    backgroundColor: heatColor(d.answers),
-                                    outline: isSelected ? `2px solid ${accent}` : `0 solid var(--kb)`,
-                                    outlineOffset: 1,
-                                    borderBottom: isToday && !isSelected ? "2.5px solid var(--muted)" : "none",
-                                  }}
-                                  title={t("stats.answersTooltip", { date: formatDay(d.day), count: d.answers })}
-                                >
-                                  {showDayNums && <span className="text-3xs font-medium" style={{ color: isDarkBg ? "#fff" : "var(--muted)" }}>{dayNum}</span>}
-                                </button>
-                              );
-                            })}
+                            {week.map(d => dayCell(d, cellSize, showDayNums))}
                           </div>
                         ))}
                       </div>
                     </div>
                   </div>
-                </div>
               );
             })()}
+            </div>
 
             {/* Legend */}
+            {calendarOpen && (
             <div className="flex items-center justify-center gap-2 mt-2">
               <span className="text-3xs" style={{ color: "var(--muted)" }}>{t("stats.less")}</span>
               {[0, 0.25, 0.5, 0.75, 1].map((v, i) => (
@@ -300,6 +358,7 @@ export function StudentStatsView({ stats, loading, workspaceUuid, onNavigateToSe
               ))}
               <span className="text-3xs" style={{ color: "var(--muted)" }}>{t("stats.more")}</span>
             </div>
+            )}
           </>
         )}
       </div>
@@ -323,33 +382,59 @@ export function StudentStatsView({ stats, loading, workspaceUuid, onNavigateToSe
             <div className="space-y-2">
               {/* Per-set breakdown */}
               {(showAllSets ? dayDetail.sets : dayDetail.sets.slice(0, DAY_DETAIL_LIMIT)).map(s => {
-                const pct = s.answers > 0 ? Math.round(s.correct / s.answers * 100) : 0;
                 // Clean title: remove file extensions for display
                 const displayTitle = s.title.replace(/\.(pdf|mp4|mp3|webm|wav|m4a|ogg)$/i, "");
+                // Neuester Durchgang oben, wie ueberall sonst in der Oberflaeche. Das
+                // Backend liefert sie in der Reihenfolge ihres Laufs.
+                const runs = [...s.runs].reverse();
+                const alleRuns = openRuns[s.set_id] ?? false;
+                const sichtbareRuns = alleRuns ? runs : runs.slice(0, RUN_LIMIT);
+                // Derselbe Kasten wie in der Uebungsuebersicht: eigene Flaeche, weicher
+                // Schatten, beim Zeigen ein 2px Rahmen in der Akzentfarbe. Ohne ihn
+                // liefen die Uebungen eines Tages ineinander.
                 return (
-                  <div key={s.set_id} className="rounded-lg px-2.5 py-2 cursor-pointer transition-colors hover:bg-[var(--surface-dim)]" style={{ backgroundColor: "var(--surface)" }} onClick={() => onNavigateToSet?.(s.set_id, s.tool, s.mode)}>
-                    <div className="flex items-center justify-between mb-1">
+                  <div key={s.set_id}
+                    className="bg-background rounded-xl px-3 py-2.5 border-2 border-transparent transition-colors cursor-pointer hover:border-[var(--kb)]"
+                    style={{ boxShadow: "0 2px 10px rgba(0,40,60,0.05), 0 0 0 1px rgba(0,40,60,0.03)" }}
+                    onClick={() => onNavigateToSet?.(s.set_id, s.tool, s.mode)}>
+                    <div className="flex items-center justify-between gap-2 mb-1">
                       <span className="text-xs font-medium truncate" style={{ color: "var(--foreground)", maxWidth: "70%" }}>
                         {displayTitle}
                       </span>
-                      <span className="text-xs font-semibold" style={{ color: pct >= 70 ? accent : "var(--muted)" }}>
-                        {pct}%
-                      </span>
-                    </div>
-                    {/* Mini progress bar */}
-                    <div className="flex rounded-full overflow-hidden" style={{ height: 4, backgroundColor: "var(--border)" }}>
-                      <div style={{ width: `${pct}%`, backgroundColor: accent }} />
-                      {s.wrong > 0 && <div style={{ width: `${100 - pct}%`, backgroundColor: "var(--border)" }} />}
-                    </div>
-                    <div className="flex items-center justify-between mt-1 text-3xs" style={{ color: "var(--muted)" }}>
-                      <span className="px-1 py-0.5 rounded" style={{
+                      <span className="px-1 py-0.5 rounded text-3xs shrink-0" style={{
                         backgroundColor: (TOOL_COLORS[s.tool] || { bg: "var(--surface)" }).bg,
                         color: (TOOL_COLORS[s.tool] || { color: "var(--muted)" }).color,
                       }}>
                         {toolLabel(s.tool)}
                       </span>
-                      <span>{t("stats.setCorrectFraction", { correct: s.correct, total: s.correct + s.wrong })}</span>
                     </div>
+                    {/* Eine Zeile je Durchgang. Der Nenner ist die Kartenzahl des
+                        Satzes, wer abbricht hat deshalb 2 von 10 und nicht 2 von 2. */}
+                    {sichtbareRuns.map((r, i) => (
+                      // Ab dem fuenften Durchgang laufen die Zeilen sonst ineinander,
+                      // deshalb trennt sie eine Haarlinie. Die erste bekommt keine, sie
+                      // steht schon unter dem Titel.
+                      <div key={i} className="flex items-center justify-between text-3xs py-1"
+                        style={{ color: "var(--muted)", borderTop: i > 0 ? "1px solid var(--border)" : undefined }}>
+                        <span>{r.run_no === null ? t("stats.runEarlier") : t("stats.run", { n: r.run_no })}</span>
+                        <span style={{ color: r.correct >= r.total ? accent : "var(--muted)" }}>
+                          {t("stats.runScore", { correct: r.correct, total: r.total })}
+                        </span>
+                        <span>{formatTime(r.first_answer)}</span>
+                      </div>
+                    ))}
+                    {runs.length > RUN_LIMIT && (
+                      // Der Kasten selbst springt in die Uebung, der Knopf darf das nicht
+                      // ausloesen, sonst kommt man beim Aufklappen nie zurueck.
+                      <button
+                        type="button"
+                        onClick={(e) => { e.stopPropagation(); setOpenRuns(v => ({ ...v, [s.set_id]: !alleRuns })); }}
+                        className="w-full text-3xs font-medium pt-1.5 mt-0.5 rounded transition-colors hover:text-kb"
+                        style={{ color: "var(--muted)", borderTop: "1px solid var(--border)" }}
+                      >
+                        {alleRuns ? t("stats.showLess") : t("stats.showMore", { count: runs.length - RUN_LIMIT })}
+                      </button>
+                    )}
                   </div>
                 );
               })}

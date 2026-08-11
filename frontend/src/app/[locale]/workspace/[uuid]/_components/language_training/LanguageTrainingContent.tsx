@@ -34,7 +34,7 @@ interface LanguageTrainingContentProps {
   downloadExerciseSet: (s: ExerciseSet) => void;
   setCreateSetTool: (t: string) => void;
   setShowCreateModal: (v: boolean) => void;
-  submitSingleAnswer: (setId: number, itemId: number, correct: boolean) => void;
+  submitSingleAnswer: (setId: number, itemId: number, correct: boolean, newRun: boolean) => void;
   // Context
   selectedSourceIds: string[];
   workspaceUuid: string;
@@ -107,7 +107,7 @@ export function LanguageTrainingContent(props: LanguageTrainingContentProps) {
           <FlashcardsLearnView
             exerciseSet={activeSet}
             onBack={() => { setSprachView("lk-sets"); setActiveSet(null); refreshProgress(); }}
-            onAnswer={(itemId, correct) => submitSingleAnswer(activeSet.id, itemId, correct)}
+            onAnswer={(itemId, correct, newRun) => submitSingleAnswer(activeSet.id, itemId, correct, newRun)}
             onAskChat={handleAskChat}
             onSourceClick={onSourceClick}
             breadcrumbs={[toOverviewWithReset, { label: lernkartenLabel, toolKey: "Flashcards", onClick: () => { setActiveSet(null); setSprachView("lk-sets"); } }]}
@@ -149,7 +149,7 @@ export function LanguageTrainingContent(props: LanguageTrainingContentProps) {
             exerciseSet={activeSet}
             workspaceUuid={workspaceUuid}
             onBack={() => { setSprachView("gr-sets"); setActiveSet(null); refreshProgress(); }}
-            onAnswer={(itemId, correct) => submitSingleAnswer(activeSet.id, itemId, correct)}
+            onAnswer={(itemId, correct, newRun) => submitSingleAnswer(activeSet.id, itemId, correct, newRun)}
             onSourceClick={onSourceClick}
             onFinish={(correct, total) => { setGrammarScore({ correct, total }); setSprachView("gr-complete"); }}
             breadcrumbs={grammarCrumbs}
@@ -200,7 +200,7 @@ export function LanguageTrainingContent(props: LanguageTrainingContentProps) {
           <ClozeExerciseView
             exerciseSet={activeSet}
             onBack={() => { setSprachView("wo-sets"); setActiveSet(null); refreshProgress(); }}
-            onAnswer={(itemId, correct) => submitSingleAnswer(activeSet.id, itemId, correct)}
+            onAnswer={(itemId, correct, newRun) => submitSingleAnswer(activeSet.id, itemId, correct, newRun)}
             onSourceClick={onSourceClick}
             onFinish={(correct, total) => { setClozeScore({ correct, total }); setSprachView("wo-complete"); }}
             breadcrumbs={clozeCrumbs}

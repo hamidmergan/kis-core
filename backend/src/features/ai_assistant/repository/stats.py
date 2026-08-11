@@ -22,6 +22,11 @@ from src.core.db.pool import get_connection
 LANGUAGE_TRAINING_TOOLS = ("flashcards", "grammatik", "wortschatz")
 LERNTOOLS_TOOLS = ("karteikarten", "quiz")
 
+# Wie weit die Statistik zurueckreicht. Das Kalenderfeld zeichnet genau so viele
+# Tage, und das naechtliche Aufraeumen loescht genau das, was davor liegt. Beides
+# haengt deshalb an dieser einen Zahl.
+STATS_WINDOW_DAYS = 180
+
 
 def sql_tool_list(tools: tuple[str, ...]) -> str:
     """The tools as a literal IN-list. Fixed strings from this module, never user input."""
@@ -111,13 +116,14 @@ def get_student_stats(workspace_id: int, user_id: int) -> dict:
                        WHERE ep.user_id = %s
                          AND s2.workspace_id = %s AND s2.user_id = %s
                          {mode_clause}
-                         AND ep.answered_at >= (NOW() AT TIME ZONE 'UTC' AT TIME ZONE 'Europe/Berlin')::date - INTERVAL '179 days'
+                         AND ep.answered_at >= (NOW() AT TIME ZONE 'UTC' AT TIME ZONE 'Europe/Berlin')::date
+                             - INTERVAL '{STATS_WINDOW_DAYS - 1} days'
                        GROUP BY day ORDER BY day""",
                     params,
                 )
                 raw = {str(r["day"]): dict(r) for r in cur.fetchall()}
                 result = []
-                for i in range(179, -1, -1):
+                for i in range(STATS_WINDOW_DAYS - 1, -1, -1):
                     d = today - timedelta(days=i)
                     ds = str(d)
                     if ds in raw:
@@ -181,7 +187,12 @@ def get_student_stats(workspace_id: int, user_id: int) -> dict:
     }
 
 def get_student_day_stats(workspace_id: int, user_id: int, day_str: str, category: str | None = None) -> dict:
-    """Per-set breakdown for a specific day, optionally filtered by category."""
+    """Per-set breakdown for a specific day, optionally filtered by category.
+
+    Je Satz steht nicht eine gemischte Quote, sondern eine Zeile je Durchgang.
+    Der Nenner ist immer die Kartenzahl des Satzes: wer eine Uebung nach zwei
+    richtigen Antworten verlaesst, hat 2 von 10 und nicht 2 von 2.
+    """
     with get_connection() as conn:
         with conn.cursor(cursor_factory=RealDictCursor) as cur:
             mode_clause = ""
@@ -190,8 +201,11 @@ def get_student_day_stats(workspace_id: int, user_id: int, day_str: str, categor
                 mode_clause = f" AND s.tool IN ({sql_tool_list(LANGUAGE_TRAINING_TOOLS)})"
             elif category == "lerntools":
                 mode_clause = f" AND s.tool IN ({sql_tool_list(LERNTOOLS_TOOLS)})"
+            # Gruppiert wird je Satz UND Durchgang. Antworten ohne Nummer fallen
+            # dabei von selbst in eine Gruppe, das ist der Durchgang "frueher".
             cur.execute(
-                f"""SELECT s.id AS set_id, s.tool, s.mode, s.title,
+                f"""SELECT s.id AS set_id, s.tool, s.mode, s.title, s.card_count,
+                          ep.run_no,
                           COUNT(ep.id) AS answers,
                           COUNT(ep.id) FILTER (WHERE ep.correct) AS correct,
                           COUNT(ep.id) FILTER (WHERE NOT ep.correct) AS wrong,
@@ -202,21 +216,47 @@ def get_student_day_stats(workspace_id: int, user_id: int, day_str: str, categor
                    WHERE s.workspace_id = %s AND ep.user_id = %s
                      AND (ep.answered_at AT TIME ZONE 'UTC' AT TIME ZONE 'Europe/Berlin')::date = %s::date
                      {mode_clause}
-                   GROUP BY s.id ORDER BY MAX(ep.answered_at) DESC""",
+                   GROUP BY s.id, ep.run_no
+                   ORDER BY MIN(ep.answered_at)""",
                 params,
             )
-            sets = []
+            saetze: dict[int, dict] = {}
             total_answers = 0
             total_correct = 0
             total_wrong = 0
             for r in cur.fetchall():
-                row = dict(r)
-                row["first_answer"] = (row["first_answer"].isoformat() + "Z") if row["first_answer"] else None
-                row["last_answer"] = (row["last_answer"].isoformat() + "Z") if row["last_answer"] else None
-                total_answers += row["answers"]
-                total_correct += row["correct"]
-                total_wrong += row["wrong"]
-                sets.append(row)
+                zeile = dict(r)
+                satz = saetze.setdefault(zeile["set_id"], {
+                    "set_id": zeile["set_id"],
+                    "tool": zeile["tool"],
+                    "mode": zeile["mode"],
+                    "title": zeile["title"],
+                    "answers": 0,
+                    "correct": 0,
+                    "wrong": 0,
+                    "runs": [],
+                })
+                satz["answers"] += zeile["answers"]
+                satz["correct"] += zeile["correct"]
+                satz["wrong"] += zeile["wrong"]
+                satz["runs"].append({
+                    "run_no": zeile["run_no"],
+                    "correct": zeile["correct"],
+                    "total": zeile["card_count"],
+                    "first_answer": zeile["first_answer"].isoformat() + "Z",
+                    "last_answer": zeile["last_answer"].isoformat() + "Z",
+                })
+                total_answers += zeile["answers"]
+                total_correct += zeile["correct"]
+                total_wrong += zeile["wrong"]
+
+            # Der zuletzt geuebte Satz steht oben, wie bisher. Innerhalb eines Satzes
+            # stehen die Durchgaenge in der Reihenfolge, in der sie gelaufen sind.
+            sets = sorted(
+                saetze.values(),
+                key=lambda s: s["runs"][-1]["last_answer"],
+                reverse=True,
+            )
 
             # Chat messages that day
             cur.execute(

@@ -172,6 +172,9 @@ class GrammarCheckBody(BaseModel):
 
 class ExerciseProgressBody(BaseModel):
     results: list[dict]  # [{"item_id": int, "correct": bool}]
+    # Die Uebungsansicht setzt das bei ihrer ersten Antwort. Das Backend macht
+    # daraus die naechste Durchgangsnummer.
+    new_run: bool = False
 
 
 # ─── Schedule ─────────────────────────────────────────────────────────────────

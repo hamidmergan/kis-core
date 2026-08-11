@@ -1265,6 +1265,13 @@ def _init_db(admin_email: Optional[str] = None) -> None:
                     answered_at TIMESTAMP NOT NULL DEFAULT NOW()
                 )
             """)
+            # Die Statistik zeigt jeden Durchgang einzeln, dafuer traegt jede Antwort
+            # die Nummer ihres Durchgangs. Antworten von vor der Spalte haben keine
+            # und bleiben NULL, sie erscheinen als ein Durchgang je Tag.
+            cur.execute(
+                "ALTER TABLE aia_exercise_progress "
+                "ADD COLUMN IF NOT EXISTS run_no INTEGER"
+            )
             # The learner profile (per-user weakness tracking) was removed. Adaptivity
             # is the CEFR level and nothing else. Nothing creates or reads
             # aia_learner_weakness or users.learning_profile_enabled any more; both are

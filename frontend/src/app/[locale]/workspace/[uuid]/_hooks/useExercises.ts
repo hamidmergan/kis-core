@@ -168,12 +168,12 @@ export function useExercises({ uuid }: UseExercisesOptions) {
     } catch { /* ignore */ }
   }, [uuid]);
 
-  const submitSingleAnswer = useCallback(async (setId: number, itemId: number, correct: boolean) => {
+  const submitSingleAnswer = useCallback(async (setId: number, itemId: number, correct: boolean, newRun: boolean) => {
     try {
       await fetch(`/api/ai-assistant/workspaces/${uuid}/exercise-sets/${setId}/progress`, {
         method: "POST", credentials: "include",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ results: [{ item_id: itemId, correct }] }),
+        body: JSON.stringify({ results: [{ item_id: itemId, correct }], new_run: newRun }),
       });
     } catch { /* ignore */ }
   }, [uuid]);

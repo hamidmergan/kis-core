@@ -38,6 +38,7 @@ celery_app.conf.update(
         "screencast.render": {"queue": "screencast"},
         "watchdog.check": {"queue": "general"},
         "cleanup.expired_files": {"queue": "general"},
+        "cleanup.exercise_progress": {"queue": "general"},
         "backup.database": {"queue": "general"},
         # AI tutor: dedicated queue for learning tools and language training
         "aia.index_source": {"queue": "aia"},
@@ -65,6 +66,13 @@ celery_app.conf.update(
         "backup-database": {
             "task": "backup.database",
             "schedule": crontab(hour=3, minute=30),
+            "options": {"queue": "general"},
+        },
+        # Antworten, die aelter sind als das Kalenderfeld reicht. Nach der Sicherung,
+        # damit das Geloeschte noch in der Nacht davor gesichert wurde.
+        "cleanup-exercise-progress": {
+            "task": "cleanup.exercise_progress",
+            "schedule": crontab(hour=4, minute=15),
             "options": {"queue": "general"},
         },
     },

@@ -1773,6 +1773,7 @@
           "loading": "Loading statistics…",
           "emptyData": "No data yet. Start exercises to see your statistics.",
           "activity": "Activity",
+          "calendar": "Calendar",
           "period30": "30 days",
           "period180": "6 months",
           "noActivityRange": "No activity in this period.",
@@ -1795,7 +1796,10 @@
             "sa": "Sat",
             "su": "Sun"
           },
-          "setCorrectFraction": "{correct}/{total} correct"
+          "setCorrectFraction": "{correct}/{total} correct",
+          "run": "Run {n}",
+          "runEarlier": "Earlier",
+          "runScore": "{correct}/{total} correct"
         },
         "mastery": {
           "exercisesCount": "{count, plural, =1 {1 exercise} other {# exercises}}",

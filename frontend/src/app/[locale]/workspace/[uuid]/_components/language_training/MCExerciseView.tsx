@@ -17,7 +17,7 @@ export function MCExerciseView({
 }: {
   exerciseSet: ExerciseSet;
   onBack: () => void;
-  onAnswer: (itemId: number, correct: boolean) => void;
+  onAnswer: (itemId: number, correct: boolean, newRun: boolean) => void;
   onAskChat: (text: string) => void;
   onSourceClick?: (filename: string, page: number, startTime?: number) => void;
   breadcrumbs?: BreadcrumbItem[];
@@ -77,6 +77,9 @@ export function MCExerciseView({
   // (it also carries the right/wrong result), and an inline style always beats the
   // class, so `hover:border-kb` never showed.
   const [hovered, setHovered] = useState<number | null>(null);
+  // Ein Aufbau der Ansicht ist ein Durchgang. Nach "Erneut versuchen" faengt ein
+  // neuer an, deshalb wird die Marke dort zurueckgesetzt.
+  const runGemeldetRef = useRef(false);
 
   const total = items.length;
   const card = items[index];
@@ -97,7 +100,9 @@ export function MCExerciseView({
     setResults(prev => [...prev, { item_id: card.id, correct }]);
     if (correct) setStreak((s) => s + 1);
     else setStreak(0);
-    onAnswer(card.id, correct);
+    const neuerDurchgang = !runGemeldetRef.current;
+    runGemeldetRef.current = true;
+    onAnswer(card.id, correct, neuerDurchgang);
   }
 
   function goTo(next: number) {
@@ -170,7 +175,7 @@ export function MCExerciseView({
             })}
           </p>
           <div className="flex gap-3 mt-4">
-            <button type="button" onClick={() => { setShowResults(false); setIndex(0); setPicks({}); setResults([]); shuffledRef.current = false; }}
+            <button type="button" onClick={() => { setShowResults(false); setIndex(0); setPicks({}); setResults([]); shuffledRef.current = false; runGemeldetRef.current = false; }}
               className="btn-outline-accent px-5 py-2 rounded-full text-xs font-semibold transition-all">
               {t("mcExercise.tryAgain")}
             </button>

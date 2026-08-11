@@ -370,17 +370,65 @@ def delete_exercise_set(set_id: int, user_id: int) -> bool:
         conn.commit()
     return deleted
 
-def bulk_record_exercise_progress(set_id: int, user_id: int, results: list[dict]) -> None:
-    """Record multiple exercise answers at once."""
+def bulk_record_exercise_progress(
+    set_id: int, user_id: int, results: list[dict], new_run: bool = False,
+) -> None:
+    """Record multiple exercise answers at once.
+
+    Jede Antwort traegt die Nummer ihres Durchgangs. Die Nummer vergibt diese
+    Funktion und nicht der Browser: die Uebungsansicht meldet mit ihrer ersten
+    Antwort ``new_run``, daraus wird die naechste freie Nummer je Satz und Nutzer.
+    """
     with get_connection() as conn:
         with conn.cursor() as cur:
+            cur.execute(
+                "SELECT COALESCE(MAX(run_no), 0) FROM aia_exercise_progress "
+                "WHERE set_id = %s AND user_id = %s",
+                (set_id, user_id),
+            )
+            hoechste = cur.fetchone()[0]
+            # Ohne Meldung laeuft der Durchgang schon. Die Eins faengt den Fall ab,
+            # dass die allererste Antwort nie ankam, etwa weil das Netz weg war.
+            run_no = hoechste + 1 if new_run else max(hoechste, 1)
             for r in results:
                 cur.execute(
                     """INSERT INTO aia_exercise_progress
-                       (set_id, item_id, user_id, correct) VALUES (%s, %s, %s, %s)""",
-                    (set_id, r["item_id"], user_id, r["correct"]),
+                       (set_id, item_id, user_id, correct, run_no)
+                       VALUES (%s, %s, %s, %s, %s)""",
+                    (set_id, r["item_id"], user_id, r["correct"], run_no),
                 )
         conn.commit()
+
+
+def prune_old_exercise_progress() -> int:
+    """Antworten aufraeumen, die aelter sind als das Kalenderfeld reicht.
+
+    Die Statistik zeichnet nur die letzten ``STATS_WINDOW_DAYS`` Tage, alles davor
+    kann sie nie zeigen. Genau eine alte Zeile je Karte bleibt trotzdem stehen: die
+    juengste. Aus ihr rechnet der Ring auf der Uebungskarte, und der soll nicht auf
+    null fallen, nur weil ein Satz ein halbes Jahr geruht hat.
+
+    Liefert die Zahl der geloeschten Zeilen. Laeuft naechtlich als
+    ``cleanup.exercise_progress``.
+    """
+    from src.features.ai_assistant.repository.stats import STATS_WINDOW_DAYS
+
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                f"""DELETE FROM aia_exercise_progress alt
+                    WHERE alt.answered_at < NOW() - INTERVAL '{STATS_WINDOW_DAYS} days'
+                      AND EXISTS (
+                        SELECT 1 FROM aia_exercise_progress neuer
+                        WHERE neuer.set_id = alt.set_id
+                          AND neuer.user_id = alt.user_id
+                          AND neuer.item_id = alt.item_id
+                          AND (neuer.answered_at, neuer.id) > (alt.answered_at, alt.id)
+                      )"""
+            )
+            entfernt = cur.rowcount
+        conn.commit()
+    return entfernt
 
 
 # ─── Streak Tracking ──────────────────────────────────────────────────────────

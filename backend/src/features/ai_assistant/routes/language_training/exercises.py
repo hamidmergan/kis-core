@@ -333,7 +333,7 @@ async def record_set_progress(
     meta = db.get_exercise_set_meta(set_id)
     if not meta or meta["user_id"] != user_id or meta["workspace_id"] != workspace["id"]:
         raise HTTPException(status_code=404, detail=t("set.notFound", locale))
-    db.bulk_record_exercise_progress(set_id, user_id, body.results)
+    db.bulk_record_exercise_progress(set_id, user_id, body.results, body.new_run)
     db.update_streak(workspace["id"], user_id)
     return {"ok": True}
 

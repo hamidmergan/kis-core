@@ -35,7 +35,7 @@ interface ExerciseBundle {
   downloadExerciseSet: (s: ExerciseSet) => void;
   setCreateSetTool: (t: string) => void;
   setShowCreateModal: (v: boolean) => void;
-  submitSingleAnswer: (setId: number, itemId: number, correct: boolean) => void;
+  submitSingleAnswer: (setId: number, itemId: number, correct: boolean, newRun: boolean) => void;
 }
 
 interface NotesBundle {
@@ -143,7 +143,7 @@ export function StudioPanelContent(props: StudioPanelContentProps) {
       <FlashcardsLearnView
         exerciseSet={activeSet}
         onBack={() => { setActiveSet(null); refreshProgress(); }}
-        onAnswer={(itemId, correct) => submitSingleAnswer(activeSet.id, itemId, correct)}
+        onAnswer={(itemId, correct, newRun) => submitSingleAnswer(activeSet.id, itemId, correct, newRun)}
         onAskChat={(text) => onAskChat(text, hideHeader)}
         onSourceClick={onSourceClick}
         breadcrumbs={[{ label: t("panelTitle"), onClick: () => { setActiveSet(null); setStudioView("overview"); } }, { label: t("tiles.karteikarten"), toolKey: "Flashcards", onClick: () => { setActiveSet(null); refreshProgress(); } }]}
@@ -157,7 +157,7 @@ export function StudioPanelContent(props: StudioPanelContentProps) {
       <MCExerciseView
         exerciseSet={activeSet}
         onBack={() => { setActiveSet(null); refreshProgress(); }}
-        onAnswer={(itemId, correct) => submitSingleAnswer(activeSet.id, itemId, correct)}
+        onAnswer={(itemId, correct, newRun) => submitSingleAnswer(activeSet.id, itemId, correct, newRun)}
         onAskChat={(text) => onAskChat(text, true)}
         onSourceClick={onSourceClick}
         breadcrumbs={[{ label: t("panelTitle"), onClick: () => { setActiveSet(null); setStudioView("overview"); } }, { label: t("tiles.quiz"), toolKey: "Quiz", onClick: () => { setActiveSet(null); refreshProgress(); } }]}

@@ -38,7 +38,7 @@ export function GrammarExerciseView({
   exerciseSet: ExerciseSet;
   workspaceUuid: string;
   onBack: () => void;
-  onAnswer: (itemId: number, correct: boolean) => void;
+  onAnswer: (itemId: number, correct: boolean, newRun: boolean) => void;
   onSourceClick?: (filename: string, page: number, startTime?: number) => void;
   breadcrumbs?: BreadcrumbItem[];
   onFinish?: (correct: number, total: number) => void;
@@ -71,6 +71,16 @@ export function GrammarExerciseView({
   const picked = card ? picks[card.id] ?? null : null;
   const correctCount = Object.values(results).filter((r) => r.verdict === "correct").length;
 
+  // Ein Aufbau der Ansicht ist ein Durchgang. Getippt und angekreuzt teilen sich
+  // dieselbe Marke, ein Satz mischt beide Formen.
+  const runGemeldetRef = useRef(false);
+
+  function melden(itemId: number, correct: boolean) {
+    const neuerDurchgang = !runGemeldetRef.current;
+    runGemeldetRef.current = true;
+    onAnswer(itemId, correct, neuerDurchgang);
+  }
+
   async function check() {
     if (!card || checking || answered || !answer.trim()) return;
     setChecking(true);
@@ -87,7 +97,7 @@ export function GrammarExerciseView({
       if (!res.ok) throw new Error("check failed");
       const data: GrammarCheckResult = await res.json();
       setResults((r) => ({ ...r, [card.id]: data }));
-      onAnswer(card.id, data.verdict === "correct");
+      melden(card.id, data.verdict === "correct");
     } catch {
       // The learner keeps the sentence and can try again; nothing is recorded.
       setCheckError(true);
@@ -115,7 +125,7 @@ export function GrammarExerciseView({
     if (!card || answered) return;
     setPicks((p) => ({ ...p, [card.id]: optionIndex }));
     const isCorrect = optionIndex === card.correct_idx;
-    onAnswer(card.id, isCorrect);
+    melden(card.id, isCorrect);
     setResults((r) => ({
       ...r,
       [card.id]: {

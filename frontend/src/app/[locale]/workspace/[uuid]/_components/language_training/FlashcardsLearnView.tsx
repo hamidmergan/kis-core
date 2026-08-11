@@ -15,7 +15,7 @@ export function FlashcardsLearnView({
 }: {
   exerciseSet: ExerciseSet;
   onBack: () => void;
-  onAnswer: (itemId: number, correct: boolean) => void;
+  onAnswer: (itemId: number, correct: boolean, newRun: boolean) => void;
   onAskChat?: (text: string) => void;
   onSourceClick?: (filename: string, page: number, startTime?: number) => void;
   breadcrumbs?: BreadcrumbItem[];
@@ -62,6 +62,9 @@ export function FlashcardsLearnView({
   const [streak, setStreak] = useState(0);
   const [showResults, setShowResults] = useState(false);
   const [showPendingPrompt, setShowPendingPrompt] = useState(false);
+  // Ein Aufbau der Ansicht ist ein Durchgang. Die erste Antwort meldet ihn an,
+  // aus der Meldung macht das Backend die naechste Durchgangsnummer.
+  const runGemeldetRef = useRef(false);
   // Der Tipp steht fertig an der Karte, der Knopf klappt ihn nur auf.
   const [showHint, setShowHint] = useState(false);
 
@@ -83,7 +86,9 @@ export function FlashcardsLearnView({
     setResults((r) => ({ ...r, [card.id]: correct }));
     if (correct) setStreak((s) => s + 1);
     else setStreak(0);
-    onAnswer(card.id, correct);
+    const neuerDurchgang = !runGemeldetRef.current;
+    runGemeldetRef.current = true;
+    onAnswer(card.id, correct, neuerDurchgang);
   }
 
   function goTo(next: number) {
