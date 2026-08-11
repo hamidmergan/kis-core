@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import dynamic from "next/dynamic";
 import {
@@ -49,6 +49,7 @@ interface StudioOverviewProps {
   activeSourceCount?: number;
   langTrainingView?: string;
   requestedTab?: { tab: "tools" | "glossary" | "notes" | "statistik" | "schedule"; nonce: number } | null;
+  onRequestedTabHandled?: () => void;
   sources: Source[];
   selectedSourceIds: string[];
   onPillClick?: (sourceUuid: string, page: number, filename: string, sourceText?: string, startTime?: number) => void;
@@ -71,6 +72,7 @@ export function StudioOverview({
   activeSourceCount,
   langTrainingView,
   requestedTab,
+  onRequestedTabHandled,
   sources,
   selectedSourceIds,
   onPillClick,
@@ -130,8 +132,16 @@ export function StudioOverview({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [langTrainingView, studioTab]);
 
+  // A tab wish is one-shot: apply it once, then tell the parent to drop it.
+  // The nonce guard keeps a remount (coming back from a tool unmounts this
+  // component) from replaying a wish that was already served.
+  const servedTabNonce = useRef<number | null>(null);
   useEffect(() => {
-    if (requestedTab) setStudioTab(requestedTab.tab);
+    if (!requestedTab) return;
+    if (servedTabNonce.current === requestedTab.nonce) return;
+    servedTabNonce.current = requestedTab.nonce;
+    setStudioTab(requestedTab.tab);
+    onRequestedTabHandled?.();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [requestedTab?.nonce]);
 

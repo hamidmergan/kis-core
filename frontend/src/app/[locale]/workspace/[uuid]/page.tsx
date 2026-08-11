@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import dynamic from "next/dynamic";
 import { useParams, useSearchParams } from "next/navigation";
 import Spinner from "@/components/ui/Spinner";
@@ -223,7 +223,11 @@ export default function KiTutorWorkspacePage() {
   const { notes, setNotes, pendingTitleIds, addNote, deleteNote, updateNoteTitle } = useNotes({ uuid });
 
   // ─── Language training state ─────────────────────────────────────────────
+  // One-shot tab wish for the studio overview. MUST be cleared once applied,
+  // otherwise the overview re-applies it on every remount (e.g. coming back
+  // from a tool) and drags the user back to that tab forever.
   const [studioTabRequest, setStudioTabRequest] = useState<{ tab: "tools" | "glossary" | "notes" | "statistik" | "schedule"; nonce: number } | null>(null);
+  const clearStudioTabRequest = useCallback(() => setStudioTabRequest(null), []);
   // Language training state: see useLanguageTraining (init after selectedSourceIds)
 
   // ─── Exercise sets state ─────────────────────────────────────────────────
@@ -310,6 +314,7 @@ export default function KiTutorWorkspacePage() {
   // Wrapper: glossary extraction with UI navigation to the glossary tab
   async function handleAddToGlossary(text: string, sourceUuid: string, page: number) {
     setSprachView("overview");
+    setStudioView("overview");
     setStudioTabRequest({ tab: "glossary", nonce: Date.now() });
     if (isMobile) setActiveTab("studio");
     else setPanels((prev) => ({ ...prev, studio: true }));
@@ -323,6 +328,8 @@ export default function KiTutorWorkspacePage() {
     const citation = ` [Q1:${sourceUuid}, S. ${page}]`;
     const bodyBudget = NOTE_BODY_MAX - citation.length;
     const truncated = text.length > bodyBudget ? text.slice(0, bodyBudget - 1) + "…" : text;
+    setSprachView("overview");
+    setStudioView("overview");
     setStudioTabRequest({ tab: "notes", nonce: Date.now() });
     if (isMobile) setActiveTab("studio");
     else setPanels((prev) => ({ ...prev, studio: true }));
@@ -402,8 +409,8 @@ export default function KiTutorWorkspacePage() {
           || sources.find((s) => selectedSourceIds.includes(s.uuid));
         if (!src) return;
         if (_isMediaFile(src.filename) && startTime != null) {
-          // Don't narrow the selection (chat scopes to the viewer source anyway);
-          // narrowing here used to persist a stuck single source on reload.
+          // Don't narrow the selection: narrowing here used to persist a stuck
+          // single source on reload.
           setViewerSource({ uuid: src.uuid, filename: src.filename, page: 0, startTime, nonce: Date.now() });
           setPanels((prev) => ({ ...prev, quellen: true }));
         } else {
@@ -438,7 +445,9 @@ export default function KiTutorWorkspacePage() {
   // role. Owner and tutor manage it, everyone else learns from it, whether they
   // are staff, admin or student.
   const isOwner = moduleDetail?.can_manage ?? moduleDetail?.is_owner ?? false;
-  const activeSourceIds = viewerSource ? [viewerSource.uuid] : selectedSourceIds;
+  // Opening a source does not deactivate the others: the checked selection is the
+  // only thing that decides the scope, viewer open or not.
+  const activeSourceIds = selectedSourceIds;
 
   const p1Style: React.CSSProperties = effectivePanels.quellen
     ? { flex: `1 1 ${p1Width}px`, minWidth: 200, overflow: "hidden" }
@@ -463,6 +472,7 @@ export default function KiTutorWorkspacePage() {
       langTrainingView={langTrainingView}
       language_trainingActive={language_trainingVisible}
       studioTabRequest={studioTabRequest}
+      onStudioTabRequestHandled={clearStudioTabRequest}
       language_trainingContent={language_trainingContent}
       glossaryContent={glossaryContent}
       notesContent={notesContent}

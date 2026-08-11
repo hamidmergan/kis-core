@@ -26,6 +26,7 @@ interface UseChatOptions {
 
 export function useChat({ uuid, enrollmentId, selectedSourceIds, viewerSource, chatLang, popupTranslateLang }: UseChatOptions) {
   void chatLang; // popup labels now follow UI locale (Accept-Language); chatLang stays in the API for callers
+  void viewerSource; // the open source no longer scopes the chat, see sendChatMessage
   const labels = useWorkspaceLabel();
   const tChat = useTranslations("workspace.detail.chat");
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -97,7 +98,10 @@ export function useChat({ uuid, enrollmentId, selectedSourceIds, viewerSource, c
     sourceInfo?: { uuid: string; filename: string; page: number; selectedText?: string; actionKey?: string }
   ) => {
     content = content.replace(/\s*\[(?:Q\d+,\s*)?S\.\s*\d+\]/g, "");
-    const effectiveSourceIds = viewerSource ? [viewerSource.uuid] : selectedSourceIds;
+    // An open source never narrows the scope. Everything the reader checked stays
+    // active, also while one of those sources sits open in the viewer. Restricting
+    // the chat to a single source is a manual choice via the checkboxes.
+    const effectiveSourceIds = selectedSourceIds;
     if (!content.trim()) return;
     if (!directText && effectiveSourceIds.length === 0) return;
     const msgSourceCount = directText ? 1 : effectiveSourceIds.length;
@@ -273,7 +277,7 @@ export function useChat({ uuid, enrollmentId, selectedSourceIds, viewerSource, c
       failIfEmpty();
       setChatLoading(false);
     }
-  }, [uuid, enrollmentId, selectedSourceIds, viewerSource, popupActions]);
+  }, [uuid, enrollmentId, selectedSourceIds, popupActions]);
 
   // Read through a ref so retryLast keeps a stable identity — it travels down to
   // the memoized ChatMessage, and a `messages` dependency would re-render every

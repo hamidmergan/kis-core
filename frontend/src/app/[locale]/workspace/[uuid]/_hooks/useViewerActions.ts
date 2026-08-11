@@ -25,9 +25,9 @@ export function useViewerActions(opts: UseViewerActionsOptions) {
     chatSetInputRef, chatTextareaRef, sendChatMessage,
   } = opts;
 
-  // Opening a source does NOT narrow selectedSourceIds. The chat already scopes
-  // to the viewer source via `viewerSource ? [viewerSource.uuid] : selectedSourceIds`
-  // (see useChat). Narrowing here only overwrote — and persisted to sessionStorage —
+  // Opening a source does NOT narrow selectedSourceIds, and nothing downstream
+  // narrows it either: every checked source stays active while one of them is open
+  // in the viewer. Narrowing here also overwrote — and persisted to sessionStorage —
   // the user's multi-source selection, which then came back as a stuck single
   // source after navigating away/reloading with the viewer still open.
   const openViewer = useCallback((source: Source, page = 1, highlightText?: string, exactSelection?: boolean, isCitation = false) => {

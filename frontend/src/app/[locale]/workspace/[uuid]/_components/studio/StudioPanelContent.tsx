@@ -56,6 +56,7 @@ interface StudioPanelContentProps {
   langTrainingView: LanguageTrainingView;
   language_trainingActive: boolean;
   studioTabRequest: { tab: "tools" | "glossary" | "notes" | "statistik" | "schedule"; nonce: number } | null;
+  onStudioTabRequestHandled: () => void;
   // Content-Slots
   language_trainingContent: React.ReactNode;
   glossaryContent: React.ReactNode;
@@ -93,7 +94,7 @@ interface StudioPanelContentProps {
 export function StudioPanelContent(props: StudioPanelContentProps) {
   const t = useTranslations("workspace.detail.studio");
   const {
-    studioView, setStudioView, langTrainingView, language_trainingActive, studioTabRequest,
+    studioView, setStudioView, langTrainingView, language_trainingActive, studioTabRequest, onStudioTabRequestHandled,
     language_trainingContent, glossaryContent, notesContent,
     exercises: ex, notes: nt, mindmap: mm, data_table: dt,
     workspaceUuid, statsVersion, sources, selectedSourceIds, isAdmin, pageStats,
@@ -121,6 +122,7 @@ export function StudioPanelContent(props: StudioPanelContentProps) {
         activeSourceCount={selectedSourceIds.length}
         langTrainingView={langTrainingView}
         requestedTab={studioTabRequest}
+        onRequestedTabHandled={onStudioTabRequestHandled}
         sources={sources}
         selectedSourceIds={selectedSourceIds}
         onPillClick={onPillClick}
