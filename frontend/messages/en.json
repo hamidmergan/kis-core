@@ -1864,6 +1864,7 @@
       },
       "settings": {
         "title": "Settings",
+        "feedbackQuestion": "Feedback or issues?",
         "sectionPersonalTitle": "Personal",
         "sectionPersonalDescription": "Applies to you only. Others in the workspace do not see any of this.",
         "sectionWorkspaceTitle": "Workspace",
@@ -1911,7 +1912,6 @@
         "scrollToTop": "Scroll to top",
         "scrollToBottom": "Scroll to bottom",
         "aiNotice": "This platform uses AI and may make mistakes. Please verify the responses.",
-        "feedbackQuestion": "Feedback or issues?",
         "emptyHildeGreeting": "Hi, I'm Hilde.",
         "emptyFrancisGreeting": "Hi, I'm Francis.",
         "emptyHildeIntro": "Ask me anything about your sources - I'll help you understand, summarize and review.",

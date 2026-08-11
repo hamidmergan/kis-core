@@ -264,6 +264,20 @@ export function SettingsMenu({
             />
           </div>
         )}
+        {/* Der Workspace hat keine Fusszeile, die Adresse stand deshalb unter der
+            Chat-Eingabe und hat dort dauerhaft Platz gekostet. Wer ein Problem
+            melden will, sucht ohnehin in den Einstellungen. */}
+        <div className="mt-2 pt-4 border-t" style={{ borderColor: "var(--border)" }}>
+          <p className="text-xs" style={{ color: "var(--muted)" }}>
+            {t("feedbackQuestion")}{" "}
+            <a
+              href="mailto:hamid.mergan@th-luebeck.de"
+              className="hover:underline hover:text-[var(--kb)] transition-colors"
+            >
+              hamid.mergan@th-luebeck.de
+            </a>
+          </p>
+        </div>
       </div>
     </Modal>
   );

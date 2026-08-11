@@ -220,12 +220,6 @@ export function ChatPanel({
       <p className="hide-on-short w-full text-center mt-1 pb-0 text-xs" style={{ color: "var(--muted)" }}>
         {t("aiNotice")}
       </p>
-      <p className="hide-on-short w-full text-center mt-0 pb-0 text-xs" style={{ color: "var(--muted)" }}>
-        {t("feedbackQuestion")}{" "}
-        <a href="mailto:hamid.mergan@th-luebeck.de" className="hover:underline hover:text-[var(--kb)] transition-colors">
-          hamid.mergan@th-luebeck.de
-        </a>
-      </p>
     </div>
   );
 }

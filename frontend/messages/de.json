@@ -1864,6 +1864,7 @@
       },
       "settings": {
         "title": "Einstellungen",
+        "feedbackQuestion": "Feedback oder Probleme?",
         "sectionPersonalTitle": "Persönlich",
         "sectionPersonalDescription": "Gilt nur für dich. Andere im Workspace sehen davon nichts.",
         "sectionWorkspaceTitle": "Workspace",
@@ -1911,7 +1912,6 @@
         "scrollToTop": "Nach oben scrollen",
         "scrollToBottom": "Nach unten scrollen",
         "aiNotice": "Diese Plattform nutzt KI und kann Fehler machen. Überprüfen Sie die Antworten.",
-        "feedbackQuestion": "Feedback oder Probleme?",
         "emptyHildeGreeting": "Hallo, ich bin Hilde.",
         "emptyFrancisGreeting": "Hallo, ich bin Francis.",
         "emptyHildeIntro": "Frag mich was zu deinen Quellen - ich helfe dir beim Verstehen, Zusammenfassen und Wiederholen.",
