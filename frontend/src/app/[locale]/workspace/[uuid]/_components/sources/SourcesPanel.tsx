@@ -15,6 +15,8 @@ import { StaffNoteBox } from "./StaffNoteBox";
 import { StaffNoteEditModal } from "./StaffNoteEditModal";
 import { SourceRow } from "./SourceRow";
 import { ChapterHead } from "./ChapterHead";
+import { GroupCheckbox } from "./GroupCheckbox";
+import { groupState, isFullyReady, toggleGroupTargets } from "./_selection";
 import { EmptyState } from "@/components/ui/EmptyState";
 import IconButton from "@/components/ui/IconButton";
 
@@ -127,10 +129,6 @@ export function SourcesPanel({
     });
   }
 
-  // A source is chat-ready once indexing is done (status "ready" with the
-  // progress field cleared). Selecting an in-progress source would feed the
-  // chat empty context.
-  const isFullyReady = (s: Source) => s.status === "ready" && !s.progress;
   const readySources = sources.filter(isFullyReady);
   const allSelected = readySources.length > 0 && readySources.every((s) => selectedSourceIds.includes(s.uuid));
 
@@ -149,6 +147,9 @@ export function SourcesPanel({
   // landet bei "Ohne Kapitel", damit keine Datei unsichtbar wird.
   const known = new Set(chapterList.map((c) => c.uuid));
   const loose = sources.filter((s) => !s.chapter_uuid || !known.has(s.chapter_uuid));
+
+  const toggleGroup = (list: Source[]) =>
+    toggleGroupTargets(list, selectedSourceIds).forEach(onToggleSource);
 
   async function commitNewChapter() {
     if (newChapterBusy || !onCreateChapter) return;
@@ -408,6 +409,9 @@ export function SourcesPanel({
                   <ChapterHead
                     chapter={chapter}
                     count={mine.length}
+                    selectState={groupState(mine, selectedSourceIds)}
+                    selectDisabled={mine.filter(isFullyReady).length === 0}
+                    onToggleSelect={() => toggleGroup(mine)}
                     open={open}
                     isOwner={isOwner}
                     compact={compact}
@@ -441,9 +445,14 @@ export function SourcesPanel({
                 schlichte Liste von vorher. */}
             {loose.length > 0 && chapterList.length > 0 && (
               <div
-                className="flex items-center gap-2 pl-3 pr-2 py-2"
+                className="flex items-center gap-2 pl-4 pr-2 py-2"
                 style={{ borderBottom: "1px solid var(--border)" }}
               >
+                <GroupCheckbox
+                  state={groupState(loose, selectedSourceIds)}
+                  disabled={loose.filter(isFullyReady).length === 0}
+                  onToggle={() => toggleGroup(loose)}
+                />
                 <span className="flex-1 text-sm font-medium truncate" style={{ color: "var(--foreground-soft)" }}>
                   {t("noChapter")}
                 </span>

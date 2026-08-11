@@ -9,15 +9,20 @@ import {
 } from "@phosphor-icons/react";
 import type { Chapter } from "../../_types";
 import { MenuItem } from "./SourceRow";
+import { GroupCheckbox } from "./GroupCheckbox";
 
-/** Kopfzeile eines Kapitels: auf- und zuklappen, Anzahl, und das Menue mit
- *  Umbenennen, Reihenfolge und Loeschen.
+/** Kopfzeile eines Kapitels: Haken fuer alle Dateien darin, auf- und zuklappen,
+ *  Anzahl, und das Menue mit Umbenennen, Reihenfolge und Loeschen.
  *
- *  Ohne Haken. Kapitel gliedern nur, ausgewaehlt wird weiterhin je Datei.
+ *  Der Haken ist eine Abkuerzung, keine eigene Groesse: er setzt die Haken der
+ *  Dateien darin. Der Chat sieht weiterhin nur einzelne Dateien.
  */
 export function ChapterHead({
   chapter,
   count,
+  selectState,
+  selectDisabled,
+  onToggleSelect,
   open,
   isOwner,
   compact,
@@ -35,6 +40,10 @@ export function ChapterHead({
 }: {
   chapter: Chapter;
   count: number;
+  /** Aus den Haken der Dateien im Kapitel abgeleitet, nicht selbst gespeichert. */
+  selectState: "none" | "some" | "all";
+  selectDisabled: boolean;
+  onToggleSelect: () => void;
   open: boolean;
   isOwner: boolean;
   compact: boolean;
@@ -119,9 +128,10 @@ export function ChapterHead({
 
   return (
     <div
-      className="relative flex items-center gap-2 pl-3 pr-2 py-2 select-none"
+      className="relative flex items-center gap-2 pl-4 pr-2 py-2 select-none"
       style={{ backgroundColor: "var(--surface-dim)", borderBottom: "1px solid var(--border)" }}
     >
+      <GroupCheckbox state={selectState} disabled={selectDisabled} onToggle={onToggleSelect} />
       <button
         type="button"
         onClick={onToggleOpen}

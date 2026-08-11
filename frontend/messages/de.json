@@ -1971,6 +1971,8 @@
         "deleteChapterWarning": "Die Dateien bleiben erhalten und stehen danach ohne Kapitel.",
         "dropHere": "Dateien hier ablegen",
         "emptyHintStudent": "Noch keine Quellen vorhanden.",
+        "selectChapter": "Kapitel auswählen",
+        "deselectChapter": "Kapitel abwählen",
         "progressStage": {
           "parsing": "Lesen",
           "ocr": "OCR Seite",

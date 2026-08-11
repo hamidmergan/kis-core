@@ -1971,6 +1971,8 @@
         "deleteChapterWarning": "The files are kept and will sit outside any chapter afterwards.",
         "dropHere": "Drop files here",
         "emptyHintStudent": "No sources yet.",
+        "selectChapter": "Select chapter",
+        "deselectChapter": "Deselect chapter",
         "progressStage": {
           "parsing": "Parsing",
           "ocr": "OCR page",
