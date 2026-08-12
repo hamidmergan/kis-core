@@ -294,6 +294,9 @@ export interface ExerciseSet {
   instruction?: string | null;
   pattern_front?: string | null;
   pattern_back?: string | null;
+  /** Ob eine Stimme für die Aussprache eingerichtet ist. Kommt nur an der EINZELNEN
+   *  Menge mit, nicht an der Liste, weil nur die Lernansicht den Knopf zeigt. */
+  speech_enabled?: boolean;
 }
 
 export interface StreakInfo {
