@@ -251,6 +251,13 @@ export function FlashcardsLearnView({
           const wordClass = card.extras?.word_class?.trim() || "";
           const singular = card.extras?.singular?.trim() || "";
           const plural = card.extras?.plural?.trim() || "";
+          const verbPresent = card.extras?.verb_present?.trim() || "";
+          const verbPast = card.extras?.verb_past?.trim() || "";
+          const verbPerfect = card.extras?.verb_perfect?.trim() || "";
+          // Ein Verb bringt normalerweise alle drei mit. Gezeichnet wird trotzdem
+          // jede Zeile für sich, damit eine halb gefüllte Karte aus der Zeit vor
+          // dieser Änderung nicht plötzlich leere Zeilen zeigt.
+          const hasVerbForms = Boolean(verbPresent || verbPast || verbPerfect);
           // A noun without a plural (Wasser, Hunger) keeps its singular under the neutral
           // label "Form", because the article is the point. A lone "Singular" row would
           // promise a "Plural" row that never comes. A plural without a singular is dropped.
@@ -302,7 +309,7 @@ export function FlashcardsLearnView({
                       );
                     })()}
                     {/* Word class first, then the number forms when present, no box */}
-                    {(wordClass || singular) && (
+                    {(wordClass || singular || hasVerbForms) && (
                       <div className="flex flex-col gap-1 px-1">
                         {wordClass && (
                           <div className="flex items-baseline gap-1.5 text-sm">
@@ -326,6 +333,24 @@ export function FlashcardsLearnView({
                           <div className="flex items-baseline gap-1.5 text-sm">
                             <span className="font-semibold shrink-0" style={{ color: "var(--foreground)" }}>{t("flashcardsLearn.form")}</span>
                             <span >{singular}</span>
+                          </div>
+                        )}
+                        {verbPresent && (
+                          <div className="flex items-baseline gap-1.5 text-sm">
+                            <span className="font-semibold shrink-0" style={{ color: "var(--foreground)" }}>{t("flashcardsLearn.verbPresent")}</span>
+                            <span>{verbPresent}</span>
+                          </div>
+                        )}
+                        {verbPast && (
+                          <div className="flex items-baseline gap-1.5 text-sm">
+                            <span className="font-semibold shrink-0" style={{ color: "var(--foreground)" }}>{t("flashcardsLearn.verbPast")}</span>
+                            <span>{verbPast}</span>
+                          </div>
+                        )}
+                        {verbPerfect && (
+                          <div className="flex items-baseline gap-1.5 text-sm">
+                            <span className="font-semibold shrink-0" style={{ color: "var(--foreground)" }}>{t("flashcardsLearn.verbPerfect")}</span>
+                            <span>{verbPerfect}</span>
                           </div>
                         )}
                       </div>
