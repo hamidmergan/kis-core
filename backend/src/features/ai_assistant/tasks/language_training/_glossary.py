@@ -7,6 +7,7 @@ from loguru import logger
 
 from src import database as db
 from src.features.ai_assistant.tasks._helpers import _clean_llm_json
+from src.services.aia_grammar_check import normalize
 from src.tool_prompts import AIA_KARTEIKARTEN_GLOSSAR_PROMPT, AIA_LERNKARTEN_PROMPT
 
 from src.features.ai_assistant.tasks.language_training._source_flashcards import flashcard_extras
@@ -20,6 +21,46 @@ def _sources_for(e: dict) -> list[dict]:
         "page_number": e.get("page_number"),
         "start_time": None,
     }]
+
+
+def _terms_used(workspace_id: int, user_id: int, tool: str) -> set[str]:
+    """Vergleichsformen der Begriffe, die diese Person in diesem Werkzeug schon hatte.
+
+    ``normalize`` ist dieselbe Vergleichsform, die ``item_key`` benutzt. Sie faltet
+    Gross- und Kleinschreibung, Klammereinschuebe und Satzzeichen und geht nach
+    Unicode-Kategorie, gilt also in jeder Sprache.
+
+    Ein Fehlschlag liefert die leere Menge, dann wird gezogen wie vor dieser Aenderung.
+    Den Filter zu verlieren kostet eine wiederholte Karte, den Auftrag scheitern zu
+    lassen kostet den ganzen Satz. Gleiche Haltung wie in ``seen_by_user``.
+    """
+    try:
+        gehabt = db.glossary_terms_used(workspace_id, user_id, tool)
+    except Exception as exc:  # noqa: BLE001 - ein Satz ohne Filter ist besser als keiner
+        logger.warning("Glossar: gehabte Begriffe nicht lesbar, es wird frei gezogen: {}", exc)
+        return set()
+    return {schluessel for schluessel in (normalize(t or "") for t in gehabt) if schluessel}
+
+
+def _pick_terms(glossary: list[dict], gehabt: set[str], count: int) -> list[dict]:
+    """Frische Begriffe zuerst, danach mit schon benutzten auffuellen.
+
+    Die beiden Toepfe ueberschneiden sich nicht, und ``random.sample`` zieht ohne
+    Zuruecklegen. Ein Begriff kann also nicht zweimal im selben Satz stehen. Mehr als das
+    Glossar hergibt kommt nie heraus, ein Glossar mit drei Begriffen liefert weiter drei
+    Karten.
+
+    Sind alle Begriffe verbraucht, ist ``frisch`` leer und es wird vollstaendig aus den
+    benutzten gezogen. Das ist der zweite Durchlauf. Gezogen wird auch dort zufaellig und
+    nicht nach Alter, so entschieden am 2026-08-12.
+    """
+    frisch = [e for e in glossary if normalize(e.get("term_de", "")) not in gehabt]
+    benutzt = [e for e in glossary if normalize(e.get("term_de", "")) in gehabt]
+    gewaehlt = random.sample(frisch, min(count, len(frisch)))
+    fehlt = count - len(gewaehlt)
+    if fehlt > 0 and benutzt:
+        gewaehlt += random.sample(benutzt, min(fehlt, len(benutzt)))
+    return gewaehlt
 
 
 def generate_from_glossary(
@@ -37,7 +78,7 @@ def generate_from_glossary(
     if not glossary:
         return None
 
-    selected = random.sample(glossary, min(count, len(glossary)))
+    selected = _pick_terms(glossary, _terms_used(workspace_id, user_id, tool), count)
     items: list[dict] = []
 
     if tool == "flashcards":
