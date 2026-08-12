@@ -260,6 +260,10 @@ MESSAGES: dict[str, dict[str, str]] = {
         "de": "Maximale Seiten pro Quelle muss zwischen {min} und {max} liegen.",
         "en": "Max pages per source must be between {min} and {max}.",
     },
+    "admin.settings.flashcardVoiceProviderInvalid": {
+        "de": "Anbieter für die Aussprache ist keine gültige Nummer",
+        "en": "The pronunciation provider is not a valid id",
+    },
     # Die vier Fehlermeldungen zu Nebenläufigkeit sind entfallen. Sie gehörten zu
     # Eingabefeldern, die es nicht mehr gibt: Plätze und Uploads werden an der
     # Maschine gemessen, Vertonung und Spracherkennung regeln sich nach Absagen
