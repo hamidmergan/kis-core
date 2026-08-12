@@ -34,8 +34,19 @@ export default function FlashcardVoiceCard() {
   // Lade Anbieter und Stimmen beim Mount
   useEffect(() => {
     fetch("/api/tts/providers-with-voices", { credentials: "include" })
-      .then((r) => r.json())
+      .then((r) => {
+        // Prüfe auf Serverfehler, bevor der JSON-Body ausgewertet wird.
+        // FastAPI liefert auch bei 500-Errors gültiges JSON, z.B. {"detail": ...}.
+        // Ohne r.ok-Prüfung würde d.providers undefined sein und wir würden fälschlich
+        // in den Zustand "geladen, keine Anbieter" fallen statt in den Fehler.
+        if (!r.ok) {
+          setLoadState("error");
+          return;
+        }
+        return r.json();
+      })
       .then((d) => {
+        if (d === undefined) return; // Fehler wurde bereits gehandelt
         const p = d.providers ?? [];
         setProviders(p);
         setLoadState(p.length === 0 ? "loaded-empty" : "loaded");
@@ -53,7 +64,7 @@ export default function FlashcardVoiceCard() {
       void voiceField.set("");
     }
     prevProviderRef.current = providerField.value;
-  }, [providerField.value, voiceField]);
+  }, [providerField.value]);
 
   const chosen = providers.find((p) => String(p.id) === providerField.value);
 
