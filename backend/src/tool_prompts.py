@@ -662,7 +662,8 @@ AIA_LERNKARTEN_PROMPT = (
     "(title, definition, word_parts_explained, example_sentence, word_class) ENTIRELY in {language}. "
     "Some examples further down are written in German for illustration only - IGNORE their language and always write in {language}. "
     "The 'begriff' (the technical term itself) stays VERBATIM in the source-text language, and the parts in "
-    "'word_parts' / the part labels in 'word_parts_explained' / the forms in 'singular' and 'plural' stay in that same language "
+    "'word_parts' / the part labels in 'word_parts_explained' / the forms in 'singular' and 'plural' / "
+    "the verb forms in 'verb_present', 'verb_past' and 'verb_perfect' stay in that same language "
     "- they are the term being studied. "
     "So an English card about a German term reads e.g. begriff='Literaturrecherche', definition='Searching for books and articles to gather information.'\n\n"
     "Respond ONLY with a JSON object in exactly this format:\n"
@@ -678,6 +679,9 @@ AIA_LERNKARTEN_PROMPT = (
     '      "word_class": "part of speech, in {language}",\n'
     '      "singular": "singular form of the term with its article (fill for every noun)",\n'
     '      "plural": "plural form of the term with its article (fill unless the noun has no plural at all)",\n'
+    '      "verb_present": "3rd person singular, present tense (verbs only)",\n'
+    '      "verb_past": "3rd person singular, simple past (verbs only)",\n'
+    '      "verb_perfect": "perfect form WITH its auxiliary (verbs only)",\n'
     '      "begriff_en": "English translation",\n'
     '      "source_label": "Filename.pdf",\n'
     '      "page_number": 5\n'
@@ -743,6 +747,21 @@ AIA_LERNKARTEN_PROMPT = (
     "Example for 'Studienabbruchquote': 'Die Studienabbruchquote ist hoch, viele Studenten hören auf, bevor sie fertig sind.' "
     "The sentence should help the student understand the term in context.\n"
     "- word_class: the part of speech of the begriff, written in {language} (e.g. Nomen / Verb / Adjektiv, or noun / verb / adjective). Always fill this.\n"
+    "- word_class VERB MARKER: when the begriff is a VERB, append a bracket to the word class saying whether it is "
+    "regular or irregular, and add the word for reflexive when the verb is reflexive. Write the bracket in {language}. "
+    "German examples: 'sich treffen' -> 'Verb (unregelmäßig, reflexiv)'; 'lernen' -> 'Verb (regelmäßig)'; "
+    "'sich beeilen' -> 'Verb (regelmäßig, reflexiv)'. Anything that is not a verb gets NO bracket.\n"
+    "- verb_present, verb_past, verb_perfect: fill all three ONLY when the begriff is a verb, otherwise leave all three "
+    "empty. Give the THIRD PERSON SINGULAR in each tense and keep the reflexive pronoun with the verb when it has one. "
+    "verb_perfect MUST carry its auxiliary, because that is the part a learner cannot guess. "
+    "German example 'sich treffen': verb_present='trifft sich', verb_past='traf sich', verb_perfect='hat sich getroffen'. "
+    "German example 'lernen': verb_present='lernt', verb_past='lernte', verb_perfect='hat gelernt'. "
+    "German example 'fahren': verb_present='fährt', verb_past='fuhr', verb_perfect='ist gefahren' (auxiliary 'ist', not 'hat').\n"
+    "- verb forms CERTAINTY: if you are not fully certain of ONE of the forms, leave ALL THREE empty. "
+    "A missing row costs the learner nothing, a wrong form teaches them something false.\n"
+    "  GOOD: 'backen' -> verb_present='backt', verb_past='backte', verb_perfect='hat gebacken'\n"
+    "  BAD: 'backen' -> verb_present='backt', verb_past='', verb_perfect='hat gebackt' (one form skipped, one invented)\n"
+    "- A language that does not build these three tenses leaves all three empty rather than forcing a form.\n"
     "- singular and plural: for a term that is a single inflectable word (typically a noun), fill BOTH fields. "
     "Give the term's singular form and its plural form in the source language, each WITH its definite article if that language uses one "
     "(German: singular='der Fluchtweg', plural='die Fluchtwege'). "
@@ -756,7 +775,8 @@ AIA_LERNKARTEN_PROMPT = (
     "- Only use terms from the given text\n"
     "- Focus on central technical terms, NO comprehension questions\n"
     "- REMINDER: title, definition, word_parts_explained, example_sentence and word_class MUST be written in {language} "
-    "(only begriff, word_parts, the part labels inside word_parts_explained, and the singular/plural forms keep the source language).\n"
+    "(only begriff, word_parts, the part labels inside word_parts_explained, the singular/plural forms and the three "
+    "verb forms keep the source language).\n"
     "- Respond ONLY with the JSON object, no other text."
 )
 

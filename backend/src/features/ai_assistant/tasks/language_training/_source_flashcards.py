@@ -75,7 +75,11 @@ def _format_lernkarte(c: dict) -> dict:
     extras = {
         k: (c.get(k) or "").strip()
         for k in ("word_parts", "word_parts_explained", "example_sentence",
-                  "word_class", "singular", "plural")
+                  "word_class", "singular", "plural",
+                  # Verben: Art steht in der Klammer hinter word_class, die drei
+                  # Zeitformen stehen einzeln. Leer bei allem, was kein Verb ist,
+                  # und der Filter unten wirft sie dann ganz weg.
+                  "verb_present", "verb_past", "verb_perfect")
         if (c.get(k) or "").strip()
     }
     if extras:
