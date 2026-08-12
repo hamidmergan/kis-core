@@ -12,7 +12,8 @@ class UpdateSettingsRequest(BaseModel):
 
     Provider selection, model names, and feature routing live in the dedicated
     "KI" admin tab (providers + feature_routes tables); they are NOT part of
-    this payload.
+    this payload. Exception: flashcard voice provider (aia_flashcard_voice_provider_id)
+    is configured here.
     """
     whitelist_enabled: bool | None = None
     # UI label for "Workspace" (singular + plural), per UI locale.

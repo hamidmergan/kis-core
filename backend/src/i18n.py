@@ -153,6 +153,10 @@ MESSAGES: dict[str, dict[str, str]] = {
         "de": "Zu dieser Karte gibt es keinen Beispielsatz",
         "en": "This card has no example sentence",
     },
+    "flashcards.speechOnly": {
+        "de": "Der Lautsprecher ist nur für Lernkarten-Übungen verfügbar",
+        "en": "Speech is only available for flashcard exercises",
+    },
     "set.retryNotFailed": {
         "de": "Diese Übung wird gerade erstellt oder ist schon fertig",
         "en": "This exercise is being created right now or is already finished",

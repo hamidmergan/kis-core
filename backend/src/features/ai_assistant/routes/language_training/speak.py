@@ -63,6 +63,12 @@ def speak_example_sentence(
     if not ex_set or ex_set["user_id"] != user_id or ex_set["workspace_id"] != workspace["id"]:
         raise HTTPException(status_code=404, detail=t("set.notFound", locale))
 
+    # Der Lautsprecher funktioniert nur bei Lernkarten-Übungen. Nur Lernkarten
+    # schreiben `example_sentence` in `extras`. Dieses Verbot ist in den Daten
+    # harte Sicherheit, keine zufällige Implementierungsfolge.
+    if ex_set.get("tool") != "flashcards":
+        raise HTTPException(status_code=403, detail=t("flashcards.speechOnly", locale))
+
     item = next((i for i in ex_set.get("items", []) if i["id"] == item_id), None)
     if not item:
         raise HTTPException(status_code=404, detail=t("set.notFound", locale))
