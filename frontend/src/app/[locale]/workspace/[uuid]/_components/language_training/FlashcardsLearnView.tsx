@@ -65,6 +65,12 @@ export function FlashcardsLearnView({
   // Ein Aufbau der Ansicht ist ein Durchgang. Die erste Antwort meldet ihn an,
   // aus der Meldung macht das Backend die naechste Durchgangsnummer.
   const runGemeldetRef = useRef(false);
+  // Dieselbe Liste wie in `results`, nur sofort da. `results` steht erst beim
+  // naechsten Zeichnen bereit. Bei Lernkarten bewertet der Weiter-Knopf die
+  // Karte und blaettert im selben Zug weiter, und das Blaettern las dabei noch
+  // den alten Stand: die letzte Karte galt als offen, obwohl sie gerade
+  // beantwortet wurde. Die Nachfrage kam und zaehlte null offene Karten.
+  const answeredRef = useRef<Set<number>>(new Set());
   // Der Tipp steht fertig an der Karte, der Knopf klappt ihn nur auf.
   const [showHint, setShowHint] = useState(false);
 
@@ -83,6 +89,7 @@ export function FlashcardsLearnView({
     // Eine bewertete Karte bleibt bewertet. Wer zurueckblaettert, sieht sein Urteil
     // und kann es nicht mehr aendern, offene Karten bleiben offen.
     if (!card || card.id in results) return;
+    answeredRef.current.add(card.id);
     setResults((r) => ({ ...r, [card.id]: correct }));
     if (correct) setStreak((s) => s + 1);
     else setStreak(0);
@@ -101,13 +108,13 @@ export function FlashcardsLearnView({
       goTo(index + 1);
       return;
     }
-    const pending = items.filter((it) => !(it.id in results));
+    const pending = items.filter((it) => !answeredRef.current.has(it.id));
     if (pending.length > 0) setShowPendingPrompt(true);
     else setShowResults(true);
   }
 
   function goToFirstPending() {
-    const firstPendingIdx = items.findIndex(it => !(it.id in results));
+    const firstPendingIdx = items.findIndex(it => !answeredRef.current.has(it.id));
     if (firstPendingIdx >= 0) {
       setIndex(firstPendingIdx);
       setFlipped(false);
@@ -193,7 +200,7 @@ export function FlashcardsLearnView({
             );
           })()}
           <div className="flex gap-3 mt-4">
-            <button type="button" onClick={() => { setShowResults(false); setIndex(0); setFlipped(false); setResults({}); setShowPendingPrompt(false); shuffledRef.current = false; }}
+            <button type="button" onClick={() => { setShowResults(false); setIndex(0); setFlipped(false); setResults({}); answeredRef.current = new Set(); setShowPendingPrompt(false); shuffledRef.current = false; }}
               className="btn-outline-accent px-5 py-2 rounded-full text-xs font-semibold transition-all">
               {t("common.again")}
             </button>
@@ -204,7 +211,9 @@ export function FlashcardsLearnView({
           </div>
         </div>
       ) : showPendingPrompt ? (() => {
-        const pendingCount = total - Object.keys(results).length;
+        // Dieselbe Zaehlung wie beim Ausloesen der Nachfrage, damit Text und
+        // Anlass nie auseinanderlaufen.
+        const pendingCount = items.filter((it) => !answeredRef.current.has(it.id)).length;
         return (
           <div className="flex-1 flex flex-col items-center justify-center px-6 gap-3">
             <div className="w-16 h-16 rounded-full flex items-center justify-center mb-2"
