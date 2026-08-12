@@ -15,6 +15,10 @@ import { useCallback, useEffect, useRef, useState } from "react";
 export function useVoicePlayer({ keepCache = false }: { keepCache?: boolean } = {}) {
   const [playingId, setPlayingId] = useState<string | null>(null);
   const [loadingId, setLoadingId] = useState<string | null>(null);
+  // Traegt die Kennung, bei der die Erzeugung zuletzt fehlschlug. Bestehende
+  // Aufrufer (Admin-Stimmenvorschau) lesen das Feld einfach nicht und bleiben
+  // unveraendert stumm; wer neu draufschaut, kann jetzt einen Hinweis zeigen.
+  const [failedId, setFailedId] = useState<string | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const abortRef = useRef<AbortController | null>(null);
   const objectUrlRef = useRef<string | null>(null);
@@ -77,6 +81,9 @@ export function useVoicePlayer({ keepCache = false }: { keepCache?: boolean } = 
 
   const playFromApi = useCallback(async (voiceId: string, endpoint: string, actualVoiceId?: string) => {
     stopCurrent();
+    // Ein neuer Versuch raeumt einen alten Fehlschlag weg, egal ob er derselben
+    // oder einer anderen Kennung galt.
+    setFailedId(null);
     if (playingId === voiceId || loadingId === voiceId) {
       setPlayingId(null);
       setLoadingId(null);
@@ -97,15 +104,17 @@ export function useVoicePlayer({ keepCache = false }: { keepCache?: boolean } = 
         body: JSON.stringify({ voice_id: actualVoiceId ?? voiceId }),
         signal: controller.signal,
       });
-      if (!res.ok) { setLoadingId(null); return; }
+      if (!res.ok) { setLoadingId(null); setFailedId(voiceId); return; }
       const blob = await res.blob();
       const url = URL.createObjectURL(blob);
       if (keepCache) cacheRef.current.set(voiceId, url);
       start(voiceId, url, keepCache);
     } catch (e) {
-      if ((e as Error).name !== "AbortError") setLoadingId(null);
+      // Ein Abbruch durch den Nutzer (neuer Klick, Aushaengen) ist kein Fehler
+      // und bekommt keinen Hinweis.
+      if ((e as Error).name !== "AbortError") { setLoadingId(null); setFailedId(voiceId); }
     }
   }, [playingId, loadingId, stopCurrent, keepCache, start]);
 
-  return { playingId, loadingId, playUrl, playFromApi };
+  return { playingId, loadingId, failedId, playUrl, playFromApi };
 }

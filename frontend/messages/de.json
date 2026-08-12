@@ -1752,6 +1752,7 @@
           "example": "Beispiel",
           "playExample": "Beispielsatz anhören",
           "stopExample": "Wiedergabe anhalten",
+          "speechFailed": "Das Vorlesen hat nicht geklappt. Später noch einmal versuchen.",
           "translationPrefix": "EN:",
           "nextTerm": "Nächster Begriff"
         },

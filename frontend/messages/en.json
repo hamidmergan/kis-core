@@ -1752,6 +1752,7 @@
           "example": "Example",
           "playExample": "Listen to the example sentence",
           "stopExample": "Stop playback",
+          "speechFailed": "Playback failed. Try again later.",
           "translationPrefix": "EN:",
           "nextTerm": "Next term"
         },

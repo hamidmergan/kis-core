@@ -80,7 +80,7 @@ export function FlashcardsLearnView({
   // Der erzeugte Ton bleibt an der Karte hängen, solange diese Ansicht steht.
   // Zweiter Klick spielt sofort. Beim Verlassen ist alles weg, gespeichert wird
   // nichts.
-  const { playingId, loadingId, playFromApi } = useVoicePlayer({ keepCache: true });
+  const { playingId, loadingId, failedId, playFromApi } = useVoicePlayer({ keepCache: true });
 
   const total = items.length;
   const card = items[index];
@@ -368,6 +368,7 @@ export function FlashcardsLearnView({
                       const speechKey = String(card.id);
                       const busy = loadingId === speechKey;
                       const running = playingId === speechKey;
+                      const failed = failedId === speechKey;
                       return (
                         <div className="px-3 py-2.5 rounded-xl" style={{ border: "1px solid var(--border)" }}>
                           <div className="flex items-center justify-between gap-2">
@@ -389,6 +390,11 @@ export function FlashcardsLearnView({
                             )}
                           </div>
                           <p className="text-sm italic leading-relaxed mt-1" style={{ color: "var(--foreground)" }}>{exampleSentence}</p>
+                          {/* Kein Kasten, kein Aufklappen: nur eine schlichte Zeile, die beim
+                              naechsten Klick auf den Lautsprecher wieder verschwindet. */}
+                          {failed && (
+                            <p className="text-3xs mt-1.5" style={{ color: "var(--muted)" }}>{t("flashcardsLearn.speechFailed")}</p>
+                          )}
                         </div>
                       );
                     })()}
