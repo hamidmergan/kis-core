@@ -355,3 +355,24 @@ def test_ein_fehlschlag_legt_nichts_ab(settings, monkeypatch):
     with pytest.raises(HTTPException):
         speech.synthesize_sentence("Ein Satz.")
     assert vorrat.inhalt == {}
+
+
+def test_ein_modellwechsel_entwertet_den_vorrat():
+    """Das Modell steht in der Route "Text in Sprache", nicht am Anbieter. Ginge es
+    nicht in den Fingerabdruck ein, liefe der Vorrat nach einem Wechsel weiter mit dem
+    alten Klang, und nichts wuerde ihn entwerten ausser neunzig Tagen Nichtnutzung."""
+    alt = speech_cache.fingerprint("Ein Satz.", 21, "alloy", 1.0, "xtts-v2")
+    neu = speech_cache.fingerprint("Ein Satz.", 21, "alloy", 1.0, "kokoro-v1")
+    assert alt != neu
+
+
+def test_der_sprechweg_nimmt_das_modell_in_den_schluessel(settings, monkeypatch, vorrat):
+    """Nicht nur die Rechenfunktion kennt das Modell, der Weg reicht es auch durch."""
+    _eingerichtet(settings)
+    client = _Client()
+    _mit_client(monkeypatch, client)
+    monkeypatch.setattr("src.dependencies.tts_model_for_provider", lambda pid: "modell-a")
+    speech.synthesize_sentence("Ein Satz.")
+
+    erwartet = speech_cache.fingerprint("Ein Satz.", 21, "alloy", 1.0, "modell-a")
+    assert erwartet in vorrat.inhalt

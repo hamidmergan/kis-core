@@ -72,7 +72,7 @@ def synthesize_sentence(sentence: str, locale: str = "de") -> bytes:
     from fastapi import HTTPException
     from loguru import logger
 
-    from src.dependencies import get_tts_client_for_provider
+    from src.dependencies import get_tts_client_for_provider, tts_model_for_provider
     from src.features.ai_assistant.repository import speech_cache
     from src.i18n import t
 
@@ -86,7 +86,11 @@ def synthesize_sentence(sentence: str, locale: str = "de") -> bytes:
     text = speech_cache.normalize_sentence(sentence)
     if not text:
         raise HTTPException(status_code=503, detail=t("tts.providerUnavailable", locale))
-    key = speech_cache.fingerprint(text, provider_id, voice_id, _SPEED)
+    # Das Modell steht in der Route "Text in Sprache", nicht am Anbieter. Es gehoert in
+    # den Fingerabdruck, sonst bedient der Vorrat nach einem Modellwechsel weiter den
+    # alten Klang. Der Aufruf liest nur die Datenbank, kein Netz.
+    key = speech_cache.fingerprint(
+        text, provider_id, voice_id, _SPEED, tts_model_for_provider(provider_id))
 
     # Ein kaputter Vorrat darf das Vorlesen nicht verhindern, er ist eine Abkürzung
     # und keine Voraussetzung. Faellt er aus, wird eben gesprochen.

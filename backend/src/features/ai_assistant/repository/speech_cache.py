@@ -40,11 +40,18 @@ def normalize_sentence(sentence: str) -> str:
     return " ".join(line.strip() for line in (sentence or "").splitlines() if line.strip())
 
 
-def fingerprint(sentence: str, provider_id: int, voice_id: str, speed: float) -> str:
+def fingerprint(sentence: str, provider_id: int, voice_id: str, speed: float,
+                model: str = "") -> str:
     """Der Schluessel eines Tons.
 
     Alles, was den Klang aendert, geht ein. Stimme und Anbieter, weil derselbe Satz
     mit einer anderen Stimme ein anderer Ton ist, und das Tempo aus demselben Grund.
+
+    Das MODELL gehoert ebenfalls dazu, obwohl es nicht am Anbieter haengt, sondern in
+    der Route "Text in Sprache" steht. Ohne es liefert der Vorrat nach einem
+    Modellwechsel weiter den alten Klang, und nichts entwertet ihn, ausser dass ihn
+    neunzig Tage niemand hoert.
+
     Die Teile werden durch ein Nullbyte getrennt, damit sich keine zwei verschiedenen
     Kombinationen zu derselben Zeichenkette zusammenschieben lassen.
     """
@@ -53,6 +60,7 @@ def fingerprint(sentence: str, provider_id: int, voice_id: str, speed: float) ->
         str(provider_id),
         voice_id or "",
         f"{float(speed):.2f}",
+        model or "",
     ))
     return hashlib.sha256(roh.encode("utf-8")).hexdigest()
 

@@ -194,6 +194,23 @@ async def get_reachable_tts_providers_with_voices() -> list[dict]:
     return [p for p, ok in zip(providers, flags) if ok]
 
 
+def tts_model_for_provider(provider_id: int) -> str:
+    """Welches TTS-Modell hinter diesem Anbieter steht, oder "" wenn keines gesetzt ist.
+
+    Steckt NICHT im Anbieter selbst, sondern in der Route "Text in Sprache". Wer den
+    Klang eines Tons eindeutig bestimmen will, braucht deshalb beides. Der
+    Aussprache-Vorrat nimmt das Modell in seinen Fingerabdruck auf: sonst liefert er
+    nach einem Modellwechsel weiter den alten Klang, ohne dass irgendetwas ihn
+    entwertet.
+
+    Wirft nicht. Ein fehlendes Modell ist hier eine Antwort, kein Fehler.
+    """
+    from src import database as db
+    route = db.get_route("tts")
+    provider_models = (route.get("provider_models") if route else None) or {}
+    return provider_models.get(str(provider_id)) or (route.get("model_name") if route else None) or ""
+
+
 def get_tts_client_for_provider(provider_id: int):
     """Return an OpenAICompatTTSClient for the given provider_id, or None."""
     from src import database as db
@@ -201,9 +218,7 @@ def get_tts_client_for_provider(provider_id: int):
     provider = db.get_provider(provider_id)
     if not provider or not provider.get("enabled"):
         return None
-    route = db.get_route("tts")
-    provider_models = (route.get("provider_models") if route else None) or {}
-    model = provider_models.get(str(provider_id)) or (route.get("model_name") if route else None) or ""
+    model = tts_model_for_provider(provider_id)
     if not model:
         raise feature_router.FeatureNotConfigured(
             "tts route has no model_name — set it in the admin KI panel"
