@@ -46,8 +46,19 @@ def speech_enabled() -> bool:
     return configured_voice() is not None
 
 
+# Tempo der Aussprache. Konstante und keine Einstellung: wer langsamer hoeren will,
+# ist mit einer anderen Stimme besser bedient als mit einem gedehnten Ton. Sie geht in
+# den Fingerabdruck des Vorrats ein, eine Aenderung entwertet ihn also.
+_SPEED = 1.0
+
+
 def synthesize_sentence(sentence: str, locale: str = "de") -> bytes:
     """Einen Satz sprechen und die MP3-Bytes zurückgeben.
+
+    Zuerst wird im Vorrat nachgesehen. Ein Satz kostet beim Anbieter vier bis fünf
+    Sekunden, und ohne Vorrat zahlt jede Person im Kurs diesen Preis erneut. Was
+    einmal gesprochen wurde, liegt danach für alle bereit, siehe
+    ``repository.speech_cache``.
 
     Zwei Versuche, nicht mehr. Bei der Messung am 2026-08-12 hat myLab eine von
     neun Anfragen mit 500 abgewiesen und beim zweiten Versuch sauber geliefert;
@@ -62,12 +73,30 @@ def synthesize_sentence(sentence: str, locale: str = "de") -> bytes:
     from loguru import logger
 
     from src.dependencies import get_tts_client_for_provider
+    from src.features.ai_assistant.repository import speech_cache
     from src.i18n import t
 
     chosen = configured_voice()
     if not chosen:
         raise HTTPException(status_code=503, detail=t("tts.providerUnavailable", locale))
     provider_id, voice_id = chosen
+
+    # Genau der Text, der auch beim Anbieter ankommt. Wird hier anders normalisiert
+    # als dort, greift der Vorrat nie.
+    text = speech_cache.normalize_sentence(sentence)
+    if not text:
+        raise HTTPException(status_code=503, detail=t("tts.providerUnavailable", locale))
+    key = speech_cache.fingerprint(text, provider_id, voice_id, _SPEED)
+
+    # Ein kaputter Vorrat darf das Vorlesen nicht verhindern, er ist eine Abkürzung
+    # und keine Voraussetzung. Faellt er aus, wird eben gesprochen.
+    try:
+        vorrat = speech_cache.get(key)
+    except Exception as exc:  # noqa: BLE001 - jeder Datenbankfehler ist derselbe Fall
+        logger.warning("Aussprache-Vorrat nicht lesbar: {}", exc)
+        vorrat = None
+    if vorrat:
+        return vorrat
 
     try:
         client = get_tts_client_for_provider(provider_id)
@@ -79,8 +108,14 @@ def synthesize_sentence(sentence: str, locale: str = "de") -> bytes:
 
     for versuch in (1, 2):
         try:
-            return client.synthesize_chunk(sentence, voice_id=voice_id, speed=1.0)
+            audio = client.synthesize_chunk(text, voice_id=voice_id, speed=_SPEED)
         except Exception as exc:  # noqa: BLE001 - jeder Anbieterfehler ist derselbe Fall
             logger.warning("Lernkarten-Aussprache Versuch {} fehlgeschlagen: {}", versuch, exc)
+            continue
+        try:
+            speech_cache.put(key, audio)
+        except Exception as exc:  # noqa: BLE001 - der Ton ist da, das Ablegen ist Kuer
+            logger.warning("Aussprache-Vorrat nicht beschreibbar: {}", exc)
+        return audio
 
     raise HTTPException(status_code=503, detail=t("tts.providerUnavailable", locale))

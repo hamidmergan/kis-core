@@ -50,3 +50,24 @@ def run_cleanup_exercise_progress() -> int:
     except Exception as e:
         logger.warning("Cleanup Uebungsantworten fehlgeschlagen: {}", e)
         return 0
+
+
+@celery_app.task(name="cleanup.speech_cache", queue="general")
+def run_cleanup_speech_cache() -> int:
+    """Gesprochene Beispielsaetze aufraeumen, die lange niemand gehoert hat. Naechtlich.
+
+    Der Vorrat waechst nur durch Nutzung, wird aber nie von selbst kleiner: eine
+    geloeschte Quelle nimmt ihre Toene nicht mit, weil der Schluessel am Satz haengt
+    und nicht an der Karte. Wer einen aufgeraeumten Satz doch wieder braucht, wartet
+    einmal fuenf Sekunden und hat ihn zurueck.
+    """
+    from src.features.ai_assistant.repository.speech_cache import prune
+
+    try:
+        deleted = prune()
+        if deleted:
+            logger.info("Cleanup: {} gesprochene(r) Beispielsatz/-saetze geloescht", deleted)
+        return deleted
+    except Exception as e:
+        logger.warning("Cleanup Aussprache-Vorrat fehlgeschlagen: {}", e)
+        return 0

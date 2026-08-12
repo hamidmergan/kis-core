@@ -1100,6 +1100,34 @@ def _init_db(admin_email: Optional[str] = None) -> None:
             # mit. Idempotent: danach passt keine Zeile mehr.
             cur.execute("DELETE FROM aia_exercise_sets WHERE tool = 'hoerverstehen'")
             cur.execute("DELETE FROM aia_exercise_pool WHERE tool = 'hoerverstehen'")
+            # ─── Vorrat fuer gesprochene Beispielsaetze ─────────
+            # Ein Satz kostet vier bis fuenf Sekunden beim Anbieter. Ohne Vorrat zahlt
+            # jede Person im Kurs diesen Preis erneut, und dieselbe Person nach jedem
+            # Neuladen noch einmal.
+            #
+            # Der Schluessel ist der SATZ samt Stimme, Anbieter und Tempo, nicht die
+            # Karte: zwei Karten mit demselben Beispielsatz teilen sich einen Ton, und
+            # ein neu erzeugter Kartensatz greift auf das zu, was ein alter schon
+            # gesprochen hat. Haengte er an der Kartennummer, waere er nach jeder
+            # Neuerzeugung leer.
+            #
+            # Der Vorrat gilt fuer alle. Am Ton ist nichts persoenlich, und der Satz
+            # steht ohnehin im gemeinsamen Kursmaterial.
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS aia_speech_cache (
+                    fingerprint  TEXT PRIMARY KEY,
+                    audio        BYTEA NOT NULL,
+                    bytes        INTEGER NOT NULL,
+                    created_at   TIMESTAMP NOT NULL DEFAULT NOW(),
+                    last_used_at TIMESTAMP NOT NULL DEFAULT NOW()
+                )
+            """)
+            # Das naechtliche Aufraeumen sucht nach dem Zeitstempel, nicht nach dem
+            # Schluessel.
+            cur.execute(
+                "CREATE INDEX IF NOT EXISTS idx_speech_cache_last_used "
+                "ON aia_speech_cache (last_used_at)"
+            )
             # ─── Context sweep cursors ──────────────────────────
             # Where the last generation run stopped reading inside each of the
             # coverage blocks of ONE source. A source larger than the context budget
