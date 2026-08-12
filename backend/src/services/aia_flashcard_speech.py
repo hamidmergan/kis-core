@@ -71,9 +71,9 @@ def synthesize_sentence(sentence: str, locale: str = "de") -> bytes:
 
     try:
         client = get_tts_client_for_provider(provider_id)
-    except Exception as exc:  # noqa: BLE001 - fehlendes Modell, fehlender Anbieter
-        logger.warning("Lernkarten-Aussprache: kein Sprecher fuer Anbieter {}: {}", provider_id, exc)
-        client = None
+    except RuntimeError as exc:
+        logger.warning("Lernkarten-Aussprache: Anbieter {} nicht verfuegbar: {}", provider_id, exc)
+        raise HTTPException(status_code=503, detail=t("tts.providerUnavailable", locale))
     if client is None:
         raise HTTPException(status_code=503, detail=t("tts.providerUnavailable", locale))
 

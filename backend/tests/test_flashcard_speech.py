@@ -154,3 +154,18 @@ def test_kein_anbieter_hinter_der_nummer_gibt_503(settings, monkeypatch):
     with pytest.raises(HTTPException) as fehler:
         speech.synthesize_sentence("Ein Satz.")
     assert fehler.value.status_code == 503
+
+
+def test_abholt_fehler_gibt_503_kein_absturz(settings, monkeypatch):
+    """Wenn get_tts_client_for_provider selbst wirft (z.B. fehlende Modell-Konfiguration),
+    wird daraus ein 503, kein Absturz."""
+    settings["aia_flashcard_voice_provider_id"] = "21"
+    settings["aia_flashcard_voice_id"] = "alloy"
+
+    def _wirft_runtime_error(pid):
+        raise RuntimeError("Modell nicht konfiguriert")
+
+    monkeypatch.setattr("src.dependencies.get_tts_client_for_provider", _wirft_runtime_error)
+    with pytest.raises(HTTPException) as fehler:
+        speech.synthesize_sentence("Ein Satz.")
+    assert fehler.value.status_code == 503

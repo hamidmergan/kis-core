@@ -29,7 +29,7 @@ router = APIRouter(tags=["ki-assistent: language-training"])
 @router.post(
     "/ai-assistant/workspaces/{workspace_uuid}/exercise-sets/{set_id}/items/{item_id}/speak"
 )
-async def speak_example_sentence(
+def speak_example_sentence(
     workspace_uuid: str,
     set_id: int,
     item_id: int,
@@ -37,6 +37,12 @@ async def speak_example_sentence(
     locale: str = Depends(get_locale),
 ):
     """Den Beispielsatz einer Lernkarte als MP3 zurückgeben.
+
+    Kein ``async``: Der Sprech-Aufruf ist blockierend (httpx.Client mit Netzwerk-I/O,
+    typisch 4–5 Sekunden, im Fehlerfall bis 600 Sekunden), würde aber als ``async def``
+    die Ereignisschleife für die gesamte Dauer sperren und alle anderen Anfragen auf
+    demselben Arbeiter verzögern. Ein gewöhnliches ``def`` wird von FastAPI automatisch
+    in den Threadpool geschickt, die Ereignisschleife bleibt frei.
 
     Kein ``enforce_quota``: ein Satz ist kein Vertonungsauftrag und soll niemandem
     das Kontingent für das Werkzeug wegnehmen. Gegen Dauerklicken reicht die
