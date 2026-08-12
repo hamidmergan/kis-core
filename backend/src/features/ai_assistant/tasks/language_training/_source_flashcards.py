@@ -10,6 +10,17 @@ from src.features.ai_assistant.tasks.language_training._context import QuelleCon
 from src.features.ai_assistant.tasks.language_training._title import title_from_items
 
 
+# Gemeinsame Schlüssel für extras in Lernkarten (Quelltext-Weg und Glossar-Weg).
+# Beide Modi enrichen Karten mit denselben Felder: Wortzerlegung, Beispielsatz,
+# Wortart (mit Klammer für Verben: Art/Reflexivität), und für Verben die drei
+# Zeitformen (3. Person Singular: Präsens, Präteritum, Perfekt mit Hilfsverb).
+AIA_FLASHCARD_EXTRAS_FIELDS = (
+    "word_parts", "word_parts_explained", "example_sentence",
+    "word_class", "singular", "plural",
+    "verb_present", "verb_past", "verb_perfect"
+)
+
+
 def generate_flashcards_from_source(
     client, model,
     ctx: QuelleContext,
@@ -74,12 +85,7 @@ def _format_lernkarte(c: dict) -> dict:
     }
     extras = {
         k: (c.get(k) or "").strip()
-        for k in ("word_parts", "word_parts_explained", "example_sentence",
-                  "word_class", "singular", "plural",
-                  # Verben: Art steht in der Klammer hinter word_class, die drei
-                  # Zeitformen stehen einzeln. Leer bei allem, was kein Verb ist,
-                  # und der Filter unten wirft sie dann ganz weg.
-                  "verb_present", "verb_past", "verb_perfect")
+        for k in AIA_FLASHCARD_EXTRAS_FIELDS
         if (c.get(k) or "").strip()
     }
     if extras:

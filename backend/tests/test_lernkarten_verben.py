@@ -11,6 +11,7 @@ im Perfekt und das Verbot zu raten.
 
 from src.features.ai_assistant.tasks.language_training._source_flashcards import (
     _format_lernkarte,
+    AIA_FLASHCARD_EXTRAS_FIELDS,
 )
 from src.tool_prompts import AIA_LERNKARTEN_PROMPT
 
@@ -92,3 +93,65 @@ def test_prompt_haelt_die_formen_in_der_quellsprache():
 
 def test_prompt_kennt_die_klammer_hinter_der_wortart():
     assert "Verb (unregelmäßig, reflexiv)" in AIA_LERNKARTEN_PROMPT
+
+
+# --- gemeinsame Konstante für Quelltext und Glossar --------------------------
+
+def test_gemeinsame_konstante_enthaelt_alle_felder():
+    """Die gemeinsame Konstante AIA_FLASHCARD_EXTRAS_FIELDS ist für beide Wege
+    (Quelltext und Glossar) maßgeblich und muss alle neuen Felder enthalten."""
+    assert "verb_present" in AIA_FLASHCARD_EXTRAS_FIELDS
+    assert "verb_past" in AIA_FLASHCARD_EXTRAS_FIELDS
+    assert "verb_perfect" in AIA_FLASHCARD_EXTRAS_FIELDS
+    # Und die etablierten Felder
+    assert "word_parts" in AIA_FLASHCARD_EXTRAS_FIELDS
+    assert "word_class" in AIA_FLASHCARD_EXTRAS_FIELDS
+    assert "singular" in AIA_FLASHCARD_EXTRAS_FIELDS
+    assert "plural" in AIA_FLASHCARD_EXTRAS_FIELDS
+
+
+def test_glossar_verbformen_landen_in_extras():
+    """Der Glossar-Weg _generate_flashcards benutzt dieselbe Konstante und legt
+    Verbformen korrekt in extras ab."""
+    # Simuliere eine Glossar-Antwort mit Verbformen
+    glossar_card = {
+        "begriff": "schreiben",
+        "definition": "Worte auf Papier oder am Computer aufzeichnen.",
+        "word_class": "Verb (unregelmäßig)",
+        "verb_present": "schreibt",
+        "verb_past": "schrieb",
+        "verb_perfect": "hat geschrieben",
+        "example_sentence": "Ich schreibe jeden Tag in mein Tagebuch.",
+    }
+    # _format_lernkarte wird auch von _generate_flashcards verwendet
+    item = _format_lernkarte(glossar_card)
+    # Alle drei Verbformen müssen landen
+    assert item["extras"]["verb_present"] == "schreibt"
+    assert item["extras"]["verb_past"] == "schrieb"
+    assert item["extras"]["verb_perfect"] == "hat geschrieben"
+    # Und die anderen Felder
+    assert item["extras"]["word_class"] == "Verb (unregelmäßig)"
+    assert item["extras"]["example_sentence"] == "Ich schreibe jeden Tag in mein Tagebuch."
+
+
+def test_glossar_leere_verbformen_erzeugen_keine_schluessel():
+    """Im Glossar-Weg, wenn ein Nomen (kein Verb) kommt, dürfen die Verbfelder
+    nicht in extras auftauchen, auch wenn das Modell sie leer mitliefert."""
+    glossar_card = {
+        "begriff": "Metapher",
+        "definition": "Ein Vergleich, der direkt ohne 'wie' gemacht wird.",
+        "word_class": "Nomen",
+        "singular": "die Metapher",
+        "plural": "die Metaphern",
+        "verb_present": "",
+        "verb_past": "",
+        "verb_perfect": "",
+    }
+    item = _format_lernkarte(glossar_card)
+    # Verbformen dürfen nicht in extras sein
+    assert "verb_present" not in item["extras"]
+    assert "verb_past" not in item["extras"]
+    assert "verb_perfect" not in item["extras"]
+    # Andere Felder kommen durch
+    assert item["extras"]["singular"] == "die Metapher"
+    assert item["extras"]["plural"] == "die Metaphern"
