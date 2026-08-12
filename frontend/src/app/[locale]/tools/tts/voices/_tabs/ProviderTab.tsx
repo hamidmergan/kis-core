@@ -2,7 +2,7 @@
 
 import { useTranslations } from "next-intl";
 import PlayButton from "../_components/PlayButton";
-import { useVoicePlayer } from "../_hooks/useVoicePlayer";
+import { useVoicePlayer } from "@/hooks/useVoicePlayer";
 import { LANGUAGE_LABEL, UNIVERSAL_LANG, type Voice } from "../_utils";
 
 

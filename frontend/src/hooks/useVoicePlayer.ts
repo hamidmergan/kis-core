@@ -2,18 +2,31 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 
-
-export function useVoicePlayer() {
+/**
+ * Ein Ton nach dem anderen, aus einer Datei oder frisch vom Server geholt.
+ *
+ * ``keepCache`` behält die erzeugten Töne, solange die Ansicht steht: die
+ * Lernkarte soll beim zweiten Klick auf denselben Satz sofort spielen und nicht
+ * noch einmal vier Sekunden erzeugen. Gespeichert wird trotzdem nichts, beim
+ * Aushängen ist alles weg. Ohne den Schalter bleibt es beim alten Verhalten,
+ * jeder Ton wird nach dem Abspielen freigegeben; die Stimmenvorschau im
+ * Admin-Bereich hört denselben Satz selten zweimal.
+ */
+export function useVoicePlayer({ keepCache = false }: { keepCache?: boolean } = {}) {
   const [playingId, setPlayingId] = useState<string | null>(null);
   const [loadingId, setLoadingId] = useState<string | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const abortRef = useRef<AbortController | null>(null);
   const objectUrlRef = useRef<string | null>(null);
+  const cacheRef = useRef<Map<string, string>>(new Map());
 
   useEffect(() => {
+    const cache = cacheRef.current;
     return () => {
       audioRef.current?.pause();
       if (objectUrlRef.current) URL.revokeObjectURL(objectUrlRef.current);
+      cache.forEach((url) => URL.revokeObjectURL(url));
+      cache.clear();
     };
   }, []);
 
@@ -22,8 +35,9 @@ export function useVoicePlayer() {
       audioRef.current.pause();
       audioRef.current = null;
     }
-    // Revoke here too: onended/onerror only fire when playback finishes on its
-    // own, not when the user stops or switches voice mid-play.
+    // Auch hier freigeben: onended/onerror feuern nur, wenn der Ton von selbst
+    // endet, nicht wenn jemand mittendrin stoppt oder umschaltet. Was im
+    // Zwischenspeicher liegt, bleibt dagegen liegen.
     if (objectUrlRef.current) {
       URL.revokeObjectURL(objectUrlRef.current);
       objectUrlRef.current = null;
@@ -43,6 +57,24 @@ export function useVoicePlayer() {
     audio.onerror = () => setPlayingId(null);
   }, [playingId, stopCurrent]);
 
+  const start = useCallback((key: string, url: string, cached: boolean) => {
+    const audio = new Audio(url);
+    audioRef.current = audio;
+    if (!cached) objectUrlRef.current = url;
+    setLoadingId(null);
+    setPlayingId(key);
+    audio.play().catch(() => {});
+    const done = () => {
+      setPlayingId(null);
+      if (!cached) {
+        URL.revokeObjectURL(url);
+        objectUrlRef.current = null;
+      }
+    };
+    audio.onended = done;
+    audio.onerror = done;
+  }, []);
+
   const playFromApi = useCallback(async (voiceId: string, endpoint: string, actualVoiceId?: string) => {
     stopCurrent();
     if (playingId === voiceId || loadingId === voiceId) {
@@ -50,6 +82,9 @@ export function useVoicePlayer() {
       setLoadingId(null);
       return;
     }
+
+    const cached = keepCache ? cacheRef.current.get(voiceId) : undefined;
+    if (cached) { start(voiceId, cached, true); return; }
 
     setLoadingId(voiceId);
     const controller = new AbortController();
@@ -65,18 +100,12 @@ export function useVoicePlayer() {
       if (!res.ok) { setLoadingId(null); return; }
       const blob = await res.blob();
       const url = URL.createObjectURL(blob);
-      objectUrlRef.current = url;
-      const audio = new Audio(url);
-      audioRef.current = audio;
-      setLoadingId(null);
-      setPlayingId(voiceId);
-      audio.play().catch(() => {});
-      audio.onended = () => { setPlayingId(null); URL.revokeObjectURL(url); objectUrlRef.current = null; };
-      audio.onerror = () => { setPlayingId(null); URL.revokeObjectURL(url); objectUrlRef.current = null; };
+      if (keepCache) cacheRef.current.set(voiceId, url);
+      start(voiceId, url, keepCache);
     } catch (e) {
       if ((e as Error).name !== "AbortError") setLoadingId(null);
     }
-  }, [playingId, loadingId, stopCurrent]);
+  }, [playingId, loadingId, stopCurrent, keepCache, start]);
 
   return { playingId, loadingId, playUrl, playFromApi };
 }
