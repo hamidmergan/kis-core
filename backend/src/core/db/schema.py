@@ -1338,6 +1338,32 @@ def _init_db(admin_email: Optional[str] = None) -> None:
             cur.execute("ALTER TABLE aia_exercise_items ADD COLUMN IF NOT EXISTS back_en TEXT")
             # Migration: add extras JSONB for Flashcards structured fields (word_parts etc.)
             cur.execute("ALTER TABLE aia_exercise_items ADD COLUMN IF NOT EXISTS extras JSONB")
+            # Welcher Glossarbegriff hinter dieser Aufgabe steckt. Nur im Glossar-Weg
+            # gefuellt, sonst NULL. Ohne diese Spur laesst sich bei Karteikarten nicht
+            # feststellen, welcher Begriff schon dran war: ihre Vorderseite ist eine
+            # erzeugte Frage und lautet bei jedem Lauf anders.
+            #
+            # Der Begriff als Text und nicht die id des Glossareintrags. Ein geloeschter
+            # und neu angelegter Eintrag bekaeme eine neue id, der Begriff bliebe aber
+            # derselbe, und genau der ist gemeint.
+            cur.execute(
+                "ALTER TABLE aia_exercise_items ADD COLUMN IF NOT EXISTS glossary_term TEXT"
+            )
+            # Nachtragung fuer den Altbestand. Bei Lernkarten aus dem Glossar IST die
+            # Vorderseite der Begriff, die lassen sich rueckwirkend fuellen. Karteikarten
+            # von frueher fangen bei null an, ihre Vorderseite ist eine Frage und der
+            # Begriff daraus nicht mehr zu erkennen.
+            #
+            # `IS NULL` macht den Befehl beim naechsten Start zu einer leeren Aenderung.
+            # Auf einer frischen Datenbank trifft er auf keine Zeile, beide Tabellen
+            # entstehen weiter oben, also braucht er keine Existenzpruefung.
+            cur.execute("""
+                UPDATE aia_exercise_items i SET glossary_term = i.front
+                FROM aia_exercise_sets s
+                WHERE i.set_id = s.id
+                  AND s.mode = 'glossary' AND s.tool = 'flashcards'
+                  AND i.glossary_term IS NULL AND i.front <> ''
+            """)
             # Der Quiz-Vorrat kennt nur die zwei Ankreuz-Arten, seit dem 2026-08-10
             # stellt das Quiz auch Richtig/Falsch. Einmal leeren, sonst bleibt die
             # Aenderung unsichtbar.

@@ -153,8 +153,8 @@ def finalize_exercise_set(
                     """INSERT INTO aia_exercise_items
                        (set_id, position, front, back, back_en, options, correct_idx,
                         source_label, page_number, explanation, start_time, sources, extras,
-                        pool_item_id)
-                       VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)""",
+                        pool_item_id, glossary_term)
+                       VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)""",
                     (
                         set_id, i,
                         item["front"],
@@ -172,6 +172,11 @@ def finalize_exercise_set(
                         None if aus_vorrat or not item.get("extras")
                         else json.dumps(item.get("extras")),
                         item.get("pool_item_id"),
+                        # Anders als die Inhaltsspalten NICHT geleert, wenn die Aufgabe
+                        # aus dem Vorrat kommt. Eine Glossar-Aufgabe kommt nie von dort,
+                        # und der Begriff ist ein Merkmal des Satzes und nicht des
+                        # Inhalts, der im Vorrat liegt.
+                        item.get("glossary_term"),
                     ),
                 )
             head = header or {}
