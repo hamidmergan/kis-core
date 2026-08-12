@@ -9,7 +9,7 @@ from src import database as db
 from src.features.ai_assistant.tasks._helpers import _clean_llm_json
 from src.tool_prompts import AIA_KARTEIKARTEN_GLOSSAR_PROMPT, AIA_LERNKARTEN_PROMPT
 
-from src.features.ai_assistant.tasks.language_training._source_flashcards import AIA_FLASHCARD_EXTRAS_FIELDS
+from src.features.ai_assistant.tasks.language_training._source_flashcards import flashcard_extras
 from src.features.ai_assistant.tasks.language_training._title import title_from_glossary_terms
 
 
@@ -196,11 +196,7 @@ def _generate_flashcards(client, model, selected: list[dict], language: str,
             "page_number": e.get("page_number"),
             "sources": _sources_for(e),
         }
-        extras = {
-            k: (c.get(k) or "").strip()
-            for k in AIA_FLASHCARD_EXTRAS_FIELDS
-            if (c.get(k) or "").strip()
-        }
+        extras = flashcard_extras(c, item["front"])
         if extras:
             item["extras"] = extras
         items.append(item)
