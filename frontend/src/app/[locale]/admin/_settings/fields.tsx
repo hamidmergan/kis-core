@@ -21,6 +21,7 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { useTranslations } from "next-intl";
 import type { SettingHandle } from "./SettingsProvider";
+import Select from "@/components/ui/Select";
 
 /* ------------------------------------------------------------------ */
 /* Rahmen                                                              */
@@ -282,6 +283,53 @@ export function TextSetting({
       )}
     >
       {wide && <div className="mt-3">{input}</div>}
+      {hint && <p className="mt-3 text-xs text-muted-soft max-w-2xl">{hint}</p>}
+    </SettingCard>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* Auswahl                                                             */
+/* ------------------------------------------------------------------ */
+
+export function SelectSetting({
+  field,
+  title,
+  hint,
+  options,
+  placeholder,
+  disabled,
+}: {
+  field: SettingHandle<string>;
+  title: ReactNode;
+  hint?: ReactNode;
+  options: ReadonlyArray<{ value: string; label: string }>;
+  placeholder?: string;
+  disabled?: boolean;
+}) {
+  if (field.loading || field.value === null) return null;
+
+  // Wie Schalter und anders als Zahl und Text: eine Auswahl greift sofort. Es gibt
+  // keinen Zwischenzustand, den man noch verwerfen wollen könnte.
+  return (
+    <SettingCard
+      title={title}
+      error={field.error}
+      control={
+        <>
+          <SavedMark show={field.saved} />
+          <div className="w-64">
+            <Select
+              value={field.value}
+              onChange={(next) => void field.set(next)}
+              options={options}
+              disabled={disabled || field.saving}
+              placeholder={placeholder}
+            />
+          </div>
+        </>
+      }
+    >
       {hint && <p className="mt-3 text-xs text-muted-soft max-w-2xl">{hint}</p>}
     </SettingCard>
   );

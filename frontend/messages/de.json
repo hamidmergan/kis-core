@@ -1228,6 +1228,14 @@
       "disabled": "Aus. Der Sprachtrainer taucht nirgendwo auf. Bereits getroffene Entscheidungen bleiben gespeichert und gelten wieder, sobald du hier einschaltest.",
       "toggleAria": "Sprachtrainer umschalten"
     },
+    "flashcardVoiceCard": {
+      "providerTitle": "Aussprache: Anbieter",
+      "providerHint": "Wer den Beispielsatz auf einer Lernkarte vorliest. Ohne Anbieter und Stimme zeigt die Karte keinen Lautsprecher. Das Modell kommt aus der Route Text in Sprache.",
+      "voiceTitle": "Aussprache: Stimme",
+      "voiceHint": "Erst den Anbieter wählen, dann die Stimme. Die Liste zeigt nur Stimmen, die für diesen Anbieter hinterlegt sind.",
+      "noneOption": "Keine",
+      "noProviders": "Es ist kein erreichbarer Sprachanbieter eingerichtet. Lege ihn im Bereich Anbieter an."
+    },
     "ocrCard": {
       "title": "OCR für Scans & Bild-Seiten",
       "active": "Aktiv - bild-/scanlastige Seiten werden beim Indexieren per OCR erfasst (langsamer, kostet pro Seite einen Vision-Aufruf).",

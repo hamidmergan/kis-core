@@ -1228,6 +1228,14 @@
       "disabled": "Off. The language trainer appears nowhere. Choices already made stay stored and apply again as soon as you switch this on.",
       "toggleAria": "Toggle language trainer"
     },
+    "flashcardVoiceCard": {
+      "providerTitle": "Pronunciation: provider",
+      "providerHint": "Who reads the example sentence on a flashcard. Without a provider and a voice the card shows no speaker. The model comes from the text-to-speech route.",
+      "voiceTitle": "Pronunciation: voice",
+      "voiceHint": "Pick the provider first, then the voice. The list only shows voices configured for that provider.",
+      "noneOption": "None",
+      "noProviders": "No reachable speech provider is set up. Add one under Providers."
+    },
     "ocrCard": {
       "title": "OCR for scans & image pages",
       "active": "Active - image/scan-heavy pages are captured via OCR during indexing (slower, costs one vision call per page).",
