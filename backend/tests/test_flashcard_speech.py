@@ -75,3 +75,82 @@ def test_negative_anbieternummer_ist_ungueltig(settings):
     settings["aia_flashcard_voice_id"] = "alloy"
     assert speech.configured_voice() is None
     assert speech.speech_enabled() is False
+
+
+# --- das Sprechen selbst -----------------------------------------------------
+
+from fastapi import HTTPException
+
+
+class _Client:
+    """Ein Anbieter, der die ersten ``fehler`` Versuche wirft und dann liefert."""
+
+    def __init__(self, fehler=0):
+        self.fehler = fehler
+        self.aufrufe = []
+
+    def synthesize_chunk(self, text, *, voice_id, speed=1.0, **kwargs):
+        self.aufrufe.append((text, voice_id))
+        if len(self.aufrufe) <= self.fehler:
+            raise RuntimeError("TTS API error (500): Internal Server Error")
+        return b"ID3-audio"
+
+
+def _mit_client(monkeypatch, client):
+    monkeypatch.setattr(
+        "src.dependencies.get_tts_client_for_provider", lambda pid: client
+    )
+
+
+def test_ohne_eingerichtete_stimme_gibt_es_503(settings):
+    with pytest.raises(HTTPException) as fehler:
+        speech.synthesize_sentence("Ich treffe mich morgen.")
+    assert fehler.value.status_code == 503
+
+
+def test_der_satz_geht_mit_der_eingestellten_stimme_raus(settings, monkeypatch):
+    settings["aia_flashcard_voice_provider_id"] = "21"
+    settings["aia_flashcard_voice_id"] = "alloy"
+    client = _Client()
+    _mit_client(monkeypatch, client)
+
+    assert speech.synthesize_sentence("Ich treffe mich morgen.") == b"ID3-audio"
+    assert client.aufrufe == [("Ich treffe mich morgen.", "alloy")]
+
+
+def test_ein_fehlschlag_wird_wiederholt(settings, monkeypatch):
+    """Gemessen am 2026-08-12: myLab hat eine Anfrage mit 500 abgewiesen und beim
+    zweiten Versuch geliefert. Dafür soll niemand einen Fehler sehen."""
+    settings["aia_flashcard_voice_provider_id"] = "21"
+    settings["aia_flashcard_voice_id"] = "alloy"
+    client = _Client(fehler=1)
+    _mit_client(monkeypatch, client)
+
+    assert speech.synthesize_sentence("Ein Satz.") == b"ID3-audio"
+    assert len(client.aufrufe) == 2
+
+
+def test_zwei_fehlschlaege_ergeben_503(settings, monkeypatch):
+    """Zweimal daneben heißt: der Anbieter ist gerade nicht zu gebrauchen. Kein
+    dritter Versuch, der Lernende wartet sonst fünfzehn Sekunden auf nichts."""
+    settings["aia_flashcard_voice_provider_id"] = "21"
+    settings["aia_flashcard_voice_id"] = "alloy"
+    client = _Client(fehler=2)
+    _mit_client(monkeypatch, client)
+
+    with pytest.raises(HTTPException) as fehler:
+        speech.synthesize_sentence("Ein Satz.")
+    assert fehler.value.status_code == 503
+    assert len(client.aufrufe) == 2
+
+
+def test_kein_anbieter_hinter_der_nummer_gibt_503(settings, monkeypatch):
+    """Die Nummer zeigt auf einen gelöschten oder abgeschalteten Anbieter."""
+    settings["aia_flashcard_voice_provider_id"] = "999"
+    settings["aia_flashcard_voice_id"] = "alloy"
+    monkeypatch.setattr(
+        "src.dependencies.get_tts_client_for_provider", lambda pid: None
+    )
+    with pytest.raises(HTTPException) as fehler:
+        speech.synthesize_sentence("Ein Satz.")
+    assert fehler.value.status_code == 503

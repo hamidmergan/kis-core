@@ -44,3 +44,43 @@ def configured_voice() -> tuple[int, str] | None:
 def speech_enabled() -> bool:
     """Ob die Ansicht den Lautsprecher zeigen soll."""
     return configured_voice() is not None
+
+
+def synthesize_sentence(sentence: str, locale: str = "de") -> bytes:
+    """Einen Satz sprechen und die MP3-Bytes zurückgeben.
+
+    Zwei Versuche, nicht mehr. Bei der Messung am 2026-08-12 hat myLab eine von
+    neun Anfragen mit 500 abgewiesen und beim zweiten Versuch sauber geliefert;
+    dafür soll niemand einen Fehler sehen. Ein dritter Versuch würde den
+    Lernenden nur länger vor einem Kringel sitzen lassen.
+
+    Bewusst OHNE ``is_available()``: die Erreichbarkeitsprüfung ist selbst eine
+    Netzwerkanfrage und würde die Wartezeit fast verdoppeln. Ist der Anbieter
+    weg, merkt das der erste Versuch früh genug.
+    """
+    from fastapi import HTTPException
+    from loguru import logger
+
+    from src.dependencies import get_tts_client_for_provider
+    from src.i18n import t
+
+    chosen = configured_voice()
+    if not chosen:
+        raise HTTPException(status_code=503, detail=t("tts.providerUnavailable", locale))
+    provider_id, voice_id = chosen
+
+    try:
+        client = get_tts_client_for_provider(provider_id)
+    except Exception as exc:  # noqa: BLE001 - fehlendes Modell, fehlender Anbieter
+        logger.warning("Lernkarten-Aussprache: kein Sprecher fuer Anbieter {}: {}", provider_id, exc)
+        client = None
+    if client is None:
+        raise HTTPException(status_code=503, detail=t("tts.providerUnavailable", locale))
+
+    for versuch in (1, 2):
+        try:
+            return client.synthesize_chunk(sentence, voice_id=voice_id, speed=1.0)
+        except Exception as exc:  # noqa: BLE001 - jeder Anbieterfehler ist derselbe Fall
+            logger.warning("Lernkarten-Aussprache Versuch {} fehlgeschlagen: {}", versuch, exc)
+
+    raise HTTPException(status_code=503, detail=t("tts.providerUnavailable", locale))

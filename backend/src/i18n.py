@@ -149,6 +149,10 @@ MESSAGES: dict[str, dict[str, str]] = {
     "source.notFound": {"de": "Source nicht gefunden", "en": "Source not found"},
     "entry.notFound": {"de": "Eintrag nicht gefunden", "en": "Entry not found"},
     "set.notFound": {"de": "Set nicht gefunden", "en": "Set not found"},
+    "flashcards.noExampleSentence": {
+        "de": "Zu dieser Karte gibt es keinen Beispielsatz",
+        "en": "This card has no example sentence",
+    },
     "set.retryNotFailed": {
         "de": "Diese Übung wird gerade erstellt oder ist schon fertig",
         "en": "This exercise is being created right now or is already finished",
