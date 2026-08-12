@@ -240,6 +240,21 @@ def _mit_vorrat(monkeypatch, vorrat):
     return vorrat
 
 
+@pytest.fixture(autouse=True)
+def tts_modell(monkeypatch):
+    """Das Modell aus der Route "Text in Sprache", fuer JEDEN Test dieser Datei.
+
+    Autouse aus demselben Grund wie der Vorrat darueber. Seit das Modell im
+    Fingerabdruck steckt, liest ``synthesize_sentence`` dafuer die Route aus der
+    Datenbank. Die gibt es hier nicht, und ohne diese Attrappe scheitert jeder Test,
+    der wirklich spricht, an einem ``KeyError`` auf ``DATABASE_URL``.
+
+    Leer ist der ehrliche Standard. Eine frische Installation hat kein Modell
+    hinterlegt, und ``tts_model_for_provider`` gibt in dem Fall selbst "" zurueck.
+    """
+    monkeypatch.setattr("src.dependencies.tts_model_for_provider", lambda _pid: "")
+
+
 def _eingerichtet(settings):
     settings["aia_flashcard_voice_provider_id"] = "21"
     settings["aia_flashcard_voice_id"] = "alloy"
