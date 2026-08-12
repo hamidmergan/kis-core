@@ -39,23 +39,34 @@ def _terms_used(workspace_id: int, user_id: int, tool: str) -> set[str]:
     except Exception as exc:  # noqa: BLE001 - ein Satz ohne Filter ist besser als keiner
         logger.warning("Glossar: gehabte Begriffe nicht lesbar, es wird frei gezogen: {}", exc)
         return set()
-    return {schluessel for schluessel in (normalize(t or "") for t in gehabt) if schluessel}
+    return {schluessel for schluessel in (normalize(t) for t in gehabt) if schluessel}
 
 
 def _pick_terms(glossary: list[dict], gehabt: set[str], count: int) -> list[dict]:
     """Frische Begriffe zuerst, danach mit schon benutzten auffuellen.
 
-    Die beiden Toepfe ueberschneiden sich nicht, und ``random.sample`` zieht ohne
-    Zuruecklegen. Ein Begriff kann also nicht zweimal im selben Satz stehen. Mehr als das
-    Glossar hergibt kommt nie heraus, ein Glossar mit drei Begriffen liefert weiter drei
-    Karten.
+    Die Eindeutigkeit in der Datenbank sitzt je Quelle (``ON CONFLICT (user_id, source_id,
+    lower(term_de))``), ein Kursraum hat aber mehrere Quellen. Zwei Zeilen mit derselben
+    Vergleichsform sind darum moeglich, etwa "Abstract" aus einem Skript und "abstract"
+    aus einer Vorlesung. Ohne Entdopplung waeren das zwei eigene Listenelemente, und
+    ``random.sample`` zieht Elemente und nicht Werte, koennte also beide in denselben Satz
+    ziehen. Die Liste kommt sortiert aus der Datenbank (``ORDER BY g.term_de``), darum
+    gewinnt hier die erste Zeile je Vergleichsform.
+
+    Danach ueberschneiden sich die beiden Toepfe nicht mehr, und ``random.sample`` zieht
+    ohne Zuruecklegen. Ein Begriff kann also nicht zweimal im selben Satz stehen. Mehr als
+    das Glossar hergibt kommt nie heraus, ein Glossar mit drei Begriffen liefert weiter
+    drei Karten.
 
     Sind alle Begriffe verbraucht, ist ``frisch`` leer und es wird vollstaendig aus den
     benutzten gezogen. Das ist der zweite Durchlauf. Gezogen wird auch dort zufaellig und
     nicht nach Alter, so entschieden am 2026-08-12.
     """
-    frisch = [e for e in glossary if normalize(e.get("term_de", "")) not in gehabt]
-    benutzt = [e for e in glossary if normalize(e.get("term_de", "")) in gehabt]
+    eindeutig: dict[str, dict] = {}
+    for e in glossary:
+        eindeutig.setdefault(normalize(e["term_de"]), e)
+    frisch = [e for e in eindeutig.values() if normalize(e["term_de"]) not in gehabt]
+    benutzt = [e for e in eindeutig.values() if normalize(e["term_de"]) in gehabt]
     gewaehlt = random.sample(frisch, min(count, len(frisch)))
     fehlt = count - len(gewaehlt)
     if fehlt > 0 and benutzt:

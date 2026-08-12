@@ -127,6 +127,20 @@ def test_a_small_glossary_stays_short(gehabt):
     assert len(_glossary._pick_terms(glossar, gehabt, 10)) == 3
 
 
+def test_the_same_term_from_two_sources_counts_once():
+    # Die Eindeutigkeit in der Datenbank sitzt je Quelle, ein Kursraum hat aber mehrere
+    # Quellen. "Abstract" aus einem Skript und "abstract" aus einer Vorlesung sind zwei
+    # eigene Zeilen mit derselben Vergleichsform, das darf trotzdem nur eine Karte
+    # ergeben. Beide Zeilen landen sonst in "frisch", und ein count von 2 zieht bei einem
+    # Pool von genau 2 Elementen deterministisch beide, egal in welcher Reihenfolge
+    # random.sample mischt. Der Test rutscht also nicht gelegentlich durch.
+    glossar = _eintraege("Abstract", "abstract")
+    gewaehlt = _glossary._pick_terms(glossar, set(), 2)
+
+    assert len(gewaehlt) == 1
+    assert gewaehlt[0]["term_de"] == "Abstract", "die erste Zeile gewinnt"
+
+
 # --- der ganze Weg ------------------------------------------------------------
 
 def test_the_set_avoids_the_terms_this_person_already_had(monkeypatch):
