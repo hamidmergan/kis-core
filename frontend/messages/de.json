@@ -1140,6 +1140,10 @@
         "confirm": "Ja, alles löschen",
         "cancel": "Abbrechen",
         "successToast": "Alle Provider und Routes gelöscht."
+      },
+      "defaultVoice": {
+        "label": "Standardstimme",
+        "orphaned": "Die gespeicherte Stimme gibt es nicht mehr. Bis eine neue gewählt ist, gilt die erste aus der Liste."
       }
     },
     "settings": {
@@ -1735,8 +1739,14 @@
           "wordClass": "Wortart:",
           "singular": "Singular:",
           "plural": "Plural:",
+          "verbPresent": "Präsens:",
+          "verbPast": "Präteritum:",
+          "verbPerfect": "Perfekt:",
           "form": "Form:",
           "example": "Beispiel",
+          "playExample": "Beispielsatz anhören",
+          "stopExample": "Wiedergabe anhalten",
+          "speechFailed": "Das Vorlesen hat nicht geklappt. Später noch einmal versuchen.",
           "translationPrefix": "EN:",
           "nextTerm": "Nächster Begriff"
         },

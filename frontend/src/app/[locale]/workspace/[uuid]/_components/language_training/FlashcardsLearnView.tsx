@@ -1,7 +1,9 @@
 import React, { useContext, useEffect, useRef, useState } from "react";
-import { CaretLeft, CaretRight, Chat, Check, Lightbulb, Question, SidebarSimple, XIcon } from "@phosphor-icons/react";
+import { CaretLeft, CaretRight, Chat, Check, Lightbulb, Question, SidebarSimple, SpeakerHigh, XIcon } from "@phosphor-icons/react";
 import { useLocale, useTranslations } from "next-intl";
 import Spinner from "@/components/ui/Spinner";
+import IconButton from "@/components/ui/IconButton";
+import { useVoicePlayer } from "@/hooks/useVoicePlayer";
 import type { ExerciseItem, ExerciseItemSource, ExerciseSet, Source } from "../../_types";
 import { _chunkLabel, _getChipIcon, _md, _sourceChipKey } from "../../_utils";
 import { MinimizeContext } from "../../_context";
@@ -11,7 +13,7 @@ import { HintCard } from "./HintCard";
 import { SetSourceLegend, sourceNumbers, sourceTag } from "./SetSourceLegend";
 
 export function FlashcardsLearnView({
-  exerciseSet, onBack, onAnswer, onAskChat, onSourceClick, breadcrumbs, showTranslation, chatLang = "de",
+  exerciseSet, onBack, onAnswer, onAskChat, onSourceClick, breadcrumbs, showTranslation, chatLang = "de", workspaceUuid,
 }: {
   exerciseSet: ExerciseSet;
   onBack: () => void;
@@ -21,6 +23,8 @@ export function FlashcardsLearnView({
   breadcrumbs?: BreadcrumbItem[];
   showTranslation?: boolean;
   chatLang?: "de" | "en";
+  /** Für den Weg zur Aussprache. Die Menge trägt nur die interne Nummer. */
+  workspaceUuid: string;
 }) {
   const t = useTranslations("workspace.detail.languageTraining");
   const tChip = useTranslations("sourceChip");
@@ -73,6 +77,10 @@ export function FlashcardsLearnView({
   const answeredRef = useRef<Set<number>>(new Set());
   // Der Tipp steht fertig an der Karte, der Knopf klappt ihn nur auf.
   const [showHint, setShowHint] = useState(false);
+  // Der erzeugte Ton bleibt an der Karte hängen, solange diese Ansicht steht.
+  // Zweiter Klick spielt sofort. Beim Verlassen ist alles weg, gespeichert wird
+  // nichts.
+  const { playingId, loadingId, failedId, playFromApi } = useVoicePlayer({ keepCache: true });
 
   const total = items.length;
   const card = items[index];
@@ -251,6 +259,13 @@ export function FlashcardsLearnView({
           const wordClass = card.extras?.word_class?.trim() || "";
           const singular = card.extras?.singular?.trim() || "";
           const plural = card.extras?.plural?.trim() || "";
+          const verbPresent = card.extras?.verb_present?.trim() || "";
+          const verbPast = card.extras?.verb_past?.trim() || "";
+          const verbPerfect = card.extras?.verb_perfect?.trim() || "";
+          // Ein Verb bringt normalerweise alle drei mit. Gezeichnet wird trotzdem
+          // jede Zeile für sich, damit eine halb gefüllte Karte aus der Zeit vor
+          // dieser Änderung nicht plötzlich leere Zeilen zeigt.
+          const hasVerbForms = Boolean(verbPresent || verbPast || verbPerfect);
           // A noun without a plural (Wasser, Hunger) keeps its singular under the neutral
           // label "Form", because the article is the point. A lone "Singular" row would
           // promise a "Plural" row that never comes. A plural without a singular is dropped.
@@ -302,7 +317,7 @@ export function FlashcardsLearnView({
                       );
                     })()}
                     {/* Word class first, then the number forms when present, no box */}
-                    {(wordClass || singular) && (
+                    {(wordClass || singular || hasVerbForms) && (
                       <div className="flex flex-col gap-1 px-1">
                         {wordClass && (
                           <div className="flex items-baseline gap-1.5 text-sm">
@@ -328,15 +343,61 @@ export function FlashcardsLearnView({
                             <span >{singular}</span>
                           </div>
                         )}
+                        {verbPresent && (
+                          <div className="flex items-baseline gap-1.5 text-sm">
+                            <span className="font-semibold shrink-0" style={{ color: "var(--foreground)" }}>{t("flashcardsLearn.verbPresent")}</span>
+                            <span>{verbPresent}</span>
+                          </div>
+                        )}
+                        {verbPast && (
+                          <div className="flex items-baseline gap-1.5 text-sm">
+                            <span className="font-semibold shrink-0" style={{ color: "var(--foreground)" }}>{t("flashcardsLearn.verbPast")}</span>
+                            <span>{verbPast}</span>
+                          </div>
+                        )}
+                        {verbPerfect && (
+                          <div className="flex items-baseline gap-1.5 text-sm">
+                            <span className="font-semibold shrink-0" style={{ color: "var(--foreground)" }}>{t("flashcardsLearn.verbPerfect")}</span>
+                            <span>{verbPerfect}</span>
+                          </div>
+                        )}
                       </div>
                     )}
                     {/* Context sentence */}
-                    {exampleSentence && (
-                      <div className="px-3 py-2.5 rounded-xl" style={{ border: "1px solid var(--border)" }}>
-                        <span className="text-3xs font-bold uppercase tracking-widest" >{t("flashcardsLearn.example")}</span>
-                        <p className="text-sm italic leading-relaxed mt-1" style={{ color: "var(--foreground)" }}>{exampleSentence}</p>
-                      </div>
-                    )}
+                    {exampleSentence && (() => {
+                      const speechKey = String(card.id);
+                      const busy = loadingId === speechKey;
+                      const running = playingId === speechKey;
+                      const failed = failedId === speechKey;
+                      return (
+                        <div className="px-3 py-2.5 rounded-xl" style={{ border: "1px solid var(--border)" }}>
+                          <div className="flex items-center justify-between gap-2">
+                            <span className="text-3xs font-bold uppercase tracking-widest" >{t("flashcardsLearn.example")}</span>
+                            {exerciseSet.speech_enabled && (
+                              <IconButton
+                                size="sm"
+                                onClick={() => void playFromApi(
+                                  speechKey,
+                                  `/api/ai-assistant/workspaces/${workspaceUuid}/exercise-sets/${exerciseSet.id}/items/${card.id}/speak`,
+                                )}
+                                title={running ? t("flashcardsLearn.stopExample") : t("flashcardsLearn.playExample")}
+                                aria-label={running ? t("flashcardsLearn.stopExample") : t("flashcardsLearn.playExample")}
+                              >
+                                {busy ? <Spinner size="sm" /> : (
+                                  <SpeakerHigh size={12} weight="bold" style={{ color: running ? "var(--kb)" : undefined }} />
+                                )}
+                              </IconButton>
+                            )}
+                          </div>
+                          <p className="text-sm italic leading-relaxed mt-1" style={{ color: "var(--foreground)" }}>{exampleSentence}</p>
+                          {/* Kein Kasten, kein Aufklappen: nur eine schlichte Zeile, die beim
+                              naechsten Klick auf den Lautsprecher wieder verschwindet. */}
+                          {failed && (
+                            <p className="text-3xs mt-1.5" style={{ color: "var(--muted)" }}>{t("flashcardsLearn.speechFailed")}</p>
+                          )}
+                        </div>
+                      );
+                    })()}
                     {/* Sources + Chat */}
                     {(() => {
                       const rawSrcs: ExerciseItemSource[] = card.sources?.length ? card.sources as ExerciseItemSource[] : cardSource ? [cardSource] : [];

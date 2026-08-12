@@ -286,3 +286,8 @@ export function TextSetting({
     </SettingCard>
   );
 }
+
+/* Ein Baustein "eine Auswahl je Karte" stand hier kurz und ist wieder weg. Die
+   einzige Auswahl im Admin-Bereich sind Anbieter und Stimme der Aussprache, und die
+   gehoeren in EINE Karte, nicht in zwei. Wer spaeter eine einzelne Auswahl braucht,
+   baut sie wie NumberSetting oben, das ist ein Dutzend Zeilen. */

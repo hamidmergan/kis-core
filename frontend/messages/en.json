@@ -1140,6 +1140,10 @@
         "confirm": "Yes, delete everything",
         "cancel": "Cancel",
         "successToast": "All providers and routes deleted."
+      },
+      "defaultVoice": {
+        "label": "Default voice",
+        "orphaned": "The saved voice no longer exists. Until a new one is picked, the first in the list applies."
       }
     },
     "settings": {
@@ -1735,8 +1739,14 @@
           "wordClass": "Word class:",
           "singular": "Singular:",
           "plural": "Plural:",
+          "verbPresent": "Present:",
+          "verbPast": "Past:",
+          "verbPerfect": "Perfect:",
           "form": "Form:",
           "example": "Example",
+          "playExample": "Listen to the example sentence",
+          "stopExample": "Stop playback",
+          "speechFailed": "Playback failed. Try again later.",
           "translationPrefix": "EN:",
           "nextTerm": "Next term"
         },

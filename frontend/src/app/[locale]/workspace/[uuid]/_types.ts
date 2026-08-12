@@ -230,6 +230,11 @@ export interface ExerciseItemExtras {
   word_class?: string;
   singular?: string;
   plural?: string;
+  /** Verben: dritte Person Einzahl in den drei Zeiten, das Perfekt mit Hilfsverb.
+   *  Entweder alle drei oder keine, das Modell darf bei Unsicherheit nicht raten. */
+  verb_present?: string;
+  verb_past?: string;
+  verb_perfect?: string;
   /** Wortschatz-Lückentext: je Lücke die Grundform, die als Chip unter dem Text
    *  steht, und die Form, die hineingehört. Reihenfolge gleich der Nummerierung
    *  der Platzhalter im Text. */
@@ -289,6 +294,9 @@ export interface ExerciseSet {
   instruction?: string | null;
   pattern_front?: string | null;
   pattern_back?: string | null;
+  /** Ob eine Stimme für die Aussprache eingerichtet ist. Kommt nur an der EINZELNEN
+   *  Menge mit, nicht an der Liste, weil nur die Lernansicht den Knopf zeigt. */
+  speech_enabled?: boolean;
 }
 
 export interface StreakInfo {

@@ -6,7 +6,7 @@ import { Play, Stop } from "@phosphor-icons/react";
 import Spinner from "@/components/ui/Spinner";
 import type { Voice } from "./_types";
 import { discoverVoices } from "./_api";
-import { useVoicePlayer } from "@/app/[locale]/tools/tts/voices/_hooks/useVoicePlayer";
+import { useVoicePlayer } from "@/hooks/useVoicePlayer";
 
 interface Props {
   voices: Voice[];

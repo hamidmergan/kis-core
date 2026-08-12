@@ -107,6 +107,10 @@ async def get_settings(_admin=Depends(get_admin_user)):
         "aia_source_max_pages": int(
             db.get_setting("aia_source_max_pages", str(AIA_SOURCE_MAX_PAGES))
         ),
+        # Aussprache auf der Lernkarte. Leer heißt für die Oberfläche: noch nicht
+        # eingerichtet, dann zeigt die Karte keinen Lautsprecher.
+        "aia_flashcard_voice_provider_id": db.get_setting("aia_flashcard_voice_provider_id", ""),
+        "aia_flashcard_voice_id": db.get_setting("aia_flashcard_voice_id", ""),
         # Zeichen je Sprachausgabe-Anfrage. Der Anbieter bricht nach einer festen
         # Zeit ab, nicht nach einer festen Länge, siehe Messung in limits.py.
         # Bleibt einstellbar, weil das eine ANBIETER-EIGENSCHAFT ist, die sich
@@ -416,6 +420,20 @@ async def update_settings(
                 detail=t("admin.settings.maxPagesOutOfRange", locale, min=1, max=2000),
             )
         db.set_setting("aia_source_max_pages", str(value))
+
+    # Aussprache auf der Lernkarte. Leer ist ein gültiger Wert und schaltet den
+    # Lautsprecher ab, deshalb wird die leere Zeichenkette durchgelassen.
+    if body.aia_flashcard_voice_provider_id is not None:
+        raw = body.aia_flashcard_voice_provider_id.strip()
+        if raw and not raw.isdigit():
+            raise HTTPException(
+                status_code=400,
+                detail=t("admin.settings.flashcardVoiceProviderInvalid", locale),
+            )
+        db.set_setting("aia_flashcard_voice_provider_id", raw)
+
+    if body.aia_flashcard_voice_id is not None:
+        db.set_setting("aia_flashcard_voice_id", body.aia_flashcard_voice_id.strip())
 
     # Zeichen je Sprachausgabe-Anfrage. Zu groß gewählt läuft jede Anfrage in
     # den Timeout des Anbieters, zu klein gewählt wird die Aufnahme zerstückelt.

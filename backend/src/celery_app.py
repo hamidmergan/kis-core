@@ -75,6 +75,13 @@ celery_app.conf.update(
             "schedule": crontab(hour=4, minute=15),
             "options": {"queue": "general"},
         },
+        # Gesprochene Beispielsaetze, die lange niemand gehoert hat. Der Vorrat waechst
+        # nur durch Nutzung, wird aber nie von selbst kleiner.
+        "cleanup-speech-cache": {
+            "task": "cleanup.speech_cache",
+            "schedule": crontab(hour=4, minute=30),
+            "options": {"queue": "general"},
+        },
     },
 )
 

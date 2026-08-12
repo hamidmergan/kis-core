@@ -149,6 +149,14 @@ MESSAGES: dict[str, dict[str, str]] = {
     "source.notFound": {"de": "Source nicht gefunden", "en": "Source not found"},
     "entry.notFound": {"de": "Eintrag nicht gefunden", "en": "Entry not found"},
     "set.notFound": {"de": "Set nicht gefunden", "en": "Set not found"},
+    "flashcards.noExampleSentence": {
+        "de": "Zu dieser Karte gibt es keinen Beispielsatz",
+        "en": "This card has no example sentence",
+    },
+    "flashcards.speechOnly": {
+        "de": "Der Lautsprecher ist nur für Lernkarten-Übungen verfügbar",
+        "en": "Speech is only available for flashcard exercises",
+    },
     "set.retryNotFailed": {
         "de": "Diese Übung wird gerade erstellt oder ist schon fertig",
         "en": "This exercise is being created right now or is already finished",
@@ -259,6 +267,10 @@ MESSAGES: dict[str, dict[str, str]] = {
     "admin.settings.maxPagesOutOfRange": {
         "de": "Maximale Seiten pro Quelle muss zwischen {min} und {max} liegen.",
         "en": "Max pages per source must be between {min} and {max}.",
+    },
+    "admin.settings.flashcardVoiceProviderInvalid": {
+        "de": "Anbieter für die Aussprache ist keine gültige Nummer",
+        "en": "The pronunciation provider is not a valid id",
     },
     # Die vier Fehlermeldungen zu Nebenläufigkeit sind entfallen. Sie gehörten zu
     # Eingabefeldern, die es nicht mehr gibt: Plätze und Uploads werden an der

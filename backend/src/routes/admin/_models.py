@@ -12,7 +12,8 @@ class UpdateSettingsRequest(BaseModel):
 
     Provider selection, model names, and feature routing live in the dedicated
     "KI" admin tab (providers + feature_routes tables); they are NOT part of
-    this payload.
+    this payload. Exception: flashcard voice provider (aia_flashcard_voice_provider_id)
+    is configured here.
     """
     whitelist_enabled: bool | None = None
     # UI label for "Workspace" (singular + plural), per UI locale.
@@ -47,6 +48,12 @@ class UpdateSettingsRequest(BaseModel):
     # Max pages per uploaded source (long scripts → upload chapter-wise). Keeps a
     # source near the fit-shortcut size so its overview stays complete.
     aia_source_max_pages: int | None = None
+    # Aussprache auf der Lernkarte: welcher TTS-Anbieter spricht und mit welcher
+    # Stimme. Als Zeichenkette, weil die leere Wahl "nicht eingerichtet" heißt und
+    # eine Zahl das nicht ausdrücken kann. Das Modell steht nicht hier, es kommt
+    # aus der Route "Text in Sprache".
+    aia_flashcard_voice_provider_id: str | None = None
+    aia_flashcard_voice_id: str | None = None
     # Nebenläufigkeit steht hier bewusst NICHT mehr. Platzanzahl, gleichzeitige
     # Uploads und Umwandlungs-Threads werden an der Maschine gemessen
     # (services/system_capacity.py), Vertonung und Spracherkennung sind gemessene

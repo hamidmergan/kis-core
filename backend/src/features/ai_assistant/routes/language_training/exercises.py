@@ -17,6 +17,7 @@ from src.features.ai_assistant.routes._helpers import (
 from src.features.ai_assistant import schemas
 from src.features.ai_assistant.repository.grammar_topics import catalog_entry
 from src.services.aia_grammar_formats import clean_kinds
+from src.services import aia_flashcard_speech as speech
 
 router = APIRouter(tags=["ki-assistent: language-training"])
 
@@ -302,6 +303,9 @@ async def get_exercise_set(
         ex_set["grammar_topic_name"] = topic["name"]
     # The numbered legend under the exercises, and the numbers the chips print.
     ex_set["sources"] = _numbered_sources(ex_set)
+    # Ob die Karte einen Lautsprecher zeigen darf. Hier statt in einer zweiten
+    # Anfrage, und hier statt im Browser geraten: die Antwort steht im Admin.
+    ex_set["speech_enabled"] = speech.speech_enabled()
     return {"set": ex_set}
 
 @router.delete("/ai-assistant/workspaces/{workspace_uuid}/exercise-sets/{set_id}")

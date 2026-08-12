@@ -113,6 +113,7 @@ export function LanguageTrainingContent(props: LanguageTrainingContentProps) {
             breadcrumbs={[toOverviewWithReset, { label: lernkartenLabel, toolKey: "Flashcards", onClick: () => { setActiveSet(null); setSprachView("lk-sets"); } }]}
             showTranslation
             chatLang={chatLang}
+            workspaceUuid={workspaceUuid}
           />
         ) : null;
       // ─── Grammatik-Übung Sets Flow ─────────────────────────

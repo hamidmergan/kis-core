@@ -2,12 +2,53 @@
 
 import json
 
+from loguru import logger
+
 from src.features.ai_assistant.tasks._helpers import _clean_llm_json
 from src.tool_prompts import AIA_LERNKARTEN_PROMPT
 
 from src.features.ai_assistant.tasks.language_training._attribution import attach_chips
 from src.features.ai_assistant.tasks.language_training._context import QuelleContext
 from src.features.ai_assistant.tasks.language_training._title import title_from_items
+from src.features.ai_assistant.tasks.language_training._wortteile import clean_word_parts
+
+
+# Gemeinsame Schlüssel für extras in Lernkarten (Quelltext-Weg und Glossar-Weg).
+# Beide Modi enrichen Karten mit denselben Felder: Wortzerlegung, Beispielsatz,
+# Wortart (mit Klammer für Verben: Art/Reflexivität), und für Verben die drei
+# Zeitformen (3. Person Singular: Präsens, Präteritum, Perfekt mit Hilfsverb).
+AIA_FLASHCARD_EXTRAS_FIELDS = (
+    "word_parts", "word_parts_explained", "example_sentence",
+    "word_class", "singular", "plural",
+    "verb_present", "verb_past", "verb_perfect"
+)
+
+
+def flashcard_extras(c: dict, begriff: str) -> dict:
+    """Die extras einer Lernkarte, gemeinsam für den Quelltext- und den Glossar-Weg.
+
+    Die Wortzerlegung wird dabei nachgerechnet (siehe ``_wortteile``): das Modell hat
+    Teile erfunden, die im Begriff gar nicht vorkommen. Leere Felder entstehen erst gar
+    nicht, denn die Ansicht zeichnet eine Zeile, sobald der Schlüssel da ist.
+    """
+    extras = {
+        k: (c.get(k) or "").strip()
+        for k in AIA_FLASHCARD_EXTRAS_FIELDS
+        if (c.get(k) or "").strip()
+    }
+    parts, explained = clean_word_parts(
+        begriff, extras.get("word_parts", ""), extras.get("word_parts_explained", ""))
+    if extras.get("word_parts") and not parts:
+        # Damit sichtbar bleibt, wie oft das Modell danebenliegt. Ohne diese Zeile wäre
+        # die Bremse unsichtbar und niemand merkte, wenn sie zu oft oder gar nicht greift.
+        logger.info("Lernkarte {}: Wortzerlegung {!r} verworfen, ein Teil steht nicht im Begriff",
+                    begriff, extras["word_parts"])
+    for schluessel, wert in (("word_parts", parts), ("word_parts_explained", explained)):
+        if wert:
+            extras[schluessel] = wert
+        else:
+            extras.pop(schluessel, None)
+    return extras
 
 
 def generate_flashcards_from_source(
@@ -72,12 +113,7 @@ def _format_lernkarte(c: dict) -> dict:
         # check that every section was actually served.
         "_section": c.get("section"),
     }
-    extras = {
-        k: (c.get(k) or "").strip()
-        for k in ("word_parts", "word_parts_explained", "example_sentence",
-                  "word_class", "singular", "plural")
-        if (c.get(k) or "").strip()
-    }
+    extras = flashcard_extras(c, item["front"])
     if extras:
         item["extras"] = extras
     return item
