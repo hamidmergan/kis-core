@@ -22,7 +22,11 @@ def configured_voice() -> tuple[int, str] | None:
     Wahl "noch nicht eingerichtet" bedeutet und eine Zahl das nicht ausdrücken
     kann. Steht dort etwas, das keine Zahl ist, gilt das als nicht eingerichtet:
     ein fehlender Knopf ist die bessere Antwort auf eine kaputte Einstellung als
-    ein Absturz.
+    ein Absturz. Eine Anbieternummer kleiner als 1 (0, negativ) ist ebenfalls
+    ungültig: die providers.id-Spalte ist ein SERIAL PRIMARY KEY und beginnt bei 1,
+    also kann es solche Nummern nicht geben. Der Lesweg verlässt sich bewusst nicht
+    darauf, dass jeder Schreibweg vorher geprüft hat: er trifft auch Altdaten,
+    künftige zweite Schreibwege oder manuelle Eingriffe in die Datenbank an.
     """
     raw_provider = (db.get_setting(_PROVIDER_KEY, "") or "").strip()
     voice = (db.get_setting(_VOICE_KEY, "") or "").strip()
@@ -31,6 +35,8 @@ def configured_voice() -> tuple[int, str] | None:
     try:
         provider_id = int(raw_provider)
     except ValueError:
+        return None
+    if provider_id < 1:
         return None
     return provider_id, voice
 

@@ -59,3 +59,19 @@ def test_unsinn_als_anbieternummer_schaltet_ab(settings):
     settings["aia_flashcard_voice_id"] = "alloy"
     assert speech.configured_voice() is None
     assert speech.speech_enabled() is False
+
+
+def test_null_als_anbieternummer_ist_ungueltig(settings):
+    """Null existiert nicht als Provider-ID (SERIAL beginnt bei 1)."""
+    settings["aia_flashcard_voice_provider_id"] = "0"
+    settings["aia_flashcard_voice_id"] = "alloy"
+    assert speech.configured_voice() is None
+    assert speech.speech_enabled() is False
+
+
+def test_negative_anbieternummer_ist_ungueltig(settings):
+    """Negative Nummern existieren nicht als Provider-IDs."""
+    settings["aia_flashcard_voice_provider_id"] = "-5"
+    settings["aia_flashcard_voice_id"] = "alloy"
+    assert speech.configured_voice() is None
+    assert speech.speech_enabled() is False
