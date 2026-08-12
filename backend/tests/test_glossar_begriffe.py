@@ -162,3 +162,66 @@ def test_an_empty_glossary_still_returns_none(monkeypatch):
     monkeypatch.setattr("src.database.get_aia_glossary_by_workspace", lambda *_a, **_k: [])
     assert _glossary.generate_from_glossary(
         _client("{}"), "m", 7, 1, "flashcards", 4) is None
+
+
+# --- Verdrahtung im Auftrag ---------------------------------------------------
+
+@pytest.fixture
+def glossar_stack(monkeypatch):
+    """Haengt den Auftrag an Attrappen und haelt fest, was gespeichert wird."""
+    import src.features.ai_assistant.tasks.language_training as mod
+
+    seen = {"items": None, "failed": False}
+
+    class _DB:
+        def get_aia_workspace_by_id(self, _id):
+            return {"id": 7}
+
+        def get_exercise_set_with_items(self, _id):
+            return {"user_id": 1}
+
+        def finalize_exercise_set(self, _set_id, _title, items, header=None):
+            seen["items"] = items
+
+        def fail_exercise_set(self, _id):
+            seen["failed"] = True
+
+    monkeypatch.setattr(mod, "db", _DB())
+    monkeypatch.setattr(mod, "_get_llm_client", lambda: (object(), "m", "p"))
+    monkeypatch.setattr(mod, "build_adaptive_tool_suffix", lambda *a, **k: "")
+    monkeypatch.setattr(mod, "build_title_avoidance_block", lambda *a, **k: "")
+    monkeypatch.setattr(mod, "resolve_set_title", lambda *a, **k: "Titel")
+    return mod, seen
+
+
+def test_a_deliberately_repeated_term_reaches_the_set(glossar_stack, monkeypatch):
+    """Der zweite Durchlauf darf nicht am alten Vergangenheits-Filter haengen bleiben.
+
+    Bei Lernkarten ist die Vorderseite der Begriff. Ein bewusst wiederholter Begriff
+    stand damit in ``seen_by_user`` und flog raus, der Satz war wieder kurz und der
+    Modellaufruf dafuer schon bezahlt.
+    """
+    mod, seen = glossar_stack
+    monkeypatch.setattr(mod, "generate_from_glossary", lambda *a, **k: (
+        [{"front": "Abstract", "back": "Eine Zusammenfassung.",
+          "glossary_term": "Abstract"}], "T"))
+    monkeypatch.setattr(mod, "seen_by_user", lambda *a, **k: ["Abstract"])
+
+    mod.run_generate_exercise_set(1, 7, "flashcards", "glossary", 1)
+
+    assert seen["failed"] is False
+    assert [i["front"] for i in seen["items"]] == ["Abstract"]
+
+
+def test_two_identical_cards_in_one_set_still_collapse(glossar_stack, monkeypatch):
+    """Was der Filter nebenbei konnte, bleibt: zwei gleiche Karten nebeneinander sind
+    ein sichtbarer Fehler."""
+    mod, seen = glossar_stack
+    monkeypatch.setattr(mod, "generate_from_glossary", lambda *a, **k: (
+        [{"front": "Was ist ein Abstract?", "back": "A", "glossary_term": "Abstract"},
+         {"front": "Was ist ein Abstract?", "back": "B", "glossary_term": "Exposé"}], "T"))
+    monkeypatch.setattr(mod, "seen_by_user", lambda *a, **k: [])
+
+    mod.run_generate_exercise_set(1, 7, "karteikarten", "glossary", 2)
+
+    assert len(seen["items"]) == 1

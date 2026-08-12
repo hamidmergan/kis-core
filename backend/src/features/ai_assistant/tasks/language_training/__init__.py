@@ -324,14 +324,17 @@ def run_generate_exercise_set(self, set_id: int, workspace_id: int, tool: str,
 
             items = items + neu
 
-        # Der Glossar-Modus laeuft nicht ueber den Vorrat und braucht seinen eigenen
-        # Filter. Er zieht aus einer endlichen Begriffsliste, ein Nachschlag haette also
-        # nichts Neues anzubieten, und ein kuerzerer Satz ist die ehrliche Antwort.
+        # Der Glossar-Weg entscheidet VOR der Erzeugung, welche Begriffe drankommen:
+        # frische zuerst, aufgefuellt wird mit schon benutzten (siehe ``_pick_terms``).
+        # Der Vergleich mit der Vergangenheit stand bis 2026-08-12 hier und wuerde jetzt
+        # genau die gewollten Wiederholungen wieder wegwerfen.
+        #
+        # Was bleibt, ist der Blick in den Satz selbst. Mit leerer Vergangenheitsliste
+        # vergleicht ``drop_repeats`` die Aufgaben nur untereinander. Zwei verschiedene
+        # Begriffe koennen dieselbe Frage erzeugen, und zwei gleiche Karten nebeneinander
+        # sind ein sichtbarer Fehler.
         if items and mode == "glossary":
-            items, wiederholt = drop_repeats(items, seen_by_user(user_id, tool))
-            if wiederholt:
-                logger.info("KI Tutor: set {} hat {} Wiederholungen aussortiert",
-                            set_id, wiederholt)
+            items, _ = drop_repeats(items, [])
 
         if not items:
             db.fail_exercise_set(set_id)

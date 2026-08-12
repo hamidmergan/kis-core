@@ -38,7 +38,9 @@ def uses_pool(tool: str, mode: str) -> bool:
     """Ob diese Anfrage ueber den Vorrat laeuft.
 
     Nur ``mode='source'``: der Glossar-Modus zieht aus einer fertigen Begriffsliste und
-    hat das Problem, das der Vorrat loest, gar nicht.
+    hat das Problem, das der Vorrat loest, gar nicht. Dass er keine Begriffe wiederholt,
+    solange frische da sind, regelt er selbst bei der Auswahl, siehe
+    ``_glossary._pick_terms``. Ein Glossar-Vorrat ist ausdruecklich nicht gewollt.
     """
     return mode == "source" and tool in POOL_TOOLS
 
