@@ -9,11 +9,26 @@ Prompt, die am meisten wehtun, wenn sie jemand später herausstreicht: das Hilfs
 im Perfekt und das Verbot zu raten.
 """
 
+import json
+import types
+
+from src.features.ai_assistant.tasks.language_training._glossary import _generate_flashcards
 from src.features.ai_assistant.tasks.language_training._source_flashcards import (
     _format_lernkarte,
     AIA_FLASHCARD_EXTRAS_FIELDS,
 )
 from src.tool_prompts import AIA_LERNKARTEN_PROMPT
+
+
+def _fake_client(content: str):
+    """Modell-Ersatz: liefert immer dieselbe Antwort, kein Netz, keine Datenbank."""
+    def create(model, messages, **kwargs):
+        message = types.SimpleNamespace(content=content)
+        return types.SimpleNamespace(choices=[types.SimpleNamespace(message=message)])
+
+    return types.SimpleNamespace(
+        chat=types.SimpleNamespace(completions=types.SimpleNamespace(create=create))
+    )
 
 
 # --- der Weg nach extras -----------------------------------------------------
@@ -111,47 +126,69 @@ def test_gemeinsame_konstante_enthaelt_alle_felder():
 
 
 def test_glossar_verbformen_landen_in_extras():
-    """Der Glossar-Weg _generate_flashcards benutzt dieselbe Konstante und legt
-    Verbformen korrekt in extras ab."""
-    # Simuliere eine Glossar-Antwort mit Verbformen
-    glossar_card = {
+    """Im Glossar-Weg legt _generate_flashcards Verbformen korrekt in extras ab.
+    Der Test ruft _generate_flashcards wirklich auf, nicht nur _format_lernkarte."""
+    # Modell-Antwort mit einem Verb mit allen drei Zeitformen
+    antwort = json.dumps({"cards": [{
         "begriff": "schreiben",
-        "definition": "Worte auf Papier oder am Computer aufzeichnen.",
+        "definition": "Worte aufzeichnen.",
         "word_class": "Verb (unregelmäßig)",
         "verb_present": "schreibt",
         "verb_past": "schrieb",
         "verb_perfect": "hat geschrieben",
-        "example_sentence": "Ich schreibe jeden Tag in mein Tagebuch.",
-    }
-    # _format_lernkarte wird auch von _generate_flashcards verwendet
-    item = _format_lernkarte(glossar_card)
-    # Alle drei Verbformen müssen landen
-    assert item["extras"]["verb_present"] == "schreibt"
-    assert item["extras"]["verb_past"] == "schrieb"
-    assert item["extras"]["verb_perfect"] == "hat geschrieben"
-    # Und die anderen Felder
-    assert item["extras"]["word_class"] == "Verb (unregelmäßig)"
-    assert item["extras"]["example_sentence"] == "Ich schreibe jeden Tag in mein Tagebuch."
+        "example_sentence": "Ich schreibe.",
+    }]})
+    client = _fake_client(antwort)
+    glossary_entries = [{
+        "term_de": "schreiben",
+        "term_en": "write",
+        "definition": "Worte aufzeichnen.",
+        "filename": "Deutsch.pdf",
+        "page_number": 5,
+    }]
+
+    items = _generate_flashcards(client, "modell", glossary_entries, "German")
+
+    # Alle drei Verbformen müssen in extras landen
+    assert items[0]["extras"]["verb_present"] == "schreibt"
+    assert items[0]["extras"]["verb_past"] == "schrieb"
+    assert items[0]["extras"]["verb_perfect"] == "hat geschrieben"
+    # Auch die anderen Felder
+    assert items[0]["extras"]["word_class"] == "Verb (unregelmäßig)"
+    assert items[0]["extras"]["example_sentence"] == "Ich schreibe."
 
 
 def test_glossar_leere_verbformen_erzeugen_keine_schluessel():
-    """Im Glossar-Weg, wenn ein Nomen (kein Verb) kommt, dürfen die Verbfelder
-    nicht in extras auftauchen, auch wenn das Modell sie leer mitliefert."""
-    glossar_card = {
+    """Im Glossar-Weg landen leere Verbformen nicht in extras, auch wenn das
+    Modell sie mit leeren Werten liefert. Der Test ruft _generate_flashcards auf."""
+    # Modell-Antwort mit einem Nomen (keine Verbformen)
+    antwort = json.dumps({"cards": [{
         "begriff": "Metapher",
-        "definition": "Ein Vergleich, der direkt ohne 'wie' gemacht wird.",
+        "definition": "Ein Vergleich ohne 'wie'.",
         "word_class": "Nomen",
         "singular": "die Metapher",
         "plural": "die Metaphern",
         "verb_present": "",
         "verb_past": "",
         "verb_perfect": "",
-    }
-    item = _format_lernkarte(glossar_card)
-    # Verbformen dürfen nicht in extras sein
-    assert "verb_present" not in item["extras"]
-    assert "verb_past" not in item["extras"]
-    assert "verb_perfect" not in item["extras"]
-    # Andere Felder kommen durch
-    assert item["extras"]["singular"] == "die Metapher"
-    assert item["extras"]["plural"] == "die Metaphern"
+    }]})
+    client = _fake_client(antwort)
+    glossary_entries = [{
+        "term_de": "Metapher",
+        "term_en": "metaphor",
+        "definition": "Ein Vergleich ohne 'wie'.",
+        "filename": "Deutsch.pdf",
+        "page_number": 10,
+    }]
+
+    items = _generate_flashcards(client, "modell", glossary_entries, "German")
+
+    # Leere Verbformen dürfen nicht in extras sein
+    extras = items[0].get("extras", {})
+    assert "verb_present" not in extras
+    assert "verb_past" not in extras
+    assert "verb_perfect" not in extras
+    # Aber die etablierten Felder kommen durch
+    assert extras["singular"] == "die Metapher"
+    assert extras["plural"] == "die Metaphern"
+    assert extras["word_class"] == "Nomen"
