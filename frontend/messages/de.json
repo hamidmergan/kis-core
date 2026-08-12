@@ -1234,7 +1234,9 @@
       "voiceTitle": "Aussprache: Stimme",
       "voiceHint": "Erst den Anbieter wählen, dann die Stimme. Die Liste zeigt nur Stimmen, die für diesen Anbieter hinterlegt sind.",
       "noneOption": "Keine",
-      "noProviders": "Es ist kein erreichbarer Sprachanbieter eingerichtet. Lege ihn im Bereich Anbieter an."
+      "noProviders": "Es ist kein erreichbarer Sprachanbieter eingerichtet. Lege ihn im Bereich Anbieter an.",
+      "loadError": "Die Anbieterliste konnte gerade nicht geladen werden. Beide Felder bleiben gesperrt, bis es klappt.",
+      "orphanedVoice": "Die hier gespeicherte Stimme gibt es bei diesem Anbieter nicht mehr. Wähle eine neue Stimme oder einen anderen Anbieter."
     },
     "ocrCard": {
       "title": "OCR für Scans & Bild-Seiten",

@@ -1234,7 +1234,9 @@
       "voiceTitle": "Pronunciation: voice",
       "voiceHint": "Pick the provider first, then the voice. The list only shows voices configured for that provider.",
       "noneOption": "None",
-      "noProviders": "No reachable speech provider is set up. Add one under Providers."
+      "noProviders": "No reachable speech provider is set up. Add one under Providers.",
+      "loadError": "The provider list could not be loaded right now. Both fields stay locked until it works.",
+      "orphanedVoice": "The voice stored here no longer exists for this provider. Pick a new voice or a different provider."
     },
     "ocrCard": {
       "title": "OCR for scans & image pages",
