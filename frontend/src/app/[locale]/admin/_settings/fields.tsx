@@ -21,7 +21,6 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { useTranslations } from "next-intl";
 import type { SettingHandle } from "./SettingsProvider";
-import Select from "@/components/ui/Select";
 
 /* ------------------------------------------------------------------ */
 /* Rahmen                                                              */
@@ -288,49 +287,7 @@ export function TextSetting({
   );
 }
 
-/* ------------------------------------------------------------------ */
-/* Auswahl                                                             */
-/* ------------------------------------------------------------------ */
-
-export function SelectSetting({
-  field,
-  title,
-  hint,
-  options,
-  placeholder,
-  disabled,
-}: {
-  field: SettingHandle<string>;
-  title: ReactNode;
-  hint?: ReactNode;
-  options: ReadonlyArray<{ value: string; label: string }>;
-  placeholder?: string;
-  disabled?: boolean;
-}) {
-  if (field.loading || field.value === null) return null;
-
-  // Wie Schalter und anders als Zahl und Text: eine Auswahl greift sofort. Es gibt
-  // keinen Zwischenzustand, den man noch verwerfen wollen könnte.
-  return (
-    <SettingCard
-      title={title}
-      error={field.error}
-      control={
-        <>
-          <SavedMark show={field.saved} />
-          <div className="w-64">
-            <Select
-              value={field.value}
-              onChange={(next) => void field.set(next)}
-              options={options}
-              disabled={disabled || field.saving}
-              placeholder={placeholder}
-            />
-          </div>
-        </>
-      }
-    >
-      {hint && <p className="mt-3 text-xs text-muted-soft max-w-2xl">{hint}</p>}
-    </SettingCard>
-  );
-}
+/* Ein Baustein "eine Auswahl je Karte" stand hier kurz und ist wieder weg. Die
+   einzige Auswahl im Admin-Bereich sind Anbieter und Stimme der Aussprache, und die
+   gehoeren in EINE Karte, nicht in zwei. Wer spaeter eine einzelne Auswahl braucht,
+   baut sie wie NumberSetting oben, das ist ein Dutzend Zeilen. */

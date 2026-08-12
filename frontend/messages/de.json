@@ -1229,14 +1229,14 @@
       "toggleAria": "Sprachtrainer umschalten"
     },
     "flashcardVoiceCard": {
-      "providerTitle": "Aussprache: Anbieter",
-      "providerHint": "Wer den Beispielsatz auf einer Lernkarte vorliest. Ohne Anbieter und Stimme zeigt die Karte keinen Lautsprecher. Das Modell kommt aus der Route Text in Sprache.",
-      "voiceTitle": "Aussprache: Stimme",
-      "voiceHint": "Erst den Anbieter wählen, dann die Stimme. Die Liste zeigt nur Stimmen, die für diesen Anbieter hinterlegt sind.",
+      "title": "Aussprache",
+      "description": "Wer den Beispielsatz auf einer Lernkarte vorliest. Erst den Anbieter wählen, dann die Stimme, denn die Liste zeigt nur Stimmen dieses Anbieters. Ohne beides zeigt die Karte keinen Lautsprecher. Das Modell kommt aus der Route Text in Sprache.",
+      "providerLabel": "Anbieter",
+      "voiceLabel": "Stimme",
       "noneOption": "Keine",
       "noProviders": "Es ist kein erreichbarer Sprachanbieter eingerichtet. Lege ihn im Bereich Anbieter an.",
-      "loadError": "Die Anbieterliste konnte gerade nicht geladen werden. Beide Felder bleiben gesperrt, bis es klappt.",
-      "orphanedVoice": "Die hier gespeicherte Stimme gibt es bei diesem Anbieter nicht mehr. Wähle eine neue Stimme oder einen anderen Anbieter."
+      "loadError": "Die Anbieterliste konnte nicht geladen werden. Die Felder bleiben gesperrt, damit eine funktionierende Einstellung nicht versehentlich überschrieben wird.",
+      "orphanedVoice": "Die gespeicherte Stimme gibt es bei diesem Anbieter nicht. Wähle eine Stimme aus der Liste, sonst scheitert das Vorlesen."
     },
     "ocrCard": {
       "title": "OCR für Scans & Bild-Seiten",

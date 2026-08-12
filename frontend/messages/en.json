@@ -1229,14 +1229,14 @@
       "toggleAria": "Toggle language trainer"
     },
     "flashcardVoiceCard": {
-      "providerTitle": "Pronunciation: provider",
-      "providerHint": "Who reads the example sentence on a flashcard. Without a provider and a voice the card shows no speaker. The model comes from the text-to-speech route.",
-      "voiceTitle": "Pronunciation: voice",
-      "voiceHint": "Pick the provider first, then the voice. The list only shows voices configured for that provider.",
+      "title": "Pronunciation",
+      "description": "Who reads the example sentence on a flashcard. Pick the provider first, then the voice, since the list only shows voices of that provider. Without both the card shows no speaker. The model comes from the text-to-speech route.",
+      "providerLabel": "Provider",
+      "voiceLabel": "Voice",
       "noneOption": "None",
       "noProviders": "No reachable speech provider is set up. Add one under Providers.",
-      "loadError": "The provider list could not be loaded right now. Both fields stay locked until it works.",
-      "orphanedVoice": "The voice stored here no longer exists for this provider. Pick a new voice or a different provider."
+      "loadError": "The provider list could not be loaded. The fields stay locked so a working setting is not overwritten by accident.",
+      "orphanedVoice": "The saved voice does not exist for this provider. Pick a voice from the list, otherwise reading aloud will fail."
     },
     "ocrCard": {
       "title": "OCR for scans & image pages",

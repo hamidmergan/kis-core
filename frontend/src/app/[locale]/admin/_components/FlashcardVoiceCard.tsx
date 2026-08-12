@@ -3,20 +3,24 @@
 /**
  * Wer den Beispielsatz einer Lernkarte vorliest.
  *
- * Zwei Auswahlfelder statt einem, weil ein Anbieterwechsel die Stimmenliste
- * austauscht. Beide leer bedeutet: kein Lautsprecher auf der Karte. Das Modell
- * wird hier NICHT gewählt, es kommt aus der Route "Text in Sprache".
+ * EINE Karte mit zwei Feldern, nicht zwei Karten. Anbieter und Stimme sind eine
+ * einzige Entscheidung: eine Stimme ohne Anbieter ergibt nichts, und der Anbieter
+ * bestimmt, welche Stimmen überhaupt zur Wahl stehen. Zwei Karten haben das
+ * auseinandergerissen und denselben Hinweis zweimal erzählt.
  *
- * Beim Anbieterwechsel wird die Stimme geleert, um verwaiste Stimmen zu vermeiden.
- * Gescheiterte Ladevorgänge sind klar von leeren Listen unterschieden: beim Fehler
- * bleiben beide Felder gesperrt, statt eine funktionierende alte Einstellung zu
- * überschreiben.
+ * Das Modell wird hier NICHT gewählt, es kommt aus der Route "Text in Sprache".
+ *
+ * Beim Anbieterwechsel wird die Stimme geleert, sonst bliebe eine verwaiste Stimme
+ * stehen, die es beim neuen Anbieter nicht gibt. Ein gescheiterter Abruf ist klar
+ * vom leeren Ergebnis unterschieden: beim Fehler bleiben beide Felder gesperrt,
+ * statt dass ein Klick eine funktionierende Einstellung überschreibt.
  */
 
 import { useEffect, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
+import Select from "@/components/ui/Select";
 import { useSetting } from "../_settings/SettingsProvider";
-import { SelectSetting } from "../_settings/fields";
+import { SavedMark, SettingCard } from "../_settings/fields";
 
 interface VoiceEntry { voice_id: string; name: string }
 interface ProviderEntry { id: number; name: string; voices?: VoiceEntry[] }
@@ -31,14 +35,14 @@ export default function FlashcardVoiceCard() {
   const [loadState, setLoadState] = useState<LoadState>("loading");
   const prevProviderRef = useRef<string>("");
 
-  // Lade Anbieter und Stimmen beim Mount
+  // Anbieter samt Stimmen einmal holen.
   useEffect(() => {
     fetch("/api/tts/providers-with-voices", { credentials: "include" })
       .then((r) => {
-        // Prüfe auf Serverfehler, bevor der JSON-Body ausgewertet wird.
-        // FastAPI liefert auch bei 500-Errors gültiges JSON, z.B. {"detail": ...}.
-        // Ohne r.ok-Prüfung würde d.providers undefined sein und wir würden fälschlich
-        // in den Zustand "geladen, keine Anbieter" fallen statt in den Fehler.
+        // Erst den Status prüfen, dann den Körper. FastAPI liefert auch bei einem 500
+        // gültiges JSON, etwa {"detail": ...}. Ohne diese Prüfung wäre d.providers
+        // undefined und wir landeten im Zustand "geladen, keine Anbieter" statt im
+        // Fehler, und ein Klick könnte eine funktionierende Einstellung löschen.
         if (!r.ok) {
           setLoadState("error");
           return;
@@ -46,7 +50,7 @@ export default function FlashcardVoiceCard() {
         return r.json();
       })
       .then((d) => {
-        if (d === undefined) return; // Fehler wurde bereits gehandelt
+        if (d === undefined) return; // Fehler ist oben schon behandelt
         const p = d.providers ?? [];
         setProviders(p);
         setLoadState(p.length === 0 ? "loaded-empty" : "loaded");
@@ -54,26 +58,34 @@ export default function FlashcardVoiceCard() {
       .catch(() => setLoadState("error"));
   }, []);
 
-  // Wenn der Anbieter wechselt, leere die Stimme, um verwaiste Werte zu vermeiden.
+  // Wechselt der Anbieter, fällt die Stimme weg. Sie gehört zum alten Anbieter und
+  // gibt es beim neuen in aller Regel nicht.
   useEffect(() => {
     if (providerField.value === null) return;
-    const changed =
+    const gewechselt =
       providerField.value !== prevProviderRef.current &&
       prevProviderRef.current !== "";
-    if (changed && voiceField.value !== "") {
+    if (gewechselt && voiceField.value !== "") {
       void voiceField.set("");
     }
     prevProviderRef.current = providerField.value;
   }, [providerField.value]);
 
+  if (providerField.loading || providerField.value === null || voiceField.value === null) {
+    return null;
+  }
+
   const chosen = providers.find((p) => String(p.id) === providerField.value);
 
-  // Prüfe, ob eine gespeicherte Stimme im gewählten Anbieter nicht existiert.
-  const hasOrphanedVoice =
+  // Eine gespeicherte Stimme, die es beim gewählten Anbieter nicht gibt. Das Feld
+  // zeigt dann nur den allgemeinen Platzhalter, ununterscheidbar von "nichts gewählt",
+  // deshalb sagt es der Hinweis.
+  const hasOrphanedVoice = Boolean(
     providerField.value !== "" &&
     voiceField.value !== "" &&
     chosen &&
-    !chosen.voices?.some((v) => v.voice_id === voiceField.value);
+    !chosen.voices?.some((v) => v.voice_id === voiceField.value),
+  );
 
   const providerOptions = [
     { value: "", label: t("noneOption") },
@@ -85,38 +97,48 @@ export default function FlashcardVoiceCard() {
     ...(chosen?.voices ?? []).map((v) => ({ value: v.voice_id, label: v.name })),
   ];
 
-  // Bestimme den Hinweis für das Anbieter-Feld
-  let providerHint: string;
-  if (loadState === "error") {
-    providerHint = t("loadError");
-  } else if (loadState === "loaded-empty") {
-    providerHint = t("noProviders");
-  } else {
-    providerHint = t("providerHint");
-  }
-
-  // Bestimme den Hinweis für das Stimmen-Feld
-  const voiceHint = hasOrphanedVoice ? t("orphanedVoice") : t("voiceHint");
-
   const isLoaded = loadState === "loaded" || loadState === "loaded-empty";
-  const isDisabled = !isLoaded;
+  const gesperrt = !isLoaded;
+
+  // Genau ein Sonderhinweis, und nur wenn es einen gibt. Die Reihenfolge ist die der
+  // Dringlichkeit: ein Ladefehler macht jede Aussage über die Liste hinfällig.
+  let notiz: string | null = null;
+  if (loadState === "error") notiz = t("loadError");
+  else if (loadState === "loaded-empty") notiz = t("noProviders");
+  else if (hasOrphanedVoice) notiz = t("orphanedVoice");
+
+  const feld = (
+    beschriftung: string,
+    field: typeof providerField,
+    options: ReadonlyArray<{ value: string; label: string }>,
+    disabled: boolean,
+    breite: string,
+  ) => (
+    <div className={breite}>
+      <p className="text-2xs font-medium text-muted-soft mb-1">{beschriftung}</p>
+      <Select
+        value={field.value ?? ""}
+        onChange={(next) => void field.set(next)}
+        options={options}
+        disabled={disabled || field.saving}
+      />
+    </div>
+  );
 
   return (
-    <>
-      <SelectSetting
-        field={providerField}
-        title={t("providerTitle")}
-        hint={providerHint}
-        options={providerOptions}
-        disabled={isDisabled}
-      />
-      <SelectSetting
-        field={voiceField}
-        title={t("voiceTitle")}
-        hint={voiceHint}
-        options={voiceOptions}
-        disabled={isDisabled || !chosen}
-      />
-    </>
+    <SettingCard
+      title={t("title")}
+      error={providerField.error ?? voiceField.error}
+      control={
+        <>
+          <SavedMark show={providerField.saved || voiceField.saved} />
+          {feld(t("providerLabel"), providerField, providerOptions, gesperrt, "w-52")}
+          {feld(t("voiceLabel"), voiceField, voiceOptions, gesperrt || !chosen, "w-40")}
+        </>
+      }
+    >
+      <p className="mt-3 text-xs text-muted-soft max-w-2xl">{t("description")}</p>
+      {notiz && <p className="mt-2 text-xs text-muted-soft max-w-2xl">{notiz}</p>}
+    </SettingCard>
   );
 }
