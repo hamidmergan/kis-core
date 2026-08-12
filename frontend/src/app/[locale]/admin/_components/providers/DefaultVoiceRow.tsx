@@ -66,12 +66,12 @@ export default function DefaultVoiceRow({ eligible }: { eligible: Provider[] }) 
   };
 
   return (
+    // Nur Beschriftung und Feld, wie die Anbieterzeilen darueber. Ein Erklaertext
+    // stand hier und ist wieder weg: die Zeile erklaert sich, und der Kasten wurde
+    // doppelt so hoch wie alles andere in der Liste.
     <div className="mt-3 pt-3 border-t border-border-soft">
-      <div className="flex items-center gap-2 flex-wrap">
-        <div className="min-w-0 flex-1 basis-48">
-          <p className="text-sm text-foreground-soft">{t("label")}</p>
-          <p className="text-2xs text-muted-soft mt-0.5 max-w-xl">{t("hint")}</p>
-        </div>
+      <div className="flex items-center gap-2">
+        <span className="flex-1 min-w-0 truncate text-sm text-foreground-soft">{t("label")}</span>
         <SavedMark show={saved} />
         <div className="w-64">
           <Select
@@ -82,6 +82,8 @@ export default function DefaultVoiceRow({ eligible }: { eligible: Provider[] }) 
           />
         </div>
       </div>
+      {/* Nur Fehlerzustaende, keine Erklaerung. Beide sind selten und beide wuerden
+          sonst stillschweigend danebengehen. */}
       {verwaist && <p className="text-2xs text-muted-soft mt-1.5">{t("orphaned")}</p>}
       {error && <p className="text-2xs text-error mt-1.5">{error}</p>}
     </div>

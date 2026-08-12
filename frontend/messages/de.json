@@ -1143,7 +1143,6 @@
       },
       "defaultVoice": {
         "label": "Standardstimme",
-        "hint": "Für das Vorlesen dort, wo niemand eine Stimme wählen kann, etwa der Lautsprecher auf einer Lernkarte. Ohne Standardstimme gibt es dort keinen Lautsprecher. Die Werkzeuge Vertonung und Screencast fragen ihre Nutzer weiterhin selbst.",
         "none": "Keine",
         "orphaned": "Die gespeicherte Stimme steht nicht mehr zur Wahl, der Anbieter oder die Stimme ist weg. Wähle eine andere, sonst scheitert das Vorlesen."
       }
