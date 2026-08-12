@@ -58,6 +58,8 @@ def _plain_flashcard(e: dict) -> dict:
         "source_label": e.get("filename", ""),
         "page_number": e.get("page_number"),
         "sources": _sources_for(e),
+        # Woran diese Karte haengt. Die Auswahl beim naechsten Mal liest genau das.
+        "glossary_term": e["term_de"],
     }
 
 
@@ -75,6 +77,7 @@ def _fallback_karteikarte(e: dict, language: str) -> dict:
         "source_label": e.get("filename", ""),
         "page_number": e.get("page_number"),
         "sources": _sources_for(e),
+        "glossary_term": e["term_de"],
     }
 
 
@@ -131,6 +134,9 @@ def _generate_karteikarten(client, model, selected: list[dict], language: str,
             "source_label": e.get("filename", ""),
             "page_number": e.get("page_number"),
             "sources": _sources_for(e),
+            # Aus dem Glossar und nicht aus der Antwort des Modells. Das Modell darf den
+            # Begriff umschreiben, das Gedaechtnis darf davon nicht abhaengen.
+            "glossary_term": e["term_de"],
         })
     return items
 
@@ -195,6 +201,7 @@ def _generate_flashcards(client, model, selected: list[dict], language: str,
             "source_label": e.get("filename", ""),
             "page_number": e.get("page_number"),
             "sources": _sources_for(e),
+            "glossary_term": e["term_de"],
         }
         extras = flashcard_extras(c, item["front"])
         if extras:
