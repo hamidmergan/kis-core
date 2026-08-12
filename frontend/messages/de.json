@@ -1750,6 +1750,8 @@
           "verbPerfect": "Perfekt:",
           "form": "Form:",
           "example": "Beispiel",
+          "playExample": "Beispielsatz anhören",
+          "stopExample": "Wiedergabe anhalten",
           "translationPrefix": "EN:",
           "nextTerm": "Nächster Begriff"
         },

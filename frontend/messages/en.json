@@ -1750,6 +1750,8 @@
           "verbPerfect": "Perfect:",
           "form": "Form:",
           "example": "Example",
+          "playExample": "Listen to the example sentence",
+          "stopExample": "Stop playback",
           "translationPrefix": "EN:",
           "nextTerm": "Next term"
         },

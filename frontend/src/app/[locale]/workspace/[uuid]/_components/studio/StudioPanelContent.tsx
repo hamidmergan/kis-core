@@ -150,6 +150,7 @@ export function StudioPanelContent(props: StudioPanelContentProps) {
         onSourceClick={onSourceClick}
         breadcrumbs={[{ label: t("panelTitle"), onClick: () => { setActiveSet(null); setStudioView("overview"); } }, { label: t("tiles.karteikarten"), toolKey: "Flashcards", onClick: () => { setActiveSet(null); refreshProgress(); } }]}
         chatLang={chatLang}
+        workspaceUuid={workspaceUuid}
       />
     );
   }

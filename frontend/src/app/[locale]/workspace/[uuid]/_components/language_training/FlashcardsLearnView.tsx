@@ -1,7 +1,9 @@
 import React, { useContext, useEffect, useRef, useState } from "react";
-import { CaretLeft, CaretRight, Chat, Check, Lightbulb, Question, SidebarSimple, XIcon } from "@phosphor-icons/react";
+import { CaretLeft, CaretRight, Chat, Check, Lightbulb, Question, SidebarSimple, SpeakerHigh, XIcon } from "@phosphor-icons/react";
 import { useLocale, useTranslations } from "next-intl";
 import Spinner from "@/components/ui/Spinner";
+import IconButton from "@/components/ui/IconButton";
+import { useVoicePlayer } from "@/hooks/useVoicePlayer";
 import type { ExerciseItem, ExerciseItemSource, ExerciseSet, Source } from "../../_types";
 import { _chunkLabel, _getChipIcon, _md, _sourceChipKey } from "../../_utils";
 import { MinimizeContext } from "../../_context";
@@ -11,7 +13,7 @@ import { HintCard } from "./HintCard";
 import { SetSourceLegend, sourceNumbers, sourceTag } from "./SetSourceLegend";
 
 export function FlashcardsLearnView({
-  exerciseSet, onBack, onAnswer, onAskChat, onSourceClick, breadcrumbs, showTranslation, chatLang = "de",
+  exerciseSet, onBack, onAnswer, onAskChat, onSourceClick, breadcrumbs, showTranslation, chatLang = "de", workspaceUuid,
 }: {
   exerciseSet: ExerciseSet;
   onBack: () => void;
@@ -21,6 +23,8 @@ export function FlashcardsLearnView({
   breadcrumbs?: BreadcrumbItem[];
   showTranslation?: boolean;
   chatLang?: "de" | "en";
+  /** Für den Weg zur Aussprache. Die Menge trägt nur die interne Nummer. */
+  workspaceUuid: string;
 }) {
   const t = useTranslations("workspace.detail.languageTraining");
   const tChip = useTranslations("sourceChip");
@@ -73,6 +77,10 @@ export function FlashcardsLearnView({
   const answeredRef = useRef<Set<number>>(new Set());
   // Der Tipp steht fertig an der Karte, der Knopf klappt ihn nur auf.
   const [showHint, setShowHint] = useState(false);
+  // Der erzeugte Ton bleibt an der Karte hängen, solange diese Ansicht steht.
+  // Zweiter Klick spielt sofort. Beim Verlassen ist alles weg, gespeichert wird
+  // nichts.
+  const { playingId, loadingId, playFromApi } = useVoicePlayer({ keepCache: true });
 
   const total = items.length;
   const card = items[index];
@@ -356,12 +364,34 @@ export function FlashcardsLearnView({
                       </div>
                     )}
                     {/* Context sentence */}
-                    {exampleSentence && (
-                      <div className="px-3 py-2.5 rounded-xl" style={{ border: "1px solid var(--border)" }}>
-                        <span className="text-3xs font-bold uppercase tracking-widest" >{t("flashcardsLearn.example")}</span>
-                        <p className="text-sm italic leading-relaxed mt-1" style={{ color: "var(--foreground)" }}>{exampleSentence}</p>
-                      </div>
-                    )}
+                    {exampleSentence && (() => {
+                      const speechKey = String(card.id);
+                      const busy = loadingId === speechKey;
+                      const running = playingId === speechKey;
+                      return (
+                        <div className="px-3 py-2.5 rounded-xl" style={{ border: "1px solid var(--border)" }}>
+                          <div className="flex items-center justify-between gap-2">
+                            <span className="text-3xs font-bold uppercase tracking-widest" >{t("flashcardsLearn.example")}</span>
+                            {exerciseSet.speech_enabled && (
+                              <IconButton
+                                size="sm"
+                                onClick={() => void playFromApi(
+                                  speechKey,
+                                  `/api/ai-assistant/workspaces/${workspaceUuid}/exercise-sets/${exerciseSet.id}/items/${card.id}/speak`,
+                                )}
+                                title={running ? t("flashcardsLearn.stopExample") : t("flashcardsLearn.playExample")}
+                                aria-label={running ? t("flashcardsLearn.stopExample") : t("flashcardsLearn.playExample")}
+                              >
+                                {busy ? <Spinner size="sm" /> : (
+                                  <SpeakerHigh size={12} weight="bold" style={{ color: running ? "var(--kb)" : undefined }} />
+                                )}
+                              </IconButton>
+                            )}
+                          </div>
+                          <p className="text-sm italic leading-relaxed mt-1" style={{ color: "var(--foreground)" }}>{exampleSentence}</p>
+                        </div>
+                      );
+                    })()}
                     {/* Sources + Chat */}
                     {(() => {
                       const rawSrcs: ExerciseItemSource[] = card.sources?.length ? card.sources as ExerciseItemSource[] : cardSource ? [cardSource] : [];
