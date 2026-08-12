@@ -1940,6 +1940,23 @@ async def chat(
                             return _hits_by_line[_line]
                         return _raw_search(_line)
 
+                    # Looking a figure up beats ranking by meaning for exactly the claims a
+                    # reader checks: the slide stating an office hour's time sat OUTSIDE the
+                    # citation gate while three passages merely mentioning office hours took
+                    # every slot. Cheap and cached per figure — a workspace-scoped ILIKE, and
+                    # the same figure recurs across the lines of one answer.
+                    _literal_cache: dict = {}
+
+                    def _literal_lookup(_figure: str):
+                        if _figure not in _literal_cache:
+                            try:
+                                _literal_cache[_figure] = db.find_chunks_containing(
+                                    workspace["id"], _figure, source_ids=source_ids)
+                            except Exception as e:
+                                logger.warning("literal citation lookup failed for {}: {}", _figure, e)
+                                _literal_cache[_figure] = []
+                        return _literal_cache[_figure]
+
                     _attr_result = _attribute_generic_text(_stripped, _search_one, source_id_to_qnum,
                                                    # Chips may only point at pages the model
                                                    # actually saw (cross-check vs. retrieved pages).
@@ -1950,6 +1967,8 @@ async def chat(
                                                    # Exact-match grounding sees exactly what the
                                                    # model read (the single neighbor-expanded window).
                                                    context_chunks=chunks,
+                                                   # Who states this figure? Looked up, not ranked.
+                                                   literal_lookup=_literal_lookup,
                                                    # Honest "not in the sources" lines get no chip,
                                                    # even inside an otherwise-grounded compound answer.
                                                    refusal_lines=_refusals,

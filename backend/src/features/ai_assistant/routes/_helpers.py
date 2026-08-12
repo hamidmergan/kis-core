@@ -487,6 +487,9 @@ _MULTI_CHIP_MAX_DELTA = 0.08
 # In prose a chip stop is a SENTENCE, so this is the per-sentence ceiling. Matches the
 # frontend's per-group cap: one visible chip plus two behind the caret.
 _COVERAGE_MAX_CHIPS_PER_LINE = 3
+# How many looked-up chunks may jump the queue for one line. Beyond a handful they stop
+# being evidence and start being a second search.
+_MAX_LITERAL_CANDIDATES = 4
 # A line whose embedding is within this cosine distance of a canonical no-info SENTINEL is
 # an honest "the answer is not in the sources" refusal, NOT a claim — it must get NO chip,
 # even inside an otherwise-grounded COMPOUND answer (one sub-question answered, another
@@ -928,9 +931,47 @@ def _split_sentences(text: str) -> list[str]:
     return out
 
 
+def _literal_candidates(line: str, literal_lookup, corpus: Optional[list[str]],
+                        seen_pages_by_source: Optional[dict],
+                        scope_ids: Optional[set]) -> list[dict]:
+    """Chunks that carry a distinctive FIGURE of ``line`` verbatim, looked up in the material.
+
+    Ranking by meaning cannot reach these. For "mittwochs von 17:30 bis 18:30 Uhr" the one
+    slide stating that time sat at distance 0.656 — outside the citation gate entirely —
+    while three passages that merely mention office hours filled all three chip slots. No
+    ordering rule fixes a candidate that was never a candidate; the figure has to be looked
+    up. Which figures qualify is decided in aia_literal_evidence (structured and rare only).
+
+    The usual gates still apply: a looked-up chunk must have been in the model's context
+    and inside any explicit page/time scope, or it is dropped like any other.
+    """
+    if literal_lookup is None:
+        return []
+    from src.services.aia_literal_evidence import lookup_figures
+    best: dict = {}
+    for fig in lookup_figures(line, corpus or []):
+        hits = literal_lookup(fig) or []
+        for h in hits:
+            cid = h.get("id")
+            if _is_toc_chunk(h.get("content") or ""):
+                continue
+            if not _is_seen(h, seen_pages_by_source) or not _in_scope(h, scope_ids):
+                continue
+            # The RAREST match wins: a date recurring on four pages says far less about
+            # where a claim comes from than a time standing in exactly one place. Without
+            # this ordering the four hits for "22.04.2026" filled the chip slots and the
+            # single hit for "18:30" — the only passage stating the office hour — was
+            # pushed out again.
+            if cid not in best or len(hits) < best[cid][0]:
+                best[cid] = (len(hits), dict(h))
+    ordered = sorted(best.values(), key=lambda pair: pair[0])
+    return [h for _, h in ordered][:_MAX_LITERAL_CANDIDATES]
+
+
 def _line_candidates(line: str, search_one, context_chunks: Optional[list[dict]],
                      seen_pages_by_source: Optional[dict],
-                     scope_ids: Optional[set] = None) -> list[dict]:
+                     scope_ids: Optional[set] = None,
+                     literal_lookup=None, corpus: Optional[list[str]] = None) -> list[dict]:
     """Retrieved (seen), non-TOC source chunks that could ground ``line``, closest-first.
 
     If an EXACT verbatim chunk exists (a name/email/number we already retrieved, whose
@@ -956,12 +997,33 @@ def _line_candidates(line: str, search_one, context_chunks: Optional[list[dict]]
             continue
         cands.append(h)
     cands.sort(key=lambda h: h["vec_distance"])
+    # A chunk that states the line's figure moves right BEHIND the closest one. The closest
+    # stays the anchor of the relative gate, but the passage carrying the claim is now
+    # considered before the merely-nearby ones. Ordering is the load-bearing part: the
+    # slide with the office hour's time WAS among the candidates, at rank eight, and the
+    # three chip slots were long full — being allowed in is worth nothing if nobody looks.
+    found = _literal_candidates(line, literal_lookup, corpus, seen_pages_by_source, scope_ids)
+    if found:
+        lit_ids = {h.get("id") for h in found if h.get("id") is not None}
+        known = {c.get("id") for c in cands}
+        rank = {h.get("id"): i for i, h in enumerate(found)}
+        promoted = sorted([c for c in cands[1:] if c.get("id") in lit_ids],
+                          key=lambda c: rank.get(c.get("id"), 99))
+        others = [c for c in cands[1:] if c.get("id") not in lit_ids]
+        fresh = [h for h in found if h.get("id") not in known]
+        anchor = cands[0]["vec_distance"] if cands else _GENERIC_ATTRIB_MAX_DIST / 2
+        for i, h in enumerate(fresh):
+            h["vec_distance"] = anchor + 1e-6 * (i + 1)   # never a real distance: unranked
+        for h in promoted + fresh:
+            h["literal"] = True
+        cands = cands[:1] + promoted + fresh + others
     return cands
 
 
 def _chips_for_line(cands: list[dict], source_id_to_qnum: dict,
                     max_distance: float,
-                    guarantee_dist: float = _GUARANTEE_MAX_DIST) -> list[str]:
+                    guarantee_dist: float = _GUARANTEE_MAX_DIST,
+                    line: str = "", corpus: Optional[list[str]] = None) -> list[str]:
     """Build the chip list for ONE line from its closest-first candidates.
 
     The first usable candidate is the GUARANTEE chip (closest retrieved chunk, accepted
@@ -969,10 +1031,24 @@ def _chips_for_line(cands: list[dict], source_id_to_qnum: dict,
     chip must be a DISTINCT source/page within the normal ``max_distance`` (a genuine
     additional contributing passage), capped at ``_MAX_CHIPS_PER_LINE``. Overview mode
     passes ``guarantee_dist = max_distance`` so a loose, misleading single chip on a
-    many-source synthesis line is dropped instead of guaranteed."""
+    many-source synthesis line is dropped instead of guaranteed.
+
+    Past the relative gate one thing still earns a chip: stating the claim WORD FOR WORD
+    where the closest passage does not (``line`` given; see aia_literal_evidence). The
+    gate ranks by distance alone, and a transcript segment talking around a fact reliably
+    beats the slide that states it — measured 0.394 against 0.501 for an office hour whose
+    time only the slide carries. The absolute ``max_distance`` still applies, so this
+    widens what may be cited, never how far.
+
+    ``corpus`` is what "word for word" is judged against: every chunk the answer was
+    written from. Falling back to this line's own candidates makes the sample too small
+    to separate a filler adverb from a technical term."""
+    from src.services.aia_literal_evidence import adds_literal_evidence
     chips: list[str] = []
     keys: set = set()
     primary_d: Optional[float] = None
+    primary_content = ""
+    evidence_corpus = corpus or [c.get("content") or "" for c in cands]
     for h in cands:
         qnum = source_id_to_qnum.get(h.get("source_id"))
         if qnum is None:
@@ -983,8 +1059,15 @@ def _chips_for_line(cands: list[dict], source_id_to_qnum: dict,
             if d > guarantee_dist:  # closest seen chunk too far → no chip at all
                 break
             primary_d = d                # the guarantee chip; anchors the relative gate
-        elif d > min(max_distance, primary_d + _MULTI_CHIP_MAX_DELTA):
-            break                        # additional sources must be CLOSE to the best
+            primary_content = h.get("content") or ""
+        elif h.get("literal"):
+            pass                         # states the claim's figure verbatim: it IS the source
+        elif d > max_distance:
+            break                        # off topic for everyone, evidence or not
+        elif d > primary_d + _MULTI_CHIP_MAX_DELTA and not (
+                line and adds_literal_evidence(
+                    line, h.get("content") or "", primary_content, evidence_corpus)):
+            continue                     # further away AND adds nothing the best one lacks
         st = h.get("start_time")
         if st is not None:                  # media: dedup by timestamp, NOT the transcript
             key = (qnum, "t", st)           # segment index that lives in page_number
@@ -1153,7 +1236,8 @@ def _enum_chip_unbacked(text: str, content: str) -> bool:
 
 def _attribute_prose_line(sentences: list[str], search_one, source_id_to_qnum: dict, *,
                           context_chunks, seen_pages_by_source, scope_ids,
-                          max_distance: float, guarantee: float, overview: bool) -> str:
+                          max_distance: float, guarantee: float, overview: bool,
+                          literal_lookup=None) -> str:
     """Rebuild a PROSE paragraph with a citation chip AFTER EACH sentence.
 
     Each sentence is grounded on its OWN vector — whole-sentence closest source plus one
@@ -1163,21 +1247,25 @@ def _attribute_prose_line(sentences: list[str], search_one, source_id_to_qnum: d
     per sentence: a many-law synthesis or an unbacked spelled-out enumeration gets no chip.
     Called ONLY for a grounded answer's single-line prose block, so ``guarantee`` is already
     resolved by the caller (loose for SPECIFIC, tight = ``max_distance`` for overview)."""
+    corpus = [c.get("content") or "" for c in (context_chunks or [])] or None
     parts: list[str] = []
     for sent in sentences:
         chips: list[str] = []
         if _needs_attribution(sent) and not (overview and _names_many_laws(sent)):
             cands = _line_candidates(sent, search_one, context_chunks,
-                                     seen_pages_by_source, scope_ids)
+                                     seen_pages_by_source, scope_ids,
+                                     literal_lookup=literal_lookup, corpus=corpus)
             if cands and not (overview and _enum_chip_unbacked(sent, cands[0].get("content") or "")):
                 chips = _chips_for_line(cands, source_id_to_qnum, max_distance,
-                                        guarantee_dist=guarantee)
+                                        guarantee_dist=guarantee, line=sent, corpus=corpus)
                 seen_targets = set(chips)
                 for cl in _clauses(sent):
                     ccands = _line_candidates(cl, search_one, context_chunks,
-                                              seen_pages_by_source, scope_ids)
+                                              seen_pages_by_source, scope_ids,
+                                              literal_lookup=literal_lookup, corpus=corpus)
                     cchips = _chips_for_line(ccands, source_id_to_qnum, max_distance,
-                                             guarantee_dist=guarantee) if ccands else []
+                                             guarantee_dist=guarantee, line=cl,
+                                             corpus=corpus) if ccands else []
                     # A clause search ALWAYS returns its nearest chunk, so an extra chip must
                     # earn its place: it only stays if its passage covers a word of the
                     # SENTENCE the closest passage is missing.
@@ -1295,7 +1383,8 @@ def _attribute_generic_text(text: str, search_one, source_id_to_qnum: dict, offs
                             seen_pages_by_source=None, context_chunks=None, overview: bool = False,
                             max_distance: float = _GENERIC_ATTRIB_MAX_DIST,
                             refusal_lines: Optional[set] = None,
-                            scope_chunks: Optional[list[dict]] = None) -> str:
+                            scope_chunks: Optional[list[dict]] = None,
+                            literal_lookup=None) -> str:
     """Re-ground each substantial, uncited line of a GENERIC answer.
 
     Two-stage grounding per line:
@@ -1338,6 +1427,9 @@ def _attribute_generic_text(text: str, search_one, source_id_to_qnum: dict, offs
     # a "from minute 40" summary can never cite a closer chunk from minute 13 (media's
     # seen-check is source-level and would otherwise let it through).
     scope_ids = _scope_chunk_ids(scope_chunks)
+    # What "states it word for word" is judged against: everything the answer was written
+    # from, so a filler adverb cannot pass for a distinctive term (see aia_literal_evidence).
+    evidence_corpus = [c.get("content") or "" for c in (context_chunks or [])] or None
     # Pass 1: gather seen candidates per substantial line; decide if the answer is grounded.
     # Also gather per-CLAUSE candidates so a multi-fact line can be attributed fact-by-fact
     # in Pass 2.
@@ -1357,7 +1449,8 @@ def _attribute_generic_text(text: str, search_one, source_id_to_qnum: dict, offs
         if _is_table_row(line) and _is_table_delim(nxt):
             continue
         cands = _line_candidates(line, search_one, context_chunks, seen_pages_by_source,
-                                 scope_ids)
+                                 scope_ids, literal_lookup=literal_lookup,
+                                 corpus=evidence_corpus)
         if not cands:
             continue
         cand_by_idx[i] = cands
@@ -1365,7 +1458,9 @@ def _attribute_generic_text(text: str, search_one, source_id_to_qnum: dict, offs
         if d0 is not None and d0 <= max_distance:
             grounded = True
         cc = [c for c in (_line_candidates(cl, search_one, context_chunks,
-                                           seen_pages_by_source, scope_ids)
+                                           seen_pages_by_source, scope_ids,
+                                           literal_lookup=literal_lookup,
+                                           corpus=evidence_corpus)
                           for cl in _clauses(line)) if c]
         if cc:
             clause_cands_by_idx[i] = cc
@@ -1404,7 +1499,8 @@ def _attribute_generic_text(text: str, search_one, source_id_to_qnum: dict, offs
                             _sents, search_one, source_id_to_qnum,
                             context_chunks=context_chunks, seen_pages_by_source=seen_pages_by_source,
                             scope_ids=scope_ids, max_distance=max_distance,
-                            guarantee=guarantee, overview=overview)
+                            guarantee=guarantee, overview=overview,
+                            literal_lookup=literal_lookup)
                 continue
             block_text = " ".join(lines[i] for i in blk)
             if overview and _holds_for_every_sentence(block_text, _names_many_laws):
@@ -1423,7 +1519,8 @@ def _attribute_generic_text(text: str, search_one, source_id_to_qnum: dict, offs
                     block_text, lambda s: _enum_chip_unbacked(s, _cited)):
                 continue
             chips = _chips_for_line(agg, source_id_to_qnum, max_distance,
-                                    guarantee_dist=guarantee)
+                                    guarantee_dist=guarantee, line=block_text,
+                                    corpus=evidence_corpus)
             # Clause coverage: the whole-line vector is closest to ONE fact, so the cap /
             # relative-delta gate trims the others. Add each distinct clause's single closest
             # in-gate source as a coverage chip — so every fact in a multi-fact bullet earns a
@@ -1434,7 +1531,8 @@ def _attribute_generic_text(text: str, search_one, source_id_to_qnum: dict, offs
                 for idx in blk:
                     for ccands in clause_cands_by_idx.get(idx, []):
                         cchips = _chips_for_line(ccands, source_id_to_qnum, max_distance,
-                                                 guarantee_dist=guarantee)
+                                                 guarantee_dist=guarantee, line=block_text,
+                                                 corpus=evidence_corpus)
                         # Same rule as the prose path: an extra chip must cover something of
                         # the BLOCK that the closest passage does not already carry.
                         if (cchips and cchips[0] not in seen_targets

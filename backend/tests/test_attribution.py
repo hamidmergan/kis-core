@@ -895,3 +895,62 @@ def test_subunits_single_sentence_prose_has_no_extra_sentence_units():
     assert _attribution_subunits(line) == []
 
 
+
+
+# ── looking a figure up, instead of only ranking by meaning ──────────────────
+
+from src.features.ai_assistant.routes._helpers import _line_candidates, _chips_for_line
+
+_SLIDE = ("Lenka Kleinau Kontakt: Fachforum E-Mail: lenka.kleinau@th-luebeck.de "
+          "Wöchentliche Sprechstunde (Mittwoch 17:30-18:30 Uhr) MENTORIN UND TUTORIN")
+_LINE = ("Zusätzlich finden ab dem 22.04.2026 wöchentliche offene Sprechstunden statt "
+         "(mittwochs von 17:30 bis 18:30 Uhr)")
+_CORPUS = [f"Kapitel {i}: Text über wissenschaftliches Arbeiten und Publizieren." for i in range(20)]
+
+
+def _talk(i, dist):
+    return {"id": 100 + i, "source_id": 9, "page_number": 60 + i, "start_time": 100.0 + i,
+            "content": f"Da wird es dann mittwochs eine offene Sprechstunde geben, Teil {i}. " * 3,
+            "vec_distance": dist}
+
+
+def test_the_passage_that_states_the_time_is_cited_although_it_ranks_last():
+    # Three passages that merely mention office hours fill every slot; the one slide that
+    # states the time is far away and would never be reached.
+    slide = {"id": 7, "source_id": 3, "page_number": 2, "start_time": None,
+             "content": _SLIDE, "vec_distance": 0.54}
+    hits = [_talk(0, 0.398), _talk(1, 0.420), _talk(2, 0.433), slide]
+    lookup = lambda fig: [slide] if fig in ("17:30", "18:30", "17:30-18:30") else []
+    cands = _line_candidates(_LINE, lambda _l: hits, None, None, None,
+                             literal_lookup=lookup, corpus=_CORPUS)
+    chips = _chips_for_line(cands, {3: 4, 9: 1}, 0.6, line=_LINE, corpus=_CORPUS)
+    assert "[4, S. 2]" in chips
+
+
+def test_the_closest_passage_still_leads():
+    slide = {"id": 7, "source_id": 3, "page_number": 2, "start_time": None,
+             "content": _SLIDE, "vec_distance": 0.54}
+    hits = [_talk(0, 0.398), slide]
+    lookup = lambda fig: [slide] if fig == "17:30" else []
+    cands = _line_candidates(_LINE, lambda _l: hits, None, None, None,
+                             literal_lookup=lookup, corpus=_CORPUS)
+    assert cands[0]["id"] == 100
+
+
+def test_a_rarer_literal_match_outranks_a_common_one():
+    # The date stands on four pages, the time on one. The time is the better evidence.
+    common = [{"id": 200 + i, "source_id": 5, "page_number": 4 + i, "start_time": None,
+               "content": f"Ab dem 22.04.2026 offene Sprechstunden, Seite {i}. " * 4,
+               "vec_distance": 0.46} for i in range(4)]
+    slide = {"id": 7, "source_id": 3, "page_number": 2, "start_time": None,
+             "content": _SLIDE, "vec_distance": 0.54}
+    lookup = lambda fig: common if fig == "22.04.2026" else ([slide] if fig in ("17:30", "18:30") else [])
+    cands = _line_candidates(_LINE, lambda _l: [_talk(0, 0.398)] + common + [slide],
+                             None, None, None, literal_lookup=lookup, corpus=_CORPUS)
+    assert cands[1]["id"] == 7
+
+
+def test_without_a_lookup_nothing_changes():
+    hits = [_talk(0, 0.398), _talk(1, 0.420)]
+    assert _line_candidates(_LINE, lambda _l: hits, None, None, None) == sorted(
+        hits, key=lambda h: h["vec_distance"])

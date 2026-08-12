@@ -141,6 +141,12 @@ def _split_text(text: str, chunk_size: int, overlap: int) -> list[str]:
     return _merge_small_fragments(chunks, max(1, chunk_size // 10))
 
 
+# A bullet group must carry at least this much of its own text to be indexed on its
+# own; thinner ones travel with their neighbour. Sits above the 100-char floor the
+# citation attribution applies, so a group that survives here can also be cited.
+SLIDE_GROUP_MIN_CHARS = 120
+
+
 ProgressCallback = "Callable[[str, int | None, int | None], None] | None"
 
 
@@ -211,6 +217,36 @@ def _bitmap_coverage(page) -> float:
     return min(total / page_area, 1.0)
 
 
+def _page_line_boxes(textpage) -> list:
+    """The page's RAW text rects with their geometry, or [] when pdfium reports none.
+
+    Raw on purpose: the running header is only stable in this form. Assembling rows first
+    glues the footer's three text objects together on some pages and not on others (their
+    baselines differ by fractions of a point), and a variant that only occurs on a few
+    pages never looks like furniture. Rows are assembled AFTER the furniture is dropped.
+
+    Empty is a normal answer (an image-only page), and every caller falls back to the
+    plain text path for it — layout knowledge is a bonus, never a requirement.
+    """
+    from src.services.aia_pdf_layout import LineBox
+    try:
+        n = textpage.count_rects()
+    except Exception as e:
+        logger.warning("PDF layout: rect count failed, falling back to plain text: {}", e)
+        return []
+    boxes = []
+    for i in range(n):
+        try:
+            left, top, right, bottom = textpage.get_rect(i)
+            text = textpage.get_text_bounded(left=left, bottom=bottom, right=right, top=top)
+        except Exception:
+            continue
+        text = _clean(text or "").strip()
+        if text:
+            boxes.append(LineBox(text=text, x=left, y=top))
+    return boxes
+
+
 def _extract_pdf(
     file_path: str,
     chunk_size: int,
@@ -219,7 +255,15 @@ def _extract_pdf(
 ) -> list[dict]:
     import io
     import pypdfium2 as pdfium
+    from src.services.aia_pdf_layout import (
+        boilerplate_keys, is_boilerplate, merge_rows, slide_groups, strip_boilerplate_text,
+    )
     chunks: list[dict] = []
+    # Pass 1 collects every page, pass 2 cuts it up: the running header can only be
+    # recognised once all pages are in, since "stands on most pages" is the whole
+    # definition of it.
+    page_texts: list[str] = []
+    page_lines: list[list] = []
     doc = pdfium.PdfDocument(file_path)
     total_pages = len(doc)
 
@@ -299,11 +343,39 @@ def _extract_pdf(
                         # Merge text-layer remnants + OCR output; OCR wins if empty layer
                         text = (text + "\n" + ocr_text).strip() if text else ocr_text
 
-        for sub in _split_text(text, chunk_size, overlap):
-            chunks.append({"page_number": page_num + 1, "content": sub})
+        # Geometry is read from the TEXT LAYER only. An OCR'd page has no rects for the
+        # text that matters, so it keeps the plain path and loses nothing.
+        page_lines.append([] if ocr_ran else _page_line_boxes(textpage))
+        page_texts.append(text)
         textpage.close()
         page.close()
     doc.close()
+
+    # Pass 2. A bullet-structured slide is cut per top-level bullet group: as one
+    # page-sized chunk its embedding is the average of everything on the slide, and the
+    # one bullet a reader is after barely registers (measured 0.513 vs 0.205 against the
+    # sentence it backs). Everything else keeps the whole-page path and only loses its
+    # running header, since re-ordering prose by geometry would interleave a two-column
+    # statute.
+    boiler = boilerplate_keys(page_lines, page_texts)
+    n_grouped = 0
+    for i, (lines, text) in enumerate(zip(page_lines, page_texts)):
+        # Drop the furniture on the RAW rects, then assemble rows: a glyph and its words
+        # only become one line once the header fragments are out of the way.
+        kept = merge_rows([b for b in lines if not is_boilerplate(b.text, boiler)])
+        groups = slide_groups(kept, min_chars=SLIDE_GROUP_MIN_CHARS) if kept else []
+        if groups:
+            n_grouped += 1
+            parts = groups
+        else:
+            parts = [strip_boilerplate_text(text, boiler)]
+        for part in parts:
+            for sub in _split_text(part, chunk_size, overlap):
+                chunks.append({"page_number": i + 1, "content": sub})
+    logger.info(
+        "PDF chunking: {} page(s), {} cut by bullet group, {} boilerplate line(s) dropped → {} chunks",
+        total_pages, n_grouped, len(boiler), len(chunks),
+    )
     if not chunks:
         raise PdfNoReadableTextError()
     return chunks

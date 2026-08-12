@@ -92,6 +92,40 @@ def get_aia_chunks_by_source(source_id: int) -> list[dict]:
             )
             return [dict(row) for row in cur.fetchall()]
 
+def find_chunks_containing(workspace_id: int, needle: str,
+                           source_ids: list[int] | None = None,
+                           limit: int = 4) -> list[dict]:
+    """Chunks of a workspace whose text carries ``needle`` verbatim, oldest page first.
+
+    A citation lookup, not a search: vector retrieval ranks by what a passage is ABOUT,
+    and the passage that merely talks about office hours beats the slide that states
+    "17:30-18:30 Uhr" — measured 0.398 against 0.656, i.e. the slide was not even inside
+    the citation gate. A reader checking a time looks the time up; this is that lookup.
+    Deliberately dumb (case-insensitive containment) so it holds for a clock time, a date,
+    a section sign or a formula alike.
+    """
+    if not needle:
+        return []
+    where = ["s.workspace_id = %s", "c.content ILIKE %s"]
+    params: list = [workspace_id, f"%{needle}%"]
+    if source_ids:
+        where.append("c.source_id = ANY(%s)")
+        params.append(list(source_ids))
+    params.append(limit)
+    with get_connection() as conn:
+        with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
+            cur.execute(
+                f"""SELECT c.id, c.source_id, c.page_number, c.content,
+                           c.start_time, c.end_time
+                    FROM aia_chunks c JOIN aia_sources s ON s.id = c.source_id
+                    WHERE {' AND '.join(where)}
+                    ORDER BY c.page_number NULLS LAST, c.id
+                    LIMIT %s""",
+                params,
+            )
+            return [dict(row) for row in cur.fetchall()]
+
+
 def get_page_text(source_id: int, page_number: int | None) -> str:
     """Concatenated chunk text of ONE page of a source (ordered), or "" when the
     page has no text chunk. Used to give the glossary definition prompt the real
