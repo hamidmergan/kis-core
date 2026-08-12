@@ -1140,6 +1140,12 @@
         "confirm": "Yes, delete everything",
         "cancel": "Cancel",
         "successToast": "All providers and routes deleted."
+      },
+      "defaultVoice": {
+        "label": "Default voice",
+        "hint": "For reading aloud where nobody can pick a voice, such as the speaker on a flashcard. Without a default voice there is no speaker there. The text-to-speech and screencast tools keep asking their users.",
+        "none": "None",
+        "orphaned": "The saved voice is no longer available, the provider or the voice is gone. Pick another one, otherwise reading aloud will fail."
       }
     },
     "settings": {
@@ -1227,16 +1233,6 @@
       "active": "Active. Owners and tutors decide in the workspace settings whether their course offers the language trainer. They need suitable sources on the grammar of the course language for it.",
       "disabled": "Off. The language trainer appears nowhere. Choices already made stay stored and apply again as soon as you switch this on.",
       "toggleAria": "Toggle language trainer"
-    },
-    "flashcardVoiceCard": {
-      "title": "Pronunciation",
-      "description": "Who reads the example sentence on a flashcard. Pick the provider first, then the voice, since the list only shows voices of that provider. Without both the card shows no speaker. The model comes from the text-to-speech route.",
-      "providerLabel": "Provider",
-      "voiceLabel": "Voice",
-      "noneOption": "None",
-      "noProviders": "No reachable speech provider is set up. Add one under Providers.",
-      "loadError": "The provider list could not be loaded. The fields stay locked so a working setting is not overwritten by accident.",
-      "orphanedVoice": "The saved voice does not exist for this provider. Pick a voice from the list, otherwise reading aloud will fail."
     },
     "ocrCard": {
       "title": "OCR for scans & image pages",

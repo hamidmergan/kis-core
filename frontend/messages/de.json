@@ -1140,6 +1140,12 @@
         "confirm": "Ja, alles löschen",
         "cancel": "Abbrechen",
         "successToast": "Alle Provider und Routes gelöscht."
+      },
+      "defaultVoice": {
+        "label": "Standardstimme",
+        "hint": "Für das Vorlesen dort, wo niemand eine Stimme wählen kann, etwa der Lautsprecher auf einer Lernkarte. Ohne Standardstimme gibt es dort keinen Lautsprecher. Die Werkzeuge Vertonung und Screencast fragen ihre Nutzer weiterhin selbst.",
+        "none": "Keine",
+        "orphaned": "Die gespeicherte Stimme steht nicht mehr zur Wahl, der Anbieter oder die Stimme ist weg. Wähle eine andere, sonst scheitert das Vorlesen."
       }
     },
     "settings": {
@@ -1227,16 +1233,6 @@
       "active": "Aktiv. Eigentümer und Tutoren entscheiden in den Workspace-Einstellungen, ob ihr Kurs den Sprachtrainer anbietet. Sie brauchen dafür passende Quellen zur Grammatik der Kurssprache.",
       "disabled": "Aus. Der Sprachtrainer taucht nirgendwo auf. Bereits getroffene Entscheidungen bleiben gespeichert und gelten wieder, sobald du hier einschaltest.",
       "toggleAria": "Sprachtrainer umschalten"
-    },
-    "flashcardVoiceCard": {
-      "title": "Aussprache",
-      "description": "Wer den Beispielsatz auf einer Lernkarte vorliest. Erst den Anbieter wählen, dann die Stimme, denn die Liste zeigt nur Stimmen dieses Anbieters. Ohne beides zeigt die Karte keinen Lautsprecher. Das Modell kommt aus der Route Text in Sprache.",
-      "providerLabel": "Anbieter",
-      "voiceLabel": "Stimme",
-      "noneOption": "Keine",
-      "noProviders": "Es ist kein erreichbarer Sprachanbieter eingerichtet. Lege ihn im Bereich Anbieter an.",
-      "loadError": "Die Anbieterliste konnte nicht geladen werden. Die Felder bleiben gesperrt, damit eine funktionierende Einstellung nicht versehentlich überschrieben wird.",
-      "orphanedVoice": "Die gespeicherte Stimme gibt es bei diesem Anbieter nicht. Wähle eine Stimme aus der Liste, sonst scheitert das Vorlesen."
     },
     "ocrCard": {
       "title": "OCR für Scans & Bild-Seiten",

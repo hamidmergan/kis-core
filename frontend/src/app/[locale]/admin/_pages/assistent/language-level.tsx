@@ -9,7 +9,6 @@
 
 import { useTranslations } from "next-intl";
 import DiagnosisQuestionPlanCard from "../../_components/DiagnosisQuestionPlanCard";
-import FlashcardVoiceCard from "../../_components/FlashcardVoiceCard";
 import { useSetting } from "../../_settings/SettingsProvider";
 import { ToggleSetting } from "../../_settings/fields";
 
@@ -30,8 +29,6 @@ export default function LanguageLevelPage() {
         hint={tTrainer("description")}
         label={tTrainer("toggleAria")}
       />
-
-      <FlashcardVoiceCard />
 
       <DiagnosisQuestionPlanCard />
     </div>

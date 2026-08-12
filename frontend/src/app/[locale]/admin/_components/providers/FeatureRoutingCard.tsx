@@ -4,6 +4,7 @@ import { useCallback, useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
 import { CheckCircle, Lightning, Spinner, Warning, XCircle } from "@phosphor-icons/react";
 import { testFeatureRoute } from "./_api";
+import DefaultVoiceRow from "./DefaultVoiceRow";
 import type { Capability, Feature, FeatureRoute, Provider, ProviderMeta } from "./_types";
 
 type Props = {
@@ -295,6 +296,11 @@ function FeatureRow({
             })
           )}
         </div>
+        {/* Die Standardstimme haengt an den Anbietern und gehoert deshalb hierher,
+            nicht in eine eigene Karte anderswo. Sie waehlt Anbieter und Stimme in
+            EINEM Feld, weil es bei einem Nutzer-waehlt-Feature keinen einen
+            gerouteten Anbieter gibt, an den sie sich haengen koennte. */}
+        {feature === "tts" && <DefaultVoiceRow eligible={eligible} />}
       </div>
     );
   }
