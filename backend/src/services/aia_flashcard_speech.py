@@ -16,17 +16,32 @@ _VOICE_KEY = "aia_flashcard_voice_id"
 
 
 def configured_voice() -> tuple[int, str] | None:
-    """(Anbieternummer, Stimme) oder None, wenn eines von beiden fehlt.
+    """(Anbieternummer, Stimme), oder None wenn es gar keine Stimme im Haus gibt.
 
-    Die Anbieternummer steht als Zeichenkette in den Einstellungen, weil die leere
-    Wahl "noch nicht eingerichtet" bedeutet und eine Zahl das nicht ausdrücken
-    kann. Steht dort etwas, das keine Zahl ist, gilt das als nicht eingerichtet:
-    ein fehlender Knopf ist die bessere Antwort auf eine kaputte Einstellung als
-    ein Absturz. Eine Anbieternummer kleiner als 1 (0, negativ) ist ebenfalls
-    ungültig: die providers.id-Spalte ist ein SERIAL PRIMARY KEY und beginnt bei 1,
-    also kann es solche Nummern nicht geben. Der Lesweg verlässt sich bewusst nicht
-    darauf, dass jeder Schreibweg vorher geprüft hat: er trifft auch Altdaten,
-    künftige zweite Schreibwege oder manuelle Eingriffe in die Datenbank an.
+    Zuerst die ausdrückliche Wahl aus den Einstellungen. Ist dort nichts gesetzt,
+    gilt die ERSTE Stimme des ersten passenden Anbieters. Der Lautsprecher ist damit
+    da, sobald überhaupt ein Sprachanbieter eingerichtet ist, und niemand muss erst
+    eine Einstellung finden, um ihn zu bekommen.
+
+    Gar nichts liefert diese Funktion nur noch, wenn kein eingeschalteter Anbieter
+    mit Stimmen existiert. Dann kann auch niemand sprechen.
+    """
+    return _ausdruecklich_gewaehlt() or _erste_stimme()
+
+
+def _ausdruecklich_gewaehlt() -> tuple[int, str] | None:
+    """Was in den Einstellungen steht, sofern es brauchbar ist.
+
+    Die Anbieternummer steht als Zeichenkette dort, weil die leere Wahl "nicht
+    gesetzt" bedeutet und eine Zahl das nicht ausdrücken kann. Steht dort etwas, das
+    keine Zahl ist, oder eine Nummer kleiner als 1, gilt das als nicht gesetzt: die
+    Spalte ``providers.id`` ist ein SERIAL PRIMARY KEY und beginnt bei 1, solche
+    Nummern kann es also nicht geben. Der Aufrufer fällt dann auf die erste Stimme
+    zurück, statt zu schweigen.
+
+    Der Lesweg verlässt sich bewusst nicht darauf, dass jeder Schreibweg vorher
+    geprüft hat: er trifft auch Altdaten, künftige zweite Schreibwege oder manuelle
+    Eingriffe in die Datenbank an.
     """
     raw_provider = (db.get_setting(_PROVIDER_KEY, "") or "").strip()
     voice = (db.get_setting(_VOICE_KEY, "") or "").strip()
@@ -39,6 +54,24 @@ def configured_voice() -> tuple[int, str] | None:
     if provider_id < 1:
         return None
     return provider_id, voice
+
+
+def _erste_stimme() -> tuple[int, str] | None:
+    """Die erste Stimme des ersten eingeschalteten Anbieters, der sprechen kann.
+
+    Dieselbe Reihenfolge, die auch das Auswahlfeld im Admin-Bereich zeigt: nur
+    eingeschaltete Anbieter mit der Fähigkeit tts, nach Anlagedatum. Was dort oben
+    steht, wird also auch benutzt. Ein Anbieter ohne hinterlegte Stimmen wird
+    übersprungen, denn ohne Stimme kann er nicht sprechen.
+    """
+    from src.features.ai_providers.repository.providers import list_providers_with_capability
+
+    for provider in list_providers_with_capability("tts"):
+        for voice in (provider.get("voices") or []):
+            voice_id = (voice.get("voice_id") or "").strip()
+            if voice_id:
+                return int(provider["id"]), voice_id
+    return None
 
 
 def speech_enabled() -> bool:

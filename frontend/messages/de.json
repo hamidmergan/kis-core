@@ -1143,8 +1143,7 @@
       },
       "defaultVoice": {
         "label": "Standardstimme",
-        "none": "Keine",
-        "orphaned": "Die gespeicherte Stimme steht nicht mehr zur Wahl, der Anbieter oder die Stimme ist weg. Wähle eine andere, sonst scheitert das Vorlesen."
+        "orphaned": "Die gespeicherte Stimme gibt es nicht mehr. Bis eine neue gewählt ist, gilt die erste aus der Liste."
       }
     },
     "settings": {

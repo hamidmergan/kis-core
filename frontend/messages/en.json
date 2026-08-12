@@ -1143,8 +1143,7 @@
       },
       "defaultVoice": {
         "label": "Default voice",
-        "none": "None",
-        "orphaned": "The saved voice is no longer available, the provider or the voice is gone. Pick another one, otherwise reading aloud will fail."
+        "orphaned": "The saved voice no longer exists. Until a new one is picked, the first in the list applies."
       }
     },
     "settings": {

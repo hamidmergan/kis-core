@@ -23,6 +23,25 @@ def settings(monkeypatch):
     return werte
 
 
+@pytest.fixture(autouse=True)
+def anbieter(monkeypatch):
+    """Die Anbieterliste, standardmaessig LEER.
+
+    Autouse, weil ``configured_voice`` ohne ausdrueckliche Wahl auf die erste Stimme
+    zurueckfaellt und dafuer die Anbietertabelle liest. Ohne diese Attrappe haenge
+    das Ergebnis jedes Tests davon ab, was gerade in der Entwicklungsdatenbank steht.
+
+    Leer heisst: es gibt keine Stimme im Haus, also faellt nichts zurueck. Tests, die
+    den Rueckfall pruefen, fuellen die Liste selbst.
+    """
+    liste: list[dict] = []
+    monkeypatch.setattr(
+        "src.features.ai_providers.repository.providers.list_providers_with_capability",
+        lambda capability: list(liste),
+    )
+    return liste
+
+
 def test_ohne_einstellungen_ist_nichts_gewaehlt(settings):
     assert speech.configured_voice() is None
     assert speech.speech_enabled() is False
@@ -376,3 +395,60 @@ def test_der_sprechweg_nimmt_das_modell_in_den_schluessel(settings, monkeypatch,
 
     erwartet = speech_cache.fingerprint("Ein Satz.", 21, "alloy", 1.0, "modell-a")
     assert erwartet in vorrat.inhalt
+
+
+# --- Rueckfall auf die erste Stimme ------------------------------------------
+#
+# "Nichts gewaehlt" heisst nicht mehr "kein Lautsprecher", sondern "die erste Stimme
+# der Liste". Sonst muesste jede Hochschule erst eine Einstellung finden, um etwas zu
+# bekommen, das ohnehin nur eine sinnvolle Voreinstellung hat.
+
+def _anbieter(pid, name, *stimmen):
+    return {"id": pid, "name": name,
+            "voices": [{"voice_id": s, "name": s.title()} for s in stimmen]}
+
+
+def test_ohne_wahl_gilt_die_erste_stimme(settings, anbieter):
+    anbieter.append(_anbieter(21, "THL myLab", "alloy", "echo"))
+    assert speech.configured_voice() == (21, "alloy")
+    assert speech.speech_enabled() is True
+
+
+def test_die_reihenfolge_der_anbieterliste_entscheidet(settings, anbieter):
+    """Dieselbe Reihenfolge wie im Auswahlfeld im Admin-Bereich. Was dort oben steht,
+    wird auch benutzt."""
+    anbieter.extend([
+        _anbieter(22, "Erster", "aaa"),
+        _anbieter(21, "Zweiter", "bbb"),
+    ])
+    assert speech.configured_voice() == (22, "aaa")
+
+
+def test_ein_anbieter_ohne_stimmen_wird_uebersprungen(settings, anbieter):
+    anbieter.extend([
+        _anbieter(30, "Ohne Stimmen"),
+        _anbieter(31, "Mit Stimmen", "nova"),
+    ])
+    assert speech.configured_voice() == (31, "nova")
+
+
+def test_die_ausdrueckliche_wahl_schlaegt_den_rueckfall(settings, anbieter):
+    anbieter.append(_anbieter(21, "THL myLab", "alloy", "echo"))
+    settings["aia_flashcard_voice_provider_id"] = "21"
+    settings["aia_flashcard_voice_id"] = "echo"
+    assert speech.configured_voice() == (21, "echo")
+
+
+def test_eine_kaputte_wahl_faellt_auf_die_erste_stimme_zurueck(settings, anbieter):
+    """Frueher schwieg der Lautsprecher bei einer kaputten Einstellung. Die
+    Voreinstellung ist die bessere Antwort darauf."""
+    anbieter.append(_anbieter(21, "THL myLab", "alloy"))
+    settings["aia_flashcard_voice_provider_id"] = "kokoro"
+    settings["aia_flashcard_voice_id"] = "echo"
+    assert speech.configured_voice() == (21, "alloy")
+
+
+def test_ohne_jeden_anbieter_bleibt_es_still(settings, anbieter):
+    """Kein eingeschalteter Anbieter mit Stimmen heisst: niemand kann sprechen."""
+    assert speech.configured_voice() is None
+    assert speech.speech_enabled() is False

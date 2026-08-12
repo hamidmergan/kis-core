@@ -38,21 +38,26 @@ export default function DefaultVoiceRow({ eligible }: { eligible: Provider[] }) 
   const stimme = String(settings?.[STIMME] ?? "");
   const wert = anbieter && stimme ? `${anbieter}:${stimme}` : "";
 
-  const optionen = [
-    { value: "", label: t("none") },
-    ...eligible.flatMap((p) =>
-      (p.voices ?? []).map((v) => ({
-        value: `${p.id}:${v.voice_id}`,
-        label: `${p.name} · ${v.name}`,
-      })),
-    ),
-  ];
+  // Kein Eintrag "Keine" mehr: nichts gewaehlt heisst nicht mehr "kein Lautsprecher",
+  // sondern "die erste Stimme der Liste". Ein Ausschalter, der nichts ausschaltet,
+  // waere eine Luege im Formular.
+  const optionen = eligible.flatMap((p) =>
+    (p.voices ?? []).map((v) => ({
+      value: `${p.id}:${v.voice_id}`,
+      label: `${p.name} · ${v.name}`,
+    })),
+  );
 
   // Der gespeicherte Wert steht nicht mehr zur Wahl, etwa weil der Anbieter
-  // abgeschaltet oder die Stimme entfernt wurde. Das Auswahlfeld zeigt dann nur den
-  // allgemeinen Platzhalter, ununterscheidbar von "nichts gewaehlt", deshalb sagt es
-  // die Zeile darunter.
+  // abgeschaltet oder die Stimme entfernt wurde.
   const verwaist = Boolean(wert && !optionen.some((o) => o.value === wert));
+
+  // Was der Server WIRKLICH benutzt. Ohne Wahl und bei einer verwaisten Wahl faellt
+  // er auf die erste Stimme zurueck (siehe aia_flashcard_speech.configured_voice),
+  // also zeigt das Feld genau die. Gespeichert wird dabei nichts: ein Schreibvorgang
+  // beim blossen Ansehen einer Seite hat hier schon einmal eine Einstellung
+  // ueberschrieben.
+  const angezeigt = !verwaist && wert ? wert : (optionen[0]?.value ?? "");
 
   const waehlen = (naechster: string) => {
     // Am ERSTEN Doppelpunkt trennen. Die Anbieternummer ist eine Ziffernfolge, eine
@@ -75,10 +80,10 @@ export default function DefaultVoiceRow({ eligible }: { eligible: Provider[] }) 
         <SavedMark show={saved} />
         <div className="w-64">
           <Select
-            value={verwaist ? "" : wert}
+            value={angezeigt}
             onChange={waehlen}
             options={optionen}
-            disabled={saving}
+            disabled={saving || optionen.length === 0}
           />
         </div>
       </div>
