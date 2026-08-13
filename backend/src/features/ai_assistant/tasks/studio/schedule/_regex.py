@@ -31,8 +31,18 @@ _DATE_PATTERNS_WITH_YEAR = [
     re.compile(r"\b(?P<date>\d{4}-\d{2}-\d{2})\b"),
     # D. Month YYYY (German), e.g. "15. Juli 2026"
     re.compile(rf"\b(?P<date>\d{{1,2}}\.\s*(?:{_MONTH_DE})\s+\d{{4}})\b", re.IGNORECASE),
+    # D.Month.YYYY, e.g. "03.Juli.2026". Ohne diese Zeile griff nur die jahrlose Form
+    # darunter, das Jahr fiel weg und der Termin landete im laufenden Jahr.
+    re.compile(rf"\b(?P<date>\d{{1,2}}\.\s*(?:{_MONTH_DE})\.\s*\d{{4}})\b", re.IGNORECASE),
     # Month D, YYYY (English), e.g. "July 15, 2026"
     re.compile(rf"\b(?P<date>(?:{_MONTH_EN})\s+\d{{1,2}},\s*\d{{4}})\b", re.IGNORECASE),
+]
+
+# Monat mit Jahr, ohne Tag: "06.2026". Der Monat muss 1 bis 12 sein, das prueft
+# _normalize_month_date. Vierstellig hinten haelt Gliederungsnummern draussen: "3.6.26"
+# faellt hier nicht rein, das beurteilt das Modell mit dem Zusammenhang.
+_DATE_PATTERNS_MONTH_ONLY = [
+    re.compile(r"\b(?P<date>\d{1,2}\.\d{4})\b"),
 ]
 
 _DATE_PATTERNS_YEARLESS = [
@@ -48,11 +58,19 @@ _DATE_PATTERNS_YEARLESS = [
 # to be negotiated. We surface these so the schedule shows them as a separate
 # 'to be arranged' block in the UI.
 #
-# TODO ANPASSEN (hardcodierte Wortliste): Diese Phrasen sind fest verdrahtet und
-# decken nur Deutsch und Englisch ab. Andere Sprachen und andere Formulierungen
-# werden nicht erkannt, der Zeitplan ist damit nicht sprach-agnostisch. Wir muessen
-# das System anpassen: die TBD-Erkennung sprach-unabhaengig machen, am besten ueber
-# den LLM-Klassifizierer statt ueber eine feste Regex-Phrasenliste.
+# Diese Liste ist NICHT die Erkennung, sie ist nur deren schneller Weg. Sie kennt
+# Deutsch und Englisch und kostet nichts. Jeder Chunk, in dem sie nichts findet, geht
+# in _discover.py an das Modell, das die Stelle in jeder Sprache und in jeder
+# Formulierung lesen kann. Die Liste darf deshalb luecken haben, sie zu erweitern
+# bringt nur Tempo, nie Abdeckung.
+#
+# Deshalb stehen hier nur eindeutige Wendungen. Die blossen Kuerzel TBA, TBD und TBC
+# standen bis zum 13.08.2026 mit drin und haben genau einen falschen Eintrag gebaut:
+# in "Online-Praesenz: tba, mgl. Schreibwerkstatt, Poster | 27.06.2026" meint das "tba"
+# den offenen INHALT der Zeile, das Datum steht daneben. Ein Kuerzel allein sagt nicht,
+# WAS offen ist, das entscheidet der Satz drumherum. Solche Stellen beurteilt das
+# Modell, es sieht den ganzen Chunk. Am echten Kursplan nachgemessen: es findet
+# "Klausur | TBA" und "Abgabe | TBD" weiterhin und laesst die Themen-Zeile stehen.
 _TBD_PATTERNS = [
     re.compile(
         r"(?P<phrase>nach\s+(?:individueller\s+)?(?:Vereinbarung|Absprache)"
@@ -60,30 +78,72 @@ _TBD_PATTERNS = [
         r"|Termin\s+(?:wird|werden)\s+vereinbart"
         r"|zeitlich\s+nach\s+Absprache"
         r"|Datum\s+nach\s+Absprache"
-        r"|to\s+be\s+(?:announced|decided|confirmed)"
-        r"|TBA|TBD|TBC)",
+        r"|to\s+be\s+(?:announced|decided|confirmed))",
         re.IGNORECASE,
     ),
 ]
 
 
-def _date_candidates_in_text(text: str) -> list[tuple[int, int, str, bool]]:
-    """Return list of (start_index, end_index, matched_string, has_year).
+# Spaltengrenze in einer Textzeile: ein Strich, ein Tabulator oder mehrere Leerzeichen.
+# Der Chunker gibt Tabellen genau so aus. Reine Layout-Regel, sie braucht keine Sprache.
+_COLUMN_GAP = re.compile(r"[|\t]|   ")
+
+
+def _date_in_neighbouring_column(text: str, start: int, end: int) -> bool:
+    """Steht in derselben Zeile ein Datum, aber in einer anderen Spalte?
+
+    Dann traegt die Zeile ihr Datum bereits, und ein "tba" darin meint den offenen
+    INHALT der Zeile, nicht ihren offenen Termin. Genau daran ist der Zeitplan bisher
+    gescheitert: "Online-Praesenz: tba, mgl. Schreibwerkstatt | 27.06.2026, 10:00 Uhr".
+
+    Im Fliesstext greift die Regel nicht, dort fehlt die Spaltengrenze. Ein Transkript
+    hat oft gar keinen Zeilenumbruch, ein Datum weiter hinten im selben Absatz darf den
+    offenen Termin also nicht abraeumen.
+    """
+    line_start = text.rfind("\n", 0, start) + 1
+    line_end = text.find("\n", end)
+    if line_end == -1:
+        line_end = len(text)
+    line = text[line_start:line_end]
+    phrase_start, phrase_end = start - line_start, end - line_start
+    for date_start, date_end, _raw, _has_year, _prec in _date_candidates_in_text(line):
+        if date_start >= phrase_end:
+            gap = line[phrase_end:date_start]
+        elif date_end <= phrase_start:
+            gap = line[date_end:phrase_start]
+        else:
+            continue
+        if _COLUMN_GAP.search(gap):
+            return True
+    return False
+
+
+def _date_candidates_in_text(text: str) -> list[tuple[int, int, str, bool, str]]:
+    """Return list of (start_index, end_index, matched_string, has_year, precision).
+
+    precision ist "day" oder "month". "month" heisst, im Text stand nur ein Monat mit
+    Jahr ("06.2026"), es gibt dort keinen Tag zu holen.
+
     Year-full matches win over year-less at overlapping positions.
     """
-    found: list[tuple[int, int, str, bool]] = []
+    found: list[tuple[int, int, str, bool, str]] = []
     for pat in _DATE_PATTERNS_WITH_YEAR:
         for m in pat.finditer(text):
-            found.append((m.start(), m.end(), m.group("date"), True))
+            found.append((m.start(), m.end(), m.group("date"), True, "day"))
+    for pat in _DATE_PATTERNS_MONTH_ONLY:
+        for m in pat.finditer(text):
+            found.append((m.start(), m.end(), m.group("date"), True, "month"))
     for pat in _DATE_PATTERNS_YEARLESS:
         for m in pat.finditer(text):
-            found.append((m.start(), m.end(), m.group("date"), False))
-    # Deduplicate: prefer has_year=True, then longer span, then earliest start
+            found.append((m.start(), m.end(), m.group("date"), False, "day"))
+    # Deduplicate: prefer has_year=True, then longer span, then earliest start.
+    # Der laengere Treffer gewinnt auch gegen den Monat: in "03.07.2026" steckt
+    # "07.2026", gemeint ist aber das ganze Datum.
     found.sort(key=lambda t: (t[0], not t[3], -(t[1] - t[0])))
-    result: list[tuple[int, int, str, bool]] = []
+    result: list[tuple[int, int, str, bool, str]] = []
     last_end = -1
-    for s, e, d, hy in found:
+    for s, e, d, hy, prec in found:
         if s >= last_end:
-            result.append((s, e, d, hy))
+            result.append((s, e, d, hy, prec))
             last_end = e
     return result

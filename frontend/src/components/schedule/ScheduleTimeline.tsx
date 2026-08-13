@@ -6,6 +6,8 @@ export interface DatedEntry {
   id: number | string;
   due_date: string | null;
   due_time?: string | null;
+  /** "month": die Quelle nannte nur einen Monat, dann steht keine Tagesnummer da. */
+  date_precision?: string | null;
   is_checked?: boolean;
 }
 
@@ -37,14 +39,21 @@ function sortByDate<T extends DatedEntry>(entries: T[]): T[] {
   });
 }
 
-function formatDay(dateStr: string, today: Date, locale: string): { day: string; month: string; year: string | null } {
+function formatDay(
+  dateStr: string,
+  today: Date,
+  locale: string,
+  monthOnly = false,
+): { day: string | null; month: string; year: string | null } {
   const d = parseYMD(dateStr);
   const tag = locale === "en" ? "en-US" : "de-DE";
   const showYear = d.getFullYear() !== today.getFullYear();
   return {
-    day: String(d.getDate()).padStart(2, "0"),
+    // Nennt die Quelle nur einen Monat, steht hier keine Tagesnummer. Der Monatserste
+    // ist nur der Sortierpunkt, im Dokument stand er nie.
+    day: monthOnly ? null : String(d.getDate()).padStart(2, "0"),
     month: new Intl.DateTimeFormat(tag, { month: "short" }).format(d),
-    year: showYear ? String(d.getFullYear()) : null,
+    year: monthOnly ? String(d.getFullYear()) : showYear ? String(d.getFullYear()) : null,
   };
 }
 
@@ -94,9 +103,10 @@ export function ScheduleTimeline<T extends DatedEntry>({
 
       <div className="flex flex-col">
         {dated.map((entry) => {
-          const today_ = isToday(entry.due_date!, today);
+          const monthOnly = entry.date_precision === "month";
+          const today_ = !monthOnly && isToday(entry.due_date!, today);
           const past_ = isPast(entry.due_date!, entry.due_time, today);
-          const { day, month, year } = formatDay(entry.due_date!, today, locale);
+          const { day, month, year } = formatDay(entry.due_date!, today, locale, monthOnly);
           const urgency = urgencyColor(entry.due_date, todayStr);
 
           return (
@@ -122,18 +132,23 @@ export function ScheduleTimeline<T extends DatedEntry>({
               </div>
 
               <div className="text-right pr-1">
+                {day && (
+                  <div
+                    className="font-bold leading-none"
+                    style={{
+                      color: urgency ?? (past_ && !today_ ? "var(--muted)" : "var(--foreground)"),
+                      fontSize: "1rem",
+                    }}
+                  >
+                    {day}
+                  </div>
+                )}
                 <div
-                  className="font-bold leading-none"
+                  className={`font-semibold uppercase tracking-wider ${day ? "mt-0.5" : ""}`}
                   style={{
-                    color: urgency ?? (past_ && !today_ ? "var(--muted)" : "var(--foreground)"),
-                    fontSize: "1rem",
+                    color: urgency ?? (day ? "var(--muted)" : "var(--foreground)"),
+                    fontSize: day ? "0.625rem" : "0.8125rem",
                   }}
-                >
-                  {day}
-                </div>
-                <div
-                  className="mt-0.5 font-semibold uppercase tracking-wider"
-                  style={{ color: urgency ?? "var(--muted)", fontSize: "0.625rem" }}
                 >
                   {month}
                 </div>

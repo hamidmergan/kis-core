@@ -59,8 +59,10 @@ def _normalize_date(raw: str) -> Optional[str]:
     if m:
         d, mo, y = m.groups()
         return f"{int(y):04d}-{int(mo):02d}-{int(d):02d}"
-    # D. Month YYYY (German)
-    m = re.fullmatch(r"(\d{1,2})\.\s*([A-Za-zÄäÖöÜüß]+)\s+(\d{4})", s)
+    # D. Month YYYY (German), Trennzeichen vor dem Jahr ist ein Leerzeichen ODER ein
+    # Punkt: "3. Juli 2026" und "03.Juli.2026" meinen dasselbe. Ohne den Punkt-Fall
+    # blieb vom zweiten nur "03.Juli" uebrig und das Jahr fiel unter den Tisch.
+    m = re.fullmatch(r"(\d{1,2})\.\s*([A-Za-zÄäÖöÜüß]+)(?:\s+|\.\s*)(\d{4})", s)
     if m:
         d, mo_str, y = m.groups()
         mo = _MONTHS.get(mo_str.lower())
@@ -73,6 +75,24 @@ def _normalize_date(raw: str) -> Optional[str]:
         mo = _MONTHS.get(mo_str.lower())
         if mo:
             return f"{int(y):04d}-{mo:02d}-{int(d):02d}"
+    return None
+
+
+def _normalize_month_date(raw: str) -> Optional[str]:
+    """Monat mit Jahr ohne Tag ("06.2026", "Juli 2026") auf den Monatsersten legen.
+
+    Der Erste ist nur der Sortierpunkt. Dass der Tag NICHT dasteht, merkt sich der
+    Kandidat getrennt in date_precision, sonst wuerde die Ansicht einen Tag behaupten.
+    """
+    s = raw.strip().replace(" ", " ")
+    m = re.fullmatch(r"(\d{1,2})\.(\d{4})", s)
+    if m:
+        mo, y = int(m.group(1)), int(m.group(2))
+        return f"{y:04d}-{mo:02d}-01" if 1 <= mo <= 12 else None
+    m = re.fullmatch(r"([A-Za-zÄäÖöÜüß]+)\s+(\d{4})", s)
+    if m:
+        mo = _MONTHS.get(m.group(1).lower())
+        return f"{int(m.group(2)):04d}-{mo:02d}-01" if mo else None
     return None
 
 

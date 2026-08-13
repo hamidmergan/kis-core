@@ -1,0 +1,159 @@
+"""Der Titel-Abgleich nimmt jetzt auch die Termine ohne Datum mit.
+
+Er bringt gleiche Veranstaltungen mit verschiedenen Worten auf einen Titel, damit die
+Zusammenfuehrung danach greift. Bisher lief er nur ueber Eintraege MIT Datum, er
+gruppierte nach Tag und wer keinen hatte, war gar nicht dabei.
+
+Genau dort fehlt er aber am meisten: dieselbe Tabellenzeile "Praesentationen nach
+Vereinbarung" kam aus der PDF als "Praesentationen: online" und aus dem Video als
+"Praesentation: Hausarbeit". Ohne Datum gibt es nichts, woran der Textvergleich sie
+sonst zusammenbinden koennte, und sie standen doppelt im Zeitplan.
+
+Die Gegenrichtung ist die Gefahr: alle offenen Termine teilen sich das leere Datum, das
+ist KEIN Hinweis auf dieselbe Veranstaltung. Die Anfrage fuer diese Gruppe sagt das
+ausdruecklich, weil die Systemanweisung fuer gleiche Tage zum Zusammenlegen neigt.
+"""
+
+import json
+import types
+from datetime import date
+
+from src.features.ai_assistant.tasks.studio.schedule import _harmonize as mod
+
+HEUTE = date(2026, 8, 13)
+
+
+def _make_client(payload):
+    calls = []
+
+    def create(model, messages, **kwargs):
+        calls.append(messages)
+        content = payload if isinstance(payload, str) else json.dumps(payload)
+        message = types.SimpleNamespace(content=content)
+        return types.SimpleNamespace(choices=[types.SimpleNamespace(message=message)])
+
+    return types.SimpleNamespace(
+        chat=types.SimpleNamespace(completions=types.SimpleNamespace(create=create))
+    ), calls
+
+
+def _cand(date_iso=None, tbd=False):
+    return {"date_iso": date_iso, "partial_date": None, "is_tbd": tbd}
+
+
+def _cls(title):
+    return {"keep": True, "is_footer": False, "is_header": False,
+            "is_historical": False, "title": title, "type": "termin",
+            "description": None, "due_time": None, "is_optional": False}
+
+
+def test_offene_termine_bekommen_einen_gemeinsamen_titel():
+    cands = [_cand(tbd=True), _cand(tbd=True)]
+    cls = [_cls("Präsentation: Hausarbeit"), _cls("Präsentationen: online")]
+    client, _ = _make_client({"groups": [
+        {"ids": ["c0", "c1"], "canonical_title": "Präsentationen (nach Vereinbarung)"},
+    ]})
+
+    mod._harmonize_same_date_titles(client, "m", cands, cls, HEUTE, [])
+
+    assert cls[0]["title"] == "Präsentationen (nach Vereinbarung)"
+    assert cls[1]["title"] == "Präsentationen (nach Vereinbarung)"
+
+
+def test_die_anfrage_warnt_vor_dem_leeren_datum():
+    """Die Systemanweisung neigt bei gleichem Tag zum Zusammenlegen. Fuer die Gruppe
+    ohne Datum muss die Anfrage das ausdruecklich zuruecknehmen."""
+    cands = [_cand(tbd=True), _cand(tbd=True)]
+    cls = [_cls("Präsentation"), _cls("Sprechstunde")]
+    client, calls = _make_client({"groups": []})
+
+    mod._harmonize_same_date_titles(client, "m", cands, cls, HEUTE, [])
+
+    frage = calls[0][1]["content"]
+    assert "NO fixed date" in frage
+    assert "does NOT apply" in frage
+    assert "Date: " not in frage
+
+
+def test_verschiedene_offene_termine_bleiben_getrennt():
+    cands = [_cand(tbd=True), _cand(tbd=True)]
+    cls = [_cls("Präsentation"), _cls("Sprechstunde")]
+    client, _ = _make_client({"groups": [
+        {"ids": ["c0"], "canonical_title": "Präsentation"},
+        {"ids": ["c1"], "canonical_title": "Sprechstunde"},
+    ]})
+
+    mod._harmonize_same_date_titles(client, "m", cands, cls, HEUTE, [])
+
+    assert cls[0]["title"] == "Präsentation"
+    assert cls[1]["title"] == "Sprechstunde"
+
+
+def test_vorhandener_eintrag_ohne_datum_gibt_den_titel_vor():
+    cands = [_cand(tbd=True)]
+    cls = [_cls("Präsentation: Hausarbeit")]
+    vorhanden = [{"id": 7, "due_date": None, "title": "Präsentationen: online",
+                  "description": None, "type": "termin"}]
+    client, calls = _make_client({"groups": [
+        {"ids": ["c0", "e7"], "canonical_title": "Präsentationen: online"},
+    ]})
+
+    mod._harmonize_same_date_titles(client, "m", cands, cls, HEUTE, vorhanden)
+
+    assert cls[0]["title"] == "Präsentationen: online"
+    assert '"e7"' in calls[0][1]["content"]
+
+
+def test_eintraege_mit_datum_laufen_wie_vorher():
+    cands = [_cand("2026-05-29"), _cand("2026-05-29")]
+    cls = [_cls("Peer-Review"), _cls("Online-Präsenz: Peer-Review")]
+    client, calls = _make_client({"groups": [
+        {"ids": ["c0", "c1"], "canonical_title": "Online-Präsenz: Peer-Review"},
+    ]})
+
+    mod._harmonize_same_date_titles(client, "m", cands, cls, HEUTE, [])
+
+    assert cls[0]["title"] == "Online-Präsenz: Peer-Review"
+    assert "Date: 2026-05-29" in calls[0][1]["content"]
+
+
+def test_datum_und_kein_datum_sind_zwei_getrennte_anfragen():
+    cands = [_cand("2026-05-29"), _cand(tbd=True), _cand(tbd=True)]
+    cls = [_cls("Peer-Review"), _cls("Präsentation"), _cls("Präsentationen: online")]
+    client, calls = _make_client({"groups": []})
+
+    mod._harmonize_same_date_titles(client, "m", cands, cls, HEUTE, [
+        {"id": 1, "due_date": date(2026, 5, 29), "title": "Online-Präsenz: Peer-Review",
+         "description": None, "type": "termin"},
+    ])
+
+    assert len(calls) == 2
+    fragen = [c[1]["content"] for c in calls]
+    assert any("Date: 2026-05-29" in f for f in fragen)
+    assert any("NO fixed date" in f for f in fragen)
+
+
+def test_ein_einzelner_offener_termin_kostet_keine_anfrage():
+    cands = [_cand(tbd=True)]
+    cls = [_cls("Präsentation")]
+    client, calls = _make_client({"groups": []})
+
+    mod._harmonize_same_date_titles(client, "m", cands, cls, HEUTE, [])
+
+    assert calls == []
+
+
+def test_ein_fehler_beim_abgleich_laesst_die_titel_stehen():
+    def create(model, messages, **kwargs):
+        raise RuntimeError("Anbieter down")
+
+    client = types.SimpleNamespace(
+        chat=types.SimpleNamespace(completions=types.SimpleNamespace(create=create))
+    )
+    cands = [_cand(tbd=True), _cand(tbd=True)]
+    cls = [_cls("Präsentation"), _cls("Präsentationen: online")]
+
+    mod._harmonize_same_date_titles(client, "m", cands, cls, HEUTE, [])
+
+    assert cls[0]["title"] == "Präsentation"
+    assert cls[1]["title"] == "Präsentationen: online"

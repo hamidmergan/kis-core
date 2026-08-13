@@ -14,6 +14,8 @@ export interface ScheduleListEntry {
   description?: string | null;
   due_date: string;
   due_time?: string | null;
+  /** 'month': die Quelle nannte nur einen Monat, die Zeitleiste zeigt dann keinen Tag. */
+  date_precision?: "day" | "month" | null;
   is_checked?: boolean;
 }
 

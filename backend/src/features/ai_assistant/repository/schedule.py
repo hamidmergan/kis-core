@@ -10,7 +10,7 @@ from src.core.db.pool import get_connection
 
 
 _ENTRY_COLS = (
-    "id, type, title, description, due_date, due_time, "
+    "id, type, title, description, due_date, due_time, date_precision, "
     "is_optional, is_checked, checked_at, origin, "
     "source_refs, created_at, updated_at"
 )
@@ -55,7 +55,7 @@ def get_schedule_entries_for_user(
 
     sql = f"""
         SELECT s.id, s.type, s.title, s.description,
-               s.due_date, s.due_time,
+               s.due_date, s.due_time, s.date_precision,
                s.is_optional, s.is_checked, s.checked_at, s.origin,
                s.source_refs, s.created_at, s.updated_at,
                m.uuid AS workspace_uuid,
@@ -155,9 +155,13 @@ def create_schedule_entry(
     is_optional: bool,
     origin: str,
     source_refs: list[dict],
+    date_precision: str = "day",
 ) -> dict:
     """Create a schedule entry. source_refs is a list of
     {source_uuid, page_number?, start_time?, raw_quote?} dicts.
+
+    date_precision: 'day' oder 'month'. 'month' heisst, die Quelle nannte nur einen
+    Monat, due_date traegt dann den Monatsersten als Sortierpunkt.
     """
     with get_connection() as conn:
         with conn.cursor(cursor_factory=RealDictCursor) as cur:
@@ -165,13 +169,15 @@ def create_schedule_entry(
                 f"""
                 INSERT INTO aia_schedule_entries
                     (workspace_id, user_id, type, title, description,
-                     due_date, due_time, is_optional, origin, source_refs)
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                     due_date, due_time, date_precision, is_optional, origin, source_refs)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                 RETURNING {_ENTRY_COLS}
                 """,
                 (
                     workspace_id, user_id, type, title, description,
-                    due_date, due_time, is_optional, origin,
+                    due_date, due_time,
+                    date_precision if date_precision in ("day", "month") else "day",
+                    is_optional, origin,
                     json.dumps(source_refs),
                 ),
             )

@@ -7,6 +7,7 @@ from datetime import date
 from loguru import logger
 
 from src.features.ai_assistant.tasks._helpers import _clean_llm_json
+from src.features.ai_assistant.tasks.studio.schedule._parse import _parse_date
 from src.tool_prompts import AIA_SCHEDULE_CLASSIFY_PROMPT
 
 
@@ -19,8 +20,32 @@ _CLASSIFY_RETRY_WAIT_SECS = 5
 _CLASSIFY_BATCH_SIZE = 30  # safe size so a ~10k-token response stays within limits
 
 
-def _classify_candidates_batch(client, model, batch: list[dict], today_d: date) -> list[dict]:
+def _dated_month_days(candidates: list[dict], entries: list[dict]) -> set[tuple[int, int]]:
+    """Alle (Monat, Tag), die IRGENDWO mit Jahreszahl belegt sind.
+
+    Ein Vortrag sagt "der 3. Juli", der Kursplan schreibt "03.07.2026". Ohne diesen
+    Abgleich stand der gesprochene Termin allein da, und sobald der Tag im laufenden
+    Jahr vorbei ist, hielt ihn die Klassifikation fuer eine Erinnerung an frueher.
+    Deshalb bekommt sie hier gesagt, welche Tage schwarz auf weiss mit Jahr belegt
+    sind: in einer Quelle des Auftrags oder in einem Eintrag, der schon steht.
+    """
+    out: set[tuple[int, int]] = set()
+    for c in candidates:
+        iso = c.get("date_iso")
+        d = _parse_date(iso) if iso else None
+        if d:
+            out.add((d.month, d.day))
+    for e in entries:
+        d = e.get("due_date")
+        if d:
+            out.add((d.month, d.day))
+    return out
+
+
+def _classify_candidates_batch(client, model, batch: list[dict], today_d: date,
+                               dated_month_days: set[tuple[int, int]] | None = None) -> list[dict]:
     """One LLM call for up to ~30 candidates. Returns classifications aligned to batch order."""
+    dated_month_days = dated_month_days or set()
     payload = []
     for i, c in enumerate(batch):
         item = {
@@ -33,6 +58,10 @@ def _classify_candidates_batch(client, model, batch: list[dict], today_d: date) 
             mo, da = c["partial_date"]
             item["partial_month_day"] = f"{mo:02d}-{da:02d}"
             item["year_missing"] = True
+            if (mo, da) in dated_month_days:
+                item["documented_with_year_elsewhere"] = True
+        if c.get("date_precision") == "month":
+            item["month_only"] = True
         if c.get("is_tbd"):
             item["date_tbd"] = True
         payload.append(item)
@@ -40,7 +69,7 @@ def _classify_candidates_batch(client, model, batch: list[dict], today_d: date) 
     user_msg = (
         f"Current date (today): {today_d.isoformat()}.\n\n"
         "Classify each candidate below. If a candidate has year_missing=true, "
-        "the system will resolve it to the NEXT upcoming occurrence after today. "
+        "the system resolves it to the CURRENT calendar year. "
         "Drop it (keep=false) if the context shows it is historical or merely referential.\n\n"
         'Return a JSON object with key "results" as an array of the same length (same ids).\n\n'
         "Candidates:\n" + json.dumps(payload, ensure_ascii=False)
@@ -106,7 +135,8 @@ def _classify_candidates_batch(client, model, batch: list[dict], today_d: date) 
     return out
 
 
-def _classify_candidates(client, model, candidates: list[dict], today_d: date) -> list[dict]:
+def _classify_candidates(client, model, candidates: list[dict], today_d: date,
+                         dated_month_days: set[tuple[int, int]] | None = None) -> list[dict]:
     """Split candidates into batches of _CLASSIFY_BATCH_SIZE and classify each.
     Returns a flat list aligned with `candidates`.
     """
@@ -120,5 +150,7 @@ def _classify_candidates(client, model, candidates: list[dict], today_d: date) -
                     start // _CLASSIFY_BATCH_SIZE + 1,
                     (n + _CLASSIFY_BATCH_SIZE - 1) // _CLASSIFY_BATCH_SIZE,
                     len(batch))
-        all_results.extend(_classify_candidates_batch(client, model, batch, today_d))
+        all_results.extend(
+            _classify_candidates_batch(client, model, batch, today_d, dated_month_days)
+        )
     return all_results

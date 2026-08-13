@@ -20,7 +20,10 @@ from src.features.ai_assistant.tasks._helpers import _get_llm_client
 from src.features.ai_assistant.tasks.studio.schedule._candidates import (
     _build_candidates_for_source,
 )
-from src.features.ai_assistant.tasks.studio.schedule._classify import _classify_candidates
+from src.features.ai_assistant.tasks.studio.schedule._classify import (
+    _classify_candidates,
+    _dated_month_days,
+)
 from src.features.ai_assistant.tasks.studio.schedule._harmonize import (
     _harmonize_same_date_titles,
 )
@@ -29,7 +32,7 @@ from src.features.ai_assistant.tasks.studio.schedule._parse import (
     _parse_time,
     _resolve_current_year,
 )
-from src.features.ai_assistant.tasks.studio.schedule._titles import _fuzzy_same
+from src.features.ai_assistant.tasks.studio.schedule._titles import _find_merge_target
 
 
 @celery_app.task(bind=True, name="aia.generate_schedule", queue="aia",
@@ -68,6 +71,16 @@ def run_generate_schedule(self, job_id: int, workspace_id: int, user_id: int,
         per_source: dict[int, tuple[list[dict], list[dict]]] = {}
         sources_needing_classify: list[tuple[dict, list[dict]]] = []
 
+        # Der Client steht schon vor der Kandidatensuche bereit: sie fragt fuer Termine
+        # ohne Datum ("nach Vereinbarung", in jeder Sprache) selbst beim Modell nach.
+        # Faellt er aus, laeuft ein Auftrag aus dem Zwischenspeicher trotzdem durch,
+        # nur die Klassifikation unten kommt ohne Modell nicht aus.
+        try:
+            client, model, _ = _get_llm_client()
+        except Exception as e:  # noqa: BLE001 - der Zwischenspeicher-Weg braucht kein Modell
+            logger.warning("Schedule job {}: kein LLM-Client ({})", job_id, e)
+            client, model = None, None
+
         for src in pending:
             stored = db.get_source_extraction(src["id"])
             if stored is not None:
@@ -78,21 +91,32 @@ def run_generate_schedule(self, job_id: int, workspace_id: int, user_id: int,
                     len(stored["candidates"]),
                 )
             else:
-                cands = _build_candidates_for_source(src)
+                cands = _build_candidates_for_source(src, client=client, model=model)
                 logger.info(
                     "Schedule job {}: source '{}' -> {} date candidates (will classify)",
                     job_id, src.get("filename", src["id"]), len(cands),
                 )
                 sources_needing_classify.append((src, cands))
 
+        # Schon stehende Eintraege des Workspaces. Sie werden weiter unten fuer den
+        # Abgleich und das Zusammenfuehren gebraucht und schon hier, damit die
+        # Klassifikation weiss, welche Tage mit Jahreszahl belegt sind.
+        existing_entries: list[dict] = list(db.get_schedule_entries(workspace_id, user_id))
+        workspace_entries: list[dict] = list(db.get_schedule_entries_for_workspace(workspace_id))
+
         if sources_needing_classify:
             to_classify: list[dict] = []
             for _src, cands in sources_needing_classify:
                 to_classify.extend(cands)
 
-            client, model, _ = _get_llm_client()
+            # Ein Vortrag sagt "der 3. Juli", der Kursplan schreibt "03.07.2026". Ohne
+            # diesen Hinweis verwirft die Klassifikation den gesprochenen Termin als
+            # Erinnerung an frueher, sobald der Tag im laufenden Jahr vorbei ist, und
+            # der Zeitplan traegt am Ende nur PDF-Quellen.
+            dated_days = _dated_month_days(to_classify, workspace_entries)
+
             try:
-                fresh = _classify_candidates(client, model, to_classify, today_d)
+                fresh = _classify_candidates(client, model, to_classify, today_d, dated_days)
             except Exception as e:
                 logger.error("Schedule job {}: classify failed: {}", job_id, e)
                 db.update_schedule_job(
@@ -124,16 +148,13 @@ def run_generate_schedule(self, job_id: int, workspace_id: int, user_id: int,
             logger.info("Schedule job {}: no candidates found", job_id)
             return
 
-        # Load existing entries so the harmonize pass can align new candidate
-        # titles with DB entries already present on the same date.
+        # Die Eintraege stehen schon oben bereit (die Klassifikation braucht sie auch).
         # `existing_entries` (own) drives the merge loop below.
         # `harmonize_anchors` adds entries from OTHER users in the same workspace
         # so user B's job inherits user A's canonical wording (otherwise
         # harmonize has no anchor when user B uploads both sources at once
         # and the LLM may keep semantically-equal titles like
         # "Abgabe Hausarbeit" vs "Abgabe schriftliche Ausarbeitung" apart).
-        existing_entries: list[dict] = list(db.get_schedule_entries(workspace_id, user_id))
-        workspace_entries: list[dict] = list(db.get_schedule_entries_for_workspace(workspace_id))
         own_ids = {e["id"] for e in existing_entries}
         cross_user_anchors = [e for e in workspace_entries if e["id"] not in own_ids]
         harmonize_anchors = existing_entries + cross_user_anchors
@@ -174,6 +195,9 @@ def run_generate_schedule(self, job_id: int, workspace_id: int, user_id: int,
             # Only non-TBD candidates require a resolved date
             if due_date_obj is None and not cand.get("is_tbd"):
                 continue
+            # "month" heisst: die Quelle nannte nur einen Monat. due_date traegt dann den
+            # Monatsersten als Sortierpunkt, die Ansicht zeigt keine Tagesnummer.
+            precision = "month" if cand.get("date_precision") == "month" else "day"
 
             ref = {
                 "source_uuid": cand["source_uuid"],
@@ -185,14 +209,9 @@ def run_generate_schedule(self, job_id: int, workspace_id: int, user_id: int,
             }
 
             # Try to merge into existing entry (same date + fuzzy title; for TBD:
-            # also no-date + fuzzy title).
-            merge_target = next(
-                (
-                    e for e in existing_entries
-                    if e.get("due_date") == due_date_obj
-                    and _fuzzy_same(cls["title"], e.get("title") or "")
-                ),
-                None,
+            # also no-date + fuzzy title or same source text).
+            merge_target = _find_merge_target(
+                existing_entries, due_date_obj, precision, cls["title"], ref,
             )
             if merge_target:
                 db.append_source_ref_to_entry(merge_target["id"], ref)
@@ -211,6 +230,7 @@ def run_generate_schedule(self, job_id: int, workspace_id: int, user_id: int,
                 description=cls["description"],
                 due_date=due_date_obj,
                 due_time=_parse_time(cls["due_time"]),
+                date_precision=precision,
                 is_optional=cls["is_optional"],
                 origin="llm",
                 source_refs=[ref],

@@ -26,8 +26,17 @@ def _harmonize_same_date_titles(
     group contains an existing entry gets rewritten to that existing title,
     so fuzzy-merge downstream picks it up instead of creating a duplicate.
     Mutates `classifications` in place.
+
+    Termine OHNE Datum bilden eine eigene Gruppe (Schluessel None). Sie brauchen den
+    Schritt am dringendsten: dieselbe Zeile "Praesentationen nach Vereinbarung" kommt
+    aus der PDF und aus dem Video mit verschiedenen Worten an, und ohne Datum gibt es
+    nichts, woran der Textvergleich sie sonst zusammenbinden koennte. Das gemeinsame
+    leere Datum ist dabei KEIN Hinweis auf dieselbe Veranstaltung, darauf weist die
+    Anfrage fuer diese Gruppe eigens hin.
     """
-    cand_groups: dict[date, list[int]] = defaultdict(list)
+    # Gruppenschluessel ist (Tag, Genauigkeit). "im Juli" und der 01.07. teilen sich zwar
+    # den Sortierpunkt, sind aber nicht dieselbe Aussage und gehoeren nicht in eine Gruppe.
+    cand_groups: dict[tuple, list[int]] = defaultdict(list)
     for idx, (cand, cls) in enumerate(zip(all_candidates, classifications)):
         if not cls["keep"] or cls["is_footer"] or cls.get("is_header") or cls.get("is_historical"):
             continue
@@ -38,17 +47,14 @@ def _harmonize_same_date_titles(
             d = _resolve_current_year(today_d, mo, da)
         else:
             d = None
-        if d is not None:
-            cand_groups[d].append(idx)
+        cand_groups[(d, cand.get("date_precision") or "day")].append(idx)
 
-    existing_by_date: dict[date, list[dict]] = defaultdict(list)
+    existing_by_date: dict[tuple, list[dict]] = defaultdict(list)
     for e in existing_entries:
-        d = e.get("due_date")
-        if d is not None:
-            existing_by_date[d].append(e)
+        existing_by_date[(e.get("due_date"), e.get("date_precision") or "day")].append(e)
 
-    for d, indices in cand_groups.items():
-        existing_at_d = existing_by_date.get(d, [])
+    for (d, precision), indices in cand_groups.items():
+        existing_at_d = existing_by_date.get((d, precision), [])
         titles = {classifications[i]["title"] for i in indices}
         # Skip only if: no existing entries AND candidates already share a title
         if not existing_at_d and len(titles) <= 1:
@@ -72,14 +78,41 @@ def _harmonize_same_date_titles(
                 "type": e.get("type"),
             })
 
-        user_msg = (
-            f"Date: {d.isoformat()}\n"
+        if d is None:
+            label = "ohne Datum"
+        elif precision == "month":
+            label = d.strftime("%Y-%m") + " (nur Monat)"
+        else:
+            label = d.isoformat()
+        rollen = (
             "Some items are NEW candidates (role=candidate, title can be rewritten).\n"
             "Others are EXISTING entries in the DB (role=existing, title is fixed).\n"
             "If a candidate describes the SAME event as an existing entry, put them\n"
             "in the same group AND set canonical_title = the existing entry's title.\n\n"
-            f"Events on this date:\n{json.dumps(items, ensure_ascii=False)}"
         )
+        if d is None:
+            user_msg = (
+                "These events have NO fixed date, their date is still to be arranged.\n"
+                "IMPORTANT: the missing date is NOT shared evidence. The rule 'bias toward "
+                "merging on the same date' does NOT apply here. Group two items ONLY when "
+                "they clearly name the SAME real event; when in doubt, leave each in its "
+                "own group.\n\n"
+                + rollen
+                + f"Events without a fixed date:\n{json.dumps(items, ensure_ascii=False)}"
+            )
+        elif precision == "month":
+            user_msg = (
+                f"Month: {d.strftime('%Y-%m')}. The sources name only this month for all "
+                "of these events, no day.\n"
+                + rollen
+                + f"Events in this month:\n{json.dumps(items, ensure_ascii=False)}"
+            )
+        else:
+            user_msg = (
+                f"Date: {d.isoformat()}\n"
+                + rollen
+                + f"Events on this date:\n{json.dumps(items, ensure_ascii=False)}"
+            )
         try:
             response = client.chat.completions.create(
                 model=model,
@@ -109,7 +142,7 @@ def _harmonize_same_date_titles(
                         classifications[i]["title"] = canonical
                 logger.info(
                     "Schedule harmonize: date {} - candidates {} aligned to '{}'",
-                    d.isoformat(), cand_ids, canonical,
+                    label, cand_ids, canonical,
                 )
         except Exception as e:
-            logger.warning("Schedule harmonize failed for {}: {}", d.isoformat(), e)
+            logger.warning("Schedule harmonize failed for {}: {}", label, e)
