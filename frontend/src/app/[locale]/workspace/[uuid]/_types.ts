@@ -10,12 +10,25 @@ export interface IndexingProgress {
   total?: number;
 }
 
+/** Wie die Texterkennung bei dieser Quelle gelaufen ist.
+ *
+ *  Fehlt ganz, wenn das Dokument gar keine Seite hatte, die dafuer in Frage kam.
+ *  "open" sind die Seiten ohne erkannten Text, egal ob die Texterkennung aus war,
+ *  der Dienst die Seite verloren hat oder der Lauf aufgegeben hat. Eine solche
+ *  Seite bremst nichts mehr, sie steht hier und laesst sich nachholen. */
+export interface OcrInfo {
+  enabled: boolean;
+  done: number;
+  open: number[];
+}
+
 export interface Source {
   uuid: string;
   filename: string;
   status: "pending" | "indexing" | "ready" | "failed";
   error_message?: string | null;
   progress?: IndexingProgress | null;
+  ocr_info?: OcrInfo | null;
   /** Kapitel, in dem die Quelle in der Liste steht. null heisst "Ohne Kapitel". */
   chapter_uuid?: string | null;
 }
@@ -63,6 +76,9 @@ export interface WorkspaceDetail {
   language_training_active?: boolean;
   /** Sprachtrainer offered on this platform at all (admin setting, off by default). */
   language_training_enabled?: boolean;
+  /** Texterkennung auf dieser Plattform ueberhaupt an (Admin-Schalter, Standard an).
+   *  Steht sie aus, gibt es kein Nachholen, der Menue-Eintrag entfaellt dann. */
+  ocr_enabled?: boolean;
   staff_note_text?: string | null;
   staff_note_links?: StaffNoteLink[];
   chapters?: Chapter[];
@@ -352,6 +368,9 @@ export interface ScheduleEntry {
   description: string | null;
   due_date: string | null;   // 'YYYY-MM-DD'
   due_time: string | null;   // 'HH:MM'
+  /** 'day' oder 'month'. Bei 'month' nannte die Quelle nur einen Monat, due_date traegt
+   *  dann den Monatsersten als Sortierpunkt und die Ansicht zeigt keine Tagesnummer. */
+  date_precision?: "day" | "month" | null;
   is_optional: boolean;
   is_checked: boolean;
   checked_at: string | null;

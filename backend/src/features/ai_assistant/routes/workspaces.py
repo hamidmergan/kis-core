@@ -216,6 +216,9 @@ async def get_workspace(
         # settings dialog can hide the owner switch instead of offering a dead one.
         "language_training_enabled": db.is_language_training_enabled_globally(),
         "language_training_active": db.is_language_training_active(workspace["id"]),
+        # Global admin switch. The source list only offers "catch up text recognition"
+        # while it is on, otherwise the entry would be a dead end.
+        "ocr_enabled": db.get_setting("ocr_enabled", "true").lower() == "true",
         "staff_note_text": workspace.get("staff_note_text"),
         "staff_note_links": workspace.get("staff_note_links") or [],
         "access_links": [
@@ -244,6 +247,7 @@ async def get_workspace(
                 "chunk_count": s["chunk_count"],
                 "error_message": s.get("error_message"),
                 "progress": s.get("progress"),
+                "ocr_info": s.get("ocr_info"),
                 "chapter_uuid": chapter_uuid_by_id.get(s.get("chapter_id")),
                 "created_at": s["created_at"].isoformat() + "Z" if s["created_at"] else None,
             }

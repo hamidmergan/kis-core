@@ -7,7 +7,9 @@ import {
   DotsThreeVertical,
   FolderSimple,
   PencilSimple,
+  TextT,
   Trash,
+  WarningCircle,
 } from "@phosphor-icons/react";
 import type { Chapter, Source } from "../../_types";
 import { splitFilename } from "../../_utils";
@@ -22,6 +24,7 @@ export function SourceRow({
   src,
   checked,
   isOwner,
+  ocrEnabled,
   compact,
   nested,
   chapters,
@@ -42,6 +45,8 @@ export function SourceRow({
   src: Source;
   checked: boolean;
   isOwner: boolean;
+  /** Texterkennung plattformweit an. Ist sie aus, gibt es nichts nachzuholen. */
+  ocrEnabled: boolean;
   compact: boolean;
   /** Eingerueckt, sobald es ueberhaupt Kapitel gibt. */
   nested: boolean;
@@ -81,6 +86,25 @@ export function SourceRow({
   // progress field cleared). Selecting an in-progress source would feed the
   // chat empty context.
   const ready = src.status === "ready" && !src.progress;
+
+  // Seiten, die keinen erkannten Text tragen. Die Quelle ist trotzdem benutzbar,
+  // deshalb bloss ein Warnzeichen mit Tooltip und kein Fehlerkasten. Steht die
+  // Texterkennung plattformweit aus, waere jede Bild-PDF rot markiert, ohne dass
+  // jemand etwas dagegen tun koennte. Dann bleibt das Zeichen weg.
+  const ocrOpen = src.ocr_info?.open ?? [];
+  const showOcrWarning = ready && ocrEnabled && ocrOpen.length > 0;
+  // Kurze Zeile fuer das Menue, der ganze Satz haengt als Tooltip daran. Das Menue
+  // ist schmal, ein Absatz darin wuerde die anderen Eintraege wegdruecken.
+  const ocrLabel = !src.ocr_info
+    ? ""
+    : src.ocr_info.enabled
+    ? t("ocrIncompleteShort", { open: ocrOpen.length })
+    : t("ocrWasOffShort", { open: ocrOpen.length });
+  const ocrHint = !src.ocr_info
+    ? ""
+    : src.ocr_info.enabled
+    ? t("ocrIncomplete", { open: ocrOpen.length, done: src.ocr_info.done })
+    : t("ocrWasOff", { open: ocrOpen.length });
 
   async function commitRename() {
     if (renameBusy || !onRename) return;
@@ -275,6 +299,32 @@ export function SourceRow({
                               label={t("moveToChapter")}
                               onClick={() => onMenuMode("chapter")}
                             />
+                          )}
+                          {/* Zustand und Nachholen stehen zusammen im Menue, damit die
+                              Zeile selbst ruhig bleibt. Nachholen heisst: die Quelle
+                              laeuft komplett neu durch, diesmal mit Texterkennung.
+                              showOcrWarning traegt den Admin-Schalter schon mit, der
+                              Eintrag ist also nie eine Sackgasse. */}
+                          {showOcrWarning && (
+                            <>
+                              <div className="my-1" style={{ height: 1, backgroundColor: "var(--border)" }} />
+                              <div
+                                className="flex items-start gap-2 px-4 py-2 text-sm leading-snug"
+                                style={{ color: "var(--error-strong)" }}
+                                title={ocrHint}
+                              >
+                                <span className="flex-shrink-0 mt-0.5">
+                                  <WarningCircle size={16} weight="fill" />
+                                </span>
+                                <span>{ocrLabel}</span>
+                              </div>
+                              <MenuItem
+                                icon={<TextT size={16} weight="bold" />}
+                                label={t("ocrCatchUp")}
+                                onClick={() => { onMenuOpen(false); onRetry(src.uuid); }}
+                              />
+                              <div className="my-1" style={{ height: 1, backgroundColor: "var(--border)" }} />
+                            </>
                           )}
                           <MenuItem
                             icon={<Trash size={16} weight="bold" />}

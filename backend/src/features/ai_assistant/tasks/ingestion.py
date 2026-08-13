@@ -126,7 +126,14 @@ def run_index_source(self, source_uuid: str, locale: str = "de", _aia_job_uuid: 
             else:
                 def _progress_cb(stage: str, page: int | None = None, total: int | None = None) -> None:
                     db.update_aia_source_progress(source_uuid, stage, page=page, total=total)
-                chunks = aia_chunker.extract_chunks(local_path, file_type, progress_cb=_progress_cb)
+                # Filled in by the chunker when the document had OCR candidate pages.
+                # A page that did not come through no longer fails the source, it only
+                # shows up here so the owner can catch it up from the source menu.
+                ocr_report: dict = {}
+                chunks = aia_chunker.extract_chunks(
+                    local_path, file_type, progress_cb=_progress_cb, ocr_report=ocr_report
+                )
+                db.update_aia_source_ocr_info(source_uuid, ocr_report or None)
 
             # 6. Save chunks to DB. Delete any chunks from a previous (failed then
             # retried) attempt first: the whole task body re-runs on retry and
@@ -237,27 +244,23 @@ def run_index_source(self, source_uuid: str, locale: str = "de", _aia_job_uuid: 
         db.clear_aia_source_progress(source_uuid)
 
     except Exception as e:
-        from src.services.aia_chunker import PdfNoReadableTextError, OcrFailedError
+        from src.services.aia_chunker import PdfNoReadableTextError
         from src.i18n import t
 
-        # OcrFailedError has already exhausted its own per-page 429/backoff
-        # retries. Do NOT re-run the whole document - mark it failed so the user
-        # can re-trigger later via the existing retry button (nothing is lost).
-        if not isinstance(e, OcrFailedError):
-            # Rate-limit / transient upstream → keep status, requeue task with backoff.
-            # Whisper transcription is cached per source_uuid in Redis, so a media
-            # retry does not re-transcribe. Chunking + embedding DO re-run from the
-            # top; step 6 deletes prior chunks first so a retry never duplicates rows
-            # (it does re-embed all batches, bounded by the retry cap).
-            msg = str(e).lower()
-            is_rate_limit = "429" in msg or "rate limit" in msg
-            if is_rate_limit and self.request.retries < 5:
-                countdown = min(30 * (2 ** self.request.retries), 120)  # 30s, 1m, 2m, 2m, 2m (capped)
-                logger.warning(
-                    "KI Tutor: source {} hit rate limit (attempt {}/{}), retrying in {}s",
-                    source_uuid, self.request.retries + 1, 5, countdown,
-                )
-                raise self.retry(exc=e, countdown=countdown, max_retries=5)
+        # Rate-limit / transient upstream → keep status, requeue task with backoff.
+        # Whisper transcription is cached per source_uuid in Redis, so a media
+        # retry does not re-transcribe. Chunking + embedding DO re-run from the
+        # top; step 6 deletes prior chunks first so a retry never duplicates rows
+        # (it does re-embed all batches, bounded by the retry cap).
+        msg = str(e).lower()
+        is_rate_limit = "429" in msg or "rate limit" in msg
+        if is_rate_limit and self.request.retries < 5:
+            countdown = min(30 * (2 ** self.request.retries), 120)  # 30s, 1m, 2m, 2m, 2m (capped)
+            logger.warning(
+                "KI Tutor: source {} hit rate limit (attempt {}/{}), retrying in {}s",
+                source_uuid, self.request.retries + 1, 5, countdown,
+            )
+            raise self.retry(exc=e, countdown=countdown, max_retries=5)
 
         logger.error("KI Tutor: indexing source {} failed: {}", source_uuid, e)
         from src.services.openai_compat_llm._chunking import AudioTooLongError
@@ -265,8 +268,6 @@ def run_index_source(self, source_uuid: str, locale: str = "de", _aia_job_uuid: 
 
         if isinstance(e, PdfNoReadableTextError):
             error_message = t("ai.source.pdfNoReadableText", locale)
-        elif isinstance(e, OcrFailedError):
-            error_message = t("ai.source.ocrFailed", locale, page=e.page_number)
         elif isinstance(e, AudioTooLongError):
             error_message = audio_too_long_message(e, locale)
         else:

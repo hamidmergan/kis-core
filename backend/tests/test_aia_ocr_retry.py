@@ -4,9 +4,9 @@ Behaviour contract:
   - Transient errors (429, rate limit, timeout, 5xx) → wait + re-OCR the SAME
     page, up to OCR_MAX_ATTEMPTS times.
   - After retries are exhausted (or on a non-transient error) → raise
-    OcrFailedError carrying the page number. The chunker lets this propagate so
-    the indexing task marks the source 'failed' (user retries later via the
-    existing retry button). Nothing is silently dropped from the index.
+    OcrFailedError carrying the page number. That is an INTERNAL signal: _OcrRun
+    catches it, books the page as open and lets the source stay usable
+    (see test_aia_ocr_report.py). It never reaches the indexing task.
 """
 import pytest
 

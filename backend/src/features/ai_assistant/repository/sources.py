@@ -161,6 +161,21 @@ def update_aia_source_progress(
             )
         conn.commit()
 
+def update_aia_source_ocr_info(uuid: str, ocr_info: dict | None) -> None:
+    """Record how text recognition went for this source.
+
+    ``None`` clears the column, which is what a re-run with no OCR candidate
+    should leave behind. The shape is documented at the column definition.
+    """
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                "UPDATE aia_sources SET ocr_info = %s WHERE uuid = %s",
+                (json.dumps(ocr_info) if ocr_info else None, uuid),
+            )
+        conn.commit()
+
+
 def update_aia_source_toc(uuid: str, toc: list[dict]) -> None:
     import json
     with get_connection() as conn:
@@ -209,12 +224,17 @@ def delete_aia_chunks_by_source(source_id: int) -> None:
         conn.commit()
 
 def reset_aia_source_for_retry(uuid: str) -> None:
-    """Reset a failed source to pending state and clear the error message."""
+    """Reset a source to pending state and clear the error message.
+
+    ``ocr_info`` goes with it: the coming run writes its own report, and leaving
+    the old one would show open pages that the run may just have closed.
+    """
     with get_connection() as conn:
         with conn.cursor() as cur:
             cur.execute(
                 """UPDATE aia_sources
-                   SET status = 'pending', error_message = NULL, chunk_count = 0
+                   SET status = 'pending', error_message = NULL, chunk_count = 0,
+                       ocr_info = NULL
                    WHERE uuid = %s""",
                 (uuid,),
             )

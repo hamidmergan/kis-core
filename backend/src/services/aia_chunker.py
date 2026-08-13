@@ -17,12 +17,10 @@ class PdfNoReadableTextError(ValueError):
 class OcrFailedError(RuntimeError):
     """Raised when OCR for a page fails after all retries (incl. transient 429s).
 
-    The page-level retry below has already waited and re-OCR'd the same page up
-    to ``OCR_MAX_ATTEMPTS`` times. When it still fails we raise this instead of
-    silently dropping the page, so the indexing task marks the source 'failed'
-    with a localized message and the user can re-trigger later via the existing
-    retry button. The message deliberately carries no "429" so the task does NOT
-    re-run the whole document (the page-level retries already covered that).
+    Internal signal between ``_ocr_image_with_retry`` and ``_OcrRun`` only. It
+    does NOT escape the chunker: a page that will not come through keeps its
+    text layer and is booked as "open" in the run's report. OCR is a bonus, and
+    a shared, rate-limited service must never be able to kill an upload.
     """
 
     def __init__(self, page_number: int):
@@ -77,6 +75,83 @@ def _ocr_image_with_retry(provider, png_bytes, page_number, *, attempts=OCR_MAX_
                 continue
             break
     raise OcrFailedError(page_number) from last_exc
+
+
+# How many pages may fail before OCR is switched off for the REST of the document.
+# The per-page backoff above is the expensive part (~31s of pure waiting per page,
+# holding a Celery slot), so a service that dropped two pages in a row is down, not
+# busy - and grinding through the remaining pages only deepens the contention and
+# stalls every other upload behind it.
+OCR_MAX_FAILED_PAGES = 2
+
+
+class _OcrRun:
+    """OCR bookkeeping for ONE document: what ran, what did not, when to stop.
+
+    The caller asks ``wants(page)`` before rendering, hands the PNG to
+    ``ocr_page(...)`` and gets the recognised text back - or ``""`` when the page
+    did not come through. Nothing raises: the page simply keeps its text layer.
+
+    ``report()`` is what the source row later shows. ``None`` means the document
+    had no OCR candidate at all, so there is nothing to say about it.
+    """
+
+    def __init__(self, provider, *, sleep=time.sleep):
+        self._provider = provider
+        self._sleep = sleep
+        self._failed = 0
+        self._given_up = False
+        self.done = 0
+        self.open: list[int] = []
+
+    def wants(self, page_number: int) -> bool:
+        """True when this candidate page should actually be rendered and sent.
+
+        False when OCR is off/unconfigured or the run has given up. Either way the
+        page is booked as open, so it can be caught up later once OCR is available.
+        """
+        if self._provider is None or self._given_up:
+            self.open.append(page_number)
+            return False
+        return True
+
+    def mark_open(self, page_number: int) -> None:
+        """Book a candidate page as open without blaming the OCR service.
+
+        Used when the page could not even be rendered - not a service failure, so
+        it must not count towards the give-up budget.
+        """
+        self.open.append(page_number)
+
+    def ocr_page(self, png_bytes: bytes, page_number: int) -> str:
+        """Recognise one page. Returns "" when it did not come through."""
+        try:
+            text = _ocr_image_with_retry(
+                self._provider, png_bytes, page_number, sleep=self._sleep
+            )
+        except OcrFailedError:
+            self._failed += 1
+            self.open.append(page_number)
+            if self._failed >= OCR_MAX_FAILED_PAGES:
+                self._given_up = True
+                logger.warning(
+                    "OCR: {} page(s) failed, switching OCR off for the rest of this "
+                    "document (the source stays usable, open pages can be caught up later)",
+                    self._failed,
+                )
+            return ""
+        self.done += 1
+        return text
+
+    def report(self) -> dict | None:
+        if not self.done and not self.open:
+            return None
+        return {
+            "enabled": self._provider is not None,
+            "done": self.done,
+            "open": self.open,
+        }
+
 
 # 1000 chars ≈ 250-333 tokens (German); 200 char overlap = 20% (LangChain default).
 # All supported embedding models (nomic-embed-text 2048 ctx, e5-mistral 4096 ctx) handle this comfortably.
@@ -154,6 +229,7 @@ def extract_chunks(
     file_path: str,
     file_type: str,
     progress_cb=None,
+    ocr_report: dict | None = None,
 ) -> list[dict]:
     """Extract text chunks from a document file.
 
@@ -164,6 +240,10 @@ def extract_chunks(
                      invoked when the extractor enters a new stage. Used by
                      the indexing task to surface per-page OCR progress in
                      the UI without coupling the chunker to the DB.
+        ocr_report:  Optional dict filled in with ``{"enabled", "done", "open"}``
+                     when the document had OCR candidate pages. Left untouched
+                     otherwise, so "no key" and "nothing to report" are the same
+                     thing to the caller. PDF only - no other type OCRs.
 
     Returns:
         List of dicts with keys:
@@ -172,7 +252,7 @@ def extract_chunks(
     """
     ft = file_type.lower().lstrip(".")
     if ft == "pdf":
-        return _extract_pdf(file_path, CHUNK_SIZE, CHUNK_OVERLAP, progress_cb)
+        return _extract_pdf(file_path, CHUNK_SIZE, CHUNK_OVERLAP, progress_cb, ocr_report)
     if ft == "docx":
         return _extract_docx(file_path, CHUNK_SIZE)
     if ft == "pptx":
@@ -195,6 +275,40 @@ def extract_chunks(
 # only OCRs pages dominated by screenshots or full-page scans. Title slides
 # with a header logo and short text no longer trigger spurious vision calls.
 _OCR_IMAGE_COVERAGE_THRESHOLD = 0.20
+
+# Aufloesung des Seitenbilds, das an die Bilderkennung geht. pdfium rendert von Haus aus
+# mit 72 DPI, der Faktor rechnet das um.
+#
+# Waren 200 DPI, das kostete stillschweigend Tabellenzellen. Im Kursplan zweier Seminar-
+# PDFs fehlte die Zelle "25.03.2026, 17:30 Uhr", und damit im Zeitplan ein Termin, ohne
+# dass es irgendwo aufgefallen waere. Am 13.08.2026 durchgemessen, dieselbe Seite, nur
+# die Aufloesung veraendert:
+#
+#   300 250 175 150 144 120 100 DPI -> Zelle gelesen
+#   200 DPI                        -> Zelle fehlt, 6 von 6 Laeufen
+#
+# Also kein Ausrutscher des Dienstes und auch nicht "je hoeher desto besser", sondern
+# genau dieser eine Wert. 150 DPI liegt bei der Aufloesung, mit der solche Modelle
+# ueblicherweise arbeiten, las in der Messung jede Seite mindestens so gut wie 200 DPI
+# und schickt dabei ein Drittel weniger Daten ueber die geteilte Leitung.
+_OCR_RENDER_DPI = 150
+
+
+def _render_ocr_png(page, page_number: int) -> bytes | None:
+    """Seitenbild fuer die Bilderkennung, oder None wenn das Rendern scheitert.
+
+    Rendern ist lokal und liefert bei gleichem Eingang immer dasselbe. Ein Fehler hier
+    laesst sich durch Wiederholen nicht heilen, deshalb faellt nur diese eine Seite aus.
+    """
+    import io as _io
+    try:
+        pil = page.render(scale=_OCR_RENDER_DPI / 72).to_pil()
+        buf = _io.BytesIO()
+        pil.save(buf, format="PNG")
+        return buf.getvalue()
+    except Exception as e:
+        logger.warning("OCR page {}: render failed, skipping: {}", page_number, e)
+        return None
 
 
 def _bitmap_coverage(page) -> float:
@@ -252,8 +366,8 @@ def _extract_pdf(
     chunk_size: int,
     overlap: int,
     progress_cb=None,
+    ocr_report: dict | None = None,
 ) -> list[dict]:
-    import io
     import pypdfium2 as pdfium
     from src.services.aia_pdf_layout import (
         boilerplate_keys, is_boilerplate, merge_rows, slide_groups, strip_boilerplate_text,
@@ -269,8 +383,7 @@ def _extract_pdf(
 
     # Lazy-init OCR provider once per PDF. None means OCR toggle is off or
     # the configured provider couldn't be constructed - either way, skip OCR.
-    ocr_provider = None
-    ocr_checked = False
+    ocr_run: _OcrRun | None = None
 
     if progress_cb:
         progress_cb("parsing", None, None)
@@ -291,61 +404,52 @@ def _extract_pdf(
         # Resolve the OCR provider lazily on the first page that wants OCR, so the
         # log below reports whether OCR ACTUALLY ran (provider present) and not just
         # the coverage heuristic. None = OCR toggle off / provider missing -> skip.
-        if should_ocr and not ocr_checked:
+        if should_ocr and ocr_run is None:
             try:
                 from src.services.aia_ocr import get_ocr_provider
-                ocr_provider = get_ocr_provider()
+                provider = get_ocr_provider()
             except Exception as e:
                 logger.warning("OCR provider lookup failed: {}", e)
-                ocr_provider = None
-            ocr_checked = True
+                provider = None
+            ocr_run = _OcrRun(provider)
 
         # ocr_wanted = page is image-heavy enough to be an OCR candidate;
-        # ocr_ran = it was AND OCR is actually enabled/available, i.e. text below
-        # really came from OCR. Logging only the heuristic before made a disabled
-        # toggle look like OCR had run.
-        ocr_ran = should_ocr and ocr_provider is not None
+        # ocr_tried = it was AND OCR is enabled/available and the run has not
+        # given up. Logging only the heuristic before made a disabled toggle
+        # look like OCR had run.
+        ocr_tried = should_ocr and ocr_run.wants(page_num + 1)
+        ocr_merged = False
+
+        if ocr_tried:
+            if progress_cb:
+                progress_cb("ocr", page_num + 1, total_pages)
+            png_bytes = _render_ocr_png(page, page_num + 1)
+
+            if png_bytes is None:
+                ocr_run.mark_open(page_num + 1)
+            else:
+                # A page that will not come through returns "" and is booked as
+                # open. It keeps its text layer, the source stays usable, and the
+                # owner can catch the page up later from the source menu.
+                ocr_text = _clean(ocr_run.ocr_page(png_bytes, page_num + 1)).strip()
+                if ocr_text:
+                    ocr_merged = True
+                    logger.info(
+                        "PDF page {}: OCR extracted {} chars (text-layer had {})",
+                        page_num + 1, len(ocr_text), len(text),
+                    )
+                    # Merge text-layer remnants + OCR output; OCR wins if empty layer
+                    text = (text + "\n" + ocr_text).strip() if text else ocr_text
+
         logger.info(
             "PDF page {}: text={} chars, image_coverage={:.1%}, ocr_wanted={}, ocr_ran={}",
-            page_num + 1, len(text), coverage, should_ocr, ocr_ran,
+            page_num + 1, len(text), coverage, should_ocr, ocr_merged,
         )
 
-        if should_ocr:
-            if ocr_provider is not None:
-                if progress_cb:
-                    progress_cb("ocr", page_num + 1, total_pages)
-                # Render is local and deterministic - a failure here can't be
-                # fixed by retrying, so log and skip (no OCR for this page).
-                png_bytes = None
-                try:
-                    # 200 DPI = scale factor 200/72 since pdfium native resolution is 72 DPI
-                    bitmap = page.render(scale=200 / 72)
-                    pil = bitmap.to_pil()
-                    buf = io.BytesIO()
-                    pil.save(buf, format="PNG")
-                    png_bytes = buf.getvalue()
-                except Exception as e:
-                    logger.warning("OCR page {}: render failed, skipping: {}", page_num + 1, e)
-
-                if png_bytes is not None:
-                    # The OCR call itself retries transient 429/5xx/timeouts and,
-                    # if still failing, raises OcrFailedError - which propagates
-                    # out so the task fails the source loudly (retry button)
-                    # instead of silently dropping the page from the index.
-                    ocr_text = _clean(
-                        _ocr_image_with_retry(ocr_provider, png_bytes, page_num + 1)
-                    ).strip()
-                    if ocr_text:
-                        logger.info(
-                            "PDF page {}: OCR extracted {} chars (text-layer had {})",
-                            page_num + 1, len(ocr_text), len(text),
-                        )
-                        # Merge text-layer remnants + OCR output; OCR wins if empty layer
-                        text = (text + "\n" + ocr_text).strip() if text else ocr_text
-
         # Geometry is read from the TEXT LAYER only. An OCR'd page has no rects for the
-        # text that matters, so it keeps the plain path and loses nothing.
-        page_lines.append([] if ocr_ran else _page_line_boxes(textpage))
+        # text that matters, so it keeps the plain path and loses nothing. A page whose
+        # OCR did NOT come through has only its text layer, so it keeps its geometry.
+        page_lines.append([] if ocr_merged else _page_line_boxes(textpage))
         page_texts.append(text)
         textpage.close()
         page.close()
@@ -376,6 +480,11 @@ def _extract_pdf(
         "PDF chunking: {} page(s), {} cut by bullet group, {} boilerplate line(s) dropped → {} chunks",
         total_pages, n_grouped, len(boiler), len(chunks),
     )
+    if ocr_report is not None and ocr_run is not None:
+        report = ocr_run.report()
+        if report:
+            ocr_report.update(report)
+            logger.info("PDF OCR report: {}", report)
     if not chunks:
         raise PdfNoReadableTextError()
     return chunks

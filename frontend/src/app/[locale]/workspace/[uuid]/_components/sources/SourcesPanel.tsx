@@ -35,6 +35,7 @@ export function SourcesPanel({
   uploadErrors,
   onDismissUploadErrors,
   isOwner,
+  ocrEnabled = true,
   onMinimize,
   workspaceUuid,
   hideHeader,
@@ -60,6 +61,8 @@ export function SourcesPanel({
   uploadErrors: { filename: string; message: string }[];
   onDismissUploadErrors: () => void;
   isOwner: boolean;
+  /** Texterkennung plattformweit an (Admin-Schalter). Steuert nur das Nachholen. */
+  ocrEnabled?: boolean;
   onMinimize: () => void;
   workspaceUuid: string;
   hideHeader?: boolean;
@@ -175,6 +178,7 @@ export function SourcesPanel({
         src={src}
         checked={selectedSourceIds.includes(src.uuid)}
         isOwner={isOwner}
+        ocrEnabled={ocrEnabled}
         compact={compact}
         nested={nested}
         chapters={chapterList}

@@ -238,7 +238,12 @@ async def retry_source(
     # Bind the source to the owned workspace: without this an owner of workspace A
     # could retry (delete chunks + reset) a source belonging to workspace B.
     source = _load_workspace_source(source_uuid, workspace, locale)
-    if source["status"] != "failed":
+    # Two ways in: a source that broke, or a ready source whose text recognition
+    # left pages open. The second is the "catch up" entry in the source menu - the
+    # run is the same, only its starting point differs.
+    ocr_open = bool((source.get("ocr_info") or {}).get("open"))
+    catching_up_ocr = source["status"] == "ready" and ocr_open
+    if source["status"] != "failed" and not catching_up_ocr:
         raise HTTPException(status_code=409, detail=t("ai.source.retryFailedOnly", locale))
 
     db.delete_aia_chunks_by_source(source["id"])
