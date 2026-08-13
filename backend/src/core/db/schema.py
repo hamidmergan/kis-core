@@ -30,6 +30,9 @@ _MIGRATION_ATTEMPTS = 5
 # Einmaliger Schritt, kein wiederholbarer. Siehe _reset_quiz_pool_once.
 _QUIZ_POOL_RESET_KEY = "quiz_pool_true_false_reset_done"
 
+# Dasselbe fuer die Grammatik. Siehe _reset_grammar_pool_once.
+_GRAMMAR_POOL_RESET_KEY = "grammar_pool_task_line_reset_done"
+
 
 def _reset_quiz_pool_once(cur) -> bool:
     """Den Quiz-Vorrat einmalig wegwerfen, weil Richtig/Falsch dazugekommen ist.
@@ -71,6 +74,48 @@ def _reset_quiz_pool_once(cur) -> bool:
         """INSERT INTO settings (key, value) VALUES (%s, 'true')
            ON CONFLICT (key) DO UPDATE SET value = 'true'""",
         (_QUIZ_POOL_RESET_KEY,),
+    )
+    return True
+
+
+def _reset_grammar_pool_once(cur) -> bool:
+    """Den Grammatik-Vorrat einmalig wegwerfen, weil die Anweisungszeile neu ist.
+
+    Die Anweisung ueber einer Aufgabe wird beim Erzeugen fest in den Aufgabentext
+    geschrieben. Der Vorrat traegt damit die alte Fassung ("Setze den Satz ins
+    Relativsatz.") in seinen Zeilen, und ein neuer Satz zieht zuerst aus dem Vorrat.
+    Ohne diesen Schritt kaeme also weiter das Gemeldete heraus, obwohl der Code es
+    laengst besser macht.
+
+    Aufbau wie bei :func:`_reset_quiz_pool_once`: erst zurueckschreiben, dann loeschen,
+    und genau einmal. Zum Zurueckschreiben siehe dort, die Gruende sind dieselben. Die
+    Grammatik legt laufend neue Vorratszeilen an, ein ungeschuetzter Schritt wuerfe sie
+    bei jedem Neustart des Backends weg.
+
+    Fertige Saetze behalten ihre alte Anweisung. Das ist Absicht: sie sind bearbeitet,
+    teils schon beantwortet, und ein Satz, dessen Aufgaben sich unter der Hand
+    umformulieren, waere schlimmer als eine schiefe Zeile in einem alten Satz.
+
+    Gibt zurueck, ob der Schritt gelaufen ist.
+    """
+    cur.execute("SELECT value FROM settings WHERE key = %s", (_GRAMMAR_POOL_RESET_KEY,))
+    row = cur.fetchone()
+    if row and row[0] == "true":
+        return False
+    cur.execute(
+        """UPDATE aia_exercise_items i
+              SET back = p.back, back_en = p.back_en, options = p.options,
+                  correct_idx = p.correct_idx, explanation = p.explanation,
+                  source_label = p.source_label, page_number = p.page_number,
+                  start_time = p.start_time, sources = p.sources, extras = p.extras
+             FROM aia_exercise_pool p
+            WHERE i.pool_item_id = p.id AND p.tool = 'grammatik'"""
+    )
+    cur.execute("DELETE FROM aia_exercise_pool WHERE tool = 'grammatik'")
+    cur.execute(
+        """INSERT INTO settings (key, value) VALUES (%s, 'true')
+           ON CONFLICT (key) DO UPDATE SET value = 'true'""",
+        (_GRAMMAR_POOL_RESET_KEY,),
     )
     return True
 
@@ -711,6 +756,15 @@ def _init_db(admin_email: Optional[str] = None) -> None:
             cur.execute("""
                 ALTER TABLE aia_sources ADD COLUMN IF NOT EXISTS progress JSONB
             """)
+            # Migration: how the text recognition (OCR) went for this source. NULL when
+            # the document had no OCR candidate page at all, so there is nothing to
+            # say about it. JSON shape is ``{"enabled": bool, "done": int, "open": [int]}``
+            # where "open" lists the pages that carry no OCR text - because OCR was off,
+            # because the service dropped them, or because the run gave up. A failed OCR
+            # never fails the source any more, it only shows up here.
+            cur.execute("""
+                ALTER TABLE aia_sources ADD COLUMN IF NOT EXISTS ocr_info JSONB
+            """)
             # Migration: per-source DOC SUMMARY (one compact summary built at ingest,
             # map-reduce over chunks). Used for GENERIC/overview answers. NULL until
             # built; a source is only set 'ready' once its summary exists.
@@ -1113,15 +1167,39 @@ def _init_db(admin_email: Optional[str] = None) -> None:
             #
             # Der Vorrat gilt fuer alle. Am Ton ist nichts persoenlich, und der Satz
             # steht ohnehin im gemeinsamen Kursmaterial.
+            #
+            # Der TON steht nicht hier, sondern im Speicher unter aia/speech/. Die
+            # Zeile traegt nur, wann er zuletzt gehoert wurde. Genau dafuer wird sie
+            # gebraucht: eine Aufbewahrungsregel im Bucket kennt nur das Erstelldatum
+            # und wuerde den Satz wegwerfen, den ein Kurs jedes Semester wieder hoert.
             cur.execute("""
                 CREATE TABLE IF NOT EXISTS aia_speech_cache (
                     fingerprint  TEXT PRIMARY KEY,
-                    audio        BYTEA NOT NULL,
                     bytes        INTEGER NOT NULL,
                     created_at   TIMESTAMP NOT NULL DEFAULT NOW(),
                     last_used_at TIMESTAMP NOT NULL DEFAULT NOW()
                 )
             """)
+            # Frueher lagen die MP3s als BYTEA in der Zeile. Sie sind mit den Jahren in
+            # jede Sicherung gewandert, obwohl an ihnen nichts wiederherzustellen ist:
+            # was fehlt, spricht der Anbieter in fuenf Sekunden neu.
+            #
+            # Die Altzeilen zeigen nach dem Umzug auf keine Datei mehr und sind damit
+            # wertlos. Sie gehen zusammen mit der Spalte, sonst laeuft jede von ihnen
+            # noch einmal in einen Fehlgriff in den Speicher. Die Bedingung haelt das
+            # auf den einen Start beschraenkt, an dem die Spalte faellt: unbedingt
+            # geschrieben wuerde sie den Vorrat bei jedem Neustart leeren.
+            cur.execute("""
+                DO $$
+                BEGIN
+                    IF EXISTS (SELECT 1 FROM information_schema.columns
+                               WHERE table_name = 'aia_speech_cache'
+                                 AND column_name = 'audio') THEN
+                        DELETE FROM aia_speech_cache;
+                    END IF;
+                END $$
+            """)
+            cur.execute("ALTER TABLE aia_speech_cache DROP COLUMN IF EXISTS audio")
             # Das naechtliche Aufraeumen sucht nach dem Zeitstempel, nicht nach dem
             # Schluessel.
             cur.execute(
@@ -1191,7 +1269,9 @@ def _init_db(admin_email: Optional[str] = None) -> None:
             # "Setze den Satz ins Nebensaetze." nicht. Bei acht echten Themen war die
             # Haelfte falsch. Beugung laesst sich nicht schablonisieren, und eine
             # deutsche Grammatikregel im Code braeche bei der naechsten Hochschule.
-            # NULL heisst: noch nicht ausgearbeitet, dann greift die alte Schablone.
+            # NULL heisst: noch nicht ausgearbeitet. Das wird beim naechsten Benutzen
+            # nachgereicht, siehe derive_task_lines. Bis dahin greift die Schablone, die
+            # den Namen inzwischen hinter einen Doppelpunkt setzt statt hinter "ins".
             cur.execute(
                 "ALTER TABLE aia_grammar_topic_specs ADD COLUMN IF NOT EXISTS task_lines JSONB"
             )
@@ -1374,6 +1454,10 @@ def _init_db(admin_email: Optional[str] = None) -> None:
             # Zeilen darueber. Auf einer leeren Datenbank brach init_db an genau dieser
             # Stelle ab, gefunden mit scripts/check_fresh_schema.sh.
             _reset_quiz_pool_once(cur)
+            # Dieselbe Stelle und derselbe Grund fuer die Grammatik: die Anweisungszeile
+            # steckt im Aufgabentext, der Vorrat traegt also die am 2026-08-12 gemeldete
+            # Fassung, und ohne dieses Leeren bliebe die Korrektur unsichtbar.
+            _reset_grammar_pool_once(cur)
             # The run boundary is gone. The progress ring counted only the answers
             # after this mark, and the browser set it when the learner answered the
             # first card of a session. Interrupting an exercise moved the mark into
@@ -1409,11 +1493,19 @@ def _init_db(admin_email: Optional[str] = None) -> None:
                 )
             """)
             cur.execute("ALTER TABLE aia_schedule_entries ADD COLUMN IF NOT EXISTS source_refs JSONB NOT NULL DEFAULT '[]'::jsonb")
+            # Wie genau steht das Datum in der Quelle: 'day' ist der Normalfall, 'month'
+            # heisst, dort stand nur ein Monat ("im Juli 2026"). due_date traegt dann den
+            # Monatsersten als Sortierpunkt, die Ansicht zeigt dafuer keine Tagesnummer.
+            cur.execute("ALTER TABLE aia_schedule_entries ADD COLUMN IF NOT EXISTS date_precision TEXT NOT NULL DEFAULT 'day'")
             # Drop legacy columns (were single-position; replaced by source_refs array)
             cur.execute("ALTER TABLE aia_schedule_entries DROP COLUMN IF EXISTS source_ids")
             cur.execute("ALTER TABLE aia_schedule_entries DROP COLUMN IF EXISTS raw_quote")
             cur.execute("ALTER TABLE aia_schedule_entries DROP COLUMN IF EXISTS page_number")
             cur.execute("ALTER TABLE aia_schedule_entries DROP COLUMN IF EXISTS start_time")
+            # Bis hierhin trug eine Mindmap keinen eigenen Namen, die Liste zeigte den
+            # Wurzelknoten aus dem JSON. Mit der Spalte kann sie umbenannt werden und
+            # bekommt beim Erzeugen einen Titel aus ihrem Inhalt.
+            cur.execute("ALTER TABLE aia_mindmaps ADD COLUMN IF NOT EXISTS title TEXT")
             cur.execute("""
                 CREATE INDEX IF NOT EXISTS idx_schedule_workspace_user
                 ON aia_schedule_entries(workspace_id, user_id)

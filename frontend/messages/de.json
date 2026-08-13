@@ -1637,8 +1637,8 @@
         "tools": {
           "flashcards": "Lernkarten",
           "karteikarten": "Karteikarten",
-          "grammar": "Grammatik-Übung",
-          "vocabulary": "Wortschatz",
+          "grammar": "Grammatikübungen",
+          "vocabulary": "Wortschatzübungen",
           "quiz": "Quiz",
           "exerciseFallback": "Übung"
         },
@@ -1670,7 +1670,9 @@
           "hintFrom": "Tipp von {name}:",
           "hintHide": "Tipp ausblenden",
           "learnMore": "Mehr erfahren",
-          "sourcesToggle": "{count, plural, =1 {1 Quelle} other {# Quellen}}"
+          "sourcesToggle": "{count, plural, =1 {1 Quelle} other {# Quellen}}",
+          "rename": "Umbenennen",
+          "renameFailed": "Umbenennen fehlgeschlagen."
         },
         "sourceStatus": {
           "none": "Keine Quelle ausgewählt",
@@ -1892,10 +1894,10 @@
         "translationModeTitle": "Übersetzung der Transkripte",
         "translationModeDescription": "Übersetzt Untertitel von Audio-/Video-Quellen in die unten gewählte Zielsprache. Die Quellsprache wird automatisch erkannt. Studierende können im Transkript-Panel zwischen Original und Übersetzung umschalten. Die Übersetzung läuft als Hintergrund-Job und kann ein paar Minuten dauern.",
         "translationModeOff": "Aus",
-        "translationModeAuto": "Auto (beim Indexieren)",
+        "translationModeAuto": "Automatisch, sobald die Quelle fertig ist",
         "translationModeManual": "Manuell (per Klick)",
         "translationModeOffHint": "Es werden keine Übersetzungen erstellt.",
-        "translationModeAutoHint": "Sobald eine Quelle indexiert ist, startet die Übersetzung automatisch.",
+        "translationModeAutoHint": "Sobald eine Quelle fertig verarbeitet ist, startet die Übersetzung automatisch.",
         "translationModeManualHint": "Übersetzung erst per Klick im Transkript-Panel (Standard).",
         "transcriptTargetLangTitle": "Zielsprache der Übersetzung",
         "transcriptTargetLangDescription": "In welche Sprache Transkripte übersetzt werden. Die Quellsprache erkennt das System automatisch. Es wird immer in genau eine Sprache übersetzt.",
@@ -1958,6 +1960,11 @@
         "openInViewer": "Im Viewer öffnen",
         "indexingFailed": "Indizierung fehlgeschlagen",
         "retry": "Erneut versuchen",
+        "ocrIncompleteShort": "Texterkennung unvollständig, {open} Seiten offen",
+        "ocrWasOffShort": "Texterkennung war aus, {open} Seiten offen",
+        "ocrIncomplete": "{done} Seiten wurden gelesen, {open} nicht. Die Quelle lässt sich trotzdem nutzen.",
+        "ocrWasOff": "{open} Seiten mit Bildern wurden nicht gelesen. Die Quelle lässt sich trotzdem nutzen.",
+        "ocrCatchUp": "Texterkennung nachholen",
         "options": "Optionen",
         "delete": "Löschen",
         "rename": "Umbenennen",
@@ -2092,8 +2099,8 @@
           "dataTable": "Datentabelle",
           "mindmap": "Mindmap",
           "lernkarten": "Lernkarten",
-          "grammar": "Grammatik-Übung",
-          "vocabulary": "Wortschatz"
+          "vocabulary": "Wortschatzübungen",
+          "grammar": "Grammatikübungen"
         },
         "tileDescriptions": {
           "karteikarten": "Karten mit Frage und Antwort aus den ausgewählten Quellen erstellen",
@@ -2214,6 +2221,10 @@
             "notOptionalAria": "Nicht optional",
             "cancel": "Abbrechen"
           }
+        },
+        "common": {
+          "rename": "Umbenennen",
+          "renameFailed": "Umbenennen fehlgeschlagen."
         }
       },
       "errors": {
@@ -2231,8 +2242,8 @@
       "langTools": {
         "flashcards": "Lernkarten",
         "karteikarten": "Karteikarten",
-        "grammatik": "Grammatik-Übung",
-        "wortschatz": "Wortschatz",
+        "grammatik": "Grammatikübungen",
+        "wortschatz": "Wortschatzübungen",
         "quiz": "Quiz"
       }
     },
