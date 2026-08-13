@@ -12,6 +12,7 @@ from src.storage import clear_render_cache, load_result_meta, save_result_and_ev
 from src.utils.heartbeat import job_heartbeat
 from src.services.screencast.naming import build_artifact_stem
 
+from src.tasks._errors import handle_task_exception, is_upstream_busy, job_locale
 from src.tasks.screencast_tasks._pipeline import _run_render_pipeline
 from src.tasks.screencast_tasks._queue import _maybe_dispatch_next
 from src.tasks.screencast_tasks._shared import _JobCancelled
@@ -117,6 +118,10 @@ def run_screencast_render(
             })
             raise self.retry(exc=e, countdown=countdown, max_retries=5)
         logger.error("Screencast render task {} failed (HTTPException {}): {}", translate_job_uuid, e.status_code, detail)
+        # Nach dem letzten Versuch steht hier sonst die rohe Meldung der Vertonung
+        # im Bildschirm, etwa "TTS API error (500)".
+        if is_upstream_busy(detail):
+            detail = t("job.upstreamBusy", job_locale(translate_job_uuid))
         db.update_job_status(translate_job_uuid, "failed", error_message=detail)
         _maybe_dispatch_next(translate_job_uuid)
         raise
@@ -125,7 +130,6 @@ def run_screencast_render(
         raise  # Celery's own retry signal — let it propagate without overwriting status
 
     except Exception as e:
-        logger.error("Screencast render task {} failed: {}", translate_job_uuid, e)
-        db.update_job_status(translate_job_uuid, "failed", error_message=str(e))
+        handle_task_exception(translate_job_uuid, e, task_label="Screencast render")
         _maybe_dispatch_next(translate_job_uuid)
         raise

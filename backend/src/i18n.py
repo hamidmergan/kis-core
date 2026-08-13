@@ -108,6 +108,10 @@ MESSAGES: dict[str, dict[str, str]] = {
         "de": "Job abgelaufen (keine Eingabe erfolgt). Bitte neuen Screencast starten.",
         "en": "Job expired (no input received). Please start a new screencast.",
     },
+    "job.upstreamBusy": {
+        "de": "Der KI-Dienst dahinter war gerade überlastet oder nicht erreichbar. Bitte versuche es später noch einmal.",
+        "en": "The AI service behind this was busy or unreachable. Please try again later.",
+    },
     "job.unexpectedError": {
         "de": "Unerwarteter Fehler: {error}",
         "en": "Unexpected error: {error}",
@@ -123,10 +127,6 @@ MESSAGES: dict[str, dict[str, str]] = {
     "ai.source.pdfNoReadableText": {
         "de": "Das PDF enthält keinen lesbaren Text. Gescannte PDFs werden aktuell nicht unterstützt. Bitte konvertiere das PDF zuerst mit einem OCR-Tool (z.B. Adobe Acrobat oder online unter smallpdf.com).",
         "en": "The PDF does not contain readable text. Scanned PDFs are not supported. Please convert the PDF with an OCR tool first (e.g. Adobe Acrobat or online via smallpdf.com).",
-    },
-    "ai.source.ocrFailed": {
-        "de": "OCR fehlgeschlagen auf Seite {page} - der Texterkennungs-Dienst war nach mehreren Versuchen nicht erreichbar (evtl. überlastet). Es ging nichts verloren: Bitte später erneut indexieren.",
-        "en": "OCR failed on page {page} - the text-recognition service stayed unreachable after several attempts (possibly overloaded). Nothing was lost: please re-index later.",
     },
     "file.contentMismatch": {
         "de": "Dateiinhalt passt nicht zur Endung. Möglicherweise wurde die Datei umbenannt oder ist beschädigt.",
@@ -149,6 +149,7 @@ MESSAGES: dict[str, dict[str, str]] = {
     "source.notFound": {"de": "Source nicht gefunden", "en": "Source not found"},
     "entry.notFound": {"de": "Eintrag nicht gefunden", "en": "Entry not found"},
     "set.notFound": {"de": "Set nicht gefunden", "en": "Set not found"},
+    "title.empty": {"de": "Der Name darf nicht leer sein", "en": "The name must not be empty"},
     "flashcards.noExampleSentence": {
         "de": "Zu dieser Karte gibt es keinen Beispielsatz",
         "en": "This card has no example sentence",

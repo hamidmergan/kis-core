@@ -21,6 +21,7 @@ from src.storage import (
 from src.services.screencast.naming import translate_stem
 from src.utils.heartbeat import job_heartbeat
 
+from src.tasks._errors import handle_task_exception
 from src.tasks.screencast_tasks._queue import _maybe_dispatch_next
 from src.tasks.screencast_tasks._shared import _get_screencast_helpers
 
@@ -143,6 +144,5 @@ def run_screencast_translate(
         logger.info("Screencast translate task {} completed: {} slides", job_uuid, len(slide_texts))
 
     except Exception as e:
-        logger.error("Screencast translate task {} failed: {}", job_uuid, e)
-        db.update_job_status(job_uuid, "failed", error_message=str(e))
+        handle_task_exception(job_uuid, e, task_label="Screencast translate")
         raise

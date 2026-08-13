@@ -502,6 +502,5 @@ def run_summary(
         logger.info("Summary task {} completed: {}", job_uuid, output_name)
 
     except Exception as e:
-        logger.error("Summary task {} failed: {}", job_uuid, e)
-        db.update_job_status(job_uuid, "failed", error_message=str(e))
+        _handle_task_exception(job_uuid, e, task_label="Summary")
         raise
