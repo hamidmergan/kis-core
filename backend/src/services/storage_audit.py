@@ -23,9 +23,12 @@ _JOB = re.compile(r"^(users/\d+/jobs/[^/]+)/.+$")
 # users/{user_id}/aia/workspaces/{workspace_uuid}/...
 _WORKSPACE = re.compile(r"^(users/\d+/aia/workspaces/[^/]+)/(.+)$")
 
-# Bereiche mit eigener Aufbewahrungsregel im Speicher. Die raeumt der Bucket
-# selbst nach Zeit auf, eine Bestandsaufnahme hat dort nichts zu suchen.
-_FREMDE_BEREICHE = ("tmp/", "backups/")
+# Bereiche mit eigener Aufbewahrungsregel. ``tmp/`` und ``backups/`` raeumt der
+# Bucket selbst nach Zeit auf, die gesprochenen Beispielsaetze raeumt naechtlich
+# ``cleanup.speech_cache`` nach letztem Abruf. Eine Bestandsaufnahme hat dort
+# nichts zu suchen: sie kennt die Regel nicht und wuerde alles unter "unbekannt"
+# melden, bis der Bericht vor lauter Toenen nichts mehr zeigt.
+_FREMDE_BEREICHE = ("tmp/", "backups/", "aia/speech/")
 
 
 @dataclass

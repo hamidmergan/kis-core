@@ -22,6 +22,11 @@ class _FakeS3:
 
     def __init__(self, keys: list[str]):
         self.keys = keys
+        self.loeschauftraege: list[list[str]] = []
+
+    def delete_objects(self, Bucket=None, Delete=None, **kw):
+        self.loeschauftraege.append([o["Key"] for o in Delete["Objects"]])
+        return {}
 
     def get_paginator(self, name: str):
         assert name == "list_objects_v2"
@@ -45,10 +50,11 @@ class _FakeS3:
 @pytest.fixture
 def s3(monkeypatch):
     """Speicher mit S3: haengt fuer die uebergebenen Schluessel den Fake-Client ein."""
-    def _einrichten(keys: list[str]) -> None:
+    def _einrichten(keys: list[str]) -> _FakeS3:
         client = _FakeS3(keys)
         monkeypatch.setattr(storage, "USE_S3", True)
         monkeypatch.setattr(storage, "_s3", lambda: client)
+        return client
     return _einrichten
 
 
@@ -112,6 +118,68 @@ def test_transkript_wird_ueber_den_speicher_geschrieben(lokal):
     ingestion._save_transcript_artifact(schluessel, "[00:00 - 00:05] hallo")
 
     assert (ordner / "s1_transcript.txt").read_text(encoding="utf-8") == "[00:00 - 00:05] hallo"
+
+
+# ─── Gesprochene Beispielsaetze ────────────────────────────────────────────
+
+def test_aussprache_verteilt_sich_auf_unterordner():
+    """Alle Toene in einem Ordner waeren irgendwann Hunderttausende nebeneinander.
+
+    Die ersten beiden Zeichen des Fingerabdrucks faechern sie auf 256 Ordner auf.
+    Der Fingerabdruck ist ein SHA-256, die Verteilung also gleichmaessig.
+    """
+    fp = "ab12" + "0" * 60
+
+    assert storage.aia_speech_key(fp) == f"aia/speech/ab/{fp}.mp3"
+
+
+def test_aussprache_liegt_nicht_unter_users():
+    """Ein Ton haengt am Satz und nicht an einer Person. Unter ``users/`` wuerde ihn
+    das Loeschen eines Kontos mitnehmen, obwohl ihn andere noch hoeren."""
+    assert not storage.aia_speech_key("a" * 64).startswith("users/")
+
+
+def test_aussprache_ablegen_und_wiederholen(lokal):
+    storage.save_speech_audio("a" * 64, b"ID3-ton")
+
+    assert storage.get_speech_audio("a" * 64) == b"ID3-ton"
+
+
+def test_aussprache_ohne_datei_liefert_nichts(lokal):
+    """Der Aufrufer muss den Fehltreffer sehen, sonst spielt er einen leeren Ton."""
+    assert storage.get_speech_audio("b" * 64) is None
+
+
+def test_aussprache_loeschen_nimmt_die_datei_mit(lokal):
+    storage.save_speech_audio("a" * 64, b"ID3-ton")
+    storage.save_speech_audio("b" * 64, b"ID3-anderer")
+
+    storage.delete_speech_audio(["a" * 64])
+
+    assert storage.get_speech_audio("a" * 64) is None
+    assert storage.get_speech_audio("b" * 64) == b"ID3-anderer"
+
+
+def test_aussprache_loeschen_ohne_schluessel_ruft_nichts_auf(s3):
+    """Das naechtliche Aufraeumen laeuft meistens leer. Eine Anfrage mit einer leeren
+    Liste weist S3 als Fehler ab."""
+    client = s3([])
+
+    storage.delete_speech_audio([])
+
+    assert client.loeschauftraege == []
+
+
+def test_aussprache_loeschen_blaettert_ueber_die_1000er_grenze(s3):
+    """``delete_objects`` nimmt hoechstens 1000 Schluessel. Eine Nacht mit mehr
+    abgelaufenen Toenen wuerde sonst mit einem Fehler abbrechen und den Rest liegen
+    lassen."""
+    client = s3([])
+
+    storage.delete_speech_audio([f"{i:064x}" for i in range(1200)])
+
+    assert [len(auftrag) for auftrag in client.loeschauftraege] == [1000, 200]
+    assert client.loeschauftraege[0][0] == storage.aia_speech_key(f"{0:064x}")
 
 
 # ─── Loeschen per Praefix ──────────────────────────────────────────────────

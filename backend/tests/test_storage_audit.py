@@ -56,6 +56,17 @@ def test_andere_bereiche_werden_gar_nicht_erst_angefasst():
     assert audit.finde_verwaiste(keys, _bestand()) == {}
 
 
+def test_gesprochene_beispielsaetze_gehoeren_nicht_hierher():
+    """Die raeumt ``cleanup.speech_cache`` naechtlich nach letztem Abruf auf.
+
+    Ohne diese Ausnahme stuenden sie unter ``unbekannt``. Geloescht wuerden sie zwar
+    nie, aber ein Bericht mit Zehntausenden Zeilen darin sagt niemandem mehr etwas.
+    """
+    keys = [f"aia/speech/ab/{'ab' + 'c' * 62}.mp3"]
+
+    assert audit.finde_verwaiste(keys, _bestand()) == {}
+
+
 # ─── Was verwaist ist ──────────────────────────────────────────────────────
 
 def test_transkript_ohne_quelle_ist_verwaist():

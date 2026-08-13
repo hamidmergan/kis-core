@@ -72,6 +72,23 @@ def tmp_pptx_key(file_id: str) -> str:
     return f"{TMP_PPTX_PREFIX}/{file_id}.pptx"
 
 
+AIA_SPEECH_PREFIX = "aia/speech"
+
+
+def aia_speech_key(fingerprint: str) -> str:
+    """Key for one spoken example sentence.
+
+    Deliberately NOT under ``users/``: the sound belongs to the sentence, not to a
+    person, and every course shares it. Under a user prefix, deleting one account
+    would take away a sound others are still listening to.
+
+    The first two characters of the fingerprint fan the keys out over 256 folders.
+    It is a SHA-256, so the spread is even, and no single listing ever has to walk
+    hundreds of thousands of siblings.
+    """
+    return f"{AIA_SPEECH_PREFIX}/{fingerprint[:2]}/{fingerprint}.mp3"
+
+
 def delete_prefix(prefix: str) -> int:
     """Delete every object whose key starts with ``prefix``. Returns the count.
 
@@ -621,6 +638,57 @@ def delete_pptx_tmp(file_id: str) -> None:
     if USE_S3:
         _s3().delete_object(Bucket=_S3_BUCKET, Key=key)
     else:
+        _local_path(key).unlink(missing_ok=True)
+
+
+# --- Spoken example sentences (AIA flashcards) ---
+# Keyed by the fingerprint from repository/speech_cache.py, which owns the
+# retention rule. There is no lifecycle rule here: expiry follows last use, not
+# creation date, and only the database row knows when a sound was last heard.
+
+
+def save_speech_audio(fingerprint: str, data: bytes) -> None:
+    """Store the MP3 for one spoken sentence."""
+    _store_bytes(aia_speech_key(fingerprint), data)
+
+
+def get_speech_audio(fingerprint: str) -> bytes | None:
+    """Load one spoken sentence. None means it is genuinely not there.
+
+    A missing object and an unreachable store are different answers on purpose.
+    The caller drops its database row when this returns None, so a network blip
+    must raise instead: otherwise a moment of bad connectivity would throw away
+    the whole cache.
+    """
+    key = aia_speech_key(fingerprint)
+    if USE_S3:
+        from botocore.exceptions import ClientError
+        try:
+            resp = _s3().get_object(Bucket=_S3_BUCKET, Key=key)
+            return resp["Body"].read()
+        except ClientError as e:
+            if e.response.get("Error", {}).get("Code", "") in ("404", "NoSuchKey"):
+                return None
+            raise
+    path = _local_path(key)
+    return path.read_bytes() if path.exists() else None
+
+
+def delete_speech_audio(fingerprints) -> None:
+    """Delete the sounds for the given fingerprints. Used by the nightly cleanup."""
+    keys = [aia_speech_key(f) for f in fingerprints]
+    if not keys:
+        # S3 rejects delete_objects with an empty list, and most nights are empty.
+        return
+    if USE_S3:
+        # delete_objects takes at most 1000 keys per call.
+        for i in range(0, len(keys), 1000):
+            _s3().delete_objects(
+                Bucket=_S3_BUCKET,
+                Delete={"Objects": [{"Key": k} for k in keys[i:i + 1000]], "Quiet": True},
+            )
+        return
+    for key in keys:
         _local_path(key).unlink(missing_ok=True)
 
 
