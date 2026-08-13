@@ -17,7 +17,13 @@ import types
 
 import pytest
 
-from src.services.aia_grammar_topic import derive_topic, usable_label
+from src.services.aia_grammar_topic import (
+    _PROMPT,
+    TASK_KINDS,
+    derive_task_lines,
+    derive_topic,
+    usable_label,
+)
 
 
 def _client(content):
@@ -198,3 +204,75 @@ def test_a_broken_pair_is_dropped_but_the_good_ones_stay():
     out = derive_topic(client, "m", "Konjunktiv II", "de")
     assert len(out["examples"]) == 1
     assert out["examples"][0]["before"] == "Er kommt morgen."
+
+
+# --- nachgereichte Anweisungszeilen -------------------------------------------
+#
+# Themen, die vor dem Feld `task_lines` ausgearbeitet wurden, tragen Regel und
+# Musterpaar, aber keine Zeilen. Ausgearbeitet wird nur, was noch gar nicht
+# ausgearbeitet ist, also bekaemen sie ohne diesen Nachschlag nie welche. Genau
+# das wurde am 2026-08-12 gemeldet ("Setze den Satz ins Relativsatz").
+
+_MIT_ZEILEN = json.dumps({
+    "is_grammar": True,
+    "rule": "Input: two sentences. Output: one with a relative clause.",
+    "examples": [{"before": "Der Mann ist Lehrer.", "after": "Der Mann, der Lehrer ist."}],
+    "task_lines": {
+        "transform": "Forme den Satz nach dem Beispiel in einen Relativsatz um.",
+        "cloze": "Ergänze das fehlende Relativpronomen.",
+        "statement": "Ist der Relativsatz richtig gebildet?",
+        "choice": "Welcher Relativsatz ist richtig gebildet?",
+    },
+})
+
+
+def test_the_lines_can_be_fetched_on_their_own():
+    client, _ = _client(_MIT_ZEILEN)
+    zeilen = derive_task_lines(client, "m", "Relativsatz", "de")
+    assert zeilen["transform"] == "Forme den Satz nach dem Beispiel in einen Relativsatz um."
+    assert set(zeilen) == set(TASK_KINDS)
+
+
+def test_the_backfill_never_hands_back_rule_or_example():
+    """Der Dozent darf beide im Formular geaendert haben.
+
+    Eine nachgereichte Anweisungszeile ist kein Grund, ihm diese Arbeit zu
+    ueberschreiben, deshalb kommen hier nur die vier Zeilen zurueck.
+    """
+    client, _ = _client(_MIT_ZEILEN)
+    assert set(derive_task_lines(client, "m", "Relativsatz", "de")) == set(TASK_KINDS)
+
+
+def test_a_provider_hiccup_costs_the_lines_and_not_the_set():
+    """Beim ERSTEN Ausarbeiten schlaegt eine Stoerung durch, hier nicht.
+
+    Die Aufgaben selbst sind ohne diesen Aufruf vollstaendig, nur die Anweisung
+    ueber ihnen ist nuechterner. Einen ganzen Satz daran scheitern zu lassen waere
+    die schlechtere Antwort.
+    """
+    def create(model, messages, **kwargs):
+        raise RuntimeError("Model Not Loaded")
+
+    client = types.SimpleNamespace(
+        chat=types.SimpleNamespace(completions=types.SimpleNamespace(create=create)))
+    assert derive_task_lines(client, "m", "Relativsatz", "de") == {}
+
+
+def test_a_topic_the_model_refuses_yields_no_lines():
+    client, _ = _client(json.dumps({"is_grammar": False, "rule": "", "examples": []}))
+    assert derive_task_lines(client, "m", "Photosynthese", "de") == {}
+
+
+def test_a_word_order_mnemonic_counts_as_grammar():
+    """"tekamolo" ist ein Merkwort fuer die Satzstellung, kein Unsinn.
+
+    Das echte Modell hat den Namen abgelehnt, weil es ihn nicht kannte, und damit
+    fiel genau die am 2026-08-12 gewuenschte Zeile weg ("Bilde den Satz nach der
+    tekamolo-Regel."). Die Frage im Prompt lautet seitdem nicht mehr "kenne ich
+    das?", sondern "sagt der Name etwas darueber, wie ein Satz GEBAUT ist?".
+    """
+    assert "tekamolo" in _PROMPT
+    assert "not automatically nonsense" in _PROMPT
+    # Die Absage bleibt das Netz gegen ein falsches Musterpaar. Sachthemen fallen
+    # weiter raus, sonst waere die Lockerung ein Freibrief.
+    assert "photosynthesis" in _PROMPT

@@ -36,9 +36,15 @@ _PROMPT = (
     '"task_lines": {"transform": "...", "cloze": "...", "statement": "...", '
     '"choice": "..."}}\n\n'
     "Rules:\n"
-    '- "is_grammar" is false when the name does not describe a grammatical form at '
-    "all, for example a subject such as photosynthesis, a person, or plain nonsense. "
-    "Then return an empty rule and an empty list.\n"
+    '- "is_grammar" asks ONE question: does the name say something about how a '
+    "sentence is BUILT, rather than what it is about? Word order, case, tense, mood, "
+    "voice, sentence type and style contrasts such as Nominalstil versus Verbalstil "
+    "all qualify, and so does a teaching mnemonic for one of them, even an obscure "
+    'one: German "tekamolo" is the order temporal, kausal, modal, lokal, so it is a '
+    "grammar topic. A name you do not recognise is not automatically nonsense. It is "
+    "false for subject matter (photosynthesis), for a person, and for a string that "
+    "says nothing about sentence structure. Then return an empty rule and an empty "
+    "list.\n"
     '- "rule" is read by another model and never by a learner. Name the input form '
     "and the output form precisely, the way a grammar reference would.\n"
     '- "label" names the ONE form that the rule and the example actually describe, '
@@ -55,12 +61,24 @@ _PROMPT = (
     "exercise kind, in {language}. They MUST name this topic in a grammatically correct "
     "sentence. Inflect it, do not paste the topic name into a fixed frame: for a plural "
     "or feminine topic a frame like \"Setze den Satz ins ...\" produces nonsense.\n"
-    "  transform: the learner rewrites the sentence into this form.\n"
+    "  transform: the learner rewrites the sentence into this form. A worked example "
+    "sits above that exercise, so point at it where it reads naturally, INSIDE the "
+    "sentence and never as a comma-separated tail. Leave it out rather than force it.\n"
     "  cloze: the learner fills one missing word in this form.\n"
     "  statement: the learner judges whether the sentence is correct in this form.\n"
     "  choice: the learner picks which of several sentences is correct in this form.\n"
     "  Each is ONE short sentence, addressed to the learner, ending in a full stop or a "
     "question mark. No quotes around the topic name.\n"
+    "  Write the sentence a teacher would write. Rephrase whatever the teacher typed "
+    "until it fits: a topic name may be plural, may be an area rather than a form, may "
+    "name a word-order rule, or may bundle several topics at once. Copy these shapes:\n"
+    '    "Relativsatz" -> transform: "Forme den Satz nach dem Beispiel in einen '
+    'Relativsatz um."   NOT "Setze den Satz ins Relativsatz, nach dem Beispiel."\n'
+    '    "Adjektivdeklination ohne Artikel" -> transform: "Forme den Satz in einen Satz '
+    'mit Adjektivdeklination ohne Artikel um."\n'
+    '    "tekamolo" -> transform: "Bilde den Satz nach der tekamolo-Regel."\n'
+    '    "Finalsätze Nominalstil Verbalstil" -> transform: "Forme den Satz nach dem '
+    'Beispiel vom Nominalstil in den Verbalstil um."\n'
 )
 
 
@@ -123,6 +141,38 @@ def derive_topic(client, model, name: str, language: str) -> dict | None:
             # bietet sie als Namen an, damit die Kachel nicht "passi" heisst, während
             # die Aufgaben Passiv Präsens üben.
             "label": usable_label(data.get("label"))}
+
+
+def derive_task_lines(client, model, name: str, language: str) -> dict:
+    """Nur die vier Anweisungszeilen, fuer Ausarbeitungen von vor diesem Feld.
+
+    Themen, die vor den ``task_lines`` ausgearbeitet wurden, tragen Regel und
+    Musterpaar, aber keine Zeilen. Ohne diesen Nachschlag bekaemen sie nie welche,
+    denn ausgearbeitet wird nur, was noch gar nicht ausgearbeitet ist, und sie
+    haengen damit dauerhaft an der Schablone. Genau das wurde am 2026-08-12
+    gemeldet.
+
+    Regel und Musterpaar werden ausdruecklich NICHT mit zurueckgegeben. Der Dozent
+    darf beide im Formular von Hand geaendert haben, und ein Nachschlag fuer eine
+    Anweisungszeile darf ihm diese Arbeit nicht ueberschreiben.
+
+    Klappt es nicht, kommt ein leeres dict zurueck und es bleibt bei der Schablone.
+    Anders als beim ersten Ausarbeiten ist eine Stoerung des Anbieters hier kein
+    Grund, den ganzen Satz scheitern zu lassen: die Aufgaben selbst sind ohne
+    diesen Aufruf vollstaendig, nur die Anweisung ueber ihnen ist nuechterner.
+
+    Ein Fehlschlag wird nicht festgehalten, der naechste Satz fragt also erneut.
+    Das ist Absicht. Die Ablehnung ist nicht stabil: "tekamolo" wurde in vier
+    Anlaeufen dreimal angenommen und einmal abgelehnt, und wer einmal Pech hat,
+    haette sonst fuer immer die nuechterne Zeile. Der Aufruf faellt weg, sobald er
+    einmal geklappt hat, und er kostet nur bei Themen von vor dem Feld etwas.
+    """
+    try:
+        derived = derive_topic(client, model, name, language)
+    except Exception as e:
+        logger.warning("Anweisungszeilen fuer {!r} nicht nachgereicht: {}", name, e)
+        return {}
+    return (derived or {}).get("task_lines") or {}
 
 
 # Die vier Aufgabenformate, fuer die es je eine Anweisung braucht.

@@ -81,8 +81,8 @@ def _ctx():
 _MIXED = json.dumps({"title": "Passiv üben", "exercises": [
     {"kind": "transform", "before": "Der Server speichert die Messwerte.",
      "after": "Die Messwerte werden vom Server gespeichert.", "page": 4},
-    {"kind": "cloze", "sentence": "Die Messwerte ___ vom Server gespeichert.",
-     "answer": "werden", "options": ["werden", "wurden", "sind", "waren"],
+    {"kind": "cloze", "sentence": "Die Messwerte werden vom Server gespeichert.",
+     "form_span": "werden", "options": ["werden", "wurden", "sind", "waren"],
      "correct_idx": 0, "page": 4},
     {"kind": "statement", "statement": "Die Messwerte werden vom Server gespeichert.",
      "answer": True, "page": 4},
@@ -149,7 +149,7 @@ def test_each_format_becomes_the_row_its_view_expects(attributed):
     assert statement["correct_idx"] == 0
 
     # Ankreuzen: Aufgabenzeile in front, vier Optionen.
-    assert choice["front"].startswith("**Welcher Satz steht korrekt im Passiv Präsens?**")
+    assert choice["front"].startswith("**Welcher Satz ist korrekt? Zielform: Passiv Präsens.**")
     assert len(choice["options"]) == 4
     assert choice["back"] == choice["options"][choice["correct_idx"]]
 
@@ -193,8 +193,8 @@ def test_the_set_carries_no_header_anymore(attributed):
 _GOOD_FOUR = [
     {"kind": "transform", "before": "Der Server speichert die Messwerte.",
      "after": "Die Messwerte werden vom Server gespeichert."},
-    {"kind": "cloze", "sentence": "Die Messwerte ___ vom Server gespeichert.",
-     "answer": "werden", "options": ["werden", "wurden", "sind", "waren"],
+    {"kind": "cloze", "sentence": "Die Messwerte werden vom Server gespeichert.",
+     "form_span": "werden", "options": ["werden", "wurden", "sind", "waren"],
      "correct_idx": 0},
     {"kind": "statement", "statement": "Die Eingaben werden von der Software geprüft.",
      "answer": True},
@@ -209,7 +209,7 @@ _GOOD_FOUR = [
 
 _BAD_FOUR = [
     {"kind": "transform", "before": "Was heißt das?", "after": "Egal."},
-    {"kind": "cloze", "sentence": "Ohne Lücke geht es nicht.", "answer": "x"},
+    {"kind": "cloze", "sentence": "Ohne Ausschnitt geht es nicht.", "form_span": "fehlt"},
     {"kind": "statement", "statement": "Zu kurz", "answer": True},
     {"kind": "choice", "task": "T", "sentence": "Der Server speichert Werte.",
      "options": ["a", "a", "b", "c"], "correct_idx": 0},
@@ -307,8 +307,8 @@ def test_a_surplus_of_one_format_is_capped_at_the_plan(attributed):
          "after": f"Die Quelle {i} wird vom Team genau geprüft."} for i in range(8)
     ]})
     rest = json.dumps({"title": "T", "exercises": [
-        {"kind": "cloze", "sentence": f"Die Quelle {i} ___ vom Team geprüft.",
-         "answer": "wird", "options": ["wird", "werden", "wurde", "ist"],
+        {"kind": "cloze", "sentence": f"Die Quelle {i} wird vom Team geprüft.",
+         "form_span": "wird", "options": ["wird", "werden", "wurde", "ist"],
          "correct_idx": 0} for i in range(2)
     ] + [
         {"kind": "statement", "statement": f"Die Quelle {i} wird vom Team geprüft.",
@@ -325,7 +325,7 @@ def test_a_surplus_of_one_format_is_capped_at_the_plan(attributed):
     client, _ = _client_queue(many, rest)
     items, _, _ = generate_grammar_from_source(
         client, "m", _ctx(), _TOPIC, 8, locale="de")
-    umformungen = [i for i in items if "Setze den Satz" in i["front"]]
+    umformungen = [i for i in items if "Forme den Satz" in i["front"]]
     assert len(umformungen) == 2
     assert len(items) == 8
 
@@ -423,13 +423,37 @@ def test_the_example_is_also_blocked_for_the_other_formats(attributed):
     # Auch als Lueckensatz oder Ankreuz-Satz waere es der Musterssatz.
     ex = _TOPIC["example"]
     response = json.dumps({"title": "T", "exercises": [
-        {"kind": "cloze", "sentence": ex["before"].replace("erklärt", "___"),
-         "answer": "erklärt"},
+        # Mit vier Optionen, damit die Aufgabe wirklich am Musterssatz scheitert und
+        # nicht schon an der Optionsliste.
+        {"kind": "cloze", "sentence": ex["before"], "form_span": "erklärt",
+         "options": ["erklärt", "erklären", "erklärte", "erklärt hat"],
+         "correct_idx": 0},
         {"kind": "transform", "before": "Das Team schreibt den Bericht.",
          "after": "Der Bericht wird vom Team geschrieben."},
     ]})
     items, _, _, _ = _generate(response, count=2)
     assert len(items) == 1
+
+
+def test_a_sentence_that_names_the_target_form_is_dropped(attributed):
+    """YS' Meldung 4 vom 2026-08-12: eine Aussage UEBER die Grammatik statt einer
+    Uebung IN ihr, hier als Lueckensatz.
+
+    Erkennbar daran, dass sie die Zielform beim Namen nennt, und das ohne Wortliste:
+    verglichen wird gegen den Themennamen aus dem Katalog. Geprueft wird der
+    inhaltstragende Satz, nicht ``front``, denn die Anweisungszeile nennt die Zielform
+    voellig zu Recht.
+    """
+    response = json.dumps({"title": "T", "exercises": [
+        {"kind": "transform", "before": "Das Team schreibt den Bericht.",
+         "after": "Der Bericht wird vom Team geschrieben."},
+        {"kind": "cloze", "sentence": "Im Passiv steht das Objekt vorn.",
+         "form_span": "steht", "options": ["steht", "stehen", "stand", "gestanden"],
+         "correct_idx": 0},
+    ]})
+    items, _, _, _ = _generate(response, count=2)
+    assert len(items) == 1
+    assert items[0]["front"].endswith("Das Team schreibt den Bericht.")
 
 
 def test_the_prompt_forbids_reusing_the_worked_example(attributed):
@@ -508,78 +532,69 @@ def test_a_statement_that_asks_something_is_dropped():
 
 # ─── Lückentext ──────────────────────────────────────────────────────────────
 
+# Das Modell liefert seit dem 2026-08-12 den vollstaendigen Satz und dazu den
+# Ausschnitt, der die Zielform traegt. Die Luecke schneidet der Code.
+#
+# Was dabei aus Satz und Ausschnitt wird, steht in test_grammar_gap_cut.py: dass der
+# Ausschnitt wortwoertlich und nur einmal im Satz stehen muss, dass er nicht zu lang
+# sein darf und dass ein Satz uebrig bleiben muss. Hier bleiben die Optionen.
+#
+# Vier Pruefungen sind dabei WEGGEFALLEN, weil ihr Fehler nicht mehr ausdrueckbar ist:
+# ob die Luecke ueberhaupt im Satz steht, ob sie hinten dranhaengt, ob ein Satzende
+# direkt vor ihr steht und ob die Loesung sonst noch im Satz vorkommt. Der Code setzt
+# genau eine Luecke an genau die Stelle, an der der Ausschnitt stand.
 _GAP_OPTIONS = ["der", "des", "dem", "den"]
 
 
-def test_a_gap_sentence_needs_a_gap_an_answer_and_four_options():
+def test_a_gap_sentence_needs_a_span_and_four_options():
     """Als Freitext war die Luecke zu schwer: bei "Die Arbeit wird von der Dozentin
     ___." kann man alles Moegliche schreiben, und der Lernende raet. Mit vier
     Optionen ist die Aufgabe loesbar und trotzdem eine Formentscheidung."""
-    assert is_usable_cloze("Das Buch ___ Dozentin ist interessant.", "der", _GAP_OPTIONS, 0)
+    assert is_usable_cloze("Das Buch der Dozentin ist interessant.", "der",
+                           _GAP_OPTIONS, 0)
 
 
 def test_a_gap_without_options_is_dropped():
-    assert not is_usable_cloze("Das Buch ___ Dozentin ist interessant.", "der", [], None)
+    assert not is_usable_cloze("Das Buch der Dozentin ist interessant.", "der", [], None)
 
 
 def test_a_gap_needs_exactly_four_options():
-    assert not is_usable_cloze("Das Buch ___ ist da.", "der", ["der", "des"], 0)
+    assert not is_usable_cloze("Das Buch der Dozentin ist da.", "der", ["der", "des"], 0)
 
 
 def test_two_identical_options_drop_the_gap():
     # Zweimal dieselbe Antwort: der Lernende kann recht haben und falsch liegen.
-    assert not is_usable_cloze("Das Buch ___ ist da.", "der", ["der", "der", "des", "dem"], 0)
+    assert not is_usable_cloze("Das Buch der Dozentin ist da.", "der",
+                               ["der", "der", "des", "dem"], 0)
 
 
-def test_the_marked_option_must_be_the_answer():
-    assert not is_usable_cloze("Das Buch ___ ist da.", "der", _GAP_OPTIONS, 1)
+def test_the_marked_option_must_be_the_span():
+    assert not is_usable_cloze("Das Buch der Dozentin ist da.", "der", _GAP_OPTIONS, 1)
 
 
 def test_gap_options_may_be_single_words():
     """Hier gilt der Wortueberdeckungs-Filter des Ankreuzens ausdruecklich NICHT.
     In eine Luecke gehoert ein Wort, keine Satzvariante."""
-    assert is_usable_cloze("Der Bericht ___ geschrieben.", "wird",
+    assert is_usable_cloze("Der Bericht wird geschrieben.", "wird",
                            ["wird", "werden", "wurde", "ist"], 0)
 
 
-def test_a_sentence_without_a_gap_is_dropped():
-    assert not is_usable_cloze("Das Buch der Dozentin ist interessant.", "der", _GAP_OPTIONS, 0)
+def test_a_sentence_without_a_span_is_dropped():
+    assert not is_usable_cloze("Das Buch der Dozentin ist interessant.", "  ",
+                               _GAP_OPTIONS, 0)
 
 
-def test_a_gap_without_an_answer_is_dropped():
-    assert not is_usable_cloze("Das Buch ___ Dozentin ist interessant.", "  ", _GAP_OPTIONS, 0)
-
-
-def test_an_answer_that_already_stands_in_the_sentence_is_dropped():
-    """Sonst liest der Lernende die Lösung im Aufgabentext ab. Genau das macht das
-    Modell gern, wenn das gesuchte Wort im Satz noch einmal vorkommt."""
-    assert not is_usable_cloze("Der Titel ___ Buches steht der Titel.", "der Titel",
-                            ["der Titel", "des Titels", "dem Titel", "den Titel"], 0)
-
-
-def test_a_gap_that_swallows_the_whole_sentence_is_dropped():
+def test_a_span_that_swallows_the_whole_sentence_is_dropped():
     # Nur eine Lücke und sonst nichts ist keine Aufgabe, sondern ein leeres Feld.
-    assert not is_usable_cloze("___", "irgendwas", ["irgendwas", "b", "c", "d"], 0)
+    assert not is_usable_cloze("Irgendwas", "Irgendwas",
+                               ["Irgendwas", "b", "c", "d"], 0)
 
 
-def test_a_gap_hung_behind_a_finished_sentence_is_dropped():
-    """Am laufenden System gemeldet: der Satz war fertig und die Lücke hing hinten
-    dran. Da fehlt nichts, es gibt nichts zu füllen, und der Lernende raet."""
-    assert not is_usable_cloze(
-        "Die Literatur wird von den Studierenden recherchiert. ___", "wird",
-        ["wird", "werden", "wurde", "ist"], 0)
-
-
-def test_a_gap_at_the_end_but_inside_the_sentence_is_fine():
-    # Die Lücke darf am Satzende stehen, solange der Punkt DAHINTER kommt.
-    assert is_usable_cloze("Die Arbeit wird von der Dozentin ___.", "korrigiert",
-                        ["korrigiert", "korrigieren", "korrigierte", "korrigiert hat"], 0)
-
-
-@pytest.mark.parametrize("mark", [".", "!", "?", "…"])
-def test_no_sentence_end_may_stand_directly_before_the_gap(mark):
-    assert not is_usable_cloze(f"Der Bericht ist fertig{mark} ___", "wirklich",
-                            ["wirklich", "sehr", "ganz", "kaum"], 0)
+def test_the_gap_may_stand_at_the_end_of_the_sentence():
+    # Der Ausschnitt darf das letzte Wort sein, der Punkt bleibt dahinter stehen.
+    assert is_usable_cloze("Die Arbeit wird von der Dozentin korrigiert.", "korrigiert",
+                           ["korrigiert", "korrigieren", "korrigierte", "korrigiert hat"],
+                           0)
 
 
 # ─── Die Anweisung an der Aufgabe ────────────────────────────────────────────

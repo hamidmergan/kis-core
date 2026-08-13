@@ -10,6 +10,7 @@ Quelle, auch mit einem Mathe-Skript.
 """
 
 import json
+import re
 
 from loguru import logger
 
@@ -36,8 +37,10 @@ _SHAPE = (
     '  {"kind": "transform", "before": "Sentence in the original form", '
     '"after": "The same sentence transformed", "also_ok": ["Another wording that is '
     'just as correct"], "explanation": "...", "page": 12},\n'
-    '  {"kind": "cloze", "sentence": "Sentence with the target form replaced by ___", '
-    '"answer": "What belongs in the gap", "options": ["...", "...", "...", "..."], '
+    '  {"kind": "cloze", "sentence": "A complete, correct sentence showing the target '
+    'form, with NO gap in it", "form_span": "The part of that sentence which carries '
+    'the form, copied out of it character for character", '
+    '"options": ["...", "...", "...", "..."], '
     '"correct_idx": 0, "explanation": "...", "page": 12},\n'
     '  {"kind": "statement", "statement": "A sentence that either shows the target '
     'form correctly or gets it wrong", "answer": true, "explanation": "...", '
@@ -66,40 +69,35 @@ _QUESTION_MARKS = "?？؟;՞।"
 #
 # Anders als früher nennt sie die Zielform ausdrücklich. Der alte Wortlaut ("nach
 # folgendem Muster") zeigte auf ein Musterpaar über dem Set, das es nicht mehr gibt.
-# Der Verweis auf das Muster ist zurück, aber als Zusatz und nur beim Umformen, wo
-# das Muster heute an der Aufgabe hängt. Siehe :data:`_EXAMPLE_REF`.
+# Der Verweis auf das Muster ist zurück und steht beim Umformen MITTEN in der Zeile.
+# Er wurde eine Zeit lang hinten angehängt, und genau das kam am 2026-08-12 zurück:
+# "Setze den Satz ins Relativsatz, nach dem Beispiel." Ein Komma-Anhängsel hinter einem
+# frei formulierten Satz liest sich immer schief, und bei "Bilde den Satz nach der
+# tekamolo-Regel" stünde zweimal "nach". Wer den Satz schreibt, schreibt den Verweis
+# mit oder lässt ihn weg.
+#
+# Der Themenname steht hinter einem Doppelpunkt und nicht hinter einer Präposition.
+# Beugen kann die Schablone ihn nicht, also lässt sie es: "ins {form}" verlangt ein
+# Geschlecht, einen Fall und eine Zahl, die sie nicht kennt, und traf damit nur
+# sächliche Einzahlwörter. Vier Meldungen vom 2026-08-12 zeigen, dass auch die richtige
+# Beugung nicht reicht ("Setze den Satz ins tekamolo" bleibt falsch, weil tekamolo eine
+# Stellungsregel ist und kein Behälter). Ein Doppelpunkt stimmt für jeden Namen und in
+# jeder Sprache. Der schön formulierte Satz kommt vom Modell, siehe ``eigene`` in
+# :func:`task_line`.
 _TASK_LINES = {
     "de": {
-        "transform": "Setze den Satz ins {form}.",
-        "cloze": "Ergänze das fehlende Wort im {form}.",
-        "statement": "Steht der Satz korrekt im {form}?",
-        "choice": "Welcher Satz steht korrekt im {form}?",
+        "transform": "Forme den Satz nach dem Beispiel um. Zielform: {form}.",
+        "cloze": "Ergänze das fehlende Wort. Zielform: {form}.",
+        "statement": "Ist der Satz korrekt? Zielform: {form}.",
+        "choice": "Welcher Satz ist korrekt? Zielform: {form}.",
     },
     "en": {
-        "transform": "Rewrite the sentence in the {form}.",
-        "cloze": "Fill in the missing word in the {form}.",
-        "statement": "Is the sentence correct in the {form}?",
-        "choice": "Which sentence is correct in the {form}?",
+        "transform": "Rewrite the sentence following the example. Target form: {form}.",
+        "cloze": "Fill in the missing word. Target form: {form}.",
+        "statement": "Is the sentence correct? Target form: {form}.",
+        "choice": "Which sentence is correct? Target form: {form}.",
     },
 }
-
-
-# Der Verweis auf das Muster, den die Umform-Anweisung bekommt.
-#
-# Warum überhaupt: eine Umformung hat oft mehr als eine richtige Fassung. "Der Bericht
-# wird geschrieben." und "Der Bericht wird vom Team geschrieben." sind beide Passiv,
-# und der Lernende soll es genau so machen wie im Muster. Das Muster steht über der
-# Aufgabe, aber die Anweisung zeigte bisher nicht darauf.
-#
-# Nur beim Umformen: die anderen drei Formate haben kein Muster an der Aufgabe (siehe
-# ``extras`` in :func:`_build_one`), dort zeigte der Verweis auf nichts.
-_EXAMPLE_REF = {"de": "nach dem Beispiel", "en": "following the example"}
-
-# Woran erkannt wird, dass eine Zeile schon auf das Muster zeigt. Das Wort allein und
-# nicht die ganze Wendung: das Modell formuliert den Verweis frei, wenn es ihn von
-# sich aus schreibt ("wie im Beispiel", "am Beispiel"), und zweimal derselbe Zusatz
-# liest sich schlecht.
-_EXAMPLE_WORDS = ("beispiel", "example")
 
 
 def task_line(kind: str, locale: str, target_form: str, eigene: dict | None = None) -> str:
@@ -109,36 +107,26 @@ def task_line(kind: str, locale: str, target_form: str, eigene: dict | None = No
     Anweisung macht die Aufgabe unlösbar, das darf nicht vom Modell abhängen.
 
     ``eigene`` sind die beim Ausarbeiten des Themas formulierten Zeilen. Sie haben
-    Vorrang, weil die Schablone unten den Themennamen ungebeugt einsetzt und damit nur
-    sächliche Einzahlwörter trifft: "Setze den Satz ins Perfekt." geht auf, "Setze den
-    Satz ins Nebensätze." nicht. Bei acht echten Themen war die Hälfte falsch.
+    Vorrang, weil nur sie den Themennamen beugen können: "Forme den Satz in einen
+    Relativsatz um." liest sich wie von einer Lehrkraft geschrieben, die Schablone
+    nennt ihn bloss ("Zielform: Relativsatz."). Beides ist richtig, aber nur eines ist
+    schön.
 
-    Themen von vor diesem Feld haben keine eigenen Zeilen, für die bleibt es bei der
-    Schablone. Sie ist damit der Rückfall und nicht mehr der Normalfall.
+    Themen von vor diesem Feld bekommen ihre Zeilen beim nächsten Benutzen nachgereicht,
+    siehe :func:`src.services.aia_grammar_topic.derive_task_lines`. Die Schablone greift
+    nur noch, solange das nicht geklappt hat.
+
+    Was hier ankommt, geht unverändert an den Lernenden. Der Verweis auf das Muster
+    wurde eine Zeit lang hinten angehängt, wenn er fehlte, und ergab genau die am
+    2026-08-12 gemeldete Zeile: "..., nach dem Beispiel." Er gehört in den Satz, also
+    schreibt ihn, wer den Satz schreibt.
     """
     fertig = (eigene or {}).get(kind)
     if fertig and fertig.strip():
-        line = fertig.strip()
-    else:
-        lines = _TASK_LINES.get(locale, _TASK_LINES["en"])
-        line = lines.get(kind, lines["transform"]).replace("{form}", target_form)
-    return _with_example_ref(line, locale) if kind == "transform" else line
+        return fertig.strip()
+    lines = _TASK_LINES.get(locale, _TASK_LINES["en"])
+    return lines.get(kind, lines["transform"]).replace("{form}", target_form)
 
-
-def _with_example_ref(line: str, locale: str) -> str:
-    """Die Umform-Anweisung mit dem Verweis auf das Muster.
-
-    Angehängt und nicht in die Schablone geschrieben: die Schablone ist nur der
-    Rückfall, der Normalfall sind die am Thema gespeicherten Zeilen. Die Themen, die
-    es schon gibt, bekämen den Verweis sonst nie.
-
-    Steht er schon da, bleibt die Zeile unverändert. Das Modell schreibt ihn manchmal
-    von sich aus mit, und zweimal derselbe Zusatz liest sich schlecht.
-    """
-    if any(wort in line.casefold() for wort in _EXAMPLE_WORDS):
-        return line
-    ref = _EXAMPLE_REF.get(locale, _EXAMPLE_REF["en"])
-    return f"{line.rstrip().rstrip('.!?').rstrip()}, {ref}."
 
 # Unter dieser Quote gilt ein Durchlauf als misslungen: lieber ein fehlgeschlagenes
 # Set als eine Übung, in der die Hälfte der Aufgaben unlösbar ist.
@@ -163,6 +151,17 @@ _MIN_OPTION_OVERLAP = 0.5
 # So wird eine Lücke geschrieben. Ein einzelnes Zeichen wäre im Fließtext nicht zu
 # erkennen, drei Unterstriche sind es.
 GAP = "___"
+
+# Höchstens so viele Wörter darf der Formträger haben, den der Code aus dem Satz
+# schneidet. Vier, weil es echte Formen aus vier Wörtern gibt ("hätte geschrieben werden
+# können"). Das ist nur die äussere Grenze gegen eine Lücke, die den Satz schluckt. Die
+# Regel, die eine zu grosse Lücke wirklich erkennt, steht in :func:`is_usable_cloze`:
+# kein Wort darf in allen vier Optionen stehen.
+_MAX_SPAN_WORDS = 4
+
+# Ab dieser Länge gilt ein Wort des Themennamens als Fachwort, das in einem Übungssatz
+# nichts zu suchen hat. Siehe :func:`names_the_form`.
+_MIN_TERM_CHARS = 6
 
 # Satzenden quer über Schriftsysteme. Steht eines direkt vor der Lücke, ist der Satz
 # fertig und die Lücke hängt nur hinten dran.
@@ -386,15 +385,26 @@ def _build_prompt(grammar_type: dict, target_form: str, example: dict,
         "form throughout, only the way the learner answers changes.\n\n"
         "What each kind is:\n"
         "- transform: the learner rewrites 'before' into 'after' themselves.\n"
-        f"- cloze: take a sentence that ALREADY shows the target form and replace exactly "
-        f"the part that carries it with {GAP}. 'answer' is what belongs in the gap and "
-        "must not appear anywhere else in the sentence, otherwise it can be read off. "
-        "Give four short options, all different, one of them exactly the answer, the "
-        "other three forms a learner actually confuses. 'correct_idx' points at the "
-        "answer and counts from 0.\n"
+        # Die Luecke schneidet der Code. Frueher lieferte das Modell sie fertig, und
+        # vier der sechs Meldungen vom 2026-08-12 entstanden genau dabei: es nahm den
+        # halben Satz heraus, liess ein Wort doppelt stehen oder setzte zwei Luecken.
+        # Seit es den vollen Satz plus den Ausschnitt liefert, ergibt die gefuellte
+        # Luecke wieder genau diesen Satz, und keiner der vier Fehler ist formulierbar.
+        "- cloze: write a COMPLETE, correct sentence that shows the target form, with "
+        "NO gap in it. 'form_span' is the part of that sentence which carries the form, "
+        "copied out of it character for character, at most three words. The software "
+        "cuts the gap, not you. Whatever stands in 'form_span' is what the learner "
+        "fills in, so the sentence has to read correctly with it:\n"
+        '    sentence "Die Messwerte werden vom Server gespeichert.", '
+        'form_span "werden"\n'
+        "  Give four short options, all different, one of them exactly 'form_span', the "
+        "other three forms a learner actually confuses. 'correct_idx' points at "
+        "'form_span' and counts from 0.\n"
         "- statement: a sentence that either shows the target form correctly or gets it "
         "wrong. 'answer' is true when it is correct. About half of them are false, and a "
-        "false one is wrong in exactly ONE detail of the form.\n"
+        "false one is wrong in exactly ONE detail of the form. It is a sentence that "
+        "USES the form, never a claim ABOUT grammar. Wrong here, it states a rule "
+        'instead of practising it: "Das Verb steht im Relativsatz immer am Ende."\n'
         "- choice: four options that differ ONLY in form, same words, same content. "
         "Every option is a COMPLETE SENTENCE, never a single word and never a bare "
         "verb form, because the learner picks a finished sentence. Exactly one is "
@@ -405,6 +415,15 @@ def _build_prompt(grammar_type: dict, target_form: str, example: dict,
         "sentences about them. Never copy a sentence from the source verbatim.\n"
         "- Never copy exercises that may already be in the source text. The source supplies "
         "subject matter, not exercises.\n"
+        # Die Wurzel von Meldung 4 und 6 vom 2026-08-12. Die Quellen des
+        # Sprachenzentrums sind Grammatik-Arbeitsblaetter, dort SIND die Fakten Regeln,
+        # und "nimm die Fakten aus dem Text" ergab Saetze ueber die Grammatik statt in
+        # ihr. Ein Satz, der die Zielform beim Namen nennt, fliegt jetzt auch im Code
+        # heraus, siehe :func:`names_the_form`.
+        "- Never NAME the target form inside a sentence. The exercises practise the "
+        "form, they never talk about it. If the source text is itself about grammar, "
+        "take the subject matter from its example sentences (fire safety, rescue "
+        "systems, measurements) and never its rules.\n"
         "- Every sentence is a STATEMENT. Never a question, never an instruction to the "
         "learner, never a bare phrase.\n"
         "- Every 'before' MUST be a valid input for the transformation rule above. "
@@ -479,8 +498,76 @@ def is_usable_statement(text: str, verdict) -> bool:
     return len(text.split()) >= 3
 
 
-def is_usable_cloze(sentence: str, answer: str, options: list, correct_idx) -> bool:
-    """Ob ein Lückensatz lösbar ist.
+def cut_gap(sentence: str, form_span: str) -> str | None:
+    """Der Satz mit der Lücke an der Stelle des Formträgers, oder ``None``.
+
+    Hier liegt der Unterschied zu allem vor dem 2026-08-12: die Lücke schneidet der
+    CODE. Vorher lieferte das Modell den Lückensatz fertig und entschied selbst, wie
+    viel es herausnimmt. Vier der sechs Meldungen von diesem Tag entstanden genau dabei,
+    unter anderem "Die Familienmitglieder ___ am Wochenende treffen." mit der Lösung
+    "müssen getroffen werden", wo hinten "treffen" stehen blieb.
+
+    Seither gilt eine Zusage, die keine Prüfung mehr braucht: die gefüllte Lücke ergibt
+    wieder genau den Ausgangssatz. Ein übriges Wort, ein doppeltes Wort, eine zweite
+    Lücke sind damit nicht mehr ausdrückbar.
+
+    ``None`` heisst, daraus lässt sich keine Lücke schneiden: der Ausschnitt steht nicht
+    wortwörtlich im Satz, er steht mehrfach darin, er ist zu lang, oder es bliebe kein
+    Satz übrig. Verglichen wird an Wortgrenzen, sonst träfe "der" auch in "oder" und
+    kaum ein Ausschnitt wäre eindeutig.
+    """
+    sentence = (sentence or "").strip()
+    span = (form_span or "").strip()
+    if not sentence or not span:
+        return None
+    # In eine Lücke gehört eine Form, nicht der halbe Satz. Drei Wörter ist die längste
+    # echte Form in diesem Werkzeug ("muss weggelassen werden").
+    if len(span.split()) > _MAX_SPAN_WORDS:
+        return None
+    # Mehrfach vorhanden heisst nicht eindeutig: ersetzt würden zwei Stellen, und zwei
+    # Lücken mit einer Lösung waren Meldung 6 vom 2026-08-12.
+    stelle = re.compile(rf"(?<!\w){re.escape(span)}(?!\w)")
+    if len(stelle.findall(sentence)) != 1:
+        return None
+    gapped = stelle.sub(GAP, sentence, count=1)
+    # Nur eine Lücke und sonst nichts ist kein Satz, sondern ein leeres Feld.
+    if len(gapped.replace(GAP, " ").split()) < 3:
+        return None
+    return gapped
+
+
+def names_the_form(text: str, target_form: str) -> bool:
+    """Ob der Satz die Zielform beim Namen nennt.
+
+    Ein Regelsatz nennt sie ("Das Verb steht im Relativsatz immer am Ende."), ein
+    Übungssatz nicht ("Die Messwerte werden vom Server gespeichert."). Genau daran sind
+    die Meldungen 4 und 6 vom 2026-08-12 zu erkennen, und zwar ohne Wortliste: geprüft
+    wird gegen den Themennamen aus dem Katalog, und der ist Daten und keine Sprachregel.
+    Damit gilt die Prüfung für jedes Thema und jede Sprache.
+
+    Nur Wörter ab :data:`_MIN_TERM_CHARS` Zeichen zählen. Fachwörter sind lang
+    ("Relativsatz", "Konjunktiv", "Passiv"), Alltagswörter kurz, und ein Thema, das
+    "haben und sein" heisst, würde sonst jeden eigenen Übungssatz verwerfen. Greift die
+    Prüfung für so ein Thema nicht, ist das der bessere Ausfall: lieber kein Schutz für
+    ein Thema als kein Set.
+
+    Verglichen werden WÖRTER und keine Zeichenfolgen, sonst träfe "Passiv" in "Kompass".
+    """
+    woerter = set(normalize(text).split())
+    if not woerter:
+        return False
+    return any(begriff in woerter
+               for begriff in normalize(target_form).split()
+               if len(begriff) >= _MIN_TERM_CHARS)
+
+
+def is_usable_cloze(sentence: str, form_span: str, options: list, correct_idx) -> bool:
+    """Ob aus Satz und Formträger eine lösbare Lücke wird.
+
+    Deutlich kürzer als vor dem 2026-08-12, weil :func:`cut_gap` die Lücke schneidet:
+    dass sie überhaupt im Satz steht, dass es genau eine ist, dass sie nicht hinten
+    dranhängt und dass die Lösung nicht sonst noch im Satz vorkommt, kann seither nicht
+    mehr schiefgehen. Es bleibt die Frage, ob sich schneiden lässt, und die vier Optionen.
 
     Vier Optionen zum Anklicken, keine freie Eingabe. Als Freitext war die Aufgabe
     zu schwer und zu offen: bei "Die Arbeit wird von der Dozentin ___." kann man
@@ -490,24 +577,7 @@ def is_usable_cloze(sentence: str, answer: str, options: list, correct_idx) -> b
     Lücke gehört ein Wort, keine Satzvariante, und vier Wortformen teilen sich naturgemäss
     keine Wörter.
     """
-    sentence = (sentence or "").strip()
-    answer = (answer or "").strip()
-    if not sentence or not answer:
-        return False
-    if GAP not in sentence:
-        return False
-    # Nur eine Lücke und sonst nichts ist kein Satz, sondern ein leeres Feld.
-    if len(sentence.replace(GAP, " ").split()) < 3:
-        return False
-    # Die Lücke muss IM Satz stehen, nicht dahinter. Gemeldet am 2026-08-05: der Satz
-    # war fertig ("... recherchiert.") und die Lücke hing hinten dran. Da fehlt nichts,
-    # der Lernende kann nur raten. Erkennbar daran, dass direkt vor der Lücke ein
-    # Satzende steht.
-    before_gap = sentence.split(GAP)[0].rstrip()
-    if before_gap and before_gap[-1] in _SENTENCE_ENDS:
-        return False
-    # Steht die Lösung sonst noch im Satz, liest der Lernende sie ab.
-    if normalize(answer) in normalize(sentence.replace(GAP, "")):
+    if cut_gap(sentence, form_span) is None:
         return False
 
     if not options or len(options) != _OPTION_COUNT:
@@ -522,9 +592,25 @@ def is_usable_cloze(sentence: str, answer: str, options: list, correct_idx) -> b
     # Zweimal dieselbe Antwort: der Lernende kann recht haben und falsch liegen.
     if len(set(normalized)) != len(normalized):
         return False
-    # Die markierte Option muss die Lösung sein, sonst zeigt die Ansicht das eine
+    # Kein Wort darf in ALLEN vier Optionen stehen. Steht eines überall, ist es nicht die
+    # geübte Form, sondern Zusammenhang, und der gehört in den Satz und nicht in die
+    # Lücke. Das waren die Meldungen 2 und 3 vom 2026-08-12: die Lücke schluckte das
+    # Nomen ("einen Handfeuerlöscher", "ein sicheres Rettungssystem"), und alle vier
+    # Optionen wiederholten es brav mit.
+    #
+    # Diese Regel und nicht :data:`_MAX_SPAN_WORDS` ist der eigentliche Schutz gegen eine
+    # zu grosse Lücke: "ein sicheres Rettungssystem" sind drei Wörter und wären unter
+    # jeder vernünftigen Wortgrenze durchgekommen. Vier Formen einer Verbgruppe teilen
+    # sich dagegen zwar Wörter, aber keines steht in allen vier.
+    #
+    # Sprach-unabhängig, weil nur Wörter verglichen werden. Beim Ankreuzen gilt genau das
+    # Gegenteil (siehe :data:`_MIN_OPTION_OVERLAP`), denn dort sind die Optionen ganze
+    # Sätze und müssen sich fast alles teilen.
+    if set.intersection(*(set(n.split()) for n in normalized)):
+        return False
+    # Die markierte Option muss der Formträger sein, sonst zeigt die Ansicht das eine
     # an und die Prüfung erwartet das andere.
-    return normalized[correct_idx] == normalize(answer)
+    return normalized[correct_idx] == normalize(form_span)
 
 
 def is_usable_choice(task: str, sentence: str, options: list, correct_idx) -> bool:
@@ -596,6 +682,14 @@ def _build_items(exercises: list[dict], locale: str, example: dict,
         if _repeats_example(item["front"], banned):
             logger.debug("KI Tutor: Grammatik-Aufgabe wiederholt das Muster: {!r}",
                          item["front"])
+            continue
+        # Ein Satz, der die Zielform beim Namen nennt, ist eine Aussage ÜBER die
+        # Grammatik und keine Übung IN ihr. Gemeldet am 2026-08-12 als Meldung 4
+        # ("Das Verb steht im Relativsatz immer am Ende.") und als Meldung 6. Geprüft
+        # wird der inhaltstragende Satz und nicht ``front``: bei Richtig/Falsch steckt
+        # die Aussage dort, beim Umformen die Lösung.
+        if names_the_form(claim, target_form):
+            logger.debug("KI Tutor: Grammatik-Aufgabe nennt die Zielform: {!r}", claim)
             continue
         # Die Anweisung steht an JEDER Aufgabe. Ohne sie sieht der Lernende einen
         # nackten Satz und weiss nicht, was zu tun ist. Leerzeile dazwischen, sonst
@@ -669,14 +763,17 @@ def _build_one(ex: dict, kind: str, yes: str, no: str, example: dict):
 
     if kind == "cloze":
         sentence = (ex.get("sentence") or "").strip()
-        answer = (ex.get("answer") or "").strip()
+        span = (ex.get("form_span") or "").strip()
         options = [str(o).strip() for o in (ex.get("options") or [])]
         idx = ex.get("correct_idx")
-        if not is_usable_cloze(sentence, answer, options, idx):
+        if not is_usable_cloze(sentence, span, options, idx):
             return None
-        return ({"front": sentence, "back": options[idx],
+        # Der Satz, an dem die Quelle hängt, ist jetzt der Ausgangssatz selbst. Er ist
+        # vollständig und richtig, die Lücke kommt erst danach hinein, und damit ist er
+        # auch der beste Text für die Suche.
+        return ({"front": cut_gap(sentence, span), "back": options[idx],
                  "options": options, "correct_idx": idx},
-                sentence.replace(GAP, answer))
+                sentence)
 
     if kind == "statement":
         text = (ex.get("statement") or "").strip()

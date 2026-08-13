@@ -14,7 +14,7 @@ from src.features.ai_assistant.tasks._helpers import _get_llm_client, tool_outpu
 from src.services.aia_adaptive_tools import build_adaptive_tool_suffix
 from src.features.ai_assistant.repository.grammar_topics import catalog_entry
 from src.services.aia_grammar_formats import clean_kinds
-from src.services.aia_grammar_topic import derive_topic
+from src.services.aia_grammar_topic import derive_task_lines, derive_topic
 
 from src.features.ai_assistant.tasks.language_training._context import (
     build_source_context,
@@ -197,6 +197,18 @@ def run_generate_exercise_set(self, set_id: int, workspace_id: int, tool: str,
                     spec = db.save_topic_spec(
                         topic["id"], locale, derived["rule"], derived["examples"],
                         derived.get("task_lines"))
+                elif not spec.get("task_lines"):
+                    # Ausgearbeitet vor den Anweisungszeilen. Ohne diesen Nachschlag
+                    # bliebe so ein Thema fuer immer an der Schablone haengen, denn oben
+                    # wird nur ausgearbeitet, was noch gar nicht ausgearbeitet ist.
+                    #
+                    # Regel und Musterpaar bleiben, wie sie sind: der Dozent darf sie im
+                    # Formular geaendert haben, und eine Anweisungszeile ist kein Grund,
+                    # ihm das zu ueberschreiben.
+                    zeilen = derive_task_lines(client, model, topic["name"], language)
+                    if zeilen:
+                        spec = db.save_topic_spec(
+                            topic["id"], locale, spec["rule"], spec["examples"], zeilen)
                 gtype = catalog_entry(topic, spec)
 
             def generate(from_ctx, how_many):

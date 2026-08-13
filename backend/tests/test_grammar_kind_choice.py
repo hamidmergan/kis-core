@@ -150,7 +150,7 @@ def test_an_unchosen_kind_is_accepted_when_gemischt(no_db_attachment):
 
     # Ohne Auswahl ist Richtig/Falsch erlaubt.
     assert len(items) == 1
-    assert "Steht der Satz korrekt" in items[0]["front"]
+    assert "Ist der Satz korrekt?" in items[0]["front"]
 
 
 def _client_queue(*contents):
