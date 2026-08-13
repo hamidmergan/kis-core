@@ -147,7 +147,24 @@ def run_generate_data_table(self, data_table_id: int, source_ids: list[int],
             {"number": info["number"], "filename": info["filename"]}
             for info in sorted(source_map.values(), key=lambda x: x["number"])
         ]
+        # Der Titel aus dem Erzeugungs-Aufruf beschreibt das Dokument, weil dieser Aufruf
+        # das ganze Dokument sieht. Hier zaehlt, was in der Tabelle steht: die Spaltenkoepfe
+        # und die erste Spalte. Der alte Titel bleibt der Rueckfall.
+        from src.features.ai_assistant.tasks._titles import resolve_title
+        from src.features.ai_assistant.tasks.studio._result_title import (
+            recent_titles, table_entries,
+        )
+
         title = table_data.get("title", "DataTable")
+        try:
+            title = resolve_title(
+                client, model,
+                recent_titles("aia_data_tables", workspace_id),
+                title,
+                table_entries(table_data),
+            ) or title
+        except Exception as e:  # noqa: BLE001
+            logger.warning("KI Tutor: data_table {} behaelt ihren vorlaeufigen Namen: {}", data_table_id, e)
 
         db.update_aia_data_table(data_table_id, "success",
                                         title=title, table_data=table_data, sources=sources_list)

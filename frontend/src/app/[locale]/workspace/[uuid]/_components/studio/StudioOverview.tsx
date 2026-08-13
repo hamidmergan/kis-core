@@ -119,8 +119,8 @@ export function StudioOverview({
 
   const langTrainingTiles = [
     { key: "lk-sets" as const, Icon: BookOpenText, label: t("tiles.lernkarten"), description: t("tileDescriptions.lernkarten"), iconBg: "var(--badge-amber-bg)", iconColor: "var(--badge-amber-fg)" },
-    { key: "gr-sets" as const, Icon: PencilLine, label: t("tiles.grammar"), description: t("tileDescriptions.grammar"), iconBg: "var(--badge-violet-bg)", iconColor: "var(--badge-violet-fg)" },
     { key: "wo-sets" as const, Icon: TextAlignLeft, label: t("tiles.vocabulary"), description: t("tileDescriptions.vocabulary"), iconBg: "var(--badge-rose-bg)", iconColor: "var(--badge-rose-fg)" },
+    { key: "gr-sets" as const, Icon: PencilLine, label: t("tiles.grammar"), description: t("tileDescriptions.grammar"), iconBg: "var(--badge-violet-bg)", iconColor: "var(--badge-violet-fg)" },
   ];
 
   void activeSourceCount;

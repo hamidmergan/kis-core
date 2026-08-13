@@ -104,6 +104,15 @@ class NoteTitleBody(BaseModel):
     title: Optional[str] = Field(None, max_length=200)
 
 
+class ArtifactTitleBody(BaseModel):
+    """Neuer Anzeigename fuer Satz, Mindmap oder Datentabelle.
+
+    200 als obere Schranke der Uebergabe, gekuerzt wird spaeter auf MAX_TITLE_LEN.
+    Zwei Werte, weil hier nur abgewehrt wird, was gar nicht erst ankommen soll.
+    """
+    title: str = Field(..., max_length=200)
+
+
 # ─── Lecturer endpoints ───────────────────────────────────────────────────────
 
 class ExerciseGenerateBody(BaseModel):

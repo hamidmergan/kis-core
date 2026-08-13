@@ -32,15 +32,28 @@ def create_aia_mindmap(workspace_id: int, user_id: int, source_ids: list[int]) -
         conn.commit()
     return row[0]
 
-def update_aia_mindmap(mindmap_id: int, status: str, mindmap: dict | None = None, error: str | None = None) -> None:
+def update_aia_mindmap(mindmap_id: int, status: str, mindmap: dict | None = None,
+                       error: str | None = None, title: str | None = None) -> None:
+    """Status und Ergebnis schreiben. ``title`` nur, wenn einer uebergeben wird.
+
+    Ohne die Bedingung wuerde jeder spaetere Aufruf ohne Titel den von Hand
+    gesetzten Namen mit NULL ueberschreiben. Die drei alten Spalten bleiben
+    absichtlich unbedingt geschrieben, damit sich am bisherigen Verhalten nichts
+    aendert.
+    """
     import json as _json
+    zusatz = ", title = %s" if title is not None else ""
+    werte: list = [status, _json.dumps(mindmap) if mindmap else None, error]
+    if title is not None:
+        werte.append(title)
+    werte.append(mindmap_id)
     with get_connection() as conn:
         with conn.cursor() as cur:
             cur.execute(
-                """UPDATE aia_mindmaps
-                   SET status = %s, mindmap = %s, error = %s, updated_at = NOW()
+                f"""UPDATE aia_mindmaps
+                   SET status = %s, mindmap = %s, error = %s{zusatz}, updated_at = NOW()
                    WHERE id = %s""",
-                (status, _json.dumps(mindmap) if mindmap else None, error, mindmap_id),
+                tuple(werte),
             )
         conn.commit()
 
@@ -65,11 +78,16 @@ def get_latest_aia_mindmap(workspace_id: int, user_id: int) -> dict | None:
     return dict(row) if row else None
 
 def get_all_aia_mindmaps(workspace_id: int, user_id: int) -> list[dict]:
-    """Get all successful mindmaps for a workspace/user, newest first."""
+    """Alle fertigen Mindmaps eines Kursraums, neueste zuerst.
+
+    ``topic`` ist der Anzeigename: der von Hand gesetzte Titel, sonst der
+    Wurzelknoten aus dem JSON. Damit sehen alte Mindmaps aus wie bisher.
+    """
     with get_connection() as conn:
         with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
             cur.execute(
-                """SELECT id, status, created_at, mindmap
+                """SELECT id, status, created_at,
+                          COALESCE(title, mindmap->>'topic') AS topic
                    FROM aia_mindmaps
                    WHERE workspace_id = %s AND user_id = %s AND status = 'success'
                    ORDER BY created_at DESC""",

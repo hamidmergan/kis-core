@@ -1,17 +1,20 @@
-import { ArrowClockwise, Cards, DownloadSimple, Files, Sparkle, Trash } from "@phosphor-icons/react";
+import { ArrowClockwise, Cards, DownloadSimple, Files, PencilSimple, Sparkle, Trash } from "@phosphor-icons/react";
 import { useLocale, useTranslations } from "next-intl";
+import { useState } from "react";
 import Spinner from "@/components/ui/Spinner";
 import { EmptyState } from "@/components/ui/EmptyState";
+import { InlineRename } from "@/components/ui/InlineRename";
 import type { ExerciseSet, StudentStats } from "../../_types";
 import { SubviewHeader, type BreadcrumbItem, type ToolCategory } from "../layout/SubviewHeader";
 import { setProgressPct } from "./_progress";
 
 export function ExerciseSetsOverview({
-  title, toolKey, sets, onBack, onSelect, onCreate, onDelete, onRetry, onDownload, sourceCount, stats, breadcrumbs, category,
+  title, toolKey, sets, onBack, onSelect, onCreate, onDelete, onRename, onRetry, onDownload, sourceCount, stats, breadcrumbs, category,
 }: {
   title: string; toolKey?: string; sets: ExerciseSet[];
   onBack: () => void; onSelect: (s: ExerciseSet) => void;
   onCreate: () => void; onDelete: (id: number) => void;
+  onRename?: (id: number, title: string) => Promise<void>;
   onRetry?: (id: number) => void;
   onDownload?: (s: ExerciseSet) => void;
   sourceCount: number; stats?: StudentStats | null;
@@ -21,6 +24,8 @@ export function ExerciseSetsOverview({
   const t = useTranslations("workspace.detail.languageTraining");
   const locale = useLocale();
   const dateLocale = locale === "en" ? "en-US" : "de-DE";
+  // Welche Karte gerade umbenannt wird. Nur eine, mehr braucht niemand gleichzeitig.
+  const [umbenennt, setUmbenennt] = useState<number | null>(null);
 
   const noSources = sourceCount === 0;
   const atLimit = sets.length >= 20;
@@ -85,6 +90,12 @@ export function ExerciseSetsOverview({
                     default: return t("exerciseSets.modeFlashcards");
                   }
                 })();
+                // Der Name, wie er auf der Karte steht: ohne die Werkzeug-Vorsilbe, die
+                // aelteren Saetzen noch anhaengt. Umbenannt wird genau das, was man sieht.
+                const anzeigeTitel = s.title
+                  .replace(/^(Lernkarten|Grammatik-Übung|Quiz)\s*(aus|von)\s*/i, "")
+                  .replace(/^(Flashcards|Grammar exercise|Quiz)\s*(from|of)\s*/i, "");
+                const umbenennbar = !generating && !failed && !!onRename;
                 return (
                   <div key={s.id} onClick={() => !generating && !failed && onSelect(s)}
                     className={`bg-background rounded-xl p-3.5 flex flex-col gap-2 relative overflow-hidden group border-2 border-transparent transition-colors ${generating ? "opacity-70" : "cursor-pointer hover:border-[var(--kb)]"}`}
@@ -102,11 +113,21 @@ export function ExerciseSetsOverview({
                       {/* A failed set never got a real title, so it still carries the
                           "generating" placeholder. Saying so in the title is the only
                           place the learner reliably reads. */}
-                      <span className="text-sm font-semibold leading-snug flex-1 line-clamp-3 mt-0.5 kis-tooltip"
-                        style={{ color: failed ? "var(--error-strong)" : "var(--foreground)" }}
-                        data-tip={generating || failed ? undefined : s.title.replace(/^(Lernkarten|Grammatik-Übung|Quiz)\s*(aus|von)\s*/i, "").replace(/^(Flashcards|Grammar exercise|Quiz)\s*(from|of)\s*/i, "")}>
-                        {generating ? generatingLabel : failed ? t("exerciseSets.failed") : s.title.replace(/^(Lernkarten|Grammatik-Übung|Quiz)\s*(aus|von)\s*/i, "").replace(/^(Flashcards|Grammar exercise|Quiz)\s*(from|of)\s*/i, "")}
-                      </span>
+                      {umbenennt === s.id && onRename ? (
+                        <InlineRename
+                          value={anzeigeTitel}
+                          errorText={t("common.renameFailed")}
+                          onSave={(next) => onRename(s.id, next)}
+                          onCancel={() => setUmbenennt(null)}
+                        />
+                      ) : (
+                        <span className="text-sm font-semibold leading-snug flex-1 line-clamp-3 mt-0.5 kis-tooltip"
+                          style={{ color: failed ? "var(--error-strong)" : "var(--foreground)" }}
+                          onDoubleClick={(e) => { if (umbenennbar) { e.stopPropagation(); setUmbenennt(s.id); } }}
+                          data-tip={generating || failed ? undefined : anzeigeTitel}>
+                          {generating ? generatingLabel : failed ? t("exerciseSets.failed") : anzeigeTitel}
+                        </span>
+                      )}
                       {generating ? (
                         <Spinner size="sm" />
                       ) : failed ? null : (() => {
@@ -157,6 +178,15 @@ export function ExerciseSetsOverview({
                             style={{ backgroundColor: "var(--surface-dim)" }}
                             title={t("common.downloadAsText")}>
                             <DownloadSimple size={12} />
+                          </button>
+                        )}
+                        {umbenennbar && (
+                          <button type="button" onClick={(e) => { e.stopPropagation(); setUmbenennt(s.id); }}
+                            className="w-6 h-6 rounded-full flex items-center justify-center btn-icon"
+                            style={{ backgroundColor: "var(--surface-dim)" }}
+                            title={t("common.rename")}
+                            aria-label={t("common.rename")}>
+                            <PencilSimple size={12} />
                           </button>
                         )}
                         {!generating && <button type="button" onClick={(e) => { e.stopPropagation(); onDelete(s.id); }}

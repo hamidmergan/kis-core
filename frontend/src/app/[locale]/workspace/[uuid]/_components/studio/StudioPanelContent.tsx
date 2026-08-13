@@ -31,6 +31,7 @@ interface ExerciseBundle {
   setActiveSet: (s: ExerciseSet | null) => void;
   loadExerciseSet: (id: number) => Promise<void>;
   deleteExerciseSet: (id: number, tool: string) => void;
+  renameExerciseSet: (id: number, tool: string, title: string) => Promise<void>;
   retryExerciseSet: (id: number, tool: string) => void;
   downloadExerciseSet: (s: ExerciseSet) => void;
   setCreateSetTool: (t: string) => void;
@@ -131,7 +132,7 @@ export function StudioPanelContent(props: StudioPanelContentProps) {
     );
   }
 
-  const { activeSet, setActiveSet, exerciseSets, loadExerciseSet, deleteExerciseSet, retryExerciseSet, downloadExerciseSet, setCreateSetTool, setShowCreateModal, submitSingleAnswer } = ex;
+  const { activeSet, setActiveSet, exerciseSets, loadExerciseSet, deleteExerciseSet, renameExerciseSet, retryExerciseSet, downloadExerciseSet, setCreateSetTool, setShowCreateModal, submitSingleAnswer } = ex;
 
   const onSourceClick = (filename: string, page: number, startTime?: number) => {
     // Tool chips are nav-only, exactly like chat citations: jump to the page/timestamp,
@@ -181,6 +182,7 @@ export function StudioPanelContent(props: StudioPanelContentProps) {
         onSelect={(s) => { setActiveSet(s); loadExerciseSet(s.id); }}
         onCreate={() => { setCreateSetTool("karteikarten"); setShowCreateModal(true); }}
         onDelete={(id) => deleteExerciseSet(id, "karteikarten")}
+        onRename={(id, title) => renameExerciseSet(id, "karteikarten", title)}
         onRetry={(id) => retryExerciseSet(id, "karteikarten")}
         onDownload={isAdmin ? downloadExerciseSet : undefined}
         sourceCount={selectedSourceIds.length}
@@ -219,6 +221,7 @@ export function StudioPanelContent(props: StudioPanelContentProps) {
         savedList={dt.data_tableList}
         onSelect={dt.select}
         onDelete={dt.remove}
+        onRename={dt.rename}
         sourceCount={selectedSourceIds.length}
         allSources={sources}
         onPillClick={onPillClick}
@@ -240,6 +243,7 @@ export function StudioPanelContent(props: StudioPanelContentProps) {
         savedList={mm.mindmapList}
         onSelect={mm.select}
         onDelete={mm.remove}
+        onRename={mm.rename}
         sourceCount={selectedSourceIds.length}
         sources={sources}
         onPillClick={onPillClick}
@@ -261,6 +265,7 @@ export function StudioPanelContent(props: StudioPanelContentProps) {
         onSelect={(s) => { setActiveSet(s); loadExerciseSet(s.id); }}
         onCreate={() => { setCreateSetTool("quiz"); setShowCreateModal(true); }}
         onDelete={(id) => deleteExerciseSet(id, "quiz")}
+        onRename={(id, title) => renameExerciseSet(id, "quiz", title)}
         onRetry={(id) => retryExerciseSet(id, "quiz")}
         onDownload={isAdmin ? downloadExerciseSet : undefined}
         sourceCount={selectedSourceIds.length}

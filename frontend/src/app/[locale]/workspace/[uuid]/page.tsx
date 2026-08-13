@@ -235,7 +235,7 @@ export default function KiTutorWorkspacePage() {
   const {
     exerciseSets, activeSet, setActiveSet,
     createSetTool, setCreateSetTool, showCreateModal, setShowCreateModal,
-    loadExerciseSets, loadExerciseSet, createExerciseSet, deleteExerciseSet,
+    loadExerciseSets, loadExerciseSet, createExerciseSet, deleteExerciseSet, renameExerciseSet,
     retryExerciseSet, downloadExerciseSet, submitSingleAnswer,
   } = ex;
   // streakInfo, pageStats, statsVersion aus useStats (init nach initialized-Flag)
@@ -383,6 +383,7 @@ export default function KiTutorWorkspacePage() {
       loadExerciseSet={loadExerciseSet}
       loadExerciseSets={loadExerciseSets}
       deleteExerciseSet={deleteExerciseSet}
+      renameExerciseSet={renameExerciseSet}
       retryExerciseSet={retryExerciseSet}
       downloadExerciseSet={downloadExerciseSet}
       setCreateSetTool={setCreateSetTool}
@@ -525,6 +526,7 @@ export default function KiTutorWorkspacePage() {
         uploadErrors={uploadErrors}
         onDismissUploadErrors={() => setUploadErrors([])}
         isOwner={isOwner}
+        ocrEnabled={moduleDetail?.ocr_enabled ?? true}
         onMinimize={onMinimize}
         workspaceUuid={uuid}
         staffNoteText={moduleDetail?.staff_note_text ?? null}

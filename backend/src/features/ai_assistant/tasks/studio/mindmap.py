@@ -180,7 +180,28 @@ def run_generate_mindmap(self, mindmap_id: int, source_ids: list[int], source_uu
 
         _fix_media_nodes(mindmap)
 
-        db.update_aia_mindmap(mindmap_id, "success", mindmap=mindmap)
+        # Der Name kommt aus den Knoten der ersten Ebene, nicht aus dem Wurzelknoten.
+        # Der Wurzelknoten ist der Dokumentname, und zwei Mindmaps derselben Quelle
+        # hiessen damit gleich. Kosmetik: schlaegt der Aufruf fehl, bleibt es beim
+        # Wurzelknoten, die Mindmap ist deshalb nicht weniger brauchbar.
+        from src.features.ai_assistant.tasks._titles import resolve_title
+        from src.features.ai_assistant.tasks.studio._result_title import (
+            mindmap_entries, recent_titles,
+        )
+
+        titel = None
+        try:
+            _ws = (_first_source or {}).get("workspace_id")
+            titel = resolve_title(
+                client, model,
+                recent_titles("aia_mindmaps", _ws),
+                (mindmap.get("topic") or "").strip(),
+                mindmap_entries(mindmap),
+            ) or None
+        except Exception as e:  # noqa: BLE001
+            logger.warning("KI Tutor: mindmap {} behaelt ihren Wurzelknoten als Namen: {}", mindmap_id, e)
+
+        db.update_aia_mindmap(mindmap_id, "success", mindmap=mindmap, title=titel)
         logger.info("KI Tutor: mindmap {} generated successfully", mindmap_id)
 
     except Exception as e:

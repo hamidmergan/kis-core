@@ -126,5 +126,29 @@ async def delete_data_table(
     return {"ok": True}
 
 
+@router.patch("/ai-assistant/workspaces/{workspace_uuid}/data_table/{data_table_id}/title")
+async def rename_data_table(
+    workspace_uuid: str,
+    data_table_id: int,
+    body: schemas.ArtifactTitleBody,
+    current_user: dict = Depends(get_current_user),
+    locale: str = Depends(get_locale),
+):
+    """Den Namen einer Datentabelle aendern."""
+    user_id = current_user["user_id"]
+    workspace = db.get_aia_workspace(workspace_uuid)
+    if not workspace:
+        raise HTTPException(status_code=404, detail=t("workspace.notFound", locale))
+
+    titel = db.clean_title(body.title)
+    if not titel:
+        raise HTTPException(status_code=400, detail=t("title.empty", locale))
+
+    # Fremde Zeile: 404 statt 403, wie bei der Loeschen-Route darueber.
+    if not db.update_artifact_title("data_table", data_table_id, user_id, workspace["id"], titel):
+        raise HTTPException(status_code=404, detail=t("ai.dataTable.notFound", locale))
+    return {"ok": True, "title": titel}
+
+
 # ─── LanguageTraining: generate exercises (via Celery) ────────────────────────
 

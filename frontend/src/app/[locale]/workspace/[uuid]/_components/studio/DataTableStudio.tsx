@@ -1,8 +1,9 @@
 import React, { useContext, useEffect, useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
-import { CaretLeft, CaretRight, FilePdf, Files, SidebarSimple, Sparkle, Table, Trash } from "@phosphor-icons/react";
+import { CaretLeft, CaretRight, FilePdf, Files, PencilSimple, SidebarSimple, Sparkle, Table, Trash } from "@phosphor-icons/react";
 import Spinner from "@/components/ui/Spinner";
 import { EmptyState } from "@/components/ui/EmptyState";
+import { InlineRename } from "@/components/ui/InlineRename";
 import type { DataTableData, DataTableRowSource, DataTableSource, Source, StudentStats } from "../../_types";
 import { _getChipIcon, _isMediaFile, _sourceChipKey } from "../../_utils";
 import { MinimizeContext } from "../../_context";
@@ -11,7 +12,7 @@ import { StudioSourceLegend } from "./StudioSourceLegend";
 
 export function DataTableStudio({
   table, sources, loading, onGenerate, onBack,
-  savedList, onSelect, onDelete, sourceCount,
+  savedList, onSelect, onDelete, onRename, sourceCount,
   allSources, onPillClick, stats, breadcrumbs,
   openInViewer, onViewerOpened,
 }: {
@@ -23,6 +24,7 @@ export function DataTableStudio({
   savedList: { id: number; title: string; created_at: string | null }[];
   onSelect: (id: number) => void;
   onDelete: (id: number) => void;
+  onRename?: (id: number, title: string) => Promise<void>;
   sourceCount: number;
   allSources?: Source[];
   onPillClick?: (sourceUuid: string, page: number, filename: string, sourceText?: string, startTime?: number) => void;
@@ -35,6 +37,8 @@ export function DataTableStudio({
   const tDt = useTranslations("workspace.detail.studio.dataTable");
   const locale = useLocale();
   const [view, setView] = useState<"viewer" | "list">(openInViewer ? "viewer" : "list");
+  // Welche Karte gerade umbenannt wird. Nur eine, mehr braucht niemand gleichzeitig.
+  const [umbenennt, setUmbenennt] = useState<number | null>(null);
   const minimize = useContext(MinimizeContext);
 
   useEffect(() => {
@@ -110,19 +114,41 @@ export function DataTableStudio({
                     style={{ boxShadow: "0 2px 10px rgba(0,40,60,0.05), 0 0 0 1px rgba(0,40,60,0.03)", minHeight: 90 }}>
                     <div className="flex items-center gap-2 flex-1 min-w-0">
                       <Table size={16} weight="bold" style={{ color: "var(--kb)", flexShrink: 0 }} />
-                      <span className="text-sm font-semibold leading-snug flex-1 line-clamp-3 kis-tooltip" style={{ color: "var(--foreground)" }} data-tip={item.title}>
-                        {item.title}
-                      </span>
+                      {umbenennt === item.id && onRename ? (
+                        <InlineRename
+                          value={item.title}
+                          errorText={t("common.renameFailed")}
+                          onSave={(next) => onRename(item.id, next)}
+                          onCancel={() => setUmbenennt(null)}
+                        />
+                      ) : (
+                        <span className="text-sm font-semibold leading-snug flex-1 line-clamp-3 kis-tooltip" style={{ color: "var(--foreground)" }}
+                          onDoubleClick={(e) => { if (onRename) { e.stopPropagation(); setUmbenennt(item.id); } }}
+                          data-tip={item.title}>
+                          {item.title}
+                        </span>
+                      )}
                     </div>
                     <div className="flex items-center justify-between mt-auto pt-1">
                       <span className="text-xs font-medium" >
                         {item.created_at ? new Date(item.created_at).toLocaleDateString(locale === "en" ? "en-US" : "de-DE", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit", timeZone: "Europe/Berlin" }) : ""}
                       </span>
-                      <button type="button" onClick={(e) => { e.stopPropagation(); onDelete(item.id); }}
-                        className="w-6 h-6 rounded-full flex items-center justify-center btn-icon"
-                        style={{ backgroundColor: "var(--surface-dim)" }}>
-                        <Trash size={12} />
-                      </button>
+                      <div className="flex items-center gap-1.5">
+                        {onRename && (
+                          <button type="button" onClick={(e) => { e.stopPropagation(); setUmbenennt(item.id); }}
+                            className="w-6 h-6 rounded-full flex items-center justify-center btn-icon"
+                            style={{ backgroundColor: "var(--surface-dim)" }}
+                            title={t("common.rename")}
+                            aria-label={t("common.rename")}>
+                            <PencilSimple size={12} />
+                          </button>
+                        )}
+                        <button type="button" onClick={(e) => { e.stopPropagation(); onDelete(item.id); }}
+                          className="w-6 h-6 rounded-full flex items-center justify-center btn-icon"
+                          style={{ backgroundColor: "var(--surface-dim)" }}>
+                          <Trash size={12} />
+                        </button>
+                      </div>
                     </div>
                   </div>
                 ))}

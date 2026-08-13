@@ -320,6 +320,34 @@ async def delete_exercise_set_endpoint(
         raise HTTPException(status_code=404, detail=t("set.notFound", locale))
     return {"ok": True}
 
+@router.patch("/ai-assistant/workspaces/{workspace_uuid}/exercise-sets/{set_id}/title")
+async def rename_exercise_set(
+    workspace_uuid: str,
+    set_id: int,
+    body: schemas.ArtifactTitleBody,
+    current_user: dict = Depends(get_current_user),
+    locale: str = Depends(get_locale),
+):
+    """Den Namen eines Satzes aendern.
+
+    Kein Dopplungs-Schutz: was jemand von Hand tippt, gilt. Der Schutz greift nur
+    bei automatisch vergebenen Namen.
+    """
+    user_id = current_user["user_id"]
+    workspace = db.get_aia_workspace(workspace_uuid)
+    if not workspace:
+        raise HTTPException(status_code=404, detail=t("workspace.notFound", locale))
+
+    titel = db.clean_title(body.title)
+    if not titel:
+        raise HTTPException(status_code=400, detail=t("title.empty", locale))
+
+    # Fremde Zeile: 404 statt 403, wie bei den anderen Einzel-Routen. Die laufende
+    # Nummer darf nicht verraten, dass es den Satz bei jemand anderem gibt.
+    if not db.update_artifact_title("exercise_set", set_id, user_id, workspace["id"], titel):
+        raise HTTPException(status_code=404, detail=t("set.notFound", locale))
+    return {"ok": True, "title": titel}
+
 @router.post("/ai-assistant/workspaces/{workspace_uuid}/exercise-sets/{set_id}/progress")
 async def record_set_progress(
     workspace_uuid: str,

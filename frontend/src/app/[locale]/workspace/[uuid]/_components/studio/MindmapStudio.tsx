@@ -12,6 +12,7 @@ import {
   Files,
   MagnifyingGlassMinus,
   MagnifyingGlassPlus,
+  PencilSimple,
   SidebarSimple,
   Sparkle,
   Trash,
@@ -19,6 +20,7 @@ import {
 } from "@phosphor-icons/react";
 import Spinner from "@/components/ui/Spinner";
 import { EmptyState } from "@/components/ui/EmptyState";
+import { InlineRename } from "@/components/ui/InlineRename";
 import type { Source, StudentStats } from "../../_types";
 import { _getChipIcon, _isMediaFile } from "../../_utils";
 import { MinimizeContext } from "../../_context";
@@ -35,7 +37,7 @@ export interface MindmapNodeData {
 
 export function MindmapStudio({
   mindmap, loading, onGenerate, onBack,
-  savedList, onSelect, onDelete, sourceCount,
+  savedList, onSelect, onDelete, onRename, sourceCount,
   sources, onPillClick, stats, breadcrumbs,
   openInViewer, onViewerOpened,
 }: {
@@ -46,6 +48,7 @@ export function MindmapStudio({
   savedList: { id: number; created_at: string | null; topic: string }[];
   onSelect: (id: number) => void;
   onDelete: (id: number) => void;
+  onRename?: (id: number, title: string) => Promise<void>;
   sourceCount: number;
   sources?: Source[];
   onPillClick?: (sourceUuid: string, page: number, filename: string, sourceText?: string, startTime?: number) => void;
@@ -61,6 +64,8 @@ export function MindmapStudio({
   const viewerRef = useRef<HTMLDivElement>(null);
   const meInstanceRef = useRef<any>(null);
   const [view, setView] = useState<"viewer" | "list">(openInViewer ? "viewer" : "list");
+  // Welche Karte gerade umbenannt wird. Nur eine, mehr braucht niemand gleichzeitig.
+  const [umbenennt, setUmbenennt] = useState<number | null>(null);
   const [allExpanded, setAllExpanded] = useState(false);
   const [fullscreen, setFullscreen] = useState(false);
   const minimize = useContext(MinimizeContext);
@@ -397,19 +402,41 @@ export function MindmapStudio({
                     style={{ boxShadow: "0 2px 10px rgba(0,40,60,0.05), 0 0 0 1px rgba(0,40,60,0.03)", minHeight: 90 }}>
                     <div className="flex items-center gap-2 flex-1 min-w-0">
                       <TreeStructure size={16} weight="bold" style={{ color: "var(--kb)", flexShrink: 0 }} />
-                      <span className="text-sm font-semibold leading-snug flex-1 line-clamp-3 kis-tooltip" style={{ color: "var(--foreground)" }} data-tip={item.topic}>
-                        {item.topic}
-                      </span>
+                      {umbenennt === item.id && onRename ? (
+                        <InlineRename
+                          value={item.topic}
+                          errorText={t("common.renameFailed")}
+                          onSave={(next) => onRename(item.id, next)}
+                          onCancel={() => setUmbenennt(null)}
+                        />
+                      ) : (
+                        <span className="text-sm font-semibold leading-snug flex-1 line-clamp-3 kis-tooltip" style={{ color: "var(--foreground)" }}
+                          onDoubleClick={(e) => { if (onRename) { e.stopPropagation(); setUmbenennt(item.id); } }}
+                          data-tip={item.topic}>
+                          {item.topic}
+                        </span>
+                      )}
                     </div>
                     <div className="flex items-center justify-between mt-auto pt-1">
                       <span className="text-xs font-medium" >
                         {item.created_at ? new Date(item.created_at).toLocaleDateString(locale === "en" ? "en-US" : "de-DE", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit", timeZone: "Europe/Berlin" }) : ""}
                       </span>
-                      <button type="button" onClick={(e) => { e.stopPropagation(); onDelete(item.id); }}
-                        className="w-6 h-6 rounded-full flex items-center justify-center btn-icon"
-                        style={{ backgroundColor: "var(--surface-dim)" }}>
-                        <Trash size={12} />
-                      </button>
+                      <div className="flex items-center gap-1.5">
+                        {onRename && (
+                          <button type="button" onClick={(e) => { e.stopPropagation(); setUmbenennt(item.id); }}
+                            className="w-6 h-6 rounded-full flex items-center justify-center btn-icon"
+                            style={{ backgroundColor: "var(--surface-dim)" }}
+                            title={t("common.rename")}
+                            aria-label={t("common.rename")}>
+                            <PencilSimple size={12} />
+                          </button>
+                        )}
+                        <button type="button" onClick={(e) => { e.stopPropagation(); onDelete(item.id); }}
+                          className="w-6 h-6 rounded-full flex items-center justify-center btn-icon"
+                          style={{ backgroundColor: "var(--surface-dim)" }}>
+                          <Trash size={12} />
+                        </button>
+                      </div>
                     </div>
                   </div>
                 ))}

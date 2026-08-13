@@ -112,6 +112,19 @@ export function useExercises({ uuid }: UseExercisesOptions) {
     } catch { /* ignore */ }
   }, [uuid, loadExerciseSets]);
 
+  // Wirft bei Fehler weiter, damit das Feld offen bleibt und den Grund zeigen kann.
+  // Die Nachbarn hier schlucken ihre Fehler, weil dort niemand zusieht.
+  const renameExerciseSet = useCallback(async (setId: number, tool: string, title: string) => {
+    const res = await fetch(`/api/ai-assistant/workspaces/${uuid}/exercise-sets/${setId}/title`, {
+      method: "PATCH",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ title }),
+    });
+    if (!res.ok) throw new Error((await res.json().catch(() => ({}))).detail || "");
+    loadExerciseSets(tool);
+  }, [uuid, loadExerciseSets]);
+
   const downloadExerciseSet = useCallback(async (s: ExerciseSet) => {
     try {
       const res = await fetch(`/api/ai-assistant/workspaces/${uuid}/exercise-sets/${s.id}`, { credentials: "include" });
@@ -184,7 +197,7 @@ export function useExercises({ uuid }: UseExercisesOptions) {
     createSetTool, setCreateSetTool,
     showCreateModal, setShowCreateModal,
     loadExerciseSets, loadExerciseSet,
-    createExerciseSet, deleteExerciseSet, retryExerciseSet, downloadExerciseSet,
+    createExerciseSet, deleteExerciseSet, renameExerciseSet, retryExerciseSet, downloadExerciseSet,
     submitSingleAnswer,
   };
 }

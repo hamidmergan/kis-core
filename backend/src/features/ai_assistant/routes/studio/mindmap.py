@@ -143,7 +143,8 @@ async def list_mindmaps(
         {
             "id": r["id"],
             "created_at": r["created_at"].isoformat() + "Z" if r["created_at"] else None,
-            "topic": r["mindmap"].get("topic", "Mindmap") if r["mindmap"] else "Mindmap",
+            # Der Anzeigename kommt fertig aus der Abfrage, eigener Titel vor Wurzelknoten.
+            "topic": r["topic"] or "Mindmap",
         }
         for r in rows
     ]
@@ -167,4 +168,27 @@ async def delete_mindmap(
 
     db.delete_aia_mindmap(mindmap_id)
     return {"ok": True}
+
+@router.patch("/ai-assistant/workspaces/{workspace_uuid}/mindmap/{mindmap_id}/title")
+async def rename_mindmap(
+    workspace_uuid: str,
+    mindmap_id: int,
+    body: schemas.ArtifactTitleBody,
+    current_user: dict = Depends(get_current_user),
+    locale: str = Depends(get_locale),
+):
+    """Den Namen einer Mindmap aendern. Ohne eigenen Namen zeigt die Liste den Wurzelknoten."""
+    user_id = current_user["user_id"]
+    workspace = db.get_aia_workspace(workspace_uuid)
+    if not workspace:
+        raise HTTPException(status_code=404, detail=t("workspace.notFound", locale))
+
+    titel = db.clean_title(body.title)
+    if not titel:
+        raise HTTPException(status_code=400, detail=t("title.empty", locale))
+
+    # Fremde Zeile: 404 statt 403, wie bei der Loeschen-Route darueber.
+    if not db.update_artifact_title("mindmap", mindmap_id, user_id, workspace["id"], titel):
+        raise HTTPException(status_code=404, detail=t("mindmap.notFound", locale))
+    return {"ok": True, "title": titel}
 

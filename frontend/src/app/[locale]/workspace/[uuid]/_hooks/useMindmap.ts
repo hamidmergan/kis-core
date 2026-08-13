@@ -107,8 +107,24 @@ export function useMindmap({ uuid, selectedSourceIds }: UseMindmapOptions) {
     } catch { /* ignore */ }
   }, [uuid]);
 
+  // Wirft bei Fehler weiter, anders als die Nachbarn hier: beim Umbenennen sieht
+  // jemand zu und das Feld soll den Grund zeigen koennen.
+  const rename = useCallback(async (id: number, title: string) => {
+    const res = await fetch(`/api/ai-assistant/workspaces/${uuid}/mindmap/${id}/title`, {
+      method: "PATCH",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ title }),
+    });
+    if (!res.ok) throw new Error((await res.json().catch(() => ({}))).detail || "");
+    const daten = await res.json();
+    // Direkt in der Liste ersetzen statt neu laden: der Name steht sofort, ohne
+    // dass die ganze Liste flackert.
+    setMindmapList((prev) => prev.map((m) => (m.id === id ? { ...m, topic: daten.title } : m)));
+  }, [uuid]);
+
   return {
     mindmapData, mindmapLoading, mindmapList,
-    generate, select, remove,
+    generate, select, remove, rename,
   };
 }

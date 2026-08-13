@@ -30,6 +30,7 @@ interface LanguageTrainingContentProps {
   loadExerciseSet: (id: number) => Promise<void>;
   loadExerciseSets: (tool?: string) => void;
   deleteExerciseSet: (id: number, tool: string) => void;
+  renameExerciseSet: (id: number, tool: string, title: string) => Promise<void>;
   retryExerciseSet: (id: number, tool: string) => void;
   downloadExerciseSet: (s: ExerciseSet) => void;
   setCreateSetTool: (t: string) => void;
@@ -53,7 +54,7 @@ export function LanguageTrainingContent(props: LanguageTrainingContentProps) {
   const {
     langTrainingView, setSprachView,
     exerciseSets, activeSet, setActiveSet,
-    loadExerciseSet, loadExerciseSets, deleteExerciseSet, retryExerciseSet, downloadExerciseSet,
+    loadExerciseSet, loadExerciseSets, deleteExerciseSet, renameExerciseSet, retryExerciseSet, downloadExerciseSet,
     setCreateSetTool, setShowCreateModal, submitSingleAnswer,
     selectedSourceIds, workspaceUuid, pageStats, isAdmin, sources,
     refreshProgress, handleAskChat, handlePillClick, chatLang,
@@ -94,6 +95,7 @@ export function LanguageTrainingContent(props: LanguageTrainingContentProps) {
             onSelect={(s) => { loadExerciseSet(s.id).then(() => setSprachView("lk-learn")); }}
             onCreate={() => { setCreateSetTool("flashcards"); setShowCreateModal(true); }}
             onDelete={(id) => deleteExerciseSet(id, "flashcards")}
+            onRename={(id, title) => renameExerciseSet(id, "flashcards", title)}
             onRetry={(id) => retryExerciseSet(id, "flashcards")}
             onDownload={isAdmin ? downloadExerciseSet : undefined}
             sourceCount={selectedSourceIds.length}
@@ -127,6 +129,7 @@ export function LanguageTrainingContent(props: LanguageTrainingContentProps) {
             onSelect={(s) => { loadExerciseSet(s.id).then(() => setSprachView("gr-learn")); }}
             onCreate={() => { setCreateSetTool("grammatik"); setShowCreateModal(true); }}
             onDelete={(id) => deleteExerciseSet(id, "grammatik")}
+            onRename={(id, title) => renameExerciseSet(id, "grammatik", title)}
             onRetry={(id) => retryExerciseSet(id, "grammatik")}
             onDownload={isAdmin ? downloadExerciseSet : undefined}
             sourceCount={selectedSourceIds.length}
@@ -186,6 +189,7 @@ export function LanguageTrainingContent(props: LanguageTrainingContentProps) {
             onSelect={(s) => { loadExerciseSet(s.id).then(() => setSprachView("wo-learn")); }}
             onCreate={() => { setCreateSetTool("wortschatz"); setShowCreateModal(true); }}
             onDelete={(id) => deleteExerciseSet(id, "wortschatz")}
+            onRename={(id, title) => renameExerciseSet(id, "wortschatz", title)}
             onRetry={(id) => retryExerciseSet(id, "wortschatz")}
             onDownload={isAdmin ? downloadExerciseSet : undefined}
             sourceCount={selectedSourceIds.length}

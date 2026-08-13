@@ -5,59 +5,18 @@ from loguru import logger
 
 def title_from_items(client, model, items_list: list[dict], fallback: str,
                      avoid: list[str] | None = None) -> str:
-    """Generate a short title from the actual item fronts so sets from the same
-    source get distinct titles.
+    """Titel aus den Vorderseiten der Karten. Die Arbeit macht ``tasks._titles``.
 
-    ``avoid`` lists titles the workspace already uses. It matters because this call is
-    the retry after a clash: without it the model reaches for the document's name again,
-    which is the very title that clashed. The entries are the only material given, so a
-    title from here describes what the set drills rather than what the document is about.
+    Bleibt als eigener Name stehen, weil die Generatoren die Karten-Form kennen
+    und das geteilte Modul absichtlich nur Textzeilen sieht.
     """
+    from src.features.ai_assistant.tasks._titles import title_from_entries
+
     if not items_list:
         return fallback
-    preview = "\n".join(
-        f"- {(it.get('front') or '')[:160]}" for it in items_list[:10]
+    return title_from_entries(
+        client, model, [(it.get("front") or "") for it in items_list], fallback, avoid=avoid,
     )
-    avoid_rule = ""
-    if avoid:
-        avoid_rule = (
-            " These titles are already taken and MUST NOT be used, not even with a single "
-            "word changed, added or removed: " + "; ".join(t for t in avoid[:10] if t) + "."
-        )
-    try:
-        resp = client.chat.completions.create(
-            model=model,
-            messages=[
-                {"role": "system", "content": (
-                    "Provide a short, concise title (max 6 words) for this exercise "
-                    "that reflects the concrete topic of the entries below. "
-                    # Without this the model reaches past the entries for the subject of
-                    # the course they come from, and every set of one document ends up
-                    # with a variant of that one name.
-                    "Name the specific thing the entries have in common, for example the "
-                    "step, the activity or the material they are about. Do NOT name the "
-                    "document, the lecture, the course or the field as a whole. "
-                    "Respond in the same language as the entries. "
-                    "Respond ONLY with the title, no quotation marks."
-                    + avoid_rule
-                )},
-                {"role": "user", "content": f"Entries:\n{preview}"},
-            ],
-            temperature=0.7,
-            # Generous budget: reasoning models spend tokens on thinking before the first
-            # content token, and a 30-token cap left content empty -> silent filename fallback.
-            max_tokens=400,
-        )
-        raw = (resp.choices[0].message.content or "").strip()
-        # First non-empty line only: with the larger budget a chatty model may add a
-        # second line, and the title column is a single short line.
-        t = next((ln.strip().strip('"\'') for ln in raw.splitlines() if ln.strip()), "")[:120]
-        if not t:
-            logger.warning("Exercise-set title: empty LLM response, falling back to {!r}", fallback)
-        return t or fallback
-    except Exception as e:
-        logger.warning("Exercise-set title generation failed ({}), falling back to {!r}", e, fallback)
-        return fallback
 
 
 def title_from_glossary_terms(client, model, terms: list[str]) -> str:
