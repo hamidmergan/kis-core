@@ -3,9 +3,12 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import dynamic from "next/dynamic";
 import { useParams, useSearchParams } from "next/navigation";
+import { useTranslations } from "next-intl";
+import { Lock } from "@phosphor-icons/react";
 import Spinner from "@/components/ui/Spinner";
 import Header from "@/components/layout/Header";
 import ProtectedRoute from "@/components/auth/ProtectedRoute";
+import { Link } from "@/i18n/navigation";
 
 import type {
   WorkspaceDetail,
@@ -54,6 +57,7 @@ const NotesStudio = dynamic(() => import("./_components/studio/NotesStudio").the
 export default function KiTutorWorkspacePage() {
   const params = useParams();
   const searchParams = useSearchParams();
+  const tClosed = useTranslations("workspace.detail.closed");
   const uuid = params.uuid as string;
   const enrollmentId = searchParams.get("eid") ? Number(searchParams.get("eid")) : null;
   const initialTab = searchParams.get("tab");
@@ -232,11 +236,11 @@ export default function KiTutorWorkspacePage() {
     loadExerciseSets, loadExerciseSet, createExerciseSet, deleteExerciseSet, renameExerciseSet,
     retryExerciseSet, downloadExerciseSet, submitSingleAnswer,
   } = ex;
-  // streakInfo, pageStats, statsVersion aus useStats (init nach initialized-Flag)
+  // statsVersion aus useStats (init nach initialized-Flag)
   // glossaryCount aus useLanguageTraining
 
   // ─── Init (see useWorkspaceInit) ─────────────────────────────────────────
-  const { auth, initialized } = useWorkspaceInit({
+  const { auth, initialized, locked } = useWorkspaceInit({
     uuid,
     setSources,
     setSelectedSourceIds,
@@ -581,6 +585,36 @@ export default function KiTutorWorkspacePage() {
       />
     );
   };
+
+  // Der Kurs steht auf inaktiv. Die Seite sagt das und bietet den Rueckweg an,
+  // statt wortlos auf die Startseite zu springen: ein Lesezeichen, das kommentarlos
+  // woanders landet, sieht aus wie ein geloeschter Kurs.
+  if (locked) {
+    return (
+      <ProtectedRoute>
+        <div className="aia-scale flex flex-col overflow-hidden" style={{ height: "100vh" }}>
+          <Header showLogout />
+          <div className="flex-1 flex items-center justify-center px-6">
+            <div
+              className="max-w-md w-full rounded-xl p-8 text-center"
+              style={{ backgroundColor: "var(--surface)", boxShadow: "var(--shadow)" }}
+            >
+              <Lock size={32} weight="fill" className="mx-auto mb-4" style={{ color: "var(--muted)" }} />
+              <h1 className="text-lg font-semibold mb-2" style={{ color: "var(--foreground)" }}>
+                {tClosed("title")}
+              </h1>
+              <p className="text-sm mb-6" style={{ color: "var(--muted)" }}>
+                {tClosed("text")}
+              </p>
+              <Link href="/" className="btn-primary inline-block px-6 py-2.5 rounded-lg text-sm font-medium">
+                {tClosed("back")}
+              </Link>
+            </div>
+          </div>
+        </div>
+      </ProtectedRoute>
+    );
+  }
 
   if (!initialized) {
     return (

@@ -12,6 +12,9 @@ import WorkspaceList from "./WorkspaceList";
 interface LinkPreview {
   workspace_uuid: string;
   title: string;
+  /** Whether this person may enter right now. False while the owner has the
+   *  workspace switched off. Joining still works, the room just stays shut. */
+  is_open?: boolean;
 }
 
 interface Props {
@@ -33,6 +36,10 @@ export default function WorkspaceHome({ canCreate, firstName }: Props) {
   const [previewLoading, setPreviewLoading] = useState(false);
   const [previewCode, setPreviewCode] = useState<string | null>(null);
   const [previewInvalid, setPreviewInvalid] = useState(false);
+  // Joined a workspace that is switched off: the enrollment is in place, the
+  // room is not. Without this notice the person would land on a list whose new
+  // row is greyed out, with nothing saying why.
+  const [joinedClosed, setJoinedClosed] = useState(false);
 
   useEffect(() => {
     const code = searchParams.get("code");
@@ -79,7 +86,14 @@ export default function WorkspaceHome({ canCreate, firstName }: Props) {
         const err = await res.json().catch(() => ({}));
         throw new Error(err.detail ?? t("enrollInvalidCode"));
       }
-      const data = (await res.json()) as { workspace_uuid?: string };
+      const data = (await res.json()) as { workspace_uuid?: string; is_open?: boolean };
+      // Walking into a closed workspace would only earn a locked page, so the
+      // way leads back to the list, where the fresh row carries the hint.
+      if (data.is_open === false) {
+        setJoinedClosed(true);
+        router.replace("/");
+        return;
+      }
       if (data.workspace_uuid) router.replace(`/workspace/${data.workspace_uuid}`);
     } catch (err: unknown) {
       setEnrollError(err instanceof Error ? err.message : t("unknownError"));
@@ -110,6 +124,16 @@ export default function WorkspaceHome({ canCreate, firstName }: Props) {
             <h2 className="text-2xl font-semibold mb-6" style={{ color: "var(--foreground)" }}>
               {linkPreview.title}
             </h2>
+            {/* Der Raum ist zu. Einschreiben geht trotzdem, deshalb steht der
+                Hinweis ueber dem Knopf und nicht an seiner Stelle. */}
+            {linkPreview.is_open === false && (
+              <p
+                className="mb-6 max-w-md text-sm rounded-lg px-4 py-3"
+                style={{ backgroundColor: "var(--surface-dim)", color: "var(--muted)" }}
+              >
+                {t("closedJoinHint")}
+              </p>
+            )}
             <button
               type="button"
               onClick={handleEnrollLink}
@@ -152,6 +176,15 @@ export default function WorkspaceHome({ canCreate, firstName }: Props) {
           style={{ backgroundColor: "var(--error-bg)", color: "var(--error)" }}
         >
           {t("enrollInvalidCode")}
+        </div>
+      )}
+
+      {joinedClosed && (
+        <div
+          className="rounded-xl p-4 mb-8 text-sm"
+          style={{ backgroundColor: "var(--surface-dim)", color: "var(--foreground-soft)" }}
+        >
+          {t("closedJoinedNotice")}
         </div>
       )}
 

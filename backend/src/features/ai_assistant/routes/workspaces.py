@@ -468,20 +468,43 @@ async def set_participant_role(
     return {"user_id": user_id, "role": body.role}
 
 
+def _is_open_for(workspace: dict, user_id: int) -> bool:
+    """Whether this person may enter the workspace right now.
+
+    An inactive workspace is closed for learners, so the answer depends on the
+    person and not on the flag alone: the owner and the tutors run the room and
+    get in while it is switched off, that is when they prepare it.
+    """
+    if workspace.get("is_active", True):
+        return True
+    if workspace["user_id"] == user_id:
+        return True
+    return db.is_workspace_tutor(workspace["id"], user_id)
+
+
 @router.get("/ai-assistant/access-link/preview")
 async def preview_access_link(
     code: str,
     current_user: dict = Depends(get_current_user),
     locale: str = Depends(get_locale),
 ):
+    user_id = current_user["user_id"]
     result = db.get_workspace_by_access_link_code(code)
     if result:
         workspace, _link = result
-        return {"workspace_uuid": workspace["uuid"], "title": workspace["title"]}
+        return {
+            "workspace_uuid": workspace["uuid"],
+            "title": workspace["title"],
+            "is_open": _is_open_for(workspace, user_id),
+        }
     workspace = db.get_workspace_by_enroll_code(code)
     if not workspace:
         raise HTTPException(status_code=404, detail=t("ai.workspace.invalidEnrollCode", locale))
-    return {"workspace_uuid": workspace["uuid"], "title": workspace["title"]}
+    return {
+        "workspace_uuid": workspace["uuid"],
+        "title": workspace["title"],
+        "is_open": _is_open_for(workspace, user_id),
+    }
 
 @router.post("/ai-assistant/enroll")
 async def enroll(
@@ -491,13 +514,19 @@ async def enroll(
 ):
     user_id = current_user["user_id"]
 
+    # Joining a workspace that is switched off is allowed on purpose, and the
+    # answer says so via ``is_open``. Refusing would send the learner back to
+    # hunt down the link again once the owner opens the room; this way the
+    # enrollment is in place and the row simply unlocks itself.
+
     # Try new access_links table first
     result = db.get_workspace_by_access_link_code(body.enroll_code)
     if result:
         workspace, link = result
+        offen = _is_open_for(workspace, user_id)
         # The owner following their own link stays the owner, nothing to join.
         if workspace["user_id"] == user_id:
-            return {"workspace_uuid": workspace["uuid"], "title": workspace["title"], "enrollment_id": None}
+            return {"workspace_uuid": workspace["uuid"], "title": workspace["title"], "enrollment_id": None, "is_open": offen}
         # Already a member of this workspace? Then the link is a plain redirect.
         # The question is "already in this course", not "already through this
         # link": a course hands out several links over a semester, and asking per
@@ -506,7 +535,7 @@ async def enroll(
         # that was meant to run out.
         existing = db.get_enrollment(workspace["id"], user_id)
         if existing:
-            return {"workspace_uuid": workspace["uuid"], "title": workspace["title"], "enrollment_id": existing["id"]}
+            return {"workspace_uuid": workspace["uuid"], "title": workspace["title"], "enrollment_id": existing["id"], "is_open": offen}
         # Every link joins as a learner. Tutor rights are handed out by the owner
         # afterwards, to a named person, never by following a link.
         enrollment_id = db.enroll_student(
@@ -515,20 +544,21 @@ async def enroll(
         if not enrollment_id:
             # Already enrolled (race condition) - fetch existing
             existing = db.get_enrollment(workspace["id"], user_id)
-            return {"workspace_uuid": workspace["uuid"], "title": workspace["title"], "enrollment_id": existing["id"] if existing else None}
+            return {"workspace_uuid": workspace["uuid"], "title": workspace["title"], "enrollment_id": existing["id"] if existing else None, "is_open": offen}
         logger.info("KI Tutor: user {} enrolled in workspace {} via link {}", user_id, workspace["uuid"], link["id"])
-        return {"workspace_uuid": workspace["uuid"], "title": workspace["title"], "enrollment_id": enrollment_id}
+        return {"workspace_uuid": workspace["uuid"], "title": workspace["title"], "enrollment_id": enrollment_id, "is_open": offen}
 
     # Fallback: legacy enroll_code on workspace
     workspace = db.get_workspace_by_enroll_code(body.enroll_code)
     if not workspace:
         raise HTTPException(status_code=404, detail=t("ai.workspace.invalidEnrollCode", locale))
+    offen = _is_open_for(workspace, user_id)
     if db.is_student_enrolled(workspace["id"], user_id):
-        return {"workspace_uuid": workspace["uuid"], "title": workspace["title"]}
+        return {"workspace_uuid": workspace["uuid"], "title": workspace["title"], "is_open": offen}
     enrolled_until = workspace.get("enroll_code_expires")
     db.enroll_student(workspace["id"], user_id, enrolled_until)
     logger.info("KI Tutor: user {} enrolled in workspace {} (legacy)", user_id, workspace["uuid"])
-    return {"workspace_uuid": workspace["uuid"], "title": workspace["title"]}
+    return {"workspace_uuid": workspace["uuid"], "title": workspace["title"], "is_open": offen}
 
 @router.get("/ai-assistant/my-workspaces")
 async def my_workspaces(current_user: dict = Depends(get_current_user)):

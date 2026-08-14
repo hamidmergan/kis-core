@@ -31,6 +31,10 @@ export function useWorkspaceInit(opts: UseWorkspaceInitOptions) {
 
   const [auth, setAuth] = useState<AuthStatus | null>(null);
   const [initialized, setInitialized] = useState(false);
+  // Der Workspace steht auf inaktiv. Kein fehlendes Recht, sondern ein
+  // geschlossener Raum, deshalb bleibt die Seite stehen und sagt es, statt
+  // die lesende Person wortlos auf die Startseite zu werfen.
+  const [locked, setLocked] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -44,6 +48,7 @@ export function useWorkspaceInit(opts: UseWorkspaceInitOptions) {
 
         const modRes = await fetch(`/api/ai-assistant/workspaces/${uuid}`, { credentials: "include" });
         if (cancelled) return;
+        if (modRes.status === 423) { setLocked(true); return; }
         if (!modRes.ok) { router.push("/"); return; }
         const mod: WorkspaceDetail = await modRes.json();
         setWorkspaceDetail(mod);
@@ -79,7 +84,7 @@ export function useWorkspaceInit(opts: UseWorkspaceInitOptions) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [uuid, router, loadMessages]);
 
-  return { auth, initialized };
+  return { auth, initialized, locked };
 }
 
 // Restore previously selected sources from sessionStorage, fallback to all ready.

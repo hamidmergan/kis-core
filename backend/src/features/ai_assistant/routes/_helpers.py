@@ -1639,13 +1639,28 @@ def _require_workspace_manage(workspace_uuid: str, user_id: int, locale: str = D
     raise HTTPException(status_code=403, detail=t("workspace.accessDenied", locale))
 
 def _require_workspace_access(workspace_uuid: str, user_id: int, locale: str = DEFAULT_LOCALE) -> dict:
-    """Allow owner OR enrolled student. Used for read-only workspace info."""
+    """Allow owner OR enrolled student. Used for read-only workspace info.
+
+    Inactive closes the room, it does not merely hide it. The switch promises
+    the owner "locked for students", and that promise was empty as long as the
+    flag only filtered two list queries: the course dropped out of the list
+    without a word, while a bookmarked link walked straight past it into the
+    open workspace.
+
+    Owner and tutors keep coming in while it is off. They run the room, and
+    switching it off is exactly when they prepare it.
+
+    The refusal is 423 (locked), not 403: nothing is wrong with this person's
+    rights, so the browser has to be able to tell the two apart and say why.
+    """
     workspace = db.get_aia_workspace(workspace_uuid)
     if not workspace:
         raise HTTPException(status_code=404, detail=t("workspace.notFound", locale))
     if workspace["user_id"] == user_id:
         return workspace
     if db.is_student_enrolled(workspace["id"], user_id):
+        if not workspace.get("is_active", True) and not db.is_workspace_tutor(workspace["id"], user_id):
+            raise HTTPException(status_code=423, detail=t("workspace.inactive", locale))
         return workspace
     raise HTTPException(status_code=403, detail=t("workspace.accessDenied", locale))
 

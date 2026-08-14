@@ -67,7 +67,7 @@ export default function HomeNotice() {
   return (
     <div className="mb-10 flex justify-center">
       <div
-        className="max-w-2xl w-full rounded-xl border border-warn-border bg-warn-bg px-5 py-4 text-sm text-warn-strong"
+        className="max-w-2xl w-full rounded-xl bg-info-bg px-5 py-4 text-sm text-kb-dark"
         role="status"
       >
         <div
