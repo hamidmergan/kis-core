@@ -11,6 +11,7 @@ from src.features.ai_assistant.tasks.language_training._attribution import attac
 from src.features.ai_assistant.tasks.language_training._context import QuelleContext
 from src.features.ai_assistant.tasks.language_training._title import title_from_items
 from src.features.ai_assistant.tasks.language_training._wortteile import clean_word_parts
+from src.services.llm_context_healing import create_with_shrink
 
 
 # Gemeinsame Schlüssel für extras in Lernkarten (Quelltext-Weg und Glossar-Weg).
@@ -82,7 +83,7 @@ def generate_flashcards_from_source(
     ]
     # 0.6 for a little wording diversity; the real variation is the context sweep in
     # build_source_context (different chunks per run). Still JSON-safe.
-    response = client.chat.completions.create(model=model, messages=messages, temperature=0.6)
+    response = create_with_shrink(client, model=model, messages=messages, temperature=0.6)
     answer = _clean_llm_json(response.choices[0].message.content or "")
     data = json.loads(answer)
 

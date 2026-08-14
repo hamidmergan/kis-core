@@ -11,6 +11,7 @@ from src.features.ai_assistant.tasks._helpers import (
     _get_llm_client,
     _clean_llm_json,
 )
+from src.services.llm_context_healing import create_with_shrink
 
 @celery_app.task(bind=True, name="aia.generate_data_table", queue="aia",
                  soft_time_limit=AIA_TOOL_SOFT_TIME_LIMIT, time_limit=AIA_TOOL_TIME_LIMIT)
@@ -105,7 +106,7 @@ def run_generate_data_table(self, data_table_id: int, source_ids: list[int],
         # always parses, so a single flaky generation no longer fails the table.
         table_data = None
         for attempt in range(2):
-            response = client.chat.completions.create(model=model, messages=messages, temperature=0.2)
+            response = create_with_shrink(client, model=model, messages=messages, temperature=0.2)
             raw = response.choices[0].message.content
             if not raw:
                 continue

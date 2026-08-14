@@ -28,6 +28,7 @@ from src.features.ai_assistant.tasks.language_training._plan import (
 )
 from src.services.aia_grammar_check import normalize, overlap_ratio
 from src.services.aia_grammar_formats import KINDS
+from src.services.llm_context_healing import create_with_shrink
 
 
 _SHAPE = (
@@ -254,8 +255,8 @@ def generate_grammar_from_source(
         # Same temperature as the MC tools: enough wording variety, still JSON-safe. The
         # real variation comes from the context sweep in build_source_context, and any
         # repeat that still slips through is dropped afterwards by _dedup.
-        response = client.chat.completions.create(
-            model=model, messages=messages_for(wanted), temperature=0.6)
+        response = create_with_shrink(
+            client, model=model, messages=messages_for(wanted), temperature=0.6)
         data = json.loads(_clean_llm_json(response.choices[0].message.content or ""))
         exercises = list(data.get("exercises") or [])[:count]
         seen_exercises += len(exercises)

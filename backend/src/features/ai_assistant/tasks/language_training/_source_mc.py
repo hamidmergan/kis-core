@@ -28,6 +28,7 @@ from src.features.ai_assistant.tasks.language_training._attribution import (
 from src.features.ai_assistant.tasks.language_training._context import QuelleContext
 from src.features.ai_assistant.tasks.language_training._hint import attach_hint
 from src.features.ai_assistant.tasks.language_training._title import title_from_items
+from src.services.llm_context_healing import create_with_shrink
 
 
 _SOURCE_RULE = (
@@ -135,7 +136,7 @@ def generate_mc_from_source(
     ]
     # 0.6 (not 0.3): a little sampling diversity for wording. The real variation comes from the
     # context sweep in build_source_context (a different window per run). Still JSON-safe.
-    response = client.chat.completions.create(model=model, messages=messages, temperature=0.6)
+    response = create_with_shrink(client, model=model, messages=messages, temperature=0.6)
     answer = _clean_llm_json(response.choices[0].message.content or "")
     data = json.loads(answer)
     # Preferred shape is {"title": ..., "exercises": [...]} so the title comes free with the

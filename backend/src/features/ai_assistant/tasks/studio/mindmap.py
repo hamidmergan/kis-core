@@ -8,6 +8,7 @@ from src.limits import AIA_TOOL_SOFT_TIME_LIMIT, AIA_TOOL_TIME_LIMIT
 from src import database as db
 from src.tool_prompts import AIA_MINDMAP_PROMPT
 from src.services.aia_adaptive_tools import build_adaptive_tool_suffix
+from src.services.llm_context_healing import create_with_shrink
 
 @celery_app.task(bind=True, name="aia.generate_mindmap", queue="aia",
                  soft_time_limit=AIA_TOOL_SOFT_TIME_LIMIT, time_limit=AIA_TOOL_TIME_LIMIT)
@@ -121,7 +122,8 @@ def run_generate_mindmap(self, mindmap_id: int, source_ids: list[int], source_uu
         # single flaky generation no longer fails the whole mind map.
         mindmap = None
         for attempt in range(2):
-            response = client.chat.completions.create(
+            response = create_with_shrink(
+                client,
                 model=model,
                 messages=messages,
                 temperature=0.2,

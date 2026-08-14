@@ -14,6 +14,7 @@ from src.tool_prompts import AIA_KARTEIKARTEN_QA_PROMPT
 from src.features.ai_assistant.tasks.language_training._attribution import attach_chips
 from src.features.ai_assistant.tasks.language_training._context import QuelleContext
 from src.features.ai_assistant.tasks.language_training._hint import attach_hint
+from src.services.llm_context_healing import create_with_shrink
 
 
 def generate_cards_from_source(
@@ -45,7 +46,7 @@ def generate_cards_from_source(
     ]
     # 0.6 for a little wording diversity; the real variation is the context sweep in
     # build_source_context (different chunks per run). Still JSON-safe.
-    response = client.chat.completions.create(model=model, messages=messages, temperature=0.6)
+    response = create_with_shrink(client, model=model, messages=messages, temperature=0.6)
     try:
         data = json.loads(_clean_llm_json(response.choices[0].message.content or ""))
     except json.JSONDecodeError as e:
