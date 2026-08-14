@@ -2002,6 +2002,8 @@
         "noAnswer": "(no answer)",
         "aborted": "Stopped",
         "retry": "Retry",
+        "showAllCitations": "Show all citations",
+        "hideAllCitations": "Hide all citations",
         "copy": "Copy",
         "saveAsNote": "Save as note",
         "expand": "Show more",

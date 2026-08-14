@@ -24,6 +24,12 @@ export function citationPattern(): RegExp {
   return /[[【](?:Q?(\d+)(?::([a-f0-9]{6,64}))?,\s*)?(?:S\.\s*(\d+)|(\d{1,2}:\d{2}(?::\d{2})?))[^\]】]*[\]】]/g;
 }
 
+// Does this answer carry a single citation? Decides whether a message gets the
+// "show every stop" switch at all — without a stop the switch would be a dead knob.
+export function hasCitations(text: string): boolean {
+  return citationPattern().test(text);
+}
+
 export function parseCitationFields(text: string): CitationFields[] {
   const re = citationPattern();
   const out: CitationFields[] = [];

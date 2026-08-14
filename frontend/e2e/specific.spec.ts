@@ -6,6 +6,7 @@ import {
   highlightRectCount,
   mediaCurrentTime,
   chipsIn,
+  revealChipsIn,
 } from "./_chat";
 
 /**
@@ -23,6 +24,8 @@ test.describe("AIA chat — SPECIFIC path", () => {
     await selectOnlySourceByName(page, "WissenschaftlichesSchreiben");
     const answer = await askAndGetAnswer(page, "Welche Zitierstile oder Zitierregeln werden genannt?");
 
+    // Stops hold their chips hidden until opened, so open them before reaching for one.
+    await revealChipsIn(answer);
     const pdfChip = chipsIn(answer, '[title*="p."]').first();
     await expect(pdfChip).toBeVisible({ timeout: 90_000 });
 
@@ -44,6 +47,7 @@ test.describe("AIA chat — SPECIFIC path", () => {
     await selectOnlySourceByName(page, "VL1_25-03-2026");
     const answer = await askAndGetAnswer(page, "Worum geht es in dieser Vorlesung?");
 
+    await revealChipsIn(answer);
     const tsChip = chipsIn(answer).filter({ hasText: /\d+:\d{2}/ }).first();
     await expect(tsChip).toBeVisible({ timeout: 90_000 });
 

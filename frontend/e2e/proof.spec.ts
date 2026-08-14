@@ -1,5 +1,5 @@
 import { test, expect } from "@playwright/test";
-import { openWorkspace, askAndGetAnswer, chipsIn, highlightRectCount, selectOnlySourceByName } from "./_chat";
+import { openWorkspace, askAndGetAnswer, chipsIn, highlightRectCount, revealChipsIn, selectOnlySourceByName } from "./_chat";
 
 // Visible proof run: capture screenshots so the live behaviour can be eyeballed.
 test("proof: live answer + nav-only citation (no highlight)", async ({ page }) => {
@@ -8,6 +8,8 @@ test("proof: live answer + nav-only citation (no highlight)", async ({ page }) =
   await selectOnlySourceByName(page, "WissenschaftlichesSchreiben");
   const answer = await askAndGetAnswer(page, "Welche Zitierstile oder Zitierregeln werden genannt?");
 
+  // Stops hold their chips hidden until opened, so open them before reaching for one.
+  await revealChipsIn(answer);
   const pdfChip = chipsIn(answer, '[title*="p."]').first();
   await expect(pdfChip).toBeVisible({ timeout: 90_000 });
 

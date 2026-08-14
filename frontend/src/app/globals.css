@@ -1136,11 +1136,24 @@ body.is-phone-landscape [title="Panel minimieren"] {
   40%      { transform: scale(.7); opacity: .4; }
 }
 
-/* Quellen-Stelle: normaler Inline-Fluss, KEIN inline-flex. Als inline-flex war die Gruppe
-   ein unteilbarer Kasten: passten Marke und Chips nicht mehr in den Zeilenrest, sprang
-   alles gemeinsam in die naechste Zeile und der Absatz wuchs um eine ganze Zeile, waehrend
-   der Zeiger nur darueberfuhr. Inline duerfen die Chips den Zeilenrest auffuellen und
-   zwischen sich umbrechen, die Marke bleibt stehen. */
+/* Quellen-Stelle: normaler Inline-Fluss, KEIN inline-flex, damit die Stelle kein eigener
+   Kasten im Satz ist.
+
+   Die Chips stehen IMMER im Layout und sind nur unsichtbar, solange die Stelle zu ist (siehe
+   CitationChip, reserved). Darum bewegt sich beim Hovern nichts mehr. Frueher wurden sie
+   erst beim Hovern erzeugt: ein Zeiger auf einer einzigen Stelle verschob dann 54 von 58
+   Textstuecken der Antwort, schob 25 davon in eine andere Zeile und verrueckte
+   Tabellenspalten um bis zu 460px.
+
+   Die Stelle selbst darf umbrechen. Als unteilbarer Block (nowrap) sprang sie samt dem
+   reservierten Platz komplett in die naechste Zeile, sobald der Satz die Zeile fast fuellte,
+   und die Zeile trug dann nur noch die Marke. So bleibt die Marke am Satzende und nur der
+   unsichtbare Vorrat rutscht weiter, genau dorthin, wo beim Hovern die Chips erscheinen.
+   Zusammen bleiben muessen nur Marke und Satzzeichen, dafuer sorgt chip-stop-head. */
 .chip-stop {
   display: inline;
+}
+
+.chip-stop-head {
+  white-space: nowrap;
 }

@@ -41,8 +41,29 @@ export function chipsIn(answer: Locator, suffix = ""): Locator {
   return answer.locator(`.chip-cite${suffix}`);
 }
 
+/**
+ * Open every citation stop in the answer, so its chips become visible and clickable.
+ *
+ * Chips sit in the layout at all times but stay `visibility: hidden` until their stop
+ * opens — that is what keeps a hover from re-wrapping the paragraph. A test therefore has
+ * to open the stops first: hovering would only hold while the pointer stays, so we CLICK
+ * each mark, which pins the stop and survives the re-renders of a running stream.
+ *
+ * A closed mark carries aria-label "+N", an open one "−N", so the loop ends by itself and
+ * also catches stops that only appear later while the answer is still being written.
+ */
+export async function revealChipsIn(answer: Locator, timeout = 90_000): Promise<void> {
+  await expect(answer.locator(".chip-toggle").first()).toBeVisible({ timeout });
+  const closed = answer.locator('.chip-toggle[aria-label^="+"]');
+  const deadline = Date.now() + timeout;
+  while ((await closed.count()) > 0 && Date.now() < deadline) {
+    await closed.first().click();
+  }
+}
+
 /** Wait for the first citation chip within a given answer bubble. */
 export async function waitForChipIn(answer: Locator): Promise<Locator> {
+  await revealChipsIn(answer);
   const chip = chipsIn(answer).first();
   await expect(chip).toBeVisible({ timeout: 90_000 });
   return chip;

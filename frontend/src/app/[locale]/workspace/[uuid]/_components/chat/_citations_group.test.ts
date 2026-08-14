@@ -20,13 +20,16 @@ const getFilename = (uuid: string) =>
   ({ u1: "A.pdf", u2: "B.pdf", u3: "C.pdf", u4: "KoSM-11_Negative-Folgen.pdf" }[uuid] ?? "");
 const noop = () => {};
 
-// Names of the React node types in the order they are emitted (text nodes -> "text").
+// Names of the React node types in the order they are emitted (text nodes -> "text",
+// intrinsic elements like the line break -> their tag name).
 function shape(nodes: ReturnType<typeof parseCitations>): string[] {
-  return nodes.map((n) =>
-    typeof n === "string" ? "text" : ((n as ReactElement).type as { name?: string }).name ?? "?",
-  );
+  return nodes.map((n) => {
+    if (typeof n === "string") return "text";
+    const t = (n as ReactElement).type;
+    return typeof t === "string" ? t : (t as { name?: string }).name ?? "?";
+  });
 }
-type GroupProps = { groupId: string; chips: Array<{ displayQNum: number | null; label: string }> };
+type GroupProps = { groupId: string; tail?: string; chips: Array<{ displayQNum: number | null; label: string }> };
 function groupsOf(nodes: ReturnType<typeof parseCitations>): GroupProps[] {
   return nodes
     .filter((n) => typeof n !== "string" && ((n as ReactElement).type as { name?: string }).name === "CitationChipGroup")
@@ -54,8 +57,9 @@ describe("parseCitations — adjacent-chip accordion", () => {
   it("does NOT merge chips separated by real text into one stop", () => {
     const text = "[1, S. 5] und auch [2, S. 8]";
     const nodes = parseCitations(text, msg, ["u1"], getFilename, noop);
-    // two SEPARATE stops (each folded on its own), with the prose between them
-    expect(shape(nodes)).toEqual(["CitationChipGroup", "text", "CitationChipGroup"]);
+    // two SEPARATE stops (each folded on its own), with the prose between them. The stop
+    // ends its line, so the prose after it starts on the next one.
+    expect(shape(nodes)).toEqual(["CitationChipGroup", "br", "text", "CitationChipGroup"]);
   });
 
   it("wraps a single chip too, so nothing stays open in a folded text", () => {
@@ -105,6 +109,71 @@ describe("parseCitations — every stop has its own id", () => {
     const before = groupOf(parseCitations(partial, msg, ["u1"], getFilename, noop, "m7#0-"));
     const after = groupOf(parseCitations(full, msg, ["u1"], getFilename, noop, "m7#0-"));
     expect(after.groupId).toBe(before.groupId);
+  });
+});
+
+describe("parseCitations — a stop ends its line", () => {
+  // The chips of a stop are held in the layout at ALL times (hidden until the stop opens),
+  // so hovering never moves a word. That only works while the reserved room sits at the end
+  // of a line, where nothing but the margin follows it. So every stop closes its line and
+  // the text after it starts on the next one.
+  it("breaks the line after a stop", () => {
+    const nodes = parseCitations("Dies gilt [1, S. 5] und weiter.", msg, ["u1"], getFilename, noop);
+    expect(shape(nodes)).toEqual(["text", "CitationChipGroup", "br", "text"]);
+  });
+
+  it("hands the punctuation of the finished sentence to the stop itself", () => {
+    // The period must sit right behind the mark, AHEAD of the room the hidden chips hold.
+    // Left in the text it landed behind that room and hung alone in the middle of the line.
+    const nodes = parseCitations("Dies gilt [1, S. 5]. Und weiter.", msg, ["u1"], getFilename, noop);
+    expect(shape(nodes)).toEqual(["text", "CitationChipGroup", "br", "text"]);
+    expect(groupOf(nodes).tail).toBe(".");
+    expect(nodes[3]).toBe("Und weiter.");
+  });
+
+  it("takes closing punctuation of any script along", () => {
+    // Not a German rule: whatever closes the sentence in the answer's language stays.
+    const nodes = parseCitations("这是 [1, S. 5]。下一句", msg, ["u1"], getFilename, noop);
+    expect(shape(nodes)).toEqual(["text", "CitationChipGroup", "br", "text"]);
+    expect(groupOf(nodes).tail).toBe("。");
+    expect(nodes[3]).toBe("下一句");
+  });
+
+  it("does NOT break after the last stop of a paragraph", () => {
+    // A break with nothing behind it is an empty line at the end of every answer.
+    const nodes = parseCitations("Dies gilt [1, S. 5].", msg, ["u1"], getFilename, noop);
+    expect(shape(nodes)).toEqual(["text", "CitationChipGroup"]);
+    expect(groupOf(nodes).tail).toBe(".");
+  });
+
+  it("does NOT break when only whitespace follows the stop", () => {
+    const nodes = parseCitations("Dies gilt [1, S. 5]  ", msg, ["u1"], getFilename, noop);
+    expect(shape(nodes)).toEqual(["text", "CitationChipGroup"]);
+  });
+
+  it("breaks after every stop, not just the first", () => {
+    const nodes = parseCitations("Eins [1, S. 5]. Zwei [2, S. 8]. Drei.", msg, ["u1"], getFilename, noop);
+    expect(shape(nodes)).toEqual([
+      "text", "CitationChipGroup", "br",
+      "text", "CitationChipGroup", "br", "text",
+    ]);
+    expect(groupsOf(nodes).map((g) => g.tail)).toEqual([".", "."]);
+  });
+
+  it("writes the punctuation exactly once", () => {
+    // The stop consumes what it takes along, otherwise the period is drawn twice: once by
+    // the stop and once by the text that follows it.
+    const nodes = parseCitations("Dies gilt [1, S. 5]. Und weiter.", msg, ["u1"], getFilename, noop);
+    expect(nodes.filter((n) => typeof n === "string")).toEqual(["Dies gilt ", "Und weiter."]);
+  });
+
+  it("does NOT break inside a table cell", () => {
+    // A cell has no sentence flow to break. The room for the chips is still reserved, which
+    // widens the column a little — the price for a table that never jumps.
+    const nodes = parseCitations("Dies gilt [1, S. 5]. Und weiter.", msg, ["u1"], getFilename, noop, "c", undefined, false);
+    expect(shape(nodes)).toEqual(["text", "CitationChipGroup", "text"]);
+    expect(groupOf(nodes).tail).toBe("");
+    expect(nodes[2]).toBe(". Und weiter.");
   });
 });
 

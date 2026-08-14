@@ -85,7 +85,12 @@ interface ChipDesc {
 // Renders a single citation chip that links back to the source viewer.
 // Clicking a chip only scrolls to the page/timestamp — no highlight — UNLESS it is a
 // popup/action-bar exact selection, which still passes its verbatim text to highlight.
-function CitationChip({ desc, onChipClick }: { desc: ChipDesc; onChipClick: CitationChipClickHandler }) {
+//
+// `reserved` renders the chip as pure layout: Tailwind's `invisible` is visibility:hidden,
+// which keeps the box in the line but takes it out of the paint, out of hit-testing and out
+// of the accessibility tree. That is what makes a stop free to open on hover without moving
+// a single word — the room was already taken.
+function CitationChip({ desc, onChipClick, reserved }: { desc: ChipDesc; onChipClick: CitationChipClickHandler; reserved?: boolean }) {
   const { filename, displayQNum, label, clickUuid, clickPage, clickSeconds, clickEndSeconds, clickHighlight, isExactSelection, claim } = desc;
   const targetKey = chipTargetKey(clickUuid, clickSeconds ? 0 : clickPage, clickSeconds);
   const isActive = useIsActiveChip(targetKey);
@@ -116,7 +121,7 @@ function CitationChip({ desc, onChipClick }: { desc: ChipDesc; onChipClick: Cita
       // Deliberately smaller than the surrounding prose (9px, tight padding, 1px margin):
       // chips are a side note, not a headline — at text-xs with 2px padding they dominated
       // the answer.
-      className="inline-flex items-center whitespace-nowrap text-3xs px-[0.3125rem] py-px rounded-full font-medium chip-cite align-middle mx-px cursor-pointer"
+      className={`inline-flex items-center whitespace-nowrap text-3xs px-[0.3125rem] py-px rounded-full font-medium chip-cite align-middle mx-px cursor-pointer${reserved ? " invisible" : ""}`}
       // Transparent border by default so the active state adds the yellow frame without
       // shifting layout. Yellow matches the viewer page frame (CITATION_HL_COLOR).
       style={{
@@ -138,6 +143,56 @@ function CitationChip({ desc, onChipClick }: { desc: ChipDesc; onChipClick: Cita
 // groups are removed.
 const _openChipGroups = new Set<string>();
 
+// Every stop of one message starts its group id with that message's name plus '#' (see
+// the groupId comment below), so ONE entry here speaks for all of them: the switch in the
+// message's action row that shows every stop at once. Module scope for the same reason as
+// _openChipGroups — streaming and the 15s poll remount the tree, the choice must survive.
+const _openAllOwners = new Set<string>();
+
+// One subscriber list for BOTH sets. A stop has to re-read after either changed, because
+// the message switch closes stops it never touched — so a stop's open state can no longer
+// live in its own useState.
+const _chipStateSubs = new Set<() => void>();
+function notifyChipState(): void {
+  _chipStateSubs.forEach((fn) => fn());
+}
+
+function useChipFlag(getSnapshot: () => boolean): boolean {
+  const subscribe = React.useCallback((cb: () => void) => {
+    _chipStateSubs.add(cb);
+    return () => { _chipStateSubs.delete(cb); };
+  }, []);
+  return React.useSyncExternalStore(subscribe, getSnapshot, getSnapshot);
+}
+
+// The message (or note) a stop belongs to: everything ahead of the '#' that ChatMessage and
+// NotesStudio put at the head of every prefix they hand to withCitations.
+function chipOwnerOf(groupId: string): string {
+  const i = groupId.indexOf("#");
+  return i < 0 ? groupId : groupId.slice(0, i);
+}
+
+/** Is the "show every stop" switch of this message on? For the switch itself and for
+ * every stop under it. */
+export function useAllChipsOpen(owner: string): boolean {
+  return useChipFlag(React.useCallback(() => _openAllOwners.has(owner), [owner]));
+}
+
+/** Flip the message-level switch. On shows every stop of the message; off closes ALL of
+ * them, the ones opened one by one included — off means nothing is left showing. */
+export function toggleAllChips(owner: string): void {
+  if (_openAllOwners.has(owner)) {
+    _openAllOwners.delete(owner);
+    // Deleting while iterating is safe: a Set's forEach skips entries removed before it
+    // reaches them, and these are exactly the ones being removed.
+    const prefix = `${owner}#`;
+    _openChipGroups.forEach((id) => { if (id.startsWith(prefix)) _openChipGroups.delete(id); });
+  } else {
+    _openAllOwners.add(owner);
+  }
+  notifyChipState();
+}
+
 // The toggle used to be a PILL of its own: same tint, same radius, same height as a chip,
 // with a caret inside. Next to every chip that reads as a SECOND chip, and with a chip on
 // nearly every sentence the row of pills is what the eye sees instead of the text. So the
@@ -148,13 +203,20 @@ const _openChipGroups = new Set<string>();
 // The mark carries neither the chips' background nor their tint — it is grey, so it
 // recedes instead of competing. It still needs a real hit area, so the clickable span
 // stays 16px square (w-4 h-4) around a 10px drawing.
-function ChipToggleMark({ open }: { open: boolean }) {
+// size/opacity/strokeWidth carry the mark to the message's action row, where it stands
+// among the copy and note buttons rather than inside a sentence: there it is a button of
+// its own, so it matches their 13px and needs none of the restraint that keeps it quiet in
+// running text. The stroke has to be re-set for that: 1 in a 10-box is 10% of the drawing,
+// while a Phosphor icon at regular weight draws 16 in a 256-box, i.e. 6.25%. Left at 1 the
+// ring came out half again as thick as its neighbours and read as the darker icon of the
+// three, though all of them are var(--muted).
+export function ChipToggleMark({ open, size = 10, opacity = 0.55, strokeWidth = 1 }: { open: boolean; size?: number; opacity?: number; strokeWidth?: number }) {
   return (
     // Ring and dot share one opacity: at full strength the dot punched out of the ring and
     // pulled the eye to a mark that is meant to sit quietly at the end of a sentence. The
     // hover rule lifts both to 1 together.
-    <svg width="10" height="10" viewBox="0 0 10 10" aria-hidden="true" focusable="false" opacity="0.55">
-      <circle cx="5" cy="5" r="4" fill="none" stroke="currentColor" strokeWidth="1" />
+    <svg width={size} height={size} viewBox="0 0 10 10" aria-hidden="true" focusable="false" opacity={opacity}>
+      <circle cx="5" cy="5" r="4" fill="none" stroke="currentColor" strokeWidth={strokeWidth} />
       {!open && <circle cx="5" cy="5" r="1.5" fill="currentColor" />}
     </svg>
   );
@@ -168,16 +230,21 @@ function ChipToggleMark({ open }: { open: boolean }) {
 // A stop with a single chip is wrapped exactly like one with three, otherwise lone chips
 // would stay open in a text where every other stop is collapsed, which reads as noise
 // rather than as a rule.
-function CitationChipGroup({ groupId, chips, onChipClick }: { groupId: string; chips: ChipDesc[]; onChipClick: CitationChipClickHandler }) {
+function CitationChipGroup({ groupId, chips, onChipClick, tail }: { groupId: string; chips: ChipDesc[]; onChipClick: CitationChipClickHandler; tail?: string }) {
   // Two ways to be open, and they must not fight each other. PINNED is the deliberate one
   // (a click on the mark) and survives remounts via _openChipGroups. HOVERED is transient:
   // pointing at the stop reveals its sources for as long as the pointer stays, so you can
   // skim an answer's provenance without clicking 38 times.
-  const [pinned, setPinned] = React.useState(() => _openChipGroups.has(groupId));
+  // A third way, and it outranks both: the message's own switch. While it is on every stop
+  // stands open, so a click on a single mark changes only what lies underneath — and that
+  // is never seen, because switching off wipes the pins of the whole message with it.
+  const owner = chipOwnerOf(groupId);
+  const allOpen = useAllChipsOpen(owner);
+  const pinned = useChipFlag(React.useCallback(() => _openChipGroups.has(groupId), [groupId]));
   const [hovered, setHovered] = React.useState(false);
-  const open = pinned || hovered;
-  const pin = () => { _openChipGroups.add(groupId); setPinned(true); };
-  const unpin = () => { _openChipGroups.delete(groupId); setPinned(false); };
+  const open = allOpen || pinned || hovered;
+  const pin = () => { _openChipGroups.add(groupId); notifyChipState(); };
+  const unpin = () => { _openChipGroups.delete(groupId); notifyChipState(); };
   // No background and no border: the mark is not a pill. mx-px matches the chips' own
   // spacing, w-4/h-4 is the hit area around the 10px drawing.
   const toggleCls = "chip-toggle inline-flex items-center justify-center w-4 h-4 align-middle mx-px cursor-pointer select-none";
@@ -199,13 +266,26 @@ function CitationChipGroup({ groupId, chips, onChipClick }: { groupId: string; c
     >
       {/* The mark comes FIRST and therefore never moves: opening grows the chips to its
           right instead of pushing it along, so the pointer stays on the thing it just
-          opened and the eye keeps its anchor at the end of the sentence. */}
-      <span role="button" tabIndex={0}
-        onPointerDown={(e) => { if (e.button === 0) { e.stopPropagation(); action(); } }}
-        onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.stopPropagation(); action(); } }}
-        aria-label={`${pinned ? "−" : "+"}${chips.length}`} className={toggleCls} style={toggleStyle}
-      ><ChipToggleMark open={open} /></span>
-      {open && chips.map(c => <CitationChip key={c.key} desc={c} onChipClick={onChipClick} />)}
+          opened and the eye keeps its anchor at the end of the sentence.
+
+          The punctuation that closes the sentence rides along right behind the mark, ahead
+          of the reserved room. Left in the text it landed BEHIND that room and hung alone in
+          the middle of the line, a lost period a hand's width from its sentence. head is
+          nowrap so the two never break apart. */}
+      <span className="chip-stop-head">
+        <span role="button" tabIndex={0}
+          onPointerDown={(e) => { if (e.button === 0) { e.stopPropagation(); action(); } }}
+          onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.stopPropagation(); action(); } }}
+          aria-label={`${pinned ? "−" : "+"}${chips.length}`} className={toggleCls} style={toggleStyle}
+        ><ChipToggleMark open={open} /></span>{tail}
+      </span>
+      {/* The chips are ALWAYS in the layout, hidden until the stop opens. Rendering them
+          only while open made every hover re-wrap the paragraph under the pointer: measured
+          on one answer, pointing at a single stop moved 54 of 58 text runs, pushed 25 of
+          them onto another line and shifted table columns by up to 460px. Holding the room
+          permanently costs a little width at the end of each line — which is free, because
+          a stop ends its line (see the break in parseCitations). */}
+      {chips.map(c => <CitationChip key={c.key} desc={c} onChipClick={onChipClick} reserved={!open} />)}
     </span>
   );
 }
@@ -218,9 +298,29 @@ function CitationChipGroup({ groupId, chips, onChipClick }: { groupId: string; c
 // notes) is trimmed at render time rather than reaching the reader.
 const MAX_CHIPS_PER_GROUP = 3;
 
+// What may still follow a stop on its own line: the characters that CLOSE the sentence it
+// belongs to. A period pushed onto the next line reads as a typo, so the break waits for
+// them. Listed by character, not by language — sentence ends look different per script, and
+// the answer's language is not ours to assume: Latin terminals and brackets, the CJK forms
+// (。、！？；：）】」』), and the Arabic full stop/comma/semicolon/question mark.
+const CLOSING_PUNCT = /^[^\S\n]*[.,;:!?…·。、！？；：）〕】」』»”’)\]}۔،؛؟]*/u;
+
+// Reads the closing punctuation off the text that follows a stop. `tail` is what the stop
+// takes along, `consumed` how much of the text that eats. Leading blanks are consumed but
+// not kept: they would only hang at the end of the closed line.
+function splitAfterStop(chunk: string): { tail: string; consumed: number } {
+  const m = CLOSING_PUNCT.exec(chunk);
+  const matched = m ? m[0] : "";
+  return { tail: matched.replace(/^\s+/u, ""), consumed: matched.length };
+}
+
 // Parses inline citations like [Q1, S. 2], [1, 05:32], [S. 2] and replaces them with
 // CitationChip elements. Text outside matches is returned as-is. Chips are nav-only;
 // legacy tokens with a trailing offset/keyword still parse to their page/timestamp.
+//
+// breakAfterStops ends the line after every stop, so the room its hidden chips hold sits at
+// the end of a line where only the margin follows. Table cells pass false: a cell has no
+// sentence flow to break, so there the reserved room simply widens the column.
 export function parseCitations(
   text: string,
   msg: ChatMessage,
@@ -229,6 +329,7 @@ export function parseCitations(
   onChipClick: CitationChipClickHandler,
   keyPrefix: string = "c",
   tChip?: ChipLabelT,
+  breakAfterStops: boolean = true,
 ): React.ReactNode[] {
   const msgSourcePages = msg.source_pages ?? [];
   const msgQmap = msg.source_qmap ?? [];
@@ -359,9 +460,28 @@ export function parseCitations(
   const nodes: React.ReactNode[] = [];
   let last = 0;
   let k = 0;
+  // Set once a stop has been emitted and its line still has to be closed. The break itself
+  // can only be placed with the text that follows, because the punctuation that closes the
+  // sentence has to stay on the line above it.
+  let breakPending = false;
+  let brCounter = 0;
+  const pushText = (chunk: string) => {
+    if (!breakPending) {
+      if (chunk) nodes.push(chunk);
+      return;
+    }
+    breakPending = false;
+    const rest = chunk.replace(/^\s+/u, "");
+    // No break when nothing follows: a trailing <br> is an empty line under every answer.
+    if (rest) {
+      nodes.push(<br key={`${keyPrefix}br${brCounter++}`} />);
+      nodes.push(rest);
+    }
+  };
+
   while (k < chips.length) {
     const first = chips[k];
-    if (first.start > last) nodes.push(text.slice(last, first.start));
+    if (first.start > last) pushText(text.slice(last, first.start));
 
     const run = [first];
     let n = k + 1;
@@ -380,6 +500,13 @@ export function parseCitations(
     // "22. April". The stretch between two chips is the claim by construction.
     const claim = text.slice(last, first.start).trim();
     const kept = run.slice(0, MAX_CHIPS_PER_GROUP).map(c => ({ ...c, claim }));
+    // Only a folded stop closes its line and takes the sentence's punctuation with it. An
+    // exact (popup) chip is the user's own selection: visible from the start, holding no
+    // hidden room, so it moves nothing on hover and needs neither.
+    const folded = breakAfterStops && !first.isExactSelection;
+    const runEnd = run[run.length - 1].end;
+    const following = text.slice(runEnd, chips[n]?.start ?? text.length);
+    const { tail, consumed } = folded ? splitAfterStop(following) : { tail: "", consumed: 0 };
     nodes.push(
       first.isExactSelection
         ? <CitationChip key={first.key} desc={first} onChipClick={onChipClick} />
@@ -399,15 +526,19 @@ export function parseCitations(
             groupId={`${keyPrefix}${first.start}`}
             chips={kept}
             onChipClick={onChipClick}
+            tail={tail}
           />,
     );
 
+    breakPending = folded;
+
     // Advance past the WHOLE run, not just the kept chips: a chip dropped by the cap must
-    // not leave its raw "[4, S. 12]" token behind as text.
-    last = run[run.length - 1].end;
+    // not leave its raw "[4, S. 12]" token behind as text. The punctuation the stop took
+    // along is consumed too, so it is not written a second time as text.
+    last = runEnd + consumed;
     k = n;
   }
-  if (last < text.length) nodes.push(text.slice(last));
+  if (last < text.length) pushText(text.slice(last));
   return nodes;
 }
 
@@ -424,11 +555,12 @@ export function withCitations(
   onChipClick: CitationChipClickHandler,
   tChip?: ChipLabelT,
   nodePrefix: string = "",
+  breakAfterStops: boolean = true,
 ): React.ReactNode {
   const arr: React.ReactNode[] = Array.isArray(children) ? children : [children];
   return arr.flatMap((child, idx) =>
     typeof child === "string"
-      ? parseCitations(child, msg, activeSourceIds, getFilename, onChipClick, `${nodePrefix}c${idx}-`, tChip)
+      ? parseCitations(child, msg, activeSourceIds, getFilename, onChipClick, `${nodePrefix}c${idx}-`, tChip, breakAfterStops)
       : [child],
   );
 }

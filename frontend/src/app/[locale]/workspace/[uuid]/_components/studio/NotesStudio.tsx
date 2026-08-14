@@ -5,7 +5,7 @@ import remarkGfm from "remark-gfm";
 import remarkMath from "remark-math";
 import rehypeKatex from "rehype-katex";
 import { CaretDown, CaretUp, NotePencil, PencilSimple, Plus, Trash, X } from "@phosphor-icons/react";
-import type { ChatMessage, Source, SourceQmap, SourceRef, StudentStats } from "../../_types";
+import type { ChatMessage, Source, SourceQmap, SourceRef } from "../../_types";
 import { _getChipIcon, _guardMathDollars, _mathToUnicode } from "../../_utils";
 import { withCitations, type CitationChipClickHandler } from "../chat/_citations";
 import { SubviewHeader, type BreadcrumbItem } from "../layout/SubviewHeader";
@@ -39,14 +39,13 @@ function _notePreview(content: string, emptyLabel: string, max = 60): string {
 }
 
 export function NotesStudio({
-  notes, onAdd, onDelete, onUpdateTitle, onBack, sources, activeSourceIds, onPillClick, stats, breadcrumbs, pendingTitleIds,
+  notes, onAdd, onDelete, onUpdateTitle, onBack, sources, activeSourceIds, onPillClick, breadcrumbs, pendingTitleIds,
 }: {
   notes: Note[]; onAdd: (content: string) => void; onDelete: (id: number) => void;
   onUpdateTitle?: (id: number, title: string | null) => void;
   onBack?: () => void;
   sources?: Source[]; activeSourceIds?: string[];
   onPillClick?: (sourceUuid: string, page: number, filename: string, sourceText?: string, startTime?: number, isExact?: boolean) => void;
-  stats?: StudentStats | null;
   breadcrumbs?: BreadcrumbItem[];
   pendingTitleIds?: Set<number>;
 }) {
@@ -166,6 +165,14 @@ export function NotesStudio({
                 ) =>
                   withCitations(children, msg, activeSourceIds ?? [], getFilename, onChipClick,
                     (key, vals) => tChip(key, vals), `n${note.id}#${node?.position?.start?.offset ?? 0}-`);
+                // Table cells only. A cell has no sentence flow to end, so its stops stay
+                // inline and the room their hidden chips hold widens the column a little.
+                const wrapCitationsInCell = (
+                  children: React.ReactNode,
+                  node?: { position?: { start?: { offset?: number } } },
+                ) =>
+                  withCitations(children, msg, activeSourceIds ?? [], getFilename, onChipClick,
+                    (key, vals) => tChip(key, vals), `n${note.id}#${node?.position?.start?.offset ?? 0}-`, false);
                 const isLast = idx === notes.length - 1;
                 const hasCustomTitle = !!(note.title && note.title.trim());
                 const isTitlePending = !hasCustomTitle && !!pendingTitleIds?.has(note.id);
@@ -270,7 +277,7 @@ export function NotesStudio({
                               h3: ({ node, children }) => <p className="font-medium mb-1">{wrapCitations(children, node)}</p>,
                               table: ({ children }) => <div className="overflow-x-auto my-2"><table className="w-full text-sm border-collapse">{children}</table></div>,
                               th: ({ children }) => <th className="text-left px-2 py-1 font-medium border-b" style={{ borderColor: "var(--border)" }}>{children}</th>,
-                              td: ({ node, children }) => <td className="px-2 py-1 border-b" style={{ borderColor: "var(--border)" }}>{wrapCitations(children, node)}</td>,
+                              td: ({ node, children }) => <td className="px-2 py-1 border-b" style={{ borderColor: "var(--border)" }}>{wrapCitationsInCell(children, node)}</td>,
                               hr: () => <hr className="my-3" style={{ borderColor: "var(--border)" }} />,
                             }}
                           >

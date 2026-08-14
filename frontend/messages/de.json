@@ -2002,6 +2002,8 @@
         "noAnswer": "(keine Antwort)",
         "aborted": "Abgebrochen",
         "retry": "Erneut versuchen",
+        "showAllCitations": "Alle Quellenangaben einblenden",
+        "hideAllCitations": "Alle Quellenangaben ausblenden",
         "copy": "Kopieren",
         "saveAsNote": "Als Notiz speichern",
         "expand": "Mehr anzeigen",
