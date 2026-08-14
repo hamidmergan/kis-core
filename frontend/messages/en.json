@@ -2010,6 +2010,7 @@
         "indexingInProgress": "{label} is still being indexed. Please wait a moment and try again.",
         "tooManyRequests": "Too many requests. Please wait a moment and try again.",
         "genericError": "An error occurred.",
+        "upstreamBusy": "The AI service behind this was busy or unreachable. Please try again later.",
         "translateFailed": "This passage could not be translated."
       },
       "sources": {

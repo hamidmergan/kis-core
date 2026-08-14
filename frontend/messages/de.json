@@ -2010,6 +2010,7 @@
         "indexingInProgress": "{label} wird noch indiziert. Bitte warte einen Moment und versuche es erneut.",
         "tooManyRequests": "Zu viele Anfragen. Bitte einen Moment warten und erneut senden.",
         "genericError": "Es ist ein Fehler aufgetreten.",
+        "upstreamBusy": "Der KI-Dienst dahinter war gerade überlastet oder nicht erreichbar. Bitte versuche es später noch einmal.",
         "translateFailed": "Diese Passage konnte nicht übersetzt werden."
       },
       "sources": {

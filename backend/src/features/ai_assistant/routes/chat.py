@@ -41,6 +41,7 @@ from src.services.aia_adaptive_chat import (
 )
 from src.services.aia_diagnosis_chat import ADAPTIVE_BEHAVIOR_SETTING
 from src.services.aia_level_ladder import resolve_prompt_setting
+from src.services.upstream_errors import upstream_error_code
 
 # Upper bound on the question length we hand to the LLM intent classifier.
 # Longer questions are nearly always topic-specific (no need for an LLM round-trip)
@@ -1786,7 +1787,14 @@ async def chat(
             except Exception as e:
                 _log_status = "error"
                 logger.error("LLM stream error: {}", e)
-                yield f"data: {json.dumps({'error': str(e)})}\n\n"
+                # War der Anbieter ueberlastet oder stumm, sagt das die Oberflaeche
+                # als "spaeter noch einmal" statt als "Es ist ein Fehler aufgetreten".
+                # Der rohe Text bleibt fuers Log dabei, der Schluessel steuert den Satz.
+                _err = {"error": str(e)}
+                _code = upstream_error_code(e)
+                if _code:
+                    _err["code"] = _code
+                yield f"data: {json.dumps(_err)}\n\n"
                 return
             finally:
                 if stream is not None:

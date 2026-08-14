@@ -225,7 +225,10 @@ export function useChat({ uuid, enrollmentId, selectedSourceIds, viewerSource, c
               if (evt.answer) patch.content = evt.answer;
               updateLast(patch);
             } else if (evt.error) {
-              updateLast({ content: tChat("genericError"), failed: true });
+              // Beim ueberlasteten oder stummen Anbieter hilft nur spaeter noch einmal
+              // fragen. Das steht jetzt da, statt fuer jede Ursache derselbe Satz.
+              const key = evt.code === "upstream_busy" ? "upstreamBusy" : "genericError";
+              updateLast({ content: tChat(key), failed: true });
             }
           } catch { /* skip malformed */ }
         };

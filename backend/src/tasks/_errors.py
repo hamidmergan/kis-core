@@ -15,33 +15,10 @@ from loguru import logger
 
 from src import database as db
 from src.i18n import t
-
-
-# Meldungen, hinter denen der Dienst des Anbieters steckt und nicht die Eingabe
-# der Nutzerin. Roh sahen die im Bildschirm so aus:
-#   TTS API error (500): Internal Server Error
-# Damit kann niemand etwas anfangen, und zu tun ist ohnehin nur eines, spaeter
-# noch einmal versuchen. 500 gehoert ausdruecklich dazu, myLab beendet damit
-# jede Anfrage, die ihm zu lange dauert.
-_BUSY_MARKERS = (
-    "429", "rate limit", "too many requests",
-    "500", "internal server error",
-    "502", "503", "504",
-    "bad gateway", "service unavailable", "gateway timeout",
-    "timeout", "timed out",
-)
-
-
-def is_upstream_busy(e: Exception | str) -> bool:
-    """Wahr, wenn der Anbieter ueberlastet war oder nicht geantwortet hat.
-
-    Ueber den Text und nicht ueber den Typ, weil die Werkzeuge ihre Fehler aus
-    drei Ecken bekommen (httpx, openai, eigene RuntimeError) und der Status nur
-    im Text steht. Nimmt auch den fertigen Text, der Screencast reicht das
-    ``detail`` einer HTTPException herein.
-    """
-    msg = str(e).lower()
-    return any(m in msg for m in _BUSY_MARKERS)
+# Die Pruefung "war der Anbieter schuld" steht neutral in services, weil der Chat
+# sie mitbenutzt und nicht in dieses private Auftragsmodul greifen darf. Hier nur
+# noch der Name, damit kein Aufrufer der Auftraege etwas merkt.
+from src.services.upstream_errors import is_upstream_busy  # noqa: F401
 
 
 def job_locale(job_uuid: str) -> str:
