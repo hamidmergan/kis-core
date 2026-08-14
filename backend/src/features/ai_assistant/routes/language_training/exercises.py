@@ -15,7 +15,6 @@ from src.features.ai_assistant.routes._helpers import (
     _resolve_source_ids,
 )
 from src.features.ai_assistant import schemas
-from src.features.ai_assistant.repository.grammar_topics import catalog_entry
 from src.services.aia_grammar_formats import clean_kinds
 from src.services import aia_flashcard_speech as speech
 

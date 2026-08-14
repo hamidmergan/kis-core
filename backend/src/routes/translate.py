@@ -52,46 +52,6 @@ async def get_translate_config(
     }
 
 
-def translate_pptx_content(
-    content: bytes,
-    filename: str,
-    glossary_json: str = "",
-    source_lang: str = "",
-    target_lang: str = "",
-    locale: str = "de",
-) -> bytes:
-    """Synchronous PPTX translation helper - used by screencast.py."""
-    import json
-    from src.services.deepl_client import DeepLClient
-    from src.services.glossary import GlossaryService
-    from src.services.translation import TranslationService
-    from src.translators.pptx import translate_pptx
-
-    from src.dependencies import resolve_deepl_api_key
-    api_key = resolve_deepl_api_key()
-    if not api_key:
-        raise HTTPException(status_code=500, detail=t("translate.deeplKeyMissing", locale))
-    deepl_client = DeepLClient(api_key)
-    glossary = GlossaryService()
-    if glossary_json:
-        try:
-            entries = json.loads(glossary_json)
-            if isinstance(entries, dict):
-                glossary.set_entries(entries)
-        except (json.JSONDecodeError, TypeError):
-            pass
-    service = TranslationService(deepl_client=deepl_client, glossary=glossary)
-    try:
-        eff_source = source_lang if source_lang else DEFAULT_TRANSLATE_SOURCE
-        eff_target = target_lang if target_lang else DEFAULT_TRANSLATE_TARGET
-        return translate_pptx(content, eff_source, eff_target, service)
-    except ValueError as e:
-        raise HTTPException(status_code=500, detail=t("translate.pptxError", locale, error=str(e)))
-    except Exception as e:
-        logger.exception("PPTX processing error for file '{}'", filename)
-        raise HTTPException(status_code=500, detail=t("translate.pptxProcessingError", locale, error=str(e)))
-
-
 @router.post("/translate")
 async def translate(
     request: Request,

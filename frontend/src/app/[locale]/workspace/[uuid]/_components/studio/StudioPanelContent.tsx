@@ -9,7 +9,6 @@ import { StudioOverview } from "./StudioOverview";
 import type {
   ExerciseSet,
   LanguageTrainingView,
-  StudentStats,
   StudioView,
   Source,
 } from "../../_types";
@@ -73,7 +72,6 @@ interface StudioPanelContentProps {
   sources: Source[];
   selectedSourceIds: string[];
   isAdmin: boolean;
-  pageStats: StudentStats | null;
   // Callbacks
   onStudioSelect: (v: StudioView) => void;
   onNavigateToSet: (setId: number, tool: string, mode: string) => void;
@@ -98,7 +96,7 @@ export function StudioPanelContent(props: StudioPanelContentProps) {
     studioView, setStudioView, langTrainingView, language_trainingActive, studioTabRequest, onStudioTabRequestHandled,
     language_trainingContent, glossaryContent, notesContent,
     exercises: ex, notes: nt, mindmap: mm, data_table: dt,
-    workspaceUuid, statsVersion, sources, selectedSourceIds, isAdmin, pageStats,
+    workspaceUuid, statsVersion, sources, selectedSourceIds, isAdmin,
     onStudioSelect, onNavigateToSet, onSprachNavigate, onAskChat, onPillClick,
     refreshProgress, onMinimize, hideHeader, chatLang,
     openMindmapInViewer, consumeMindmapViewerOpen,
@@ -186,7 +184,6 @@ export function StudioPanelContent(props: StudioPanelContentProps) {
         onRetry={(id) => retryExerciseSet(id, "karteikarten")}
         onDownload={isAdmin ? downloadExerciseSet : undefined}
         sourceCount={selectedSourceIds.length}
-        stats={pageStats}
         breadcrumbs={setsCrumb}
       />
     );
@@ -203,7 +200,6 @@ export function StudioPanelContent(props: StudioPanelContentProps) {
         sources={sources}
         activeSourceIds={selectedSourceIds}
         onPillClick={onPillClick}
-        stats={pageStats}
         breadcrumbs={setsCrumb}
         pendingTitleIds={nt.pendingTitleIds}
       />
@@ -225,7 +221,6 @@ export function StudioPanelContent(props: StudioPanelContentProps) {
         sourceCount={selectedSourceIds.length}
         allSources={sources}
         onPillClick={onPillClick}
-        stats={pageStats}
         breadcrumbs={setsCrumb}
         openInViewer={openDataTableInViewer}
         onViewerOpened={consumeDataTableViewerOpen}
@@ -247,7 +242,6 @@ export function StudioPanelContent(props: StudioPanelContentProps) {
         sourceCount={selectedSourceIds.length}
         sources={sources}
         onPillClick={onPillClick}
-        stats={pageStats}
         breadcrumbs={setsCrumb}
         openInViewer={openMindmapInViewer}
         onViewerOpened={consumeMindmapViewerOpen}
@@ -269,7 +263,6 @@ export function StudioPanelContent(props: StudioPanelContentProps) {
         onRetry={(id) => retryExerciseSet(id, "quiz")}
         onDownload={isAdmin ? downloadExerciseSet : undefined}
         sourceCount={selectedSourceIds.length}
-        stats={pageStats}
         breadcrumbs={setsCrumb}
       />
     );

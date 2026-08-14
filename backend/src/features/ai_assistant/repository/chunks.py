@@ -1,8 +1,4 @@
-import json
 import os
-from contextlib import contextmanager
-from datetime import datetime, timedelta, timezone
-from typing import Optional
 from zoneinfo import ZoneInfo
 
 import psycopg2
@@ -10,7 +6,6 @@ import psycopg2.extras
 import psycopg2.pool
 from psycopg2.extras import RealDictCursor
 
-from src.limits import MAX_RESULT_FILES, JOB_RETENTION_HOURS
 
 _TZ_BERLIN = ZoneInfo("Europe/Berlin")
 _REDIS_URL = os.environ.get("REDIS_URL", "redis://kis-redis:6379/0")
@@ -165,35 +160,6 @@ def update_chunk_embedding(chunk_id: int, embedding: list[float]) -> None:
             )
         conn.commit()
 
-def search_similar_chunks(
-    workspace_id: int,
-    query_embedding: list[float],
-    source_ids: list[int] | None = None,
-    limit: int = 5,
-) -> list[dict]:
-    params: list = [str(query_embedding), workspace_id]
-    source_filter = ""
-    if source_ids is not None:
-        source_filter = "AND s.id = ANY(%s)"
-        params.append(source_ids)
-    params.append(limit)
-    with get_connection() as conn:
-        with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
-            cur.execute(
-                f"""SELECT c.id, c.source_id, c.page_number, c.content,
-                           c.start_time, c.end_time,
-                           c.embedding <=> %s::vector AS distance
-                    FROM aia_chunks c
-                    JOIN aia_sources s ON s.id = c.source_id
-                    WHERE s.workspace_id = %s {source_filter}
-                      AND c.embedding IS NOT NULL
-                    ORDER BY distance ASC
-                    LIMIT %s""",
-                params,
-            )
-            rows = cur.fetchall()
-    return [dict(row) for row in rows]
-
 def hybrid_search_chunks(
     workspace_id: int,
     query_text: str,
@@ -210,7 +176,6 @@ def hybrid_search_chunks(
     scan (no index), so enable it ONLY for the short user query — NOT for the
     post-hoc attribution, which fires once per answer line over clean text and
     would otherwise pay seconds of needless fuzzy scans (slow citation chips)."""
-    from loguru import logger
 
     source_filter = ""
     source_param: list = []

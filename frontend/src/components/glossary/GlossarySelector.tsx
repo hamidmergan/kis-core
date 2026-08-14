@@ -2,7 +2,7 @@
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
-import { useGlossaries, MAX_ENTRIES_PER_GLOSSARY } from "@/hooks/useGlossaries";
+import { useGlossaries } from "@/hooks/useGlossaries";
 
 const MAX_SELECTED = 3;
 

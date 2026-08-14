@@ -154,7 +154,7 @@
     "submit": "Anmelden",
     "submitting": "Wird angemeldet...",
     "invalidCredentials": "Ungültige Anmeldedaten. Bitte prüfen Sie Benutzername und Passwort.",
-    "maintenanceBanner": "Wartungsarbeiten aktiv. Bitte später erneut versuchen."
+    "maintenanceBanner": "Die Plattform wird gerade aktualisiert. Bitte versuchen Sie es in wenigen Minuten erneut."
   },
   "toolsSidebar": {
     "heading": "Tools",
@@ -182,8 +182,6 @@
     "fileTooLarge": "Datei zu groß (max {n} MB)",
     "onlyExtsAllowed": "Nur {exts} erlaubt",
     "pleaseSelect": "Bitte wählen",
-    "expandClick": "Klicken zum Aufklappen",
-    "collapseClick": "Klicken zum Einklappen",
     "uploadingFile": "Datei wird hochgeladen…",
     "fileSelectAria": "Datei zum Hochladen auswählen",
     "audioVideoSelectAria": "Audio- oder Videodatei zur Transkription auswählen",

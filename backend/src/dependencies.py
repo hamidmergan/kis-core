@@ -341,13 +341,3 @@ def resolve_deepl_api_key() -> str | None:
     return provider.get("api_key") or None
 
 
-def get_deepl_client():
-    from src.services.deepl_client import DeepLClient
-    api_key = resolve_deepl_api_key()
-    if not api_key:
-        return None
-    try:
-        return DeepLClient(api_key)
-    except Exception as e:
-        logger.warning("DeepL client init failed: {}", e)
-        return None

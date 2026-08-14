@@ -210,16 +210,10 @@ export default function KiTutorWorkspacePage() {
 
   const [studioView, setStudioView] = useState<StudioView>("overview");
   const mm = useMindmap({ uuid, selectedSourceIds });
-  const { mindmapData, mindmapLoading, mindmapList } = mm;
-  const generateMindmap = mm.generate;
   const selectMindmap = mm.select;
-  const deleteMindmap = mm.remove;
 
   const dt = useDataTable({ uuid, selectedSourceIds });
-  const { data_table, data_tableSources, data_tableLoading, data_tableList } = dt;
-  const generateDataTable = dt.generate;
   const selectDataTable = dt.select;
-  const deleteDataTable = dt.remove;
   const { notes, setNotes, pendingTitleIds, addNote, deleteNote, updateNoteTitle } = useNotes({ uuid });
 
   // ─── Language training state ─────────────────────────────────────────────
@@ -257,7 +251,7 @@ export default function KiTutorWorkspacePage() {
     },
   });
 
-  const { streakInfo, pageStats, statsVersion, loadStreak, bumpStats } = useStats({ uuid, initialized });
+  const { statsVersion, loadStreak, bumpStats } = useStats({ uuid, initialized });
 
   // Reset mobile tab if studio is disabled
   useEffect(() => {
@@ -346,7 +340,6 @@ export default function KiTutorWorkspacePage() {
     langTrainingView, setSprachView,
     glossary, glossaryCount, glossaryExtracting, glossaryFeedback,
     deleteGlossaryEntry, deleteAllGlossaryEntries,
-    loadGlossary, loadGlossaryCount,
     extractGlossary, dismissFeedback,
   } = spr;
 
@@ -391,7 +384,6 @@ export default function KiTutorWorkspacePage() {
       submitSingleAnswer={submitSingleAnswer}
       selectedSourceIds={selectedSourceIds}
       workspaceUuid={uuid}
-      pageStats={pageStats}
       isAdmin={isAdmin}
       sources={sources}
       refreshProgress={refreshProgress}
@@ -420,7 +412,6 @@ export default function KiTutorWorkspacePage() {
       }}
       onDelete={deleteGlossaryEntry}
       onDeleteAll={deleteAllGlossaryEntries}
-      stats={pageStats}
       showTranslation={language_trainingVisible}
       feedback={glossaryFeedback}
       onDismissFeedback={dismissFeedback}
@@ -486,7 +477,6 @@ export default function KiTutorWorkspacePage() {
       sources={sources}
       selectedSourceIds={selectedSourceIds}
       isAdmin={isAdmin}
-      pageStats={pageStats}
       onStudioSelect={handleStudioSelect}
       onNavigateToSet={handleNavigateToSet}
       onSprachNavigate={handleSprachNavigate}

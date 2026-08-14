@@ -60,7 +60,7 @@ export function SubviewHeader({ title, toolKey, onBack, breadcrumbs, rightConten
             return (
               <React.Fragment key={i}>
                 {bBadge ? (
-                  <button type="button" onClick={b.onClick} className="font-medium shrink-0 px-1.5 py-0.5 rounded opacity-60 hover:opacity-100 transition-opacity" style={{ backgroundColor: bBadge.bg, color: bBadge.color }}>{b.label}</button>
+                  <button type="button" onClick={b.onClick} className="font-medium shrink-0 px-1.5 py-0.5 rounded opacity-60 hover:opacity-100 transition-opacity" style={{ color: bBadge.color }}>{b.label}</button>
                 ) : (
                   <button type="button" onClick={b.onClick} className="font-medium shrink-0 opacity-60 hover:opacity-100 transition-opacity" style={{ color: mutedColor }}>{b.label}</button>
                 )}
@@ -69,14 +69,14 @@ export function SubviewHeader({ title, toolKey, onBack, breadcrumbs, rightConten
             );
           })}
           {badge ? (
-            <span className="font-semibold truncate px-1.5 py-0.5 rounded" style={{ backgroundColor: badge.bg, color: badge.color }}>{title}</span>
+            <span className="font-semibold truncate px-1.5 py-0.5 rounded" style={{ color: badge.color }}>{title}</span>
           ) : (
             <span className="font-semibold truncate" style={{ color: "var(--foreground)" }}>{title}</span>
           )}
         </div>
       ) : (
         badge ? (
-          <span className="text-sm font-semibold flex-1 inline-flex"><span className="px-1.5 py-0.5 rounded" style={{ backgroundColor: badge.bg, color: badge.color }}>{title}</span></span>
+          <span className="text-sm font-semibold flex-1 inline-flex"><span className="px-1.5 py-0.5 rounded" style={{ color: badge.color }}>{title}</span></span>
         ) : (
           <span className="text-sm font-semibold flex-1" style={{ color: "var(--foreground)" }}>{title}</span>
         )

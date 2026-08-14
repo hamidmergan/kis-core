@@ -32,7 +32,6 @@ from src.tool_prompts import (
     aia_reduce_user_message,
     AIA_POPUP_ACTIONS,
     AIA_INTENT_CLASSIFIER_SYSTEM,
-    AIA_SCOPE_EXTRACTOR_SYSTEM,
     AIA_QUERY_UNDERSTANDING_SYSTEM,
     RAG_NO_INFO_SENTINEL,
 )
@@ -291,35 +290,6 @@ def _parse_scope_response(content: str) -> dict:
             continue
         intervals.append([a, b])
     return {"unit": unit, "intervals": intervals}
-
-
-async def _extract_query_scope(llm, question: str) -> dict:
-    """Self-Query pre-call: extract an explicit page/time scope from the question.
-
-    Runs in a worker thread (sync client) so it can sit in an ``asyncio.gather``
-    next to the intent classifier — both pre-calls overlap, so wall-clock latency
-    is ~that of one call. Any failure → empty scope (regex fallback covers pages)."""
-    def _call():
-        return llm._client.with_options(timeout=60.0, max_retries=0).chat.completions.create(
-            model=llm._model,
-            messages=[
-                {"role": "system", "content": AIA_SCOPE_EXTRACTOR_SYSTEM},
-                {"role": "user", "content": question},
-            ],
-            temperature=0.0,
-            max_tokens=200,
-            **(llm._extra_body and {"extra_body": llm._extra_body} or {}),
-        )
-    try:
-        response = await asyncio.to_thread(_call)
-        msg = response.choices[0].message
-        raw = msg.content or getattr(msg, "reasoning_content", None) or ""
-    except Exception as e:
-        logger.warning("Scope extractor failed, no scope: {}", e)
-        return {"unit": None, "intervals": []}
-    scope = _parse_scope_response(raw)
-    logger.info("Scope extractor: '{}' → {}", question[:50], scope)
-    return scope
 
 
 _MAX_TIME_SPAN_SEC = 6 * 3600  # safety cap so an open/absurd time range can't pull everything

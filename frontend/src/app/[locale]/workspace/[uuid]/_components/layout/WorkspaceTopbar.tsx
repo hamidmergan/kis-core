@@ -2,7 +2,6 @@
 
 import React from "react";
 import { useTranslations } from "next-intl";
-import { Link } from "@/i18n/navigation";
 import { GearSix, CaretUp, CaretDown } from "@phosphor-icons/react";
 import { SettingsMenu } from "./SettingsMenu";
 import type { PanelKey } from "../../_types";
@@ -37,12 +36,6 @@ interface WorkspaceTopbarProps {
   languageLevel?: string | null;
   onResetLanguageLevel?: () => void | Promise<void>;
 }
-
-const BackArrow = ({ size }: { size: 12 | 14 }) => (
-  <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" className="transition-transform group-hover:-translate-x-0.5">
-    <path d="M19 12H5M12 5l-7 7 7 7" />
-  </svg>
-);
 
 export function WorkspaceTopbar(props: WorkspaceTopbarProps) {
   const {

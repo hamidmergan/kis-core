@@ -8,7 +8,6 @@ interface SourceLike { uuid: string; filename: string; }
 
 export function ScheduleEntryCard({
   entry,
-  isToday,
   isPast,
   urgency,
   editMode,
@@ -20,7 +19,6 @@ export function ScheduleEntryCard({
   onPillClick,
 }: {
   entry: ScheduleEntry;
-  isToday: boolean;
   isPast: boolean;
   urgency: string | null;
   editMode: boolean;

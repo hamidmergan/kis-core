@@ -10,8 +10,8 @@ Werkzeuge dieselbe.
 
 from src.core.db.pool import get_connection
 
-# Nur die Tabellen, die einen Anzeigenamen tragen. Der Name kommt aus dieser
-# Zuordnung und nie von aussen, dieselbe Regel wie in ``source_rename.py``.
+# Nur die Tabellen, die einen Anzeigenamen tragen. Ein Tabellenname geht erst in die
+# Abfrage, wenn er hier steht, dieselbe Regel wie in ``source_rename.py``.
 _TITLE_TABLES = ("aia_mindmaps", "aia_data_tables")
 
 

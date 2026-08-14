@@ -163,7 +163,6 @@ async def screencast_upload_corrected(
             save_job_file_from_path(user_id, translate_job_uuid, "translated.pptx", str(pptx_path))
             save_job_file(user_id, translate_job_uuid, "scripts.txt", json.dumps(slide_texts, ensure_ascii=False, indent=2).encode("utf-8"))
             db.update_job_status(translate_job_uuid, "awaiting_user")
-            db.update_job_expiry(translate_job_uuid, 168)
             logger.info("Created translate job {} for EN upload ({})", translate_job_uuid, file.filename)
 
         img_dir = tmp / "images"

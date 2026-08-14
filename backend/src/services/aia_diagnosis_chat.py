@@ -105,7 +105,6 @@ MAX_ANSWERS = 8
 # Frueher hing die Feldgroesse am Typ 'gap fill'; den gibt es nicht mehr, und die
 # Loesung selbst sagt es genauso gut.
 SHORT_ANSWER_MAX_CHARS = 40
-CORRECT_OPTION_POSITIONS = ["a", "b", "c", "d"]
 # History caps. The client keeps the transcript and posts it back each turn, so
 # these bound how big a single request may grow.
 MAX_HISTORY_MESSAGES = 40
@@ -265,16 +264,6 @@ def _parse_step(item) -> dict | None:
         if answers:
             step["answers"] = answers
     return step
-
-
-def has_answer_key(step: dict) -> bool:
-    """True, wenn diese Zeile im Code bewertet wird statt von der KI.
-
-    Der Loesungsschluessel entscheidet, nicht die Aufgabenart: eine Auswahl hat
-    ihre Optionen, ein Freitext hat eine Loesung ODER er hat keine. Genau das ist
-    der Schalter, den die Verwaltung in der Karte umlegt.
-    """
-    return bool(step.get("options") if step.get("type") == CHOICE_TYPE else step.get("answers"))
 
 
 def step_is_complete(step: dict) -> bool:

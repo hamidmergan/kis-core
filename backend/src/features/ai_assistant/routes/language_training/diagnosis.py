@@ -12,7 +12,6 @@ so a single request cannot grow without bound.
 DELETE .../me clears the level so the user can take the diagnosis again.
 """
 
-import asyncio
 from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException

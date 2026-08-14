@@ -29,9 +29,9 @@ class OcrFailedError(RuntimeError):
 
 
 # Per-page OCR retry budget. Transient upstream errors (rate limits, timeouts,
-# 5xx) are retried with exponential backoff before the page - and the whole
-# source - is failed loudly. Kept small: the OCR endpoint is shared, so a long
-# per-page retry storm would only deepen the contention it is reacting to.
+# 5xx) are retried with exponential backoff before the page is given up on and
+# booked as open. Kept small: the OCR endpoint is shared, so a long per-page
+# retry storm would only deepen the contention it is reacting to.
 OCR_MAX_ATTEMPTS = 5
 
 _TRANSIENT_OCR_MARKERS = (
@@ -56,8 +56,8 @@ def _ocr_image_with_retry(provider, png_bytes, page_number, *, attempts=OCR_MAX_
     """OCR one page image, retrying transient failures with exponential backoff.
 
     Non-transient errors fail fast (retrying a deterministic error is pointless).
-    Either way, exhausting the budget raises ``OcrFailedError`` so nothing is
-    silently lost from the index. ``sleep`` is injectable for tests.
+    Either way, exhausting the budget raises ``OcrFailedError``, which ``_OcrRun``
+    turns into an open page in its report. ``sleep`` is injectable for tests.
     """
     last_exc: Exception | None = None
     for attempt in range(attempts):
@@ -220,9 +220,6 @@ def _split_text(text: str, chunk_size: int, overlap: int) -> list[str]:
 # own; thinner ones travel with their neighbour. Sits above the 100-char floor the
 # citation attribution applies, so a group that survives here can also be cited.
 SLIDE_GROUP_MIN_CHARS = 120
-
-
-ProgressCallback = "Callable[[str, int | None, int | None], None] | None"
 
 
 def extract_chunks(
@@ -413,10 +410,10 @@ def _extract_pdf(
                 provider = None
             ocr_run = _OcrRun(provider)
 
-        # ocr_wanted = page is image-heavy enough to be an OCR candidate;
-        # ocr_tried = it was AND OCR is enabled/available and the run has not
-        # given up. Logging only the heuristic before made a disabled toggle
-        # look like OCR had run.
+        # ocr_tried = the page is an OCR candidate AND OCR is enabled/available
+        # and the run has not given up. The log below reports ocr_ran from
+        # ocr_merged, i.e. text really came back: logging only the heuristic
+        # made a disabled toggle look like OCR had run.
         ocr_tried = should_ocr and ocr_run.wants(page_num + 1)
         ocr_merged = False
 

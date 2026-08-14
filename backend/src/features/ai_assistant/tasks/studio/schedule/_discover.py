@@ -226,8 +226,9 @@ def _discover_batch(client, model, batch: list[tuple[int, str]]) -> dict[int, di
 def _discover_in_blocks(client, model, blocks: list[tuple[int, str]]) -> dict[int, dict]:
     """Bloecke durchsuchen lassen.
 
-    Gibt je Block {"tbd": woertliche Stelle oder None, "dates": [Datumsfunde]} zurueck.
-    Bloecke ohne Fund fehlen im Ergebnis.
+    Gibt je durchsuchtem Block {"tbd": woertliche Stelle oder None, "dates":
+    [Datumsfunde]} zurueck, auch wenn nichts gefunden wurde. Nur die zu kurzen und die
+    hinter der Anfragengrenze fehlen im Ergebnis, sie hat niemand angesehen.
 
     Ein Fehler bleibt folgenlos fuer den Rest des Auftrags, der Zeitplan entsteht auch
     ohne diese Suche. Beim ersten Fehlschlag wird abgebrochen statt weiter angefragt,

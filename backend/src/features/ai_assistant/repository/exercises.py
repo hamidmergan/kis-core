@@ -1,21 +1,13 @@
 import json
 import os
-from contextlib import contextmanager
-from datetime import datetime, timedelta, timezone
-from typing import Optional
 from zoneinfo import ZoneInfo
 
-import psycopg2
-import psycopg2.extras
-import psycopg2.pool
 from psycopg2.extras import RealDictCursor
 
-from src.limits import MAX_RESULT_FILES, JOB_RETENTION_HOURS
 
 _TZ_BERLIN = ZoneInfo("Europe/Berlin")
 _REDIS_URL = os.environ.get("REDIS_URL", "redis://kis-redis:6379/0")
 from src.core.db.pool import get_connection
-from src.core.db._common import _notify_job_update, _de_date_to_utc
 
 
 def create_exercise_set(

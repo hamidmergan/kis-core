@@ -23,7 +23,6 @@ import asyncio
 from typing import Optional
 
 from src import database as db
-from src.services import feature_router
 from src.services.feature_router import FeatureBinding, FeatureNotConfigured
 from src.services.protocols import make_adapter
 

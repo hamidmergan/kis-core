@@ -3,7 +3,7 @@ import { Book, CaretDown, CaretUp, ClockCounterClockwise, DotsThreeVertical, Fil
 import { useTranslations } from "next-intl";
 import Spinner from "@/components/ui/Spinner";
 import { EmptyState } from "@/components/ui/EmptyState";
-import type { GlossaryEntry, StudentStats } from "../../_types";
+import type { GlossaryEntry } from "../../_types";
 import { _chunkLabel, _getChipIcon } from "../../_utils";
 import { SubviewHeader, type BreadcrumbItem } from "../layout/SubviewHeader";
 
@@ -44,14 +44,13 @@ export function GlossaryMenu({ onDeleteAll }: { onDeleteAll?: () => void }) {
 }
 
 export function GlossaryView({
-  entries, extracting, onBack, onOpenSource, onDelete, onDeleteAll, stats, breadcrumbs, showTranslation, feedback, onDismissFeedback,
+  entries, extracting, onBack, onOpenSource, onDelete, onDeleteAll, breadcrumbs, showTranslation, feedback, onDismissFeedback,
 }: {
   entries: GlossaryEntry[]; extracting?: boolean;
   onBack?: () => void;
   onOpenSource?: (filename: string | undefined, page: number, highlightText?: string, startTime?: number | null) => void;
   onDelete?: (id: number) => void;
   onDeleteAll?: () => void;
-  stats?: StudentStats | null;
   breadcrumbs?: BreadcrumbItem[];
   showTranslation?: boolean;
   feedback?: { kind: "success" | "info" | "error"; message: string } | null;

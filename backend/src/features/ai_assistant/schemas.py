@@ -28,12 +28,6 @@ class StaffNoteLink(BaseModel):
             raise ValueError("label must not be empty")
         return v
 
-class CreateWorkspaceForm(BaseModel):
-    title: str = Field(..., max_length=100)
-    description: Optional[str] = Field(None, max_length=300)
-    expires_at: Optional[str] = None  # ISO datetime string
-
-
 class PatchWorkspaceBody(BaseModel):
     title: Optional[str] = Field(None, max_length=100)
     description: Optional[str] = Field(None, max_length=300)
@@ -114,9 +108,6 @@ class ArtifactTitleBody(BaseModel):
 
 
 # ─── Lecturer endpoints ───────────────────────────────────────────────────────
-
-class ExerciseGenerateBody(BaseModel):
-    active_source_ids: list[str]
 
 class GlossaryExtractBody(BaseModel):
     text: str

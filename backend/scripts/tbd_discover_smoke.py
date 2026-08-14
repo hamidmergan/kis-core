@@ -11,7 +11,7 @@ docker exec -i -w /app kis-backend python - < backend/scripts/tbd_discover_smoke
 
 from src.features.ai_assistant.tasks._helpers import _get_llm_client
 from src.features.ai_assistant.tasks.studio.schedule._discover import (
-    _discover_tbd_phrases,
+    _discover_in_blocks,
     _locate,
 )
 
@@ -41,11 +41,12 @@ def main():
     client, model, provider = _get_llm_client()
     print(f"Anbieter: {provider}, Modell: {model}\n")
     blocks = [(i, text) for i, (text, _soll) in enumerate(BLOCKS)]
-    found = _discover_tbd_phrases(client, model, blocks)
+    found = _discover_in_blocks(client, model, blocks)
 
     fehler = 0
     for i, (text, soll) in enumerate(BLOCKS):
-        phrase = found.get(i)
+        # Hier zaehlt nur die offene Stelle, die Datumsfunde desselben Aufrufs nicht.
+        phrase = (found.get(i) or {}).get("tbd")
         if phrase is not None and _locate(text, phrase) is None:
             phrase = None  # nicht im Text, wird verworfen
         ok = (phrase is not None) == soll

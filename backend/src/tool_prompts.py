@@ -4,41 +4,6 @@ from src.i18n import DEFAULT_LOCALE, TRANSCRIPT_LANGUAGES
 
 # -- Screencast batch mode ----------------------------------------------------
 
-# Static preview shown in the admin panel. The runtime prompt is built
-# dynamically in OpenAICompatLLMClient._generate_scripts_single_batch() and includes
-# variable batch size, language, char limits, greeting/closing rules, etc.
-SCRIPT_BATCH_PREVIEW = (
-    "You are an expert at creating spoken narration scripts for presentation slides.\n"
-    "Generate a spoken script for EACH of the {N} slides below (slides {X} to {Y} of {Z} total).\n"
-    "The input is raw extracted text and visual descriptions in {SOURCE_LANG}. Output MUST be in {TARGET_LANG}.\n"
-    "Follow these rules strictly:\n"
-    "Rule 1: The input is unstructured text fragments and image descriptions. Connect them into flowing continuous text suitable for Text To Speech.\n"
-    "Rule 2: Do not add any new information and do not hallucinate.\n"
-    "Rule 3: Keep all facts, numbers, names and dates exactly as they are.\n"
-    "Rule 4: Remove citations, footnotes and formatting artifacts.\n"
-    "Rule 5: Do not use semicolons or any type of dash. Use only periods, commas and question marks.\n"
-    "Rule 6: Address the audience directly maintaining a professional and formal tone suitable for higher education in the target language.\n"
-    "Rule 7: Maintain a natural conversational tone like an engaging university lecturer speaking.\n"
-    "Rule 8: Use transition words to make the text flow naturally for listening.\n"
-    "Rule 9: Only use a greeting on slide 1 if the content clearly indicates a title slide.\n"
-    "Rule 10: Never use greetings on any other slide.\n"
-    "Rule 11: Keep each script between 1500 and 2000 characters.\n"
-    "Rule 12: For empty slides output nothing and just write the ||| delimiter.\n"
-    "Rule 13: Do not add closing statements like 'thank you' or 'that concludes' on any slide.\n"
-    "\n"
-    "Separate the {N} scripts using the delimiter ||| on its own line.\n"
-    "No other text before, between or after.\n"
-    "Example for 3 slides:\n"
-    "Script text for slide one.\n"
-    "|||\n"
-    "Script text for slide two.\n"
-    "|||\n"
-    "Script text for slide three.\n"
-    "\n"
-    "Variables {N}, {X}, {Y}, {Z}, {SOURCE_LANG} and {TARGET_LANG} are replaced at runtime."
-)
-
-
 # -- Summary tool -------------------------------------------------------------
 
 # {language} is filled at runtime with the language detected by SUMMARY_LANGUAGE_PROBE,
@@ -417,11 +382,6 @@ def aia_summary_combine_user(partials: list[str]) -> str:
     )
 
 
-# Backward-compat constant for callers that don't have locale context (admin
-# registries, language_training source cards). Defaults to DE behavior.
-AIA_SYSTEM_RAG = aia_system_rag("de")
-
-
 # -- AI tutor: note title -----------------------------------------------------
 # Generates a short, concise title for a note saved by the user.
 AIA_NOTE_TITLE = (
@@ -503,46 +463,6 @@ AIA_INTENT_CLASSIFIER_FEWSHOT: list[dict] = [
     {"role": "user", "content": "explain neural networks"},
     {"role": "assistant", "content": "SPECIFIC"},
 ]
-
-# Scope extractor (Self-Query Retrieval): turns ANY phrasing of an explicit page
-# or time reference into a structured scope, so retrieval no longer depends on a
-# hand-written regex. Runs in parallel with the intent classifier (one extra pre-
-# call, ~0 added latency). Language-agnostic by design — the model understands the
-# request in any language and ignores typos / glued tokens.
-AIA_SCOPE_EXTRACTOR_SYSTEM = (
-    "You extract an explicit PAGE or TIME scope from a question a user asks about "
-    "their documents. Output ONLY a compact JSON object and nothing else:\n"
-    '{"unit":"page"|"time"|"unknown"|null,"intervals":[[from,to]]}\n'
-    "\n"
-    "Rules:\n"
-    "- unit \"page\": the question explicitly refers to PAGES (Seite, page, S., p., "
-    "página, sayfa, pagina, ...).\n"
-    "- unit \"time\": the question explicitly refers to a TIME in audio/video "
-    "(Minute, min, timestamp, 'ab Minute', 'at minute', ...). Numbers are MINUTES.\n"
-    "- unit \"unknown\": numbers are given but no page/time word at all "
-    "(e.g. 'alles zwischen 12 und 13'). Still fill intervals.\n"
-    "- unit null with intervals []: the question names no page or time.\n"
-    "- intervals: a list of [from,to] inclusive. A single point is [x,x]. An OPEN "
-    "end ('ab Seite 10', 'from minute 10 onwards') is [x,null].\n"
-    "- A CONTINUOUS range ('zwischen 12 und 13', '12 bis 14', 'pages 12-14', "
-    "'between 10 and 12') is ONE interval, e.g. [12,13] / [12,14] / [10,12].\n"
-    "- SEPARATE items ('Seite 5 und 10', 'page 5 and 9') are several points: "
-    "[[5,5],[10,10]].\n"
-    "- Understand ANY language and ANY phrasing; ignore typos and glued tokens "
-    "('-bis', 'Seite12'). NEVER invent numbers that are not in the question.\n"
-    "\n"
-    "Examples (Input -> Output):\n"
-    'fasse Seite 12 zusammen -> {"unit":"page","intervals":[[12,12]]}\n'
-    'fasse Seite 12 bis 14 zusammen -> {"unit":"page","intervals":[[12,14]]}\n'
-    'alles zwischen 12 und 13 -> {"unit":"unknown","intervals":[[12,13]]}\n'
-    'ab Seite 10 -> {"unit":"page","intervals":[[10,null]]}\n'
-    'Seite 5 und 10 -> {"unit":"page","intervals":[[5,5],[10,10]]}\n'
-    'was wird bei Minute 10 erzählt -> {"unit":"time","intervals":[[10,10]]}\n'
-    'fasse alles ab 10 min zusammen -> {"unit":"time","intervals":[[10,null]]}\n'
-    'zwischen 10 und 12 minuten -> {"unit":"time","intervals":[[10,12]]}\n'
-    'was ist ein neuronales Netz -> {"unit":null,"intervals":[]}\n'
-    'fasse zusammen -> {"unit":null,"intervals":[]}\n'
-)
 
 # Combined query-understanding pre-call: does BOTH routing (GENERIC vs SPECIFIC)
 # AND page/time scope extraction in ONE round-trip, replacing the two separate
@@ -1124,84 +1044,6 @@ AIA_SCHEDULE_HARMONIZE_PROMPT = (
     "Respond ONLY with a JSON object:\n"
     '{ "groups": [ { "ids": ["c0", "e42", ...], "canonical_title": "..." }, ... ] }\n\n'
     "Every input id must appear in exactly ONE group. Plain double quotes only, no markdown."
-)
-
-
-AIA_SCHEDULE_SUMMARY_PROMPT = (
-    "You read a source (PDF or video transcript) and extract EXHAUSTIVELY every deadline "
-    "and scheduled event that has a concrete date. Do NOT pre-select or filter on your own.\n\n"
-    "The source contains position markers:\n"
-    "- '[S. 3]' before PDF chunks = page number\n"
-    "- '[T 00:05:32]' before media chunks = timestamp (h:mm:ss)\n\n"
-    "TASK: List WITHOUT GAPS every deadline/event that appears in the text with a concrete "
-    "date INCLUDING YEAR. Include past events. Include web conferences, lectures, meetings, "
-    "office hours, in-person sessions - ANYTHING with a date.\n\n"
-    "ESPECIALLY IMPORTANT for tables / schedule tables:\n"
-    "- One table row = ONE entry. Read ALL rows.\n"
-    "- The activity/content and the date/time are often in separate columns. "
-    "Merge them per row.\n"
-    "- Times ('17:30 Uhr', '10:00-14:30 Uhr', '5:30 pm') MUST be included, even when they "
-    "appear in a separate column.\n\n"
-    "Output format per entry: ONE line with:\n"
-    "- Kind (Deadline/Exam/WebConference/Meeting/OfficeHour/OnlineSession/...)\n"
-    "- full date (DD.MM.YYYY or YYYY-MM-DD)\n"
-    "- time if present in the text (HH:MM)\n"
-    "- position [S. X] or [T HH:MM:SS]\n"
-    "- original quote (unchanged; MUST contain the date and any time from the text)\n\n"
-    "YEAR RULE: Only extract entries whose year is EXPLICITLY present in the quote as a "
-    "4-digit number. Never guess or infer a year from context. If the year is missing, "
-    "skip the entry.\n\n"
-    "DO NOT EXTRACT:\n"
-    "- Relative time references ('20 days left', 'in 3 weeks', 'next week')\n"
-    "- Document metadata ('last modified', 'as of', 'version of', copyright years)\n"
-    "- Recurring events without a single concrete date ('every Tuesday')\n"
-    "- Dates that are slide/page footers or document metadata. Signals: the date sits next "
-    "to the slide/document title, author name, page number, contact info, email address, "
-    "or words like 'Folie', 'Seite', 'Slide', 'Mentor', 'Tutor', 'Kontakt' - it is NOT an "
-    "event but the presentation/slide date. A real event entry needs a verb or preposition "
-    "of scheduling ('am X findet', 'bis X abgeben', 'deadline on X', 'submission by X').\n\n"
-    "If NOTHING relevant is found: reply with exactly 'NONE'.\n"
-    "Otherwise: all entries, one entry per line, no intro, no markdown formatting "
-    "(no *, no German-style „..."  " quotes). The source language is preserved inside the "
-    "original quote; the rest of each line can be in English or the source language - "
-    "whichever makes the date/time/kind clearest."
-)
-
-
-AIA_SCHEDULE_PROMPT = (
-    "You convert an already-extracted list of deadlines/events into structured JSON.\n\n"
-    "Input: free-text lines. Each line is one entry with kind, date, time, position "
-    "([S. X] or [T HH:MM:SS]) and an original quote.\n\n"
-    "Reply ONLY with a JSON array in exactly this format:\n"
-    "[\n"
-    "  {\n"
-    '    "type": "deadline" | "termin",\n'
-    '    "title": "Short title",\n'
-    '    "description": "Additional details or null",\n'
-    '    "due_date": "YYYY-MM-DD",\n'
-    '    "due_time": "HH:MM" or null,\n'
-    '    "is_optional": true or false,\n'
-    '    "raw_quote": "Verbatim original quote from the input",\n'
-    '    "page_number": page number (int) from [S. X], or null,\n'
-    '    "start_time_seconds": seconds (int) parsed from [T HH:MM:SS], or null\n'
-    "  }\n"
-    "]\n\n"
-    "REQUIRED rules:\n"
-    "- Every entry MUST have page_number OR start_time_seconds.\n"
-    "- due_date is REQUIRED and must be concretely named in the quote.\n"
-    "- type='deadline': submission/hand-in/filing-deadline tied to a date.\n"
-    "- type='termin': event that takes place on the date (exam, meeting, guest lecture).\n"
-    "- is_optional=true only when the text explicitly says 'freiwillig', 'optional', "
-    "'voluntary', 'by choice'.\n"
-    "- raw_quote: verbatim from the input.\n"
-    "- Title max 80 chars. For submissions use format 'Abgabe <Code>: <Topic>'. "
-    "For events use format '<Kind>: <Topic>'. Titles should be in the source language "
-    "(German input → German title).\n"
-    "- If input is 'NONE' or empty: reply with []\n"
-    "- NO text before or after the JSON array, no markdown fences.\n"
-    "- JSON strings MUST use plain \" only. NEVER put markdown inside string values "
-    "(no *, no German „...\" quotes, no emphasis). Convert any German quotes from the "
-    "source into plain \"."
 )
 
 

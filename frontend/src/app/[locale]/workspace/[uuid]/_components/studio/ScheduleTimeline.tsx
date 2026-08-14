@@ -23,10 +23,9 @@ export function ScheduleTimeline({
   onDelete: (id: number) => void;
   onPillClick?: (sourceUuid: string, page: number, filename: string, sourceText?: string, startTime?: number, isExact?: boolean) => void;
 }) {
-  const renderCard = (entry: ScheduleEntry, ctx: { isToday: boolean; isPast: boolean; urgency: string | null }) => (
+  const renderCard = (entry: ScheduleEntry, ctx: { isPast: boolean; urgency: string | null }) => (
     <ScheduleEntryCard
       entry={entry}
-      isToday={ctx.isToday}
       isPast={ctx.isPast}
       urgency={ctx.urgency}
       editMode={editMode}
@@ -42,7 +41,6 @@ export function ScheduleTimeline({
   const renderTbdCard = (entry: ScheduleEntry) => (
     <ScheduleEntryCard
       entry={entry}
-      isToday={false}
       isPast={false}
       urgency={null}
       editMode={editMode}

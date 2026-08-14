@@ -137,7 +137,6 @@ export default function UpcomingDeadlinesWidget() {
               renderCard={(entry, ctx) => (
                 <ScheduleEntryCardGlobal
                   entry={entry}
-                  isToday={ctx.isToday}
                   isPast={ctx.isPast}
                   urgency={ctx.urgency}
                   href={`/workspace/${entry.workspace_uuid}?tab=schedule`}

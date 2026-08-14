@@ -8,19 +8,19 @@ so they fall back to a UTF-8 decode probe of the first 8 KiB.
 
 import filetype
 
-from src.limits import (
-    MAX_UPLOAD_BYTES,
-    TRANSLATE_MAX_UPLOAD_BYTES,
-    MAX_TRANSCRIPTION_BYTES,
-    MAX_IMAGE_BYTES,
-    MAX_OUTPUT_VIDEO_BYTES,
-    TTS_MAX_CHARS,
-    TRANSLATE_MAX_CHARS,
-    SCRIPT_MAX_CHARS,
-    SUMMARY_MAX_CHARS,
-    SCREENCAST_MAX_CHARS,
+# Hier ungenutzt, aber acht Routen holen sich diese Grenzen von hier statt aus
+# src.limits. Die Zeile sieht deshalb wie ein toter Import aus und ist keiner.
+from src.limits import (  # noqa: F401
     MAX_SCREENCAST_SLIDES,
+    MAX_TRANSCRIPTION_BYTES,
+    MAX_UPLOAD_BYTES,
+    SCREENCAST_MAX_CHARS,
+    SUMMARY_MAX_CHARS,
+    TRANSLATE_MAX_CHARS,
+    TRANSLATE_MAX_UPLOAD_BYTES,
+    TTS_MAX_CHARS,
 )
+
 
 ALLOWED_EXTENSIONS = {
     ".docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
@@ -50,11 +50,6 @@ TRANSCRIPTION_EXTENSIONS = {
     ".mpga": "audio/mpeg",
 }
 
-
-SUBTITLE_EXTENSIONS = {
-    ".srt": "application/x-subrip",
-    ".vtt": "text/vtt",
-}
 
 SCREENCAST_EXTENSIONS = {
     ".pptx": "application/vnd.openxmlformats-officedocument.presentationml.presentation",

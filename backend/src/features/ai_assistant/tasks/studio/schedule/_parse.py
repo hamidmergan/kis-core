@@ -40,13 +40,6 @@ def _parse_time(s: Optional[str]) -> Optional[time]:
         return None
 
 
-def _fmt_hms(seconds: Optional[float]) -> Optional[str]:
-    if seconds is None:
-        return None
-    s = int(seconds)
-    return f"{s // 3600:02d}:{(s % 3600) // 60:02d}:{s % 60:02d}"
-
-
 def _normalize_date(raw: str) -> Optional[str]:
     """Convert a matched year-FULL date string to ISO 'YYYY-MM-DD'. Returns None on failure."""
     s = raw.strip().replace(" ", " ")

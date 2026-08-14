@@ -4,7 +4,7 @@ import { useLocale, useTranslations } from "next-intl";
 import Spinner from "@/components/ui/Spinner";
 import IconButton from "@/components/ui/IconButton";
 import { useVoicePlayer } from "@/hooks/useVoicePlayer";
-import type { ExerciseItem, ExerciseItemSource, ExerciseSet, Source } from "../../_types";
+import type { ExerciseItem, ExerciseItemSource, ExerciseSet } from "../../_types";
 import { _chunkLabel, _getChipIcon, _md, _sourceChipKey } from "../../_utils";
 import { MinimizeContext } from "../../_context";
 import { _getToolBadge, type BreadcrumbItem } from "../layout/SubviewHeader";
@@ -63,7 +63,7 @@ export function FlashcardsLearnView({
   const [index, setIndex] = useState(0);
   const [flipped, setFlipped] = useState(false);
   const [results, setResults] = useState<Record<number, boolean>>({});
-  const [streak, setStreak] = useState(0);
+  const [, setStreak] = useState(0);
   const [showResults, setShowResults] = useState(false);
   const [showPendingPrompt, setShowPendingPrompt] = useState(false);
   // Ein Aufbau der Ansicht ist ein Durchgang. Die erste Antwort meldet ihn an,
@@ -152,7 +152,7 @@ export function FlashcardsLearnView({
           style={{ backgroundColor: "var(--surface-dim)" }}>
           <CaretLeft size={13} />
         </button>
-        {breadcrumbs && breadcrumbs.length > 0 ? (<div className="flex items-center gap-1 text-xs min-w-0 flex-1">{breadcrumbs.map((b, i) => { const bBadge = _getToolBadge(b.toolKey, isVocab ? "language_training" : "learning_tools"); return (<React.Fragment key={i}>{bBadge ? (<button type="button" onClick={b.onClick} className="font-medium shrink-0 px-1.5 py-0.5 rounded opacity-60 hover:opacity-100 transition-opacity" style={{ backgroundColor: bBadge.bg, color: bBadge.color }}>{b.label}</button>) : (<button type="button" onClick={b.onClick} className="font-medium shrink-0 opacity-60 hover:opacity-100 transition-opacity" style={{ color: "var(--muted)" }}>{b.label}</button>)}<CaretRight size={9} weight="bold" style={{ opacity: 0.5 }} className="shrink-0" /></React.Fragment>); })}<span className="font-semibold truncate" style={{ color: "var(--foreground)" }}>{exerciseSet.title.replace(/^(Lernkarten|Grammatik-Übung|Quiz)\s*(aus|von)\s*/i, "")}</span></div>) : (<span className="text-xs font-semibold flex-1 truncate" style={{ color: "var(--foreground)" }}>{exerciseSet.title.replace(/^(Lernkarten|Grammatik-Übung|Quiz)\s*(aus|von)\s*/i, "")}</span>)}
+        {breadcrumbs && breadcrumbs.length > 0 ? (<div className="flex items-center gap-1 text-xs min-w-0 flex-1">{breadcrumbs.map((b, i) => { const bBadge = _getToolBadge(b.toolKey, isVocab ? "language_training" : "learning_tools"); return (<React.Fragment key={i}>{bBadge ? (<button type="button" onClick={b.onClick} className="font-medium shrink-0 px-1.5 py-0.5 rounded opacity-60 hover:opacity-100 transition-opacity" style={{ color: bBadge.color }}>{b.label}</button>) : (<button type="button" onClick={b.onClick} className="font-medium shrink-0 opacity-60 hover:opacity-100 transition-opacity" style={{ color: "var(--muted)" }}>{b.label}</button>)}<CaretRight size={9} weight="bold" style={{ opacity: 0.5 }} className="shrink-0" /></React.Fragment>); })}<span className="font-semibold truncate" style={{ color: "var(--foreground)" }}>{exerciseSet.title.replace(/^(Lernkarten|Grammatik-Übung|Quiz)\s*(aus|von)\s*/i, "")}</span></div>) : (<span className="text-xs font-semibold flex-1 truncate" style={{ color: "var(--foreground)" }}>{exerciseSet.title.replace(/^(Lernkarten|Grammatik-Übung|Quiz)\s*(aus|von)\s*/i, "")}</span>)}
         {minimize && (
           <button type="button" onClick={minimize}
             className="w-7 h-7 flex items-center justify-center rounded-full btn-icon"

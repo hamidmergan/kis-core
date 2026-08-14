@@ -242,7 +242,7 @@ def _build_candidates_for_source(src: dict, client=None, model=None) -> list[dic
         # TBD candidates ("nach Vereinbarung" etc.): no date, but a real event
         # whose scheduling is still open. One TBD candidate per chunk, even if the
         # chunk names several. Found by phrase list or, in any other language, by
-        # the model (_tbd_spans_by_chunk).
+        # the model (_model_finds_by_chunk).
         span = tbd_spans.get(chunk_idx)
         if span:
             s, e, phrase = span

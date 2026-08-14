@@ -85,7 +85,7 @@ function ScreencastPageInner() {
   const [translationProviders, setTranslationProviders] = useState<{ id: number; name: string }[]>([]);
   const [translationProviderId, setTranslationProviderId] = useState<number | null>(null);
   const renderResult = useRenderResult();
-  const { downloadBlob, videoUrl, audioId, audioCount, resultStem, apply: applyRenderResult, clear: clearRenderResult } = renderResult;
+  const { downloadBlob, videoUrl, audioId, resultStem, clear: clearRenderResult } = renderResult;
 
   const autosaveScripts = useScriptAutosave({ jobUuid: translateJobUuid });
   const {

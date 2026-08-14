@@ -1,16 +1,8 @@
-import json
 import os
-from contextlib import contextmanager
-from datetime import datetime, timedelta, timezone
-from typing import Optional
 from zoneinfo import ZoneInfo
 
-import psycopg2
-import psycopg2.extras
-import psycopg2.pool
 from psycopg2.extras import RealDictCursor
 
-from src.limits import MAX_RESULT_FILES, JOB_RETENTION_HOURS
 
 _TZ_BERLIN = ZoneInfo("Europe/Berlin")
 _REDIS_URL = os.environ.get("REDIS_URL", "redis://kis-redis:6379/0")
@@ -95,7 +87,7 @@ def get_student_stats(workspace_id: int, user_id: int) -> dict:
             # (by_tool removed - not displayed anymore)
 
             # ── Heatmap: activity per day per category (last 6 months, Berlin tz) ──
-            from datetime import date, timedelta, datetime
+            from datetime import timedelta, datetime
             today = datetime.now(tz).date()
 
             def _build_heatmap(category_filter: str | None) -> list[dict]:

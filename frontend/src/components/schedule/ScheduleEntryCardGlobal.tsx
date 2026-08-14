@@ -21,7 +21,6 @@ export interface ScheduleListEntry {
 
 interface ScheduleEntryCardGlobalProps {
   entry: ScheduleListEntry;
-  isToday: boolean;
   isPast: boolean;
   urgency: string | null;
   href: string;

@@ -1,17 +1,13 @@
-import json
 import os
 from contextlib import contextmanager
-from datetime import datetime, timedelta, timezone
-from typing import Optional
 from zoneinfo import ZoneInfo
 
 import psycopg2
 import psycopg2.extras
 import psycopg2.pool
 from loguru import logger
-from psycopg2.extras import RealDictCursor
 
-from src.limits import MAX_RESULT_FILES, JOB_RETENTION_HOURS, DB_POOL_MAX_CONNECTIONS
+from src.limits import DB_POOL_MAX_CONNECTIONS
 
 _TZ_BERLIN = ZoneInfo("Europe/Berlin")
 _REDIS_URL = os.environ.get("REDIS_URL", "redis://kis-redis:6379/0")

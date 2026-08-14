@@ -2,7 +2,6 @@
 
 import base64
 import json
-import tempfile
 from pathlib import Path
 
 from loguru import logger
@@ -101,7 +100,6 @@ def run_translate(
         content = get_file(input_path)
         ext = Path(filename).suffix.lower()
 
-        from src.services.glossary import GlossaryService
 
         glossary_entries: dict = {}
         if glossary_json:

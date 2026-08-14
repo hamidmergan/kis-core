@@ -154,7 +154,7 @@
     "submit": "Sign in",
     "submitting": "Signing in...",
     "invalidCredentials": "Invalid credentials. Please check username and password.",
-    "maintenanceBanner": "Maintenance in progress. Please try again later."
+    "maintenanceBanner": "The platform is being updated. Please try again in a few minutes."
   },
   "toolsSidebar": {
     "heading": "Tools",
@@ -182,8 +182,6 @@
     "fileTooLarge": "File too large (max {n} MB)",
     "onlyExtsAllowed": "Only {exts} allowed",
     "pleaseSelect": "Please select",
-    "expandClick": "Click to expand",
-    "collapseClick": "Click to collapse",
     "uploadingFile": "Uploading file…",
     "fileSelectAria": "Select file to upload",
     "audioVideoSelectAria": "Select audio or video file to transcribe",

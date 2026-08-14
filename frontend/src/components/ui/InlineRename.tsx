@@ -15,12 +15,11 @@ import { renameCommit, renameErrorText } from "./renameCommit";
  * Name haelt das Feld offen, damit er gleich zu bessern ist.
  */
 export function InlineRename({
-  value, onSave, onCancel, placeholder, errorText,
+  value, onSave, onCancel, errorText,
 }: {
   value: string;
   onSave: (next: string) => Promise<void>;
   onCancel: () => void;
-  placeholder?: string;
   errorText: string;
 }) {
   const [entwurf, setEntwurf] = useState(value);
@@ -62,7 +61,6 @@ export function InlineRename({
         value={entwurf}
         disabled={laeuft}
         autoFocus
-        placeholder={placeholder}
         onChange={(e) => { setEntwurf(e.target.value); setFehler(null); }}
         onBlur={() => { void speichern(); }}
         onKeyDown={(e) => {

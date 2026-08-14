@@ -2,7 +2,6 @@ import re
 from typing import List
 
 from src.services.translation import TranslationService
-from src.utils.text import translate_text_preserve_linebreaks
 
 LATEX_MATH_ENVIRONMENTS = {
     "equation", "equation*", "align", "align*", "gather", "gather*",

@@ -6,7 +6,7 @@ definition. Feature routing happens in a separate table (``feature_routes``).
 """
 
 import json
-from datetime import datetime, timezone
+from datetime import datetime
 from typing import Any, Optional
 
 import psycopg2.extras

@@ -12,7 +12,6 @@ export interface DatedEntry {
 }
 
 interface CardContext {
-  isToday: boolean;
   isPast: boolean;
   urgency: string | null;
 }
@@ -162,7 +161,7 @@ export function ScheduleTimeline<T extends DatedEntry>({
                 )}
               </div>
 
-              {renderCard(entry, { isToday: today_, isPast: past_, urgency })}
+              {renderCard(entry, { isPast: past_, urgency })}
             </div>
           );
         })}

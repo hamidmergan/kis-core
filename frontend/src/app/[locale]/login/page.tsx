@@ -81,12 +81,6 @@ export default function LoginPage() {
         <div className="bg-background rounded-xl shadow-sm border border-border-soft p-8">
           <h2 className="text-lg font-semibold mb-4">{t("title")}</h2>
 
-          {maintenanceOn && (
-            <p className="mb-4 text-xs text-warn bg-warn-bg border border-warn-border rounded-md px-3 py-2">
-              {t("maintenanceBanner")}
-            </p>
-          )}
-
           <form onSubmit={handleSubmit} aria-label={t("formAria")} className="space-y-4">
             <div>
               <label htmlFor="username" className="block text-sm font-medium text-foreground-soft mb-1">

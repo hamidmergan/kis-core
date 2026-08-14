@@ -1,16 +1,12 @@
 import json
 import os
-from contextlib import contextmanager
-from datetime import datetime, timedelta, timezone
-from typing import Optional
+from datetime import datetime
 from zoneinfo import ZoneInfo
 
 import psycopg2
 import psycopg2.extras
 import psycopg2.pool
-from psycopg2.extras import RealDictCursor
 
-from src.limits import MAX_RESULT_FILES, JOB_RETENTION_HOURS
 
 _TZ_BERLIN = ZoneInfo("Europe/Berlin")
 _REDIS_URL = os.environ.get("REDIS_URL", "redis://kis-redis:6379/0")
@@ -81,8 +77,10 @@ def get_workspace_ids_with_tutors() -> set[int]:
 def get_aia_workspaces_for_member(user_id: int) -> list[dict]:
     """Workspaces the user joined via a link, with the role that link gave them.
 
-    Deactivating a workspace hides it from students, but never from tutors:
-    they manage it, so they need it even while it is switched off.
+    A deactivated workspace stays in the list. It used to drop out silently,
+    which left the learner with a course that vanished overnight and no word
+    why. It comes along with its ``is_active`` flag instead, so the row can say
+    it is closed, and opening it is refused by the access check.
     """
     with get_connection() as conn:
         with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
@@ -94,7 +92,6 @@ def get_aia_workspaces_for_member(user_id: int) -> list[dict]:
                    JOIN aia_enrollments e ON e.workspace_id = m.id
                    LEFT JOIN aia_access_links al ON al.id = e.link_id
                    WHERE e.user_id = %s
-                     AND (e.role = 'tutor' OR m.is_active = TRUE)
                    ORDER BY e.created_at DESC""",
                 (user_id,),
             )

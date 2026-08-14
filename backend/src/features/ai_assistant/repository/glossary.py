@@ -1,4 +1,3 @@
-from typing import Optional
 
 from psycopg2.extras import RealDictCursor
 
@@ -6,25 +5,6 @@ from src.core.db.pool import get_connection
 
 
 # ─── Per-user glossary reads ──────────────────────────────────────────────────
-
-def get_aia_glossary(source_id: int, user_id: int) -> list[dict]:
-    """One user's glossary for a single source, with timing info if available."""
-    with get_connection() as conn:
-        with conn.cursor(cursor_factory=RealDictCursor) as cur:
-            cur.execute(
-                """SELECT g.id, g.term_de, g.term_en, g.base_form, g.definition, g.definition_en,
-                          g.example_sentence, g.example_sentence_en, g.page_number,
-                          MIN(c.start_time) AS start_time
-                   FROM aia_glossary_entries g
-                   LEFT JOIN aia_chunks c
-                     ON c.source_id = g.source_id AND c.page_number = g.page_number
-                   WHERE g.source_id = %s AND g.user_id = %s
-                   GROUP BY g.id
-                   ORDER BY g.term_de""",
-                (source_id, user_id),
-            )
-            return [dict(r) for r in cur.fetchall()]
-
 
 def get_aia_glossary_by_workspace(workspace_id: int, user_id: int) -> list[dict]:
     """One user's glossary across a whole workspace."""
@@ -119,22 +99,6 @@ def bulk_create_glossary_entries(
 
 
 # ─── Delete ───────────────────────────────────────────────────────────────────
-
-def delete_aia_glossary(source_id: int, user_id: Optional[int] = None) -> None:
-    """Delete glossary entries for a source. With `user_id` only that user's
-    entries are removed; with `user_id=None` every user's entries for the source
-    go (used by source-deletion cleanup, also covered by FK cascade)."""
-    with get_connection() as conn:
-        with conn.cursor() as cur:
-            if user_id is None:
-                cur.execute("DELETE FROM aia_glossary_entries WHERE source_id = %s", (source_id,))
-            else:
-                cur.execute(
-                    "DELETE FROM aia_glossary_entries WHERE source_id = %s AND user_id = %s",
-                    (source_id, user_id),
-                )
-        conn.commit()
-
 
 def delete_all_glossary_entries(workspace_id: int, user_id: int) -> int:
     """Delete every glossary entry this user has in the workspace. Returns count."""

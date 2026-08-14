@@ -1,47 +1,10 @@
-"""SRT/VTT Timestamp-Formatierung + Chunk-Merge mit Offset-Shift.
+"""Chunk-Merge mit Offset-Shift für SRT- und VTT-Timestamps.
 
 Wenn Whisper-Transkripte aus mehreren Chunks wieder zusammengeführt werden,
 müssen alle Timestamps um den Offset des jeweiligen Chunks verschoben werden."""
 
 import re
 
-
-# ── Timestamp-Formatierung ────────────────────────────────────────────────────
-
-def seconds_to_srt_timestamp(s: float) -> str:
-    h = int(s // 3600)
-    m = int((s % 3600) // 60)
-    sec = s % 60
-    return f"{h:02d}:{m:02d}:{sec:06.3f}".replace(".", ",")
-
-
-def seconds_to_vtt_timestamp(s: float) -> str:
-    h = int(s // 3600)
-    m = int((s % 3600) // 60)
-    sec = s % 60
-    return f"{h:02d}:{m:02d}:{sec:06.3f}"
-
-
-def verbose_json_to_output(data: dict, response_format: str) -> str:
-    """Whisper verbose_json → SRT/VTT/Plaintext."""
-    if response_format == "srt":
-        parts = []
-        for i, seg in enumerate(data.get("segments", []), 1):
-            start = seconds_to_srt_timestamp(seg["start"])
-            end = seconds_to_srt_timestamp(seg["end"])
-            parts.append(f"{i}\n{start} --> {end}\n{seg['text'].strip()}")
-        return "\n\n".join(parts)
-    if response_format == "vtt":
-        parts = ["WEBVTT"]
-        for seg in data.get("segments", []):
-            start = seconds_to_vtt_timestamp(seg["start"])
-            end = seconds_to_vtt_timestamp(seg["end"])
-            parts.append(f"\n{start} --> {end}\n{seg['text'].strip()}")
-        return "\n".join(parts)
-    return data.get("text", "").strip()
-
-
-# ── Chunk-Merge ────────────────────────────────────────────────────────────────
 
 def _offset_srt_ts(ts: str, offset_sec: float) -> str:
     """Shift an SRT timestamp (HH:MM:SS,mmm) by offset_sec."""

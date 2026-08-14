@@ -1,21 +1,15 @@
 import json
 import os
-from contextlib import contextmanager
-from datetime import datetime, timedelta, timezone
-from typing import Optional
 from zoneinfo import ZoneInfo
 
 import psycopg2
 import psycopg2.extras
 import psycopg2.pool
-from psycopg2.extras import RealDictCursor
 
-from src.limits import MAX_RESULT_FILES, JOB_RETENTION_HOURS
 
 _TZ_BERLIN = ZoneInfo("Europe/Berlin")
 _REDIS_URL = os.environ.get("REDIS_URL", "redis://kis-redis:6379/0")
 from src.core.db.pool import get_connection
-from src.core.db._common import _notify_job_update, _de_date_to_utc
 
 
 def create_aia_source(
@@ -175,15 +169,6 @@ def update_aia_source_ocr_info(uuid: str, ocr_info: dict | None) -> None:
             )
         conn.commit()
 
-
-def update_aia_source_toc(uuid: str, toc: list[dict]) -> None:
-    import json
-    with get_connection() as conn:
-        with conn.cursor() as cur:
-            cur.execute(
-                "UPDATE aia_sources SET toc = %s WHERE uuid = %s",
-                (json.dumps(toc), uuid),
-            )
 
 def update_aia_source_summary(uuid: str, summary: str) -> None:
     """Store the per-source DOC SUMMARY (built at ingest, map-reduce over chunks)."""

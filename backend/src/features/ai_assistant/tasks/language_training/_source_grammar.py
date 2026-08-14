@@ -163,10 +163,6 @@ _MAX_SPAN_WORDS = 4
 # nichts zu suchen hat. Siehe :func:`names_the_form`.
 _MIN_TERM_CHARS = 6
 
-# Satzenden quer über Schriftsysteme. Steht eines direkt vor der Lücke, ist der Satz
-# fertig und die Lücke hängt nur hinten dran.
-_SENTENCE_ENDS = ".!?…。！？۔।"
-
 
 def item_plan(count: int, kinds=None) -> list[str]:
     """Welche Aufgabe welches Format bekommt, reihum über die gewählten Formate.
@@ -520,8 +516,8 @@ def cut_gap(sentence: str, form_span: str) -> str | None:
     span = (form_span or "").strip()
     if not sentence or not span:
         return None
-    # In eine Lücke gehört eine Form, nicht der halbe Satz. Drei Wörter ist die längste
-    # echte Form in diesem Werkzeug ("muss weggelassen werden").
+    # In eine Lücke gehört eine Form, nicht der halbe Satz. Die Wortgrenze steht bei
+    # :data:`_MAX_SPAN_WORDS`, dort steht auch, warum sie nur die äussere Schranke ist.
     if len(span.split()) > _MAX_SPAN_WORDS:
         return None
     # Mehrfach vorhanden heisst nicht eindeutig: ersetzt würden zwei Stellen, und zwei

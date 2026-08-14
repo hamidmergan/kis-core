@@ -4,12 +4,12 @@ import { useState } from "react";
 import Spinner from "@/components/ui/Spinner";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { InlineRename } from "@/components/ui/InlineRename";
-import type { ExerciseSet, StudentStats } from "../../_types";
+import type { ExerciseSet } from "../../_types";
 import { SubviewHeader, type BreadcrumbItem, type ToolCategory } from "../layout/SubviewHeader";
 import { setProgressPct } from "./_progress";
 
 export function ExerciseSetsOverview({
-  title, toolKey, sets, onBack, onSelect, onCreate, onDelete, onRename, onRetry, onDownload, sourceCount, stats, breadcrumbs, category,
+  title, toolKey, sets, onBack, onSelect, onCreate, onDelete, onRename, onRetry, onDownload, sourceCount, breadcrumbs, category,
 }: {
   title: string; toolKey?: string; sets: ExerciseSet[];
   onBack: () => void; onSelect: (s: ExerciseSet) => void;
@@ -17,7 +17,7 @@ export function ExerciseSetsOverview({
   onRename?: (id: number, title: string) => Promise<void>;
   onRetry?: (id: number) => void;
   onDownload?: (s: ExerciseSet) => void;
-  sourceCount: number; stats?: StudentStats | null;
+  sourceCount: number;
   breadcrumbs?: BreadcrumbItem[];
   category?: ToolCategory;
 }) {

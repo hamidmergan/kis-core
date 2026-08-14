@@ -1,16 +1,12 @@
-import json
 import os
-from contextlib import contextmanager
-from datetime import datetime, timedelta, timezone
+from datetime import datetime
 from typing import Optional
 from zoneinfo import ZoneInfo
 
 import psycopg2
 import psycopg2.extras
 import psycopg2.pool
-from psycopg2.extras import RealDictCursor
 
-from src.limits import MAX_RESULT_FILES, JOB_RETENTION_HOURS
 
 _TZ_BERLIN = ZoneInfo("Europe/Berlin")
 _REDIS_URL = os.environ.get("REDIS_URL", "redis://kis-redis:6379/0")
@@ -117,21 +113,6 @@ def quota_get_all_users_usage() -> list[dict]:
         gr_at = resets_by_uid.get(uid)
         row["global_reset_at"] = (gr_at.isoformat() + "Z") if gr_at else None
     return result
-
-def quota_get_all_overrides() -> list[dict]:
-    """Return all override rows with user display name."""
-    with get_connection() as conn:
-        with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
-            cur.execute(
-                """SELECT u.id AS user_id, u.ldap_username, u.display_name,
-                          o.quota_type, o.limit_value
-                   FROM user_quota_overrides o
-                   JOIN users u ON u.id = o.user_id
-                   ORDER BY u.display_name, o.quota_type"""
-            )
-            rows = cur.fetchall()
-    return [dict(row) for row in rows]
-
 
 # --- KI Tutor: Modules ---
 

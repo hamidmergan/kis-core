@@ -1,6 +1,5 @@
 """KI-Assistent Celery tasks - source indexing + media transcription."""
 
-import os
 import time
 
 from loguru import logger

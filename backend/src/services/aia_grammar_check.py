@@ -19,8 +19,6 @@ VERDICT_CORRECT = "correct"
 VERDICT_CLOSE = "close"
 VERDICT_WRONG = "wrong"
 
-_VERDICTS = (VERDICT_CORRECT, VERDICT_CLOSE, VERDICT_WRONG)
-
 # Ab dieser Wortüberdeckung gilt eine Antwort im Notfallpfad als "fast".
 _CLOSE_RATIO = 0.72
 

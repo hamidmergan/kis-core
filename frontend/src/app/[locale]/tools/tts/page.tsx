@@ -31,7 +31,7 @@ export default function TtsPage() {
   const [ttsAudioUrl, setTtsAudioUrl] = useState<string>("");
   const [ttsDownloadName, setTtsDownloadName] = useState<string>("");
   const [ttsErrorMessage, setTtsErrorMessage] = useState<string>("");
-  const [ttsProgressLabel, setTtsProgressLabel] = useState<string>("");
+  const [, setTtsProgressLabel] = useState<string>("");
 
   // Providers loaded from /api/tts/providers-with-voices
   const [providers, setProviders] = useState<ProviderWithVoices[]>([]);

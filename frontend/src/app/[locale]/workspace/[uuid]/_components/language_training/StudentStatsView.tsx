@@ -3,7 +3,6 @@ import { CaretDown, CaretUp, ChartBar, ClockCounterClockwise } from "@phosphor-i
 import { useLocale, useTranslations } from "next-intl";
 import type { HeatmapDay, StudentStats } from "../../_types";
 import { TOOL_COLORS } from "../../_constants";
-import { RecentActivities } from "../studio/RecentActivities";
 import { EmptyState } from "@/components/ui/EmptyState";
 
 type StatsPeriod = "30" | "180";
@@ -107,10 +106,7 @@ export function StudentStatsView({ stats, loading, workspaceUuid, onNavigateToSe
   const periodDays = parseInt(period);
   const filteredHeatmap = heatmapSource.slice(-periodDays);
   const periodAnswers = filteredHeatmap.reduce((s, d) => s + d.answers, 0);
-  const periodCorrect = filteredHeatmap.reduce((s, d) => s + d.correct, 0);
-  const periodWrong = filteredHeatmap.reduce((s, d) => s + d.wrong, 0);
   const periodActiveDays = filteredHeatmap.filter(d => d.answers > 0).length;
-  const periodAccuracy = periodAnswers > 0 ? Math.round(periodCorrect / periodAnswers * 100) : 0;
 
   // Heatmap rendering: weeks as columns, days as rows (Mon-Sun)
   const heatmapWeeks: HeatmapDay[][] = [];
@@ -260,7 +256,6 @@ export function StudentStatsView({ stats, loading, workspaceUuid, onNavigateToSe
             {/* Period summary line */}
             <div className="flex gap-3 mb-2 text-xs" style={{ color: "var(--muted)" }}>
               <span>{t("stats.activeDays", { count: periodActiveDays })}</span>
-              <span>{t("stats.answersCount", { count: periodAnswers })}</span>
             </div>
 
             {/* ── Kalender: letzte sieben Tage als eine Zeile, aufgeklappt das volle Raster ── */}

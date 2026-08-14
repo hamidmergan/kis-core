@@ -17,7 +17,6 @@ import type {
   ExerciseSet,
   Source,
   LanguageTrainingView,
-  StudentStats,
 } from "../../_types";
 
 interface LanguageTrainingContentProps {
@@ -39,7 +38,6 @@ interface LanguageTrainingContentProps {
   // Context
   selectedSourceIds: string[];
   workspaceUuid: string;
-  pageStats: StudentStats | null;
   isAdmin: boolean;
   sources: Source[];
   refreshProgress: () => void;
@@ -56,7 +54,7 @@ export function LanguageTrainingContent(props: LanguageTrainingContentProps) {
     exerciseSets, activeSet, setActiveSet,
     loadExerciseSet, loadExerciseSets, deleteExerciseSet, renameExerciseSet, retryExerciseSet, downloadExerciseSet,
     setCreateSetTool, setShowCreateModal, submitSingleAnswer,
-    selectedSourceIds, workspaceUuid, pageStats, isAdmin, sources,
+    selectedSourceIds, workspaceUuid, isAdmin, sources,
     refreshProgress, handleAskChat, handlePillClick, chatLang,
   } = props;
   const t = useTranslations("workspace.detail.languageTraining");
@@ -99,7 +97,6 @@ export function LanguageTrainingContent(props: LanguageTrainingContentProps) {
             onRetry={(id) => retryExerciseSet(id, "flashcards")}
             onDownload={isAdmin ? downloadExerciseSet : undefined}
             sourceCount={selectedSourceIds.length}
-            stats={pageStats}
             breadcrumbs={[toOverviewCrumb]}
             category="language_training"
           />
@@ -133,7 +130,6 @@ export function LanguageTrainingContent(props: LanguageTrainingContentProps) {
             onRetry={(id) => retryExerciseSet(id, "grammatik")}
             onDownload={isAdmin ? downloadExerciseSet : undefined}
             sourceCount={selectedSourceIds.length}
-            stats={pageStats}
             breadcrumbs={[toOverviewCrumb]}
             category="language_training"
           />
@@ -193,7 +189,6 @@ export function LanguageTrainingContent(props: LanguageTrainingContentProps) {
             onRetry={(id) => retryExerciseSet(id, "wortschatz")}
             onDownload={isAdmin ? downloadExerciseSet : undefined}
             sourceCount={selectedSourceIds.length}
-            stats={pageStats}
             breadcrumbs={[toOverviewCrumb]}
             category="language_training"
           />

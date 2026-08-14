@@ -15,8 +15,8 @@ the model itself produced earlier.
 """
 
 # Liegt seit dem Umzug in ``tasks/_titles.py``, weil Mindmap und Datentabelle dieselbe
-# Pruefung brauchen. Hier weiter importiert, damit die vorhandenen Aufrufer und der
-# Test unveraendert von diesem Modul lesen koennen.
+# Pruefung brauchen. Hier weiter importiert, damit der Test unveraendert von diesem
+# Modul lesen kann.
 from src.features.ai_assistant.tasks._titles import is_title_taken  # noqa: F401
 
 # The block sits in front of an already large context, so it stays a footnote.

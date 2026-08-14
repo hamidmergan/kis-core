@@ -1,16 +1,11 @@
-import json
 import os
-from contextlib import contextmanager
-from datetime import datetime, timedelta, timezone
-from typing import Optional
+from datetime import datetime
 from zoneinfo import ZoneInfo
 
 import psycopg2
 import psycopg2.extras
 import psycopg2.pool
-from psycopg2.extras import RealDictCursor
 
-from src.limits import MAX_RESULT_FILES, JOB_RETENTION_HOURS
 
 _TZ_BERLIN = ZoneInfo("Europe/Berlin")
 _REDIS_URL = os.environ.get("REDIS_URL", "redis://kis-redis:6379/0")
@@ -128,24 +123,6 @@ def get_enrollment(workspace_id: int, user_id: int, link_id: int | None = None) 
                 )
             row = cur.fetchone()
     return dict(row) if row else None
-
-def get_enrollment_by_id(enrollment_id: int) -> dict | None:
-    with get_connection() as conn:
-        with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
-            cur.execute("SELECT * FROM aia_enrollments WHERE id = %s", (enrollment_id,))
-            row = cur.fetchone()
-    return dict(row) if row else None
-
-def get_enrolled_user_ids(workspace_id: int) -> list[int]:
-    """Distinct user ids of students currently enrolled in a workspace (active only)."""
-    with get_connection() as conn:
-        with conn.cursor() as cur:
-            cur.execute(
-                "SELECT DISTINCT user_id FROM aia_enrollments "
-                "WHERE workspace_id = %s AND (enrolled_until IS NULL OR enrolled_until > NOW())",
-                (workspace_id,),
-            )
-            return [r[0] for r in cur.fetchall()]
 
 def get_workspace_by_enroll_code(code: str) -> dict | None:
     """Legacy: check both access_links and workspaces table."""

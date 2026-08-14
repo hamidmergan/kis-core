@@ -1,8 +1,7 @@
-"""Shared helpers for all screencast routes: upload validation, translation-service factory,
-prerender task, script-generation locks, job-tool list."""
+"""Shared helpers for all screencast routes: upload validation, prerender task,
+script-generation locks, job-tool list."""
 
 import asyncio
-import json
 import tempfile
 from collections import OrderedDict
 from pathlib import Path
@@ -10,12 +9,9 @@ from pathlib import Path
 from fastapi import HTTPException
 from loguru import logger
 
-from src.dependencies import get_deepl_client
 from src.i18n import t
-from src.services.glossary import GlossaryService
 from src.features.jobs.repository import get_job
 from src.services.screencast import IMAGE_TMP_DIR, pptx_to_images
-from src.services.translation import TranslationService
 from src.storage import get_job_file
 from src.utils.file_validation import SCREENCAST_EXTENSIONS
 
@@ -58,22 +54,6 @@ def validate_upload(filename: str | None, locale: str = "de") -> str:
     if ext not in SCREENCAST_EXTENSIONS:
         raise HTTPException(status_code=400, detail=t("screencast.onlyPptx", locale))
     return ext
-
-
-def build_translation_service(glossary_json: str = "", locale: str = "de") -> TranslationService:
-    """Build a TranslationService with DeepL client and optional glossary."""
-    client = get_deepl_client()
-    if client is None:
-        raise HTTPException(status_code=500, detail=t("translate.deeplKeyMissing", locale))
-    glossary = GlossaryService()
-    if glossary_json:
-        try:
-            entries = json.loads(glossary_json)
-            if isinstance(entries, dict):
-                glossary.set_entries(entries)
-        except (json.JSONDecodeError, TypeError):
-            pass
-    return TranslationService(deepl_client=client, glossary=glossary)
 
 
 async def prerender_images_task(translate_job_uuid: str, dpi: int = 100) -> None:
