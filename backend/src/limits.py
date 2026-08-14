@@ -63,8 +63,9 @@ GLOSSARY_MAX_ENTRIES = 500   # max term pairs per glossary
 GLOSSARY_NAME_MAX    = 120   # max chars for a glossary name
 
 # --- Job management ---------------------------------------------------------
-MAX_RESULT_FILES            = 20    # max stored result files per user (oldest is evicted)
-JOB_RETENTION_HOURS         = 168   # 7 days, after which the file is marked as "expired"
+# Der Vorrat ist die einzige Aufbewahrungsregel. Es gibt keine Frist mehr: was in
+# der Liste steht, bleibt, bis es von neueren Auftraegen verdraengt wird.
+MAX_RESULT_FILES            = 20    # jobs kept per user (oldest beyond this is evicted)
 JOB_WATCHDOG_MINUTES        = 5     # job is stuck when no heartbeat for X minutes (heartbeat fires every 10 s)
 AWAITING_USER_TIMEOUT_HOURS = 168   # awaiting_user jobs older than this are abandoned and cleaned up
 
@@ -73,8 +74,6 @@ MAX_UPLOAD_BYTES           = 500 * 1024 * 1024   # general (500 MB)
 TRANSLATE_MAX_UPLOAD_BYTES = 500 * 1024 * 1024   # translation (500 MB)
 MAX_TRANSCRIPTION_BYTES    = 500 * 1024 * 1024   # audio upload (500 MB)
 MAX_IMAGE_BYTES            = 20  * 1024 * 1024   # image upload (20 MB)
-MAX_OUTPUT_VIDEO_BYTES     = 300 * 1024 * 1024   # output video limit (300 MB)
-
 # --- Character limits (per request, not per time window) --------------------
 TTS_MAX_CHARS        = 100_000
 TRANSLATE_MAX_CHARS  = 100_000

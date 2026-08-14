@@ -38,6 +38,7 @@ celery_app.conf.update(
         "screencast.render": {"queue": "screencast"},
         "watchdog.check": {"queue": "general"},
         "cleanup.expired_files": {"queue": "general"},
+        "cleanup.job_cap": {"queue": "general"},
         "cleanup.exercise_progress": {"queue": "general"},
         "backup.database": {"queue": "general"},
         # AI tutor: dedicated queue for learning tools and language training
@@ -58,6 +59,13 @@ celery_app.conf.update(
         "cleanup-expired-files": {
             "task": "cleanup.expired_files",
             "schedule": 3600.0,  # stuendlich, wie vorher
+            "options": {"queue": "general"},
+        },
+        # Der Auftrags-Vorrat ist die einzige Aufbewahrungsregel, seit die Frist raus
+        # ist. Wer nur Fehlversuche produziert, loest die Raeumung nie selbst aus.
+        "cleanup-job-cap": {
+            "task": "cleanup.job_cap",
+            "schedule": 3600.0,  # stuendlich
             "options": {"queue": "general"},
         },
         # Naechtliche Datenbank-Sicherung in den Bucket. Feste Uhrzeit statt

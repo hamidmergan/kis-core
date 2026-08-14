@@ -3,7 +3,7 @@
 from src.core.db.pool import get_connection  # noqa: F401
 from src.core.db.schema import init_db  # noqa: F401
 from src.core.db._common import _notify_job_update, _de_date_to_utc  # noqa: F401
-from src.limits import MAX_RESULT_FILES, JOB_RETENTION_HOURS  # noqa: F401
+from src.limits import MAX_RESULT_FILES  # noqa: F401
 
 from src.features.admin.repository.users import *  # noqa: F401,F403
 from src.features.admin.repository.roles import *  # noqa: F401,F403

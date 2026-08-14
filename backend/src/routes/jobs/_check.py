@@ -31,12 +31,16 @@ async def check_job_limit(
     max_jobs = _TOOL_GROUP_LIMITS.get(tool_group, 1)
     has_active = db.count_all_jobs_for_tool(user_id, tools) >= max_jobs if tools else False
 
+    # Was faellt raus, wenn jetzt EIN Auftrag dazukommt? Deshalb cap - 1: der neue
+    # Auftrag belegt selbst einen der Plaetze im Vorrat.
     from src.database import MAX_RESULT_FILES
-    existing = db.get_all_results_for_user(user_id)
-    at_storage_limit = len(existing) >= MAX_RESULT_FILES
+    vorhanden = db.get_jobs_for_user_newest_first(user_id)
+    faellig = db.select_jobs_to_evict(vorhanden, cap=MAX_RESULT_FILES - 1)
+    at_storage_limit = bool(faellig)
     evict_filename = None
     if at_storage_limit:
-        evict_filename = existing[0].get("original_filename") or existing[0].get("result_filename")
+        aeltester = faellig[-1]  # neueste zuerst, also steht das Aelteste hinten
+        evict_filename = aeltester.get("original_filename") or aeltester.get("result_filename")
 
     return {
         "has_active_job": has_active,

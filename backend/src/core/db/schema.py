@@ -472,6 +472,11 @@ def _init_db(admin_email: Optional[str] = None) -> None:
                 "ALTER TABLE jobs ADD COLUMN IF NOT EXISTS creator_locale TEXT NOT NULL DEFAULT 'de' "
                 "CHECK (creator_locale IN ('de', 'en'))"
             )
+            # Migration: die Frist von sieben Tagen ist raus, es zaehlt nur noch der
+            # Vorrat der letzten Auftraege. Ohne dieses Zuruecksetzen behielten alle
+            # Bestandsjobs ihr altes Ablaufdatum und waeren trotzdem verschwunden.
+            # Die Spalte bleibt stehen, sie wird nur nicht mehr befuellt.
+            cur.execute("UPDATE jobs SET expires_at = NULL WHERE expires_at IS NOT NULL")
             cur.execute("""
                 CREATE TABLE IF NOT EXISTS settings (
                     id         SERIAL PRIMARY KEY,

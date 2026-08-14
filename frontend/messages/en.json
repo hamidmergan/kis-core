@@ -32,9 +32,9 @@
   "myJobs": {
     "title": "My jobs",
     "refresh": "Refresh",
-    "intro": "Up to 20 jobs are stored. Finished downloads are available for 7 days. Older files are removed automatically.",
+    "intro": "The last 20 jobs are stored. When a new one arrives, the oldest one drops out.",
     "emptySearch": "No results for this search",
-    "emptyAll": "No jobs in the last 7 days",
+    "emptyAll": "No jobs",
     "retryFailed": "Retry failed",
     "filter": {
       "search": "Search",
@@ -104,9 +104,10 @@
       "days": "{n, plural, =1 {1 day ago} other {# days ago}}"
     },
     "panel": {
-      "notice": "Downloads available for 7 days. Only the last 20 jobs are stored.",
+      "notice": "Only the last 20 jobs are stored.",
       "empty": "No jobs",
-      "viewAll": "View all"
+      "viewAll": "View all",
+      "newResults": "New results"
     }
   },
   "schedule": {
@@ -1545,7 +1546,7 @@
       "item2": "Original file name",
       "item3": "Time of creation and completion",
       "item4": "Processing status",
-      "retention": "Uploaded files and the results derived from them remain stored in your workspace until you or a workspace administrator deletes them. Job metadata for individual processing jobs is automatically removed after no more than <strong>7 days</strong>."
+      "retention": "Uploaded files and the results derived from them remain stored in your workspace until you or a workspace administrator deletes them. Job metadata for individual processing jobs is retained <strong>only to a limited extent</strong>. The most recent jobs are kept and older ones are removed automatically."
     },
     "thirdParty": {
       "heading": "5. Third parties and external AI services",

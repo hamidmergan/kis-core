@@ -1,8 +1,7 @@
 """Basic CRUD operations on the jobs table."""
 from ._shared import (
     json, datetime, timedelta, timezone,
-    psycopg2, MAX_RESULT_FILES, JOB_RETENTION_HOURS,
-    get_connection, _notify_job_update,
+    psycopg2, get_connection, _notify_job_update,
 )
 
 
@@ -14,15 +13,15 @@ def create_job(
     input_path: str | None = None,
     locale: str = "de",
 ) -> None:
-    expires_at = datetime.now(timezone.utc) + timedelta(hours=JOB_RETENTION_HOURS)
+    # Kein Ablaufdatum: die Aufbewahrung regelt allein der Vorrat (siehe _retention.py).
     with get_connection() as conn:
         with conn.cursor() as cur:
             cur.execute(
                 """
-                INSERT INTO jobs (job_uuid, user_id, tool, original_filename, input_path, expires_at, creator_locale)
-                VALUES (%s, %s, %s, %s, %s, %s, %s)
+                INSERT INTO jobs (job_uuid, user_id, tool, original_filename, input_path, creator_locale)
+                VALUES (%s, %s, %s, %s, %s, %s)
                 """,
-                (job_uuid, user_id, tool, original_filename, input_path, expires_at, locale),
+                (job_uuid, user_id, tool, original_filename, input_path, locale),
             )
         conn.commit()
 
@@ -132,29 +131,17 @@ def update_job_result(
     job_uuid: str,
     result_path: str,
     result_filename: str,
-) -> list[str]:
-    """Save job result. Returns job_uuids that exceed MAX_RESULT_FILES and must be evicted.
+) -> None:
+    """Save job result.
 
-    Use storage.save_result_and_evict() which fetches user_id via delete_job() before
-    deleting the storage folder.
+    Das Raeumen haengt nicht mehr hier dran. Es zaehlt inzwischen alle Jobs eines
+    Nutzers, nicht nur die mit Ergebnisdatei, und liegt deshalb in _retention.py.
+    Aufrufer nehmen storage.save_result_and_evict().
     """
-    from ._queries import get_all_results_for_user  # avoid circular import
-
     with get_connection() as conn:
-        with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
+        with conn.cursor() as cur:
             cur.execute(
-                "UPDATE jobs SET result_path = %s, result_filename = %s WHERE job_uuid = %s RETURNING user_id",
+                "UPDATE jobs SET result_path = %s, result_filename = %s WHERE job_uuid = %s",
                 (result_path, result_filename, job_uuid),
             )
-            row = cur.fetchone()
-            if not row:
-                conn.commit()
-                return []
-            user_id = row["user_id"]
         conn.commit()
-
-    old_jobs = get_all_results_for_user(user_id)
-    excess = len(old_jobs) - MAX_RESULT_FILES
-    if excess <= 0:
-        return []
-    return [old_jobs[i]["job_uuid"] for i in range(excess)]

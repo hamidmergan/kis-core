@@ -32,6 +32,29 @@ def run_cleanup_expired_files() -> int:
         return 0
 
 
+@celery_app.task(name="cleanup.job_cap", queue="general")
+def run_cleanup_job_cap() -> int:
+    """Jeden Nutzer auf die letzten MAX_RESULT_FILES Auftraege zurechtstutzen. Stuendlich.
+
+    Normalerweise raeumt schon das Speichern eines Ergebnisses mit. Wer nur
+    Fehlversuche produziert, loest das aber nie aus, und seit die Frist von sieben
+    Tagen weg ist, holt sie auch niemand mehr ab. Dafuer ist dieser Durchlauf da.
+    """
+    from src.database import get_users_over_cap
+    from src.storage import evict_jobs_over_cap
+
+    entfernt = 0
+    try:
+        for user_id in get_users_over_cap():
+            entfernt += evict_jobs_over_cap(user_id)
+        if entfernt:
+            logger.info("Cleanup: {} Auftrag/Auftraege ueber dem Vorrat geloescht", entfernt)
+        return entfernt
+    except Exception as e:
+        logger.warning("Cleanup Auftrags-Vorrat fehlgeschlagen: {}", e)
+        return entfernt
+
+
 @celery_app.task(name="cleanup.exercise_progress", queue="general")
 def run_cleanup_exercise_progress() -> int:
     """Uebungsantworten von vor dem Kalenderfeld aufraeumen. Naechtlich.

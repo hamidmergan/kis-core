@@ -32,9 +32,9 @@
   "myJobs": {
     "title": "Meine Jobs",
     "refresh": "Aktualisieren",
-    "intro": "Es werden bis zu 20 Jobs gespeichert. Fertige Downloads sind 7 Tage verfügbar. Ältere Dateien werden automatisch entfernt.",
+    "intro": "Es werden die letzten 20 Jobs gespeichert. Kommt ein neuer dazu, fällt der älteste heraus.",
     "emptySearch": "Keine Ergebnisse für diese Suche",
-    "emptyAll": "Keine Jobs in den letzten 7 Tagen",
+    "emptyAll": "Keine Jobs vorhanden",
     "retryFailed": "Wiederholen fehlgeschlagen",
     "filter": {
       "search": "Suche",
@@ -104,9 +104,10 @@
       "days": "vor {n, plural, =1 {1 Tag} other {# Tagen}}"
     },
     "panel": {
-      "notice": "Downloads 7 Tage verfügbar. Es werden nur die letzten 20 Jobs gespeichert.",
+      "notice": "Es werden nur die letzten 20 Jobs gespeichert.",
       "empty": "Keine Jobs vorhanden",
-      "viewAll": "Zur Übersicht"
+      "viewAll": "Zur Übersicht",
+      "newResults": "Neue Ergebnisse"
     }
   },
   "schedule": {
@@ -1545,7 +1546,7 @@
       "item2": "Ursprünglicher Dateiname",
       "item3": "Zeitpunkt der Erstellung und Fertigstellung",
       "item4": "Verarbeitungsstatus",
-      "retention": "Hochgeladene Dateien und die daraus erzeugten Ergebnisse bleiben in Ihrem Workspace gespeichert, bis Sie oder ein Workspace-Administrator sie löschen. Job-Metadaten zu einzelnen Verarbeitungsaufträgen werden nach spätestens <strong>7 Tagen</strong> automatisch entfernt."
+      "retention": "Hochgeladene Dateien und die daraus erzeugten Ergebnisse bleiben in Ihrem Workspace gespeichert, bis Sie oder ein Workspace-Administrator sie löschen. Job-Metadaten zu einzelnen Verarbeitungsaufträgen werden nur <strong>in begrenztem Umfang</strong> vorgehalten. Gespeichert bleiben jeweils die neuesten Aufträge, ältere werden automatisch entfernt."
     },
     "thirdParty": {
       "heading": "5. Drittanbieter und externe KI-Dienste",

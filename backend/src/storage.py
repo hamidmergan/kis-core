@@ -618,29 +618,6 @@ def save_pptx_tmp(file_id: str, data: bytes) -> None:
     _store_bytes(tmp_pptx_key(file_id), data)
 
 
-def get_pptx_tmp(file_id: str) -> bytes | None:
-    """Load a temporary PPTX. Returns None if not found or expired."""
-    key = tmp_pptx_key(file_id)
-    if USE_S3:
-        from botocore.exceptions import ClientError
-        try:
-            resp = _s3().get_object(Bucket=_S3_BUCKET, Key=key)
-            return resp["Body"].read()
-        except ClientError:
-            return None
-    path = _local_path(key)
-    return path.read_bytes() if path.exists() else None
-
-
-def delete_pptx_tmp(file_id: str) -> None:
-    """Delete a temporary PPTX after render is complete."""
-    key = tmp_pptx_key(file_id)
-    if USE_S3:
-        _s3().delete_object(Bucket=_S3_BUCKET, Key=key)
-    else:
-        _local_path(key).unlink(missing_ok=True)
-
-
 # --- Spoken example sentences (AIA flashcards) ---
 # Keyed by the fingerprint from repository/speech_cache.py, which owns the
 # retention rule. There is no lifecycle rule here: expiry follows last use, not
@@ -723,14 +700,28 @@ def delete_aia_workspace_folder(user_id: int, workspace_uuid: str) -> int:
 
 # --- Result saving with eviction ---
 
+def evict_jobs_over_cap(user_id: int) -> int:
+    """Alles ueber den letzten MAX_RESULT_FILES Auftraegen loeschen, Zeile und Ordner.
+
+    Einzige Aufbewahrungsregel, seit die Frist von sieben Tagen raus ist. Zaehlt
+    alle Jobs eines Nutzers, also auch Fehlschlaege, die frueher nur die Frist
+    entsorgt hat.
+    """
+    from src.database import get_jobs_for_user_newest_first, select_jobs_to_evict
+
+    entfernt = 0
+    for job in select_jobs_to_evict(get_jobs_for_user_newest_first(user_id)):
+        geloescht = delete_job(job["job_uuid"])
+        if geloescht:
+            delete_job_folder(geloescht["user_id"], job["job_uuid"])
+            entfernt += 1
+    return entfernt
+
+
 def save_result_and_evict(user_id: int, job_uuid: str, result_path: str, result_filename: str) -> None:
-    """Save job result + delete oldest jobs that exceed MAX_RESULT_FILES."""
-    evicted_uuids = update_job_result(job_uuid, result_path, result_filename)
-    for uid_evicted in evicted_uuids:
-        # update_job_result returns uuids; delete_job (after Task 4) returns the row including user_id.
-        deleted = delete_job(uid_evicted)
-        if deleted:
-            delete_job_folder(deleted["user_id"], uid_evicted)
+    """Save job result + delete oldest jobs beyond MAX_RESULT_FILES."""
+    update_job_result(job_uuid, result_path, result_filename)
+    evict_jobs_over_cap(user_id)
 
 
 # --- Cleanup ---
