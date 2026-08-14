@@ -833,8 +833,12 @@ AIA_HINT_RULE = (
     "- tip: ONE short sentence that helps a learner who is stuck, WITHOUT giving the answer away. "
     "Point at where to look or what to think about: the situation, the comparison, or the example in "
     "the source that carries the idea. Never name the answer, never name one of the options, and never "
-    "restate the answer in other words. Address the learner directly and write it in {language}.\n"
+    "restate the answer in other words. Write it in {language} and address the learner directly and "
+    "INFORMALLY: German 'du'/'dein' and the du-imperative ('Denk', 'Vergleich', 'Schau'), NEVER the "
+    "formal 'Sie'/'Ihnen'/'Ihr'; in other languages the informal second person.\n"
     "  GOOD: \"Denk an das Beispiel der falsch kalibrierten Waage aus der Quelle.\"\n"
+    "  BAD: \"Denken Sie an das Beispiel der falsch kalibrierten Waage.\" (formal address)\n"
+    "  BAD: \"Erinnern Sie sich an die Aktivitaeten aus der Quelle.\" (formal address)\n"
     "  BAD: \"Die Antwort ist der systematische Fehler.\" (names the answer)\n"
     "  BAD: \"Lies den Text noch einmal.\" (helps nobody)\n"
 )
