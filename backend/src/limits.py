@@ -248,6 +248,15 @@ AIA_SUMMARY_BATCH_MAX_CHARS            = 360000
 # diese Größe ab, halbiert der Client selbst und merkt sich die Zahl, die
 # durchging (siehe aia_embeddings._learned_batch_size).
 AIA_EMBEDDING_BATCH_SIZE               = 1000
+# Zeitschranke fuer die Embeddings der Quellenchips (nachtraegliche Zuordnung).
+# Bewusst kuerzer als die 60s des Uploads: hier sitzt jemand vor dem fertig
+# geschriebenen Text und wartet nur noch auf die Chips. Ein warmer Aufruf braucht
+# deutlich unter einer Sekunde (gemessen 0,2s fuer 31 Zeilen). Laeuft die Schranke
+# ab, geht die Antwort ohne Chips raus statt den Text minutenlang festzuhalten.
+# 30 und nicht 20, weil der ERSTE Aufruf gegen einen kalten Anbieter 15-50s dauern
+# kann (siehe routes/admin/_embedding.py). Bei 20 waere die erste Antwort nach einer
+# langen Pause regelmaessig chiplos gewesen, obwohl gar nichts kaputt ist.
+AIA_ATTRIBUTION_EMBED_TIMEOUT_SECONDS  = 30
 AIA_WORKSPACE_MAX_ACCESS_LINKS         = 10      # max enrollment links per workspace
 AIA_NOTES_MAX_PER_USER              = 100     # max notes per user per workspace
 GLOSSARY_LIMIT                        = 150     # max glossary entries per workspace

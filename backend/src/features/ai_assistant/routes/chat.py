@@ -1656,7 +1656,12 @@ async def chat(
             _do_prewarm = bool(source_ids) and not is_popup and not scope_single_page
             if _do_prewarm:
                 from src.services.aia_embeddings import get_embedding_provider as _get_ep
-                _pw_prov = _get_ep()
+                from src.limits import AIA_ATTRIBUTION_EMBED_TIMEOUT_SECONDS
+                # Kurze Schranke, kein zweiter Versuch: das Vorwaermen ist eine Abkuerzung.
+                # Antwortet die Gegenstelle nicht, soll es das schnell merken und den Weg
+                # freigeben, statt Threads an einer haengenden Anfrage zu binden.
+                _pw_prov = _get_ep(timeout=AIA_ATTRIBUTION_EMBED_TIMEOUT_SECONDS,
+                                   retry_on_timeout=False)
 
                 def _pw_search(_ln, _vec):
                     try:
@@ -1841,15 +1846,24 @@ async def chat(
                 _apg = next(iter(_scope_pages), None)
                 if _aqn and _apg is not None:
                     from src.services.aia_embeddings import get_embedding_provider
+                    from src.limits import AIA_ATTRIBUTION_EMBED_TIMEOUT_SECONDS
                     _refused = await asyncio.to_thread(
                         is_refusal_answer, _clean_answer,
-                        get_embedding_provider().embed, list(RAG_NO_INFO_SENTINEL.values()))
+                        get_embedding_provider(
+                            timeout=AIA_ATTRIBUTION_EMBED_TIMEOUT_SECONDS,
+                            retry_on_timeout=False).embed,
+                        list(RAG_NO_INFO_SENTINEL.values()))
                     answer = _clean_answer if _refused else _append_scope_anchor(_clean_answer, _aqn, _apg)
                 else:
                     answer = _clean_answer
             else:
                 from src.services.aia_embeddings import get_embedding_provider
-                _prov = get_embedding_provider()
+                from src.limits import AIA_ATTRIBUTION_EMBED_TIMEOUT_SECONDS
+                # Der Nutzer liest den Text schon fertig und wartet nur noch auf die Chips.
+                # Deshalb kurze Schranke und kein zweiter Versuch: kommt nichts, geht die
+                # Antwort chiplos raus, statt sie an einer haengenden Gegenstelle festzuhalten.
+                _prov = get_embedding_provider(timeout=AIA_ATTRIBUTION_EMBED_TIMEOUT_SECONDS,
+                                               retry_on_timeout=False)
                 _stripped = _strip_inline_citation_chips(_clean_answer)  # defensive: model shouldn't emit chips now
 
                 def _attribute_blocking() -> str:
@@ -1881,6 +1895,7 @@ async def chat(
                     _vec_by_line: dict[str, list] = {ln: _pw_vecs[ln] for ln in _batch_lines if ln in _pw_vecs}
                     _sentinel_vecs: list = []
                     _embed_s = 0.0
+                    _embed_down = False
                     _n_prewarmed = len(_vec_by_line)
                     _miss_lines = [ln for ln in _batch_lines if ln not in _vec_by_line]
                     _to_embed = _miss_lines + _sentinels
@@ -1895,12 +1910,20 @@ async def chat(
                                     _vec_by_line[_ln] = _v
                                 _sentinel_vecs = _vecs[len(_miss_lines):]
                         except Exception as e:
-                            logger.warning("post-hoc batch embedding failed, falling back per-line: {}", e)
+                            # Der eine Stapelaufruf ist gescheitert, also ist die Gegenstelle
+                            # gerade nicht ansprechbar. Dann NICHT pro Zeile nachfassen: das
+                            # waren frueher N weitere Aufrufe in dieselbe Schranke und der
+                            # Hauptgrund, warum die Chips minutenlang ausblieben. Ohne Vektor
+                            # gibt es keinen Chip, und das ist die richtige Zugabe-Absage.
+                            _embed_down = True
+                            logger.warning("post-hoc batch embedding failed, answer ships without chips: {}", e)
                     _refusals = _refusal_lines(_cands, _vec_by_line, _sentinel_vecs)
                     if _refusals:
                         logger.info("post-hoc attribution: {} refusal line(s) excluded from citation", len(_refusals))
 
                     def _raw_search(_line: str):
+                        if _embed_down and _line not in _vec_by_line:
+                            return []
                         try:
                             _qv = _vec_by_line.get(_line) or _prov.embed_one(_line)
                             # limit 10 (was 4): the attribution now FILTERS hits to pages

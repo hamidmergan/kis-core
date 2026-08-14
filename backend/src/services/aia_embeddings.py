@@ -21,6 +21,11 @@ from src.limits import AIA_EMBEDDING_BATCH_SIZE
 _MAX_SHRINKS = 3
 # Pause vor dem zweiten Versuch, wenn das Kontingent des Anbieters voll ist.
 _RATE_LIMIT_PAUSE_SECONDS = 3
+# Wie oft eine Zeitueberschreitung mit GLEICHER Groesse wiederholt wird, bevor der
+# Aufruf doch kleiner schneidet. Eins, denn jeder Versuch kostet die volle
+# Zeitschranke. Der eine Versuch faengt den blossen Aussetzer ab, ohne die
+# Stapelgroesse wegen einer Stoerung zu verlieren.
+_MAX_TIMEOUT_RETRIES = 1
 
 # Vom Endpunkt gelernte Stapelgroessen, Schluessel ist (base_url, model).
 # Der Provider wird pro Upload neu gebaut, das Gedaechtnis lebt im Worker-
@@ -45,6 +50,21 @@ def _is_rate_limited(e: Exception) -> bool:
     return "429" in text or "rate limit" in text
 
 
+def _is_timeout(e: Exception) -> bool:
+    """True, wenn die Gegenstelle gar nicht geantwortet hat.
+
+    Dritte Absage-Art neben "zu gross" und "Kontingent voll", und die teuerste:
+    sie kostet jedes Mal die volle Zeitschranke. Halbieren hilft hier NIE, denn die
+    Groesse ist nicht das Problem. Ohne diese Unterscheidung wurde eine haengende
+    Gegenstelle als "zu gross" gelesen und dieselbe Anfrage viermal geschickt, was
+    die Quellenchips minutenlang aufhielt.
+    """
+    if type(e).__name__ in ("APITimeoutError", "APIConnectionError", "TimeoutError"):
+        return True
+    text = str(e).lower()
+    return "timed out" in text or "timeout" in text or "connection error" in text
+
+
 class EmbeddingProvider(ABC):
     @abstractmethod
     def embed(self, texts: list[str]) -> list[list[float]]:
@@ -67,14 +87,23 @@ class OpenAICompatEmbeddingProvider(EmbeddingProvider):
     multiple deployments are different instances of this same class.
     """
 
-    def __init__(self, base_url: str, api_key: str, model: str) -> None:
+    def __init__(self, base_url: str, api_key: str, model: str, *,
+                 timeout: float = 60.0, retry_on_timeout: bool = True) -> None:
         from langfuse.openai import OpenAI
         # 60s timeout: covers cold-start model loads on the first request after
         # a provider switch. Warm calls return in well under a second. Chat
         # callers wrap this in to_thread so the event loop stays free.
-        self._client = OpenAI(api_key=api_key, base_url=base_url, timeout=60.0)
+        # ``timeout`` ist absenkbar fuer Aufrufer, denen ein Ergebnis nur solange
+        # nuetzt, wie jemand darauf wartet (Quellenchips).
+        # max_retries=0 ist tragend, nicht kosmetisch: der SDK-Standard ist 2, also
+        # wartete ein Aufruf mit "60s Zeitschranke" in Wahrheit dreimal 60s, bevor
+        # er ueberhaupt als Fehler ankam. Die Wiederhol-Regel gehoert in ``embed``,
+        # wo sie zaehlbar und im Log sichtbar ist.
+        self._client = OpenAI(api_key=api_key, base_url=base_url,
+                              timeout=timeout, max_retries=0)
         self._model = model
         self._key = (base_url, model)
+        self._retry_on_timeout = retry_on_timeout
 
     def _request(self, batch: list[str]) -> list[list[float]]:
         """Ein Aufruf gegen den Endpunkt. Eigene Methode, damit die Stapel-Logik
@@ -89,11 +118,21 @@ class OpenAICompatEmbeddingProvider(EmbeddingProvider):
         gemessen. Start ist der fuer myLab qwen3-embedding-4b gemessene Wert
         (1000 geht, 2000 laeuft in ein 502). Lehnt ein anderer Anbieter das ab,
         halbiert der Aufruf und merkt sich die Groesse, die durchging.
+
+        Drei Absagen, drei Antworten: "zu gross" wird sofort kleiner versucht,
+        "Kontingent voll" nach einer Pause gleich gross, "keine Antwort" erst einmal
+        gleich gross und erst danach kleiner. Die dritte Regel ist der Grund dieser
+        Aufteilung: eine Zeitschranke sofort als Groessenproblem zu lesen kostet jede
+        Wiederholung die volle Wartezeit, ohne dass sich die Anfrage aendert. Ganz auf
+        das Schneiden zu verzichten waere aber auch falsch, sonst scheitert ein Upload
+        an jedem Anbieter, der 1000 Eingaben nicht in der Zeit schafft.
         """
         size = _learned_batch_size.get(self._key, AIA_EMBEDDING_BATCH_SIZE)
         results: list[list[float]] = []
         pending = list(texts)
         shrinks = 0
+        timeout_retries = 0
+        darf_lernen = True
 
         while pending:
             batch = pending[:size]
@@ -110,31 +149,76 @@ class OpenAICompatEmbeddingProvider(EmbeddingProvider):
                         vectors = self._request(batch)
                     except Exception as e2:
                         raise RuntimeError(f"Embedding request failed: {e2}") from e2
-                elif size > 1 and shrinks < _MAX_SHRINKS:
-                    shrinks += 1
-                    size = max(1, size // 2)
-                    logger.warning(
-                        "Embedding: Endpunkt lehnt {} Eingaben ab ({}), neuer Versuch mit {}",
-                        len(batch), e, size,
-                    )
-                    continue
                 else:
+                    if _is_timeout(e):
+                        # Wer auf ein Ergebnis wartet, bekommt hier sofort die Absage:
+                        # ein zweiter Versuch kostet nochmal die volle Schranke und die
+                        # Antwort geht auch ohne Chips raus.
+                        if not self._retry_on_timeout:
+                            raise RuntimeError(f"Embedding request failed: {e}") from e
+                        # Im Hintergrund erst gleiche Groesse noch einmal. War es nur ein
+                        # Aussetzer, ist der Upload damit durch, ohne die Stapelgroesse
+                        # wegen einer Stoerung zu verlieren.
+                        if timeout_retries < _MAX_TIMEOUT_RETRIES:
+                            timeout_retries += 1
+                            logger.warning(
+                                "Embedding: Gegenstelle antwortet nicht bei {} Eingaben ({}), "
+                                "gleiche Groesse noch einmal",
+                                len(batch), e,
+                            )
+                            continue
+                        # Zweimal zu langsam heisst: vielleicht IST der Stapel zu gross
+                        # fuer diese Gegenstelle. Jetzt darf doch geschnitten werden,
+                        # sonst scheitert ein Upload an jedem langsameren Anbieter.
+                    if size > 1 and shrinks < _MAX_SHRINKS:
+                        shrinks += 1
+                        # Die naechste Anfrage MUSS kleiner werden als die gerade abgelehnte.
+                        # Die gelernte Groesse liegt oft weit ueber dem Stapel (1000 gelernt,
+                        # 6 Zeilen geschickt); halbierte man nur sie, ginge dieselbe Anfrage
+                        # unveraendert noch dreimal raus und jede Wiederholung waere reine
+                        # Wartezeit. Deshalb notfalls am Stapel selbst halbieren.
+                        size = max(1, size // 2)
+                        if size >= len(batch):
+                            # Notschnitt: die gelernte Groesse lag ueber dem Stapel, das
+                            # Halbieren haette die Anfrage nicht veraendert. Am Stapel
+                            # selbst schneiden, aber NICHTS daraus lernen. Dass 3 von 6
+                            # Chip-Zeilen durchgehen, sagt nichts ueber die Grenze der
+                            # Gegenstelle, wuerde aber den naechsten Upload mit 1000
+                            # Chunks in hunderte Dreier-Anfragen zerlegen.
+                            size = max(1, len(batch) // 2)
+                            darf_lernen = False
+                        logger.warning(
+                            "Embedding: Endpunkt lehnt {} Eingaben ab ({}), neuer Versuch mit {}",
+                            len(batch), e, size,
+                        )
+                        continue
                     raise RuntimeError(f"Embedding request failed: {e}") from e
 
             results.extend(vectors)
             pending = pending[len(batch):]
-            if _learned_batch_size.get(self._key) != size:
+            # Das Kontingent fuer Zeitschranken gilt je Stapel, nicht je Aufruf. Sonst
+            # wuerde ein Aussetzer beim ersten von fuenfzig Stapeln einen ganzen Upload
+            # am dreissigsten Stapel scheitern lassen.
+            timeout_retries = 0
+            if darf_lernen and _learned_batch_size.get(self._key) != size:
                 _learned_batch_size[self._key] = size
 
         return results
 
 
-def get_embedding_provider() -> EmbeddingProvider:
+def get_embedding_provider(*, timeout: float = 60.0,
+                           retry_on_timeout: bool = True) -> EmbeddingProvider:
     """Return the currently-active embedding provider.
 
     Reads the ``embedding`` feature route from the admin panel. Changing the
     route requires a reindex, so a silent fallback would corrupt the index —
     when no route is configured we raise.
+
+    ``timeout`` / ``retry_on_timeout`` trennen zwei Arten von Aufrufern. Der Upload
+    laeuft im Hintergrund und darf auf eine kalt startende Gegenstelle warten. Die
+    Quellenchips laufen, waehrend jemand vor dem fertigen Text sitzt: dort ist eine
+    kurze Schranke ohne zweiten Versuch richtig, denn die Antwort geht auch ohne
+    Chips raus (siehe AIA_ATTRIBUTION_EMBED_TIMEOUT_SECONDS).
     """
     from src.services import feature_router
     try:
@@ -155,6 +239,8 @@ def get_embedding_provider() -> EmbeddingProvider:
         base_url=base_url,
         api_key=provider.get("api_key") or "not-needed",
         model=model,
+        timeout=timeout,
+        retry_on_timeout=retry_on_timeout,
     )
 
 
