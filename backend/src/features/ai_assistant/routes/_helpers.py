@@ -1,7 +1,6 @@
 """Shared helpers for KI-Assistent routes."""
 
 import asyncio
-import html as _html
 import math
 import re
 import subprocess
@@ -225,24 +224,6 @@ def _norm_for_match(s: str) -> str:
     s = unicodedata.normalize("NFKC", s).casefold()
     for hy in ("‐", "‑", "‒", "–", "—", "−"):
         s = s.replace(hy, "-")
-    return re.sub(r"\s+", " ", s).strip()
-
-
-_HTML_TAG = re.compile(r"<[^>]+>")
-
-
-def _strip_html(s: str) -> str:
-    """Drop HTML tags and decode entities, keeping only the visible text.
-
-    docling renders structured pages (tables, headers) as HTML inside the chunk
-    text — ``<div data-label="Table">…<td><b>29.05.2026</b></td>…``. Left in, that
-    markup leaks into citation keywords and the highlight anchors on tag soup. We
-    keep the tags' TEXT content (the real cell values) and discard the tags. The
-    tag regex itself is language-agnostic."""
-    if not s or "<" not in s:
-        return s
-    s = _HTML_TAG.sub(" ", s)
-    s = _html.unescape(s)
     return re.sub(r"\s+", " ", s).strip()
 
 
@@ -476,11 +457,22 @@ _GENERIC_ATTRIB_MAX_DIST = 0.6
 # distance band observed against off-topic retrieved chunks.
 _GUARANTEE_MAX_DIST = 0.85
 _MAX_CHIPS_PER_LINE = 3
-# An ADDITIONAL chip (multi-chip) is only added when its chunk sits CLOSE to the block's
-# best chunk — within this distance delta. A relative gate, not just the absolute 0.6:
-# otherwise a clearly-best source (e.g. 0.21) collects spurious near-misses (0.32) that
-# are on-topic enough to pass 0.6 but are not where the claim actually came from. Genuine
-# co-sources (a fact stated on two pages / in two laws) sit at ~equal distance and stay.
+# An ADDITIONAL chip from the SAME source is only added when its chunk sits CLOSE to the
+# block's best chunk — within this distance delta. A relative gate, not just the absolute
+# 0.6: otherwise a clearly-best passage (e.g. 0.21) collects spurious near-misses (0.32)
+# that are on-topic enough to pass 0.6 but are not where the claim actually came from.
+# Genuine co-sources within one document (a fact stated on two pages / in two laws) sit at
+# ~equal distance and stay.
+#
+# It does NOT gate a chunk from ANOTHER source. A workspace typically holds the slides AND
+# the recording of the same session, so most statements exist twice, once written and once
+# spoken — and those two never land at the same distance, because talking around a fact at
+# length is what embeddings reward. Measured: a deadline stated at 08:58 in the talk (0.31)
+# and on the slide (0.47) lost the slide to this gate, and the literal-evidence exemption
+# could not save it either — the words the two share ("Abgabe", "Hausarbeit") are the words
+# the whole course carries, so rarity never calls them distinctive. One reader wants the
+# slide, another wants to hear the passage; that is the same rule _extra_chip_earns_place
+# already applies on the clause path, now applied here too.
 _MULTI_CHIP_MAX_DELTA = 0.08
 # Clause coverage: a multi-fact unit is also attributed fact-by-fact, so ONE chip stop may
 # carry up to this many chips total (unit-level chips PLUS one per distinct clause source).
@@ -1029,7 +1021,9 @@ def _chips_for_line(cands: list[dict], source_id_to_qnum: dict,
     The first usable candidate is the GUARANTEE chip (closest retrieved chunk, accepted
     up to ``guarantee_dist`` so a grounded claim is never left chip-less); each further
     chip must be a DISTINCT source/page within the normal ``max_distance`` (a genuine
-    additional contributing passage), capped at ``_MAX_CHIPS_PER_LINE``. Overview mode
+    additional contributing passage), capped at ``_MAX_CHIPS_PER_LINE``. A passage from
+    ANOTHER source needs only that absolute gate — the relative ``_MULTI_CHIP_MAX_DELTA``
+    sorts near-misses out within one document and has nothing to say across two. Overview mode
     passes ``guarantee_dist = max_distance`` so a loose, misleading single chip on a
     many-source synthesis line is dropped instead of guaranteed.
 
@@ -1048,6 +1042,7 @@ def _chips_for_line(cands: list[dict], source_id_to_qnum: dict,
     keys: set = set()
     primary_d: Optional[float] = None
     primary_content = ""
+    primary_source = None
     evidence_corpus = corpus or [c.get("content") or "" for c in cands]
     for h in cands:
         qnum = source_id_to_qnum.get(h.get("source_id"))
@@ -1060,10 +1055,13 @@ def _chips_for_line(cands: list[dict], source_id_to_qnum: dict,
                 break
             primary_d = d                # the guarantee chip; anchors the relative gate
             primary_content = h.get("content") or ""
+            primary_source = h.get("source_id")
         elif h.get("literal"):
             pass                         # states the claim's figure verbatim: it IS the source
         elif d > max_distance:
             break                        # off topic for everyone, evidence or not
+        elif h.get("source_id") != primary_source:
+            pass                         # another document: a second way in, not a near-miss
         elif d > primary_d + _MULTI_CHIP_MAX_DELTA and not (
                 line and adds_literal_evidence(
                     line, h.get("content") or "", primary_content, evidence_corpus)):

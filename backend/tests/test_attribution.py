@@ -247,6 +247,51 @@ def test_multi_chip_drops_far_secondary_relative_gate():
     assert out.count("[1,") == 1   # exactly one chip
 
 
+# ── a SECOND SOURCE stating the same fact ───────────────────────────────────
+# The deadline case from the course recording: the talk states the date at 08:58 (closest)
+# and the slide deck states it too. A spoken passage and a written one never land at the
+# same distance, so the slide sits 0.16 away — past the relative delta. The literal-evidence
+# exemption cannot save it either: the words the slide shares with the sentence ("Abgabe",
+# "Hausarbeit") are exactly the words the whole course carries, so they are not distinctive
+# and the slide looks like it adds nothing. Yet it is a second way in, not noise — the rule
+# the clause path already applies (_extra_chip_earns_place: "a DIFFERENT source always
+# earns it").
+_DEADLINE = "Die finale Abgabe der Hausarbeit ist am 3. Juli 2026 fällig"
+_TALK_0858 = "der 3. Juli, da ist die finale Deadline, wann Sie einreichen"
+# No bare "2026"/"3" run: the date is written as one figure, so the figure branch of
+# adds_literal_evidence stays out of it and the SOURCE rule is what the test measures.
+_SLIDE_DEADLINE = "Abgabe der Hausarbeit bis 03.07.2026"
+# A course corpus: "Abgabe" and "Hausarbeit" sit on nearly every chunk, which is precisely
+# why rarity cannot recognise the slide as evidence. Spelled-out numbers keep stray figure
+# runs out of the corpus.
+_COURSE = [{"content": f"Kapitel {n}: Hinweise zur Abgabe der Hausarbeit im Modul."}
+           for n in ("eins", "zwei", "drei", "vier", "fünf", "sechs", "sieben", "acht",
+                     "neun", "zehn")]
+
+
+def test_multi_chip_other_source_passes_the_relative_gate():
+    hits = [_hit(1, 41, _TALK_0858, 0.31, start=538.0), _hit(3, 4, _SLIDE_DEADLINE, 0.47)]
+    out = _attribute_generic_text(
+        _DEADLINE, _searcher({"finale Abgabe": hits}), {1: 1, 3: 2},
+        context_chunks=_COURSE + [dict(h) for h in hits],
+        seen_pages_by_source={1: {41}, 3: {4}}, max_distance=0.6)
+    assert "[1, 08:58]" in out    # the recording, closest
+    assert "[2, S. 4]" in out     # the slide, same fact, other source
+
+
+def test_multi_chip_same_source_near_miss_still_dropped():
+    # The other-source rule must not soften the gate WITHIN one document: a second passage
+    # of the SAME source past the delta is still a near-miss and stays out.
+    hits = [_hit(1, 41, _TALK_0858, 0.31, start=538.0),
+            _hit(1, 12, "irgendwann reden wir über die Abgabe", 0.47, start=180.0)]
+    out = _attribute_generic_text(
+        _DEADLINE, _searcher({"finale Abgabe": hits}), {1: 1},
+        context_chunks=_COURSE + [dict(h) for h in hits],
+        seen_pages_by_source={1: {41, 12}}, max_distance=0.6)
+    assert "[1, 08:58]" in out
+    assert out.count("[1,") == 1
+
+
 def test_ungrounded_answer_borderline_gets_no_chip():
     # Honest "not contained" case: the only line's closest seen chunk is 0.7 (> gate)
     # -> the answer is NOT grounded -> no chip, even though 0.7 < the guarantee ceiling.
