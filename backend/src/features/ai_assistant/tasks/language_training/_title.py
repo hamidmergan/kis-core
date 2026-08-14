@@ -1,7 +1,5 @@
 """LLM-backed title generation for exercise sets."""
 
-from loguru import logger
-
 
 def title_from_items(client, model, items_list: list[dict], fallback: str,
                      avoid: list[str] | None = None) -> str:
@@ -21,6 +19,8 @@ def title_from_items(client, model, items_list: list[dict], fallback: str,
 
 def title_from_glossary_terms(client, model, terms: list[str]) -> str:
     """Short thematic title from a list of technical terms (fallback: comma-separated list)."""
+    from src.services import model_limits
+
     fallback = ", ".join(terms)
     if not terms:
         return fallback
@@ -36,7 +36,9 @@ def title_from_glossary_terms(client, model, terms: list[str]) -> str:
                 {"role": "user", "content": fallback},
             ],
             temperature=0.3,
-            max_tokens=80,
+            # Ein Titel ist kurz, aber ein denkendes Modell braucht davor Platz,
+            # sonst kommt der Inhalt leer zurueck. Nur eine Obergrenze.
+            max_tokens=model_limits.PRECALL_MAX_TOKENS,
         )
         title = (resp.choices[0].message.content or "").strip().strip('"\'')
         return title or fallback

@@ -1649,6 +1649,29 @@ def _init_db(admin_email: Optional[str] = None) -> None:
             # dieselben Dateien, eine Einstellung reicht. Idempotent.
             cur.execute("DELETE FROM feature_routes WHERE feature = 'screencast_translate'")
 
+            # ─── Modellvermessung ─────────────────────────────────────────────
+            # Was ein Modell vertraegt, einmal gemessen statt im Admin geraten:
+            # Fenstergroesse in Token, ob es vor der Antwort denkt, und welcher
+            # Schalter dieses Denken abstellt. Gemessen an den 16 GWDG-Modellen
+            # reichen die Fenster von 20.080 bis 1.048.576 Token, eine feste
+            # Zeichenzahl fuer alle kann es also gar nicht geben.
+            #
+            # source sagt, wie verlaesslich die Zahl ist: "gemessen" (Anbieter hat
+            # sie genannt), "geraten" (er schweigt, Vorsichtswert), "gelernt" (aus
+            # einer echten Absage im Betrieb nachtraeglich korrigiert).
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS model_limits (
+                    provider_id   INTEGER NOT NULL REFERENCES providers(id) ON DELETE CASCADE,
+                    model_name    TEXT NOT NULL,
+                    window_tokens INTEGER NOT NULL,
+                    source        TEXT NOT NULL,
+                    thinks        BOOLEAN NOT NULL DEFAULT FALSE,
+                    think_off     TEXT NOT NULL DEFAULT '',
+                    updated_at    TIMESTAMP NOT NULL DEFAULT NOW(),
+                    PRIMARY KEY (provider_id, model_name)
+                )
+            """)
+
             # ─── LLM Usage Log ────────────────────────────────────────────────
             # One row per request: for daily alerts (anomaly detection) and
             # admin visibility. Token columns are nullable - Langfuse has

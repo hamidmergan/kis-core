@@ -5,16 +5,14 @@
  * wird und wie viel davon in eine Anfrage geht. Alles hier betrifft nur den
  * Assistenten, nicht die globalen Tools.
  *
- * Vorher lagen diese fünf Karten verstreut in einer Liste von siebzehn unter
+ * Vorher lagen diese Karten verstreut in einer Liste von siebzehn unter
  * "System", zwischen Wartungsmodus und Maskottchen.
  *
- * Die beiden Kontext-Budgets standen zuletzt unter einem eigenen Reiter
- * "Antworten". Der Name log: keine der beiden Zahlen beschreibt die Antwort,
- * beide zählen Quelltext, was ihre eigenen Hinweistexte auch so sagen. Sie
- * stehen deshalb hier, hinter dem Weg der Quelle vom Upload bis ins
- * Modell. Dass eines davon "Tools Kontext-Budget" heisst, klingt nach den
- * globalen Tools auf der Startseite, steuert aber die Lern-Tools im Modul. Der
- * Schlüssel im Backend bleibt wie er ist, nur der Ort stimmt jetzt.
+ * Hier standen einmal zwei Zahlenfelder für die Kontext-Budgets von Chat und
+ * Werkzeugen. Sie sind am 14.08.2026 entfallen. Eine Zahl von Hand konnte gar
+ * nicht für alle Modelle stimmen, die Fenster reichen von 20.080 bis 1.048.576
+ * Token, und ein zu grosses Budget hiess HTTP 400 statt einer Antwort. Was ein
+ * Modell verträgt, wird jetzt einmal gemessen und daraus gerechnet.
  */
 
 import { useTranslations } from "next-intl";
@@ -23,23 +21,15 @@ import { useSetting } from "../../_settings/SettingsProvider";
 import { NumberSetting, ToggleSetting } from "../../_settings/fields";
 import ReindexCard from "../../_settings/ReindexCard";
 
-/** Grobe Schätzung, etwa 3,5 Zeichen je Token bei gemischtem Text. Nur zur
- *  Orientierung, deshalb auf Tausender gerundet. */
-const approxTokens = (chars: number) => Math.round(chars / 3.5 / 1000);
-
 export default function SourcesPage() {
   const labels = useWorkspaceLabel();
   const tLimits = useTranslations("admin.workspaceLimitsCard");
   const tPages = useTranslations("admin.sourceMaxPagesCard");
   const tOcr = useTranslations("admin.ocrCard");
-  const tChat = useTranslations("admin.contextBudgetCard");
-  const tTools = useTranslations("admin.toolContextBudgetCard");
 
   const maxSources = useSetting<number>("aia_workspace_max_sources", 50);
   const maxPages = useSetting<number>("aia_source_max_pages", 100);
   const ocr = useSetting<boolean>("ocr_enabled", true);
-  const chat = useSetting<number>("aia_context_max_chars", 60000);
-  const tools = useSetting<number>("aia_tool_context_max_chars", 250000);
 
   return (
     <div className="space-y-4">
@@ -69,34 +59,10 @@ export default function SourcesPage() {
         hint={tOcr("hint")}
         label={tOcr("toggleAria")}
       />
-      <NumberSetting
-        field={chat}
-        title={tChat("title")}
-        hint={tChat("hint")}
-        unit={tChat("unit")}
-        min={1000}
-        max={800000}
-        outOfRange={tChat("outOfRange")}
-        suffix={(v) => (
-          <span className="text-xs text-muted-soft whitespace-nowrap">
-            {tChat("approxTokens", { n: approxTokens(v) })}
-          </span>
-        )}
-      />
-      <NumberSetting
-        field={tools}
-        title={tTools("title")}
-        hint={tTools("hint")}
-        unit={tTools("unit")}
-        min={1000}
-        max={1000000}
-        outOfRange={tTools("outOfRange")}
-        suffix={(v) => (
-          <span className="text-xs text-muted-soft whitespace-nowrap">
-            {tTools("approxTokens", { n: approxTokens(v) })}
-          </span>
-        )}
-      />
+      {/* Die zwei Kontextbudgets standen hier bis zum 14.08.2026 als Zahlenfelder.
+          Sie sind entfallen: wie viel Kontext ein Modell vertraegt, wird jetzt einmal
+          gemessen und daraus gerechnet. Der gemessene Wert steht im KI-Bereich neben
+          dem Modell. */}
       {/* Ganz unten, weil das als einziges hier ein Knopf ist und nicht eine
           Einstellung. Man liest die Regeln von oben nach unten und handelt am
           Ende, nicht mittendrin. */}

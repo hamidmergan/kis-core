@@ -113,13 +113,42 @@ def make_llm_client(binding: FeatureBinding):
 
     provider = binding.provider
     model = binding.model or ""
-    return OpenAICompatLLMClient(
+    client = OpenAICompatLLMClient(
         api_key=provider.get("api_key") or "not-needed",
         base_url=_ensure_v1(provider["base_url"]),
         model=model,
         whisper_model=model,
         provider=provider["name"],
     )
+    _attach_model_profile(client, binding)
+    return client
+
+
+def _attach_model_profile(client, binding: FeatureBinding) -> None:
+    """Dem Client anheften, was ueber sein Modell bekannt ist.
+
+    Beim ersten Mal wird dafuer gemessen, danach steht es in der Datenbank. Nur fuer
+    Merkmale, die ueber ``/chat/completions`` laufen: eine Einbettungs- oder
+    Whisper-Route mit einer Chat-Sonde zu vermessen ergibt nichts als einen Fehler.
+
+    Das Ergebnis stellt das Denken ab. Wo das Denken nicht abstellbar ist, bleibt die
+    Zusatzangabe leer, damit strenge Anbieter nicht ueber ein unbekanntes Feld stolpern.
+    """
+    from src.services import model_limits
+
+    if binding.feature not in model_limits.CHAT_LIKE_FEATURES or not binding.model:
+        return
+    try:
+        profil = model_limits.ensure_profile(binding.provider, binding.model)
+    except Exception as e:  # noqa: BLE001 — ohne Profil laeuft alles wie vorher
+        from loguru import logger
+        logger.debug("Modellprofil nicht verfuegbar: {}", e)
+        return
+    client._model_profile = profil
+    client._provider_id = binding.provider.get("id")
+    zusatz = model_limits.think_off_body(profil)
+    if zusatz:
+        client._extra_body = {**(client._extra_body or {}), **zusatz}
 
 
 def make_whisper_client(binding: FeatureBinding):
@@ -177,19 +206,6 @@ def make_ocr_provider(binding: FeatureBinding):
     raise FeatureNotConfigured(
         f"OCR is not supported by protocol {binding.protocol!r}"
     )
-
-
-def make_translation_adapter(binding: FeatureBinding):
-    """For DeepL bindings, return the DeepL adapter. For LLM-based bindings,
-    return the LLM client - the caller is responsible for prompt-driven
-    translation in that case."""
-    if binding.protocol == "deepl":
-        return make_adapter(
-            protocol="deepl",
-            base_url=binding.provider["base_url"],
-            api_key=binding.provider.get("api_key"),
-        )
-    return make_llm_client(binding)
 
 
 # ─── Helpers ───────────────────────────────────────────────────────────────

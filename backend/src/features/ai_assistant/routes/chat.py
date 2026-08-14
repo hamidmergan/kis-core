@@ -17,11 +17,8 @@ from langfuse.decorators import langfuse_context, observe
 from src import database as db
 from src.dependencies import get_current_user, get_llm_client
 from src.i18n import get_locale, t
-from src.limits import (
-    AIA_CONTEXT_MAX_CHARS,
-    AIA_CONTEXT_HARD_CAP,
-    AIA_EMBED_QUERY_MAX_CHARS,
-)
+from src.limits import AIA_EMBED_QUERY_MAX_CHARS
+from src.services import model_limits
 from src.security.rate_limit import enforce_burst
 from src.security.usage_log import log_request as _log_usage
 from src.tool_prompts import (
@@ -432,7 +429,9 @@ async def _classify_intent(llm, question: str) -> str:
                 {"role": "user", "content": question},
             ],
             temperature=0.0,
-            max_tokens=200,  # leave headroom for reasoning preambles; we parse the verdict out
+            # Platz auch fuer ein Modell, dessen Denken sich nicht abstellen laesst.
+            # Das Urteil wird ohnehin aus der Antwort herausgelesen.
+            max_tokens=model_limits.PRECALL_MAX_TOKENS,
             **(llm._extra_body and {"extra_body": llm._extra_body} or {}),
         )
     try:
@@ -499,7 +498,9 @@ async def _understand_query(llm, question: str) -> tuple[str, dict, list[str]]:
                 {"role": "user", "content": question},
             ],
             temperature=0.0,
-            max_tokens=300,  # room for the subqueries list on a compound question
+            # Platz fuer die Teilfragen einer zusammengesetzten Frage, und fuer ein
+            # Modell, dessen Denken sich nicht abstellen laesst.
+            max_tokens=model_limits.PRECALL_MAX_TOKENS,
             **(llm._extra_body and {"extra_body": llm._extra_body} or {}),
         )
     try:
@@ -516,23 +517,18 @@ async def _understand_query(llm, question: str) -> tuple[str, dict, list[str]]:
 
 
 def _context_budget() -> int:
-    """Character budget for the LLM context, admin-tunable per deployment.
+    """Zeichenbudget fuer den Kontext, gerechnet aus dem gemessenen Fenster des Modells.
 
-    KIS runs on very different setups — universities on large cloud models vs a
-    private user on a local Ollama — so a fixed budget is wrong. Reads the
-    ``aia_context_max_chars`` admin setting, falling back to AIA_CONTEXT_MAX_CHARS
-    (250k chars ≈ 71k tokens, sized for the Mid minimum tier). A deployment can
-    raise it toward AIA_CONTEXT_HARD_CAP so whole large documents fit (see
-    _full_context_if_fits) and SPECIFIC needs fewer map-reduce calls; an admin
-    value already in the DB overrides this default.
+    KIS laeuft auf sehr verschiedenen Aufbauten, von einem lokalen Ollama bis zu einem
+    grossen Cloud-Modell, eine feste Zahl kann deshalb nicht stimmen. Bis 2026-08-14 stand
+    hier eine Admin-Einstellung, die genau das versuchte, und ein Modell mit kleinerem
+    Fenster fuehrte zu HTTP 400 statt zu einer Antwort.
+
+    Dieselbe Rechnung wie bei den Werkzeugen, deshalb steht sie nur einmal in
+    ``tasks._context_budget`` und wird hier nur weitergereicht.
     """
-    try:
-        value = int(db.get_setting("aia_context_max_chars", str(AIA_CONTEXT_MAX_CHARS)))
-    except (ValueError, TypeError):
-        return AIA_CONTEXT_MAX_CHARS
-    # Clamp on read too: a stale/oversized value in the DB (set before the cap,
-    # or written directly) must never push a context the model can't take.
-    return max(1000, min(value, AIA_CONTEXT_HARD_CAP))
+    from src.features.ai_assistant.tasks._context_budget import context_budget
+    return context_budget()
 
 
 def _full_context_if_fits(source_ids: list[int], max_chars: int) -> Optional[list[dict]]:
@@ -1696,13 +1692,13 @@ async def chat(
                     await _prewarmer.flush()  # final drain of whatever is still pending
 
                 _pump_task = asyncio.create_task(_prewarm_pump())
-            try:
+            async def _open_stream(messages):
                 # 90s connect/first-token timeout so an Ollama cold-start model
                 # load can finish before we abort. Once tokens flow the
                 # inter-chunk inactivity guard below takes over.
-                stream = await llm._async_client.with_options(timeout=90.0, max_retries=0).chat.completions.create(
+                return await llm._async_client.with_options(timeout=90.0, max_retries=0).chat.completions.create(
                     model=llm._model,
-                    messages=_final_messages,
+                    messages=messages,
                     temperature=0.2,
                     stream=True,
                     # Ask for a final usage chunk so chat token counts land in
@@ -1711,6 +1707,26 @@ async def chat(
                     stream_options={"include_usage": True},
                     **(llm._extra_body and {"extra_body": llm._extra_body} or {}),
                 )
+
+            try:
+                try:
+                    stream = await _open_stream(_final_messages)
+                except Exception as _limit_err:  # noqa: BLE001
+                    # Der Anbieter lehnt zu viel Kontext ab, BEVOR ein Zeichen geflossen
+                    # ist. Nennt seine Absage die Fenstergroesse, merken wir sie uns,
+                    # kuerzen und senden sofort nochmal. Der Nutzer sieht eine kurze
+                    # Verzoegerung statt eines Fehlers, und beim naechsten Mal passt es
+                    # von vornherein. Nennt sie keine, bleibt es beim Fehler wie bisher.
+                    _fenster = model_limits.learn_from_error(
+                        getattr(llm, "_provider_id", None), llm._model, _limit_err
+                    )
+                    if not _fenster:
+                        raise
+                    _final_messages = model_limits.fit_messages(
+                        _final_messages,
+                        model_limits.context_chars(_fenster, model_limits.CHAT_SHARE),
+                    )
+                    stream = await _open_stream(_final_messages)
                 # Inter-chunk inactivity guard: once streaming starts, the SDK's
                 # request timeout no longer applies. If upstream goes silent
                 # (zombie connection, provider stall) we'd wait forever and the

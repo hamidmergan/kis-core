@@ -28,13 +28,6 @@ minimum for that document at that budget, 2.17M chars / 800k), every page betwee
 17 hits, page 1 among them. It also needs no randomness at all, so a run is reproducible.
 """
 
-from src.limits import (
-    AIA_CONTEXT_MAX_CHARS,
-    AIA_CONTEXT_HARD_CAP,
-    AIA_TOOL_CONTEXT_MAX_CHARS,
-    AIA_TOOL_CONTEXT_HARD_CAP,
-)
-
 # How many windows to spread across an oversized document. Each run reads one window per
 # block, so a single run still spans the whole document rather than one contiguous slice
 # of it — a set of exercises should not be about chapter 3 alone.
@@ -42,33 +35,30 @@ _COVERAGE_BLOCKS = 12
 
 
 def context_budget() -> int:
-    """Character budget for the LLM context, admin-tunable via ``aia_context_max_chars``.
+    """Zeichenbudget fuer den Kontext des Chats, gerechnet aus dem gemessenen Fenster.
 
-    Mirrors the chat's budget resolver so the tools honour the SAME admin setting instead
-    of a hardcoded value (a small local model vs a large cloud model wants different
-    budgets). Falls back to AIA_CONTEXT_MAX_CHARS, clamped to the hard cap."""
-    from src import database as db
-    try:
-        value = int(db.get_setting("aia_context_max_chars", str(AIA_CONTEXT_MAX_CHARS)))
-    except (ValueError, TypeError):
-        return AIA_CONTEXT_MAX_CHARS
-    return max(1000, min(value, AIA_CONTEXT_HARD_CAP))
+    Bis 2026-08-14 stand hier eine feste Zeichenzahl aus dem Admin (``aia_context_max_chars``).
+    Die konnte gar nicht fuer alle stimmen: die Fenster der Modelle reichen von 20.080 bis
+    1.048.576 Token, und wer ein kleines Modell eintrug, bekam vom Anbieter HTTP 400 statt
+    einer Antwort. Jetzt zaehlt, was das Modell wirklich vertraegt.
+    """
+    from src.services import model_limits
+    return model_limits.context_chars(
+        model_limits.window_for_feature("chat"), model_limits.CHAT_SHARE
+    )
 
 
 def tool_context_budget() -> int:
-    """Character budget for the GENERATION TOOLS (mindmap, data table, quiz, flashcards, …).
+    """Zeichenbudget fuer die WERKZEUGE (Mindmap, Datentabelle, Quiz, Lernkarten, …).
 
-    A SEPARATE knob from the chat budget (:func:`context_budget`): a tool packs a whole
-    document into ONE generation call, so an admin wants to give the tools a larger window
-    than every chat turn gets. The caller divides this by the number of selected sources.
-    Admin-tunable via ``aia_tool_context_max_chars``, falls back to AIA_TOOL_CONTEXT_MAX_CHARS,
-    clamped to the (higher) tool hard cap."""
-    from src import database as db
-    try:
-        value = int(db.get_setting("aia_tool_context_max_chars", str(AIA_TOOL_CONTEXT_MAX_CHARS)))
-    except (ValueError, TypeError):
-        return AIA_TOOL_CONTEXT_MAX_CHARS
-    return max(1000, min(value, AIA_TOOL_CONTEXT_HARD_CAP))
+    Groesser als das des Chats (:func:`context_budget`), weil ein Werkzeug ein ganzes
+    Dokument in EINEN Aufruf packt und weder Gespraechsverlauf noch eine lange Antwort zu
+    bezahlen hat. Der Aufrufer teilt das noch durch die Zahl der gewaehlten Quellen.
+    """
+    from src.services import model_limits
+    return model_limits.context_chars(
+        model_limits.window_for_feature("chat"), model_limits.TOOL_SHARE
+    )
 
 
 def select_chunks_for_budget(

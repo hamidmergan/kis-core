@@ -5,7 +5,7 @@ import { useTranslations } from "next-intl";
 import { CheckCircle, Lightning, Spinner, Warning, XCircle } from "@phosphor-icons/react";
 import { testFeatureRoute } from "./_api";
 import DefaultVoiceRow from "./DefaultVoiceRow";
-import type { Capability, Feature, FeatureRoute, Provider, ProviderMeta } from "./_types";
+import type { Capability, Feature, FeatureRoute, ModelLimits, Provider, ProviderMeta } from "./_types";
 
 type Props = {
   meta: ProviderMeta;
@@ -314,6 +314,7 @@ function FeatureRow({
           <p className="text-sm font-medium text-foreground">{t(`featureName.${feature}`)}</p>
           <p className="text-xs text-muted-soft mt-0.5">{t(`featureDesc.${feature}`)}</p>
           <TestStatusLine state={testState} />
+          <ModelLimitsLine limits={route?.limits} />
         </div>
         <div className="flex flex-col gap-2 sm:items-end sm:max-w-115">
           <div className="flex flex-wrap gap-2 items-center sm:justify-end">
@@ -372,6 +373,7 @@ function FeatureRow({
         <p className="text-sm font-medium text-foreground">{t(`featureName.${feature}`)}</p>
         <p className="text-xs text-muted-soft mt-0.5">{t(`featureDesc.${feature}`)}</p>
         <TestStatusLine state={testState} />
+        <ModelLimitsLine limits={route?.limits} />
       </div>
       <div className="flex gap-2 sm:contents">
         <select
@@ -447,6 +449,29 @@ function TestButton({
       )}
     </button>
   );
+}
+
+/**
+ * Was an diesem Modell gemessen wurde. Steht bewusst immer da und nicht erst nach
+ * einem Klick: zwei Modellnamen können sich bis auf ein Wort gleichen und trotzdem
+ * viermal so grosse Fenster haben. Genau daran ist am 14.08.2026 ein Chat gescheitert,
+ * qwen3-omni-30b-a3b-instruct hat 65.536 Token, qwen3.6-35b-a3b hat 262.144.
+ */
+function ModelLimitsLine({ limits }: { limits?: ModelLimits | null }) {
+  const t = useTranslations("admin.providers");
+  if (!limits) return null;
+  const teile = [
+    t("routes.limitsWindow", { tokens: limits.window_tokens.toLocaleString("de-DE") }),
+    t("routes.limitsContext", { chars: limits.context_chars.toLocaleString("de-DE") }),
+  ];
+  if (limits.source === "geraten") teile.push(t("routes.limitsGuessed"));
+  if (limits.source === "gelernt") teile.push(t("routes.limitsLearned"));
+  if (limits.thinks) {
+    teile.push(limits.think_off ? t("routes.limitsThinks") : t("routes.limitsThinksStuck"));
+  }
+  // Ein geratener Wert ist eine Warnung, kein Messergebnis: dort steht noch nichts fest.
+  const ton = limits.source === "geraten" ? "text-warn" : "text-muted-soft";
+  return <p className={`text-2xs ${ton} mt-1`}>{teile.join(" · ")}</p>;
 }
 
 function TestStatusLine({ state }: { state: TestState }) {

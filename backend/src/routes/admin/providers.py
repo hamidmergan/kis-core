@@ -313,15 +313,31 @@ async def discover_voices(
 
 
 @router.get("/feature-routes")
-async def list_feature_routes(_admin=Depends(get_admin_user)):
-    return {"routes": db.list_routes()}
+async def list_feature_routes(_admin=Depends(_require)):
+    """Alle Routen, jede mit dem, was ueber ihr Modell gemessen wurde.
+
+    Die Messung steht bewusst hier und nicht erst hinter dem Testknopf: zwei Modellnamen
+    koennen sich bis auf ein Wort gleichen und trotzdem viermal so grosse Fenster haben,
+    und genau daran ist am 14.08.2026 ein Chat gescheitert. Wer die Zahl in der Liste
+    sieht, waehlt nicht mehr blind.
+    """
+    from src.services import model_limits
+
+    routen = db.list_routes()
+    for route in routen:
+        modelle = route.get("provider_models") or {}
+        modell = modelle.get(str(route.get("provider_id"))) or route.get("model_name")
+        route["limits"] = model_limits.as_dict(
+            model_limits.stored_profile(route.get("provider_id"), modell)
+        )
+    return {"routes": routen}
 
 
 @router.post("/feature-routes/{feature}/test")
 def test_route(
     feature: str,
     provider_id: int | None = Query(None),
-    _admin=Depends(get_admin_user),
+    _admin=Depends(_require),
     locale: str = Depends(get_locale),
 ):
     """Run a feature-specific live test against the route's assigned provider.
@@ -361,14 +377,37 @@ def test_route(
         model_name=model_name,
         voices=provider.get("voices") or [],
     )
-    return {"status": result.status, "error": result.error, "warning": result.warning}
+    return {
+        "status": result.status,
+        "error": result.error,
+        "warning": result.warning,
+        "limits": _measure_route_model(provider, model_name, feature) if result.status == "ok" else None,
+    }
+
+
+def _measure_route_model(provider: dict, model_name: str | None, feature: str) -> dict | None:
+    """Das Modell dieser Route vermessen und das Ergebnis fuer die Oberflaeche liefern.
+
+    Nur fuer Merkmale, die ueber ``/chat/completions`` laufen. Scheitert die Messung,
+    gibt es eben nichts anzuzeigen, aber niemals einen Fehler: der Testknopf soll sagen,
+    ob die Route laeuft, und daran darf eine misslungene Nebenmessung nichts aendern.
+    """
+    from src.services import model_limits
+
+    if feature not in model_limits.CHAT_LIKE_FEATURES or not model_name:
+        return None
+    try:
+        return model_limits.as_dict(model_limits.remeasure(provider, model_name))
+    except Exception as e:  # noqa: BLE001
+        logger.debug("Nebenmessung fehlgeschlagen: {}", e)
+        return None
 
 
 @router.patch("/feature-routes/{feature}")
 async def set_feature_route(
     feature: str,
     body: SetFeatureRouteRequest,
-    _admin=Depends(get_admin_user),
+    _admin=Depends(_require),
     locale: str = Depends(get_locale),
 ):
     if feature not in FEATURES:
@@ -405,7 +444,18 @@ async def set_feature_route(
         from src.routes.admin._embedding import invalidate_fingerprint_cache
         invalidate_fingerprint_cache()
 
-    return {"route": row}
+    # Ein neu eingetragenes Modell wird sofort vermessen, damit das Kontextbudget ab der
+    # naechsten Anfrage stimmt und der Admin sieht, was das Modell kann. Ohne das faende
+    # die Messung erst beim ersten echten Einsatz statt, also mitten in einer Nutzeranfrage.
+    limits = None
+    if body.provider_id is not None:
+        provider = db.get_provider(body.provider_id)
+        modelle = row.get("provider_models") or {}
+        modell = modelle.get(str(body.provider_id)) or row.get("model_name")
+        if provider:
+            limits = _measure_route_model(provider, modell, feature)
+
+    return {"route": row, "limits": limits}
 
 
 # ─── Helpers ───────────────────────────────────────────────────────────────

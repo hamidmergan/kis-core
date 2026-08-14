@@ -983,7 +983,13 @@
           "stt_endpoint_verified_model_unvalidated": "Endpoint verifiziert erreichbar (Auth ok, Rate-Limit aktiv, Backend antwortet). Der Provider validiert den Modellnamen nicht — STT funktioniert auch mit beliebigen Namen."
         },
         "modelForPrimary": "Modell für {name}:",
-        "modelOptional": "(optional)"
+        "modelOptional": "(optional)",
+        "limitsWindow": "Fenster {tokens} Token",
+        "limitsGuessed": "geschätzt, noch nicht gemessen",
+        "limitsLearned": "im Betrieb gelernt",
+        "limitsThinks": "denkt, Denken wird abgeschaltet",
+        "limitsThinksStuck": "denkt, nicht abschaltbar",
+        "limitsContext": "{chars} Zeichen Kontext"
       },
       "delete": {
         "title": "Anbieter „{name}\" löschen?",

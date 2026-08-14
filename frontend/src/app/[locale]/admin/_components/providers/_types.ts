@@ -56,6 +56,17 @@ export type Provider = {
   updated_at: string;
 };
 
+/** Was einmal an einem Modell gemessen wurde: wie viel Kontext es verträgt und ob
+ *  es vor der Antwort denkt. `source` sagt, wie verlässlich die Zahl ist. */
+export type ModelLimits = {
+  window_tokens: number;
+  source: "gemessen" | "geraten" | "gelernt";
+  thinks: boolean;
+  think_off: string;
+  context_chars: number;
+  tool_context_chars: number;
+};
+
 export type FeatureRoute = {
   id: number;
   feature: Feature;
@@ -64,6 +75,7 @@ export type FeatureRoute = {
   user_choices: number[];
   provider_models: Record<string, string>;
   updated_at: string;
+  limits?: ModelLimits | null;
 };
 
 // ─── Export / Import ──────────────────────────────────────────────────────
