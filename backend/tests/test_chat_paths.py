@@ -241,25 +241,37 @@ def test_full_context_none_for_empty_sources(monkeypatch):
     assert _full_context_if_fits([1], max_chars=10_000) is None
 
 
-def test_context_budget_reads_setting_with_default(monkeypatch):
-    monkeypatch.setattr(chat_mod.db, "get_setting", lambda key, default: "123456")
-    assert _context_budget() == 123456
-    # Bad value -> falls back to the tier-safe constant.
-    monkeypatch.setattr(chat_mod.db, "get_setting", lambda key, default: "not-a-number")
-    assert _context_budget() == chat_mod.AIA_CONTEXT_MAX_CHARS
+def test_context_budget_folgt_dem_gemessenen_fenster(monkeypatch):
+    """Das Budget kam bis 2026-08-14 aus einer Admin-Einstellung. Jetzt kommt es aus
+    dem einmal gemessenen Fenster des Modells, das die Chat-Route bedient."""
+    from src.services import model_limits
+
+    monkeypatch.setattr(model_limits, "window_for_feature", lambda feature="chat": 262144)
+    assert _context_budget() == model_limits.context_chars(262144, model_limits.CHAT_SHARE)
 
 
-def test_context_budget_clamps_oversized_setting(monkeypatch):
-    # An admin typo / stale DB value above the hard cap is clamped on read so it
-    # can never push a context the model cannot take.
-    monkeypatch.setattr(chat_mod.db, "get_setting", lambda key, default: "1000000")
-    assert _context_budget() == chat_mod.AIA_CONTEXT_HARD_CAP
-    # Absurd 10M likewise clamps to the cap, never returned verbatim.
-    monkeypatch.setattr(chat_mod.db, "get_setting", lambda key, default: "10000000")
-    assert _context_budget() == chat_mod.AIA_CONTEXT_HARD_CAP
-    # A sane value below the cap passes through untouched.
-    monkeypatch.setattr(chat_mod.db, "get_setting", lambda key, default: "120000")
-    assert _context_budget() == 120000
+def test_kleines_fenster_ergibt_kleines_budget(monkeypatch):
+    """apertus-70b kann nur 20080 Token. Frueher bekam es trotzdem 250000 Zeichen
+    und der Anbieter antwortete mit HTTP 400 statt mit Text."""
+    from src.services import model_limits
+
+    monkeypatch.setattr(model_limits, "window_for_feature", lambda feature="chat": 20080)
+    klein = _context_budget()
+    monkeypatch.setattr(model_limits, "window_for_feature", lambda feature="chat": 262144)
+    assert klein < _context_budget()
+    assert klein < 60000
+
+
+def test_unvermessenes_modell_bekommt_den_vorsichtswert(monkeypatch):
+    """Solange nichts gemessen wurde, darf die Budgetrechnung keine Anfrage aufhalten
+    und rechnet mit dem vorsichtigen Standardfenster."""
+    from src.services import model_limits
+
+    monkeypatch.setattr(model_limits, "stored_profile", lambda pid, model: None)
+    monkeypatch.setattr(chat_mod.db, "get_route", lambda feature: {"provider_id": 1, "model_name": "x"})
+    assert _context_budget() == model_limits.context_chars(
+        model_limits.DEFAULT_WINDOW_TOKENS, model_limits.CHAT_SHARE
+    )
 
 
 # ── generic path: single-search pgvector retrieval (db/provider monkeypatched) ──

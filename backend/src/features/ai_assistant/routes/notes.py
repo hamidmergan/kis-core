@@ -9,6 +9,7 @@ from loguru import logger
 
 from src import database as db
 from src.dependencies import get_current_user, get_llm_client
+from src.services import model_limits
 from src.i18n import get_locale, t
 from src.limits import (
     AIA_NOTES_MAX_PER_USER,
@@ -56,7 +57,9 @@ def _generate_note_title(llm, content: str, language: str = "German") -> Optiona
                 {"role": "user", "content": snippet},
             ],
             temperature=0.2,
-            max_tokens=120,
+            # Ein Titel ist kurz, aber ein denkendes Modell braucht davor Platz,
+            # sonst kommt der Inhalt leer zurueck. Nur eine Obergrenze.
+            max_tokens=model_limits.PRECALL_MAX_TOKENS,
             **(llm._extra_body and {"extra_body": llm._extra_body} or {}),
         )
         title = (response.choices[0].message.content or "").strip().strip('"\'').rstrip(".")

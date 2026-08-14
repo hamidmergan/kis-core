@@ -4,7 +4,7 @@ import { CaretLeft, CaretRight, FilePdf, Files, PencilSimple, SidebarSimple, Spa
 import Spinner from "@/components/ui/Spinner";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { InlineRename } from "@/components/ui/InlineRename";
-import type { DataTableData, DataTableRowSource, DataTableSource, Source, StudentStats } from "../../_types";
+import type { DataTableData, DataTableRowSource, DataTableSource, Source } from "../../_types";
 import { _getChipIcon, _isMediaFile, _sourceChipKey } from "../../_utils";
 import { MinimizeContext } from "../../_context";
 import { SubviewHeader, _getToolBadge, type BreadcrumbItem } from "../layout/SubviewHeader";
@@ -13,7 +13,7 @@ import { StudioSourceLegend } from "./StudioSourceLegend";
 export function DataTableStudio({
   table, sources, loading, onGenerate, onBack,
   savedList, onSelect, onDelete, onRename, sourceCount,
-  allSources, onPillClick, stats, breadcrumbs,
+  allSources, onPillClick, breadcrumbs,
   openInViewer, onViewerOpened,
 }: {
   table: DataTableData | null;
@@ -28,7 +28,6 @@ export function DataTableStudio({
   sourceCount: number;
   allSources?: Source[];
   onPillClick?: (sourceUuid: string, page: number, filename: string, sourceText?: string, startTime?: number) => void;
-  stats?: StudentStats | null;
   breadcrumbs?: BreadcrumbItem[];
   openInViewer?: boolean;
   onViewerOpened?: () => void;
@@ -176,7 +175,7 @@ export function DataTableStudio({
                     <CaretRight size={10} weight="bold" style={{ opacity: 0.5 }} className="shrink-0" />
                   </React.Fragment>
                 ))}
-                <button type="button" onClick={() => setView("list")} className="font-medium shrink-0 px-1.5 py-0.5 rounded opacity-60 hover:opacity-100 transition-opacity" style={badge ? { backgroundColor: badge.bg, color: badge.color } : {  }}>{tDt("title")}</button>
+                <button type="button" onClick={() => setView("list")} className="font-medium shrink-0 px-1.5 py-0.5 rounded opacity-60 hover:opacity-100 transition-opacity" style={badge ? { color: badge.color } : {  }}>{tDt("title")}</button>
                 <CaretRight size={10} weight="bold" style={{ opacity: 0.5 }} className="shrink-0" />
                 <span className="font-semibold truncate" style={{ color: "var(--foreground)" }}>{activeTitle}</span>
               </div>

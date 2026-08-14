@@ -134,8 +134,9 @@ def run_screencast_translate(
         save_result_meta(user_id, job_uuid, {"translated_stem": translated})
 
         # awaiting_user: user must review scripts before render starts
+        # Keine eigene Frist mehr. Liegengebliebene Entwuerfe holt der Wachhund ab
+        # (AWAITING_USER_TIMEOUT_HOURS), alles andere regelt der Vorrat.
         db.update_job_status(job_uuid, "awaiting_user")
-        db.update_job_expiry(job_uuid, 168)  # 7 days - no resources held while waiting
         _maybe_dispatch_next(job_uuid)  # awaiting_user holds no slot -> start the next job
 
         # Clean up input file

@@ -20,7 +20,6 @@
 
 import { useTranslations } from "next-intl";
 import Select from "@/components/ui/Select";
-import { SavedMark } from "../../_settings/fields";
 import { useSettingGroup } from "../../_settings/SettingsProvider";
 import type { Provider } from "./_types";
 
@@ -30,7 +29,7 @@ const SCHLUESSEL = [ANBIETER, STIMME];
 
 export default function DefaultVoiceRow({ eligible }: { eligible: Provider[] }) {
   const t = useTranslations("admin.providers.defaultVoice");
-  const { settings, loading, save, saving, saved, error } = useSettingGroup(SCHLUESSEL);
+  const { settings, loading, save, saving, error } = useSettingGroup(SCHLUESSEL);
 
   if (loading) return null;
 
@@ -77,7 +76,6 @@ export default function DefaultVoiceRow({ eligible }: { eligible: Provider[] }) 
     <div className="mt-3 pt-3 border-t border-border-soft">
       <div className="flex items-center gap-2">
         <span className="flex-1 min-w-0 truncate text-sm text-foreground-soft">{t("label")}</span>
-        <SavedMark show={saved} />
         <div className="w-64">
           <Select
             value={angezeigt}

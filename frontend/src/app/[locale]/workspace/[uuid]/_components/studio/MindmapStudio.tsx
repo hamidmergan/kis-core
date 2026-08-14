@@ -21,7 +21,7 @@ import {
 import Spinner from "@/components/ui/Spinner";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { InlineRename } from "@/components/ui/InlineRename";
-import type { Source, StudentStats } from "../../_types";
+import type { Source } from "../../_types";
 import { _getChipIcon, _isMediaFile } from "../../_utils";
 import { MinimizeContext } from "../../_context";
 import { SubviewHeader, _getToolBadge, type BreadcrumbItem } from "../layout/SubviewHeader";
@@ -38,7 +38,7 @@ export interface MindmapNodeData {
 export function MindmapStudio({
   mindmap, loading, onGenerate, onBack,
   savedList, onSelect, onDelete, onRename, sourceCount,
-  sources, onPillClick, stats, breadcrumbs,
+  sources, onPillClick, breadcrumbs,
   openInViewer, onViewerOpened,
 }: {
   mindmap: MindmapNodeData | null;
@@ -52,7 +52,6 @@ export function MindmapStudio({
   sourceCount: number;
   sources?: Source[];
   onPillClick?: (sourceUuid: string, page: number, filename: string, sourceText?: string, startTime?: number) => void;
-  stats?: StudentStats | null;
   breadcrumbs?: BreadcrumbItem[];
   openInViewer?: boolean;
   onViewerOpened?: () => void;
@@ -467,7 +466,7 @@ export function MindmapStudio({
                     <CaretRight size={10} weight="bold" style={{ opacity: 0.5 }} className="shrink-0" />
                   </React.Fragment>
                 ))}
-                <button type="button" onClick={() => { if (fullscreen) setFullscreen(false); setView("list"); }} className="font-medium shrink-0 px-1.5 py-0.5 rounded opacity-60 hover:opacity-100 transition-opacity" style={badge ? { backgroundColor: badge.bg, color: badge.color } : {  }}>{tMm("title")}</button>
+                <button type="button" onClick={() => { if (fullscreen) setFullscreen(false); setView("list"); }} className="font-medium shrink-0 px-1.5 py-0.5 rounded opacity-60 hover:opacity-100 transition-opacity" style={badge ? { color: badge.color } : {  }}>{tMm("title")}</button>
                 <CaretRight size={10} weight="bold" style={{ opacity: 0.5 }} className="shrink-0" />
                 <span className="font-semibold truncate" style={{ color: "var(--foreground)" }}>{activeTopicName}</span>
               </div>

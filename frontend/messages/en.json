@@ -755,13 +755,9 @@
           "routes": "Features"
         }
       },
-      "appearance": {
-        "label": "Appearance",
-        "sub": "What users see and what it is called."
-      },
       "system": {
         "label": "System",
-        "sub": "What applies to the whole platform."
+        "sub": "What applies to the whole platform: maintenance, labels and notice."
       },
       "mascot": {
         "label": "Mascots",

@@ -755,13 +755,9 @@
           "routes": "Funktionen"
         }
       },
-      "appearance": {
-        "label": "Oberfläche",
-        "sub": "Was die Nutzer sehen und wie es heißt."
-      },
       "system": {
         "label": "System",
-        "sub": "Was für die ganze Plattform gilt."
+        "sub": "Was für die ganze Plattform gilt: Wartung, Beschriftungen und Hinweis."
       },
       "mascot": {
         "label": "Maskottchen",
