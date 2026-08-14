@@ -101,6 +101,29 @@ RAG_NO_INFO_SENTINEL: dict[str, str] = {
     "en": "This information is not contained in the provided sources.",
 }
 
+# Was beim Vergleich abgeschnitten wird: Betonungszeichen, Anfuehrungszeichen und
+# Satzzeichen am Rand. Das Modell schreibt den Satz mal fett, mal ohne Punkt.
+_SENTINEL_TRIM = " \t\r\n*_`\"'“”„«».!"
+
+
+def _sentinel_key(text: str | None) -> str:
+    """Vergleichsform eines Satzes: Leerraum vereinheitlicht, Rand-Zeichen ab, klein."""
+    return " ".join((text or "").split()).strip(_SENTINEL_TRIM).casefold()
+
+
+def is_sentinel_refusal(text: str | None) -> bool:
+    """True, wenn die GANZE Antwort nur der kanonische "steht nicht in den Quellen"-Satz ist.
+
+    Reiner Textvergleich, absichtlich ohne Einbettung: eine reine Absage hat nichts zu
+    belegen, also darf sie den kompletten Nachbearbeitungs-Durchgang (ein Einbettungs-Stapel
+    plus die pgvector-Suchen) ueberspringen und sofort rausgehen, statt ihre einzige Zeile
+    erst zu vermessen und dann wieder zu verwerfen. Greift nur beim woertlichen de/en-Satz.
+    Jede andere Sprache und jede zusammengesetzte Antwort faellt durch auf die
+    einbettungs-basierte Erkennung (``is_refusal_answer`` / ``_refusal_lines``), die das
+    allgemeine Netz bleibt."""
+    key = _sentinel_key(text)
+    return bool(key) and any(key == _sentinel_key(s) for s in RAG_NO_INFO_SENTINEL.values())
+
 
 # Longest previous question kept as a language anchor. Enough to recognise a
 # language, short enough that a pasted wall of text cannot flood the prompt.
@@ -185,9 +208,20 @@ def aia_system_rag(
         "NEVER invent facts, definitions, or information not derivable from the sources.\n"
         "NEVER reference the documents by their number, index, or id, and NEVER enumerate where a fact appears. The <document index=\"N\" id=\"N\"> numbers are internal markup, NOT part of the answer: do NOT write 'in document 3', 'in Dokumenten 3, 7, 10', 'source 5', 'laut Quelle 2', or any list of such numbers. State each fact ONCE in plain language — the clickable source links are attached automatically afterwards, so you never cite, number, or list sources yourself.\n"
         "No conversation history is provided. The question is standalone - answer it using ONLY the <documents> below.\n"
-        "If the <documents> do not contain enough information to answer, respond with EXACTLY ONE short sentence stating the information is not in the provided sources, written IN THE SAME LANGUAGE AS THE USER'S QUESTION "
-        f"(German question: \"{de_sentinel}\"; English question: \"{en_sentinel}\"; any other language: translate that statement into the question's language). Do NOT speculate, do NOT use general knowledge.\n"
-        "Do NOT add disclaimers, comments about missing information, or limitations.\n"
+        "NOT IN THE DOCUMENTS — REFUSE, THEN POINT AT WHAT IS THERE:\n"
+        "  1. OPEN with EXACTLY ONE short sentence stating the information is not in the provided sources, written IN THE SAME LANGUAGE AS THE USER'S QUESTION "
+        f"(German question: \"{de_sentinel}\"; English question: \"{en_sentinel}\"; any other language: translate that statement into the question's language).\n"
+        "  2. THEN look through the <documents> for the CLOSEST related thing that IS there — the same matter under another name, or whatever takes its place (asked for an exam → the documents describe a written paper; asked for a term the sources never name → they describe the same practice in other words). If you find one, you MUST add ONE short sentence naming it with its concrete facts. Only if the documents hold nothing related at all do you stop after sentence 1.\n"
+        "  - THE TEST for whether a pointer is allowed: you must be able to name the SUBJECT the question and the passage SHARE ('Klausur' and 'Hausarbeit' share how the course is assessed → pointer allowed). If the only thing they share is that both appear in these documents, there is NO pointer — write the refusal alone.\n"
+        "  - SHAPE TO COPY — CASE A, the documents DO cover something related (refusal, then exactly ONE pointing sentence):\n"
+        "      Question: Wann ist die Klausur?\n"
+        f"      {de_sentinel}\n"
+        "      Die Quellen beschreiben als Prüfungsleistung eine Hausarbeit von sechs bis sieben Seiten mit Abgabe am 3. Juli.\n"
+        "  - SHAPE TO COPY — CASE B, the documents cover NOTHING related (refusal ALONE, no second sentence at all):\n"
+        "      Question: Wie hoch ist der Wechselkurs von Bitcoin?\n"
+        f"      {de_sentinel}\n"
+        "  - NEVER speculate, NEVER use general knowledge, NEVER write a third sentence, NEVER offer further help, and NEVER stretch for a pointer that fails the test above.\n"
+        "Do NOT add disclaimers, comments about missing information, or limitations — the ONE pointing sentence above is the only exception.\n"
         "Do NOT use personal names from the sources, write 'according to the source' instead.\n"
         "LANGUAGE — TOP PRIORITY: ALWAYS write the answer in the SAME language as the USER'S QUESTION, even when the source documents are in a different language. English question + German sources -> answer in English (translate the facts). German question -> answer in German. Match the question's language every time.\n"
         f"{_ambiguous_language_rule(target_locale, prev_questions)}\n\n"

@@ -17,6 +17,7 @@ from src.features.ai_assistant.routes._helpers import (
     _refusal_lines,
     is_refusal_answer,
 )
+from src.tool_prompts import RAG_NO_INFO_SENTINEL, is_sentinel_refusal
 
 
 def _hit(sid, page, content, dist, start=None):
@@ -420,6 +421,49 @@ def test_refusal_answer_embed_failure_is_false():
 
 def test_refusal_answer_empty_text_is_false():
     assert is_refusal_answer("   ", lambda t: [[1.0]], ["s"], max_dist=0.40) is False
+
+
+# ── is_sentinel_refusal (literal whole-answer refusal, no embedding) ──────────
+# Cheap pre-gate in front of the whole post-hoc pass: an answer that is nothing but the
+# canonical no-info sentence has nothing to cite, so it must not pay for an embed batch
+# plus a pgvector fan-out just to have its only line filtered out again afterwards.
+
+_DE = RAG_NO_INFO_SENTINEL["de"]
+_EN = RAG_NO_INFO_SENTINEL["en"]
+
+
+def test_sentinel_refusal_de_verbatim():
+    assert is_sentinel_refusal(_DE) is True
+
+
+def test_sentinel_refusal_en_verbatim():
+    assert is_sentinel_refusal(_EN) is True
+
+
+def test_sentinel_refusal_tolerates_whitespace_and_emphasis():
+    assert is_sentinel_refusal(f"  **{_DE}**\n\n") is True
+    assert is_sentinel_refusal(_DE.rstrip(".")) is True
+
+
+def test_sentinel_refusal_compound_answer_is_false():
+    # The answered part must still go through attribution and keep its chip; only the
+    # refusal LINE is dropped there (see _refusal_lines).
+    text = f"Die Frist endet am dritten Juli laut der Ordnung.\n{_DE}"
+    assert is_sentinel_refusal(text) is False
+
+
+def test_sentinel_refusal_real_answer_is_false():
+    assert is_sentinel_refusal("Ab dem dritten Juli gilt die neue Ordnung.") is False
+
+
+def test_sentinel_refusal_other_language_is_false():
+    # French refusal: no literal match, so it falls through to the embedding-based net.
+    assert is_sentinel_refusal("Cette information ne figure pas dans les sources.") is False
+
+
+def test_sentinel_refusal_empty_is_false():
+    assert is_sentinel_refusal("   ") is False
+    assert is_sentinel_refusal(None) is False
 
 
 def test_long_dash_delimiter_row_never_cited():

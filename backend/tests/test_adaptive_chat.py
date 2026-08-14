@@ -157,6 +157,30 @@ def test_guard_holds_without_an_adaptive_block():
     assert seal_adaptive_suffix("").endswith(ADAPTIVE_SOURCES_GUARD)
 
 
+def test_guard_laesst_genau_einen_hinweis_auf_verwandtes_zu():
+    """Die Sperre darf den Hinweis auf etwas Verwandtes nicht mehr verbieten.
+
+    Sie stand am Ende der Nutzer-Nachricht und sagte woertlich, die GANZE Antwort
+    sei der eine Absage-Satz, davor und danach nichts. Damit hat sie die Regel im
+    Systemprompt ueberstimmt, und auf "wann ist die Klausur" kam die blanke
+    Absage, obwohl die Hausarbeit als Pruefungsleistung im Kontext stand
+    (gemessen 14.08.2026). Neu: genau EIN Satz aus den Quellen darf folgen.
+
+    Was die Sperre weiterhin verbietet, bleibt Wort fuer Wort verboten: eigenes
+    Wissen, Begruendungen, Vorschlaege, Hilfsangebote.
+    """
+    from src.services.aia_adaptive_chat import ADAPTIVE_SOURCES_GUARD
+    g = ADAPTIVE_SOURCES_GUARD
+    # Der Hinweis ist ausdruecklich erlaubt und auf einen Satz begrenzt.
+    assert "ONE sentence" in g
+    assert "closely related" in g
+    # Und er kommt aus den Quellen, nie aus eigenem Wissen.
+    assert "own knowledge" in g
+    # Das Gefaess bleibt zu: keine Angebote, keine Begruendungen.
+    assert "offer to help" in g
+    assert "no explanation of why" in g
+
+
 def test_sources_guard_cannot_be_deleted_by_an_admin_edit():
     """The guard lives in code, NOT in the admin-editable behaviour text: an expert
     rewriting the didactics in the admin UI must not be able to remove the rule that
