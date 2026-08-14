@@ -16,6 +16,10 @@ from src.services.aia_diagnosis_chat import (
 )
 
 
+# Der Speicher-Endpunkt prueft jedes Feld gegen die Rechte des Aufrufers.
+# Ein Administrator hat alle, also aendert das an diesen Tests nichts.
+_ADMIN = {"role": "admin"}
+
 def _raw(*items) -> str:
     return json.dumps(list(items))
 
@@ -113,6 +117,11 @@ class _Body:
     def __getattr__(self, name):
         return object.__getattribute__(self, "_set").get(name)
 
+    def model_dump(self):
+        # Der Speicher-Endpunkt laeuft die Felder ab, um jedes gegen ein Recht
+        # zu pruefen. Was hier nicht drinsteht, gilt als nicht mitgeschickt.
+        return dict(object.__getattribute__(self, "_set"))
+
 
 @pytest.fixture
 def store(monkeypatch):
@@ -129,7 +138,7 @@ def store(monkeypatch):
 async def test_patch_stores_a_finished_plan(store):
     payload = _raw(CHOICE, GAP, FREE, FIX)
     await admin_settings.update_settings(
-        _Body(language_diagnosis_question_plan_de=payload), None, "de"
+        _Body(language_diagnosis_question_plan_de=payload), _ADMIN, "de"
     )
     assert store[QUESTION_PLAN_SETTING] == payload
 
@@ -138,7 +147,7 @@ async def test_patch_rejects_an_unfinished_row_and_names_it(store):
     payload = _raw(CHOICE, {"type": CHOICE_TYPE, "text": "Welches Wort passt?"}, FREE, FIX)
     with pytest.raises(HTTPException) as exc:
         await admin_settings.update_settings(
-            _Body(language_diagnosis_question_plan_de=payload), None, "de"
+            _Body(language_diagnosis_question_plan_de=payload), _ADMIN, "de"
         )
     assert exc.value.status_code == 400
     assert "2" in exc.value.detail

@@ -1,16 +1,11 @@
-import json
 import os
-from contextlib import contextmanager
-from datetime import datetime, timedelta, timezone
 from typing import Optional
 from zoneinfo import ZoneInfo
 
 import psycopg2
 import psycopg2.extras
 import psycopg2.pool
-from psycopg2.extras import RealDictCursor
 
-from src.limits import MAX_RESULT_FILES, JOB_RETENTION_HOURS
 
 _TZ_BERLIN = ZoneInfo("Europe/Berlin")
 _REDIS_URL = os.environ.get("REDIS_URL", "redis://kis-redis:6379/0")
@@ -347,28 +342,30 @@ def _init_db(admin_email: Optional[str] = None) -> None:
             # iff users.role = 'custom'. Existing legacy values are migrated:
             #   'lecturer' -> 'staff'
             #   'student'  -> 'user'
+            # Eine eigene Rolle ist ein Name und eine Liste von Rechte-Schluesseln
+            # aus src/permissions_registry.py. Vorher waren es zwei Sonderfelder
+            # (aia_access, allowed_tools), die nur zwei der drei Rechtegruppen
+            # abbilden konnten und den Adminbereich gar nicht.
             cur.execute("""
                 CREATE TABLE IF NOT EXISTS custom_roles (
                     id            SERIAL PRIMARY KEY,
                     name          TEXT NOT NULL UNIQUE,
-                    aia_access    TEXT NOT NULL DEFAULT 'none'
-                                  CHECK (aia_access IN ('none','read','edit')),
-                    allowed_tools JSONB NOT NULL DEFAULT '[]'::jsonb,
+                    permissions   JSONB NOT NULL DEFAULT '[]'::jsonb,
                     created_at    TIMESTAMP NOT NULL DEFAULT NOW(),
                     updated_at    TIMESTAMP NOT NULL DEFAULT NOW()
                 )
             """)
-            # Migrate the original boolean `allow_aia` to the tri-state `aia_access`
-            # ('none'|'read'|'edit') introduced in commit c2a6bbd. DBs created before
-            # that commit still carry the boolean column, so the role repository's
-            # `SELECT ... aia_access ...` raised "column aia_access does not exist"
-            # (a 500 on /api/admin/roles). Idempotent: the ADD is guarded by
-            # IF NOT EXISTS, the data copy + drop only run while allow_aia survives.
             cur.execute(
-                "ALTER TABLE custom_roles ADD COLUMN IF NOT EXISTS aia_access "
-                "TEXT NOT NULL DEFAULT 'none' "
-                "CHECK (aia_access IN ('none','read','edit'))"
+                "ALTER TABLE custom_roles ADD COLUMN IF NOT EXISTS permissions "
+                "JSONB NOT NULL DEFAULT '[]'::jsonb"
             )
+            # Zwei Umzuege hintereinander, beide laufen nur auf alten Datenbanken
+            # und beide sind daran erkennbar, dass die jeweils alte Spalte noch da
+            # ist. Auf einer frischen Datenbank passiert hier nichts.
+            #
+            # Erst der alte Umzug aus Commit c2a6bbd: aus dem Ja-Nein-Feld
+            # `allow_aia` wurde das dreiwertige `aia_access`. Ohne diesen Schritt
+            # verloere eine sehr alte Datenbank ihre Zugriffsstufe.
             cur.execute("""
                 DO $$
                 BEGIN
@@ -377,8 +374,40 @@ def _init_db(admin_email: Optional[str] = None) -> None:
                         WHERE table_name = 'custom_roles'
                           AND column_name = 'allow_aia'
                     ) THEN
+                        ALTER TABLE custom_roles ADD COLUMN IF NOT EXISTS aia_access
+                            TEXT NOT NULL DEFAULT 'none';
                         UPDATE custom_roles SET aia_access = 'read' WHERE allow_aia = TRUE;
                         ALTER TABLE custom_roles DROP COLUMN allow_aia;
+                    END IF;
+                END $$;
+            """)
+            # Dann der neue: aus aia_access und allowed_tools werden Schluessel.
+            # 'edit' war die einzige Stufe, die wirklich mehr erlaubt hat, naemlich
+            # eigene Workspaces. Lesen ueber einen geteilten Link hatte ohnehin
+            # jeder. Danach fallen beide Spalten weg, denn zwei Wahrheiten ueber
+            # dasselbe Recht waeren schlimmer als ein Umzug.
+            cur.execute("""
+                DO $$
+                BEGIN
+                    IF EXISTS (
+                        SELECT 1 FROM information_schema.columns
+                        WHERE table_name = 'custom_roles'
+                          AND column_name = 'allowed_tools'
+                    ) THEN
+                        UPDATE custom_roles SET permissions = (
+                            SELECT COALESCE(jsonb_agg(k), '[]'::jsonb) FROM (
+                                SELECT 'aia.use'::text AS k
+                                UNION ALL
+                                SELECT 'aia.workspace.create'
+                                    WHERE COALESCE(custom_roles.aia_access, '') = 'edit'
+                                UNION ALL
+                                SELECT 'tools.' || value
+                                    FROM jsonb_array_elements_text(custom_roles.allowed_tools)
+                            ) AS m
+                        )
+                        WHERE permissions = '[]'::jsonb;
+                        ALTER TABLE custom_roles DROP COLUMN allowed_tools;
+                        ALTER TABLE custom_roles DROP COLUMN IF EXISTS aia_access;
                     END IF;
                 END $$;
             """)
@@ -539,8 +568,8 @@ def _init_db(admin_email: Optional[str] = None) -> None:
             cur.execute(
                 "ALTER TABLE aia_workspaces ADD COLUMN IF NOT EXISTS diagnosis_language TEXT NOT NULL DEFAULT 'de'"
             )
-            # Per-workspace setting: whether the Sprachtrainer (vocabulary cards,
-            # grammar exercise, listening) is offered here at all. The owner decides
+            # Per-workspace setting: whether the Sprachtrainer (flashcards, vocabulary
+            # cloze, grammar exercise) is offered here at all. The owner decides
             # this once for everyone; it used to be a per-reader checkbox, which meant
             # a course could not rely on the trainer being there. Off by default, and
             # only effective while the system-wide switch is on (see _common settings).

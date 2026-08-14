@@ -10,7 +10,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from loguru import logger
 
 from src import database as db
-from src.dependencies import get_admin_user, get_llm_client
+from src.dependencies import get_llm_client
 from src.i18n import get_locale, t
 from src.services.aia_diagnosis_authoring import (
     GENERATION_SLOTS,
@@ -31,7 +31,13 @@ from src.services.aia_level_ladder import (
     parse_level_descriptions,
 )
 
+from src.dependencies_rbac import require_permission
+from src.permissions_registry import PERM_SET_AIA_LEVEL
+
 router = APIRouter()
+
+# Der Fragenplan gehoert zur Seite Sprachniveau.
+_require = require_permission(PERM_SET_AIA_LEVEL)
 
 
 async def _ask(llm, messages: list[dict], locale: str) -> str:
@@ -41,7 +47,7 @@ async def _ask(llm, messages: list[dict], locale: str) -> str:
 
 @router.post("/settings/diagnosis-plan/generate")
 async def generate_diagnosis_plan(
-    _admin=Depends(get_admin_user),
+    _admin=Depends(_require),
     llm=Depends(get_llm_client),
     locale: str = Depends(get_locale),
 ):

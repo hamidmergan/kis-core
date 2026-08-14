@@ -17,11 +17,11 @@
  */
 
 import type { ComponentType } from "react";
+import { PERM } from "@/lib/permissions";
 import {
   Bird,
   GearSix,
   Notebook,
-  Palette,
   Sparkle,
   Toolbox,
   Users,
@@ -62,6 +62,9 @@ export interface AdminPage {
   /** Schluessel unter admin.sections.<bereich> */
   key: string;
   world: World;
+  /** Rechte-Schluessel, ohne den die Seite weder in der Leiste steht noch
+   *  ueber ihre Adresse erreichbar ist. Siehe lib/permissions. */
+  perm: string;
   Component?: ComponentType;
   tabs?: AdminTab[];
   /** Startseite von /admin. Genau eine Seite traegt das. Ohne Markierung
@@ -82,6 +85,9 @@ export interface AdminSection {
   Icon: Icon;
   world: World;
   rank: Rank;
+  /** Nur fuer Bereiche ohne Unterseiten. Bereiche mit Unterseiten sind
+   *  sichtbar, sobald eine ihrer Seiten sichtbar ist. */
+  perm?: string;
   pages?: AdminPage[];
   Component?: ComponentType;
   /** Schluessel unter admin.sections.<bereich>.tabs */
@@ -106,7 +112,6 @@ import UsersPage from "../_pages/nutzer/users";
 import RolesPage from "../_pages/nutzer/roles";
 import QuotaPage from "../_pages/nutzer/quota";
 
-import AppearancePage from "../_pages/appearance";
 import SystemPage from "../_pages/system";
 import HildePage from "../_pages/mascot/hilde";
 import FrancisPage from "../_pages/mascot/francis";
@@ -114,8 +119,8 @@ import FrancisPage from "../_pages/mascot/francis";
 export const SECTIONS: AdminSection[] = [
   // Reihenfolge: die beiden Produkte oben, alles andere ist Zuarbeit.
   // Wer die Leiste zum ersten Mal sieht, soll sofort erkennen, dass KIS aus
-  // zwei getrennten Welten besteht. Nutzer, Anbieter, Oberflaeche und System
-  // sind Verwaltung drumherum, Maskottchen ist Entwicklerkram und steht
+  // zwei getrennten Welten besteht. Nutzer, Anbieter und System sind
+  // Verwaltung drumherum, Maskottchen ist Entwicklerkram und steht
   // abgetrennt ganz unten.
   {
     slug: "werkzeuge",
@@ -124,9 +129,9 @@ export const SECTIONS: AdminSection[] = [
     world: "tools",
     rank: "product",
     pages: [
-      { slug: "freigabe", key: "release", world: "tools", Component: ToolReleasePage },
-      { slug: "auftraege", key: "jobs", world: "tools", Component: ToolJobsPage, home: true },
-      { slug: "statistik", key: "stats", world: "tools", Component: ToolStatsPage },
+      { slug: "freigabe", key: "release", world: "tools", perm: PERM.toolsRelease, Component: ToolReleasePage },
+      { slug: "auftraege", key: "jobs", world: "tools", perm: PERM.toolsJobs, Component: ToolJobsPage, home: true },
+      { slug: "statistik", key: "stats", world: "tools", perm: PERM.toolsStats, Component: ToolStatsPage },
     ],
   },
   {
@@ -139,7 +144,7 @@ export const SECTIONS: AdminSection[] = [
       // Quellen traegt auch die beiden Kontext-Budgets. Sie hatten einen
       // eigenen Reiter "Antworten", der aber nichts ueber Antworten sagte:
       // beide Zahlen zaehlen Quelltext.
-      { slug: "quellen", key: "sources", world: "aia", Component: SourcesPage },
+      { slug: "quellen", key: "sources", world: "aia", perm: PERM.aiaSources, Component: SourcesPage },
       // Eine Seite, zwei Reiter. Einstufung und KI-Verhalten gehoeren zum
       // selben Gegenstand: der eine Reiter schaltet den Test ein und legt fest
       // was er abfragt, der andere sagt wie die KI dabei fragt und urteilt.
@@ -148,12 +153,15 @@ export const SECTIONS: AdminSection[] = [
         slug: "sprachniveau",
         key: "level",
         world: "aia",
+        // Beide Reiter haengen an einem Recht. Ihre Werte liegen im selben
+        // Datensatz, eine Trennung koennte der Torwaechter nicht halten.
+        perm: PERM.aiaLevel,
         tabs: [
           { slug: "einstufung", labelKey: "assessment", Component: LanguageLevelPage },
           { slug: "ki-verhalten", labelKey: "behaviour", Component: AiBehaviourPage },
         ],
       },
-      { slug: "nutzung", key: "usage", world: "aia", Component: AiaUsagePage },
+      { slug: "nutzung", key: "usage", world: "aia", perm: PERM.aiaUsage, Component: AiaUsagePage },
     ],
   },
   // Ein Punkt in der Leiste, zwei Reiter auf der Seite. Anbieter und
@@ -166,6 +174,7 @@ export const SECTIONS: AdminSection[] = [
     Icon: Sparkle,
     world: "both",
     rank: "admin",
+    perm: PERM.providers,
     tabs: [
       { slug: "liste", labelKey: "list", Component: ProviderListPage },
       { slug: "funktionen", labelKey: "routes", Component: ProviderRoutesPage },
@@ -178,31 +187,28 @@ export const SECTIONS: AdminSection[] = [
     world: "both",
     rank: "admin",
     pages: [
-      { slug: "ausstehend", key: "pending", world: "both", Component: PendingPage },
-      { slug: "whitelist", key: "whitelist", world: "both", Component: WhitelistPage },
-      { slug: "alle-nutzer", key: "users", world: "both", Component: UsersPage },
-      { slug: "rollen", key: "roles", world: "both", Component: RolesPage },
+      { slug: "ausstehend", key: "pending", world: "both", perm: PERM.usersPending, Component: PendingPage },
+      { slug: "whitelist", key: "whitelist", world: "both", perm: PERM.usersWhitelist, Component: WhitelistPage },
+      { slug: "alle-nutzer", key: "users", world: "both", perm: PERM.usersAll, Component: UsersPage },
+      { slug: "rollen", key: "roles", world: "both", perm: PERM.usersRoles, Component: RolesPage },
       // Kein eigener Punkt in der Leiste: die Seite ist ein Absprung aus
       // "Alle Nutzer", erst Nutzer waehlen, dann dessen Kontingente samt
       // Standardwerten sehen. Als Punkt sah sie aus wie eine Seite, die man
       // ohne Nutzer aufrufen kann, und war dann leer.
-      { slug: "kontingente", key: "quota", world: "both", Component: QuotaPage, hidden: true },
+      { slug: "kontingente", key: "quota", world: "both", perm: PERM.usersAll, Component: QuotaPage, hidden: true },
     ],
   },
-  {
-    slug: "oberflaeche",
-    key: "appearance",
-    Icon: Palette,
-    world: "both",
-    rank: "admin",
-    Component: AppearancePage,
-  },
+  // System traegt auch die beiden Karten, die vorher unter "Oberflaeche"
+  // standen: Beschriftung der Workspaces und der Hinweis auf der Startseite.
+  // Ein eigener Punkt in der Leiste fuer zwei Karten, die genau wie der
+  // Wartungsmodus fuer die ganze Plattform gelten, war eine Trennung zu viel.
   {
     slug: "system",
     key: "system",
     Icon: GearSix,
     world: "both",
     rank: "admin",
+    perm: PERM.system,
     Component: SystemPage,
   },
   {
@@ -212,8 +218,8 @@ export const SECTIONS: AdminSection[] = [
     world: "dev",
     rank: "dev",
     pages: [
-      { slug: "hilde", key: "hilde", world: "dev", Component: HildePage },
-      { slug: "francis", key: "francis", world: "dev", Component: FrancisPage },
+      { slug: "hilde", key: "hilde", world: "dev", perm: PERM.mascot, Component: HildePage },
+      { slug: "francis", key: "francis", world: "dev", perm: PERM.mascot, Component: FrancisPage },
     ],
   },
 ];
@@ -265,9 +271,55 @@ export function home(): Resolved | null {
   return null;
 }
 
-/** Alle Adressen, fuer Tests und zum Nachschlagen. */
-export function allPaths(): string[] {
-  return SECTIONS.flatMap((s) =>
-    s.pages ? s.pages.map((p) => `${s.slug}/${p.slug}`) : [s.slug],
+/**
+ * Wer was sehen darf.
+ *
+ * Der Bereich gehoert nicht mehr einer Rolle, sondern zerfaellt in Seiten, die
+ * einzeln vergeben werden. Deshalb muss die Leiste filtern und nicht nur die
+ * Tuer bewachen: eine Rolle, die nur das Sprachniveau pflegt, soll auch nur
+ * diesen einen Punkt sehen.
+ *
+ * Der Server prueft jede Anfrage selbst. Hier geht es darum, niemandem eine
+ * Tuer zu zeigen, die hinter einem 403 liegt.
+ */
+export function pageAllowed(page: AdminPage, keys: string[]): boolean {
+  return keys.includes(page.perm);
+}
+
+export function sectionAllowed(section: AdminSection, keys: string[]): boolean {
+  if (section.pages) return section.pages.some((p) => pageAllowed(p, keys));
+  return !!section.perm && keys.includes(section.perm);
+}
+
+/** Die Bereiche samt ihrer erlaubten Seiten. Leere Bereiche fallen weg. */
+export function allowedSections(keys: string[]): AdminSection[] {
+  return SECTIONS.filter((s) => sectionAllowed(s, keys)).map((s) =>
+    s.pages ? { ...s, pages: s.pages.filter((p) => pageAllowed(p, keys)) } : s,
   );
 }
+
+/** Darf diese Adresse geoeffnet werden? */
+export function allowed(found: Resolved, keys: string[]): boolean {
+  return found.page
+    ? pageAllowed(found.page, keys)
+    : sectionAllowed(found.section, keys);
+}
+
+/**
+ * Die erste Seite, die jemand sehen darf. Ziel jeder Weiterleitung.
+ *
+ * Die markierte Startseite hat Vorrang, aber nur wenn sie erlaubt ist. Sonst
+ * landete ein Sprachexperte auf den Auftraegen und damit sofort im 403.
+ */
+export function firstAllowed(keys: string[]): Resolved | null {
+  const start = home();
+  if (start && allowed(start, keys)) return start;
+  for (const section of allowedSections(keys)) {
+    if (!section.pages) return { section, path: section.slug };
+    const page = section.pages.find((p) => !p.hidden) ?? section.pages[0];
+    if (page) return { section, page, path: `${section.slug}/${page.slug}` };
+  }
+  return null;
+}
+
+

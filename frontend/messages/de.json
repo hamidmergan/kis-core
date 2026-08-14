@@ -14,7 +14,8 @@
     "themeDark": "Dunkel",
     "themeLight": "Hell",
     "themeToDarkAria": "Dunkler Modus",
-    "themeToLightAria": "Heller Modus"
+    "themeToLightAria": "Heller Modus",
+    "settings": "Verwaltung"
   },
   "footer": {
     "aiNotice": "Diese Plattform nutzt KI und kann Fehler machen. Überprüfen Sie die Antworten.",
@@ -1430,27 +1431,81 @@
     "roles": {
       "tabLabel": "Rollen",
       "title": "Rollen verwalten",
-      "system": "System-Rollen",
-      "systemHint": "System-Rollen sind fest definiert und können nicht bearbeitet oder gelöscht werden.",
-      "custom": "Eigene Rollen",
+      "systemHint": "Die ersten drei Spalten stehen fest und sind nicht änderbar. Sie stehen hier, damit du siehst, wogegen du eine eigene Rolle vergleichst.",
       "newRole": "Neue Rolle",
       "name": "Name",
-      "aiaAccess": "AIA {label}",
-      "aiaRead": "Leserechte (Link-Zugriff)",
-      "aiaEdit": "Bearbeitungsrechte (wie staff: {plural} erstellen)",
-      "tools": "Globale Tools",
-      "toolsSelectAll": "Alle auswählen",
       "save": "Speichern",
       "cancel": "Abbrechen",
       "delete": "Löschen",
       "edit": "Bearbeiten",
-      "confirmDelete": "Rolle wirklich löschen? Nutzer mit dieser Rolle werden auf 'user' zurückgesetzt.",
+      "confirmDelete": "Rolle „{name}“ wirklich löschen? Nutzer mit dieser Rolle werden auf User zurückgesetzt.",
       "userRoleLabel": "Rolle",
       "roleAdmin": "Admin",
       "roleStaff": "Staff",
       "roleUser": "User",
       "roleCustom": "Custom",
-      "envAdminLocked": "Der Haupt-Admin (aus den Server-Einstellungen) kann nicht geändert werden."
+      "envAdminLocked": "Der Haupt-Admin (aus den Server-Einstellungen) kann nicht geändert werden.",
+      "matrixHint": "Spalten sind Rollen, Zeilen sind Funktionen. Ein Klick auf ein Kästchen wird sofort gespeichert, einen Speicherknopf gibt es nicht. Hat jemand mehrere Rollen, addieren sich die Rechte.",
+      "functionColumn": "Funktion",
+      "locked": "Fest vergeben, nicht änderbar",
+      "newRoleHint": "Die Rolle startet ohne Rechte. Die Häkchen setzt du danach in der Tabelle.",
+      "renameFailed": "Umbenennen hat nicht geklappt.",
+      "saveFailed": "Speichern hat nicht geklappt.",
+      "roleName": {
+        "admin": "Administrator",
+        "staff": "Staff",
+        "user": "User"
+      },
+      "systemRoleHint": {
+        "admin": "Der Administrator darf alles. Nicht änderbar.",
+        "staff": "Staff nutzt den KI-Assistenten mit eigenen Workspaces und alle Werkzeuge, aber keine Einstellungen. Nicht änderbar.",
+        "user": "User öffnet nur geteilte Workspaces. Nicht änderbar."
+      },
+      "more": "Mehr"
+    },
+    "titleSettings": "Einstellungen",
+    "permissions": {
+      "group": {
+        "aia": "KI-Assistent",
+        "tools": "Werkzeuge",
+        "settings": "Einstellungen"
+      },
+      "aia": {
+        "use": "KI-Assistent öffnen und geteilte {plural} lesen",
+        "workspace": {
+          "create": "Eigene {plural} anlegen und verwalten"
+        }
+      },
+      "tools": {
+        "translation": "Übersetzung",
+        "tts": "Text in Sprache",
+        "transcription": "Sprache in Text",
+        "image": "Bildgenerierung",
+        "summary": "Zusammenfassung",
+        "screencast": "Screencast",
+        "glossary": "Glossar"
+      },
+      "settings": {
+        "werkzeuge": {
+          "release": "Werkzeuge freigeben und sperren",
+          "jobs": "Aufträge aller Nutzer sehen",
+          "stats": "Statistik der Werkzeuge"
+        },
+        "assistent": {
+          "sources": "Quellen und Kontext-Budgets",
+          "level": "Sprachniveau und KI-Verhalten, also die Prompts",
+          "usage": "Nutzung des KI-Assistenten"
+        },
+        "anbieter": "Anbieter, Modelle und Funktionszuordnung",
+        "nutzer": {
+          "pending": "Ausstehende Anmeldungen freischalten",
+          "whitelist": "Whitelist pflegen",
+          "users": "Alle Nutzer und ihre Kontingente",
+          "roles": "Rollen und Rechte vergeben"
+        },
+        "system": "System, Wartung, Beschriftungen und Hinweis",
+        "mascot": "Maskottchen"
+      }
     }
   },
   "permissions": {
@@ -1593,6 +1648,11 @@
   },
   "workspace": {
     "detail": {
+      "closed": {
+        "title": "Dieser Workspace ist geschlossen",
+        "text": "Die Lehrperson hat ihn gerade auf inaktiv gestellt. Deine Einschreibung bleibt bestehen, du kommst wieder hinein, sobald er geöffnet ist.",
+        "back": "Zur Übersicht"
+      },
       "languageTraining": {
         "diagnosis": {
           "title": "Sprach-Test",

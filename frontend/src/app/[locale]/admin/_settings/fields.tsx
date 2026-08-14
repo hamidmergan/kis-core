@@ -65,21 +65,9 @@ export function SettingCard({
   );
 }
 
-/** Kurze Bestätigung neben dem Feld. Ersetzt das stille Speichern von vorher. */
-export function SavedMark({ show }: { show: boolean }) {
-  const t = useTranslations("admin");
-  return (
-    <span
-      role="status"
-      aria-live="polite"
-      className={`text-2xs font-semibold whitespace-nowrap px-2 py-0.5 rounded-full
-        bg-success-bg text-success-strong transition-opacity duration-150
-        ${show ? "opacity-100" : "opacity-0"}`}
-    >
-      {t("savedShort")}
-    </span>
-  );
-}
+/* Hier stand eine Marke "Gespeichert." neben jedem Feld. Sie ist weg: dass eine
+   Einstellung sofort greift, weiss man, und ein Schild dafuer ist Laerm. Fehler
+   meldet die Karte weiterhin. */
 
 /* ------------------------------------------------------------------ */
 /* Schalter                                                            */
@@ -140,10 +128,7 @@ export function ToggleSetting({
       description={on ? activeText : disabledText}
       error={field.error}
       control={
-        <>
-          <SavedMark show={field.saved} />
-          <Switch checked={on} onChange={(n) => void field.set(n)} disabled={field.saving} label={label} />
-        </>
+        <Switch checked={on} onChange={(n) => void field.set(n)} disabled={field.saving} label={label} />
       }
     >
       {hint && <p className="mt-3 text-xs text-muted-soft max-w-2xl">{hint}</p>}
@@ -203,7 +188,6 @@ export function NumberSetting({
       error={local ?? field.error}
       control={
         <>
-          <SavedMark show={field.saved} />
           <input
             type="number"
             min={min}
@@ -227,65 +211,6 @@ export function NumberSetting({
   );
 }
 
-/* ------------------------------------------------------------------ */
-/* Text                                                                */
-/* ------------------------------------------------------------------ */
-
-export function TextSetting({
-  field,
-  title,
-  hint,
-  placeholder,
-  wide,
-}: {
-  field: SettingHandle<string>;
-  title: ReactNode;
-  hint?: ReactNode;
-  placeholder?: string;
-  /** Volle Breite unter dem Titel statt schmal daneben. */
-  wide?: boolean;
-}) {
-  const [draft, setDraft] = useState("");
-
-  useEffect(() => {
-    if (field.value !== null) setDraft(field.value);
-  }, [field.value]);
-
-  if (field.loading || field.value === null) return null;
-
-  const commit = () => { if (draft !== field.value) void field.set(draft); };
-
-  const input = (
-    <input
-      type="text"
-      value={draft}
-      onChange={(e) => setDraft(e.target.value)}
-      onBlur={commit}
-      onKeyDown={(e) => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); }}
-      disabled={field.saving}
-      placeholder={placeholder}
-      aria-label={typeof title === "string" ? title : undefined}
-      className={`rounded-lg border border-border bg-background px-3 py-1.5 text-sm text-foreground
-        focus:outline-none focus:border-kb disabled:opacity-50 ${wide ? "w-full" : "w-64"}`}
-    />
-  );
-
-  return (
-    <SettingCard
-      title={title}
-      error={field.error}
-      control={wide ? <SavedMark show={field.saved} /> : (
-        <>
-          <SavedMark show={field.saved} />
-          {input}
-        </>
-      )}
-    >
-      {wide && <div className="mt-3">{input}</div>}
-      {hint && <p className="mt-3 text-xs text-muted-soft max-w-2xl">{hint}</p>}
-    </SettingCard>
-  );
-}
 
 /* Ein Baustein "eine Auswahl je Karte" stand hier kurz und ist wieder weg. Die
    einzige Auswahl im Admin-Bereich sind Anbieter und Stimme der Aussprache, und die

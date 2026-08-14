@@ -17,6 +17,10 @@ from src.services.aia_level_ladder import (
 )
 
 
+# Der Speicher-Endpunkt prueft jedes Feld gegen die Rechte des Aufrufers.
+# Ein Administrator hat alle, also aendert das an diesen Tests nichts.
+_ADMIN = {"role": "admin"}
+
 class _Body:
     """Minimaler Ersatz für UpdateSettingsRequest: alles None ausser einem Feld."""
 
@@ -25,6 +29,11 @@ class _Body:
 
     def __getattr__(self, name):
         return object.__getattribute__(self, "_set").get(name)
+
+    def model_dump(self):
+        # Der Speicher-Endpunkt laeuft die Felder ab, um jedes gegen ein Recht
+        # zu pruefen. Was hier nicht drinsteht, gilt als nicht mitgeschickt.
+        return dict(object.__getattribute__(self, "_set"))
 
 
 @pytest.fixture
@@ -42,7 +51,7 @@ def store(monkeypatch):
 async def test_patch_stores_valid_json(store):
     payload = json.dumps({"B1": "Meine B1-Beschreibung."})
     await admin_settings.update_settings(
-        _Body(language_diagnosis_level_descriptions=payload), None, "de"
+        _Body(language_diagnosis_level_descriptions=payload), _ADMIN, "de"
     )
     assert store[LEVEL_DESCRIPTIONS_SETTING] == payload
 
@@ -50,7 +59,7 @@ async def test_patch_stores_valid_json(store):
 async def test_patch_empty_resets(store):
     store[LEVEL_DESCRIPTIONS_SETTING] = '{"B1": "alt"}'
     await admin_settings.update_settings(
-        _Body(language_diagnosis_level_descriptions="  "), None, "de"
+        _Body(language_diagnosis_level_descriptions="  "), _ADMIN, "de"
     )
     assert store[LEVEL_DESCRIPTIONS_SETTING] == ""
 
@@ -58,7 +67,7 @@ async def test_patch_empty_resets(store):
 async def test_patch_rejects_broken_json(store):
     with pytest.raises(HTTPException) as exc:
         await admin_settings.update_settings(
-            _Body(language_diagnosis_level_descriptions="{kaputt"), None, "de"
+            _Body(language_diagnosis_level_descriptions="{kaputt"), _ADMIN, "de"
         )
     assert exc.value.status_code == 400
 
@@ -66,9 +75,7 @@ async def test_patch_rejects_broken_json(store):
 async def test_patch_rejects_unknown_level(store):
     with pytest.raises(HTTPException) as exc:
         await admin_settings.update_settings(
-            _Body(language_diagnosis_level_descriptions=json.dumps({"D1": "nein"})),
-            None,
-            "de",
+            _Body(language_diagnosis_level_descriptions=json.dumps({"D1": "nein"})), _ADMIN, "de",
         )
     assert exc.value.status_code == 400
 

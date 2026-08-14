@@ -51,7 +51,6 @@ export default function WorkspaceLabelCard() {
   const [en, setEn] = useState<Pair>(DEFAULTS.en);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [savedAt, setSavedAt] = useState<number | null>(null);
 
   useEffect(() => {
     fetch("/api/admin/settings", { credentials: "include" })
@@ -100,7 +99,6 @@ export default function WorkspaceLabelCard() {
         throw new Error(d.detail ?? t("saveFailed"));
       }
       setLoaded({ de: trimmedDe, en: trimmedEn });
-      setSavedAt(Date.now());
       notifyWorkspaceLabelsChanged();
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
@@ -114,7 +112,6 @@ export default function WorkspaceLabelCard() {
     setEn(DEFAULTS.en);
   }
 
-  const justSaved = savedAt && Date.now() - savedAt < 3000;
   const atDefaults =
     pairsEqual(de, DEFAULTS.de) && pairsEqual(en, DEFAULTS.en);
 
@@ -170,7 +167,6 @@ export default function WorkspaceLabelCard() {
           {t("reset")}
         </button>
         <div className="flex items-center gap-3">
-          {justSaved && !error && <span className="text-xs text-muted">{t("savedShort")}</span>}
           {error && <span className="text-xs text-error">{error}</span>}
           <button
             type="button"

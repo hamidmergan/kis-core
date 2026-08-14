@@ -17,8 +17,9 @@ import { use, useEffect } from "react";
 import { useTranslations } from "next-intl";
 import { useSearchParams } from "next/navigation";
 import { useRouter } from "@/i18n/navigation";
-import { resolve } from "../_nav/registry";
+import { allowed, firstAllowed, resolve } from "../_nav/registry";
 import PageTabs from "../_nav/PageTabs";
+import { useAdminPerms } from "../_nav/AdminAuth";
 
 export default function AdminPage({ params }: { params: Promise<{ path?: string[] }> }) {
   const router = useRouter();
@@ -27,12 +28,16 @@ export default function AdminPage({ params }: { params: Promise<{ path?: string[
 
   const { path } = use(params);
   const segments = path ?? [];
+  const perms = useAdminPerms();
   const found = resolve(segments);
 
-  // Weiterleiten, wenn die Adresse unvollständig oder unbekannt ist. Als
-  // Nebenwirkung, nicht während des Renderns, sonst beschwert sich React.
-  const target = found?.path;
-  const needsRedirect = !found || segments.join("/") !== target;
+  // Weiterleiten, wenn die Adresse unvollständig, unbekannt oder für diese
+  // Person gesperrt ist. Eine gesperrte Adresse landet auf der ersten Seite,
+  // die sie sehen darf, nicht auf einer leeren Seite und nicht auf der
+  // markierten Startseite, die ihr genauso verwehrt sein kann.
+  const mayOpen = found ? allowed(found, perms.keys) : false;
+  const target = mayOpen ? found!.path : firstAllowed(perms.keys)?.path;
+  const needsRedirect = !mayOpen || segments.join("/") !== target;
   useEffect(() => {
     if (needsRedirect) router.replace(`/admin/${target ?? ""}`);
   }, [needsRedirect, target, router]);

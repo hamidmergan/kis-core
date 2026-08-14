@@ -4,7 +4,7 @@ from loguru import logger
 from pydantic import BaseModel, Field, model_validator
 
 from src import database
-from src.dependencies import get_admin_user, get_settings
+from src.dependencies import get_settings
 from src.i18n import get_locale, t
 from src.ldap_admin import (
     LdapServiceError,
@@ -13,7 +13,13 @@ from src.ldap_admin import (
     create_ldap_user,
 )
 
+from src.dependencies_rbac import require_permission
+from src.permissions_registry import PERM_SET_USERS_ALL
+
 router = APIRouter(tags=["admin: ldap-users"])
+
+# Nutzer anlegen gehoert zu Alle Nutzer, zusaetzlich zum Serverschalter.
+_require = require_permission(PERM_SET_USERS_ALL)
 
 
 class CreateLdapUserPayload(BaseModel):
@@ -44,7 +50,7 @@ def _employee_type_for_role(kis_role: str) -> str:
 @router.post("/ldap-users")
 def admin_create_ldap_user(
     payload: CreateLdapUserPayload,
-    admin: dict = Depends(get_admin_user),
+    admin: dict = Depends(_require),
     locale: str = Depends(get_locale),
 ):
     settings = get_settings()

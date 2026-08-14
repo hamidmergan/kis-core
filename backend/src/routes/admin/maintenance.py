@@ -7,17 +7,22 @@ from fastapi import APIRouter, Depends, HTTPException
 from loguru import logger
 
 from src import database as db
-from src.dependencies import get_admin_user
 from src.i18n import get_locale, t
 
 from src.routes.admin._embedding import active_embedding_provider_key, get_cached_fingerprint
 from src.routes.admin._models import MaintenanceToggleRequest
 
+from src.dependencies_rbac import require_permission
+from src.permissions_registry import PERM_SET_SYSTEM
+
 router = APIRouter(tags=["admin: maintenance"])
+
+# Wartung und Neuaufbau des Index gehoeren zur Seite System.
+_require = require_permission(PERM_SET_SYSTEM)
 
 
 @router.get("/maintenance")
-async def get_maintenance(_admin=Depends(get_admin_user)):
+async def get_maintenance(_admin=Depends(_require)):
     enabled = db.get_setting("maintenance_mode", "false").lower() == "true"
     try:
         progress = json.loads(db.get_setting("reindex_progress", "") or "null")
@@ -48,7 +53,7 @@ async def get_maintenance(_admin=Depends(get_admin_user)):
 
 
 @router.post("/maintenance")
-async def set_maintenance(body: MaintenanceToggleRequest, _admin=Depends(get_admin_user)):
+async def set_maintenance(body: MaintenanceToggleRequest, _admin=Depends(_require)):
     db.set_setting("maintenance_mode", "true" if body.enabled else "false")
     logger.info("Maintenance mode set to {}", body.enabled)
     return {"ok": True, "enabled": body.enabled}
@@ -56,7 +61,7 @@ async def set_maintenance(body: MaintenanceToggleRequest, _admin=Depends(get_adm
 
 @router.post("/reindex-all")
 async def reindex_all(
-    _admin=Depends(get_admin_user),
+    _admin=Depends(_require),
     locale: str = Depends(get_locale),
 ):
     """Queue a Celery job to re-embed every KI-Assistent chunk with the current provider."""

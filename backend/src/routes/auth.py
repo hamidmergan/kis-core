@@ -141,6 +141,9 @@ async def auth_status(request: Request):
                 "allow_workspace_create": perms.allow_workspace_create,
                 "allow_ldap_user_create": perms.allow_ldap_user_create,
                 "tools": list(perms.tools),
+                # Die volle Schluesselmenge. Die Seitenleiste des Bereichs
+                # entscheidet damit je Seite, statt nur "Admin ja oder nein".
+                "keys": sorted(perms.keys),
             },
         }
 
@@ -180,6 +183,7 @@ async def auth_status(request: Request):
             "allow_workspace_create": perms.allow_workspace_create,
             "allow_ldap_user_create": perms.allow_ldap_user_create,
             "tools": list(perms.tools),
+            "keys": sorted(perms.keys),
         },
     }
     # Preserve other session fields (display_name, username, etc.) without clobbering keys above.

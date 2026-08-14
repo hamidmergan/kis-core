@@ -3,13 +3,18 @@
 from fastapi import APIRouter, Depends, HTTPException
 
 from src import database as db
-from src.dependencies import get_admin_user
 from src.i18n import get_locale, t
 from src.limits import QUOTA_DEFAULTS
 
 from src.routes.admin._models import SetQuotaOverrideRequest
 
+from src.dependencies_rbac import require_permission
+from src.permissions_registry import PERM_SET_USERS_ALL
+
 router = APIRouter(tags=["admin: quota"])
+
+# Kontingente sind ein Absprung aus Alle Nutzer und teilen deren Recht.
+_require = require_permission(PERM_SET_USERS_ALL)
 
 
 def _iso_z(ts) -> str | None:
@@ -25,13 +30,13 @@ def _ensure_known_quota_type(quota_type: str, locale: str) -> None:
 
 
 @router.get("/quota/defaults")
-async def get_quota_defaults(_admin=Depends(get_admin_user)):
+async def get_quota_defaults(_admin=Depends(_require)):
     """Show global default limits."""
     return {"defaults": QUOTA_DEFAULTS}
 
 
 @router.get("/quota/overview")
-async def get_quota_overview(_admin=Depends(get_admin_user)):
+async def get_quota_overview(_admin=Depends(_require)):
     """All active users with their quotas (even without prior activity)."""
     rows = db.quota_get_all_users_usage()
     users: dict[int, dict] = {}
@@ -74,7 +79,7 @@ async def get_quota_overview(_admin=Depends(get_admin_user)):
 
 
 @router.get("/quota/users/{user_id}")
-async def get_user_quota(user_id: int, _admin=Depends(get_admin_user)):
+async def get_user_quota(user_id: int, _admin=Depends(_require)):
     """All quota types for a specific user."""
     rows, global_reset_at = db.quota_get_all_for_user(user_id)
     result = []
@@ -105,7 +110,7 @@ async def set_quota_override(
     user_id: int,
     quota_type: str,
     body: SetQuotaOverrideRequest,
-    _admin=Depends(get_admin_user),
+    _admin=Depends(_require),
     locale: str = Depends(get_locale),
 ):
     """Set per-user limit. -1 = unlimited."""
@@ -118,7 +123,7 @@ async def set_quota_override(
 async def delete_quota_override(
     user_id: int,
     quota_type: str,
-    _admin=Depends(get_admin_user),
+    _admin=Depends(_require),
     locale: str = Depends(get_locale),
 ):
     """Delete override - user falls back to the global default."""
@@ -131,7 +136,7 @@ async def delete_quota_override(
 async def reset_user_quota(
     user_id: int,
     quota_type: str,
-    _admin=Depends(get_admin_user),
+    _admin=Depends(_require),
     locale: str = Depends(get_locale),
 ):
     """Reset quota counter to 0 immediately and clear the reset timer."""

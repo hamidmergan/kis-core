@@ -5,13 +5,19 @@ import json
 from fastapi import APIRouter, Depends, HTTPException
 
 from src import database as db
-from src.dependencies import get_admin_user, get_current_user
+from src.dependencies import get_current_user
 from src.i18n import get_locale, t
 
 from src.routes.admin._models import ToggleToolRequest
 from src.routes.admin._registries import DEFAULT_DISABLED_TOOLS, TOOLS_CONFIG
 
+from src.dependencies_rbac import require_permission
+from src.permissions_registry import PERM_SET_TOOLS_RELEASE
+
 router = APIRouter(tags=["admin: tools"])
+
+# Ein Werkzeug freigeben oder sperren.
+_require = require_permission(PERM_SET_TOOLS_RELEASE)
 
 
 @router.get("/tools")
@@ -39,7 +45,7 @@ async def get_tools(_user=Depends(get_current_user)):
 async def toggle_tool(
     tool_key: str,
     body: ToggleToolRequest,
-    _admin=Depends(get_admin_user),
+    _admin=Depends(_require),
     locale: str = Depends(get_locale),
 ):
     """Enable or disable a tool on the homepage. Admin only."""

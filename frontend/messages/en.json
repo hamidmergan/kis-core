@@ -14,7 +14,8 @@
     "themeDark": "Dark",
     "themeLight": "Light",
     "themeToDarkAria": "Dark mode",
-    "themeToLightAria": "Light mode"
+    "themeToLightAria": "Light mode",
+    "settings": "Administration"
   },
   "footer": {
     "aiNotice": "This platform uses AI and may make mistakes. Please verify the responses.",
@@ -1430,27 +1431,81 @@
     "roles": {
       "tabLabel": "Roles",
       "title": "Manage roles",
-      "system": "System roles",
-      "systemHint": "System roles are fixed and cannot be edited or deleted.",
-      "custom": "Custom roles",
+      "systemHint": "The first three columns are fixed and cannot be changed. They are here so you can see what you are comparing a custom role against.",
       "newRole": "New role",
       "name": "Name",
-      "aiaAccess": "AIA {label}",
-      "aiaRead": "Read access (link)",
-      "aiaEdit": "Edit access (staff-level: create {plural})",
-      "tools": "Global tools",
-      "toolsSelectAll": "Select all",
       "save": "Save",
       "cancel": "Cancel",
       "delete": "Delete",
       "edit": "Edit",
-      "confirmDelete": "Delete this role? Users with this role will be reset to 'user'.",
+      "confirmDelete": "Really delete the role “{name}”? Users with this role are reset to User.",
       "userRoleLabel": "Role",
       "roleAdmin": "Admin",
       "roleStaff": "Staff",
       "roleUser": "User",
       "roleCustom": "Custom",
-      "envAdminLocked": "The primary admin (from server settings) cannot be changed."
+      "envAdminLocked": "The primary admin (from server settings) cannot be changed.",
+      "matrixHint": "Columns are roles, rows are functions. A click on a checkbox saves right away, there is no save button. If someone holds several roles, the permissions add up.",
+      "functionColumn": "Function",
+      "locked": "Fixed, cannot be changed",
+      "newRoleHint": "The role starts without permissions. Tick the boxes in the table afterwards.",
+      "renameFailed": "Renaming failed.",
+      "saveFailed": "Saving failed.",
+      "roleName": {
+        "admin": "Administrator",
+        "staff": "Staff",
+        "user": "User"
+      },
+      "systemRoleHint": {
+        "admin": "The administrator may do everything. Not editable.",
+        "staff": "Staff uses the AI assistant with own workspaces and all tools, but no settings. Not editable.",
+        "user": "User only opens shared workspaces. Not editable."
+      },
+      "more": "More"
+    },
+    "titleSettings": "Settings",
+    "permissions": {
+      "group": {
+        "aia": "AI assistant",
+        "tools": "Tools",
+        "settings": "Settings"
+      },
+      "aia": {
+        "use": "Open the AI assistant and read shared {plural}",
+        "workspace": {
+          "create": "Create and manage own {plural}"
+        }
+      },
+      "tools": {
+        "translation": "Translation",
+        "tts": "Text to speech",
+        "transcription": "Speech to text",
+        "image": "Image generation",
+        "summary": "Summary",
+        "screencast": "Screencast",
+        "glossary": "Glossary"
+      },
+      "settings": {
+        "werkzeuge": {
+          "release": "Release and block tools",
+          "jobs": "See everyone's jobs",
+          "stats": "Tool statistics"
+        },
+        "assistent": {
+          "sources": "Sources and context budgets",
+          "level": "Language level and AI behaviour, the prompts",
+          "usage": "AI assistant usage"
+        },
+        "anbieter": "Providers, models and feature routing",
+        "nutzer": {
+          "pending": "Approve pending sign-ups",
+          "whitelist": "Maintain the whitelist",
+          "users": "All users and their quotas",
+          "roles": "Assign roles and permissions"
+        },
+        "system": "System, maintenance, labels and notice",
+        "mascot": "Mascots"
+      }
     }
   },
   "permissions": {
@@ -1593,6 +1648,11 @@
   },
   "workspace": {
     "detail": {
+      "closed": {
+        "title": "This workspace is closed",
+        "text": "Your teacher has set it to inactive for now. Your enrollment stays in place, and you will get back in as soon as it is open again.",
+        "back": "Back to overview"
+      },
       "languageTraining": {
         "diagnosis": {
           "title": "Language Test",

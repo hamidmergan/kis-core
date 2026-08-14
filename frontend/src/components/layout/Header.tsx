@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
 import { SignOut, UserCircleGear } from "@phosphor-icons/react";
 import { checkAuthStatus, logout } from "@/lib/auth";
+import { areaLabelKey } from "@/lib/permissions";
 import JobsPanel from "@/components/jobs/JobsPanel";
 import HeaderMobileMenu from "@/components/layout/HeaderMobileMenu";
 import HeaderLanguageSwitch from "@/components/layout/HeaderLanguageSwitch";
@@ -19,6 +20,9 @@ interface HeaderProps {
 export default function Header({ hasSession = true, showLogout = false, showToolsToggle = false }: HeaderProps) {
   const t = useTranslations("header");
   const [isAdmin, setIsAdmin] = useState(false);
+  // "Admin" nur fuer den, der wirklich alles darf. Wer nur eine Seite
+  // pflegt, geht in seine "Einstellungen".
+  const [areaKey, setAreaKey] = useState<"admin" | "settings">("admin");
   const [isLocalMode, setIsLocalMode] = useState(false);
   const [hasTools, setHasTools] = useState(false);
 
@@ -26,6 +30,7 @@ export default function Header({ hasSession = true, showLogout = false, showTool
     if (!showLogout || !hasSession) return;
     checkAuthStatus().then((s) => {
       setIsAdmin(s.is_admin ?? false);
+      setAreaKey(areaLabelKey(s.permissions));
       setIsLocalMode(s.local_mode ?? false);
       // Jobs entstehen nur aus Werkzeugen, ohne Werkzeug-Recht bleibt die Liste leer.
       setHasTools((s.permissions?.tools?.length ?? 0) > 0);
@@ -66,12 +71,12 @@ export default function Header({ hasSession = true, showLogout = false, showTool
               {hasSession && isAdmin && (
                 <Link
                   href="/admin"
-                  aria-label={t("admin")}
-                  title={t("admin")}
+                  aria-label={t(areaKey)}
+                  title={t(areaKey)}
                   className="flex items-center justify-center h-9 px-3 gap-1.5 rounded-full btn-on-dark"
                 >
                   <UserCircleGear size={17} weight="bold" />
-                  <span className="text-sm font-medium">{t("admin")}</span>
+                  <span className="text-sm font-medium">{t(areaKey)}</span>
                 </Link>
               )}
 
@@ -91,6 +96,7 @@ export default function Header({ hasSession = true, showLogout = false, showTool
             <HeaderMobileMenu
               hasSession={hasSession}
               isAdmin={isAdmin}
+              areaKey={areaKey}
               hasTools={hasTools}
               isLocalMode={isLocalMode}
               showToolsToggle={showToolsToggle}

@@ -10,8 +10,9 @@ toggles (whitelist, workspace label/limits, schedule retention).
 from fastapi import APIRouter, Depends, HTTPException
 
 from src import database as db
-from src.dependencies import get_admin_user
+from src.dependencies_rbac import permissions_of, require_any_settings
 from src.i18n import get_locale, t
+from src.permissions_registry import SETTING_FIELD_PERMISSIONS
 from src.limits import (
     AIA_CONTEXT_MAX_CHARS,
     AIA_CONTEXT_HARD_CAP,
@@ -60,8 +61,29 @@ from src.services.aia_level_ladder import (
 router = APIRouter(tags=["admin: settings"])
 
 
+def _assert_fields_allowed(body: UpdateSettingsRequest, perms, locale: str) -> None:
+    """Jedes mitgeschickte Feld einzeln gegen das Recht seiner Seite pruefen.
+
+    Der Datensatz bedient mehrere Seiten des Bereichs auf einmal. Ohne diese
+    Pruefung koennte jemand mit dem Recht fuer eine einzige Seite jedes Feld
+    jeder anderen Seite mitschicken, etwa den Wartungsmodus.
+
+    Ein Feld, das im Katalog fehlt, gilt als nicht speicherbar. Lieber eine
+    Absage als ein Loch, das beim naechsten neuen Feld aufgeht.
+    """
+    for field_name, value in body.model_dump().items():
+        if value is None:
+            continue
+        needed = SETTING_FIELD_PERMISSIONS.get(field_name)
+        if needed is None or needed not in perms.keys:
+            raise HTTPException(
+                status_code=403,
+                detail=t("auth.settingFieldForbidden", locale, field=field_name),
+            )
+
+
 @router.get("/settings")
-async def get_settings(_admin=Depends(get_admin_user)):
+async def get_settings(_admin=Depends(require_any_settings)):
     def _enabled(key: str, default: str = "true") -> bool:
         return db.get_setting(key, default).lower() == "true"
 
@@ -167,9 +189,11 @@ async def get_settings(_admin=Depends(get_admin_user)):
 @router.patch("/settings")
 async def update_settings(
     body: UpdateSettingsRequest,
-    _admin=Depends(get_admin_user),
+    admin=Depends(require_any_settings),
     locale: str = Depends(get_locale),
 ):
+    _assert_fields_allowed(body, permissions_of(admin), locale)
+
     if body.whitelist_enabled is not None:
         db.set_setting("whitelist_enabled", "true" if body.whitelist_enabled else "false")
 

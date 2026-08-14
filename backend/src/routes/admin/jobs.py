@@ -5,13 +5,18 @@ from loguru import logger
 
 from src import database as db
 from src.celery_app import celery_app
-from src.dependencies import get_admin_user
 from src.i18n import get_locale, t
 from src.storage import delete_job_folder
 
 from src.routes.admin._registries import TOOL_LABELS, tools_matching_query
 
+from src.dependencies_rbac import require_permission
+from src.permissions_registry import PERM_SET_TOOLS_JOBS
+
 router = APIRouter(tags=["admin: jobs"])
+
+# Die Auftragsliste der Werkzeuge.
+_require = require_permission(PERM_SET_TOOLS_JOBS)
 
 # Screencast tools have a separate render_started_at timestamp,
 # which measures the pure ffmpeg runtime (excluding queue wait time).
@@ -36,7 +41,7 @@ async def list_all_jobs(
     q: str = Query(default=""),
     date_from: str = Query(default=""),
     date_to: str = Query(default=""),
-    _admin=Depends(get_admin_user),
+    _admin=Depends(_require),
 ):
     q = q.strip()
     extra_tools = tools_matching_query(q) if q else None
@@ -66,7 +71,7 @@ async def list_all_jobs(
 @router.delete("/jobs/{job_uuid}")
 async def admin_cancel_job(
     job_uuid: str,
-    _admin=Depends(get_admin_user),
+    _admin=Depends(_require),
     locale: str = Depends(get_locale),
 ):
     """Admin: cancel and delete any job regardless of owner."""

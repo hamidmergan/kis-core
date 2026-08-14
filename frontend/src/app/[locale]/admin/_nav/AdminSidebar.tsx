@@ -15,14 +15,21 @@
 import { CaretRight, X } from "@phosphor-icons/react";
 import { useTranslations } from "next-intl";
 import { Link } from "@/i18n/navigation";
-import { RANKS, SECTIONS, type AdminSection } from "./registry";
+import { RANKS, allowedSections, type AdminSection } from "./registry";
+import { useAdminPerms, useIsFullAdmin } from "./AdminAuth";
 
 const ICON = { size: 18, weight: "bold" as const };
 
 /** Wohin der Bereichsname selbst fuehrt: auf die erste Unterseite, sonst auf
- *  den Bereich. */
+ *  den Bereich.
+ *
+ *  Die Liste ist hier schon nach Rechten gefiltert, versteckte Seiten muessen
+ *  aber weiter uebersprungen werden. Sonst landete ein Klick auf "Nutzer" bei
+ *  den Kontingenten, die ohne vorher gewaehlten Nutzer leer sind. */
 function firstPath(s: AdminSection): string {
-  return s.pages ? `/admin/${s.slug}/${s.pages[0].slug}` : `/admin/${s.slug}`;
+  if (!s.pages) return `/admin/${s.slug}`;
+  const page = s.pages.find((p) => !p.hidden) ?? s.pages[0];
+  return `/admin/${s.slug}/${page.slug}`;
 }
 
 function Group({
@@ -110,11 +117,15 @@ export default function AdminSidebar({
   onClose: () => void;
 }) {
   const t = useTranslations("admin");
+  const perms = useAdminPerms();
+  const fullAdmin = useIsFullAdmin();
 
-  // Nach Rang buendeln und leere Raenge ueberspringen, damit keine Linie ohne
-  // Inhalt darunter stehen bleibt.
+  // Erst filtern, dann nach Rang buendeln. Wer nur eine Seite pflegen darf,
+  // sieht genau diese eine Zeile, und leere Raenge fallen samt ihrer
+  // Trennlinie weg.
+  const visible = allowedSections(perms.keys);
   const blocks = RANKS
-    .map((rank) => SECTIONS.filter((s) => s.rank === rank))
+    .map((rank) => visible.filter((s) => s.rank === rank))
     .filter((group) => group.length > 0);
 
   return (
@@ -128,7 +139,7 @@ export default function AdminSidebar({
         ${mobileOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"}`}
     >
       <div className="md:hidden flex items-center justify-between px-2 pt-1 pb-2">
-        <span className="text-sm font-semibold">{t("title")}</span>
+        <span className="text-sm font-semibold">{fullAdmin ? t("title") : t("titleSettings")}</span>
         <button
           onClick={onClose}
           className="w-8 h-8 rounded-lg flex items-center justify-center text-muted transition-colors hover:bg-surface-dim hover:text-kb"

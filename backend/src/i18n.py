@@ -71,9 +71,33 @@ MESSAGES: dict[str, dict[str, str]] = {
         "de": "Du darfst dieses Tool nicht nutzen.",
         "en": "You may not use this tool.",
     },
+    "auth.permissionRequired": {
+        "de": "Dir fehlt die Berechtigung für diesen Bereich.",
+        "en": "You do not have permission for this area.",
+    },
+    "auth.settingFieldForbidden": {
+        "de": "Du darfst die Einstellung „{field}“ nicht ändern.",
+        "en": "You may not change the setting “{field}”.",
+    },
+    # Man kann nur vergeben, was man selbst hat. Sonst waere jedes Recht, das
+    # Rollen oder Nutzer verwaltet, ein Weg zum Administrator.
+    "auth.grantBeyondOwn": {
+        "de": "Du kannst nur Rechte vergeben, die du selbst hast.",
+        "en": "You can only grant permissions you hold yourself.",
+    },
+    "admin.role.nameTaken": {
+        "de": "Die Rolle „{name}“ gibt es schon.",
+        "en": "The role “{name}” already exists.",
+    },
     # Common errors (broadly reused across feature routes)
     "workspace.notFound": {"de": "Modul nicht gefunden", "en": "Workspace not found"},
     "workspace.accessDenied": {"de": "Kein Zugriff", "en": "Access denied"},
+    # Der Workspace steht auf inaktiv. Das ist kein fehlendes Recht, sondern ein
+    # geschlossener Raum, deshalb ein eigener Text und ein eigener Statuscode.
+    "workspace.inactive": {
+        "de": "Dieser Workspace ist gerade nicht freigegeben.",
+        "en": "This workspace is currently not open.",
+    },
     "job.notFound": {"de": "Job nicht gefunden", "en": "Job not found"},
     "job.accessDenied": {
         "de": "Kein Zugriff auf diesen Job",

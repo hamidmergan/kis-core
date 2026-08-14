@@ -12,13 +12,18 @@ def client(monkeypatch):
     monkeypatch.setenv("LDAP_BIND_PASSWORD", "admin")
     monkeypatch.setenv("LDAP_SERVER", "ldap://openldap")
 
-    from src.dependencies import get_admin_user, get_settings
+    from src.dependencies import get_current_user, get_settings
     from src.security.auth import verify_auth
     from src.app import app
 
     get_settings.cache_clear()
     app.dependency_overrides[verify_auth] = lambda: None
-    app.dependency_overrides[get_admin_user] = lambda: {"user_id": 1, "email": "admin@th-luebeck.de"}
+    # Die Route haengt jetzt am Recht "Alle Nutzer", nicht mehr an der Rolle
+    # "admin". Der eingesetzte Nutzer traegt deshalb eine Rolle, aus der sich
+    # Rechte ableiten lassen.
+    app.dependency_overrides[get_current_user] = lambda: {
+        "user_id": 1, "email": "admin@th-luebeck.de", "role": "admin",
+    }
     yield TestClient(app)
     app.dependency_overrides.clear()
     get_settings.cache_clear()
@@ -222,13 +227,18 @@ def test_create_ldap_user_db_write_failure_returns_500(client):
 
 def test_create_ldap_user_404_when_flag_off(monkeypatch):
     monkeypatch.delenv("LDAP_USER_CREATION_ENABLED", raising=False)
-    from src.dependencies import get_admin_user, get_settings
+    from src.dependencies import get_current_user, get_settings
     from src.security.auth import verify_auth
     from src.app import app
 
     get_settings.cache_clear()
     app.dependency_overrides[verify_auth] = lambda: None
-    app.dependency_overrides[get_admin_user] = lambda: {"user_id": 1, "email": "admin@th-luebeck.de"}
+    # Die Route haengt jetzt am Recht "Alle Nutzer", nicht mehr an der Rolle
+    # "admin". Der eingesetzte Nutzer traegt deshalb eine Rolle, aus der sich
+    # Rechte ableiten lassen.
+    app.dependency_overrides[get_current_user] = lambda: {
+        "user_id": 1, "email": "admin@th-luebeck.de", "role": "admin",
+    }
     try:
         c = TestClient(app)
         r = c.post(

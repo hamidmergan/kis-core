@@ -4,12 +4,25 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
 
 from src import database as db
-from src.dependencies import get_admin_user, get_settings
+from src.dependencies import get_settings
+from src.dependencies_rbac import assert_may_grant, permissions_of, require_permission
+from src.permissions_registry import (
+    PERM_SET_USERS_ALL,
+    PERM_SET_USERS_PENDING,
+    PERM_SET_USERS_WHITELIST,
+    SYSTEM_ROLE_PERMISSIONS,
+)
 from src.i18n import get_locale, t
 
 from src.routes.admin._models import AddWhitelistRequest
 
 router = APIRouter(tags=["admin: users"])
+
+# Drei Seiten unter Nutzer, drei Rechte. Wer die Ausstehenden freischalten
+# darf, muss deshalb noch lange nicht die ganze Nutzerliste sehen.
+_require_users = require_permission(PERM_SET_USERS_ALL)
+_require_pending = require_permission(PERM_SET_USERS_PENDING)
+_require_whitelist = require_permission(PERM_SET_USERS_WHITELIST)
 
 
 # ── Users ─────────────────────────────────────────────────────────────────────
@@ -21,7 +34,7 @@ async def list_users(
     q: str = Query(default=""),
     date_from: str = Query(default=""),
     date_to: str = Query(default=""),
-    _admin=Depends(get_admin_user),
+    _admin=Depends(_require_users),
 ):
     users, total = db.get_all_users(
         limit=limit, offset=offset, q=q.strip(),
@@ -31,14 +44,14 @@ async def list_users(
 
 
 @router.get("/users/pending")
-async def list_pending_users(_admin=Depends(get_admin_user)):
+async def list_pending_users(_admin=Depends(_require_pending)):
     return {"users": db.get_pending_users()}
 
 
 @router.post("/users/{user_id}/approve")
 async def approve_user(
     user_id: int,
-    _admin=Depends(get_admin_user),
+    _admin=Depends(_require_pending),
     locale: str = Depends(get_locale),
 ):
     """Whitelist the user's email and set active=1 so they can log in immediately."""
@@ -56,14 +69,14 @@ async def approve_user(
 # ── Whitelist ──────────────────────────────────────────────────────────────────
 
 @router.get("/whitelist")
-async def list_whitelist(_admin=Depends(get_admin_user)):
+async def list_whitelist(_admin=Depends(_require_whitelist)):
     return {"emails": db.get_whitelist_emails()}
 
 
 @router.post("/whitelist")
 async def add_whitelist(
     body: AddWhitelistRequest,
-    _admin=Depends(get_admin_user),
+    _admin=Depends(_require_whitelist),
     locale: str = Depends(get_locale),
 ):
     if not body.email or "@" not in body.email:
@@ -77,7 +90,7 @@ async def add_whitelist(
 @router.delete("/whitelist/{email:path}")
 async def remove_whitelist(
     email: str,
-    _admin=Depends(get_admin_user),
+    _admin=Depends(_require_whitelist),
     locale: str = Depends(get_locale),
 ):
     from src.dependencies import get_settings
@@ -103,13 +116,16 @@ class UpdateUserRoleBody(BaseModel):
 async def update_user_role(
     user_id: int,
     body: UpdateUserRoleBody,
-    _admin=Depends(get_admin_user),
+    admin=Depends(_require_users),
+    locale: str = Depends(get_locale),
 ):
     """Update a user's role.
 
     Safety rules:
     - Cannot change the env-admin's role.
-    - Other users may be freely assigned admin/staff/user/custom.
+    - Man kann nur eine Rolle vergeben, deren Rechte man selbst hat. Ohne diese
+      Regel waere "Alle Nutzer" ein Weg zum Administrator: sich selbst oder
+      einem Zweitkonto die Rolle Administrator geben und fertig.
     """
     target = db.get_user_by_id(user_id)
     if target is None:
@@ -119,6 +135,13 @@ async def update_user_role(
     target_email = (target.get("email") or "").lower()
     if settings.admin_email and target_email == settings.admin_email.lower():
         raise HTTPException(status_code=400, detail="Cannot change role of the env-admin")
+
+    if body.role == "custom":
+        role_row = db.get_custom_role(body.custom_role_id) if body.custom_role_id else None
+        granted = role_row["permissions"] if role_row else []
+    else:
+        granted = SYSTEM_ROLE_PERMISSIONS.get(body.role, ())
+    assert_may_grant(permissions_of(admin), granted, locale)
 
     try:
         db.set_user_role(user_id, body.role, body.custom_role_id)

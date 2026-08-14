@@ -1,10 +1,14 @@
 export type SystemRole = "admin" | "staff" | "user" | "custom";
 
 export interface UserPermissions {
+  /** Darf ueberhaupt eine Seite des Adminbereichs sehen, also mindestens ein
+   *  Recht aus der Gruppe Einstellungen. Heisst laengst nicht mehr "Admin". */
   allow_admin_panel: boolean;
   allow_aia: boolean;
   allow_workspace_create: boolean;
   tools: string[]; // tool keys
+  /** Alle Rechte-Schluessel. Die Seitenleiste entscheidet damit je Seite. */
+  keys: string[];
 }
 
 export interface AuthStatus {

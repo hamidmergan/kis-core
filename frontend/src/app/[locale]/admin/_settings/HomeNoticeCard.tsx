@@ -9,7 +9,7 @@
 import { useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
 import { useSetting } from "./SettingsProvider";
-import { SavedMark, SettingCard, Switch } from "./fields";
+import { SettingCard, Switch } from "./fields";
 
 export default function HomeNoticeCard() {
   const t = useTranslations("admin.homeNoticeCard");
@@ -35,15 +35,12 @@ export default function HomeNoticeCard() {
       description={on ? t("active") : t("disabled")}
       error={enabled.error ?? text.error}
       control={
-        <>
-          <SavedMark show={enabled.saved || text.saved} />
-          <Switch
-            checked={on}
-            onChange={(n) => void enabled.set(n)}
-            disabled={enabled.saving}
-            label={t("toggleAria")}
-          />
-        </>
+        <Switch
+          checked={on}
+          onChange={(n) => void enabled.set(n)}
+          disabled={enabled.saving}
+          label={t("toggleAria")}
+        />
       }
     >
       <input

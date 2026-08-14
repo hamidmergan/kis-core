@@ -17,7 +17,6 @@ from fastapi.responses import JSONResponse
 from loguru import logger
 
 from src import database as db
-from src.dependencies import get_admin_user
 from src.features.ai_providers.repository.feature_routes import (
     FEATURES,
     USER_CHOICE_FEATURES,
@@ -44,14 +43,20 @@ from src.services.protocols import (
 from src.services.feature_route_check import run_feature_route_test
 from src.services.provider_probe import probe_provider
 
+from src.dependencies_rbac import require_permission
+from src.permissions_registry import PERM_SET_PROVIDERS
+
 router = APIRouter(tags=["admin: providers"])
+
+# Anbieter, Modelle und die Zuordnung zu den Funktionen, beide Reiter.
+_require = require_permission(PERM_SET_PROVIDERS)
 
 
 # ─── Meta ──────────────────────────────────────────────────────────────────
 
 
 @router.get("/providers/meta")
-async def get_provider_meta(_admin=Depends(get_admin_user)):
+async def get_provider_meta(_admin=Depends(_require)):
     """Static metadata for the admin UI: protocol dropdown, capability list,
     feature list. Frontend reads this once on page load."""
     protocols = []
@@ -73,7 +78,7 @@ async def get_provider_meta(_admin=Depends(get_admin_user)):
 
 
 @router.get("/providers")
-async def list_providers(_admin=Depends(get_admin_user)):
+async def list_providers(_admin=Depends(_require)):
     rows = db.list_providers()
     # Mask api_key in responses - only the last 6 chars are returned for
     # UI display ("sk-...abc123"). The full key never leaves the backend.
@@ -83,7 +88,7 @@ async def list_providers(_admin=Depends(get_admin_user)):
 @router.post("/providers")
 def create_provider(
     body: CreateProviderRequest,
-    _admin=Depends(get_admin_user),
+    _admin=Depends(_require),
     locale: str = Depends(get_locale),
 ):
     name = body.name.strip()
@@ -129,7 +134,7 @@ def create_provider(
 
 @router.get("/providers/export")
 async def export_config(
-    _admin=Depends(get_admin_user),
+    _admin=Depends(_require),
 ):
     """Download the full AI config as JSON. Never includes api_keys."""
     payload = build_export(exported_from=None)
@@ -143,7 +148,7 @@ async def export_config(
 @router.get("/providers/{provider_id}")
 async def get_provider(
     provider_id: int,
-    _admin=Depends(get_admin_user),
+    _admin=Depends(_require),
     locale: str = Depends(get_locale),
 ):
     row = db.get_provider(provider_id)
@@ -156,7 +161,7 @@ async def get_provider(
 def update_provider(
     provider_id: int,
     body: UpdateProviderRequest,
-    _admin=Depends(get_admin_user),
+    _admin=Depends(_require),
     locale: str = Depends(get_locale),
 ):
     existing = db.get_provider(provider_id)
@@ -201,14 +206,14 @@ def update_provider(
 
 
 @router.delete("/providers/all")
-async def clear_all(_admin=Depends(get_admin_user)):
+async def clear_all(_admin=Depends(_require)):
     return perform_clear_all()
 
 
 @router.delete("/providers/{provider_id}")
 async def delete_provider(
     provider_id: int,
-    _admin=Depends(get_admin_user),
+    _admin=Depends(_require),
     locale: str = Depends(get_locale),
 ):
     if db.get_provider(provider_id) is None:
@@ -221,7 +226,7 @@ async def delete_provider(
 @router.post("/providers/{provider_id}/probe")
 def reprobe_provider(
     provider_id: int,
-    _admin=Depends(get_admin_user),
+    _admin=Depends(_require),
     locale: str = Depends(get_locale),
 ):
     result = probe_provider(provider_id)
@@ -241,7 +246,7 @@ def reprobe_provider(
 @router.get("/providers/{provider_id}/affected-features")
 async def get_affected_features(
     provider_id: int,
-    _admin=Depends(get_admin_user),
+    _admin=Depends(_require),
     locale: str = Depends(get_locale),
 ):
     """Used by the delete-confirmation dialog: which features would lose their
@@ -258,7 +263,7 @@ async def get_affected_features(
 @router.post("/providers/discover-voices")
 async def discover_voices(
     body: DiscoverVoicesRequest,
-    _admin=Depends(get_admin_user),
+    _admin=Depends(_require),
 ):
     """Try GET {base_url}/v1/audio/voices and return whatever the provider exposes.
 
@@ -620,7 +625,7 @@ def _route_exists(feature: str) -> bool:
 @router.post("/providers/import/preview")
 async def import_preview(
     body: ImportConfigRequest,
-    _admin=Depends(get_admin_user),
+    _admin=Depends(_require),
 ):
     return build_import_preview(body.config.model_dump())
 
@@ -728,7 +733,7 @@ def perform_import(cfg: dict) -> dict:
 @router.post("/providers/import")
 def import_config(
     body: ImportConfigRequest,
-    _admin=Depends(get_admin_user),
+    _admin=Depends(_require),
 ):
     return perform_import(body.config.model_dump())
 

@@ -11,6 +11,7 @@ import { useTheme } from "@/hooks/useTheme";
 interface HeaderMobileMenuProps {
   hasSession: boolean;
   isAdmin: boolean;
+  areaKey?: "admin" | "settings";
   hasTools?: boolean;
   isLocalMode?: boolean;
   showToolsToggle?: boolean;
@@ -29,7 +30,7 @@ async function persistLocale(locale: Locale) {
   }
 }
 
-export default function HeaderMobileMenu({ hasSession, isAdmin, hasTools = false, isLocalMode = false, showToolsToggle = false, onLogout }: HeaderMobileMenuProps) {
+export default function HeaderMobileMenu({ hasSession, isAdmin, areaKey = "admin", hasTools = false, isLocalMode = false, showToolsToggle = false, onLogout }: HeaderMobileMenuProps) {
   const t = useTranslations("header");
   const router = useRouter();
   const pathname = usePathname();
@@ -133,7 +134,7 @@ export default function HeaderMobileMenu({ hasSession, isAdmin, hasTools = false
               style={{ color: "var(--foreground)" }}
             >
               <UserCircleGear size={20} weight="bold" />
-              <span>{t("admin")}</span>
+              <span>{t(areaKey)}</span>
             </Link>
           )}
           {hasSession && !isLocalMode && (

@@ -14,15 +14,20 @@ import asyncio
 
 from fastapi import APIRouter, Depends
 
-from src.dependencies import get_admin_user
 from src.services import system_load
 from src.services.system_capacity import capacity
 
+from src.dependencies_rbac import require_permission
+from src.permissions_registry import PERM_SET_TOOLS_JOBS, PERM_SET_SYSTEM
+
 router = APIRouter(tags=["admin: load"])
+
+# Die Auslastungskarte steht auf zwei Seiten, deshalb zwei Schluessel.
+_require = require_permission(PERM_SET_TOOLS_JOBS, PERM_SET_SYSTEM)
 
 
 @router.get("/load")
-async def get_load(_admin=Depends(get_admin_user)):
+async def get_load(_admin=Depends(_require)):
     """``async def``, weil die Prozessormessung zwei Messpunkte mit Abstand
     braucht und dafür wartet, ohne den Prozess anzuhalten.
 
