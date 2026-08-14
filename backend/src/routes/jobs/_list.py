@@ -1,6 +1,7 @@
 """GET /jobs/my und /jobs/stream - Jobliste + SSE-Stream."""
 
 import json as json_lib
+import time
 
 from fastapi import APIRouter, Depends, Query, Request
 from fastapi.responses import StreamingResponse
@@ -18,6 +19,8 @@ from src.routes.jobs._shared import (
 
 
 router = APIRouter()
+
+_KEEPALIVE_SECONDS = 20
 
 
 @router.get("/my")
@@ -62,6 +65,7 @@ async def job_stream(
         r = aioredis.from_url(_REDIS_URL, socket_connect_timeout=2, socket_timeout=2)
         pubsub = r.pubsub()
         await pubsub.subscribe(f"jobs:{user_id}")
+        last_sent = time.monotonic()
         try:
             while True:
                 if await request.is_disconnected():
@@ -70,6 +74,12 @@ async def job_stream(
                 if msg and msg["type"] == "message":
                     jobs, total = db.get_jobs_by_user(user_id, limit=20)
                     yield f"data: {json_lib.dumps({'jobs': _format_job_rows(jobs, locale), 'total': total})}\n\n"
+                    last_sent = time.monotonic()
+                elif time.monotonic() - last_sent >= _KEEPALIVE_SECONDS:
+                    # SSE comment, ignored by the browser. Keeps proxies from
+                    # dropping an idle connection, which would restart the client.
+                    yield ": ping\n\n"
+                    last_sent = time.monotonic()
         finally:
             await pubsub.unsubscribe(f"jobs:{user_id}")
             await r.aclose()

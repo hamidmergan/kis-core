@@ -7,6 +7,7 @@ import { useTranslations } from "next-intl";
 import { Stack } from "@phosphor-icons/react";
 import Spinner from "@/components/ui/Spinner";
 import { EmptyState } from "@/components/ui/EmptyState";
+import { hasUnseenDone, toMs } from "./_unseen";
 
 interface MyJob {
   job_uuid: string;
@@ -26,9 +27,9 @@ interface MyJob {
 }
 
 const SCREENCAST_RENDER_TOOLS = new Set(["screencast_render", "screencast_auto"]);
+const LAST_SEEN_KEY = "kis-jobs-last-seen";
 
 const isActive = (s: MyJob["status"]) => s === "pending" || s === "running" || s === "awaiting_user" || s === "queued";
-const needsAttention = (s: MyJob["status"]) => isActive(s);
 const isExpired = (job: MyJob) => job.status === "success" && !job.has_download;
 
 function useTimeAgo() {
@@ -50,10 +51,6 @@ function formatDurationShort(ms: number): string {
   const s = totalSec % 60;
   if (h > 0) return `${h}:${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
   return `${m}:${String(s).padStart(2, "0")}`;
-}
-
-function toMs(dateStr: string): number {
-  return new Date(dateStr.endsWith("Z") ? dateStr : dateStr + "Z").getTime();
 }
 
 function StatusBadge({ status, expired, isGeneratingScripts }: { status: MyJob["status"]; expired: boolean; isGeneratingScripts?: boolean }) {
@@ -84,7 +81,7 @@ export default function JobsPanel() {
 
   const [open, setOpen] = useState(false);
   const [jobs, setJobs] = useState<MyJob[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [lastSeen, setLastSeen] = useState<number | null>(null);
   const [cancelling, setCancelling] = useState<string | null>(null);
   const [retrying, setRetrying] = useState<string | null>(null);
   const panelRef = useRef<HTMLDivElement>(null);
@@ -135,31 +132,33 @@ export default function JobsPanel() {
   useEffect(() => {
     let es: EventSource | null = null;
     let fallbackPoll: ReturnType<typeof setInterval> | null = null;
-    let errCount = 0;
     const bc = new BroadcastChannel("kis-jobs");
 
     const sseUrl = process.env.NODE_ENV === "development"
       ? "http://localhost:8000/jobs/stream"
       : "/api/jobs/stream";
 
+    const stopFallback = () => {
+      if (fallbackPoll) { clearInterval(fallbackPoll); fallbackPoll = null; }
+    };
+
     const openSSE = () => {
-      if (es) return;
-      errCount = 0;
+      if (es && es.readyState !== EventSource.CLOSED) return;
+      if (es) es.close();
       es = new EventSource(sseUrl, { withCredentials: true });
       es.onmessage = (e) => {
-        errCount = 0;
         try {
           const data = JSON.parse(e.data);
           applyJobs(data.jobs ?? []);
           bc.postMessage({ jobs: data.jobs ?? [] });
         } catch { /* ignore parse errors */ }
-        if (fallbackPoll) { clearInterval(fallbackPoll); fallbackPoll = null; }
+        stopFallback();
       };
+      // EventSource retries on its own while the state is CONNECTING, so only a
+      // permanently closed connection needs the slow fallback.
       es.onerror = () => {
-        errCount++;
-        if (errCount >= 3 && !fallbackPoll) {
-          fallbackPoll = setInterval(fetchJobs, 5000);
-        }
+        if (es?.readyState !== EventSource.CLOSED || fallbackPoll) return;
+        fallbackPoll = setInterval(() => { fetchJobs(); openSSE(); }, 30000);
       };
     };
 
@@ -173,13 +172,13 @@ export default function JobsPanel() {
         fetchJobs(); // immediate snapshot on tab switch
       } else {
         closeSSE();
-        if (fallbackPoll) { clearInterval(fallbackPoll); fallbackPoll = null; }
+        stopFallback();
       }
     };
 
     document.addEventListener("visibilitychange", onVisibility);
 
-    // Initial fetch so badge shows immediately before first SSE message arrives
+    // Initial fetch so the dot shows immediately before first SSE message arrives
     fetchJobs();
     if (document.visibilityState === "visible") openSSE();
 
@@ -187,7 +186,7 @@ export default function JobsPanel() {
       document.removeEventListener("visibilitychange", onVisibility);
       closeSSE();
       bc.close();
-      if (fallbackPoll) clearInterval(fallbackPoll);
+      stopFallback();
     };
   }, [applyJobs, fetchJobs]);
 
@@ -198,19 +197,28 @@ export default function JobsPanel() {
     return () => window.removeEventListener("kis-jobs-changed", handler);
   }, [fetchJobs]);
 
-  // Refresh when tab becomes visible (browser throttles SSE in background tabs)
+  // Remember when the user last looked, so the dot only marks fresh results.
+  // First visit starts the clock now, old jobs must not light up the dot.
   useEffect(() => {
-    const handler = () => { if (!document.hidden) fetchJobs(); };
-    document.addEventListener("visibilitychange", handler);
-    return () => document.removeEventListener("visibilitychange", handler);
-  }, [fetchJobs]);
+    const stored = Number(localStorage.getItem(LAST_SEEN_KEY));
+    if (stored > 0) { setLastSeen(stored); return; }
+    const now = Date.now();
+    localStorage.setItem(LAST_SEEN_KEY, String(now));
+    setLastSeen(now);
+  }, []);
 
-  // Refresh jobs when panel opens
+  // Opening the panel marks everything seen, closing it covers jobs that
+  // finished while it was open.
   useEffect(() => {
     if (!open) return;
-    setLoading(true);
-    fetchJobs().finally(() => setLoading(false));
-  }, [open, fetchJobs]);
+    const markSeen = () => {
+      const now = Date.now();
+      localStorage.setItem(LAST_SEEN_KEY, String(now));
+      setLastSeen(now);
+    };
+    markSeen();
+    return markSeen;
+  }, [open]);
 
   // Close on outside click/tap
   useEffect(() => {
@@ -242,7 +250,7 @@ export default function JobsPanel() {
     }
   };
 
-  const attentionCount = jobs.filter((j) => needsAttention(j.status)).length;
+  const hasFreshResult = lastSeen !== null && hasUnseenDone(jobs, lastSeen);
 
   const handleDownload = (e: React.MouseEvent, job: MyJob) => {
     e.stopPropagation();
@@ -310,10 +318,11 @@ export default function JobsPanel() {
       >
         <Stack size={17} weight="bold" aria-hidden="true" />
         <span className="hidden sm:inline text-sm font-medium">{tHeader("jobs")}</span>
-        {attentionCount > 0 && (
-          <span className="absolute -top-0.5 -right-0.5 w-4 h-4 bg-white text-kb text-3xs font-bold rounded-full flex items-center justify-center shadow">
-            {attentionCount}
-          </span>
+        {hasFreshResult && (
+          <>
+            <span className="absolute top-0 right-0 w-1.5 h-1.5 bg-error rounded-full shadow" aria-hidden="true" />
+            <span className="sr-only">{tPanel("newResults")}</span>
+          </>
         )}
       </button>
 
@@ -331,9 +340,6 @@ export default function JobsPanel() {
         " style={{ backgroundColor: "var(--background)", border: "1px solid var(--border)" }}>
           <div className="px-4 py-3 border-b border-border-soft flex items-center justify-between">
             <span className="text-sm font-semibold text-foreground">{tJobs("title")}</span>
-            {loading && (
-              <Spinner size="sm" />
-            )}
           </div>
 
           <div className="px-4 py-2 border-b" style={{ borderColor: "var(--border)" }}>
