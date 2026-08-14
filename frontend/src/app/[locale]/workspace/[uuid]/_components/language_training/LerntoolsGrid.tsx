@@ -35,7 +35,10 @@ export function LerntoolsGrid({ tiles, onSelect }: {
             <button
               type="button"
               onClick={() => onSelect(tile.key)}
-              className="flex flex-col items-center justify-center gap-2 p-3 rounded-2xl text-center border-2 transition-colors border-[var(--tile-border)] hover:border-[var(--tile-color)]"
+              // min-w-0 nimmt der Kachel die eingebaute Mindestbreite eines
+              // Grid-Kindes. Ohne das zieht ein langes Wort wie
+              // "Wortschatzuebungen" die Spalte auf und legt sich ins Polster.
+              className="flex flex-col items-center justify-center gap-2 p-3 min-w-0 rounded-2xl text-center border-2 transition-colors border-[var(--tile-border)] hover:border-[var(--tile-color)]"
               style={{
                 minHeight: compact ? 50 : 90,
                 backgroundColor: tile.iconBg,
@@ -45,7 +48,10 @@ export function LerntoolsGrid({ tiles, onSelect }: {
             >
               <tile.Icon size={compact ? 18 : 20} color={tile.iconColor} weight="bold" />
               {!compact && (
-                <span className="text-xs font-semibold leading-tight" style={{ color: tile.iconColor }}>
+                <span
+                  className="text-xs font-semibold leading-tight max-w-full break-words hyphens-auto"
+                  style={{ color: tile.iconColor }}
+                >
                   {tile.label}
                 </span>
               )}

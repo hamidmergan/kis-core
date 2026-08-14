@@ -8,6 +8,7 @@ import {
   FileVideo,
   FolderSimplePlus,
   Check,
+  X,
 } from "@phosphor-icons/react";
 import type { Chapter, Source, StaffNoteLink } from "../../_types";
 import { UploadErrorsBlock } from "./UploadErrorsBlock";
@@ -326,6 +327,14 @@ export function SourcesPanel({
           >
             {t("chapterCreate")}
           </button>
+          <IconButton
+            onClick={() => { setCreatingChapter(false); setNewChapterName(""); setNewChapterError(null); }}
+            disabled={newChapterBusy}
+            aria-label={t("cancel")}
+            title={t("cancel")}
+          >
+            <X size={13} weight="bold" />
+          </IconButton>
           {newChapterError && (
             <div
               className="absolute left-3 right-3 top-full z-10 mt-1 rounded-lg px-3 py-2 text-xs leading-snug shadow-lg"
