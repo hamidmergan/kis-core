@@ -4,7 +4,8 @@
 services:
   # ── Hot-Reload-Tweaks ──────────────────────────────────────────────────
   backend:
-    command: python -m uvicorn src.app:app --host 0.0.0.0 --port 8000 --reload
+    # --timeout-graceful-shutdown: sonst haengt der Reload ewig an offenen SSE-Streams
+    command: python -m uvicorn src.app:app --host 0.0.0.0 --port 8000 --reload --timeout-graceful-shutdown 5
     volumes:
       - ./backend/src:/app/src
 
