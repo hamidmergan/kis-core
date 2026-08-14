@@ -33,8 +33,15 @@ class UpdateSettingsRequest(BaseModel):
     ocr_enabled: bool | None = None
     # Per-workspace source upload cap (admin-tunable, default 30).
     aia_workspace_max_sources: int | None = None
-    # Die beiden Kontextbudgets sind am 2026-08-14 entfallen. Sie werden jetzt aus dem
-    # einmal gemessenen Fenster des Modells gerechnet, siehe ``services.model_limits``.
+    # KI-tutor chat context budget in characters. Drives both the truncation in
+    # the context builder and the "full document fits -> send it whole" overview
+    # path. Sized for the smallest supported model (32k) by default; a deployment
+    # on large-context models can raise it.
+    aia_context_max_chars: int | None = None
+    # Context budget (chars) for the GENERATION TOOLS (mindmap, data table, quiz,
+    # flashcards, …). Separate from the chat budget so the tools can get a larger
+    # window; divided by the number of selected sources at generation time.
+    aia_tool_context_max_chars: int | None = None
     # Per-batch char cap for the ingest-side DOC SUMMARY. Bigger = fewer (but
     # coarser) summary calls per upload → fewer GWDG-rate-limited requests.
     aia_summary_batch_max_chars: int | None = None

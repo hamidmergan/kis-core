@@ -979,13 +979,7 @@
           "stt_endpoint_verified_model_unvalidated": "Endpoint verified reachable (auth ok, rate limit active, backend responding). The provider does not validate the model name — STT works with any name."
         },
         "modelForPrimary": "Model for {name}:",
-        "modelOptional": "(optional)",
-        "limitsWindow": "Window {tokens} tokens",
-        "limitsGuessed": "estimated, not measured yet",
-        "limitsLearned": "learned in production",
-        "limitsThinks": "thinks, thinking is switched off",
-        "limitsThinksStuck": "thinks, cannot be switched off",
-        "limitsContext": "{chars} characters of context"
+        "modelOptional": "(optional)"
       },
       "delete": {
         "title": "Delete provider \"{name}\"?",
@@ -1061,7 +1055,7 @@
         "translation": "Translation"
       },
       "featureName": {
-        "chat": "Chat",
+        "chat": "Chat (LLM)",
         "embedding": "Embeddings",
         "vision": "Vision",
         "ocr": "OCR / document extraction",

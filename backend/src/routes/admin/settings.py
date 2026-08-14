@@ -15,6 +15,10 @@ from src.i18n import get_locale, t
 from src.permissions_registry import SETTING_FIELD_PERMISSIONS
 from src.limits import (
     TTS_MAX_CHARS_PER_REQUEST,
+    AIA_CONTEXT_MAX_CHARS,
+    AIA_CONTEXT_HARD_CAP,
+    AIA_TOOL_CONTEXT_MAX_CHARS,
+    AIA_TOOL_CONTEXT_HARD_CAP,
     AIA_SUMMARY_BATCH_MAX_CHARS,
     AIA_SOURCE_MAX_PAGES,
     AIA_WORKSPACE_MAX_SOURCES,
@@ -108,11 +112,15 @@ async def get_settings(_admin=Depends(require_any_settings)):
         "aia_workspace_max_sources": int(
             db.get_setting("aia_workspace_max_sources", str(AIA_WORKSPACE_MAX_SOURCES))
         ),
-        # Die beiden Kontextbudgets (Chat und Werkzeuge) standen bis 2026-08-14 hier als
-        # feste Zeichenzahl. Sie sind entfallen: was ein Modell vertraegt, wird einmal
-        # gemessen und daraus gerechnet (siehe ``services.model_limits``). Eine Zahl von
-        # Hand konnte gar nicht fuer alle stimmen, die Fenster reichen von 20.080 bis
-        # 1.048.576 Token, und ein zu grosses Budget hiess HTTP 400 statt einer Antwort.
+        # KI-tutor chat context budget (chars). Default sized for 32k models.
+        "aia_context_max_chars": int(
+            db.get_setting("aia_context_max_chars", str(AIA_CONTEXT_MAX_CHARS))
+        ),
+        # Context budget (chars) for the generation tools (mindmap, data table, quiz, …).
+        # Separate from the chat budget; divided by the number of sources at generation time.
+        "aia_tool_context_max_chars": int(
+            db.get_setting("aia_tool_context_max_chars", str(AIA_TOOL_CONTEXT_MAX_CHARS))
+        ),
         # Ingest-side DOC SUMMARY per-batch char cap (bigger = fewer summary calls).
         "aia_summary_batch_max_chars": int(
             db.get_setting("aia_summary_batch_max_chars", str(AIA_SUMMARY_BATCH_MAX_CHARS))
@@ -383,8 +391,31 @@ async def update_settings(
             )
         db.set_setting("aia_workspace_max_sources", str(value))
 
-    # Die beiden Kontextbudgets sind hier entfallen, siehe die Begruendung oben beim
-    # Lesen der Einstellungen.
+    # KI-tutor context budget in characters. Bounded so a typo cannot starve the
+    # context (too low) or blow past even large model windows (too high). Lower
+    # bound ~ one small chunk; hard upper bound = AIA_CONTEXT_HARD_CAP (single
+    # source of truth, ~228k tokens) so an admin typo (1M+) can't force a context
+    # that stalls/overflows the model.
+    if body.aia_context_max_chars is not None:
+        value = body.aia_context_max_chars
+        if value < 1000 or value > AIA_CONTEXT_HARD_CAP:
+            raise HTTPException(
+                status_code=400,
+                detail=t("admin.settings.contextBudgetOutOfRange", locale, min=1000, max=AIA_CONTEXT_HARD_CAP),
+            )
+        db.set_setting("aia_context_max_chars", str(value))
+
+    # Generation-tools context budget in characters. Same lower bound as the chat
+    # budget; upper bound = AIA_TOOL_CONTEXT_HARD_CAP (higher than the chat cap, the
+    # tools pack a whole document into one call and may run on a large/cloud model).
+    if body.aia_tool_context_max_chars is not None:
+        value = body.aia_tool_context_max_chars
+        if value < 1000 or value > AIA_TOOL_CONTEXT_HARD_CAP:
+            raise HTTPException(
+                status_code=400,
+                detail=t("admin.settings.toolContextBudgetOutOfRange", locale, min=1000, max=AIA_TOOL_CONTEXT_HARD_CAP),
+            )
+        db.set_setting("aia_tool_context_max_chars", str(value))
 
     # Summary per-batch char cap. Lower bound ~ one chunk; upper bound 500k chars
     # (~140k tokens) so an admin typo can't push a single summary batch past even

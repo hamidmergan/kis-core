@@ -241,37 +241,108 @@ def test_full_context_none_for_empty_sources(monkeypatch):
     assert _full_context_if_fits([1], max_chars=10_000) is None
 
 
-def test_context_budget_folgt_dem_gemessenen_fenster(monkeypatch):
-    """Das Budget kam bis 2026-08-14 aus einer Admin-Einstellung. Jetzt kommt es aus
-    dem einmal gemessenen Fenster des Modells, das die Chat-Route bedient."""
+def _admin_sagt(monkeypatch, wert):
+    """Die Einstellung setzen und das Modell als unbekannt ausgeben, damit hier nur
+    die Admin-Zahl geprueft wird und nicht der Deckel darunter."""
+    from src import database as db
     from src.services import model_limits
 
-    monkeypatch.setattr(model_limits, "window_for_feature", lambda feature="chat": 262144)
-    assert _context_budget() == model_limits.context_chars(262144, model_limits.CHAT_SHARE)
+    monkeypatch.setattr(db, "get_setting", lambda k, d=None: wert if wert is not None else d)
+    monkeypatch.setattr(model_limits, "profile_for_feature", lambda feature="chat": None)
 
 
-def test_kleines_fenster_ergibt_kleines_budget(monkeypatch):
-    """apertus-70b kann nur 20080 Token. Frueher bekam es trotzdem 250000 Zeichen
-    und der Anbieter antwortete mit HTTP 400 statt mit Text."""
+def test_context_budget_folgt_der_admin_einstellung(monkeypatch):
+    """Das Budget ist wieder eine Zahl aus dem Admin, eine fuer den Chat und eine
+    fuer die Werkzeuge. Der Umweg ueber das gemessene Fenster ist am 14.08.2026
+    verworfen worden: er machte die Zahl unvorhersagbar, ohne dass jemand sie
+    noch beeinflussen konnte."""
+    from src.limits import AIA_CONTEXT_MAX_CHARS
+
+    _admin_sagt(monkeypatch, "180000")
+    assert _context_budget() == 180000
+
+    _admin_sagt(monkeypatch, None)
+    assert _context_budget() == AIA_CONTEXT_MAX_CHARS
+
+
+def test_admin_zahl_wird_nach_oben_und_unten_begrenzt(monkeypatch):
+    """Ein Vertipper darf weder den Kontext aushungern noch das Modell sprengen.
+    Begrenzt wird auch beim LESEN, nicht nur beim Speichern: ein alter oder direkt
+    in die Datenbank geschriebener Wert kaeme sonst durch."""
+    from src.limits import AIA_CONTEXT_HARD_CAP
+
+    _admin_sagt(monkeypatch, "5")
+    assert _context_budget() == 1000
+
+    _admin_sagt(monkeypatch, "99999999")
+    assert _context_budget() == AIA_CONTEXT_HARD_CAP
+
+
+def test_unlesbare_zahl_faellt_auf_den_standard_zurueck(monkeypatch):
+    """Steht dort Unsinn, darf der Chat nicht ausfallen."""
+    from src.limits import AIA_CONTEXT_MAX_CHARS
+
+    _admin_sagt(monkeypatch, "viel")
+    assert _context_budget() == AIA_CONTEXT_MAX_CHARS
+
+
+# ── Deckel: die Admin-Zahl gilt, aber nie ueber das Modell hinaus ────────────
+#
+# Am 14.08.2026 am echten Modell geprueft: qwen3-omni kann 65.536 Token. 250.000
+# Zeichen gehen dort durch, die im Admin eingetragenen 800.000 fuer die Werkzeuge
+# werden mit HTTP 400 abgelehnt. Die Selbstheilung faengt das ab, aber sie repariert
+# nur den einen Aufruf: die Einstellung steht beim naechsten Lauf unveraendert da,
+# also kostet JEDER Lauf denselben Fehlversuch. Der Deckel raeumt das ab, ohne dem
+# Admin die Zahl wegzunehmen.
+
+def _kenne_fenster(monkeypatch, fenster, quelle=None):
     from src.services import model_limits
 
-    monkeypatch.setattr(model_limits, "window_for_feature", lambda feature="chat": 20080)
-    klein = _context_budget()
-    monkeypatch.setattr(model_limits, "window_for_feature", lambda feature="chat": 262144)
-    assert klein < _context_budget()
-    assert klein < 60000
+    if fenster is None:
+        profil = None
+    else:
+        quelle = quelle or model_limits.QUELLE_GEMESSEN
+        profil = model_limits.ModelProfile(fenster, quelle, False, "")
+    monkeypatch.setattr(model_limits, "profile_for_feature", lambda feature="chat": profil)
 
 
-def test_unvermessenes_modell_bekommt_den_vorsichtswert(monkeypatch):
-    """Solange nichts gemessen wurde, darf die Budgetrechnung keine Anfrage aufhalten
-    und rechnet mit dem vorsichtigen Standardfenster."""
+def test_kleines_modell_deckelt_die_admin_zahl(monkeypatch):
+    from src.features.ai_assistant.tasks._context_budget import tool_context_budget
     from src.services import model_limits
 
-    monkeypatch.setattr(model_limits, "stored_profile", lambda pid, model: None)
-    monkeypatch.setattr(chat_mod.db, "get_route", lambda feature: {"provider_id": 1, "model_name": "x"})
-    assert _context_budget() == model_limits.context_chars(
-        model_limits.DEFAULT_WINDOW_TOKENS, model_limits.CHAT_SHARE
-    )
+    monkeypatch.setattr(chat_mod.db, "get_setting", lambda k, d=None: "800000")
+    _kenne_fenster(monkeypatch, 65536)
+    assert tool_context_budget() == model_limits.context_chars(65536, model_limits.TOOL_SHARE)
+    assert _context_budget() == model_limits.context_chars(65536, model_limits.CHAT_SHARE)
+
+
+def test_admin_zahl_bleibt_wenn_sie_unter_dem_modell_liegt(monkeypatch):
+    """Der Deckel greift nur nach unten. Wer bewusst wenig einstellt, bekommt wenig."""
+    monkeypatch.setattr(chat_mod.db, "get_setting", lambda k, d=None: "50000")
+    _kenne_fenster(monkeypatch, 262144)
+    assert _context_budget() == 50000
+
+
+def test_ohne_wissen_ueber_das_modell_gilt_die_admin_zahl(monkeypatch):
+    """Kein Profil und ein geratenes Fenster sind dasselbe: nichts bekannt. Dann darf
+    nichts gedeckelt werden, sonst nimmt ein Ratewert dem Admin seine Einstellung weg."""
+    from src.services import model_limits
+
+    monkeypatch.setattr(chat_mod.db, "get_setting", lambda k, d=None: "250000")
+    _kenne_fenster(monkeypatch, None)
+    assert _context_budget() == 250000
+    _kenne_fenster(monkeypatch, 32768, model_limits.QUELLE_GERATEN)
+    assert _context_budget() == 250000
+
+
+def test_gelerntes_fenster_deckelt_ebenfalls(monkeypatch):
+    """Was im Betrieb aus einer echten Absage gelernt wurde, ist die verlaesslichste
+    Zahl von allen. Sie muss den zweiten Fehlversuch verhindern."""
+    from src.services import model_limits
+
+    monkeypatch.setattr(chat_mod.db, "get_setting", lambda k, d=None: "800000")
+    _kenne_fenster(monkeypatch, 65536, model_limits.QUELLE_GELERNT)
+    assert _context_budget() < 800000
 
 
 # ── generic path: single-search pgvector retrieval (db/provider monkeypatched) ──

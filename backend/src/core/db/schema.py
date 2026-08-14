@@ -1658,7 +1658,8 @@ def _init_db(admin_email: Optional[str] = None) -> None:
             #
             # source sagt, wie verlaesslich die Zahl ist: "gemessen" (Anbieter hat
             # sie genannt), "geraten" (er schweigt, Vorsichtswert), "gelernt" (aus
-            # einer echten Absage im Betrieb nachtraeglich korrigiert).
+            # einer echten Absage im Betrieb nachtraeglich korrigiert), "gesetzt"
+            # (der Admin hat sie eingetragen, weil der Anbieter dauerhaft schweigt).
             cur.execute("""
                 CREATE TABLE IF NOT EXISTS model_limits (
                     provider_id   INTEGER NOT NULL REFERENCES providers(id) ON DELETE CASCADE,

@@ -50,6 +50,7 @@ CHAT_SHARE = 0.60
 # Antwort, und darf deshalb mehr vom Fenster belegen.
 TOOL_SHARE = 0.75
 
+
 # Auch ein winziges Fenster muss noch eine Anfrage zulassen.
 MIN_CONTEXT_CHARS = 2000
 
@@ -448,11 +449,11 @@ def learn_from_error(provider_id: int, model: str, error) -> int | None:
     return fenster
 
 
-def window_for_feature(feature: str = "chat") -> int:
-    """Fenstergroesse des Modells, das dieses Merkmal bedient. Nie Netzverkehr.
+def profile_for_feature(feature: str = "chat") -> ModelProfile | None:
+    """Was ueber das Modell dieses Merkmals bekannt ist, oder ``None``. Nie Netzverkehr.
 
-    Wurde noch nie gemessen, gilt der Vorsichtswert. Das ist der Preis dafuer, dass
-    die Budgetrechnung keine Anfrage aufhalten darf.
+    ``None`` heisst "nichts bekannt". Die Budgetrechnung darf keine Anfrage aufhalten,
+    also ist eine unlesbare Route dasselbe wie ein unvermessenes Modell.
     """
     from src import database as db
     try:
@@ -462,9 +463,39 @@ def window_for_feature(feature: str = "chat") -> int:
         model = modelle.get(str(provider_id)) or route.get("model_name")
     except Exception as e:  # noqa: BLE001
         logger.debug("Route {} nicht lesbar: {}", feature, e)
-        return DEFAULT_WINDOW_TOKENS
-    profil = stored_profile(provider_id, model)
+        return None
+    return stored_profile(provider_id, model)
+
+
+def window_for_feature(feature: str = "chat") -> int:
+    """Fenstergroesse des Modells, das dieses Merkmal bedient. Nie Netzverkehr.
+
+    Wurde noch nie gemessen, gilt der Vorsichtswert. Das ist der Preis dafuer, dass
+    die Budgetrechnung keine Anfrage aufhalten darf.
+    """
+    profil = profile_for_feature(feature)
     return profil.window_tokens if profil else DEFAULT_WINDOW_TOKENS
+
+
+def cap_for_model(budget_chars: int, share: float, feature: str = "chat") -> int:
+    """Ein Admin-Budget auf das kuerzen, was das Modell nachweislich vertraegt.
+
+    Die Zahl im Admin bleibt die Vorgabe. Dieser Deckel greift nur, wenn ueber das
+    Modell wirklich etwas bekannt ist: gemessen, im Betrieb gelernt oder als Absage
+    gesehen. Ein ``geraten`` ist keine Aussage ueber das Modell, sondern das
+    Eingestaendnis, keine zu haben, und darf dem Admin seine Einstellung nicht
+    wegnehmen.
+
+    Warum es den Deckel ueberhaupt gibt: am 14.08.2026 am echten Modell geprueft,
+    qwen3-omni kann 65.536 Token. Die im Admin stehenden 800.000 Zeichen fuer die
+    Werkzeuge lehnt es mit HTTP 400 ab. Die Selbstheilung faengt das ab, aber sie
+    repariert nur den einen Aufruf. Ohne diesen Deckel zahlt JEDER weitere Lauf
+    denselben Fehlversuch, weil die Einstellung unveraendert dasteht.
+    """
+    profil = profile_for_feature(feature)
+    if profil is None or profil.source == QUELLE_GERATEN:
+        return budget_chars
+    return min(budget_chars, context_chars(profil.window_tokens, share))
 
 
 def _with_v1(base_url: str) -> str:
