@@ -8,6 +8,10 @@ import psycopg2.pool
 
 
 _TZ_BERLIN = ZoneInfo("Europe/Berlin")
+# So viele Nachrichten werden fuer die letzte Runde gelesen. Genug, um ueber ein
+# paar abgebrochene oder gescheiterte Antworten hinweg die letzte brauchbare
+# Runde zu finden, und wenig genug, um billig zu bleiben.
+_LAST_ROUND_SCAN = 8
 _REDIS_URL = os.environ.get("REDIS_URL", "redis://kis-redis:6379/0")
 from src.core.db.pool import get_connection
 
@@ -117,6 +121,50 @@ def get_last_aia_user_questions(
             )
             rows = cur.fetchall()
     return [q for q in ((row["content"] or "").strip() for row in rows) if q]
+
+def get_last_aia_round(
+    workspace_id: int, user_id: int, enrollment_id: int | None = None
+) -> dict | None:
+    """Die letzte abgeschlossene Runde dieses Chats: Frage, Antwort, Quellen.
+
+    Dient allein dazu, eine Nachfrage vor der Suche eigenstaendig zu machen
+    (siehe ``routes/_followup``). Es geht weiterhin KEIN Verlauf an den
+    Antwort-Aufruf.
+
+    Abgebrochene und gescheiterte Antworten zaehlen nicht: ein halber oder gar
+    kein Text traegt keinen Zusammenhang, und die Nachfrage meint dann noch die
+    Runde davor. Genommen wird die neueste brauchbare Antwort und die Frage
+    unmittelbar davor. Chats je Zugangslink bleiben getrennt.
+    """
+    where = "enrollment_id = %s" if enrollment_id is not None else "enrollment_id IS NULL"
+    params: tuple = (workspace_id, user_id) + (
+        (enrollment_id,) if enrollment_id is not None else ()) + (_LAST_ROUND_SCAN,)
+    with get_connection() as conn:
+        with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
+            cur.execute(
+                f"""SELECT role, content, source_pages, source_qmap, aborted, failed
+                   FROM aia_messages
+                   WHERE workspace_id = %s AND user_id = %s
+                     AND {where}
+                   ORDER BY created_at DESC
+                   LIMIT %s""",
+                params,
+            )
+            rows = cur.fetchall()
+    for i, row in enumerate(rows):
+        if row["role"] != "assistant" or row["aborted"] or row["failed"]:
+            continue
+        if not (row["content"] or "").strip():
+            continue
+        frage = next((r["content"] for r in rows[i + 1:] if r["role"] == "user"), "")
+        return {
+            "question": (frage or "").strip(),
+            "answer": row["content"].strip(),
+            "source_pages": row["source_pages"] or [],
+            "source_qmap": row["source_qmap"] or [],
+        }
+    return None
+
 
 def get_aia_user_settings(workspace_id: int, user_id: int) -> dict:
     with get_connection() as conn:

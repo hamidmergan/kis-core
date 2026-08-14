@@ -183,13 +183,15 @@ def test_parse_understanding_missing_subqueries_is_empty():
 @pytest.mark.asyncio
 async def test_understand_query_reads_both():
     llm = FakeLLM(content='{"intent":"GENERIC","scope":{"unit":"page","intervals":[[12,14]]}}')
-    intent, scope, _subs =await _understand_query(llm, "fasse Seite 12 bis 14 zusammen")
+    intent, scope, _subs, _art, _frage = await _understand_query(
+        llm, "fasse Seite 12 bis 14 zusammen")
     assert intent == "GENERIC" and scope == {"unit": "page", "intervals": [[12, 14]]}
 
 
 @pytest.mark.asyncio
 async def test_understand_query_defaults_on_error():
-    intent, scope, _subs =await _understand_query(FakeLLM(raise_exc=True), "x")
+    intent, scope, _subs, _art, _frage = await _understand_query(
+        FakeLLM(raise_exc=True), "x")
     assert intent == "SPECIFIC" and scope == {"unit": None, "intervals": []}
 
 

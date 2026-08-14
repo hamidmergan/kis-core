@@ -17,7 +17,11 @@ from langfuse.decorators import langfuse_context, observe
 from src import database as db
 from src.dependencies import get_current_user, get_llm_client
 from src.i18n import get_locale, t
-from src.limits import AIA_EMBED_QUERY_MAX_CHARS
+from src.limits import (
+    AIA_CONTEXT_HARD_CAP,
+    AIA_CONTEXT_MAX_CHARS,
+    AIA_EMBED_QUERY_MAX_CHARS,
+)
 from src.services import model_limits
 from src.security.rate_limit import enforce_burst
 from src.security.usage_log import log_request as _log_usage
@@ -30,8 +34,11 @@ from src.tool_prompts import (
     AIA_POPUP_ACTIONS,
     AIA_INTENT_CLASSIFIER_SYSTEM,
     AIA_QUERY_UNDERSTANDING_SYSTEM,
+    aia_query_understanding_system,
     RAG_NO_INFO_SENTINEL,
+    is_sentinel_refusal,
 )
+from . import _followup
 from src.services.aia_adaptive_chat import (
     adaptive_chat_appendix,
     level_texts,
@@ -482,12 +489,17 @@ def _parse_understanding(content: str) -> tuple[str, dict, list[str]]:
     return intent, scope, subqueries
 
 
-async def _understand_query(llm, question: str) -> tuple[str, dict, list[str]]:
+async def _understand_query(
+    llm, question: str, letzte_runde: Optional[dict] = None
+) -> tuple[str, dict, list[str], str, str]:
     """ONE pre-call that does ALL query-understanding jobs in a single round-trip:
-    route GENERIC vs SPECIFIC, extract any explicit page/time scope, and split compound
-    questions into subqueries. Replaces the separate pre-calls. Returns
-    ``(intent, scope, subqueries)``. On any failure → ``("SPECIFIC", empty scope, [])`` —
-    the conservative route; the regex fallback still covers simple page refs downstream.
+    route GENERIC vs SPECIFIC, extract any explicit page/time scope, split compound
+    questions into subqueries, and — when ``letzte_runde`` is given — turn a follow-up
+    into a self-contained question. Returns
+    ``(intent, scope, subqueries, nachfrage_art, frage)`` where ``frage`` is the
+    question retrieval should use (the original one unless it was rewritten).
+    On any failure → ``("SPECIFIC", empty scope, [], KEINE, question)`` — the
+    conservative route; the regex fallback still covers simple page refs downstream.
     Runs in a worker thread so a stalled provider cannot block the event loop."""
     import asyncio
     def _call():
@@ -495,8 +507,9 @@ async def _understand_query(llm, question: str) -> tuple[str, dict, list[str]]:
         return llm._client.with_options(timeout=60.0, max_retries=0).chat.completions.create(
             model=llm._model,
             messages=[
-                {"role": "system", "content": AIA_QUERY_UNDERSTANDING_SYSTEM},
-                {"role": "user", "content": question},
+                {"role": "system",
+                 "content": aia_query_understanding_system(bool(letzte_runde))},
+                {"role": "user", "content": _followup.vorcall_eingabe(question, letzte_runde)},
             ],
             temperature=0.0,
             # Platz fuer die Teilfragen einer zusammengesetzten Frage, und fuer ein
@@ -510,20 +523,22 @@ async def _understand_query(llm, question: str) -> tuple[str, dict, list[str]]:
         raw = msg.content or getattr(msg, "reasoning_content", None) or ""
     except Exception as e:
         logger.warning("Query understanding failed, defaulting to SPECIFIC/no-scope: {}", e)
-        return "SPECIFIC", {"unit": None, "intervals": []}, []
+        return "SPECIFIC", {"unit": None, "intervals": []}, [], _followup.KEINE, question
     intent, scope, subqueries = _parse_understanding(raw)
-    logger.info("Query understanding: '{}' → intent={} scope={} subqueries={}",
-                question[:50], intent, scope, subqueries)
-    return intent, scope, subqueries
+    art, frage = (_followup.nachfrage_lesen(raw, question) if letzte_runde
+                  else (_followup.KEINE, question))
+    logger.info("Query understanding: '{}' → intent={} scope={} subqueries={} nachfrage={} frage='{}'",
+                question[:50], intent, scope, subqueries, art, frage[:60])
+    return intent, scope, subqueries, art, frage
 
 
 def _context_budget() -> int:
-    """Zeichenbudget fuer den Kontext, gerechnet aus dem gemessenen Fenster des Modells.
+    """Zeichenbudget fuer den Kontext, admin-einstellbar ueber ``aia_context_max_chars``.
 
     KIS laeuft auf sehr verschiedenen Aufbauten, von einem lokalen Ollama bis zu einem
-    grossen Cloud-Modell, eine feste Zahl kann deshalb nicht stimmen. Bis 2026-08-14 stand
-    hier eine Admin-Einstellung, die genau das versuchte, und ein Modell mit kleinerem
-    Fenster fuehrte zu HTTP 400 statt zu einer Antwort.
+    grossen Cloud-Modell, deshalb ist die Zahl einstellbar. Sie wird nur dann gekuerzt,
+    wenn ueber das Modell nachweislich bekannt ist, dass es weniger vertraegt, sonst
+    kostet ein zu hoch eingetragener Wert bei JEDER Anfrage einen Fehlversuch.
 
     Dieselbe Rechnung wie bei den Werkzeugen, deshalb steht sie nur einmal in
     ``tasks._context_budget`` und wird hier nur weitergereicht.
@@ -1108,20 +1123,43 @@ async def chat(
     # obvious (popup / no sources / very long question) → SPECIFIC, no scope.
     # Routing drives: GENERIC → wide overview retrieval + overview system prompt;
     # SPECIFIC → neighbor-expansion retrieval; scope → exact page/time chunks.
+    # FOLLOW-UP: the last completed round rides along in the SAME pre-call, so a
+    # short "erkläre genauer" / "in 3 Stichpunkten" can be made self-contained
+    # BEFORE retrieval (see routes/_followup). It is looked up only when the
+    # pre-call actually runs and the question is short enough to be a follow-up,
+    # and it only reaches the model when that round really carries context.
+    # Still no history in the ANSWER call.
+    _letzte_runde = None
     if _should_skip_intent_classification(body.source_text, source_ids, body.question):
         intent, scope_raw, subqueries = "SPECIFIC", None, []
+        _nachfrage, rewritten_question = _followup.KEINE, body.question
         logger.info("Chat: pre-call skipped → SPECIFIC ('{}' across {} sources)",
                     body.question[:60], len(source_ids or []))
     else:
         import time as _t_pc
         _t_pc0 = _t_pc.monotonic()
-        intent, scope_raw, subqueries = await _understand_query(llm, body.question)
-        logger.info("Chat: pre-call routed intent={} scope={} subqueries={} in {:.1f}s ('{}' across {} sources)",
-                    intent, scope_raw, len(subqueries), _t_pc.monotonic() - _t_pc0, body.question[:60], len(source_ids or []))
+        if _followup.lohnt_nachschlagen(body.question, body.source_text):
+            _letzte_runde = await asyncio.to_thread(
+                db.get_last_aia_round, workspace["id"], user_id, enrollment_id)
+            if not _followup.ist_nachfrage_moeglich(
+                    body.question, _letzte_runde, body.source_text):
+                _letzte_runde = None
+        intent, scope_raw, subqueries, _nachfrage, rewritten_question = await _understand_query(
+            llm, body.question, _letzte_runde)
+        logger.info("Chat: pre-call routed intent={} scope={} subqueries={} nachfrage={} in {:.1f}s ('{}' across {} sources)",
+                    intent, scope_raw, len(subqueries), _nachfrage, _t_pc.monotonic() - _t_pc0, body.question[:60], len(source_ids or []))
 
-    # The question is always used as-is: no conversation history is sent to the
-    # LLM. Each turn is fully standalone (no follow-up condensing, no leaks).
-    rewritten_question = body.question
+    # Reshaping the last answer ("in 3 Stichpunkten", "kürzer"): there is nothing
+    # to search for — the material IS that answer. Retrieval, scope and context
+    # are skipped below; the citation chips of that round are carried over, so the
+    # reshaped answer points at exactly the passages the original one did.
+    _umformen = _nachfrage == _followup.UMFORMEN and bool(_letzte_runde)
+    if _umformen:
+        logger.info("Chat: Folgefrage formt die letzte Antwort um ('{}'), keine Suche",
+                    body.question[:60])
+    elif _nachfrage == _followup.UMSCHREIBEN:
+        logger.info("Chat: Folgefrage eigenstaendig gemacht: '{}' → '{}'",
+                    body.question[:60], rewritten_question[:80])
 
     # Admin-tunable context budget (chars). Drives both the full-context-fits
     # check below and the final truncation in the shared context builder. Reserve
@@ -1139,7 +1177,7 @@ async def chat(
     # it is ambiguous which document's "page 5"). Popups (source_text) keep their flow.
     scope_chunks: Optional[list[dict]] = None
     scope_requested = False
-    if not body.source_text:
+    if not body.source_text and not _umformen:
         unit = scope_raw["unit"] if scope_raw else None
         intervals = scope_raw["intervals"] if scope_raw else []
         # Drop a bare-number OPEN range ("ab dritten Juli" → unit="unknown", [[3, None]]):
@@ -1223,8 +1261,13 @@ async def chat(
     # fit-shortcut (single coherent window); it is set True only when we actually run
     # the per-source hybrid search, which is the only path that may need multi-call.
     _specific_path = False
-    _fit_full = None if body.source_text else _full_context_if_fits(source_ids, context_budget)
-    if scope_chunks:
+    _fit_full = (None if (body.source_text or _umformen)
+                 else _full_context_if_fits(source_ids, context_budget))
+    if _umformen:
+        # Kein Suchtreffer, kein Kontext: der Stoff ist die letzte Antwort selbst
+        # (die Nachrichten dafuer werden weiter unten gebaut).
+        chunks = []
+    elif scope_chunks:
         chunks = scope_chunks
     elif _fit_full is not None:
         chunks = _fit_full
@@ -1414,6 +1457,15 @@ async def chat(
             qnum_counter += 1
             source_id_to_qnum[sid] = qnum_counter
 
+    # Beim Umformen gibt es keine Treffer, aus denen Nummern und gesehene Seiten
+    # entstehen koennten. Beides kommt aus der Runde, die umgeformt wird: die
+    # Aussage bleibt dieselbe, also bleiben auch die Stellen dieselben.
+    _umform_seiten: list[dict] = []
+    if _umformen:
+        _uuid_zu_id = {s["uuid"]: sid for sid, s in all_sources_list.items()}
+        source_qmap, source_id_to_qnum, _umform_gesehen, _umform_seiten = _followup.letzte_quellen(
+            _letzte_runde, _uuid_zu_id)
+
     # Order round-robin: each source's Nth segment before any (N+1)th, so the
     # char-budget truncation below cuts late rounds and every source keeps its
     # early segments. SPECIFIC chunks carry no _seq -> grouped by panel order as
@@ -1441,6 +1493,8 @@ async def chat(
         chunks, context_budget, source_id_to_qnum, all_sources_list,
         transcript_by_source, multi=False,
     )
+    if _umformen:
+        seen_pages_by_source = _umform_gesehen
     context = batches[0] if batches else "<documents>\n\n</documents>"
     _ctx_chars = sum(len(b) for b in batches)
     logger.info(
@@ -1462,7 +1516,13 @@ async def chat(
     # Popups carry their own selected text, so they skip the lookup.
     _prev_questions = [] if body.source_text else db.get_last_aia_user_questions(
         workspace["id"], user_id, enrollment_id=enrollment_id)
-    if body.source_text:
+    if _umformen:
+        # Umformen der letzten Antwort: eigener Prompt, kein <documents>-Kontext.
+        # Die Anweisung ist die eigenstaendig gemachte Zeile aus dem Vor-Call
+        # ("Fasse die Pruefungsleistung in 3 kurzen Stichpunkten zusammen").
+        messages = _followup.umform_nachrichten(
+            _letzte_runde, rewritten_question, chat_lang, _prev_questions, _adaptive_suffix)
+    elif body.source_text:
         # Popup actions: user has selected text themselves.
         page_ref = f" [S. {body.source_page}]" if body.source_page else ""
         # Only "Erklären"/Explain (simplify) needs the surrounding document context to
@@ -1533,7 +1593,10 @@ async def chat(
         enrollment_id=enrollment_id,
     )
 
-    if popup_entry:
+    if _umformen:
+        # Dieselben Stellen wie in der Runde, die umgeformt wird.
+        source_pages = list(_umform_seiten)
+    elif popup_entry:
         source_pages.append(popup_entry)
     else:
         all_sources = {s["id"]: s for s in db.get_aia_sources_by_workspace(workspace["id"])}
@@ -1833,7 +1896,13 @@ async def chat(
             # active sources, cross-check the hit against the pages actually retrieved into
             # context, and attach a nav-only chip. Popup/direct answers (their own selected
             # text + AIA_SYSTEM_DIRECT prompt) get no RAG attribution.
-            if is_popup or not source_ids:
+            # Eine reine Absage ueberspringt den ganzen Durchgang: sie hat nichts zu belegen,
+            # und der Weg darunter hat ihre einzige Zeile bisher erst eingebettet und
+            # durchsucht, nur um sie danach als Absage wieder zu verwerfen. Genau diese
+            # Zugabe war die Pause unter einer Antwort, die gar keinen Chip bekommen kann.
+            # Woertlicher Vergleich, kein Aufruf nach draussen. Alles andere (andere Sprache,
+            # zusammengesetzte Antwort) laeuft weiter ueber die Erkennung per Einbettung.
+            if is_popup or not source_ids or is_sentinel_refusal(_clean_answer):
                 answer = _clean_answer
             elif scope_single_page:
                 # Single-page scope: skip per-line chips (they'd all repeat the named
@@ -1980,7 +2049,10 @@ async def chat(
                                                    seen_pages_by_source=seen_pages_by_source,
                                                    # GENERIC overview: drop the loose guarantee chip
                                                    # and chip-free the multi-law synthesis lines.
-                                                   overview=(intent == "GENERIC" and not scope_chunks),
+                                                   # Eine Umformung ist nie ein Ueberblick, auch wenn
+                                                   # die Wegwahl fuer die Zeile GENERIC sagte.
+                                                   overview=(intent == "GENERIC" and not scope_chunks
+                                                             and not _umformen),
                                                    # Exact-match grounding sees exactly what the
                                                    # model read (the single neighbor-expanded window).
                                                    context_chunks=chunks,

@@ -327,6 +327,48 @@ def aia_rag_user_message(
     )
 
 
+def aia_system_reformat(
+    target_locale: str = "de", prev_questions: list[str] | None = None
+) -> str:
+    """Systemprompt fuers Umformen der letzten Antwort.
+
+    Eine Nachfrage wie "in 3 Stichpunkten" oder "kuerzer" will keine neuen
+    Inhalte, sondern dieselbe Aussage in anderer Form. Es wird deshalb nicht
+    gesucht: Stoff ist allein die letzte Antwort. Genau das haelt auch die
+    Quellen-Grenze - was drinsteht, kam schon aus den Quellen, und was nicht
+    drinsteht, darf nicht dazukommen.
+    """
+    return (
+        "You RESHAPE a text that you wrote earlier in this chat. The text is the ONLY "
+        "material you have.\n"
+        "NEVER add facts, examples, explanations, numbers or names that are not already "
+        "in the text — reshaping is not answering.\n"
+        "NEVER invent a source, and NEVER add source numbers, page numbers or timestamps "
+        "of your own: the clickable source links are attached automatically afterwards.\n"
+        "Follow the user's instruction exactly: their wording decides the SHAPE (how many "
+        "points, how short, prose or bullets or a table) — keep every requested count.\n"
+        "Keep the technical terms of the text spelled exactly as they are.\n"
+        "If the instruction cannot be followed from the text alone, reshape what is there "
+        "as closely as you can — do NOT ask a question back and do NOT explain yourself.\n"
+        "Output ONLY the reshaped text: no preamble, no 'here you go', no closing remark.\n"
+        "LANGUAGE — TOP PRIORITY: write the result in the SAME language as the user's "
+        "instruction, even when the text is in another language.\n"
+        f"{_ambiguous_language_rule(target_locale, prev_questions)}"
+    )
+
+
+def aia_reformat_user_message(previous_answer: str, instruction: str) -> str:
+    """Nutzer-Nachricht fuers Umformen: erst der Text, dann die Anweisung.
+
+    Die Anweisung steht zuletzt, weil sie den Ausschlag gibt (Nachwirkung).
+    """
+    return (
+        "TEXT TO RESHAPE (your own earlier answer in this chat):\n"
+        f"{previous_answer}\n\n"
+        f"INSTRUCTION: {instruction}"
+    )
+
+
 def aia_reduce_user_message(question: str, partials: list[str]) -> str:
     """Merge per-batch partial answers into one (SPECIFIC map-reduce reduce step).
 
@@ -555,6 +597,50 @@ AIA_QUERY_UNDERSTANDING_SYSTEM = (
     'fasse alles ab 10 min zusammen -> {"intent":"GENERIC","scope":{"unit":"time","intervals":[[10,null]]}}\n'
     'alles zwischen 12 und 13 -> {"intent":"SPECIFIC","scope":{"unit":"unknown","intervals":[[12,13]]}}\n'
 )
+
+
+# Nur angehaengt, wenn dem Vor-Call die letzte Runde beiliegt (kurze Eingabe, es
+# gibt eine vorherige Runde, kein markierter Text). Ohne diesen Fall bekommt der
+# Vor-Call Zeichen fuer Zeichen denselben Prompt wie vorher: seine Wegwahl ist
+# fein abgestimmt und soll sich fuer den Normalfall nicht bewegen.
+AIA_FOLLOWUP_BLOCK = (
+    "\n"
+    "FOLLOW-UP — the PREVIOUS TURN of this chat is attached ABOVE the new line. "
+    "Add TWO more keys to the SAME JSON object:\n"
+    '{"followup":"none"|"rewrite"|"reformat","standalone":"..."}\n'
+    '- "none": the new line is a question that stands on its own — it names its own '
+    'topic and does not depend on the previous turn. "standalone" = the new line unchanged.\n'
+    '- "rewrite": the new line only makes sense TOGETHER with the previous turn '
+    '("erkläre genauer", "warum ist das so?", "und was noch?", "das meinte ich nicht, ich '
+    'meinte die Zwischenschritte"). "standalone" = ONE self-contained question that carries '
+    'the TOPIC of the previous turn plus what the new line asks for.\n'
+    '- "reformat": the new line asks to RESHAPE the previous ANSWER itself and wants no new '
+    'content ("in 3 Stichpunkten", "kürzer", "als Tabelle", "fasse das zusammen"). '
+    '"standalone" = a self-contained instruction naming the topic of the previous turn AND '
+    'the requested shape.\n'
+    "The standalone question MUST be written in the SAME language as the new line and must "
+    "NEVER invent a topic that is in neither the previous turn nor the new line. If you are "
+    'unsure, choose "none" — leaving the question alone is always the safe answer.\n'
+    "DECIDE intent, scope AND subqueries ON THE STANDALONE QUESTION, not on the raw new line.\n"
+    "\n"
+    "Examples (previous turn -> new line -> output):\n"
+    '"Was ist die Prüfungsleistung?" -> "erkläre genauer" -> {"intent":"SPECIFIC","scope":'
+    '{"unit":null,"intervals":[]},"subqueries":["Erkläre die Prüfungsleistung genauer"],'
+    '"followup":"rewrite","standalone":"Erkläre die Prüfungsleistung genauer"}\n'
+    '"Was ist die Prüfungsleistung?" -> "in 3 kurzen Stichpunkten" -> {"intent":"GENERIC",'
+    '"scope":{"unit":null,"intervals":[]},"followup":"reformat","standalone":"Fasse die '
+    'Prüfungsleistung in 3 kurzen Stichpunkten zusammen"}\n'
+    '"Was ist die Prüfungsleistung?" -> "was ist Quellenkritik" -> {"intent":"SPECIFIC",'
+    '"scope":{"unit":null,"intervals":[]},"subqueries":["was ist Quellenkritik"],'
+    '"followup":"none","standalone":"was ist Quellenkritik"}\n'
+)
+
+
+def aia_query_understanding_system(with_history: bool = False) -> str:
+    """Systemprompt des Vor-Calls, mit dem Nachfrage-Block nur bei beiliegender Runde."""
+    if not with_history:
+        return AIA_QUERY_UNDERSTANDING_SYSTEM
+    return AIA_QUERY_UNDERSTANDING_SYSTEM + AIA_FOLLOWUP_BLOCK
 
 
 AIA_MINDMAP_PROMPT = (
