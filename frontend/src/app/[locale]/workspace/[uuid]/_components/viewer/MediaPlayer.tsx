@@ -1,7 +1,7 @@
-import React, { useEffect, useRef, useState } from "react";
-import { useLocale, useTranslations } from "next-intl";
+import React, { useCallback, useEffect, useRef, useState } from "react";
+import { useTranslations } from "next-intl";
 import { CaretLeft, SidebarSimple, SpeakerHigh } from "@phosphor-icons/react";
-import { langLabel, type ViewerState } from "../../_types";
+import { type ViewerState } from "../../_types";
 import type { AddNoteExtras } from "../../_hooks/useNotes";
 import { FileIcon } from "../sources/FileIcon";
 import { TranscriptPanel, type LangInfo } from "./TranscriptPanel";
@@ -11,48 +11,33 @@ import { TranscriptPanel, type LangInfo } from "./TranscriptPanel";
 const EMPTY_LANGS: LangInfo = { source_lang: null, target_lang: null, available: [] };
 
 export function MediaPlayer({
-  source, onClose, workspaceUuid, onMinimize, canDownload = false, canManage = false, onSaveNote,
+  source, onClose, workspaceUuid, onMinimize, canManage = false, onSaveNote,
 }: {
   source: ViewerState;
   onClose: () => void;
   workspaceUuid: string;
   onMinimize?: () => void;
-  canDownload?: boolean;
   canManage?: boolean;
   onSaveNote?: (content: string, sourceUuids?: string[], extras?: AddNoteExtras) => void | Promise<void>;
 }) {
   const t = useTranslations("workspace.detail.viewer");
   const tPanels = useTranslations("workspace.detail.panels");
-  const locale = useLocale();
   const mediaRef = useRef<HTMLVideoElement | HTMLAudioElement>(null);
   const ext = source.filename.slice(source.filename.lastIndexOf(".")).toLowerCase();
   const isVideo = [".mp4", ".webm"].includes(ext);
   const mediaUrl = `/api/ai-assistant/workspaces/${workspaceUuid}/sources/${source.uuid}/file`;
-  const transcriptUrl = (lang: string) =>
-    `/api/ai-assistant/workspaces/${workspaceUuid}/sources/${source.uuid}/transcript?lang=${lang}`;
 
   // Ask the backend which transcript languages exist ONCE here, then hand the result to
-  // the TranscriptPanel below so the langs endpoint is hit a single time per source. Used
-  // here to attach only available <track> elements (any source/target pair, not just de/en).
+  // the TranscriptPanel below so the langs endpoint is hit a single time per source.
   const [langInfo, setLangInfo] = useState<LangInfo | null>(null);
-  // Mirrors the transcript panel's "off" mode. While off, no subtitle tracks are attached:
-  // the player's own subtitle menu stays empty, so the text cannot be read along in the video.
-  // Beim Hör- und Leseverstehen startet es auf "aus", damit niemand mitliest statt zuzuhören.
-  // Gesperrt ist es nicht: der Umschalter im Panel stellt es jederzeit wieder an.
+  // Beim Hör- und Leseverstehen startet das Panel auf "aus", damit niemand mitliest statt
+  // zuzuhören. Gesperrt ist es nicht: der Umschalter im Panel stellt es jederzeit wieder an.
   const startTranscriptOff = Boolean(source.hideTranscript);
-  const [transcriptOff, setTranscriptOff] = useState(startTranscriptOff);
   useEffect(() => {
     // Clear on source switch (panel shows loading) and abort the in-flight request: an
     // uncancelled request keeps holding one of the browser's few per-origin connections,
     // and a few rapid switches exhaust them and freeze the page.
     setLangInfo(null);
-    // Reset here, not just in the panel: TranscriptPanel is the sole writer of this flag via
-    // onOffChange, but it never emits false on unmount or when the next source has no
-    // transcript at all, so a stale "off" from the previous source would otherwise survive
-    // the switch.
-    // Auf den Startwert der neuen Quelle, nicht blind auf false: sonst hängt der Player
-    // beim Wechsel Untertitel ein, während das Panel noch ausgeschaltet ist.
-    setTranscriptOff(startTranscriptOff);
     const ac = new AbortController();
     fetch(
       `/api/ai-assistant/workspaces/${workspaceUuid}/sources/${source.uuid}/transcript/langs`,
@@ -63,8 +48,23 @@ export function MediaPlayer({
       .then((data: LangInfo) => setLangInfo(data))
       .catch((e) => { if (e?.name !== "AbortError") setLangInfo(EMPTY_LANGS); });
     return () => ac.abort();
-  }, [workspaceUuid, source.uuid, startTranscriptOff]);
-  const availableLangs = langInfo?.available ?? [];
+  }, [workspaceUuid, source.uuid]);
+
+  // Where the transcript put the marking. A citation chip carries the cited CHUNK's start,
+  // but the chunk runs about a minute and the sentence the answer rests on is often a line or
+  // two further down — the transcript marks that line, and without this the play head stayed
+  // at the chunk start, i.e. a paragraph before the marking. Only the panel can tell us: the
+  // pick needs the cues, which are loaded down there. Tied to the nonce so one jump's refined
+  // time can never be applied to the next one.
+  const [focus, setFocus] = useState<{ nonce?: number; time: number } | null>(null);
+  const onCitationFocusTime = useCallback((time: number, nonce?: number) => {
+    // Bail out on an unchanged value: the panel re-reports on every re-render of its pin
+    // effect, and a fresh object each time would re-run the seek effect below forever.
+    setFocus((prev) => (prev && prev.nonce === nonce && prev.time === time ? prev : { nonce, time }));
+  }, []);
+  const seekTarget = source.isCitation && focus && focus.nonce === source.nonce
+    ? focus.time
+    : source.startTime;
 
   // Seek to the cited timestamp when the source changes — robust against Safari, which is the
   // only browser that misbehaves here (Chrome seeks fine).
@@ -77,8 +77,8 @@ export function MediaPlayer({
   // ~0. Forward playback (currentTime >= target) is never disturbed.
   useEffect(() => {
     const media = mediaRef.current;
-    if (source.startTime === undefined || !media) return;
-    const target = source.startTime;
+    if (seekTarget === undefined || !media) return;
+    const target = seekTarget;
     const uuid = source.uuid;
     const deadline = Date.now() + 8000; // stop watching once the load has settled
     let seeked = false;
@@ -107,7 +107,9 @@ export function MediaPlayer({
     events.forEach((e) => media.addEventListener(e, tick));
     tick();
     return stop;
-  }, [source.startTime, source.nonce, source.uuid]);
+    // `seekTarget` rather than `source.startTime`: the refined time arrives one render after
+    // the jump (the panel has to read its cues first), and this has to run again for it.
+  }, [seekTarget, source.nonce, source.uuid]);
 
   return (
     <div className="flex flex-col h-full viewer-short">
@@ -134,25 +136,17 @@ export function MediaPlayer({
       {/* Player */}
       <div className="flex items-center justify-center p-4 flex-shrink-0" style={{ maxHeight: "55%" }}>
         {isVideo ? (
+          // Keine <track>-Spuren und kein Herunterladen: das Menü des Players zeigt weder
+          // "Untertitel" noch "Herunterladen". Gelesen wird das Transkript unten im Panel.
           <video
             ref={mediaRef as React.RefObject<HTMLVideoElement>}
             src={mediaUrl}
             controls
-            controlsList={canDownload ? undefined : "nodownload"}
-            onContextMenu={canDownload ? undefined : (e) => e.preventDefault()}
+            controlsList="nodownload"
+            onContextMenu={(e) => e.preventDefault()}
             className="w-full max-h-full rounded-lg"
             style={{ backgroundColor: "#000" }}
-          >
-            {!transcriptOff && availableLangs.map((lang) => (
-              <track
-                key={lang}
-                kind="subtitles"
-                src={transcriptUrl(lang)}
-                srcLang={lang}
-                label={langLabel(lang, locale)}
-              />
-            ))}
-          </video>
+          />
         ) : (
           <div className="w-full max-w-md flex flex-col items-center gap-4">
             <div
@@ -166,8 +160,8 @@ export function MediaPlayer({
               ref={mediaRef as React.RefObject<HTMLAudioElement>}
               src={mediaUrl}
               controls
-              controlsList={canDownload ? undefined : "nodownload"}
-              onContextMenu={canDownload ? undefined : (e) => e.preventDefault()}
+              controlsList="nodownload"
+              onContextMenu={(e) => e.preventDefault()}
               className="w-full"
             />
           </div>
@@ -180,11 +174,11 @@ export function MediaPlayer({
         langInfo={langInfo}
         canManage={canManage}
         onSaveNote={onSaveNote}
-        onOffChange={setTranscriptOff}
         citationTime={source.isCitation ? source.startTime : undefined}
         citationEndTime={source.isCitation ? source.endTime : undefined}
         citationClaim={source.isCitation ? source.citationClaim : undefined}
         citationNonce={source.nonce}
+        onCitationFocusTime={onCitationFocusTime}
         startOff={startTranscriptOff}
       />
     </div>

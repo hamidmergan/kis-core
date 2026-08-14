@@ -5,7 +5,7 @@ import Spinner from "@/components/ui/Spinner";
 import Select from "@/components/ui/Select";
 import { langLabel } from "../../_types";
 import type { AddNoteExtras } from "../../_hooks/useNotes";
-import { buildTranscriptModes, claimLineIndex, cueIndexAtTime, type TranscriptMode } from "./_transcript";
+import { buildTranscriptModes, groupCues, resolveCitationFocus, type TranscriptMode } from "./_transcript";
 import { CITATION_HL_COLOR } from "./_highlight";
 import { clearActiveChipTarget } from "../chat/_citations";
 
@@ -78,6 +78,7 @@ export function TranscriptPanel({
   citationEndTime,
   citationClaim,
   citationNonce,
+  onCitationFocusTime,
   startOff = false,
 }: {
   mediaRef: React.RefObject<HTMLVideoElement | HTMLAudioElement | null>;
@@ -105,6 +106,11 @@ export function TranscriptPanel({
   // it, so the marking is that line rather than the whole minute the chunk covers.
   citationClaim?: string;
   citationNonce?: number;
+  // Reports the start of the line the marking actually sits on, so the player can seek THERE
+  // instead of to the chip's chunk start. Only the panel knows it: the pick needs the cues,
+  // which the player never loads. Called only when that line is not the chunk's first, i.e.
+  // only when the seek would otherwise land in a different paragraph than the marking.
+  onCitationFocusTime?: (time: number, nonce?: number) => void;
   // Beim Hör- und Leseverstehen startet das Transkript ausgeschaltet: wer mitlesen kann,
   // hört nicht zu. Es ist aber NICHT gesperrt, der Umschalter steht daneben und der
   // Lernende stellt es wieder an, wenn er will.
@@ -159,7 +165,10 @@ export function TranscriptPanel({
   const [regen, setRegen] = useState<"idle" | "running" | "error">("idle");
   const [regenError, setRegenError] = useState<string | null>(null);
   const listRef = useRef<HTMLDivElement>(null);
-  const itemRefs = useRef<Record<number, HTMLDivElement | null>>({});
+  // Keyed by CUE index and attached to the sentence itself, not to its paragraph: the scroll
+  // and the in-view check must keep landing on the cited sentence now that several of them
+  // share a block.
+  const itemRefs = useRef<Record<number, HTMLElement | null>>({});
   const lastScrolledIdx = useRef<number>(-1);
 
   // Persist a "translation dispatched at" marker so the running state survives
@@ -245,6 +254,11 @@ export function TranscriptPanel({
     return first ?? [];
   }, [cues, sourceLang]);
 
+  // Paragraphs to read, built from the sentence-sized cues the provider returns. The cues stay
+  // the unit of everything that POINTS at the text — the seek, the citation jump, the playing
+  // marker — and a block only decides where the paragraph breaks are. See groupCues.
+  const blocks = useMemo(() => groupCues(masterCues), [masterCues]);
+
   // The whole recording, both tracks, one entry per cue. It is the yardstick for how common a
   // word is HERE, which is what decides whether that word may point at a line further down.
   const claimCorpus = useMemo(() => {
@@ -328,40 +342,30 @@ export function TranscriptPanel({
       setCitationIdx(-1); setCitationEndIdx(-1); setCitationClaimIdx(-1);
       return;
     }
-    const idx = cueIndexAtTime(masterCues, citationTime);
-    setCitationIdx(idx);
-    // Widen to every cue that STARTS before the chunk ends, so the marking covers the cited
-    // passage rather than its first few seconds. The small guard keeps a cue that begins
-    // exactly at the chunk's end out of it.
-    let endIdx = idx;
-    if (idx >= 0 && citationEndTime != null) {
-      while (endIdx + 1 < masterCues.length && masterCues[endIdx + 1].start < citationEndTime - 0.05) endIdx++;
+    // One resolver for the pin, the scroll and the play head. Both language tracks go into
+    // the line comparison (claimCorpus), so a German answer still finds its line when the
+    // lecture is English and only the translation shares its wording. Computed HERE, not in
+    // a memo, because the scroll below needs it in the same pass — a memo would still hold
+    // the previous jump's value.
+    const focus = resolveCitationFocus(masterCues, citationTime, citationEndTime, citationClaim, claimCorpus);
+    setCitationIdx(focus.idx);
+    setCitationEndIdx(focus.endIdx);
+    setCitationClaimIdx(focus.claimIdx);
+    // Hand the marked line's time to the player, which otherwise seeks to the chip's chunk
+    // start and lands a paragraph before the marking. Only when the two differ, so an
+    // ordinary jump keeps the chip's own time. NOT gated on `mode`: with the transcript
+    // switched off there is no marking to see, but the sentence to play is still that one.
+    if (focus.claimIdx > focus.idx && focus.focusTime != null) {
+      onCitationFocusTime?.(focus.focusTime, citationNonce);
     }
-    setCitationEndIdx(endIdx);
-    // Which line of the span the answer rests on. Both language tracks go into the comparison,
-    // so a German answer still finds its line when the lecture is English and only the
-    // translation shares its wording. Computed HERE, not in a memo, because the scroll below
-    // needs it in the same pass — a memo would still hold the previous jump's value.
-    let claimIdx = -1;
-    if (idx >= 0 && endIdx > idx && citationClaim) {
-      const lines: string[] = [];
-      for (let i = idx; i <= endIdx; i++) {
-        const src = sourceLang ? cues[sourceLang]?.[i]?.text ?? "" : "";
-        const tgt = targetLang ? cues[targetLang]?.[i]?.text ?? "" : "";
-        lines.push(`${src} ${tgt}`);
-      }
-      const rel = claimLineIndex(citationClaim, lines, claimCorpus);
-      if (rel >= 0) claimIdx = idx + rel;
-    }
-    setCitationClaimIdx(claimIdx);
-    if (idx >= 0 && mode !== "off" && citationNonceRef.current !== citationNonce) {
+    if (focus.idx >= 0 && mode !== "off" && citationNonceRef.current !== citationNonce) {
       citationNonceRef.current = citationNonce;
-      const target = claimIdx >= 0 ? claimIdx : idx;
+      const target = focus.focusIdx;
       requestAnimationFrame(() => {
         itemRefs.current[target]?.scrollIntoView({ block: "center", behavior: "instant" });
       });
     }
-  }, [citationNonce, citationTime, citationEndTime, citationClaim, masterCues, cues, claimCorpus, sourceLang, targetLang, sourceUuid, mode]);
+  }, [citationNonce, citationTime, citationEndTime, citationClaim, masterCues, claimCorpus, sourceUuid, mode, onCitationFocusTime]);
 
   // Track whether the pinned cue is on-screen so the jump-back button only shows once
   // it has scrolled out of view (like the PDF jump button appearing after you page away).
@@ -495,6 +499,8 @@ export function TranscriptPanel({
     }
   };
 
+  // Clicking a SENTENCE plays from that sentence, not from the top of its paragraph: the
+  // grouping is about reading, and it must not cost the fine-grained seek the cues give us.
   const onCueClick = (cue: Cue) => {
     const media = mediaRef.current;
     if (!media) return;
@@ -502,27 +508,42 @@ export function TranscriptPanel({
     media.play().catch(() => { });
   };
 
-  const onSaveCue = async (idx: number) => {
+  // One track's text for a block, its sentences joined back into a paragraph.
+  const blockText = (lang: string | null, from: number, to: number): string => {
+    if (!lang) return "";
+    const track = cues[lang];
+    if (!track) return "";
+    const parts: string[] = [];
+    for (let i = from; i <= to; i++) {
+      const text = track[i]?.text?.trim();
+      if (text) parts.push(text);
+    }
+    return parts.join(" ");
+  };
+
+  // Saving takes the whole paragraph, which is the unit on screen. Keyed by the block's
+  // first cue index so the button state keeps working off one number.
+  const onSaveBlock = async (from: number, to: number) => {
     if (!onSaveNote || savingCueIdx !== null) return;
-    const master = masterCues[idx];
+    const master = masterCues[from];
     if (!master) return;
-    const srcText = sourceLang ? cues[sourceLang]?.[idx]?.text : undefined;
-    const tgtText = targetLang ? cues[targetLang]?.[idx]?.text : undefined;
+    const srcText = blockText(sourceLang, from, to);
+    const tgtText = blockText(targetLang, from, to);
     const wantSource = (mode === "source" || mode === "both") && !!srcText;
     const wantTarget = (mode === "target" || mode === "both") && !!tgtText;
     const parts: string[] = [];
-    if (wantSource) parts.push(srcText!);
-    if (wantTarget) parts.push(`*${tgtText!}*`);
+    if (wantSource) parts.push(srcText);
+    if (wantTarget) parts.push(`*${tgtText}*`);
     const body = parts.join("\n\n");
     if (!body) return;
-    const primary = wantSource ? srcText! : tgtText!;
+    const primary = wantSource ? srcText : tgtText;
     const keyword = primary.slice(0, 40).replace(/\s+/g, " ").trim();
     const citation = `[Q1:${sourceUuid}, ${fmtTs(master.start)} | ${keyword}]`;
-    setSavingCueIdx(idx);
+    setSavingCueIdx(from);
     try {
       await onSaveNote(`${body} ${citation}`, [sourceUuid]);
-      setSavedCueIdx(idx);
-      setTimeout(() => setSavedCueIdx((cur) => (cur === idx ? null : cur)), 1500);
+      setSavedCueIdx(from);
+      setTimeout(() => setSavedCueIdx((cur) => (cur === from ? null : cur)), 1500);
     } finally {
       setSavingCueIdx(null);
     }
@@ -640,75 +661,96 @@ export function TranscriptPanel({
       {/* Cue list — hidden entirely when the student switched the transcript off. */}
       {mode !== "off" && (
       <div ref={listRef} className="flex-1 overflow-y-auto px-4 py-3">
-        {masterCues.map((c, idx) => {
-          const isCurrent = idx === currentIdx;
-          // Every cue of the cited passage wears the amber, not just the one the chip's
-          // timestamp lands on.
-          // ONE marking, never two shades of it. When a line clearly carries the claim it is
-          // the only one marked — the rest of the chunk is implementation detail the reader
-          // never asked about. Only when no line stands out does the whole span get marked,
-          // because then picking one would be guessing, and a guess that lands next to the
-          // sentence is the original bug: the answer's basis sitting just outside the marking.
-          const isCitation = citationClaimIdx >= 0
-            ? idx === citationClaimIdx
-            : citationIdx >= 0 && idx >= citationIdx && idx <= citationEndIdx;
-          const isPast = currentIdx >= 0 && idx < currentIdx;
+        {blocks.map((b) => {
+          // The paragraph the play head is in. The sentence itself is marked inside it (bold),
+          // so grouping does not cost the "where am I" resolution the cues gave us.
+          const isCurrent = currentIdx >= b.from && currentIdx <= b.to;
+          const isPast = currentIdx >= 0 && b.to < currentIdx;
           const citationTint = `${CITATION_HL_COLOR}33`;  // ~20% amber, the pinned-segment tint
-          const srcText = sourceLang ? cues[sourceLang]?.[idx]?.text : undefined;
-          const tgtText = targetLang ? cues[targetLang]?.[idx]?.text : undefined;
+          // The marking is the paragraph's BACKGROUND, a filled surface. It once sat on the
+          // sentences themselves, which is more precise on paper and unreadable in practice: an
+          // inline span only paints the boxes around its glyphs, so a wrapped sentence came out
+          // as stripes with gaps between the lines and ragged ends.
+          //
+          // ONE marking, never two shades of it. When a line clearly carries the claim, its
+          // paragraph is the only one marked — the rest of the chunk is implementation detail
+          // the reader never asked about. Only when no line stands out does every paragraph of
+          // the span get marked, because then picking one would be guessing, and a guess that
+          // lands next to the sentence is the original bug: the answer's basis sitting just
+          // outside the marking.
+          const hasCitation = citationClaimIdx >= 0
+            ? citationClaimIdx >= b.from && citationClaimIdx <= b.to
+            : citationIdx >= 0 && b.from <= citationEndIdx && b.to >= citationIdx;
+          // Only ONE of the two tracks may own the scroll anchors, or the second would
+          // overwrite the first and the citation jump would land on the wrong track's line.
+          const anchorTrack = showSource ? sourceLang : targetLang;
+
+          const sentences = (lang: string | null, italic: boolean) => {
+            if (!lang) return null;
+            const track = cues[lang];
+            if (!track) return null;
+            const out: React.ReactNode[] = [];
+            for (let i = b.from; i <= b.to; i++) {
+              const text = track[i]?.text?.trim();
+              if (!text) continue;
+              out.push(
+                <span
+                  key={i}
+                  ref={lang === anchorTrack ? (el) => { itemRefs.current[i] = el; } : undefined}
+                  onClick={(e) => { e.stopPropagation(); onCueClick(masterCues[i]); }}
+                  style={{ fontWeight: !italic && i === currentIdx ? 600 : undefined }}
+                >
+                  {text}{i < b.to ? " " : ""}
+                </span>,
+              );
+            }
+            return out;
+          };
+
           return (
             <div
-              key={idx}
-              ref={(el) => { itemRefs.current[idx] = el; }}
+              key={b.from}
               className="group mb-2"
-              style={{ opacity: !isCurrent && !isCitation && isPast ? 0.55 : 1 }}
+              style={{ opacity: !isCurrent && !hasCitation && isPast ? 0.55 : 1 }}
             >
               <div
-                onClick={() => onCueClick(c)}
                 className="px-3 py-2 rounded-md cursor-pointer transition-colors"
                 style={{
-                  // The amber citation pin ALWAYS wins the background so the yellow marking is
-                  // reliably visible even while that same cue is the one playing (which would
-                  // otherwise paint it blue and hide the pin behind a thin border). Once
-                  // playback moves on, the pinned cue stays amber and the new current cue
-                  // takes the blue.
-                  backgroundColor: isCitation
+                  // The amber ALWAYS wins the background so the marking stays visible even
+                  // while that same paragraph is the one playing, which would otherwise paint
+                  // it blue and leave the marking as a thin border. Once playback moves on, the
+                  // marked paragraph stays amber and the new current one takes the blue.
+                  backgroundColor: hasCitation
                     ? citationTint
                     : isCurrent ? "rgba(var(--kb-rgb), 0.12)" : "transparent",
-                  borderLeft: isCitation
+                  borderLeft: hasCitation
                     ? `3px solid ${CITATION_HL_COLOR}`
                     : isCurrent ? "3px solid var(--kb)" : "3px solid transparent",
                 }}
                 onMouseEnter={(e) => {
-                  if (!isCurrent && !isCitation) e.currentTarget.style.backgroundColor = "var(--surface-dim)";
+                  if (!isCurrent && !hasCitation) e.currentTarget.style.backgroundColor = "var(--surface-dim)";
                 }}
                 onMouseLeave={(e) => {
-                  if (!isCurrent && !isCitation) e.currentTarget.style.backgroundColor = "transparent";
+                  if (!isCurrent && !hasCitation) e.currentTarget.style.backgroundColor = "transparent";
                 }}
               >
                 <div
                   className="text-3xs font-mono mb-1"
                   style={{ color: "var(--muted)" }}
                 >
-                  {fmtTs(c.start)} - {fmtTs(c.end)}
+                  {fmtTs(b.start)} - {fmtTs(b.end)}
                 </div>
-                {showSource && srcText && (
-                  <div
-                    className="text-sm leading-snug"
-                    style={{
-                      color: "var(--foreground)",
-                      fontWeight: isCurrent ? 600 : 400,
-                    }}
-                  >
-                    {srcText}
+                {showSource && (
+                  <div className="text-sm leading-snug" style={{ color: "var(--foreground)" }}>
+                    {sentences(sourceLang, false)}
                   </div>
                 )}
-                {showTarget && tgtText && (
+                {showTarget && (
                   <div
                     className="text-sm italic leading-snug mt-0.5"
                     style={{ color: "var(--muted)" }}
                   >
-                    {tgtText}
+                    {sentences(targetLang, true)}
                   </div>
                 )}
               </div>
@@ -716,15 +758,15 @@ export function TranscriptPanel({
                 <div className="flex justify-end pr-1 mt-0.5 h-5">
                   <button
                     type="button"
-                    disabled={savingCueIdx === idx}
-                    onClick={(e) => { e.stopPropagation(); onSaveCue(idx); }}
+                    disabled={savingCueIdx === b.from}
+                    onClick={(e) => { e.stopPropagation(); onSaveBlock(b.from, b.to); }}
                     title={t("saveAsNote")}
-                    className={`[@media(hover:hover)]:opacity-0 [@media(hover:hover)]:group-hover:opacity-100 p-1 rounded-full ${savedCueIdx === idx ? "" : "btn-icon"}`}
-                    style={savedCueIdx === idx ? { color: "var(--success)" } : undefined}
+                    className={`[@media(hover:hover)]:opacity-0 [@media(hover:hover)]:group-hover:opacity-100 p-1 rounded-full ${savedCueIdx === b.from ? "" : "btn-icon"}`}
+                    style={savedCueIdx === b.from ? { color: "var(--success)" } : undefined}
                   >
-                    {savingCueIdx === idx
+                    {savingCueIdx === b.from
                       ? <Spinner size="xs" color="current" />
-                      : savedCueIdx === idx ? <Check size={13} weight="bold" /> : <NotePencil size={13} />}
+                      : savedCueIdx === b.from ? <Check size={13} weight="bold" /> : <NotePencil size={13} />}
                   </button>
                 </div>
               )}

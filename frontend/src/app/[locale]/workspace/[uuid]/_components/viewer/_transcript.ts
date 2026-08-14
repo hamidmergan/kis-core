@@ -34,6 +34,103 @@ export function cueIndexAtTime(cues: TimedCue[], time: number): number {
   return dAfter <= dBefore ? after : before;
 }
 
+// --- Sentence-sized cues into readable blocks -------------------------------------------
+//
+// What a cue covers is the provider's decision, not ours: we hand Whisper's segments through
+// untouched. myLab returns one short sentence per segment, which is right for subtitles
+// running under a video but wrong for reading: the panel then shows forty rows of six words,
+// each with its own timestamp, and the eye spends more time on the stamps than on the text.
+//
+// So the panel groups those cues into paragraphs. The cues stay the truth — they drive the
+// subtitles, the citation jumps and the seek — and a block is only a view onto a RANGE of
+// them, which is why it carries indices rather than text. Both language tracks share one
+// grouping because both come from the same segments and therefore have identical timings.
+
+export interface TextCue extends TimedCue {
+  text: string;
+}
+
+export interface CueBlock {
+  start: number;
+  end: number;
+  /** Index of the first cue in the block. */
+  from: number;
+  /** Index of the last cue in the block, inclusive. */
+  to: number;
+}
+
+// The sizes come from measuring what a paragraph-returning provider actually returns. On the
+// same 30 seconds of German speech, KISSKI's whisper-large-v2 handed back ONE segment of 432
+// characters over 27.2 seconds, while myLab's whisper-3-large returned nine of 52 characters
+// on average. So a paragraph is roughly 300 to 500 characters, and that is what these say.
+//
+// KISSKI gets there by not deciding anything: its segment is just Whisper's 30-second window,
+// which is why its cuts land wherever the window ends, sentence or no sentence. The rules below
+// aim at the same size and cut better — at a pause, or at a sentence end, never in the middle
+// of one unless a transcript without punctuation leaves no choice.
+
+// A pause this long is the speaker starting something new, so the block ends with them.
+const BLOCK_GAP_SEC = 1.5;
+// Below this a block is not yet a paragraph, so a sentence ending inside it is not a reason
+// to close it. Measured in characters, not seconds, because that is what reading length is.
+const BLOCK_MIN_CHARS = 300;
+// Two hard ceilings, for the case where the sentence never ends: a transcript without
+// punctuation must not collapse into one wall of text. Seconds as well as characters,
+// because sparse speech grows in time long before it grows in text. 500 characters is about
+// 30 seconds of speech, so the two ceilings describe the same limit from two sides.
+const BLOCK_MAX_CHARS = 500;
+const BLOCK_MAX_SEC = 30;
+
+// Sentence-final punctuation across the scripts a course can ship in. A list of CHARACTERS,
+// not of words, so it stays language-agnostic: Latin full stop, question and exclamation
+// marks, the ellipsis, their fullwidth CJK forms, plus the Arabic, Devanagari and Armenian
+// equivalents. A closing quote or bracket may follow the mark.
+const SENTENCE_END = /[.!?…。！？؟।॥։]["'”’»)\]]*$/u;
+
+function endsSentence(text: string): boolean {
+  return SENTENCE_END.test(text.trim());
+}
+
+/**
+ * Group cues into paragraph-sized blocks.
+ *
+ * A block closes before the next cue when the speech pauses, when adding that cue would
+ * push it past either ceiling, or when it is already long enough to read and the last cue
+ * finished a sentence. A cue is never split, so cues that already arrive paragraph-sized
+ * come back one block each and this is a no-op for them.
+ *
+ * The blocks are contiguous and cover every cue exactly once, in order.
+ */
+export function groupCues(cues: TextCue[]): CueBlock[] {
+  const blocks: CueBlock[] = [];
+  let from = 0;
+  let chars = 0;
+
+  const close = (to: number) => {
+    blocks.push({ start: cues[from].start, end: cues[to].end, from, to });
+    from = to + 1;
+    chars = 0;
+  };
+
+  for (let i = 0; i < cues.length; i++) {
+    const cue = cues[i];
+    if (i > from) {
+      const prev = cues[i - 1];
+      const gap = cue.start - prev.end;
+      const grownChars = chars + cue.text.length;
+      const grownSec = cue.end - cues[from].start;
+      const full = chars >= BLOCK_MIN_CHARS && endsSentence(prev.text);
+      if (gap > BLOCK_GAP_SEC || grownChars > BLOCK_MAX_CHARS || grownSec > BLOCK_MAX_SEC || full) {
+        close(i - 1);
+      }
+    }
+    chars += cue.text.length;
+  }
+  if (cues.length > 0) close(cues.length - 1);
+  return blocks;
+}
+
+
 /**
  * Which transcript spurs are shown.
  * "source" = original media language, "target" = the owner-chosen translation,
@@ -165,4 +262,57 @@ export function claimLineIndex(claim: string, lines: string[], corpus?: string[]
     else if (score > second) { second = score; }
   });
   return bestScore >= MIN_HITS && bestScore >= second * DOMINANCE ? best : -1;
+}
+
+
+// --- Everything one citation jump points at ---------------------------------------------
+
+export interface CitationFocus {
+  /** First cue of the cited chunk, -1 when there are no cues yet. */
+  idx: number;
+  /** Last cue of the cited chunk. Equal to `idx` when no chunk end is known. */
+  endIdx: number;
+  /** The line inside the chunk carrying the claim, -1 when none stands out. */
+  claimIdx: number;
+  /** The one cue everything points at: the claim line if there is one, else the chunk start. */
+  focusIdx: number;
+  /** Start of that cue, i.e. where the media has to play from. null when there is no focus. */
+  focusTime: number | null;
+}
+
+/**
+ * Resolve a citation jump to the ONE cue the marking, the scroll AND the play head share.
+ *
+ * The chip carries the chunk's start, but a chunk runs about a minute and the sentence the
+ * answer rests on is regularly a line or two further down. The marking already followed that
+ * line while the seek kept using the chunk start, so the yellow marking and the playing line
+ * sat in two different paragraphs — the reported bug. One resolver, one target, no drift.
+ *
+ * `corpus` is the whole transcript, one entry per cue, both language tracks joined; the
+ * cited span is simply its slice. It is also the yardstick for which words are common in
+ * THIS recording and therefore say nothing about which line a claim came from.
+ */
+export function resolveCitationFocus(
+  cues: TimedCue[],
+  time: number,
+  endTime: number | undefined,
+  claim: string | undefined,
+  corpus: string[],
+): CitationFocus {
+  const idx = cueIndexAtTime(cues, time);
+  if (idx < 0) return { idx: -1, endIdx: -1, claimIdx: -1, focusIdx: -1, focusTime: null };
+  // Widen to every cue that STARTS before the chunk ends, so the marking covers the cited
+  // passage rather than its first few seconds. The small guard keeps a cue that begins
+  // exactly at the chunk's end out of it.
+  let endIdx = idx;
+  if (endTime != null) {
+    while (endIdx + 1 < cues.length && cues[endIdx + 1].start < endTime - 0.05) endIdx++;
+  }
+  let claimIdx = -1;
+  if (endIdx > idx && claim) {
+    const rel = claimLineIndex(claim, corpus.slice(idx, endIdx + 1), corpus);
+    if (rel >= 0) claimIdx = idx + rel;
+  }
+  const focusIdx = claimIdx >= 0 ? claimIdx : idx;
+  return { idx, endIdx, claimIdx, focusIdx, focusTime: cues[focusIdx]?.start ?? null };
 }

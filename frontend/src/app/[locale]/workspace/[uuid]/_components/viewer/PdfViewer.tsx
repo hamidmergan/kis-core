@@ -15,7 +15,7 @@ import { useTheme } from "@/hooks/useTheme";
 
 
 export function PdfViewer({
-  source, onClose, workspaceUuid, onAskWithSelection, onCustomQuestion, popupActions, onMinimize, onAddToGlossary, onAddToNote, isOwner = false,
+  source, onClose, workspaceUuid, onAskWithSelection, onCustomQuestion, popupActions, onMinimize, onAddToGlossary, onAddToNote,
 }: {
   source: ViewerState;
   onClose: () => void;
@@ -26,13 +26,12 @@ export function PdfViewer({
   onMinimize?: () => void;
   onAddToGlossary?: (text: string, sourceUuid: string, page: number) => void;
   onAddToNote?: (text: string, sourceUuid: string, page: number) => void;
-  isOwner?: boolean;
 }) {
   const t = useTranslations("workspace.detail.pdf");
   const tViewer = useTranslations("workspace.detail.viewer");
   const tPanels = useTranslations("workspace.detail.panels");
   const [page, setPage] = useState(source.page);
-  const [registryReady, setRegistryReady] = useState(false);
+  const [, setRegistryReady] = useState(false);
   const viewerRef = useRef<PDFViewerRef>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   // Theme drives EmbedPDF's internal light/dark — change forces a remount via key on the viewer
