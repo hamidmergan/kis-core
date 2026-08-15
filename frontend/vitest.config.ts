@@ -1,8 +1,16 @@
+import { fileURLToPath } from "node:url";
 import { defineConfig } from "vitest/config";
 
 // Unit tests for pure frontend logic. Scoped to src/ so the Playwright E2E
 // specs under e2e/ are NOT picked up (those run via `npm run test:e2e`).
 export default defineConfig({
+  // Mirrors the "@/*" path in tsconfig.json. Without it a tested module cannot
+  // reach a shared helper under src/lib the way the app does.
+  resolve: {
+    alias: {
+      "@": fileURLToPath(new URL("./src", import.meta.url)),
+    },
+  },
   test: {
     environment: "node",
     include: ["src/**/*.test.{ts,tsx}"],

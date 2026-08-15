@@ -271,8 +271,6 @@
 /* Dark Mode: Citation-Chips kraeftiger machen (Default-Inline-rgba ist zu dezent auf Dunkel). */
 :root[data-theme="dark"] .chip-cite {
   color: #7BBDE5 !important;
-}
-:root[data-theme="dark"] .chip-cite {
   background-color: rgba(91, 163, 206, 0.18) !important;
 }
 

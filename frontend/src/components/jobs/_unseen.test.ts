@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
-import { hasUnseenDone, toMs } from "./_unseen";
+import { toMs } from "@/lib/format";
+import { hasUnseenDone } from "./_unseen";
 
 const seen = toMs("2026-08-13T10:00:00");
 

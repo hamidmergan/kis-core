@@ -1,6 +1,6 @@
 import { useLocale, useTranslations } from "next-intl";
 import { SCREENCAST_TOOLS, type MyJob } from "../_types";
-import { formatDate, formatDuration, toMs } from "../_utils";
+import { formatDate, formatElapsed, toMs } from "@/lib/format";
 
 
 export function TimingInfo({ job, isAdmin }: { job: MyJob; isAdmin: boolean }) {
@@ -24,10 +24,10 @@ export function TimingInfo({ job, isAdmin }: { job: MyJob; isAdmin: boolean }) {
       <div className="mt-1.5 text-xs text-muted-soft space-y-0.5">
         <p>{t("submitted")} {formatDate(job.created_at, locale)}</p>
         {isAdmin && queueWaitMs !== null && (
-          <p>{t("queueWait")} <span className="text-muted">{formatDuration(queueWaitMs, fmt)}</span></p>
+          <p>{t("queueWait")} <span className="text-muted">{formatElapsed(queueWaitMs, fmt)}</span></p>
         )}
         {isAdmin && renderMs !== null && (
-          <p>{t("renderTime")} <span className="text-muted">{formatDuration(renderMs, fmt)}</span></p>
+          <p>{t("renderTime")} <span className="text-muted">{formatElapsed(renderMs, fmt)}</span></p>
         )}
         {job.completed_at && (
           <p>{t("completed")} {formatDate(job.completed_at, locale)}</p>
@@ -45,10 +45,10 @@ export function TimingInfo({ job, isAdmin }: { job: MyJob; isAdmin: boolean }) {
     <div className="mt-1.5 text-xs text-muted-soft space-y-0.5">
       <p>{t("submitted")} {formatDate(job.created_at, locale)}</p>
       {isAdmin && waitMs !== null && (
-        <p>{t("queueWait")} <span className="text-muted">{formatDuration(waitMs, fmt)}</span></p>
+        <p>{t("queueWait")} <span className="text-muted">{formatElapsed(waitMs, fmt)}</span></p>
       )}
       {isAdmin && workMs !== null && (
-        <p>{t("processingTime")} <span className="text-muted">{formatDuration(workMs, fmt)}</span></p>
+        <p>{t("processingTime")} <span className="text-muted">{formatElapsed(workMs, fmt)}</span></p>
       )}
       {job.completed_at && (
         <p>{t("completed")} {formatDate(job.completed_at, locale)}</p>

@@ -7,7 +7,8 @@ import { useTranslations } from "next-intl";
 import { Stack } from "@phosphor-icons/react";
 import Spinner from "@/components/ui/Spinner";
 import { EmptyState } from "@/components/ui/EmptyState";
-import { hasUnseenDone, toMs } from "./_unseen";
+import { formatElapsed, toMs } from "@/lib/format";
+import { hasUnseenDone } from "./_unseen";
 
 interface MyJob {
   job_uuid: string;
@@ -43,14 +44,15 @@ function useTimeAgo() {
   };
 }
 
+/** Bare digits, no words: the panel rows are narrow. */
+const SHORT_ELAPSED = {
+  seconds: (n: number) => `${n}s`,
+  minutes: (m: number, s: string) => `${m}:${s}`,
+  hours: (h: number, m: string, s: string) => `${h}:${m}:${s}`,
+};
+
 function formatDurationShort(ms: number): string {
-  const totalSec = Math.round(ms / 1000);
-  if (totalSec < 60) return `${totalSec}s`;
-  const h = Math.floor(totalSec / 3600);
-  const m = Math.floor((totalSec % 3600) / 60);
-  const s = totalSec % 60;
-  if (h > 0) return `${h}:${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
-  return `${m}:${String(s).padStart(2, "0")}`;
+  return formatElapsed(ms, SHORT_ELAPSED);
 }
 
 function StatusBadge({ status, expired, isGeneratingScripts }: { status: MyJob["status"]; expired: boolean; isGeneratingScripts?: boolean }) {
