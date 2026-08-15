@@ -64,15 +64,15 @@ export default function WorkspaceTable({
             <thead>
               <tr className="border-b border-border-soft text-left text-xs text-muted uppercase">
                 <th className="px-4 py-2">{labels.singular}</th>
-                <th className="pl-10 pr-4 py-2 text-right">{t("colSources")}</th>
-                <th className="pl-10 pr-4 py-2 text-right">{t("colLinks")}</th>
-                <th className="pl-10 pr-4 py-2">
+                <th className="pl-6 pr-4 py-2 text-right">{t("colSources")}</th>
+                <th className="pl-20 pr-4 py-2 text-right">{t("colLinks")}</th>
+                <th className="pl-20 pr-4 py-2">
                   <span className="inline-flex items-center gap-1.5">
                     {t("colStatus")}
                     <HelpTooltip text={t("statusHelp")} />
                   </span>
                 </th>
-                <th className="pl-6 pr-4 py-2"></th>
+                <th className="pl-20 pr-4 py-2"></th>
               </tr>
             </thead>
             <tbody>

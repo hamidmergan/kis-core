@@ -89,21 +89,21 @@ export default function WorkspaceTableRow({
           )}
         </td>
         <td
-          className="pl-10 pr-4 py-3 text-right tabular-nums text-foreground-soft cursor-pointer"
+          className="pl-6 pr-4 py-3 text-right tabular-nums text-foreground-soft cursor-pointer"
           onClick={a.handleOpen}
           onMouseDown={(e) => { if (e.button === 1) { e.preventDefault(); window.open(a.moduleHref, "_blank"); } }}
         >
           {workspace.source_count}
         </td>
         <td
-          className="pl-10 pr-4 py-3 text-right tabular-nums text-foreground-soft cursor-pointer"
+          className="pl-20 pr-4 py-3 text-right tabular-nums text-foreground-soft cursor-pointer"
           onClick={a.handleOpen}
           onMouseDown={(e) => { if (e.button === 1) { e.preventDefault(); window.open(a.moduleHref, "_blank"); } }}
         >
           {a.links.length}
         </td>
         <td
-          className="pl-10 pr-4 py-3 cursor-pointer"
+          className="pl-20 pr-4 py-3 cursor-pointer"
           onClick={() => !a.toggling && a.handleToggle(!workspace.is_active)}
         >
           <div className="flex items-center gap-2.5">
@@ -131,7 +131,7 @@ export default function WorkspaceTableRow({
             </span>
           </div>
         </td>
-        <td className="pl-6 pr-4 py-3">
+        <td className="pl-20 pr-4 py-3">
           <div className="flex justify-center">
             <WorkspaceMenu
               onStats={() => a.setShowStats(true)}

@@ -161,13 +161,14 @@ export function ChatPanel({
           {pageNearTop ? <CaretDown size={18} weight="bold" /> : <CaretUp size={18} weight="bold" />}
         </button>
       )}
-      {!hideHeader && (
-        <ChatHeader
-          messageCount={messages.length}
-          onClear={onClear}
-          onMinimize={onMinimize}
-        />
-      )}
+      {/* Mobil bleibt die Kopfzeile als schmale Zeile stehen, sonst gaebe es
+          keinen Weg mehr zu "Chatprotokoll loeschen". */}
+      <ChatHeader
+        messageCount={messages.length}
+        onClear={onClear}
+        onMinimize={onMinimize}
+        compact={hideHeader}
+      />
 
       {/* Messages */}
       <div ref={scrollContainerRef} className="flex-1 overflow-y-auto">

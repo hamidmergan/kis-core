@@ -200,6 +200,33 @@ export function SourcesPanel({
     );
   }
 
+  // Anlegen in Hausblau. Steht in der Kopfzeile und, wenn die weg ist, in der
+  // schmalen Zeile darunter.
+  const ownerActions = isOwner ? (
+    <>
+      <IconButton
+        onClick={() => fileInputRef.current?.click()}
+        title={t("addSources")}
+        aria-label={t("addSources")}
+        className="text-[var(--kb)]"
+        style={{ backgroundColor: "rgba(var(--kb-rgb),0.10)" }}
+      >
+        <Plus size={14} weight="bold" />
+      </IconButton>
+      {onCreateChapter && (
+        <IconButton
+          onClick={() => { setCreatingChapter(true); setNewChapterError(null); }}
+          title={t("addChapter")}
+          aria-label={t("addChapter")}
+          className="text-[var(--kb)]"
+          style={{ backgroundColor: "rgba(var(--kb-rgb),0.10)" }}
+        >
+          <FolderSimplePlus size={14} weight="bold" />
+        </IconButton>
+      )}
+    </>
+  ) : null;
+
   return (
     <div ref={panelRef} className="sources-panel flex flex-col h-full">
       {/* Panel header. Anlegen sitzt hier, deshalb kostet es keine eigene Zeile. */}
@@ -218,33 +245,26 @@ export function SourcesPanel({
           </span>
           {isOwner && (
             <>
-              {/* Anlegen in Hausblau, Ansicht bleibt grau. Der Strich zieht die Grenze. */}
-              <IconButton
-                onClick={() => fileInputRef.current?.click()}
-                title={t("addSources")}
-                aria-label={t("addSources")}
-                className="text-[var(--kb)]"
-                style={{ backgroundColor: "rgba(var(--kb-rgb),0.10)" }}
-              >
-                <Plus size={14} weight="bold" />
-              </IconButton>
-              {onCreateChapter && (
-                <IconButton
-                  onClick={() => { setCreatingChapter(true); setNewChapterError(null); }}
-                  title={t("addChapter")}
-                  aria-label={t("addChapter")}
-                  className="text-[var(--kb)]"
-                  style={{ backgroundColor: "rgba(var(--kb-rgb),0.10)" }}
-                >
-                  <FolderSimplePlus size={14} weight="bold" />
-                </IconButton>
-              )}
+              {/* Ansicht bleibt grau. Der Strich zieht die Grenze. */}
+              {ownerActions}
               <span className="mx-1 flex-shrink-0" style={{ width: 1, height: 18, backgroundColor: "var(--border)" }} />
             </>
           )}
           <IconButton onClick={onMinimize} title={tPanels("minimize")}>
             <SidebarSimple size={13} />
           </IconButton>
+        </div>
+      )}
+
+      {/* Mobil: die Kopfzeile ist weg, den Titel traegt die Tab-Leiste. Die
+          Anlegen-Knoepfe brauchen trotzdem einen Platz, also bekommen sie eine
+          eigene schmale Zeile ohne Titel und ohne Minimieren. */}
+      {hideHeader && ownerActions && (
+        <div
+          className="flex items-center justify-end gap-1.5 px-3 py-1.5 flex-shrink-0"
+          style={{ borderBottom: "1px solid var(--border)" }}
+        >
+          {ownerActions}
         </div>
       )}
 

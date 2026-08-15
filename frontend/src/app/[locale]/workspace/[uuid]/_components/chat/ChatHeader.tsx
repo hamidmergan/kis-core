@@ -7,10 +7,12 @@ interface ChatHeaderProps {
   messageCount: number;
   onClear: () => void;
   onMinimize?: () => void;
+  /** Mobil: nur die Knoepfe in einer schmalen Zeile, Titel traegt die Tab-Leiste. */
+  compact?: boolean;
 }
 
 
-export function ChatHeader({ messageCount, onClear, onMinimize }: ChatHeaderProps) {
+export function ChatHeader({ messageCount, onClear, onMinimize, compact = false }: ChatHeaderProps) {
   const t = useTranslations("workspace.detail.chat");
   const tPanels = useTranslations("workspace.detail.panels");
   const [chatMenuOpen, setChatMenuOpen] = useState(false);
@@ -26,8 +28,13 @@ export function ChatHeader({ messageCount, onClear, onMinimize }: ChatHeaderProp
   }, [chatMenuOpen]);
 
   return (
-    <div className="flex items-center justify-between px-4 py-3 flex-shrink-0 relative" style={{ borderBottom: "1px solid var(--border)" }}>
-      <span className="text-base font-semibold" style={{ color: "var(--foreground)" }}>{t("title")}</span>
+    <div
+      className={`flex items-center flex-shrink-0 relative ${compact ? "justify-end px-3 py-1.5" : "justify-between px-4 py-3"}`}
+      style={{ borderBottom: "1px solid var(--border)" }}
+    >
+      {!compact && (
+        <span className="text-base font-semibold" style={{ color: "var(--foreground)" }}>{t("title")}</span>
+      )}
       <div className="flex items-center gap-1.5">
         <div className="relative" ref={chatMenuRef}>
           <button
@@ -57,7 +64,7 @@ export function ChatHeader({ messageCount, onClear, onMinimize }: ChatHeaderProp
             </div>
           )}
         </div>
-        {onMinimize && (
+        {onMinimize && !compact && (
           <button
             type="button"
             onClick={onMinimize}

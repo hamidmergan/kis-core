@@ -58,13 +58,13 @@ export default function WorkspaceTableStudentRow({ workspace }: { workspace: KiT
         )}
       </td>
       <td
-        className={`pl-10 pr-4 py-3 text-right tabular-nums text-foreground-soft ${zellenKlasse}`}
+        className={`pl-6 pr-4 py-3 text-right tabular-nums text-foreground-soft ${zellenKlasse}`}
         onClick={open}
       >
         {workspace.source_count}
       </td>
-      <td className="pl-10 pr-4 py-3" />
-      <td className={`pl-10 pr-4 py-3 ${zellenKlasse}`} onClick={open}>
+      <td className="pl-20 pr-4 py-3" />
+      <td className={`pl-20 pr-4 py-3 ${zellenKlasse}`} onClick={open}>
         {closed ? (
           <span
             className="inline-flex items-center gap-1 text-xs whitespace-nowrap font-medium"
@@ -81,7 +81,7 @@ export default function WorkspaceTableStudentRow({ workspace }: { workspace: KiT
           </span>
         )}
       </td>
-      <td className="pl-6 pr-4 py-3" />
+      <td className="pl-20 pr-4 py-3" />
     </tr>
   );
 }
