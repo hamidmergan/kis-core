@@ -1,6 +1,8 @@
 """Document chunker for KI Tutor - extracts text chunks from PDF, DOCX, PPTX, TXT, and MD files."""
 
+import re
 import time
+import unicodedata
 
 from loguru import logger
 
@@ -159,9 +161,88 @@ CHUNK_SIZE = 1000
 CHUNK_OVERLAP = 200
 
 
+# Ein mit LaTeX gesetztes PDF malt Akzente als EIGENE Glyphe neben den Grundbuchstaben,
+# nicht als ein zusammengesetztes Zeichen. Die Textebene gibt sie darum als freistehendes
+# Zeichen aus, mal vor und mal hinter dem Buchstaben: "Komplement¨armenge", "H¨aufigkeit",
+# "A¯". Das trifft nicht nur die Anzeige. Es trifft vor allem die Vektorsuche, weil
+# "H¨aufigkeit" nicht mehr auf eine Frage nach "Häufigkeit" passt, und jedes Werkzeug,
+# das auf denselben Chunks arbeitet.
+#
+# Welches freistehende Zeichen zu welchem kombinierenden gehoert, steht in den
+# Unicode-Daten selbst (Zerlegung "<compat> 0020 XXXX"). Die Tabelle wird daraus
+# abgeleitet statt von Hand gepflegt: so gilt sie in jeder Sprache und nimmt echte
+# Zeichen wie "°", "²" oder "×" nicht versehentlich mit. Abgesucht wird nur der
+# Bereich, in dem PDF-Extraktoren solche Zeichen ueberhaupt ausgeben (Latin-1 plus
+# Spacing Modifier Letters).
+_ACCENT_SCAN_RANGE = range(0x00A0, 0x0300)
+
+# Der Akut bleibt bewusst draussen. Er wird in normalem Text als Apostroph getippt
+# ("geht´s"), und dort waere ein Zusammenziehen zu "gehtś" eine Verschlimmbesserung.
+# Bei ihm ist der Schaden durch ein falsches Zusammenziehen groesser als der Nutzen.
+_ACCENT_EXCLUDED = {"´"}
+
+
+def _spacing_accent_marks() -> dict[str, str]:
+    """Freistehender Akzent -> kombinierender Akzent, aus den Unicode-Daten abgeleitet."""
+    marks: dict[str, str] = {}
+    for code_point in _ACCENT_SCAN_RANGE:
+        char = chr(code_point)
+        if char in _ACCENT_EXCLUDED:
+            continue
+        parts = unicodedata.decomposition(char).split()
+        if len(parts) == 3 and parts[0] == "<compat>" and parts[1] == "0020":
+            marks[char] = chr(int(parts[2], 16))
+    return marks
+
+
+_SPACING_ACCENTS = _spacing_accent_marks()
+_SPACING_ACCENT_RE = re.compile(f"[{re.escape(''.join(_SPACING_ACCENTS))}]")
+
+
+def _attach_spacing_accents(text: str) -> str:
+    """Haenge jeden freistehenden Akzent an den Buchstaben, zu dem er gehoert."""
+    out: list[str] = []
+    index = 0
+    end = len(text)
+    while index < end:
+        char = text[index]
+        mark = _SPACING_ACCENTS.get(char)
+        if mark:
+            # Der FOLGENDE Buchstabe hat Vorrang. In "Komplement¨armenge" steht auf
+            # beiden Seiten einer, gemeint ist aber das "a".
+            if index + 1 < end and text[index + 1].isalpha():
+                out.append(text[index + 1] + mark)
+                index += 2
+                continue
+            # Sonst der vorangehende: "A¯", "p(A¯)".
+            if out and out[-1][-1:].isalpha():
+                out[-1] += mark
+                index += 1
+                continue
+            # Kein Buchstabe daneben, also nicht sicher zuzuordnen. In "Fur jedes
+            # Ereignis ¨ A" gehoert das Zeichen mehrere Woerter zurueck zu "Fur".
+            # Lieber stehen lassen als falsch anhaengen.
+        out.append(char)
+        index += 1
+    return "".join(out)
+
+
 def _clean(text: str) -> str:
-    """Strip NUL bytes - Postgres TEXT columns reject them."""
-    return text.replace("\x00", "") if text else text
+    """Strip NUL bytes and reunite accents the PDF text layer left standing alone.
+
+    NUL bytes go because Postgres TEXT columns reject them. The accent repair is
+    described at ``_SPACING_ACCENTS`` above. The closing NFC pass does two jobs: it
+    fuses the reattached mark into a single character where one exists ("a" plus
+    combining diaeresis becomes "ä"), and it folds the lookalike code points that
+    the same PDFs emit onto their canonical twin (the Ohm sign becomes an Omega),
+    so equal-looking text also compares and embeds as equal.
+    """
+    if not text:
+        return text
+    text = text.replace("\x00", "")
+    if _SPACING_ACCENT_RE.search(text):
+        text = _attach_spacing_accents(text)
+    return unicodedata.normalize("NFC", text)
 
 
 def _merge_small_fragments(chunks: list[str], min_chars: int) -> list[str]:

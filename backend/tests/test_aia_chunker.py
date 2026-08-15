@@ -31,6 +31,50 @@ def test_clean_handles_empty_string():
     assert _clean("") == ""
 
 
+# ── _clean: lose Akzentzeichen aus LaTeX-PDFs ────────────────────────────────
+# Ein mit LaTeX gesetztes PDF malt Akzente als EIGENE Glyphe neben den Buchstaben.
+# Die Textebene liefert sie darum als freistehendes Zeichen (U+00A8, U+00AF, ...)
+# direkt vor oder hinter dem Grundbuchstaben. Die Beispiele unten stehen woertlich
+# so in der Datenbank (Mathe-Vorkurs-Skript).
+
+def test_clean_merges_leading_spacing_diaeresis_into_umlaut():
+    assert _clean("Komplement¨armenge") == "Komplementärmenge"
+
+
+def test_clean_merges_trailing_spacing_macron_into_overlined_letter():
+    assert _clean("A¯ = Ω \\ A") == "Ā = Ω \\ A"
+
+
+def test_clean_merges_accents_inside_a_whole_sentence():
+    raw = "Die relative H¨aufigkeit von A¯ ist größer"
+    assert _clean(raw) == "Die relative Häufigkeit von Ā ist größer"
+
+
+def test_clean_normalises_ohm_sign_to_greek_omega():
+    assert _clean("Ω") == "Ω"
+
+
+def test_clean_leaves_letter_without_precomposed_form_as_combining_pair():
+    # B + Makron hat keine fertige Einzelform, bleibt also ein Grundbuchstabe
+    # plus kombinierendem Strich. Im Browser sieht das trotzdem korrekt aus.
+    assert _clean("B¯") == "B̄"
+
+
+def test_clean_leaves_accent_that_is_not_next_to_a_letter():
+    # Weit verrutschte Akzente sind nicht sicher zuzuordnen: das Zeichen gehoert
+    # zu "Fur" mehrere Woerter davor. Lieber stehen lassen als falsch anhaengen.
+    assert _clean("Fur jedes Ereignis ¨ A gilt") == "Fur jedes Ereignis ¨ A gilt"
+
+
+def test_clean_keeps_a_standalone_accent_character():
+    assert _clean("¨") == "¨"
+
+
+def test_clean_keeps_degree_sign_untouched():
+    # Das Gradzeichen ist ein echtes Zeichen, kein verrutschter Akzent.
+    assert _clean("20 °C warm") == "20 °C warm"
+
+
 # ── _split_text ──────────────────────────────────────────────────────────────
 
 def test_split_empty_returns_empty_list():
