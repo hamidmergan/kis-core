@@ -20,10 +20,16 @@ Fallarten je Fall:
                       (Alternativen, weil "acht" und "8" beide richtig sind).
 * ``verboten``      — darf NICHT vorkommen. Fuer den Fall, dass die Absage etwas
                       abstreitet, das im selben Satz gerade genannt wurde.
+* ``alle_quellen``  — JEDE aktive Quelle muss in der Antwort belegt sein. Der Fall
+                      fuer Ueberblicksfragen: dort ist Abdeckung die eigentliche
+                      Leistung, und sie ist die einzige Eigenschaft eines Ueberblicks,
+                      die sich ohne Fachurteil pruefen laesst. Ob der Text auch gut
+                      GEGLIEDERT ist, steht hier bewusst nicht.
 * ``begruendung``   — was der Fall festhaelt, in einem Satz.
 """
 import json
 import os
+import re
 import sys
 from pathlib import Path
 
@@ -69,7 +75,8 @@ def _quellen(workspace_uuid: str) -> list[str]:
             return [r["uuid"] for r in cur.fetchall()]
 
 
-def _frage(keks: str, workspace_uuid: str, frage: str, quellen: list[str]) -> str:
+def _frage(keks: str, workspace_uuid: str, frage: str,
+           quellen: list[str]) -> tuple[str, dict[int, str]]:
     """Die fertige Antwort, so wie sie im Chat steht.
 
     Der Strom endet mit einem Ereignis ``{"done": true, "answer": ...}``; das ist der
@@ -81,6 +88,7 @@ def _frage(keks: str, workspace_uuid: str, frage: str, quellen: list[str]) -> st
         data=daten, headers={"Content-Type": "application/json", "Cookie": keks},
     )
     stuecke: list[str] = []
+    qmap: dict[int, str] = {}
     with urllib.request.urlopen(req, timeout=600) as antwort:
         for roh in antwort:
             zeile = roh.decode("utf-8", "replace").strip()
@@ -94,11 +102,14 @@ def _frage(keks: str, workspace_uuid: str, frage: str, quellen: list[str]) -> st
             except Exception:                                   # noqa: BLE001
                 continue
             if isinstance(o, dict):
+                for schluessel in ("qmap", "source_qmap"):
+                    for eintrag in (o.get(schluessel) or []):
+                        qmap[eintrag["qnum"]] = eintrag["filename"]
                 if o.get("done") and isinstance(o.get("answer"), str):
-                    return o["answer"]
+                    return o["answer"], qmap
                 if isinstance(o.get("token"), str):
                     stuecke.append(o["token"])
-    return "".join(stuecke)
+    return "".join(stuecke), qmap
 
 
 def main() -> int:
@@ -109,11 +120,16 @@ def main() -> int:
         ws = fall["workspace"]
         if ws not in quellen_cache:
             quellen_cache[ws] = _quellen(ws)
-        antwort = _frage(keks, ws, fall["frage"], quellen_cache[ws])
+        antwort, qmap = _frage(keks, ws, fall["frage"], quellen_cache[ws])
         klein = antwort.lower()
         treffer = [e for e in fall.get("erwartet", []) if e.lower() in klein]
         verstoss = [v for v in fall.get("verboten", []) if v.lower() in klein]
-        gut = bool(treffer) and not verstoss
+        fehlende_quellen: list[str] = []
+        if fall.get("alle_quellen"):
+            zitiert = {int(n) for n in re.findall(r"\[(\d+),", antwort)}
+            fehlende_quellen = [qmap[q] for q in sorted(qmap) if q not in zitiert]
+        gut = (not verstoss and not fehlende_quellen
+               and (bool(treffer) or not fall.get("erwartet")))
         ok += 1 if gut else 0
         print(f"\n{'OK  ' if gut else 'FEHLT'} {fall['id']}")
         print(f"      Frage:    {fall['frage']}")
@@ -121,6 +137,9 @@ def main() -> int:
             print(f"      Erwartet: eines von {fall['erwartet']}  -> KEINES gefunden")
         if verstoss:
             print(f"      Verboten: {verstoss} steht drin")
+        if fall.get("alle_quellen"):
+            print(f"      Quellen:  {len(qmap) - len(fehlende_quellen)}/{len(qmap)} belegt"
+                  + (f"  -> fehlt: {fehlende_quellen}" if fehlende_quellen else ""))
         print(f"      Antwort:  {' '.join(antwort.split())[:400]}")
     print(f"\n{'-' * 70}\nAntworten in Ordnung: {ok}/{len(FAELLE)}")
     return 0 if ok == len(FAELLE) else 1

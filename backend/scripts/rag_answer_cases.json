@@ -79,5 +79,12 @@
       "6 Wochen"
     ],
     "begruendung": "EntgFG 3"
+  },
+  {
+    "id": "ueberblick-alle-quellen",
+    "workspace": "7f088123-177a-464a-81dc-9d8b73c91c36",
+    "frage": "gib mir einen überblick über den inhalt",
+    "alle_quellen": true,
+    "begruendung": "Bei einer Ueberblicksfrage ist die Abdeckung die eigentliche Leistung: keine der 13 Aufzeichnungen darf unter den Tisch fallen. Das ist die einzige Eigenschaft eines Ueberblicks, die sich ohne Fachurteil pruefen laesst, und sie haelt fest, dass der GENERIC-Pfad nicht unbemerkt kaputtgeht. Ob der Text gut GEGLIEDERT ist, steht hier bewusst nicht."
   }
 ]
