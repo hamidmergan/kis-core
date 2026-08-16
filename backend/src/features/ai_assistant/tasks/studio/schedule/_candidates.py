@@ -19,6 +19,8 @@ from src.features.ai_assistant.tasks.studio.schedule._parse import (
     _normalize_month_date,
     _normalize_partial_date,
 )
+from src.features.ai_assistant.routes._helpers import _load_transcript_segments
+from src.services.aia_transcript_offsets import TranscriptIndex
 
 
 def _load_source_chunks(source_id: int) -> list[dict]:
@@ -101,6 +103,36 @@ def _model_finds_by_chunk(chunks: list[dict], client, model):
     return spans, daten
 
 
+def _transcript_index(src: dict, chunks: list[dict]) -> TranscriptIndex | None:
+    """Die Zeitachse der Quelle, einmal je Quelle geladen.
+
+    Nur fuer Medien: hat kein Chunk eine Startzeit, ist es ein PDF und die Ablage
+    wird gar nicht angefasst. Ein fehlendes Transkript-Artefakt ist kein Fehler,
+    dann bleibt es beim Chunk-Anfang wie bisher."""
+    if not any(c.get("start_time") is not None for c in chunks):
+        return None
+    segmente = _load_transcript_segments(src)
+    if not segmente:
+        logger.info("Terminsuche: kein Transkript zu Quelle {}, Zeitmarken bleiben am "
+                    "Chunk-Anfang", src.get("id"))
+        return None
+    return TranscriptIndex(segmente)
+
+
+def _fundstelle_zeit(index: TranscriptIndex | None, chunk: dict,
+                     offset: int) -> float | None:
+    """Zeitmarke fuer eine Stelle im Chunk-Text.
+
+    Ein Chunk umfasst ueber eine Minute gesprochene Zeit, der Chunk-Anfang zeigt
+    also im schlimmsten Fall weit vor den Termin. Laesst sich die Stelle nicht
+    zuordnen, bleibt der Chunk-Anfang als bekannter Rahmen."""
+    st = chunk.get("start_time")
+    if st is None or index is None:
+        return st
+    genau = index.start_at(chunk, offset)
+    return genau if genau is not None else st
+
+
 def _build_candidates_for_source(src: dict, client=None, model=None) -> list[dict]:
     """Find all date candidates in a source. Year-full matches produce date_iso;
     year-less matches produce partial_date=(month, day), resolved to current year.
@@ -113,12 +145,16 @@ def _build_candidates_for_source(src: dict, client=None, model=None) -> list[dic
     candidates: list[dict] = []
     chunks = _load_source_chunks(src["id"])
     tbd_spans, modell_daten = _model_finds_by_chunk(chunks, client, model)
+    zeitachse = _transcript_index(src, chunks)
     for chunk_idx, c in enumerate(chunks):
         content = c.get("content") or ""
         if not content:
             continue
         page = c.get("page_number")
-        st = c.get("start_time")
+
+        def st_bei(offset: int, _c=c) -> float | None:
+            """Die Zeitmarke der Fundstelle, nicht die des ganzen Chunks."""
+            return _fundstelle_zeit(zeitachse, _c, offset)
 
         # German shorthand "DD.MM.YYYY/YYYY/..." -> one candidate per year.
         # Tracked so the standard scanner below skips matches inside these spans.
@@ -151,7 +187,7 @@ def _build_candidates_for_source(src: dict, client=None, model=None) -> list[dic
                     "context": ctx,
                     "raw_quote": quote,
                     "page_number": page,
-                    "start_time": st,
+                    "start_time": st_bei(m.start()),
                     "source_uuid": src["uuid"],
                     "source_filename": src.get("filename") or "",
                 })
@@ -203,7 +239,7 @@ def _build_candidates_for_source(src: dict, client=None, model=None) -> list[dic
                 "context": ctx,
                 "raw_quote": quote,
                 "page_number": page,
-                "start_time": st,
+                "start_time": st_bei(s),
                 "source_uuid": src["uuid"],
                 "source_filename": src.get("filename") or "",
             })
@@ -234,7 +270,7 @@ def _build_candidates_for_source(src: dict, client=None, model=None) -> list[dic
                 "context": ctx,
                 "raw_quote": quote,
                 "page_number": page,
-                "start_time": st,
+                "start_time": st_bei(s),
                 "source_uuid": src["uuid"],
                 "source_filename": src.get("filename") or "",
             })
@@ -264,7 +300,7 @@ def _build_candidates_for_source(src: dict, client=None, model=None) -> list[dic
                 "context": ctx,
                 "raw_quote": quote,
                 "page_number": page,
-                "start_time": st,
+                "start_time": st_bei(s),
                 "source_uuid": src["uuid"],
                 "source_filename": src.get("filename") or "",
             })

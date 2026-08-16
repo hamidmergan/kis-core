@@ -68,18 +68,28 @@ def test_attribution_chip_media_with_segment_page_uses_timestamp():
 # ueber zwei Minuten. Die Chunk-Startzeit zeigt dann auf die Begruessung, obwohl
 # der zitierte Satz kurz vor dem Chunk-Ende faellt.
 
-_LANGSAMER_CHUNK = {
-    "source_id": 8, "page_number": 1, "vec_distance": 0.2,
-    "start_time": 0.0, "end_time": 128.0,
-    "content": "Die machen wir auch noch. Wir machen sich das Komplementieren mit "
-               "dem Strich darueber.",
-}
-
 _SEGMENTE = [
     {"start": 0.0, "end": 24.0, "text": "Die machen wir auch noch. Aber so weit sind wir ja noch nicht."},
     {"start": 30.0, "end": 59.0, "text": "Wir befassen uns heute mit der Binomialverteilung."},
     {"start": 117.0, "end": 128.0, "text": "Wir machen sich das Komplementieren mit dem Strich darüber."},
 ]
+
+
+def _chunk_aus(segmente: list[dict]) -> dict:
+    """Ein Medien-Chunk, wie das Zerlegen ihn baut.
+
+    ``segments_to_chunks`` reiht die Segmenttexte mit einem Leerzeichen aneinander,
+    der Chunk-Text ist also genau diese Kette. Ein Chunk mit fremdem Text kann gar
+    nicht entstehen, und die Zuordnung Chunk -> Segmente laeuft ueber diese
+    Reihenfolge."""
+    return {
+        "source_id": 8, "page_number": 1, "vec_distance": 0.2,
+        "start_time": segmente[0]["start"], "end_time": segmente[-1]["end"],
+        "content": " ".join(s["text"] for s in segmente),
+    }
+
+
+_LANGSAMER_CHUNK = _chunk_aus(_SEGMENTE)
 
 
 def test_media_chip_points_at_the_segment_that_carries_the_line():
@@ -95,8 +105,7 @@ def test_media_chip_matches_across_inflection():
         {"start": 128.0, "end": 140.0,
          "text": "Einige machen das mit einem großen C, also einem länglichen C vor dem A."},
     ]
-    chunk = dict(_LANGSAMER_CHUNK, end_time=140.0)
-    out = _attribution_chip(8, chunk, "Ein **großes C** (ein längliches C) vor dem A", segs)
+    out = _attribution_chip(8, _chunk_aus(segs), "Ein **großes C** (ein längliches C) vor dem A", segs)
     assert out == ["[8, 02:08]"]
 
 
@@ -116,8 +125,8 @@ def test_media_chip_counts_a_short_number_as_a_feature():
         {"start": 60.0, "end": 72.0, "text": "So, das ist die Klausur 8.9."},
         {"start": 450.0, "end": 469.0, "text": "Dann können Sie jetzt die Klausur sehen."},
     ]
-    chunk = dict(_LANGSAMER_CHUNK, end_time=504.0)
-    out = _attribution_chip(8, chunk, "In einer Aufzeichnung wird eine Klausur vom 8.9. gezeigt.", segs)
+    out = _attribution_chip(8, _chunk_aus(segs),
+                            "In einer Aufzeichnung wird eine Klausur vom 8.9. gezeigt.", segs)
     assert out == ["[8, 01:00]"]
 
 
@@ -127,8 +136,7 @@ def test_media_chip_still_needs_two_features_with_a_number():
         {"start": 0.0, "end": 29.0, "text": "Guten Morgen, wir fangen an."},
         {"start": 60.0, "end": 72.0, "text": "Seite 8.9 im Skript."},
     ]
-    chunk = dict(_LANGSAMER_CHUNK, end_time=504.0)
-    out = _attribution_chip(8, chunk, "Es geht um 8.9.", segs)
+    out = _attribution_chip(8, _chunk_aus(segs), "Es geht um 8.9.", segs)
     assert out == ["[8, 00:00]"]
 
 
@@ -159,7 +167,7 @@ def test_media_chip_marks_the_start_of_a_sentence_split_across_segments():
         {"start": 104.0, "end": 117.0, "text": "Wir machen das Komplementieren mit dem Strich"},
         {"start": 117.0, "end": 128.0, "text": "darüber, zwei Schreibweisen."},
     ]
-    out = _attribution_chip(8, _LANGSAMER_CHUNK,
+    out = _attribution_chip(8, _chunk_aus(segs),
                             "Zwei Schreibweisen: Komplementieren mit dem Strich darüber", segs)
     assert out == ["[8, 01:44]"]
 

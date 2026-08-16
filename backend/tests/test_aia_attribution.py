@@ -72,8 +72,10 @@ _SEGMENTE = [
 
 
 def test_media_chip_points_at_the_segment_that_carries_the_claim():
-    hits = [_hit(3, 9, 0.2, start=0.0)]
-    hits[0]["end_time"] = 128.0
+    # Der Chunk-Text ist die Kette seiner Segmente, so baut ``segments_to_chunks`` ihn.
+    hits = [_hit(3, 9, 0.2, start=0.0,
+                 content=" ".join(s["text"] for s in _SEGMENTE))]
+    hits[0]["end_time"] = _SEGMENTE[-1]["end"]
     chips = chips_for_claim(hits, {3: "Vorlesung.webm"},
                             claim="Beim Abdriften fuehrt die Recherche weg vom Thema",
                             segments_fn=lambda sid: _SEGMENTE)

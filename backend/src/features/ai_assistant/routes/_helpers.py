@@ -16,6 +16,7 @@ from langfuse.decorators import langfuse_context
 
 from src import database as db
 from src.i18n import DEFAULT_LOCALE, t
+from src.services.aia_transcript_offsets import TranscriptIndex
 from src.storage import (
     aia_transcript_key,
     delete_aia_workspace_folder,
@@ -708,17 +709,24 @@ def _segment_stems(line: str) -> set[str]:
 
 
 def _chunk_segments(chunk: dict, segments: list[dict]) -> list[dict]:
-    """Die Whisper-Segmente, die innerhalb dieses Medien-Chunks liegen.
+    """Die Whisper-Segmente, aus denen dieser Medien-Chunk besteht.
 
-    Die halbe Sekunde Toleranz faengt das Runden zwischen Chunk-Grenze und
-    Segment-Start ab. Ohne Zeiten am Chunk gibt es nichts zuzuordnen."""
-    if chunk.get("start_time") is None or chunk.get("end_time") is None or not segments:
+    Zugeordnet wird ueber die Reihenfolge, nicht ueber die Zeit: der Chunk-Text ist
+    ein zusammenhaengendes Stueck der aneinandergereihten Segmente (siehe
+    :mod:`src.services.aia_transcript_offsets`).
+
+    Die fruehere Auswahl ueber ``start_time``/``end_time`` mit einer halben Sekunde
+    Toleranz griff daneben. Die Chunk-Zeit in der Ablage und die Zeit im
+    Transkript-Artefakt weichen bis zu einer Sekunde voneinander ab, weil das
+    Artefakt auf ganze Sekunden gerundet ist. Damit fehlte das erste Segment des
+    Chunks und Segmente des naechsten rutschten herein: an 790 Chunks der Testablage
+    traf die Auswahl nur bei 155 den eigenen Chunk-Text.
+
+    Leer, wenn sich der Chunk nicht wiederfindet, etwa nach einer Uebersetzung des
+    Transkripts. Die Aufrufer bleiben dann beim Chunk-Text und beim Chunk-Anfang."""
+    if chunk.get("start_time") is None or not segments:
         return []
-    tol = 0.5
-    return [
-        s for s in segments
-        if chunk["start_time"] - tol <= s["start"] <= chunk["end_time"] + tol
-    ]
+    return TranscriptIndex(segments).segments_of(chunk)
 
 
 def _line_segment_start(line: str, chunk: dict, segments: list[dict]) -> Optional[float]:
