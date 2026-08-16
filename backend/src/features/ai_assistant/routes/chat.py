@@ -93,7 +93,6 @@ _MAX_PAGE_SPAN = 50
 # Source-distance gate: drop a source whose CLOSEST chunk is farther than this multiple
 # of the best source's closest chunk (off-topic). Cosine distance is stopword-immune →
 # language-agnostic, no word lists.
-_DIST_FACTOR = 999  # gate effektiv AUS: 1.3 verwarf bei Mehr-Quellen-/Zählfragen echte Quellen
 # SPECIFIC budget TIERS (chars/source). At n≈30 the old flat 4000-char floor for EVERY
 # source meant ~29 irrelevant laws × 4000 ≈ 116K chars of pure prefill ballast, and a
 # loose co-dominant cutoff let a generic phrase ("schützt Artikel 1") tie 5-6
@@ -947,8 +946,12 @@ async def _retrieve_specific_context(
     # window, answered in a single call — a window can't be split, so it can't
     # grow a gap-filling hallucination (the earlier map-reduce "Prof. Böhm").
     #
-    # SOURCE-level distance gate: drop a source only when its CLOSEST anchor is
-    # off-topic (cosine > _DIST_FACTOR x global best). Single source → always kept.
+    # KEIN Verwerfen ganzer Quellen mehr: bis zum 16.08.2026 stand hier ein Filter,
+    # der eine Quelle fallen liess, wenn ihr bester Treffer weiter weg lag als das
+    # 1,3-fache des global besten. Er verwarf bei Mehr-Quellen- und Zaehlfragen echte
+    # Quellen, wurde deshalb mit dem Wert 999 abgeschaltet und dann nur noch
+    # mitgerechnet. Was den Zulauf wirklich begrenzt, ist die Budget-Verteilung weiter
+    # unten. Wer den Gedanken wiederbeleben will, braucht erst Zaehlfragen im Messsatz.
     # No trigram fuzzy here: it is a no-index per-row word_similarity scan (~3s/call,
     # the n=30 latency killer) and vector search is already typo-robust at the
     # SEMANTIC level (embeddings put "authoren" next to "Autoren"), with BM25 + ILIKE
@@ -988,18 +991,10 @@ async def _retrieve_specific_context(
     logger.info("Retrieval relevance: global best cosine distance {} over {} sources",
                 f"{_global_best:.3f}" if _global_best is not None else "n/a",
                 len(per_source_expanded))
-    _dist_threshold = _global_best * _DIST_FACTOR if _global_best is not None else None
     # Title header (page-1 self-name) per source — input to the named-source boost below.
     _headers = {exp[0]["source_id"]: hdr for exp, _d, hdr in per_source_expanded if exp}
-    # Hard drop-gate (off by default at _DIST_FACTOR=999) — kept as a safety net.
-    # The SOFT concentration below is what actually stops the multi-source flood.
     kept: list[tuple[list[dict], Optional[float]]] = []
     for expanded, _src_best, _hdr in per_source_expanded:
-        if (len(per_source_expanded) > 1 and _dist_threshold is not None
-                and _src_best is not None and _src_best > _dist_threshold):
-            logger.info("Per-source: source {} skipped off-topic (dist {:.3f} > {:.3f})",
-                        expanded[0]["source_id"] if expanded else "?", _src_best, _dist_threshold)
-            continue
         # order each source's windows best-anchor-first so its budget share takes
         # the most on-point chunks first; equal score -> the anchor itself before the
         # neighbours that only inherited it (see _expand_with_neighbors)
