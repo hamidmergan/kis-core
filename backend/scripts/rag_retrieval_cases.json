@@ -134,5 +134,46 @@
       "ArbZG11.pdf"
     ],
     "note": "WAECHTER fuer den Umbau: eine echte Vergleichsfrage muss BEIDE Quellen im Kontext haben. Genau das soll die Quote pro Quelle leisten. Faellt dieser Fall, ist der Ersatz unzureichend."
+  },
+  {
+    "id": "vergleich-drei-gesetze",
+    "workspace": "a11ea669-30a5-409e-b336-7864f2a331e1",
+    "question": "was regeln das kuendigungsschutzgesetz, das arbeitszeitgesetz und das entgeltfortzahlungsgesetz",
+    "expect_sources_all": [
+      "KSchG9.pdf",
+      "ArbZG11.pdf",
+      "EntgFG5.pdf"
+    ],
+    "note": "WAECHTER: drei ausdruecklich genannte Gesetze muessen alle drei im Kontext sein."
+  },
+  {
+    "id": "vergleich-agg-kschg",
+    "workspace": "a11ea669-30a5-409e-b336-7864f2a331e1",
+    "question": "vergleiche was das agg und das kuendigungsschutzgesetz zur kuendigung sagen",
+    "expect_sources_all": [
+      "AGG13.pdf",
+      "KSchG9.pdf"
+    ],
+    "note": "WAECHTER: eine echte Vergleichsfrage ueber zwei Quellen."
+  },
+  {
+    "id": "zwei-themen-zwei-aufzeichnungen",
+    "workspace": "7f088123-177a-464a-81dc-9d8b73c91c36",
+    "question": "was wird zur klausur und was zur fragestunde gesagt",
+    "expect_sources_all": [
+      "2026-03-23.mp4",
+      "2026-06-15.mp4"
+    ],
+    "note": "WAECHTER bei Medien: die Klausur-Angaben stehen in 2026-03-23, die Fragestunde in 2026-06-15. Eine zusammengesetzte Frage braucht beide."
+  },
+  {
+    "id": "ruhezeit-und-nachtzeit",
+    "workspace": "a11ea669-30a5-409e-b336-7864f2a331e1",
+    "question": "welche ruhezeit und welche nachtzeit schreibt das arbeitszeitgesetz vor",
+    "expect_text": [
+      "Ruhezeit von mindestens elf Stunden",
+      "Zeit von 23 bis 6 Uhr"
+    ],
+    "note": "Zwei Angaben aus DERSELBEN Quelle, aber von verschiedenen Seiten."
   }
 ]

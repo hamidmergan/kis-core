@@ -93,37 +93,22 @@ _MAX_PAGE_SPAN = 50
 # Source-distance gate: drop a source whose CLOSEST chunk is farther than this multiple
 # of the best source's closest chunk (off-topic). Cosine distance is stopword-immune →
 # language-agnostic, no word lists.
-# SPECIFIC budget TIERS (chars/source). At n≈30 the old flat 4000-char floor for EVERY
-# source meant ~29 irrelevant laws × 4000 ≈ 116K chars of pure prefill ballast, and a
-# loose co-dominant cutoff let a generic phrase ("schützt Artikel 1") tie 5-6
-# structurally-similar laws that EACH grabbed ~50 chunks — so the context filled to
-# 250K chars / ~71K tokens on essentially every question and the LLM was slow. Three
-# tiers fix it without losing the answer (which lives in the closest source):
-#   * PRIMARY (the single closest source) takes the weighted bulk — full coverage of
-#     the law the question is actually about.
-#   * SECONDARY co-dominant peers (a genuine 2-law / compare question) are each capped
-#     so they can state their content without refilling the window with near-duplicates.
-#   * FAR sources get ~1 top chunk: present for counting / compare-all, but no flood.
-# _MAX_CODOMINANT bounds how many sources share the bulk (primary + secondaries).
-_SPECIFIC_FAR_CHARS = 900         # far source: ~1 top chunk, just "present"
-_SPECIFIC_SECONDARY_CHARS = 8000  # co-dominant non-primary source: ~10 chunks
-_MAX_CODOMINANT = 4               # at most this many sources share the bulk
-# Co-dominance cutoff for the SPECIFIC budget split: a source counts as "co-dominant"
-# (and shares the bulk of the budget) only if its closest anchor is within this multiple
-# of the globally best anchor. A single-target question ("welche Form schreibt das TVG
-# vor") has ONE clearly-closest source → the other laws fall outside the cutoff and get
-# only the floor, so they can't FLOOD the context and drown the answer (also cuts latency
-# — far less context to chew). A genuine near-tie (AGG+BDSG cross-source) keeps BOTH inside
-# the cutoff → budget split between them. Cosine-distance ratio → language-agnostic, no
-# word lists. Tunable; loose enough that a real second source is never wrongly excluded
-# (and the floor still represents it even if it is).
-_CODOMINANT_FACTOR = 1.18
 # Neighbor-chunk expansion (SPECIFIC, single call): how many top hybrid hits per
 # source act as expansion ANCHORS, and how many document neighbours to pull around
 # each (±radius). A fact often sits NEXT TO a hit (author name beside the "Autoren"
 # heading), so the window catches it without reading the whole document. ~24x(2*3+1)
 # ≈ 168 chunks worst case before dedup — comfortably one context window.
 _NEIGHBOR_ANCHORS = 24
+# Wie viele Stellen die EINE globale Suche liefert, bevor Nachbarn dazukommen und das
+# Budget abschneidet. 120 ist reichlich: an den Waechterfaellen waren schon in den
+# ersten 30 alle ausdruecklich genannten Quellen vertreten.
+_GLOBAL_CANDIDATES = 120
+# Obergrenze fuer den SPECIFIC-Kontext, unabhaengig vom Admin-Budget. Das Budget sagt,
+# was das MODELL vertraegt, nicht was ihm GUT TUT. Am 16.08.2026 gemessen: das Budget
+# von 250.000 auf 320.000 gesetzt, damit ein ganzer Kurs hineinpasst, und der
+# Antwort-Messsatz fiel von 8/9 auf 6/9. Mehr Kontext war schlechter. Der Wert unten
+# ist gegen den Antwort-Messsatz gesucht, nicht geschaetzt.
+_SPECIFIC_MAX_CHARS = 60000
 _NEIGHBOR_RADIUS = 3
 # Bridge anchors whose ±radius windows are within this many chunks of each other:
 # fill the gap so two anchors that BRACKET the answer pull the chunks between them
@@ -750,69 +735,6 @@ def _take_chunks_within(hits: list[dict], char_share: int) -> list[dict]:
     return taken
 
 
-def _allocate_specific_budget(
-    kept: list[tuple[list[dict], Optional[float]]],
-    char_budget: int,
-) -> list[dict]:
-    """Relevance-CONCENTRATED, TIERED per-source chunk budget for SPECIFIC.
-
-    ``kept`` = the kept sources as ``(hits, src_best_distance)`` pairs, ``hits``
-    already ordered most-relevant-first. One char budget is split by relevance so a
-    single-target question is never flooded — and, crucially, never *bloated* — by
-    the other active sources:
-
-    - **Primary** — the single closest source — takes the weighted bulk (full
-      coverage of the law the question is about). A single source gets the lot.
-    - **Secondary** co-dominant peers (closest anchor within ``_CODOMINANT_FACTOR`` ×
-      the global best, AND among the nearest ``_MAX_CODOMINANT``) are each capped at
-      ``_SPECIFIC_SECONDARY_CHARS`` — enough to answer a genuine 2-law / compare
-      question, not enough to refill the window with near-duplicates of the primary.
-    - **Far** sources (outside the cutoff, or beyond ``_MAX_CODOMINANT``) get only
-      ``_SPECIFIC_FAR_CHARS`` (≈ one top chunk) — present for counting / compare-all
-      questions, but unable to flood (or bloat) the context.
-
-    Why tiers: at scale (n≈30) a loose cutoff ties many structurally-similar docs and
-    a flat floor for each turned EVERY question into a ~250k-char / ~71k-token context
-    — slow, for an answer that lives in ONE source. Slack is never redistributed to
-    less-relevant docs (that would re-introduce the flood). Total stays ≤ char_budget.
-    """
-    if not kept:
-        return []
-    if len(kept) == 1:
-        return _take_chunks_within(kept[0][0], char_budget)
-
-    dists = [d for _, d in kept if d is not None]
-    best = min(dists) if dists else None
-    cutoff = best * _CODOMINANT_FACTOR if best is not None else None
-
-    # Nearest first: rank 0 is the PRIMARY; co-dominant peers ride along only up to
-    # _MAX_CODOMINANT, everyone else is FAR. (None distance sorts last → treated far
-    # unless it lands in the first _MAX_CODOMINANT slots as a safe fallback.)
-    ordered = sorted(kept, key=lambda hd: hd[1] if hd[1] is not None else float("inf"))
-    far_cap = min(_SPECIFIC_FAR_CHARS, char_budget // len(kept))
-
-    out: list[dict] = []
-    pool: list[tuple[list[dict], Optional[float], int]] = []  # (hits, dist, rank)
-    for rank, (hits, d) in enumerate(ordered):
-        codominant = cutoff is None or d is None or d <= cutoff
-        if rank < _MAX_CODOMINANT and (rank == 0 or codominant):
-            pool.append((hits, d, rank))
-        else:
-            out.extend(_take_chunks_within(hits, far_cap))  # far source: ~1 chunk
-
-    # Remaining budget after the far sources, split among the bulk pool by closeness.
-    far_count = len(ordered) - len(pool)
-    remaining = max(0, char_budget - far_cap * far_count)
-    weights = [(best / d if (best and d) else 1.0) for _h, d, _r in pool]
-    wsum = sum(weights) or float(len(pool))
-    for (hits, _d, rank), w in zip(pool, weights):
-        share = int(remaining * w / wsum)
-        if rank > 0:
-            share = min(share, _SPECIFIC_SECONDARY_CHARS)  # secondary: capped
-        out.extend(_take_chunks_within(hits, max(share, far_cap)))
-    return out
-
-
 def _expand_with_neighbors(
     anchors: list[dict],
     doc_chunks: list[dict],
@@ -960,67 +882,74 @@ async def _retrieve_specific_context(
     # CONCURRENTLY (semaphore-bounded), turning ~0.8s sequential into ~0.15s at n=30.
     _sem = _get_retrieve_sem()
 
-    async def _expand_one(sid: int) -> Optional[tuple[list[dict], Optional[float], str]]:
-        async with _sem:
-            # Search this source with EACH retrieval query (clause); merge anchors,
-            # keeping each chunk's BEST (highest) fused score across the clauses —
-            # the same signal the trimming below orders by.
-            merged: dict[int, dict] = {}
-            for _qtext, _qvec in _query_pairs:
-                for a in (await asyncio.to_thread(
-                        db.hybrid_search_chunks, workspace_id, _qtext, _qvec,
-                        [sid], _NEIGHBOR_ANCHORS, fuzzy=False) or []):
-                    prev = merged.get(a["id"])
-                    if prev is None or (a.get("hybrid_score") or 0.0) > (prev.get("hybrid_score") or 0.0):
-                        merged[a["id"]] = a
-            if not merged:
-                return None
-            doc = await asyncio.to_thread(db.get_chunks_by_source, sid)
-        anchors = list(merged.values())
-        _sd = [a["vec_distance"] for a in anchors if a.get("vec_distance") is not None]
-        _hdr = ((doc[0].get("content") if doc else None) or "")[:_NAME_TITLE_CHARS].lower()
-        return (_expand_with_neighbors(anchors, doc, _NEIGHBOR_RADIUS, sid),
-                min(_sd) if _sd else None, _hdr)
+    # EINE Suche ueber ALLE Quellen statt einer je Quelle. Bis zum 16.08.2026 lief hier
+    # eine Suche pro Quelle, und danach verteilte _allocate_specific_budget den Platz in
+    # Stufen: die naechstliegende Quelle bekam den grossen Teil, ein paar Mitbewerber je
+    # 8.000 Zeichen, alle uebrigen 900. Das musste so sein, weil die Fusionsnoten einer
+    # Suche je Quelle NICHT vergleichbar sind: der beste Treffer eines winzigen Videos
+    # bekommt denselben Wert wie der beste eines dicken Gesetzes. Ohne gemeinsamen
+    # Massstab blieb nur, den Platz nach Quellen zu verteilen.
+    #
+    # Warum das jetzt weg kann: seit die Stichwortsuche nach Seltenheit gewichtet, ist
+    # eine globale Suche so treffsicher wie die je Quelle. An den 15 Messfaellen
+    # gemessen, Platz der gesuchten Stelle:
+    #     global    10x Platz 1, schlechtester Platz 6
+    #     je Quelle 11x Platz 1, schlechtester Platz 5
+    # Und die Vergleichsfragen ueberstehen es: bei allen vier Waechterfaellen sind schon
+    # in den ersten 30 Treffern ALLE ausdruecklich genannten Gesetze vertreten, die
+    # groesste Einzelquelle stellt nie mehr als 15 Prozent des Topfes. Es gibt also
+    # nichts mehr zu schuetzen, was die Stufen geschuetzt haben.
+    #
+    # Damit faellt der ganze Apparat weg: _SPECIFIC_FAR_CHARS, _SPECIFIC_SECONDARY_CHARS,
+    # _MAX_CODOMINANT, _CODOMINANT_FACTOR. Fuenf gedrehte Zahlen gegen eine Regel:
+    # die besten Stellen zuerst, bis das Budget voll ist.
+    _kandidaten: dict[int, dict] = {}
+    for _qtext, _qvec in _query_pairs:
+        for a in (await asyncio.to_thread(
+                db.hybrid_search_chunks, workspace_id, _qtext, _qvec,
+                search_source_ids, _GLOBAL_CANDIDATES, fuzzy=False) or []):
+            prev = _kandidaten.get(a["id"])
+            if prev is None or (a.get("hybrid_score") or 0.0) > (prev.get("hybrid_score") or 0.0):
+                _kandidaten[a["id"]] = a
+    if not _kandidaten:
+        logger.info("SPECIFIC: keine Treffer ueber {} Quellen", len(search_source_ids))
+        return []
 
-    _results = await asyncio.gather(*[_expand_one(s) for s in search_source_ids])
-    per_source_expanded: list[tuple[list[dict], Optional[float], str]] = [
-        r for r in _results if r is not None
-    ]
-    _all_best = [d for _, d, _h in per_source_expanded if d is not None]
-    _global_best = min(_all_best) if _all_best else None
-    logger.info("Retrieval relevance: global best cosine distance {} over {} sources",
-                f"{_global_best:.3f}" if _global_best is not None else "n/a",
-                len(per_source_expanded))
-    # Title header (page-1 self-name) per source — input to the named-source boost below.
-    _headers = {exp[0]["source_id"]: hdr for exp, _d, hdr in per_source_expanded if exp}
-    kept: list[tuple[list[dict], Optional[float]]] = []
-    for expanded, _src_best, _hdr in per_source_expanded:
-        # order each source's windows best-anchor-first so its budget share takes
-        # the most on-point chunks first; equal score -> the anchor itself before the
-        # neighbours that only inherited it (see _expand_with_neighbors)
-        kept.append((sorted(expanded, key=lambda c: (c.get("_anchor_dist", 1.0),
-                                                     c.get("_anchor_gap", 0))), _src_best))
-    # NAMED-SOURCE BOOST: if the question uniquely names a source by its title
-    # (self-name match), pull that source's distance just under the global best so the
-    # allocator below makes it Primary — a distractor that merely CITES it can no longer
-    # steal the bulk. No-op when nothing is uniquely named or a single source is active.
-    if len(kept) > 1 and _global_best is not None:
+    # Nachbarn holen. Das laeuft weiter JE QUELLE, weil ein Fenster nur innerhalb eines
+    # Dokuments Sinn ergibt, aber es entscheidet nichts mehr ueber die Verteilung.
+    _je_quelle: dict[int, list[dict]] = {}
+    for a in _kandidaten.values():
+        _je_quelle.setdefault(a["source_id"], []).append(a)
+
+    async def _fenster(sid: int, anker: list[dict]) -> tuple[list[dict], str]:
+        async with _sem:
+            doc = await asyncio.to_thread(db.get_chunks_by_source, sid)
+        kopf = ((doc[0].get("content") if doc else None) or "")[:_NAME_TITLE_CHARS].lower()
+        return _expand_with_neighbors(anker, doc, _NEIGHBOR_RADIUS, sid), kopf
+
+    _fenster_ergebnis = await asyncio.gather(
+        *[_fenster(sid, anker) for sid, anker in _je_quelle.items()])
+    alle: list[dict] = [c for fenster, _kopf in _fenster_ergebnis for c in fenster]
+    _headers = {sid: kopf for (sid, _a), (_f, kopf)
+                in zip(_je_quelle.items(), _fenster_ergebnis)}
+
+    # NAMED-SOURCE BOOST: nennt die Frage eine Quelle bei ihrem Titel, ruecken deren
+    # Stellen nach vorn. Ein Dokument, das die genannte Quelle nur ZITIERT, kann ihr so
+    # den Platz nicht mehr wegnehmen. Frueher hob das die Quelle auf den Primaer-Rang,
+    # jetzt verbessert es die Note ihrer Stellen. Gleiche Absicht, neue Mechanik.
+    if len(_je_quelle) > 1:
         _named = _named_source_ids(question, _headers)
         if _named:
-            _nd = _global_best * _NAME_BOOST_FACTOR
-            kept = [
-                (hits, (_nd if (hits and hits[0]["source_id"] in _named
-                                and (d is None or _nd < d)) else d))
-                for hits, d in kept
-            ]
-            logger.info("SPECIFIC named-source boost → sources {} → Primary (dist {:.3f})",
-                        sorted(_named), _nd)
-    # RELEVANCE-CONCENTRATED budget split: the source(s) closest to the query get
-    # the bulk, far sources only a floor — a single-target question is no longer
-    # flooded by unrelated laws (which also keeps context + latency small). See
-    # _allocate_specific_budget. Then re-sort into document order so each source
-    # reads as a coherent passage for the model.
-    chunks = _allocate_specific_budget(kept, char_budget)
+            for c in alle:
+                if c["source_id"] in _named:
+                    c["_anchor_dist"] = c["_anchor_dist"] * _NAME_BOOST_FACTOR \
+                        if c["_anchor_dist"] > 0 else c["_anchor_dist"] / _NAME_BOOST_FACTOR
+            logger.info("SPECIFIC named-source boost → Quellen {}", sorted(_named))
+
+    # Beste Stellen zuerst, bei gleicher Note der Anker vor seinen Nachbarn. Dann
+    # auffuellen bis das Budget voll ist. Das ist die ganze Verteilung.
+    alle.sort(key=lambda c: (c.get("_anchor_dist", 1.0), c.get("_anchor_gap", 0)))
+    chunks = _take_chunks_within(alle, min(char_budget, _SPECIFIC_MAX_CHARS))
     chunks.sort(key=lambda c: (
         c["source_id"],
         c.get("page_number") if c.get("page_number") is not None else -1,
@@ -1031,9 +960,10 @@ async def _retrieve_specific_context(
     from collections import Counter as _Counter
     _per_src = _Counter(c["source_id"] for c in chunks)
     logger.info(
-        "SPECIFIC neighbor-expansion: {} chunks ({} chars) from {} kept sources | per-source: {} | anchors<={} radius+-{} | Query: '{}'",
-        len(chunks), _used, len(kept), dict(_per_src), _NEIGHBOR_ANCHORS, _NEIGHBOR_RADIUS,
-        (_retrieval_queries[0] if _retrieval_queries else "")[:80],
+        "SPECIFIC global: {} chunks ({} chars) aus {} Quellen | je Quelle: {} "
+        "| Kandidaten<={} Radius+-{} | Frage: '{}'",
+        len(chunks), _used, len(_per_src), dict(_per_src), _GLOBAL_CANDIDATES,
+        _NEIGHBOR_RADIUS, (_retrieval_queries[0] if _retrieval_queries else "")[:80],
     )
     return chunks
 

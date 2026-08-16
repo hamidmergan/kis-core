@@ -1,10 +1,7 @@
 """Unit tests for the SPECIFIC retrieval cost controls:
 
-- ``_allocate_specific_budget`` / ``_take_chunks_within`` — Option 2: one total
-  char budget split across on-topic sources, relevance-weighted, with a floor so
-  every source is represented. Caps how many of each source's (mostly-noise) hits
-  reach the model while keeping a deep fact (an author at rank ~59) and a fact
-  spread across many docs (one author per doc).
+- ``_take_chunks_within`` — fuellt eine nach Note sortierte Liste bis zur Grenze auf
+  und nimmt mindestens eine Stelle, auch wenn sie allein schon zu gross ist.
 - ``_pack_context_batches`` — single-batch (GENERIC/SCOPE: drop overflow) vs
   multi-batch (SPECIFIC: spill, never drop), per-batch id restart, media page set.
 - ``aia_reduce_user_message`` — map-reduce merge prompt.
@@ -14,11 +11,8 @@ All pure functions: no DB, no LLM, fully deterministic/offline.
 import pytest
 
 from src.features.ai_assistant.routes.chat import (
-    _allocate_specific_budget,
     _take_chunks_within,
     _pack_context_batches,
-    _SPECIFIC_FAR_CHARS,
-    _MAX_CODOMINANT,
 )
 from src.tool_prompts import aia_reduce_user_message
 
@@ -56,80 +50,12 @@ def test_take_chunks_takes_at_least_one_even_if_oversized():
 
 # ── _allocate_specific_budget ────────────────────────────────────────────────
 
-def test_allocate_empty():
-    assert _allocate_specific_budget([], 10000) == []
+# Die Tests von ``_allocate_specific_budget`` standen hier bis zum 16.08.2026. Die
+# Funktion ist weg: der Platz wird nicht mehr in Stufen nach Quellen verteilt, sondern
+# global nach Note vergeben. Was sie leisten sollte, haelt jetzt der Messsatz fest
+# (scripts/rag_retrieval_eval.py), und zwar an echten Quellen statt an ausgedachten
+# Zahlen. Die vier Waechterfaelle fuer Vergleichsfragen sind genau dafuer da.
 
-
-def test_allocate_single_source_gets_whole_budget_keeps_deep_hit():
-    # One on-topic source with the answer buried at rank 40 → it must survive,
-    # because a single source receives the entire budget (no split).
-    hits = _mk(7, 60, chars=100)
-    hits[40]["content"] = "AUTHOR Mauersberger " + "x" * 80
-    out = _allocate_specific_budget([(hits, 0.44)], 250000)
-    assert len(out) == 60  # all 60 fit in the budget
-    assert any("Mauersberger" in c["content"] for c in out)
-
-
-def test_allocate_relevance_weighting_favors_more_on_topic_source():
-    # A (closer, dist .40) must get materially more chunks than B (farther, .50).
-    a = _mk(1, 1000, chars=100, dist=0.40)
-    b = _mk(2, 1000, chars=100, dist=0.50)
-    out = _allocate_specific_budget([(a, 0.40), (b, 0.50)], 50000)
-    n_a = sum(1 for c in out if c["source_id"] == 1)
-    n_b = sum(1 for c in out if c["source_id"] == 2)
-    assert n_a > n_b
-    # total stays within the budget (no silent overshoot beyond ~one chunk/source)
-    total_chars = sum(len(c["content"]) for c in out)
-    assert total_chars <= 50000 + 2 * 100
-
-
-def test_allocate_floor_keeps_every_source_represented():
-    # 13 docs, each naming a different author at rank 0 + lots of noise. Even on a
-    # tight budget the floor must keep all 13 docs (so no author is dropped).
-    kept = []
-    for k in range(13):
-        hits = _mk(1000 + k, 60, chars=100, dist=0.45 + 0.001 * k,
-                   first_marker=f"AUTHOR_{k}")
-        kept.append((hits, 0.45 + 0.001 * k))
-    out = _allocate_specific_budget(kept, 26000)
-    present = {c["source_id"] for c in out}
-    assert len(present) == 13  # every doc represented
-    # every doc's rank-0 (author) chunk is kept (it is taken first)
-    authors = {c["content"].split()[0] for c in out if c["content"].startswith("AUTHOR_")}
-    assert authors == {f"AUTHOR_{k}" for k in range(13)}
-
-
-def test_allocate_floor_capped_when_many_sources_tiny_budget():
-    # far floor must be capped to budget//K so floors can never exceed the budget.
-    kept = [( _mk(i, 50, chars=100), 0.5) for i in range(20)]
-    out = _allocate_specific_budget(kept, 10000)  # 10000//20 = 500 < _SPECIFIC_FAR_CHARS
-    total = sum(len(c["content"]) for c in out)
-    # 20 sources * at-least-one chunk (100) is the hard floor; stays near budget
-    assert total <= 10000 + 20 * 100
-    assert len({c["source_id"] for c in out}) == 20
-
-
-def test_allocate_bounds_codominant_count_at_scale():
-    # A generic phrase can tie many structurally-similar sources under the cutoff.
-    # Only the nearest _MAX_CODOMINANT may share the bulk; the rest fall to the far
-    # floor — so the context can't fill to the brim with near-duplicates of the real
-    # source (the n=30 latency bug). The single closest source still dominates, and
-    # every source stays present (counting / compare-all safety).
-    kept = []
-    for k in range(8):  # 8 near-tied sources, source 0 the closest
-        d = 0.40 + 0.005 * k
-        kept.append((_mk(k, 400, chars=100, dist=d), d))
-    out = _allocate_specific_budget(kept, 200000)
-    per_src: dict[int, int] = {}
-    for c in out:
-        per_src[c["source_id"]] = per_src.get(c["source_id"], 0) + len(c["content"])
-    assert per_src[0] == max(per_src.values())                  # closest got the bulk
-    reduced = [sid for sid, ch in per_src.items() if ch <= _SPECIFIC_FAR_CHARS]
-    assert len(reduced) >= 8 - _MAX_CODOMINANT                  # tail reduced to floor
-    assert len(per_src) == 8                                    # all still present
-
-
-# ── _pack_context_batches ────────────────────────────────────────────────────
 
 _SRCS = {1: {"filename": "a.pdf"}, 2: {"filename": "b.pdf"}}
 _S2Q = {1: 1, 2: 2}
