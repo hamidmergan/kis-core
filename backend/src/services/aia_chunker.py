@@ -181,6 +181,17 @@ _ACCENT_SCAN_RANGE = range(0x00A0, 0x0300)
 # Bei ihm ist der Schaden durch ein falsches Zusammenziehen groesser als der Nutzen.
 _ACCENT_EXCLUDED = {"´"}
 
+# Zirkumflex und Hatschek fallen aus der Ableitung heraus, weil Unicode ihnen keine
+# Zerlegung "Leerzeichen plus kombinierender Akzent" gibt. In LaTeX-PDFs kommen sie
+# aber genauso freistehend vor wie die anderen ("hˆotel", "ˇCech"), darum hier von
+# Hand ergaenzt. Beide sind ungefaehrlich, weil sie in normalem Text keine zweite
+# Rolle als Satzzeichen haben. Die ASCII-Zwillinge "^" und "`" bleiben bewusst
+# draussen: "^" steht fuer eine Potenz und "`" in Code fuer ein Zitat.
+_ACCENT_EXTRA = {
+    "ˆ": "̂",  # MODIFIER LETTER CIRCUMFLEX ACCENT -> COMBINING CIRCUMFLEX
+    "ˇ": "̌",  # CARON -> COMBINING CARON
+}
+
 
 def _spacing_accent_marks() -> dict[str, str]:
     """Freistehender Akzent -> kombinierender Akzent, aus den Unicode-Daten abgeleitet."""
@@ -192,7 +203,7 @@ def _spacing_accent_marks() -> dict[str, str]:
         parts = unicodedata.decomposition(char).split()
         if len(parts) == 3 and parts[0] == "<compat>" and parts[1] == "0020":
             marks[char] = chr(int(parts[2], 16))
-    return marks
+    return marks | _ACCENT_EXTRA
 
 
 _SPACING_ACCENTS = _spacing_accent_marks()

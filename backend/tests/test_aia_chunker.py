@@ -75,6 +75,28 @@ def test_clean_keeps_degree_sign_untouched():
     assert _clean("20 °C warm") == "20 °C warm"
 
 
+def test_clean_merges_spacing_circumflex_into_letter():
+    assert _clean("hˆotel") == "hôtel"
+
+
+def test_clean_merges_spacing_caron_into_letter():
+    assert _clean("ˇCech") == "Čech"
+
+
+def test_clean_keeps_ascii_caret_untouched():
+    # "^" steht in normalem Text fuer eine Potenz, nicht fuer einen Akzent.
+    assert _clean("2^3 = 8") == "2^3 = 8"
+
+
+def test_clean_keeps_backtick_untouched():
+    assert _clean("`code`") == "`code`"
+
+
+def test_clean_keeps_acute_used_as_apostrophe():
+    # Der Akut ist bewusst aussen vor: hier waere "gehtś" schlechter als vorher.
+    assert _clean("geht´s") == "geht´s"
+
+
 # ── _split_text ──────────────────────────────────────────────────────────────
 
 def test_split_empty_returns_empty_list():
