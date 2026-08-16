@@ -1,3 +1,4 @@
+import math
 import os
 from zoneinfo import ZoneInfo
 
@@ -29,6 +30,133 @@ _EMBED_INDEX_DIM = 2560
 # end-to-end (vector search is only ~10% of a hybrid_search call anyway — the rest is the
 # keyword/substring queries + RRF fusion).
 _HNSW_EF_SEARCH = 100
+
+# Fragewoerter und Fuellwoerter, die aus einer Suchanfrage fliegen. DE und EN in einer
+# Liste, damit dieselbe Anfrage in beiden Sprachen gleich behandelt wird.
+#
+# Warum es das braucht. Die Volltextsuche laeuft mit der Konfiguration ``simple``, die
+# KEINE Fuellwoerter kennt, und alle Woerter werden mit ODER verknuepft. "wann ist die
+# fragestunde" passte damit auf 314 von 327 Chunks, weil "die" und "ist" ueberall
+# vorkommen. Uebrig bleibt "fragestunde", und das passt auf genau einen.
+#
+# ``wann`` fehlte hier, obwohl ``wer``, ``was``, ``wie``, ``wo`` drinstanden. Der
+# ILIKE-Arm verknuepft seine Woerter mit UND, suchte also nach "wann" UND
+# "fragestunde" und verfehlte den einen Chunk, der das seltene Wort traegt: er sagt
+# "da machen wir noch eine Fragestunde" und enthaelt "wann" natuerlich nicht. Jede
+# Frage nach einem Zeitpunkt war davon betroffen.
+_QUERY_STOPWORDS = {
+    # Deutsch: Artikel, Praepositionen, Hilfsverben
+    "der","die","das","ein","eine","und","oder","ist","hat","war","mit","von","für","fuer",
+    "auf","aus","bei","den","dem","des","als","nach","über","ueber","vor","bis","wenn","dass",
+    "aber","auch","noch","nur","doch","sehr","wird","sind","kann","mehr","nicht","sich","gibt",
+    "diese","einer","einem","einen","muss","müssen","muessen","darf","dürfen","duerfen","soll",
+    "sollen","im","am","um","zu","zur","zum","es","man","mir","mich","ich","sie","er","wir",
+    # Deutsch: Fragewoerter. Sie stehen fast nie im Text, der die Antwort traegt.
+    "wer","was","wie","wo","wann","warum","wieso","weshalb","wem","wen","wessen","woher","wohin",
+    "welche","welcher","welches","welchem","welchen",
+    # Englisch
+    "the","and","or","of","is","in","to","a","an","that","this","for","with","on","at","by",
+    "from","as","it","be","are","were","has","had","have","not","but","so","if","then","do",
+    "does","did","what","which","who","when","where","why","how","can","must","should","would",
+}
+
+
+# Gewichte je Wort, gemerkt je Workspace. Eine Chat-Frage ruft die Suche einmal PRO
+# QUELLE auf, bei 30 Gesetzen also 30 mal mit derselben Anfrage, und die Chips noch
+# einmal je Antwortzeile. Ohne dieses Gedaechtnis zahlt jeder dieser Aufrufe die
+# Zaehlung erneut: gemessen 78 ms statt 10 ms pro Aufruf, also gut zwei Sekunden nur
+# fuers Zaehlen. Die Seltenheit ist ohnehin eine Eigenschaft des BESTANDES und nicht
+# der einzelnen Quelle, sie gehoert also gar nicht in den Aufruf.
+#
+# Die Haltezeit ist kurz, damit frisch eingelesene Quellen zeitnah einfliessen. Ein
+# veraltetes Gewicht macht die Rangfolge etwas ungenauer, nie falsch.
+_IDF_TTL_SECONDS = 300.0
+# Wie viele Woerter hoechstens in die Bewertung gehen, und ab welchem Gewicht sich ein
+# Wort ueberhaupt lohnt. Jedes Wort kostet eine eigene Indexpruefung pro Zeile. Eine
+# kurze Frage hat ohnehin ein bis zwei Inhaltswoerter, eine ganze Antwortzeile (so
+# suchen die Quellenchips) hat sechs und mehr, und die haeufigen darunter tragen nichts
+# zur Unterscheidung bei: sie stehen ja fast ueberall. Gemessen an fuenf echten
+# Antwortzeilen kostete die ungekuerzte Fassung 795 ms statt 577 ms, mit denselben
+# Treffern. Die seltensten Woerter entscheiden, so ist BM25 gebaut.
+# 0.7 entspricht rund "steht in hoechstens der Haelfte der Chunks".
+_KW_MAX_TERMS = 4
+_KW_MIN_IDF = 0.7
+_IDF_CACHE: dict[tuple[int, str], tuple[float, float]] = {}
+_IDF_N_CACHE: dict[int, tuple[float, int]] = {}
+
+
+def _term_idf(cur, workspace_id: int, terms: list[str]) -> list[tuple[str, float]]:
+    """Gewicht je Anfragewort: ``ln(N / df)`` ueber den ganzen Workspace.
+
+    Je seltener ein Wort im Bestand, desto schwerer wiegt ein Treffer darauf. Ein
+    Wort, das in JEDEM Chunk steht, bekommt 0 und faellt von selbst weg. Woerter, die
+    gar nicht vorkommen, fehlen im Ergebnis.
+
+    Postgres kann das nicht selbst: ``ts_rank`` und ``ts_rank_cd`` bewerten die Dichte
+    im einzelnen Text, nicht die Seltenheit im Bestand. Genau dieser Teil von BM25
+    fehlt, und ohne ihn zaehlt "die" so viel wie ein Fachbegriff.
+    """
+    import time as _time
+    jetzt = _time.monotonic()
+
+    n_eintrag = _IDF_N_CACHE.get(workspace_id)
+    if n_eintrag is None or jetzt - n_eintrag[0] > _IDF_TTL_SECONDS:
+        cur.execute(
+            """SELECT count(*) FROM aia_chunks c
+                 JOIN aia_sources s ON s.id = c.source_id
+                WHERE s.workspace_id = %s""",
+            (workspace_id,),
+        )
+        n_chunks = int(cur.fetchone()[0] or 0)
+        _IDF_N_CACHE[workspace_id] = (jetzt, n_chunks)
+    else:
+        n_chunks = n_eintrag[1]
+    if not n_chunks:
+        return []
+
+    fehlend = [w for w in terms
+               if (e := _IDF_CACHE.get((workspace_id, w.lower()))) is None
+               or jetzt - e[0] > _IDF_TTL_SECONDS]
+    if fehlend:
+        cur.execute(
+            """SELECT t.w,
+                      (SELECT count(*) FROM aia_chunks c
+                         JOIN aia_sources s ON s.id = c.source_id
+                        WHERE s.workspace_id = %s
+                          AND c.search_vector @@ plainto_tsquery('simple', t.w)) AS df
+                 FROM unnest(%s::text[]) AS t(w)""",
+            (workspace_id, fehlend),
+        )
+        for row in cur.fetchall():
+            _IDF_CACHE[(workspace_id, str(row["w"]).lower())] = (jetzt, float(row["df"] or 0))
+        if len(_IDF_CACHE) > 20000:      # Deckel, damit das Gedaechtnis nicht waechst
+            _IDF_CACHE.clear()
+
+    out: list[tuple[str, float]] = []
+    gesehen: set[str] = set()
+    for w in terms:
+        if w.lower() in gesehen:
+            continue
+        gesehen.add(w.lower())
+        df = _IDF_CACHE.get((workspace_id, w.lower()), (0.0, 0.0))[1]
+        if 0 < df <= n_chunks:
+            out.append((w, math.log(n_chunks / df)))
+    # Die seltensten zuerst, dann kuerzen. Traegt kein Wort genug, bleibt trotzdem das
+    # beste stehen, sonst faende eine Frage aus lauter haeufigen Woertern gar nichts.
+    out.sort(key=lambda t: t[1], reverse=True)
+    stark = [t for t in out if t[1] >= _KW_MIN_IDF] or out[:1]
+    return stark[:_KW_MAX_TERMS]
+
+
+def _content_words(query_text: str) -> list[str]:
+    """Die inhaltstragenden Woerter einer Anfrage, Fuellwoerter raus.
+
+    Eine Zeichenkette, keine Sprachlogik: kurze Woerter und die Liste oben fallen weg.
+    Bleibt nichts uebrig ("was ist das"), gibt es eine leere Liste und der Aufrufer
+    faellt auf die ganze Anfrage zurueck, damit eine reine Fuellwort-Frage nicht
+    ploetzlich gar nichts mehr findet."""
+    return [w for w in (t.strip(".,;:!?\"'()[]") for t in query_text.split())
+            if len(w) >= 2 and w.lower() not in _QUERY_STOPWORDS]
 
 
 def _vector_search_sql(source_filter: str) -> str:
@@ -202,38 +330,55 @@ def hybrid_search_chunks(
             vec_rows = cur.fetchall()
             vec_distance = {row["id"]: float(row["distance"]) for row in vec_rows}
 
-            # 2) Keyword search (top 80) - OR conjunction so individual search terms match
-            cur.execute(
-                f"""SELECT c.id, c.page_number, ROW_NUMBER() OVER (
-                        ORDER BY ts_rank_cd(c.search_vector,
-                            (regexp_replace(plainto_tsquery('simple', %s)::text, ' & ', ' | ', 'g'))::tsquery
-                        ) DESC
-                    ) AS rank
-                    FROM aia_chunks c
-                    JOIN aia_sources s ON s.id = c.source_id
-                    WHERE s.workspace_id = %s {source_filter}
-                      AND c.search_vector IS NOT NULL
-                      AND c.search_vector @@ (regexp_replace(plainto_tsquery('simple', %s)::text, ' & ', ' | ', 'g'))::tsquery
-                    LIMIT 80""",
-                [query_text, workspace_id] + source_param + [query_text],
-            )
-            kw_rows = cur.fetchall()
+            # 2) Keyword search (top 80). Content words only, OR-joined, ranked by the
+            # RARITY of the matched terms.
+            #
+            # Warum nicht ts_rank_cd allein: Postgres kennt kein IDF. ts_rank und
+            # ts_rank_cd bewerten die DICHTE eines Treffers im Text, nicht die
+            # SELTENHEIT des Wortes im Bestand. Damit zaehlt ein Wort, das in einem
+            # von 11.162 Chunks steht, genauso viel wie eines, das in allen steht.
+            # Gemessen: der einzige Chunk mit "Fragestunde" landete auf Platz 247.
+            # Genau diese Gewichtung ist der Kern von BM25, und sie ist der Grund,
+            # weshalb ein seltener Fachbegriff die richtige Stelle nach oben zieht.
+            #
+            # Die Gewichte kommen aus ``_term_idf`` und sind je Workspace gemerkt, weil
+            # eine Frage diese Suche einmal PRO QUELLE ausloest.
+            words = _content_words(query_text)
+            # Rueckfall Wort fuer Wort, nicht die ganze Zeichenkette: ``plainto_tsquery``
+            # verbindet eine mehrwortige Eingabe mit UND, eine Frage aus lauter
+            # Fuellwoertern ("was ist das") faende damit fast nichts. Einzelne Woerter
+            # bleiben ODER-verknuepft wie vorher.
+            _terms = _term_idf(cur, workspace_id, words or query_text.split())
+            if _terms:
+                # Summe der Gewichte aller getroffenen Woerter, bei Gleichstand die
+                # Dichte. Die Gewichte sind gerechnete Zahlen, keine Nutzereingabe.
+                _score = " + ".join(
+                    f"(CASE WHEN c.search_vector @@ plainto_tsquery('simple', %s) THEN {idf:.6f} ELSE 0 END)"
+                    for _w, idf in _terms
+                )
+                _any = " OR ".join(["c.search_vector @@ plainto_tsquery('simple', %s)"] * len(_terms))
+                _wparams = [w for w, _i in _terms]
+                cur.execute(
+                    f"""SELECT c.id, c.page_number, ROW_NUMBER() OVER (
+                            ORDER BY ({_score}) DESC,
+                                     ts_rank_cd(c.search_vector,
+                                         plainto_tsquery('simple', %s)) DESC
+                        ) AS rank
+                        FROM aia_chunks c
+                        JOIN aia_sources s ON s.id = c.source_id
+                        WHERE s.workspace_id = %s {source_filter}
+                          AND c.search_vector IS NOT NULL
+                          AND ({_any})
+                        LIMIT 80""",
+                    _wparams + [" ".join(_wparams), workspace_id] + source_param + _wparams,
+                )
+                kw_rows = cur.fetchall()
+            else:
+                kw_rows = []
 
             # 2b) Exact substring fallback (catches proper names / out-of-vocab terms).
-            # Stopwords spans DE + EN to keep ILIKE searches focused on content words
-            # regardless of source / query language.
-            _stop = {
-                # German
-                "der","die","das","ein","eine","und","oder","ist","hat","war","wer","was","wie","wo",
-                "mit","von","für","auf","aus","bei","den","dem","des","als","nach","über","vor","bis",
-                "wenn","dass","aber","auch","noch","nur","doch","sehr","wird","sind","kann","mehr",
-                "nicht","sich","gibt","diese","einer","einem","einen","welche","welcher","welches",
-                # English
-                "the","and","or","of","is","in","to","a","an","was","that","this","for","with","on",
-                "at","by","from","as","it","be","are","were","has","had","have","not","but","so",
-                "if","then","do","does","did","what","which","who","when","where","why","how",
-            }
-            words = [w for w in query_text.split() if len(w) >= 2 and w.lower() not in _stop]
+            # Content words only (see _QUERY_STOPWORDS) so an ILIKE search stays on the
+            # topical terms regardless of source / query language.
             if words:
                 ilike_clauses = " AND ".join(["c.content ILIKE %s"] * len(words))
                 ilike_params = [f"%{w}%" for w in words]

@@ -613,6 +613,64 @@ def test_expand_keeps_a_weak_anchors_neighbours_at_the_weak_distance():
     assert [c["id"] for c in best_first[:6]] == [114, 115, 116, 117, 118, 119]
 
 
+def test_expand_orders_by_the_fused_score_not_raw_cosine():
+    """Regression "insolvenzgeldvorfinanzierung" (1 chunk in 11.162).
+
+    The hybrid search fuses vector + keyword with RRF and correctly ranked the
+    rare-term chunk FIRST. Trimming then sorted by raw cosine distance alone, where
+    that same chunk sits at 0.557 behind neighbours at 0.467 — so the keyword
+    evidence the search had just produced was thrown away again at the cut, and the
+    only chunk in the corpus carrying the term never reached the model.
+
+    The sort key is the FUSED score, so a chunk that wins on the term wins the cut.
+    """
+    doc = [{"id": 100 + i, "page_number": i, "content": f"c{i}"} for i in range(10)]
+    anchors = [
+        # RRF #1 despite the worse cosine — the rare keyword carries it.
+        {"id": 105, "hybrid_score": 0.037, "vec_distance": 0.557},
+        {"id": 101, "hybrid_score": 0.029, "vec_distance": 0.467},
+    ]
+    out = _expand_with_neighbors(anchors, doc, radius=1, source_id=1)
+    by_id = {c["id"]: c["_anchor_dist"] for c in out}
+    assert by_id[105] < by_id[101]                  # fused winner sorts ahead
+    # The whole window of the fused winner is trimmed to before the loser's window,
+    # so a cut that keeps only a few chunks still contains the rare-term chunk.
+    best_first = [c["id"] for c in sorted(out, key=lambda c: c["_anchor_dist"])]
+    assert 105 in best_first[:4]
+    assert best_first.index(105) < best_first.index(101)
+
+
+def test_expand_ranks_the_anchor_itself_ahead_of_its_neighbours():
+    """Regression "wann ist die Fragestunde" (search rank 1, still cut).
+
+    A neighbour inherits its anchor's score, so anchor and neighbour tie — and a
+    stable sort then hands the lead to whichever comes first in the DOCUMENT. The
+    chunk that actually carries the term lost to the chunk in front of it, and a far
+    source with room for exactly one chunk contributed the wrong one.
+
+    Ties break by distance to the anchor, so the anchor itself always leads its own
+    window.
+    """
+    doc = [{"id": 100 + i, "page_number": i, "content": f"c{i}"} for i in range(10)]
+    anchors = [{"id": 105, "hybrid_score": 0.049}]
+    out = _expand_with_neighbors(anchors, doc, radius=3, source_id=1)
+    order = [c["id"] for c in sorted(out, key=lambda c: (c["_anchor_dist"], c["_anchor_gap"]))]
+    assert order[0] == 105                          # the anchor, not 102 in front of it
+    assert order[1] in (104, 106)                   # then its immediate neighbours
+    assert {c["_anchor_gap"] for c in out} == {0, 1, 2, 3}
+
+
+def test_expand_falls_back_to_cosine_without_a_fused_score():
+    # Callers that hand over plain vector hits (no RRF) keep working: smaller cosine
+    # still means better. Never mixed within one call — all anchors of a search
+    # carry the same fields.
+    doc = [{"id": 100 + i, "page_number": i, "content": f"c{i}"} for i in range(6)]
+    anchors = [{"id": 101, "vec_distance": 0.8}, {"id": 104, "vec_distance": 0.2}]
+    out = _expand_with_neighbors(anchors, doc, radius=0, source_id=1)
+    by_id = {c["id"]: c["_anchor_dist"] for c in out}
+    assert by_id[104] < by_id[101]
+
+
 def test_expand_bridge_filler_inherits_the_nearer_anchor():
     # Chunks pulled in only to bridge a gap belong to whichever anchor they sit
     # closer to, so a bridge cannot smuggle weak material in at a good score.

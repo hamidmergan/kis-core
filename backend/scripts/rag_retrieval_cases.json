@@ -53,6 +53,36 @@
    "expect_any": [29999, 30000],
    "note": "EntgFG 3, sechs Wochen"},
 
+  {"id": "matrikelnummern-verteilen",
+   "workspace": "7f088123-177a-464a-81dc-9d8b73c91c36",
+   "question": "wie werden die matrikelnummern auf die mengen verteilt",
+   "expect_any": [204256],
+   "note": "'Matrikelnummer' kommt in 2 von 327 Chunks vor"},
+
+  {"id": "ruhezeit-elf-stunden",
+   "workspace": "a11ea669-30a5-409e-b336-7864f2a331e1",
+   "question": "wie lang muss die ruhezeit zwischen zwei arbeitstagen sein",
+   "expect_any": [27488],
+   "note": "ArbZG 5, elf Stunden. Der Chunk enthaelt 'zwischen' und 'Arbeitstagen' NICHT, der ILIKE-Arm verknuepft aber alle Inhaltswoerter mit UND"},
+
+  {"id": "wann-beginnt-nachtzeit",
+   "workspace": "a11ea669-30a5-409e-b336-7864f2a331e1",
+   "question": "wann beginnt die nachtzeit",
+   "expect_any": [27485],
+   "note": "HAERTEFALL fuer die Stoppliste: 'wann' fehlt darin, gilt also als Inhaltswort. Der Antwort-Chunk enthaelt das Wort 'wann' nicht, der ILIKE-Arm faellt damit aus"},
+
+  {"id": "insolvenzgeldvorfinanzierung",
+   "workspace": "a11ea669-30a5-409e-b336-7864f2a331e1",
+   "question": "was ist die insolvenzgeldvorfinanzierung",
+   "expect_any": [23667],
+   "note": "HAERTEFALL fuer IDF: der Begriff steht in 1 von 11.162 Chunks. Genau hier muss ein seltenes Wort die Rangliste bestimmen, ts_rank_cd kennt aber keine Seltenheit"},
+
+  {"id": "nachtzeit-baeckerei",
+   "workspace": "a11ea669-30a5-409e-b336-7864f2a331e1",
+   "question": "wann ist nachtzeit in baeckereien und konditoreien",
+   "expect_any": [27485],
+   "note": "'Konditoreien' in 3 von 11.162 Chunks, dazu wieder das 'wann'"},
+
   {"id": "vergleich-kschg-arbzg",
    "workspace": "a11ea669-30a5-409e-b336-7864f2a331e1",
    "question": "was regeln das kuendigungsschutzgesetz und das arbeitszeitgesetz",

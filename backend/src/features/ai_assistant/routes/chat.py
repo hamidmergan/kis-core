@@ -828,8 +828,16 @@ def _expand_with_neighbors(
     content, start/end_time). Each anchor becomes a window ``[i-radius, i+radius]``;
     windows whose gap is ``<= bridge`` are merged so two anchors that BRACKET the
     answer also pull the chunks between them. Returns the covered chunks in document
-    order, each tagged with ``_anchor_dist`` — the distance of the anchor that chunk
-    actually sits NEAREST to — so the caller can trim best-first.
+    order, each tagged with ``_anchor_dist`` — the sort key of the anchor that chunk
+    actually sits NEAREST to, smaller is better — so the caller can trim best-first.
+
+    The key is the FUSED hybrid score (RRF over vector + keyword), negated so smaller
+    stays better. Raw cosine alone throws away the keyword evidence the search just
+    produced: "insolvenzgeldvorfinanzierung" occurs in exactly 1 of 11.162 chunks and
+    the search ranked it first, but at cosine 0.557 it sorted behind neighbours at
+    0.467 and was cut. Anchors without a fused score (plain vector callers) fall back
+    to the cosine distance; the two are never mixed inside one call, because all
+    anchors of a search carry the same fields.
 
     Why: a fact often sits NEXT TO a hit, or BETWEEN two hits, rather than in either
     (a co-author named between the "Autoren" heading and the contact section). The
@@ -858,8 +866,13 @@ def _expand_with_neighbors(
         i = pos.get(a["id"])
         if i is None:
             continue
-        ad = a.get("vec_distance")
-        marks.append((i, ad if ad is not None else 1.0))
+        _fused = a.get("hybrid_score")
+        if _fused is not None:
+            key = -float(_fused)          # higher fused score -> smaller key
+        else:
+            _vd = a.get("vec_distance")
+            key = float(_vd) if _vd is not None else 1.0
+        marks.append((i, key))
     if not marks:
         return []
     marks.sort()
@@ -873,8 +886,8 @@ def _expand_with_neighbors(
         else:
             spans.append([lo, hi])
 
-    def _nearest(j: int) -> float:
-        """Distance of the anchor closest to chunk index ``j``, ties to the better one.
+    def _nearest(j: int) -> tuple[float, int]:
+        """Sort key and hop count of the anchor closest to chunk index ``j``.
 
         bisect over the sorted anchor indices, so only the two neighbouring anchors
         are compared instead of all of them — the whole expansion stays linear in the
@@ -887,14 +900,19 @@ def _expand_with_neighbors(
                 key = (gap, marks[cand][1])
                 if best is None or key < best:
                     best = key
-        return best[1] if best else 1.0
+        return (best[1], best[0]) if best else (1.0, 0)
 
     out: list[dict] = []
     for lo, hi in spans:
         for j in range(lo, hi + 1):
             c = dict(doc_chunks[j])
             c["source_id"] = source_id
-            c["_anchor_dist"] = _nearest(j)
+            # ``_anchor_gap`` = hops to that anchor. It breaks the tie between an
+            # anchor and the neighbours that INHERIT its score: without it a stable
+            # sort hands the lead to whichever sits first in the DOCUMENT, so the
+            # chunk that actually carries the term lost to the chunk in front of it
+            # and a far source with room for one chunk contributed the wrong one.
+            c["_anchor_dist"], c["_anchor_gap"] = _nearest(j)
             out.append(c)
     return out
 
@@ -942,16 +960,15 @@ async def _retrieve_specific_context(
     async def _expand_one(sid: int) -> Optional[tuple[list[dict], Optional[float], str]]:
         async with _sem:
             # Search this source with EACH retrieval query (clause); merge anchors,
-            # keeping each chunk's BEST (smallest) distance across the clauses.
+            # keeping each chunk's BEST (highest) fused score across the clauses —
+            # the same signal the trimming below orders by.
             merged: dict[int, dict] = {}
             for _qtext, _qvec in _query_pairs:
                 for a in (await asyncio.to_thread(
                         db.hybrid_search_chunks, workspace_id, _qtext, _qvec,
                         [sid], _NEIGHBOR_ANCHORS, fuzzy=False) or []):
-                    ad = a.get("vec_distance")
                     prev = merged.get(a["id"])
-                    if prev is None or (ad is not None and (prev.get("vec_distance") is None
-                                                            or ad < prev["vec_distance"])):
+                    if prev is None or (a.get("hybrid_score") or 0.0) > (prev.get("hybrid_score") or 0.0):
                         merged[a["id"]] = a
             if not merged:
                 return None
@@ -984,8 +1001,10 @@ async def _retrieve_specific_context(
                         expanded[0]["source_id"] if expanded else "?", _src_best, _dist_threshold)
             continue
         # order each source's windows best-anchor-first so its budget share takes
-        # the most on-point chunks first
-        kept.append((sorted(expanded, key=lambda c: c.get("_anchor_dist", 1.0)), _src_best))
+        # the most on-point chunks first; equal score -> the anchor itself before the
+        # neighbours that only inherited it (see _expand_with_neighbors)
+        kept.append((sorted(expanded, key=lambda c: (c.get("_anchor_dist", 1.0),
+                                                     c.get("_anchor_gap", 0))), _src_best))
     # NAMED-SOURCE BOOST: if the question uniquely names a source by its title
     # (self-name match), pull that source's distance just under the global best so the
     # allocator below makes it Primary — a distractor that merely CITES it can no longer
