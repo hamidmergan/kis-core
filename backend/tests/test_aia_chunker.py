@@ -142,6 +142,30 @@ def test_split_chunks_overlap():
     assert chunks[1][:1] in chunks[0]
 
 
+def test_split_never_starts_a_chunk_mid_word():
+    """Das Ende eines Chunks wurde auf eine Wortgrenze gezogen, der Anfang des
+    naechsten nicht: ``next_start`` war eine rohe Zeichenposition. Damit begann fast
+    jeder Chunk mitten im Wort, aus "Richtlinie" wurde "ichtlinie". Gemessen an den
+    Gesetzen: bei 36,9 Prozent der geprueften Chunks kam das erste Wort im ganzen
+    Bestand kein zweites Mal vor, war also ein Bruchstueck. Ein solches Wort ist in
+    diesem Chunk nicht auffindbar."""
+    text = "alpha beta gamma delta epsilon zeta eta theta iota kappa lambda my"
+    chunks = _split_text(text, 20, 8)
+    assert len(chunks) > 1
+    woerter = set(text.split())
+    for c in chunks:
+        assert c.split()[0] in woerter, f"Chunk beginnt im Wort: {c[:25]!r}"
+
+
+def test_split_snapping_keeps_every_character():
+    # Zurueckziehen auf die Wortgrenze verlaengert die Ueberlappung, es darf dabei
+    # nichts verloren gehen.
+    text = " ".join(f"wort{i:03d}" for i in range(40))
+    chunks = _split_text(text, 50, 15)
+    for w in text.split():
+        assert any(w in c for c in chunks), f"{w} fehlt"
+
+
 def test_split_terminates_on_pathological_overlap():
     # overlap >= chunk_size would make next_start regress; the guard must break
     # instead of looping forever.

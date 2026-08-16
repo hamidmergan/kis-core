@@ -301,6 +301,29 @@ def _split_text(text: str, chunk_size: int, overlap: int) -> list[str]:
         next_start = start + len(chunk) - overlap
         if next_start <= start:
             break
+        # Auch den ANFANG auf eine Wortgrenze ziehen. Das Ende wird oben schon
+        # gezogen, next_start war aber eine rohe Zeichenposition, also begann fast
+        # jeder Chunk mitten im Wort: aus "Richtlinie" wurde "ichtlinie". Gemessen an
+        # den 30 Gesetzen der Testablage kam bei 36,9 Prozent der Chunks das erste
+        # Wort im ganzen Bestand kein zweites Mal vor, war also ein Bruchstueck. Ein
+        # so zerschnittenes Wort ist in diesem Chunk nicht mehr auffindbar.
+        #
+        # Zurueck statt vor, damit nichts verloren geht: die Ueberlappung wird um
+        # hoechstens eine Wortlaenge groesser, nie kleiner. Der Vergleich mit start
+        # haelt den Fortschritt und damit die Abbruchbedingung oben intakt.
+        if not text[next_start - 1].isspace():
+            wortanfang = text.rfind(" ", start, next_start)
+            if wortanfang + 1 > start:
+                next_start = wortanfang + 1
+            else:
+                # Zurueck ginge nur ueber start hinaus und wuerde den Fortschritt
+                # aufheben. Dann vorwaerts auf die naechste Luecke, aber nur bis zum
+                # Ende des eben gebauten Chunks: das Ende steht auf einer Wortgrenze,
+                # dieses Wort liegt also vollstaendig im Chunk davor und geht nicht
+                # verloren.
+                vor = text.find(" ", next_start)
+                if vor != -1 and vor + 1 <= start + len(chunk):
+                    next_start = vor + 1
         start = next_start
     # Fold away tiny leftover fragments (< 10% of a full chunk) so a split page
     # does not seed the index with header-scrap magnets. Threshold is relative to
