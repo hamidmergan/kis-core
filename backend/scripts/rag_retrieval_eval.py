@@ -195,3 +195,19 @@ async def _main() -> int:
 
 if __name__ == "__main__":
     sys.exit(asyncio.run(_main()))
+
+
+# ── Was dieser Satz NICHT misst ──────────────────────────────────────────────
+#
+# Die FIT-ABKUERZUNG in ``chat()``: passen alle aktiven Quellen zusammen ins Budget,
+# wird gar nicht abgerufen, sondern der ganze Bestand geschickt. Dieser Satz ruft
+# ``_retrieve_specific_context`` direkt und laeuft deshalb immer den Abrufweg. Wer die
+# Abkuerzung pruefen will, nimmt ``rag_answer_eval.py``, der geht ueber die echte API.
+#
+# Am 16.08.2026 einmal durchgespielt: das Budget von 250.000 auf 320.000 Zeichen
+# gesetzt, damit der Kurs WuK (302.831 Zeichen) vollstaendig hineinpasst. Hier aenderte
+# sich NICHTS (15/15 vorher wie nachher), weil die Abkuerzung gar nicht erreicht wird.
+# Am Antwort-Messsatz dagegen fiel das Ergebnis von 8/9 auf 6/9: die Ueberblicksantwort
+# liess eine von 13 Aufzeichnungen aus, und die Fragestunden-Antwort verlor ihren Bezug
+# zu den affinen Chiffren. Mehr Kontext war messbar SCHLECHTER. Budget wieder auf
+# 250.000.
