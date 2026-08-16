@@ -168,3 +168,21 @@ def test_a_statement_about_the_sources_is_not_a_gap_line(line):
 
 def test_gap_line_survives_bold():
     assert is_gap_line("**Wann die Klausur ist**, steht nicht in den Quellen.") is True
+
+
+def test_prompt_keeps_one_fact_per_sentence_in_the_opening():
+    """Zwei Funde aus zwei Quellen sind ZWEI Saetze, nicht einer.
+
+    Der Prompt sagte "OPEN with ... ONE short sentence with its concrete facts" und
+    zwang damit zwei Funde in einen Satz. Die Chip-Vergabe arbeitet aber pro Satz und
+    sucht die Fundstelle fuer den ganzen Satz. Ein Satz ueber zwei Passagen laesst sich
+    keiner von beiden zuordnen. Beobachtet am 2026-08-16 auf Produktion: "Die Quellen
+    erwaehnen eine Klausur 8.9. sowie die Feststellung der Pruefungsvorleistung bis zum
+    15. Juni" bekam drei Chips, und die Aufzeichnung mit dem 8.9. war bei keinem dabei.
+    Genau die haette der Leser gebraucht, denn dort zeigt der Dozent eine ALTE Klausur.
+    """
+    p = aia_system_rag("de")
+    assert "ONE FACT PER SENTENCE" in p
+    assert "a sentence built from two passages can be linked to neither" in p
+    # Die alte Vorgabe darf nicht zurueckkommen.
+    assert "OPEN with what the documents DO say about the subject, ONE short sentence" not in p

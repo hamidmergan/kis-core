@@ -5,7 +5,8 @@ oft nicht wieder und ein Set kam mit Chips bei der Hälfte der Sätze heraus. Hi
 zählt die Reihenfolge: was das Modell selbst nennt schlägt die Suche, und die
 Sektion fängt den Rest ab.
 
-Kein DB- und kein Netzzugriff: Embedding und Suche werden hineingereicht.
+Kein DB- und kein Netzzugriff: Embedding, Suche und die Whisper-Segmente werden
+hineingereicht.
 """
 
 import pytest
@@ -60,6 +61,15 @@ def _media_ctx():
 
 def _embed(texts):
     return [[1.0, 0.0] for _ in texts]
+
+
+def _no_segments(source_id):
+    """Keine Whisper-Segmente bekannt, also bleibt die Zeitmarke am Chunk-Anfang.
+
+    Ein Medien-Treffer holt sich sonst die Segmente der Quelle aus der Datenbank, um die
+    Zeitmarke auf den zitierten Satz zu ruecken. Ohne diesen Ersatz haengen die Tests
+    unten an DATABASE_URL, was hier nichts zu suchen hat."""
+    return []
 
 
 def _hit(source_id, page, distance=0.2, start_time=None):
@@ -194,7 +204,8 @@ def test_a_cited_segment_number_is_not_trusted_for_media():
     items = [{"front": "S", "back": "T", "_page": 7}]
     out = attach_chips_cited(items, ["T"], _media_ctx(),
                              embed_fn=_embed,
-                             search_fn=lambda t, v: [_hit(3, 8, start_time=140.0)])
+                             search_fn=lambda t, v: [_hit(3, 8, start_time=140.0)],
+                             segments_fn=_no_segments)
     assert out[0]["start_time"] == 140.0
     assert out[0]["page_number"] is None
 
@@ -203,7 +214,8 @@ def test_a_search_hit_still_cites_media_by_timestamp():
     items = [{"front": "S", "back": "T"}]
     out = attach_chips_cited(items, ["T"], _media_ctx(),
                              embed_fn=_embed,
-                             search_fn=lambda t, v: [_hit(3, 7, start_time=91.5)])
+                             search_fn=lambda t, v: [_hit(3, 7, start_time=91.5)],
+                             segments_fn=_no_segments)
     assert out[0]["sources"] == [
         {"source_label": "V.mp4", "page_number": None, "start_time": 91.5}]
 

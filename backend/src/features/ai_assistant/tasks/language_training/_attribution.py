@@ -49,10 +49,16 @@ def attach_chips(
     multi: bool = False,
     embed_fn=None,
     search_fn=None,
+    segments_fn=None,
 ) -> list[dict]:
     """Attribute each item's ``claim`` and attach nav-only ``sources`` (+ primary
     source_label/page_number/start_time from the first chip). Items that ground nowhere
-    get no chip (their source fields are cleared), never a guessed page."""
+    get no chip (their source fields are cleared), never a guessed page.
+
+    ``embed_fn``/``search_fn``/``segments_fn`` gehen unveraendert an
+    :func:`~src.services.aia_attribution.attribute_claims`. Alle drei greifen sonst nach
+    aussen (Embedding-Anbieter, pgvector, Whisper-Segmente aus der Ablage), ein Test muss
+    also jeden von ihnen ersetzen koennen."""
     workspace_id, source_ids, id_to_label = attribution_inputs(ctx)
     chip_lists = attribute_claims(
         claims, id_to_label, multi=multi,
@@ -61,7 +67,7 @@ def attach_chips(
         # a card can only cite material from its own generation context, never elsewhere.
         # `or None` is a safety net: an empty seen-set would otherwise strip EVERY chip.
         seen_pages_by_source=ctx.seen_pages_by_source or None,
-        embed_fn=embed_fn, search_fn=search_fn,
+        embed_fn=embed_fn, search_fn=search_fn, segments_fn=segments_fn,
     )
     for item, chips in zip(items, chip_lists):
         _write_chips(item, chips)
@@ -92,6 +98,7 @@ def attach_chips_cited(
     *,
     embed_fn=None,
     search_fn=None,
+    segments_fn=None,
 ) -> list[dict]:
     """Attach one nav-only chip per item, taking the most trustworthy origin available.
 
@@ -111,6 +118,9 @@ def attach_chips_cited(
     One gap stays open on purpose: several sources, no cited page, no named section and no
     search hit. Guessing a source there would be worse than staying silent, so the item
     keeps no chip and the counts below make it visible.
+
+    ``embed_fn``/``search_fn``/``segments_fn`` gehen unveraendert an Schritt 2 weiter, siehe
+    :func:`attach_chips`.
     """
     workspace_id, source_ids, id_to_label = attribution_inputs(ctx)
     chips: list[dict | None] = [_cited_chip(item, ctx, id_to_label) for item in items]
@@ -123,7 +133,7 @@ def attach_chips_cited(
             id_to_label, multi=False,
             workspace_id=workspace_id, source_ids=source_ids,
             seen_pages_by_source=ctx.seen_pages_by_source or None,
-            embed_fn=embed_fn, search_fn=search_fn,
+            embed_fn=embed_fn, search_fn=search_fn, segments_fn=segments_fn,
         )
         for i, hits in zip(open_idx, found):
             if hits:
