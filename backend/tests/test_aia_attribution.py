@@ -60,6 +60,38 @@ def test_media_hit_cites_timestamp_not_page():
     assert chips == [{"source_label": "Vorlesung.webm", "page_number": None, "start_time": 92.0}]
 
 
+# ── Segment-genaue Zeitmarke, wie im Chat ────────────────────────────────────
+# Ein Medien-Chunk fasst 1000 Zeichen zusammen, bei langsamem Sprechen ueber zwei
+# Minuten. Die Chunk-Startzeit zeigt dann Minuten vor die zitierte Aussage.
+
+_SEGMENTE = [
+    {"start": 0.0, "end": 24.0, "text": "Ja, herzlich willkommen zur heutigen Konferenz."},
+    {"start": 30.0, "end": 59.0, "text": "Heute geht es um wissenschaftliches Arbeiten."},
+    {"start": 117.0, "end": 128.0, "text": "Beim Abdriften merken Sie, dass die Recherche wegfuehrt."},
+]
+
+
+def test_media_chip_points_at_the_segment_that_carries_the_claim():
+    hits = [_hit(3, 9, 0.2, start=0.0)]
+    hits[0]["end_time"] = 128.0
+    chips = chips_for_claim(hits, {3: "Vorlesung.webm"},
+                            claim="Beim Abdriften fuehrt die Recherche weg vom Thema",
+                            segments_fn=lambda sid: _SEGMENTE)
+    assert chips == [{"source_label": "Vorlesung.webm", "page_number": None, "start_time": 117.0}]
+
+
+def test_pdf_chip_never_asks_for_segments():
+    # Eine reine PDF-Sammlung darf die Ablage gar nicht erst anfassen.
+    gefragt = []
+
+    def segments_fn(sid):
+        gefragt.append(sid)
+        return []
+
+    chips_for_claim([_hit(1, 12, 0.2)], {1: "Skript.pdf"}, claim="x", segments_fn=segments_fn)
+    assert gefragt == []
+
+
 def test_multi_adds_cosources_within_delta_only():
     hits = [
         _hit(1, 5, 0.20),   # best

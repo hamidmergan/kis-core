@@ -667,14 +667,89 @@ def _exact_attribution_chunk(line: str, context_chunks: list[dict]) -> Optional[
     return None
 
 
-def _attribution_chip(qnum: int, chunk: dict, line: str) -> list[str]:
+# Wie viel Wortanfang zaehlt, wenn eine Antwortzeile gegen ein Transkript-Segment
+# gehalten wird. Das Modell beugt die Woerter neu ("ein grosses C" in der Antwort,
+# "einem grossen C" im Ton), ein Vergleich auf das ganze Wort findet dann nichts.
+# Sechs Zeichen lassen die Endung fallen und halten den Wortstamm fest. Reine
+# Praefix-Regel ohne Wortlisten, also unabhaengig von der Sprache.
+_SEGMENT_STEM_CHARS = 6
+
+# Wie viele Wortstaemme ein Segment mindestens tragen muss, damit es die Zeitmarke
+# bestimmen darf. Ein einzelnes Wort trifft zu leicht das falsche Segment: gemessen an
+# 1781 Saetzen mit eindeutiger Wahrheit riss genau das die Ausreisser hoch (99 Faelle
+# ueber zehn Sekunden schlechter als der Chunk-Anfang). Ab zwei Staemmen bleiben von
+# den Ausreissern ueber zehn Sekunden 72 statt 661, der mittlere Fehler faellt von
+# 12,5 auf 1,4 Sekunden. Traegt kein Segment zwei, bleibt es beim Chunk-Anfang.
+_SEGMENT_MIN_STEM_HITS = 2
+
+
+def _chunk_segments(chunk: dict, segments: list[dict]) -> list[dict]:
+    """Die Whisper-Segmente, die innerhalb dieses Medien-Chunks liegen.
+
+    Die halbe Sekunde Toleranz faengt das Runden zwischen Chunk-Grenze und
+    Segment-Start ab. Ohne Zeiten am Chunk gibt es nichts zuzuordnen."""
+    if chunk.get("start_time") is None or chunk.get("end_time") is None or not segments:
+        return []
+    tol = 0.5
+    return [
+        s for s in segments
+        if chunk["start_time"] - tol <= s["start"] <= chunk["end_time"] + tol
+    ]
+
+
+def _line_segment_start(line: str, chunk: dict, segments: list[dict]) -> Optional[float]:
+    """Startzeit des Segments, das die zitierte Zeile traegt, oder None.
+
+    Ein Medien-Chunk fasst bis zu 1000 Zeichen zusammen. Wie lang das in Minuten
+    wird, haengt allein am Sprechtempo: gemessen 65 Sekunden im Schnitt und 114
+    im laengsten Fall, bei einer langsamen Vorlesung mit vielen Pausen ueber zwei
+    Minuten. Die Chunk-Startzeit zeigt dann auf die Begruessung, waehrend der
+    zitierte Satz kurz vor dem Chunk-Ende faellt.
+
+    Gewaehlt wird das Segment, das die meisten Wortstaemme der Zeile enthaelt.
+    Traegt keines genug davon, bleibt es beim Chunk-Anfang: eine geratene Minute
+    waere schlechter als der bekannte Rahmen."""
+    segs = _chunk_segments(chunk, segments)
+    if len(segs) < 2:
+        return None
+    stems = {_norm_for_match(t)[:_SEGMENT_STEM_CHARS] for t in _significant_tokens(line)}
+    stems.discard("")
+    if not stems:
+        return None
+    scores = [
+        sum(1 for stem in stems if stem in _norm_for_match(s.get("text") or ""))
+        for s in segs
+    ]
+    best = max(scores)
+    if best < _SEGMENT_MIN_STEM_HITS:
+        return None
+    i = scores.index(best)
+    # Ein gesprochener Satz laeuft oft ueber zwei Segmente, und die zweite Haelfte
+    # traegt die auffaelligeren Woerter. Solange das Segment davor noch mittraegt,
+    # ruecken wir an den Anfang dieses Laufs: markiert gehoert der Satzanfang, nicht
+    # seine Mitte.
+    while i > 0 and scores[i - 1] >= max(1, best - 1):
+        i -= 1
+    return segs[i]["start"]
+
+
+def _attribution_chip(qnum: int, chunk: dict, line: str,
+                      segments: Optional[list[dict]] = None) -> list[str]:
     """Nav-only citation chip for a post-hoc attributed line: a MEDIA chunk (audio/video —
     has a ``start_time``) cites its timestamp ``[N, MM:SS]``; a PDF chunk cites its page
     ``[N, S. X]``. Media also carries a transcript ``page_number`` (segment index) which
     must NOT be rendered as a page, so the start_time is checked FIRST. No span offset, no
-    keyword — clicking only scrolls to the page/timestamp. `line` kept for stability/logging."""
+    keyword — clicking only scrolls to the page/timestamp.
+
+    ``segments`` sind die Whisper-Segmente der Quelle. Mit ihnen zeigt der Chip auf das
+    Segment, das ``line`` traegt, statt auf den Chunk-Anfang (siehe
+    :func:`_line_segment_start`). Ohne sie bleibt es beim bisherigen Chunk-Anfang."""
     st = chunk.get("start_time")
     if st is not None:
+        if line and segments:
+            seg_start = _line_segment_start(line, chunk, segments)
+            if seg_start is not None:
+                st = seg_start
         return [f"[{qnum}, {_format_timestamp(st)}]"]
     page = chunk.get("page_number")
     return [f"[{qnum}, S. {page}]"] if page is not None else []
@@ -1015,7 +1090,8 @@ def _line_candidates(line: str, search_one, context_chunks: Optional[list[dict]]
 def _chips_for_line(cands: list[dict], source_id_to_qnum: dict,
                     max_distance: float,
                     guarantee_dist: float = _GUARANTEE_MAX_DIST,
-                    line: str = "", corpus: Optional[list[str]] = None) -> list[str]:
+                    line: str = "", corpus: Optional[list[str]] = None,
+                    transcript_by_source: Optional[dict[int, list[dict]]] = None) -> list[str]:
     """Build the chip list for ONE line from its closest-first candidates.
 
     The first usable candidate is the GUARANTEE chip (closest retrieved chunk, accepted
@@ -1036,7 +1112,10 @@ def _chips_for_line(cands: list[dict], source_id_to_qnum: dict,
 
     ``corpus`` is what "word for word" is judged against: every chunk the answer was
     written from. Falling back to this line's own candidates makes the sample too small
-    to separate a filler adverb from a technical term."""
+    to separate a filler adverb from a technical term.
+
+    ``transcript_by_source`` sind die Whisper-Segmente je Quelle. Damit zeigt ein
+    Medien-Chip auf das Segment, das ``line`` traegt, statt auf den Chunk-Anfang."""
     from src.services.aia_literal_evidence import adds_literal_evidence
     chips: list[str] = []
     keys: set = set()
@@ -1066,17 +1145,18 @@ def _chips_for_line(cands: list[dict], source_id_to_qnum: dict,
                 line and adds_literal_evidence(
                     line, h.get("content") or "", primary_content, evidence_corpus)):
             continue                     # further away AND adds nothing the best one lacks
-        st = h.get("start_time")
-        if st is not None:                  # media: dedup by timestamp, NOT the transcript
-            key = (qnum, "t", st)           # segment index that lives in page_number
-        else:
-            key = (qnum, h.get("page_number"))
-        if key in keys:
+        c = _attribution_chip(qnum, h, line,
+                              (transcript_by_source or {}).get(h.get("source_id")))
+        if not c:
             continue
-        c = _attribution_chip(qnum, h, "")
-        if c:
-            chips.extend(c)
-            keys.add(key)
+        # Der fertige Chip ist der Schluessel: er traegt Quelle und Ziel schon in sich.
+        # Bei Medien ist das die segmentgenaue Zeit, nicht der Transkript-"Seite", die
+        # als Segment-Nummer in page_number steckt. Zwei Chunks, deren zitierter Satz
+        # im selben Segment liegt, fallen damit zu einem Chip zusammen.
+        if c[0] in keys:
+            continue
+        chips.extend(c)
+        keys.add(c[0])
         if len(chips) >= _MAX_CHIPS_PER_LINE:
             break
     return chips
@@ -1235,7 +1315,7 @@ def _enum_chip_unbacked(text: str, content: str) -> bool:
 def _attribute_prose_line(sentences: list[str], search_one, source_id_to_qnum: dict, *,
                           context_chunks, seen_pages_by_source, scope_ids,
                           max_distance: float, guarantee: float, overview: bool,
-                          literal_lookup=None) -> str:
+                          literal_lookup=None, transcript_by_source=None) -> str:
     """Rebuild a PROSE paragraph with a citation chip AFTER EACH sentence.
 
     Each sentence is grounded on its OWN vector — whole-sentence closest source plus one
@@ -1255,7 +1335,8 @@ def _attribute_prose_line(sentences: list[str], search_one, source_id_to_qnum: d
                                      literal_lookup=literal_lookup, corpus=corpus)
             if cands and not (overview and _enum_chip_unbacked(sent, cands[0].get("content") or "")):
                 chips = _chips_for_line(cands, source_id_to_qnum, max_distance,
-                                        guarantee_dist=guarantee, line=sent, corpus=corpus)
+                                        guarantee_dist=guarantee, line=sent, corpus=corpus,
+                                        transcript_by_source=transcript_by_source)
                 seen_targets = set(chips)
                 for cl in _clauses(sent):
                     ccands = _line_candidates(cl, search_one, context_chunks,
@@ -1263,7 +1344,8 @@ def _attribute_prose_line(sentences: list[str], search_one, source_id_to_qnum: d
                                               literal_lookup=literal_lookup, corpus=corpus)
                     cchips = _chips_for_line(ccands, source_id_to_qnum, max_distance,
                                              guarantee_dist=guarantee, line=cl,
-                                             corpus=corpus) if ccands else []
+                                             corpus=corpus,
+                                             transcript_by_source=transcript_by_source) if ccands else []
                     # A clause search ALWAYS returns its nearest chunk, so an extra chip must
                     # earn its place: it only stays if its passage covers a word of the
                     # SENTENCE the closest passage is missing.
@@ -1382,7 +1464,8 @@ def _attribute_generic_text(text: str, search_one, source_id_to_qnum: dict, offs
                             max_distance: float = _GENERIC_ATTRIB_MAX_DIST,
                             refusal_lines: Optional[set] = None,
                             scope_chunks: Optional[list[dict]] = None,
-                            literal_lookup=None) -> str:
+                            literal_lookup=None,
+                            transcript_by_source: Optional[dict[int, list[dict]]] = None) -> str:
     """Re-ground each substantial, uncited line of a GENERIC answer.
 
     Two-stage grounding per line:
@@ -1419,7 +1502,11 @@ def _attribute_generic_text(text: str, search_one, source_id_to_qnum: dict, offs
     "not in the sources" REFUSAL (embedding-near the no-info sentinel). They are skipped
     here exactly like a non-candidate line, so a COMPOUND answer that answers one part and
     refuses another never attaches a (misleading) source chip to the refusal sentence — the
-    GUARANTEE would otherwise chip it, since the answered part already grounded the whole."""
+    GUARANTEE would otherwise chip it, since the answered part already grounded the whole.
+
+    ``transcript_by_source`` (optional) sind die Whisper-Segmente je Medienquelle. Damit
+    zeigt ein Medien-Chip auf das Segment, das die Zeile traegt, statt auf den Anfang des
+    ganzen Chunks (siehe :func:`_line_segment_start`)."""
     lines = text.split("\n")
     # An explicit page/time scope clamps attribution to the chunks the model was shown, so
     # a "from minute 40" summary can never cite a closer chunk from minute 13 (media's
@@ -1498,7 +1585,8 @@ def _attribute_generic_text(text: str, search_one, source_id_to_qnum: dict, offs
                             context_chunks=context_chunks, seen_pages_by_source=seen_pages_by_source,
                             scope_ids=scope_ids, max_distance=max_distance,
                             guarantee=guarantee, overview=overview,
-                            literal_lookup=literal_lookup)
+                            literal_lookup=literal_lookup,
+                            transcript_by_source=transcript_by_source)
                 continue
             block_text = " ".join(lines[i] for i in blk)
             if overview and _holds_for_every_sentence(block_text, _names_many_laws):
@@ -1518,7 +1606,8 @@ def _attribute_generic_text(text: str, search_one, source_id_to_qnum: dict, offs
                 continue
             chips = _chips_for_line(agg, source_id_to_qnum, max_distance,
                                     guarantee_dist=guarantee, line=block_text,
-                                    corpus=evidence_corpus)
+                                    corpus=evidence_corpus,
+                                    transcript_by_source=transcript_by_source)
             # Clause coverage: the whole-line vector is closest to ONE fact, so the cap /
             # relative-delta gate trims the others. Add each distinct clause's single closest
             # in-gate source as a coverage chip — so every fact in a multi-fact bullet earns a
@@ -1530,7 +1619,8 @@ def _attribute_generic_text(text: str, search_one, source_id_to_qnum: dict, offs
                     for ccands in clause_cands_by_idx.get(idx, []):
                         cchips = _chips_for_line(ccands, source_id_to_qnum, max_distance,
                                                  guarantee_dist=guarantee, line=block_text,
-                                                 corpus=evidence_corpus)
+                                                 corpus=evidence_corpus,
+                                                 transcript_by_source=transcript_by_source)
                         # Same rule as the prose path: an extra chip must cover something of
                         # the BLOCK that the closest passage does not already carry.
                         if (cchips and cchips[0] not in seen_targets
@@ -1595,13 +1685,7 @@ def _enrich_media_content(chunk: dict, segments: list[dict]) -> str:
     Falls back to the original content if segments can't be aligned.
     """
     content = chunk.get("content") or ""
-    if chunk.get("start_time") is None or chunk.get("end_time") is None or not segments:
-        return content
-    tol = 0.5
-    relevant = [
-        s for s in segments
-        if chunk["start_time"] - tol <= s["start"] <= chunk["end_time"] + tol
-    ]
+    relevant = _chunk_segments(chunk, segments)
     if len(relevant) < 2:
         return content
     return " ".join(f"({_format_timestamp(s['start'])}) {s['text']}" for s in relevant)

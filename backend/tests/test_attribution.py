@@ -63,6 +63,75 @@ def test_attribution_chip_media_with_segment_page_uses_timestamp():
     assert _attribution_chip(3, chunk, "line") == ["[3, 01:32]"]
 
 
+# ── Segment-genaue Zeitmarke im Medien-Chip ──────────────────────────────────
+# Ein Medien-Chunk fasst 1000 Zeichen zusammen, bei langsamem Sprechen sind das
+# ueber zwei Minuten. Die Chunk-Startzeit zeigt dann auf die Begruessung, obwohl
+# der zitierte Satz kurz vor dem Chunk-Ende faellt.
+
+_LANGSAMER_CHUNK = {
+    "source_id": 8, "page_number": 1, "vec_distance": 0.2,
+    "start_time": 0.0, "end_time": 128.0,
+    "content": "Die machen wir auch noch. Wir machen sich das Komplementieren mit "
+               "dem Strich darueber.",
+}
+
+_SEGMENTE = [
+    {"start": 0.0, "end": 24.0, "text": "Die machen wir auch noch. Aber so weit sind wir ja noch nicht."},
+    {"start": 30.0, "end": 59.0, "text": "Wir befassen uns heute mit der Binomialverteilung."},
+    {"start": 117.0, "end": 128.0, "text": "Wir machen sich das Komplementieren mit dem Strich darüber."},
+]
+
+
+def test_media_chip_points_at_the_segment_that_carries_the_line():
+    out = _attribution_chip(8, _LANGSAMER_CHUNK, "Ein **Strich** darüber", _SEGMENTE)
+    assert out == ["[8, 01:57]"]
+
+
+def test_media_chip_matches_across_inflection():
+    # Das Modell beugt neu: "grosses C" im Satz, "grossen C" im Ton. Ein exakter
+    # Wortvergleich fiele hier auf die Chunk-Startzeit zurueck.
+    segs = [
+        {"start": 0.0, "end": 24.0, "text": "Die machen wir auch noch."},
+        {"start": 128.0, "end": 140.0,
+         "text": "Einige machen das mit einem großen C, also einem länglichen C vor dem A."},
+    ]
+    chunk = dict(_LANGSAMER_CHUNK, end_time=140.0)
+    out = _attribution_chip(8, chunk, "Ein **großes C** (ein längliches C) vor dem A", segs)
+    assert out == ["[8, 02:08]"]
+
+
+def test_media_chip_falls_back_to_chunk_start_without_segments():
+    assert _attribution_chip(8, _LANGSAMER_CHUNK, "Ein Strich darüber") == ["[8, 00:00]"]
+
+
+def test_media_chip_falls_back_when_no_segment_carries_the_line():
+    out = _attribution_chip(8, _LANGSAMER_CHUNK, "Verpflichtete nach dem Geldwaeschegesetz", _SEGMENTE)
+    assert out == ["[8, 00:00]"]
+
+
+def test_media_chip_ignores_a_single_matching_word():
+    # Ein einziger Wortstamm ("Binomialverteilung") reicht nicht: gemessen war genau das
+    # die Quelle der grossen Ausreisser. Lieber der bekannte Chunk-Anfang als eine
+    # geratene Minute.
+    out = _attribution_chip(8, _LANGSAMER_CHUNK,
+                            "Die Binomialverteilung beschreibt wiederholte Zufallsversuche",
+                            _SEGMENTE)
+    assert out == ["[8, 00:00]"]
+
+
+def test_media_chip_marks_the_start_of_a_sentence_split_across_segments():
+    # Der Satz laeuft ueber zwei Segmente, die zweite Haelfte traegt die auffaelligeren
+    # Woerter. Der Chip gehoert trotzdem an den Satzanfang.
+    segs = [
+        {"start": 0.0, "end": 40.0, "text": "Voellig anderes Thema ohne Bezug."},
+        {"start": 104.0, "end": 117.0, "text": "Wir machen das Komplementieren mit dem Strich"},
+        {"start": 117.0, "end": 128.0, "text": "darüber, zwei Schreibweisen."},
+    ]
+    out = _attribution_chip(8, _LANGSAMER_CHUNK,
+                            "Zwei Schreibweisen: Komplementieren mit dem Strich darüber", segs)
+    assert out == ["[8, 01:44]"]
+
+
 # ── _attribute_generic_text (orchestration, injected search) ─────────────────
 
 def _searcher(mapping):

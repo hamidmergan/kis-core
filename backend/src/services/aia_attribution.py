@@ -20,6 +20,8 @@ one. 0.6 stays: no fabricated page, at the cost of leaving the rare terse case c
 from src.features.ai_assistant.routes._helpers import (
     _pick_attribution,
     _is_seen,
+    _line_segment_start,
+    _load_transcript_segments,
     _GENERIC_ATTRIB_MAX_DIST,
     _MULTI_CHIP_MAX_DELTA,
     _MAX_CHIPS_PER_LINE,
@@ -39,14 +41,42 @@ def _chip_key(chip: dict) -> tuple:
     return (chip["source_label"], chip["page_number"], chip["start_time"])
 
 
-def _chip_from_chunk(chunk: dict, label: str) -> dict:
+def _chip_from_chunk(chunk: dict, label: str, claim: str = "",
+                     segments: list[dict] | None = None) -> dict:
     """Nav-only structured chip. Media (has start_time) cites its timestamp and carries
     no page; a PDF cites its page. Mirrors the chat's ``_attribution_chip`` start-time-first
-    rule so audio/video never gets a bogus "S. <segment-index>"."""
+    rule so audio/video never gets a bogus "S. <segment-index>".
+
+    Mit ``claim`` und den Whisper-``segments`` zeigt die Zeitmarke auf das Segment mit der
+    zitierten Aussage statt auf den Anfang des ganzen Chunks (siehe
+    :func:`_line_segment_start`). Ohne sie bleibt es beim Chunk-Anfang."""
     st = chunk.get("start_time")
     if st is not None:
+        if claim and segments:
+            seg_start = _line_segment_start(claim, chunk, segments)
+            if seg_start is not None:
+                st = seg_start
         return {"source_label": label, "page_number": None, "start_time": st}
     return {"source_label": label, "page_number": chunk.get("page_number"), "start_time": None}
+
+
+def _default_segments_fn():
+    """Whisper-Segmente je Quelle, einmal geladen und dann aus dem Gedaechtnis.
+
+    Ein Werkzeug attribuiert dutzende Aussagen am Stueck, die fast alle auf dieselben
+    paar Quellen zeigen. Ohne das Gedaechtnis waere das ein Griff in den Speicher pro
+    Aussage. Gefragt wird nur fuer Medien-Treffer, eine reine PDF-Sammlung fasst die
+    Ablage also gar nicht an."""
+    cache: dict[int, list[dict]] = {}
+
+    def load(source_id: int) -> list[dict]:
+        if source_id not in cache:
+            from src import database as db
+            src = db.get_aia_source_by_id(source_id)
+            cache[source_id] = _load_transcript_segments(src) if src else []
+        return cache[source_id]
+
+    return load
 
 
 def attribute_claims(
@@ -60,6 +90,7 @@ def attribute_claims(
     seen_pages_by_source: dict | None = None,
     embed_fn=None,
     search_fn=None,
+    segments_fn=None,
 ) -> list[list[dict]]:
     """Attribute a batch of claim texts to nav-only source chips, one chip-list per claim.
 
@@ -68,11 +99,14 @@ def attribute_claims(
     ``max_distance`` is the gate handed to the selector — a caller with thin claims (e.g. a
     mindmap's one-word node labels) can tighten it so weak matches abstain instead of citing a
     near-but-wrong page. ``seen_pages_by_source`` (optional) clamps chips to pages actually shown
-    to the LLM, like the chat's seen-check. ``embed_fn``/``search_fn`` are injectable for testing;
-    in production they default to the shared embedding provider and ``db.hybrid_search_chunks``."""
+    to the LLM, like the chat's seen-check. ``embed_fn``/``search_fn``/``segments_fn`` are
+    injectable for testing; in production they default to the shared embedding provider,
+    ``db.hybrid_search_chunks`` und den Whisper-Segmenten der Quelle."""
     if not claims:
         return []
 
+    if segments_fn is None:
+        segments_fn = _default_segments_fn()
     if embed_fn is None:
         from src.services.aia_embeddings import get_embedding_provider
         embed_fn = get_embedding_provider().embed
@@ -100,7 +134,8 @@ def attribute_claims(
             hits = []
         out.append(chips_for_claim(hits, source_id_to_label, multi=multi,
                                    max_distance=max_distance,
-                                   seen_pages_by_source=seen_pages_by_source))
+                                   seen_pages_by_source=seen_pages_by_source,
+                                   claim=claim, segments_fn=segments_fn))
     return out
 
 
@@ -111,6 +146,8 @@ def chips_for_claim(
     multi: bool = False,
     max_distance: float = _GENERIC_ATTRIB_MAX_DIST,
     seen_pages_by_source: dict | None = None,
+    claim: str = "",
+    segments_fn=None,
 ) -> list[dict]:
     """Turn ranked search hits for one claim into nav-only structured source chips.
 
@@ -123,6 +160,10 @@ def chips_for_claim(
     shown (chat-style seen-check) BEFORE selecting — so a chip can never point at a page that
     was not in the generation context.
 
+    ``claim`` ist der Text der Aussage und ``segments_fn`` liefert die Whisper-Segmente einer
+    Quelle. Zusammen ruecken sie die Zeitmarke eines Medien-Chips auf das Segment mit der
+    Aussage, statt auf den Anfang des ganzen Chunks zu zeigen.
+
     Returns ``[]`` when nothing lands within the distance gate (no fabricated source)."""
     # Drop boilerplate/title fragments so a generic running-header chunk can't become a magnet
     # that mis-anchors a thin claim (see _MIN_ATTRIB_CONTENT).
@@ -132,8 +173,14 @@ def chips_for_claim(
     best = _pick_attribution(hits, max_distance)
     if best is None:
         return []
+    def _segs(hit: dict) -> list[dict] | None:
+        """Segmente nur fuer Medien-Treffer holen, eine PDF-Seite braucht keine."""
+        if segments_fn is None or hit.get("start_time") is None:
+            return None
+        return segments_fn(hit["source_id"])
+
     best_label = source_id_to_label.get(best["source_id"], "")
-    chips = [_chip_from_chunk(best, best_label)]
+    chips = [_chip_from_chunk(best, best_label, claim, _segs(best))]
     if not multi:
         return chips
 
@@ -145,7 +192,7 @@ def chips_for_claim(
         d = h.get("vec_distance")
         if d is None or d > max_distance or d - best_dist > _MULTI_CHIP_MAX_DELTA:
             continue
-        chip = _chip_from_chunk(h, source_id_to_label.get(h["source_id"], ""))
+        chip = _chip_from_chunk(h, source_id_to_label.get(h["source_id"], ""), claim, _segs(h))
         key = _chip_key(chip)
         if key in seen:
             continue

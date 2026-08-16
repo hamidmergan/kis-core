@@ -2065,7 +2065,12 @@ async def chat(
                                                    # post-hoc search still sweeps the WHOLE source, so
                                                    # clamp citations to the scoped chunks — otherwise a
                                                    # closer chunk from minute 13 leaks into the summary.
-                                                   scope_chunks=scope_chunks)
+                                                   scope_chunks=scope_chunks,
+                                                   # Dieselben Whisper-Segmente, die schon im Kontext
+                                                   # stecken: der Medien-Chip zeigt damit auf das
+                                                   # Segment mit dem zitierten Satz statt auf den
+                                                   # Anfang des ganzen Chunks.
+                                                   transcript_by_source=transcript_by_source)
                     _pw_flushes = _prewarmer.flushes if _prewarmer is not None else 0
                     logger.info(
                         "post-hoc attribution timing: embed {:.1f}s ({}/{} lines prewarmed in "
