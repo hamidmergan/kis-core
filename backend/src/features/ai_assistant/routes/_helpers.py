@@ -16,6 +16,7 @@ from langfuse.decorators import langfuse_context
 
 from src import database as db
 from src.i18n import DEFAULT_LOCALE, t
+from src.services.aia_segment_pick import best_index, rarity_weights
 from src.services.aia_transcript_offsets import TranscriptIndex
 from src.storage import (
     aia_transcript_key,
@@ -758,30 +759,24 @@ def _line_segment_start(line: str, chunk: dict, segments: list[dict]) -> Optiona
     Minuten. Die Chunk-Startzeit zeigt dann auf die Begruessung, waehrend der
     zitierte Satz kurz vor dem Chunk-Ende faellt.
 
-    Gewaehlt wird das Segment, das die meisten Wortstaemme der Zeile enthaelt.
-    Traegt keines genug davon, bleibt es beim Chunk-Anfang: eine geratene Minute
-    waere schlechter als der bekannte Rahmen."""
+    Hier steht nur die Huerde: mindestens ein Segment muss ``_SEGMENT_MIN_STEM_HITS``
+    Wortstaemme der Zeile tragen, sonst bleibt es beim Chunk-Anfang — eine geratene
+    Minute waere schlechter als der bekannte Rahmen. WELCHES Segment es dann wird,
+    entscheidet :mod:`src.services.aia_segment_pick` (Seltenheit statt Anzahl, und
+    ein Fenster statt eines einzelnen Segments)."""
     segs = _chunk_segments(chunk, segments)
     if len(segs) < 2:
         return None
     stems = _segment_stems(line)
     if not stems:
         return None
-    scores = [
-        sum(1 for stem in stems if stem in _norm_for_match(s.get("text") or ""))
-        for s in segs
-    ]
-    best = max(scores)
-    if best < _SEGMENT_MIN_STEM_HITS:
+    treffer = [[stem for stem in stems if stem in _norm_for_match(s.get("text") or "")]
+               for s in segs]
+    if max((len(t) for t in treffer), default=0) < _SEGMENT_MIN_STEM_HITS:
         return None
-    i = scores.index(best)
-    # Ein gesprochener Satz laeuft oft ueber zwei Segmente, und die zweite Haelfte
-    # traegt die auffaelligeren Woerter. Solange das Segment davor noch mittraegt,
-    # ruecken wir an den Anfang dieses Laufs: markiert gehoert der Satzanfang, nicht
-    # seine Mitte.
-    while i > 0 and scores[i - 1] >= max(1, best - 1):
-        i -= 1
-    return segs[i]["start"]
+    gewichte = rarity_weights(chunk.get("source_id"), segments,
+                              _segment_stems, _norm_for_match)
+    return segs[best_index(treffer, gewichte)]["start"]
 
 
 def _attribution_chip(qnum: int, chunk: dict, line: str,
