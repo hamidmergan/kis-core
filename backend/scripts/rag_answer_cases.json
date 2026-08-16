@@ -1,0 +1,83 @@
+[
+  {
+    "id": "klausur-juli",
+    "workspace": "7f088123-177a-464a-81dc-9d8b73c91c36",
+    "frage": "wann ist die klausur",
+    "erwartet": [
+      "Juli"
+    ],
+    "begruendung": "OFFEN, absichtlich rot. Im Kontext steht 'keinen zweiten Termin gibt fuer die Klausur im Juli', und das Modell LIEST die Stelle, es zitiert sie sogar ([13, 28:46]). Auf die Frage 'gibt es einen zweiten Pruefungstermin' antwortet es damit auch korrekt mit 'Fuer die Klausur im Juli ...'. Nur auf 'wann ist die Klausur' waehlt es die vagere Stelle 'am Ende des Semesters' und erklaert den Rest fuer fehlend. Zwei Versuche ueber den Prompt am 16.08.2026 blieben ohne messbare Wirkung: das kollidierende Beispiel 'Wann ist die Klausur? -> steht nicht in den Quellen' aus den Vorlagen entfernt, und eine Regel 'eine Teilangabe IST eine Antwort' ergaenzt. Beide unveraendert rot, die Regel daher wieder entfernt. Der Fall bleibt als Messpunkt stehen, statt ihn wegzudefinieren.",
+    "bekannt_rot": true
+  },
+  {
+    "id": "klausur-wiederholung-januar",
+    "workspace": "7f088123-177a-464a-81dc-9d8b73c91c36",
+    "frage": "gibt es einen zweiten pruefungstermin",
+    "erwartet": [
+      "Januar"
+    ],
+    "begruendung": "Derselbe Chunk: 'Da gibt es nachher am Anfang des Wintersemesters keinen Wiederholungstermin. Der naechste Termin ist dann im Januar.'"
+  },
+  {
+    "id": "fragestunde-bezug",
+    "workspace": "7f088123-177a-464a-81dc-9d8b73c91c36",
+    "frage": "wann ist die fragestunde",
+    "erwartet": [
+      "affine",
+      "Chiffre",
+      "Schifren"
+    ],
+    "begruendung": "Ein Datum gibt es nicht. Die Quelle sagt 'Wir machen naechste Woche noch affine Chiffren. Dann haben wir noch Zeit, da machen wir noch eine Fragestunde.' Die Antwort muss diesen Bezug nennen statt nur abzusagen."
+  },
+  {
+    "id": "taschenrechner",
+    "workspace": "7f088123-177a-464a-81dc-9d8b73c91c36",
+    "frage": "sind taschenrechner in der klausur erlaubt",
+    "erwartet": [
+      "erlaubt",
+      "dürfen",
+      "duerfen",
+      "zugelassen"
+    ],
+    "begruendung": "'Im Fachbereich MW sind alle Taschenrechner erlaubt.' Die Antwort darf das auch anders formulieren, etwa 'duerfen mitgebracht und benutzt werden'. Die erste Fassung dieses Falls verlangte woertlich 'erlaubt' und war damit selbst falsch, nicht die Antwort."
+  },
+  {
+    "id": "praesentation-dauer",
+    "workspace": "1ea7b2fa-b237-4bbd-801b-c9793d388984",
+    "frage": "wie lange dauert die praesentation",
+    "erwartet": [
+      "20"
+    ],
+    "begruendung": "Folie: '20 Minuten PPT-Praesentation, 10 Minuten Fragerunde/Diskussion'. Genau der Fall aus dem Screenshot vom 16.08.2026."
+  },
+  {
+    "id": "ruhezeit-elf-stunden",
+    "workspace": "a11ea669-30a5-409e-b336-7864f2a331e1",
+    "frage": "wie lang muss die ruhezeit zwischen zwei arbeitstagen sein",
+    "erwartet": [
+      "elf",
+      "11"
+    ],
+    "begruendung": "ArbZG 5: 'ununterbrochene Ruhezeit von mindestens elf Stunden'"
+  },
+  {
+    "id": "arbeitszeit-acht-stunden",
+    "workspace": "a11ea669-30a5-409e-b336-7864f2a331e1",
+    "frage": "wie lang darf die werktaegliche arbeitszeit sein",
+    "erwartet": [
+      "acht",
+      "8"
+    ],
+    "begruendung": "ArbZG 3: 'darf acht Stunden nicht ueberschreiten'"
+  },
+  {
+    "id": "entgeltfortzahlung-sechs-wochen",
+    "workspace": "a11ea669-30a5-409e-b336-7864f2a331e1",
+    "frage": "wie lange wird das entgelt im krankheitsfall fortgezahlt",
+    "erwartet": [
+      "sechs Wochen",
+      "6 Wochen"
+    ],
+    "begruendung": "EntgFG 3"
+  }
+]
