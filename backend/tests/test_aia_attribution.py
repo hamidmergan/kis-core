@@ -163,3 +163,36 @@ def test_attribute_claims_returns_empty_on_embed_failure():
         search_fn=lambda t, v: [_hit(1, 1, 0.1)],
     )
     assert out == [[], []]
+
+
+# ── Kandidatenzahl: die Suche ordnet nach RRF, der Auswaehler nach Distanz ────
+
+def test_closest_hit_wins_even_when_it_ranks_last_in_the_search_order():
+    """Der Auswaehler folgt der DISTANZ, nicht der Reihenfolge der Suche.
+
+    Beide Massstaebe existieren nebeneinander: die Suche ordnet nach RRF, also Vektor
+    UND Stichwort gemischt, der Auswaehler nimmt den inhaltlich naechsten. Solange die
+    Suche genug Kandidaten liefert, ist das gutartig. Kuerzt sie zu frueh, entscheidet
+    faktisch das RRF darueber, wen der Auswaehler ueberhaupt sieht.
+    """
+    hits = [_hit(1, p, 0.40) for p in range(1, 12)] + [_hit(2, 3, 0.221)]
+    chips = chips_for_claim(hits, {1: "Folien.pdf", 2: "Richtig.pdf"}, multi=True)
+    assert chips[0] == {"source_label": "Richtig.pdf", "page_number": 3, "start_time": None}
+
+
+def test_attribution_asks_for_enough_candidates():
+    """Regression "die PDF-Folie bekam keinen Beleg" (16.08.2026).
+
+    Im Kurs "Wiss. Seminar" ist die Folie mit "20 Minuten PPT-Praesentation, 10 Minuten
+    Fragerunde/Diskussion" fuer genau diesen Antwortsatz der naechste Chunk ueberhaupt
+    (Distanz 0,221 gegen 0,334 beim naechsten). Im RRF stand sie auf Platz 11, weil ihr
+    der Stichworttreffer fehlte: die Antwort schreibt "PowerPoint-Praesentation" und
+    "Fragerunde", die Folie "PPT-Praesentation" und "Fragerunde/Diskussion", und aus
+    letzterem macht Postgres EIN Wort wie einen Dateipfad. Bei 10 Kandidaten fiel sie
+    damit aus der Vorauswahl, und zitiert wurden drei Videostellen.
+
+    Die Zahl haelt fest, dass die Vorauswahl weit genug reicht, damit der Auswaehler
+    seinen eigenen Massstab anwenden kann.
+    """
+    from src.features.ai_assistant.routes._helpers import _ATTRIB_CANDIDATES
+    assert _ATTRIB_CANDIDATES >= 30

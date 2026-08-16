@@ -1141,6 +1141,7 @@ from src.features.ai_assistant.routes._helpers import (
     _refusal_lines,
     is_refusal_answer,
     _append_scope_anchor,
+    _ATTRIB_CANDIDATES,
     _MEDIA_EXTENSIONS,
     _sanitize_citations,
     _strip_arrow_connectors,
@@ -1806,7 +1807,7 @@ async def chat(
                     try:
                         return db.hybrid_search_chunks(
                             workspace["id"], _ln, _vec or _pw_prov.embed_one(_ln),
-                            source_ids=source_ids, limit=10)
+                            source_ids=source_ids, limit=_ATTRIB_CANDIDATES)
                     except Exception:
                         return []
 
@@ -2081,7 +2082,7 @@ async def chat(
                             # closest one the model saw (a fact often sits on several pages).
                             return db.hybrid_search_chunks(workspace["id"], _line, _qv,
                                                            source_ids=source_ids,
-                                                           limit=10)
+                                                           limit=_ATTRIB_CANDIDATES)
                         except Exception as e:
                             logger.warning("post-hoc attribution search failed for a line: {}", e)
                             return []

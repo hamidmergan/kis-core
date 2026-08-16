@@ -19,6 +19,7 @@ one. 0.6 stays: no fabricated page, at the cost of leaving the rare terse case c
 
 from src.features.ai_assistant.routes._helpers import (
     _pick_attribution,
+    _ATTRIB_CANDIDATES,
     _is_seen,
     _line_segment_start,
     _load_transcript_segments,
@@ -115,7 +116,8 @@ def attribute_claims(
 
         def search_fn(text, vec):
             return db.hybrid_search_chunks(workspace_id, text, vec,
-                                           source_ids=source_ids, limit=10, fuzzy=False)
+                                           source_ids=source_ids,
+                                           limit=_ATTRIB_CANDIDATES, fuzzy=False)
 
     try:
         vecs = embed_fn(claims)

@@ -457,6 +457,26 @@ _GENERIC_ATTRIB_MAX_DIST = 0.6
 # response, which never grounds <=0.6 and so stays uncited). Tuned above the honest
 # distance band observed against off-topic retrieved chunks.
 _GUARANTEE_MAX_DIST = 0.85
+# Wie viele Kandidaten die Suche fuer EINE Aussage liefern muss, bevor ausgewaehlt wird.
+#
+# Hier trafen zwei verschiedene Massstaebe aufeinander. Die Suche ordnet nach RRF, also
+# Vektor UND Stichwort gemischt. ``_pick_attribution`` nimmt dann den mit der kleinsten
+# DISTANZ, also rein nach inhaltlicher Naehe. Bei 10 Kandidaten entschied damit faktisch
+# die RRF-Reihenfolge, wen der Auswaehler ueberhaupt zu sehen bekommt.
+#
+# Gemessen am 16.08.2026 im Kurs "Wiss. Seminar": die Folie mit "20 Minuten
+# PPT-Praesentation, 10 Minuten Fragerunde/Diskussion" ist fuer genau diesen Satz der
+# mit Abstand naechste Chunk (Distanz 0,221, der naechste liegt bei 0,334). Im RRF stand
+# sie auf Platz 11, weil ihr der Stichworttreffer fehlte: die Antwort schreibt
+# "PowerPoint-Praesentation" und "Fragerunde", die Folie "PPT-Praesentation" und
+# "Fragerunde/Diskussion", und aus letzterem macht Postgres EIN Wort wie einen Dateipfad.
+# Der Auswaehler haette die Folie genommen, er hat sie nur nie gesehen. Im Chat hiess das:
+# die Folie mit der Information bekam keinen Beleg, zitiert wurden drei Videostellen, die
+# dasselbe umstaendlicher sagen.
+#
+# 40 statt 10, weil die Suche intern ohnehin mit 80 Vektortreffern rechnet: es kostet
+# praktisch nichts und gibt dem Auswaehler die Chance, seinen eigenen Massstab anzuwenden.
+_ATTRIB_CANDIDATES = 40
 _MAX_CHIPS_PER_LINE = 3
 # An ADDITIONAL chip from the SAME source is only added when its chunk sits CLOSE to the
 # block's best chunk — within this distance delta. A relative gate, not just the absolute
