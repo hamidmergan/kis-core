@@ -196,3 +196,19 @@ def test_attribution_asks_for_enough_candidates():
     """
     from src.features.ai_assistant.routes._helpers import _ATTRIB_CANDIDATES
     assert _ATTRIB_CANDIDATES >= 30
+
+
+def test_multi_chip_survives_a_keyword_only_hit_without_distance():
+    """Ein reiner Stichworttreffer hat kein ``vec_distance``.
+
+    Die Mehrfach-Auswahl sortierte die Kandidaten nach Abstand, BEVOR sie die ohne
+    Abstand aussortierte, und stuerzte dann ab. Latent war das immer; seit die
+    Vorauswahl 40 statt 10 Kandidaten liefert, sind Treffer ohne Abstand haeufig
+    genug, um es auszuloesen.
+    """
+    ohne = {"source_id": 2, "page_number": 4, "content": "lorem ipsum " * 12,
+            "vec_distance": None, "start_time": None}
+    chips = chips_for_claim([_hit(1, 12, 0.2), ohne, _hit(1, 13, 0.24)],
+                            {1: "Skript.pdf", 2: "Anderes.pdf"}, multi=True)
+    assert chips and chips[0]["source_label"] == "Skript.pdf"
+    assert all(c["source_label"] != "Anderes.pdf" for c in chips)

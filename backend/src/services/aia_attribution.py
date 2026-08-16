@@ -188,7 +188,11 @@ def chips_for_claim(
 
     seen = {_chip_key(chips[0])}
     best_dist = best["vec_distance"]
-    for h in sorted(hits, key=lambda x: x["vec_distance"]):
+    # Ein reiner Stichworttreffer hat KEINEN Abstand. Die Schleife wirft ihn unten
+    # ohnehin weg, aber das Sortieren kam vorher und flog auf die Nase. Latent war das
+    # immer, mit 40 Kandidaten statt 10 ist es wahrscheinlich geworden.
+    for h in sorted(hits, key=lambda x: (x.get("vec_distance") is None,
+                                         x.get("vec_distance") or 0.0)):
         if len(chips) >= _MAX_CHIPS_PER_LINE:
             break
         d = h.get("vec_distance")
