@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import type { ReactElement } from "react";
-import { parseCitations } from "./_citations";
+import { chipClickArgs, parseCitations } from "./_citations";
 import type { ChatMessage } from "../../_types";
 
 // Minimal multi-source message so displayQNum stays visible (single-source drops [n]).
@@ -200,5 +200,51 @@ describe("parseCitations — hard ceiling of three chips per group", () => {
     const nodes = parseCitations(text, msg, ["u4"], getFilename, noop);
     expect(shape(nodes)).toEqual(["text", "CitationChipGroup"]);
     expect(groupOf(nodes).chips).toHaveLength(3);
+  });
+});
+
+
+describe("chipClickArgs — was ein Klick weitergibt", () => {
+  const medien = {
+    clickPage: 7,
+    clickSeconds: 96.4,
+    clickEndSeconds: 180.2,
+    clickChunkStart: 60.0,
+    clickHighlight: undefined,
+    claim: "Die Aussage der Antwort.",
+  };
+
+  it("reicht bei Medien Chunk-Anfang und -Ende weiter", () => {
+    const a = chipClickArgs(medien);
+    expect(a.istMedien).toBe(true);
+    expect(a.page).toBe(0);
+    expect(a.endTime).toBe(180.2);
+    expect(a.chunkStart).toBe(60.0);
+    expect(a.sourceText).toBe("Die Aussage der Antwort.");
+  });
+
+  it("verliert bei 00:00 nichts — die Sekunde 0 ist keine fehlende Zeit", () => {
+    // Die Null-Falle: `clickSeconds ? … : …` schickte einen Chip auf 00:00 in den
+    // PDF-Zweig, ohne Chunk-Anfang und ohne Ende. Auf den Chunk-Anfang zeigt ein Chip
+    // aber genau dann, wenn keine Zeile sicher genug war — also wenn das Transkript den
+    // ganzen Abschnitt markieren soll und beides dafuer braucht.
+    const a = chipClickArgs({ ...medien, clickSeconds: 0, clickChunkStart: 0 });
+    expect(a.istMedien).toBe(true);
+    expect(a.page).toBe(0);
+    expect(a.endTime).toBe(180.2);
+    expect(a.chunkStart).toBe(0);
+    expect(a.sourceText).toBe("Die Aussage der Antwort.");
+  });
+
+  it("bleibt bei einer PDF-Seite auf Seite und Wortlaut", () => {
+    const a = chipClickArgs({
+      clickPage: 7, clickSeconds: undefined, clickEndSeconds: undefined,
+      clickChunkStart: undefined, clickHighlight: "wortwoertlich", claim: "egal",
+    });
+    expect(a.istMedien).toBe(false);
+    expect(a.page).toBe(7);
+    expect(a.sourceText).toBe("wortwoertlich");
+    expect(a.endTime).toBeUndefined();
+    expect(a.chunkStart).toBeUndefined();
   });
 });

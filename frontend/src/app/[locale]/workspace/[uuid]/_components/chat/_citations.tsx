@@ -56,6 +56,11 @@ export type CitationChipClickHandler = (
   // End of the cited chunk, so the transcript can mark the WHOLE cited passage instead
   // of just the subtitle cue that happens to start at startTime.
   endTime?: number,
+  // Anfang des zitierten Chunks. ``startTime`` ist die BESTE VERMUTUNG, wo im Chunk die
+  // Aussage faellt, und liegt deshalb meist mittendrin. Steht die Vermutung auf wackligen
+  // Fuessen, markiert das Transkript lieber den ganzen Chunk, und dafuer braucht es dessen
+  // Anfang: von der Vermutung bis zum Ende zu markieren liesse alles davor unmarkiert.
+  chunkStart?: number,
 ) => void;
 
 
@@ -70,6 +75,7 @@ interface ChipDesc {
   clickPage: number;
   clickSeconds: number | undefined;
   clickEndSeconds: number | undefined;
+  clickChunkStart: number | undefined;
   clickHighlight: string | undefined;
   isExactSelection: boolean;
   // The stretch of ANSWER text this chip backs up: everything between the previous chip stop
@@ -82,6 +88,34 @@ interface ChipDesc {
 }
 
 
+// Was ein Klick auf einen Chip weitergibt. Ausgelagert und exportiert, damit die
+// Null-Falle geprueft werden kann: ein Medien-Chip auf 00:00 hat die Sekunde 0, und die
+// gilt in JavaScript als falsch. Mit einer Wahrheitspruefung fiel so ein Chip in den
+// PDF-Zweig und verlor Chunk-Anfang und -Ende — ausgerechnet bei den Chips, die beides am
+// noetigsten brauchen: auf den Chunk-Anfang zeigt ein Chip nur dann, wenn keine Zeile
+// sicher genug war, und dann soll das Transkript den ganzen Abschnitt markieren.
+export function chipClickArgs(desc: {
+  clickPage: number;
+  clickSeconds: number | undefined;
+  clickEndSeconds: number | undefined;
+  clickChunkStart: number | undefined;
+  clickHighlight: string | undefined;
+  claim?: string;
+}) {
+  const istMedien = desc.clickSeconds != null;
+  return {
+    istMedien,
+    page: istMedien ? 0 : desc.clickPage,
+    // PDF: verbatim text to highlight (popup selections only). Media: the answer text this
+    // chip backs up — the transcript ranks the lines of the marked span against it. Both
+    // are "the text belonging to this citation", which is what this slot has always meant.
+    sourceText: istMedien ? desc.claim : desc.clickHighlight,
+    endTime: istMedien ? desc.clickEndSeconds : undefined,
+    chunkStart: istMedien ? desc.clickChunkStart : undefined,
+  };
+}
+
+
 // Renders a single citation chip that links back to the source viewer.
 // Clicking a chip only scrolls to the page/timestamp — no highlight — UNLESS it is a
 // popup/action-bar exact selection, which still passes its verbatim text to highlight.
@@ -91,8 +125,9 @@ interface ChipDesc {
 // of the accessibility tree. That is what makes a stop free to open on hover without moving
 // a single word — the room was already taken.
 function CitationChip({ desc, onChipClick, reserved }: { desc: ChipDesc; onChipClick: CitationChipClickHandler; reserved?: boolean }) {
-  const { filename, displayQNum, label, clickUuid, clickPage, clickSeconds, clickEndSeconds, clickHighlight, isExactSelection, claim } = desc;
-  const targetKey = chipTargetKey(clickUuid, clickSeconds ? 0 : clickPage, clickSeconds);
+  const { filename, displayQNum, label, clickUuid, clickSeconds, isExactSelection } = desc;
+  const args = chipClickArgs(desc);
+  const targetKey = chipTargetKey(clickUuid, args.page, clickSeconds);
   const isActive = useIsActiveChip(targetKey);
   // onPointerDown (not onClick) so chips remain clickable during active token stream:
   // with onClick, react-markdown often unmounts the chip between down and up, so the
@@ -101,18 +136,8 @@ function CitationChip({ desc, onChipClick, reserved }: { desc: ChipDesc; onChipC
     // Mark this chip as the active one so it wears the same yellow border as the page
     // frame the click is about to draw in the viewer.
     setActiveChipTarget(targetKey);
-    onChipClick(
-      clickUuid,
-      clickSeconds ? 0 : clickPage,
-      filename,
-      // PDF: verbatim text to highlight (popup selections only). Media: the answer text this
-      // chip backs up — the transcript ranks the lines of the marked span against it. Both
-      // are "the text belonging to this citation", which is what this slot has always meant.
-      clickSeconds ? claim : clickHighlight,
-      clickSeconds,
-      isExactSelection,
-      clickSeconds ? clickEndSeconds : undefined,
-    );
+    onChipClick(clickUuid, args.page, filename, args.sourceText, clickSeconds,
+                isExactSelection, args.endTime, args.chunkStart);
   };
   return (
     <span role="button" tabIndex={0}
@@ -353,6 +378,7 @@ export function parseCitations(
     label: string;
     clickSeconds: number | undefined;
     clickEndSeconds: number | undefined;
+    clickChunkStart: number | undefined;
     clickHighlight: string | undefined;
     isExactSelection: boolean;
   }
@@ -376,18 +402,33 @@ export function parseCitations(
     // frequently sits in the next cue, just past the marking, and reads as missing from the
     // source. Carried along so the transcript can mark the whole cited passage.
     let endSeconds: number | undefined;
+    let chunkStart: number | undefined;
     if (timestamp) {
       const tp = timestamp.split(":").map(Number);
       seconds = tp.length === 3 ? tp[0] * 3600 + tp[1] * 60 + tp[2] : tp[0] * 60 + tp[1];
-      // The MM:SS token is the chunk start floored to whole seconds (backend int()). Recover
-      // the EXACT float start from source_pages, so the viewer pins the precise transcript
-      // cue instead of re-deriving from the lossy second. Matched by source + same floored
-      // second; chunks of one source are seconds apart, so that floor is unique.
-      const exact = msgSourcePages.find(
-        (s) => s.source_uuid === sourceUuid && s.start_time != null && Math.floor(s.start_time) === seconds,
-      );
-      if (exact?.start_time != null) seconds = exact.start_time;
-      if (exact?.end_time != null) endSeconds = exact.end_time;
+      // Der MM:SS-Wert im Chip ist NICHT mehr der Chunk-Anfang: das Backend rueckt ihn auf
+      // das Segment mit der zitierten Aussage vor (aia_segment_pick). Die alte Zuordnung
+      // suchte den Chunk mit GLEICHEM abgerundeten Anfang und fand deshalb keinen, sobald
+      // die Zeitmarke vorgerueckt war. Ohne Fund blieb `endSeconds` leer, und ohne Ende
+      // markierte das Transkript nur die EINE Untertitelzeile an der Zeitmarke — die ganze
+      // Logik "bei Unsicherheit den Abschnitt markieren" lief nie an.
+      //
+      // Gesucht wird jetzt der Chunk, der die Zeitmarke ENTHAELT. Die Chunks einer Quelle
+      // ueberschneiden sich nicht, der Treffer ist also eindeutig. Die halbe Sekunde
+      // Toleranz faengt die Rundung auf ganze Sekunden im Chip ab.
+      // Auf eine Sekunde genau kann die Zeitmarke an einer Chunk-Grenze auf zwei passen.
+      // Dann gilt der spaeter beginnende: das ist der, in dem sie wirklich liegt.
+      const owner = msgSourcePages
+        .filter((s) => s.source_uuid === sourceUuid && s.start_time != null && s.end_time != null
+          && s.start_time - 1 <= seconds && seconds <= s.end_time + 1)
+        .sort((a, b) => (b.start_time ?? 0) - (a.start_time ?? 0))[0];
+      if (owner?.start_time != null) {
+        chunkStart = owner.start_time;
+        endSeconds = owner.end_time ?? undefined;
+        // Zeigt der Chip auf den Chunk-Anfang, ist die genaue Gleitkommazeit besser als die
+        // abgerundete Sekunde aus dem Text. Sonst behaelt er seine eigene, vorgerueckte Zeit.
+        if (Math.floor(owner.start_time) === seconds) seconds = owner.start_time;
+      }
     }
     // Popup/action-bar exact selection: the user marked this verbatim text, so the
     // chip still highlights it exactly (the ONLY remaining chip-driven highlight).
@@ -408,6 +449,7 @@ export function parseCitations(
       sourceUuid, filename, displayQNum, label,
       clickSeconds: timestamp ? seconds : undefined,
       clickEndSeconds: timestamp ? endSeconds : undefined,
+      clickChunkStart: timestamp ? chunkStart : undefined,
       clickHighlight, isExactSelection,
     });
   }
@@ -444,6 +486,7 @@ export function parseCitations(
       clickPage: head.fields.page,
       clickSeconds: head.clickSeconds,
       clickEndSeconds: head.clickEndSeconds,
+      clickChunkStart: head.clickChunkStart,
       clickHighlight: head.clickHighlight,
       isExactSelection: head.isExactSelection,
       start: head.fields.index,

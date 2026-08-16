@@ -176,6 +176,7 @@ export function MediaPlayer({
         onSaveNote={onSaveNote}
         citationTime={source.isCitation ? source.startTime : undefined}
         citationEndTime={source.isCitation ? source.endTime : undefined}
+        citationChunkStart={source.isCitation ? source.chunkStart : undefined}
         citationClaim={source.isCitation ? source.citationClaim : undefined}
         citationNonce={source.nonce}
         onCitationFocusTime={onCitationFocusTime}

@@ -159,6 +159,10 @@ export interface ViewerState {
   // often sits in the second or third cue and reads as "not in the source". With the end
   // the transcript marks the whole span.
   endTime?: number;
+  // Anfang des zitierten Chunks. ``startTime`` ist die beste Vermutung, WO im Chunk die
+  // Aussage faellt, und liegt meist mittendrin. Traegt die Vermutung nicht, markiert das
+  // Transkript den ganzen Chunk statt zu raten, und dafuer braucht es dessen Anfang.
+  chunkStart?: number;
   // The piece of the ANSWER this chip backs up. The marked span runs about a minute, so the
   // transcript uses this to weight the line carrying the claim over the rest of the span.
   // Ranking among lines already known to be right, never a search.

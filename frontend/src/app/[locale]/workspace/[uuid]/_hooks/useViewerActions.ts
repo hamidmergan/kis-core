@@ -76,7 +76,7 @@ export function useViewerActions(opts: UseViewerActionsOptions) {
 
   // `endTime` comes last because only citation chips know it: everyone else (glossary,
   // exercises, notes) opens a source at a point in time, not over a cited span.
-  const pillClick = useCallback((sourceUuid: string, page: number, filename: string, sourceText?: string, startTime?: number, isExact?: boolean, hideTranscript?: boolean, endTime?: number) => {
+  const pillClick = useCallback((sourceUuid: string, page: number, filename: string, sourceText?: string, startTime?: number, isExact?: boolean, hideTranscript?: boolean, endTime?: number, chunkStart?: number) => {
     const src = sources.find((s) => s.uuid === sourceUuid);
     const isMedia = _isMediaFile(filename);
     if (isMedia) {
@@ -84,7 +84,7 @@ export function useViewerActions(opts: UseViewerActionsOptions) {
       // segment + shows its jump/dismiss bar, mirroring the PDF page-frame behaviour.
       // For media `sourceText` is the answer text the chip backs up, not something to
       // highlight verbatim: the transcript ranks the lines of the marked span against it.
-      setViewerSource({ uuid: sourceUuid, filename, page: 0, startTime, endTime, citationClaim: sourceText, isCitation: true, hideTranscript, nonce: Date.now() });
+      setViewerSource({ uuid: sourceUuid, filename, page: 0, startTime, endTime, chunkStart, citationClaim: sourceText, isCitation: true, hideTranscript, nonce: Date.now() });
       setPanels((prev) => ({ ...prev, quellen: true }));
       if (isMobile) setActiveTab("quellen");
       return;

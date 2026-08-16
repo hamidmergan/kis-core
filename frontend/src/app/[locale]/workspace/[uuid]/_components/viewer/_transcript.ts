@@ -298,21 +298,30 @@ export function resolveCitationFocus(
   endTime: number | undefined,
   claim: string | undefined,
   corpus: string[],
+  chunkStart?: number,
 ): CitationFocus {
-  const idx = cueIndexAtTime(cues, time);
-  if (idx < 0) return { idx: -1, endIdx: -1, claimIdx: -1, focusIdx: -1, focusTime: null };
+  const timeIdx = cueIndexAtTime(cues, time);
+  if (timeIdx < 0) return { idx: -1, endIdx: -1, claimIdx: -1, focusIdx: -1, focusTime: null };
+  // Der markierte Abschnitt ist der GANZE Chunk, nicht "ab der Zeitmarke". Die Zeitmarke des
+  // Chips ist die beste Vermutung des Backends, wo im Chunk die Aussage faellt, und liegt
+  // deshalb meist mittendrin. Ab ihr zu markieren liesse alles davor unmarkiert — und wenn
+  // die Vermutung danebenlag, faellt der belegende Satz genau dorthin.
+  const idx = chunkStart != null ? cueIndexAtTime(cues, chunkStart) : timeIdx;
+  const from = idx >= 0 ? Math.min(idx, timeIdx) : timeIdx;
   // Widen to every cue that STARTS before the chunk ends, so the marking covers the cited
   // passage rather than its first few seconds. The small guard keeps a cue that begins
   // exactly at the chunk's end out of it.
-  let endIdx = idx;
+  let endIdx = Math.max(from, timeIdx);
   if (endTime != null) {
     while (endIdx + 1 < cues.length && cues[endIdx + 1].start < endTime - 0.05) endIdx++;
   }
   let claimIdx = -1;
-  if (endIdx > idx && claim) {
-    const rel = claimLineIndex(claim, corpus.slice(idx, endIdx + 1), corpus);
-    if (rel >= 0) claimIdx = idx + rel;
+  if (endIdx > from && claim) {
+    const rel = claimLineIndex(claim, corpus.slice(from, endIdx + 1), corpus);
+    if (rel >= 0) claimIdx = from + rel;
   }
-  const focusIdx = claimIdx >= 0 ? claimIdx : idx;
-  return { idx, endIdx, claimIdx, focusIdx, focusTime: cues[focusIdx]?.start ?? null };
+  // Findet sich keine tragende Zeile, bleibt der Abschnitt als Ganzes markiert — angesteuert
+  // wird trotzdem die Zeitmarke des Chips, unsere beste Vermutung, statt des Chunk-Anfangs.
+  const focusIdx = claimIdx >= 0 ? claimIdx : timeIdx;
+  return { idx: from, endIdx, claimIdx, focusIdx, focusTime: cues[focusIdx]?.start ?? null };
 }

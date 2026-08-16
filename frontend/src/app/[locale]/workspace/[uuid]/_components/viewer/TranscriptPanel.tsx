@@ -76,6 +76,7 @@ export function TranscriptPanel({
   onOffChange,
   citationTime,
   citationEndTime,
+  citationChunkStart,
   citationClaim,
   citationNonce,
   onCitationFocusTime,
@@ -102,6 +103,10 @@ export function TranscriptPanel({
   // cited passage unmarked, and the sentence the answer rests on is regularly one cue
   // further down — just past the marking, which reads as "the source does not say it".
   citationEndTime?: number;
+  // Anfang des zitierten Chunks. ``citationTime`` ist die beste Vermutung, wo im Chunk die
+  // Aussage faellt, und liegt meist mittendrin: der markierte Abschnitt muss trotzdem am
+  // Chunk-Anfang beginnen, sonst bleibt alles davor unmarkiert.
+  citationChunkStart?: number;
   // The answer text the chip backs up. Used to find the ONE line of the passage that carries
   // it, so the marking is that line rather than the whole minute the chunk covers.
   citationClaim?: string;
@@ -347,15 +352,18 @@ export function TranscriptPanel({
     // lecture is English and only the translation shares its wording. Computed HERE, not in
     // a memo, because the scroll below needs it in the same pass — a memo would still hold
     // the previous jump's value.
-    const focus = resolveCitationFocus(masterCues, citationTime, citationEndTime, citationClaim, claimCorpus);
+    const focus = resolveCitationFocus(masterCues, citationTime, citationEndTime, citationClaim, claimCorpus, citationChunkStart);
     setCitationIdx(focus.idx);
     setCitationEndIdx(focus.endIdx);
     setCitationClaimIdx(focus.claimIdx);
-    // Hand the marked line's time to the player, which otherwise seeks to the chip's chunk
-    // start and lands a paragraph before the marking. Only when the two differ, so an
-    // ordinary jump keeps the chip's own time. NOT gated on `mode`: with the transcript
-    // switched off there is no marking to see, but the sentence to play is still that one.
-    if (focus.claimIdx > focus.idx && focus.focusTime != null) {
+    // Steht eine tragende Zeile fest, spielt der Player von DORT, nicht von der Zeitmarke des
+    // Chips. Verglichen wird gegen `citationTime`, nicht gegen `focus.idx`: der ist seit der
+    // Verbreiterung der Chunk-Anfang, waehrend der Player von der Zeitmarke ausgeht. Ohne
+    // tragende Zeile bleibt es bei der Zeitmarke, unserer besten Vermutung. NOT gated on
+    // `mode`: with the transcript switched off there is no marking to see, but the sentence
+    // to play is still that one.
+    if (focus.claimIdx >= 0 && focus.focusTime != null
+        && Math.abs(focus.focusTime - citationTime) > 0.05) {
       onCitationFocusTime?.(focus.focusTime, citationNonce);
     }
     if (focus.idx >= 0 && mode !== "off" && citationNonceRef.current !== citationNonce) {
@@ -365,7 +373,7 @@ export function TranscriptPanel({
         itemRefs.current[target]?.scrollIntoView({ block: "center", behavior: "instant" });
       });
     }
-  }, [citationNonce, citationTime, citationEndTime, citationClaim, masterCues, claimCorpus, sourceUuid, mode, onCitationFocusTime]);
+  }, [citationNonce, citationTime, citationEndTime, citationChunkStart, citationClaim, masterCues, claimCorpus, sourceUuid, mode, onCitationFocusTime]);
 
   // Track whether the pinned cue is on-screen so the jump-back button only shows once
   // it has scrolled out of view (like the PDF jump button appearing after you page away).

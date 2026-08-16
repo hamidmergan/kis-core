@@ -243,6 +243,46 @@ describe("resolveCitationFocus — marking and play head land on the same line",
     const focus = resolveCitationFocus([], 179.0, 211.0, claim, corpus);
     expect(focus).toEqual({ idx: -1, endIdx: -1, claimIdx: -1, focusIdx: -1, focusTime: null });
   });
+
+  // Die Zeitmarke des Chips ist seit aia_segment_pick nicht mehr der Chunk-Anfang, sondern
+  // die beste Vermutung, wo im Chunk die Aussage faellt. Sie liegt also mitten im Chunk.
+  describe("Zeitmarke mitten im Chunk", () => {
+    // Wie oben, aber die Aussage stammt aus der ERSTEN Zeile, waehrend der Chip auf die
+    // zweite zeigt. Das ist der Fall, den die Verbreiterung rettet.
+    const claimAusZeile0 = "Inhaltsabbildungs- und Tabellenverzeichnis sollen weggelassen "
+      + "werden, in der Vorlage steht als erstes ein Abstract.";
+
+    it("markiert ab dem Chunk-Anfang, nicht ab der Zeitmarke", () => {
+      const focus = resolveCitationFocus(cues, 197.0, 211.0, claimAusZeile0, corpus, 179.0);
+      expect(focus.idx).toBe(20);        // Chunk-Anfang, nicht 21
+      expect(focus.endIdx).toBe(21);
+    });
+
+    it("findet die tragende Zeile auch VOR der Zeitmarke", () => {
+      const focus = resolveCitationFocus(cues, 197.0, 211.0, claimAusZeile0, corpus, 179.0);
+      expect(focus.claimIdx).toBe(20);
+      expect(focus.focusTime).toBe(179.0);
+    });
+
+    it("ohne Chunk-Anfang bleibt die Zeile davor unerreichbar", () => {
+      // Der Bestand vor der Aenderung: ab der Zeitmarke markiert, davor nichts. Steht der
+      // belegende Satz frueher, faellt er aus der Markierung heraus.
+      const focus = resolveCitationFocus(cues, 197.0, 211.0, claimAusZeile0, corpus);
+      expect(focus.idx).toBe(21);
+      expect(focus.claimIdx).toBe(-1);
+    });
+
+    it("ohne tragende Zeile bleibt der ganze Chunk markiert und der Player auf der Vermutung", () => {
+      const spread = "Die Inhalte der Seiten und die Vorlage und das Abstract und die "
+        + "Einleitung und die Grundlagen gehören alle dazu.";
+      const focus = resolveCitationFocus(cues, 197.0, 211.0, spread, corpus, 179.0);
+      expect(focus.claimIdx).toBe(-1);
+      expect(focus.idx).toBe(20);          // markiert wird der ganze Chunk
+      expect(focus.endIdx).toBe(21);
+      expect(focus.focusIdx).toBe(21);     // angesteuert wird die Zeitmarke des Chips
+      expect(focus.focusTime).toBe(197.0);
+    });
+  });
 });
 
 describe("groupCues — sentence-sized cues into readable blocks", () => {

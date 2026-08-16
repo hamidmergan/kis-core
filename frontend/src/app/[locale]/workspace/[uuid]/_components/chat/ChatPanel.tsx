@@ -36,7 +36,7 @@ export function ChatPanel({
   loading: boolean;
   onSend: (value: string) => void;
   onStop?: () => void;
-  onPillClick: (sourceUuid: string, page: number, filename: string, sourceText?: string, startTime?: number, isExact?: boolean, hideTranscript?: boolean, endTime?: number) => void;
+  onPillClick: (sourceUuid: string, page: number, filename: string, sourceText?: string, startTime?: number, isExact?: boolean, hideTranscript?: boolean, endTime?: number, chunkStart?: number) => void;
   moduleReady: boolean;
   onClear: () => void;
   externalTextareaRef?: React.RefObject<HTMLTextAreaElement | null>;
@@ -133,12 +133,12 @@ export function ChatPanel({
   const handleChipClick = useCallback(
     // Chips are nav-only: a click scrolls to the page/timestamp. Only a popup/action-
     // bar exact selection (isExact + sourceText) carries text to highlight.
-    (sourceUuid: string, page: number, filename: string, sourceText?: string, startTime?: number, isExact?: boolean, endTime?: number) => {
+    (sourceUuid: string, page: number, filename: string, sourceText?: string, startTime?: number, isExact?: boolean, endTime?: number, chunkStart?: number) => {
       const el = scrollContainerRef.current;
       const savedTop = el?.scrollTop ?? 0;
       // hideTranscript stays undefined here: that flag belongs to the listening exercise,
-      // never to a chip. endTime is the last argument of pillClick.
-      onPillClickRef.current(sourceUuid, page, filename, sourceText, startTime, isExact, undefined, endTime);
+      // never to a chip. endTime und chunkStart stehen bei pillClick hinten.
+      onPillClickRef.current(sourceUuid, page, filename, sourceText, startTime, isExact, undefined, endTime, chunkStart);
       if (el) {
         const restore = () => { el.scrollTop = savedTop; };
         requestAnimationFrame(() => { restore(); requestAnimationFrame(restore); });
