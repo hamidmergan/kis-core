@@ -35,8 +35,9 @@ from src.tool_prompts import (
     AIA_INTENT_CLASSIFIER_SYSTEM,
     AIA_QUERY_UNDERSTANDING_SYSTEM,
     aia_query_understanding_system,
-    RAG_NO_INFO_SENTINEL,
+    is_gap_line,
     is_sentinel_refusal,
+    refusal_reference_texts,
 )
 from . import _followup
 from src.services.aia_adaptive_chat import (
@@ -1921,7 +1922,7 @@ async def chat(
                         get_embedding_provider(
                             timeout=AIA_ATTRIBUTION_EMBED_TIMEOUT_SECONDS,
                             retry_on_timeout=False).embed,
-                        list(RAG_NO_INFO_SENTINEL.values()))
+                        refusal_reference_texts())
                     answer = _clean_answer if _refused else _append_scope_anchor(_clean_answer, _aqn, _apg)
                 else:
                     answer = _clean_answer
@@ -1955,10 +1956,10 @@ async def chat(
                             if _u not in _cands and _u not in _extra_units:
                                 _extra_units.append(_u)
                     _batch_lines = _cands + _extra_units
-                    _sentinels = list(RAG_NO_INFO_SENTINEL.values())
+                    _sentinels = refusal_reference_texts()
                     # Reuse whatever the streaming prewarm (B2) already embedded; embed only the
                     # misses plus the sentinels. If prewarm covered everything, this is just the
-                    # 2-sentinel embed and the after-answer pause is near zero.
+                    # sentinel embed and the after-answer pause is near zero.
                     _pw_vecs = _prewarmer.vecs if _prewarmer is not None else {}
                     _pw_hits = _prewarmer.hits if _prewarmer is not None else {}
                     _vec_by_line: dict[str, list] = {ln: _pw_vecs[ln] for ln in _batch_lines if ln in _pw_vecs}
@@ -1986,7 +1987,12 @@ async def chat(
                             # gibt es keinen Chip, und das ist die richtige Zugabe-Absage.
                             _embed_down = True
                             logger.warning("post-hoc batch embedding failed, answer ships without chips: {}", e)
+                    # Der Luecken-Satz wird WOERTLICH erkannt, nicht per Abstand: er und der
+                    # Aussagesatz davor reden beide ueber die Quellen und liegen im
+                    # Einbettungsraum zu dicht beieinander (gemessen 0,551 gegen 0,522, Schwelle
+                    # 0,60). Ueber den Abstand verlöre der Aussagesatz seinen Chip mit.
                     _refusals = _refusal_lines(_cands, _vec_by_line, _sentinel_vecs)
+                    _refusals |= {ln for ln in _cands if is_gap_line(ln)}
                     if _refusals:
                         logger.info("post-hoc attribution: {} refusal line(s) excluded from citation", len(_refusals))
 

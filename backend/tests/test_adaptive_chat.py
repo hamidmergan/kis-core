@@ -72,6 +72,29 @@ def test_default_behavior_is_style_only_and_covers_the_bands():
     assert '"du"' in b and '"Sie"' in b
 
 
+def test_default_behavior_does_not_turn_a_word_question_into_a_grammar_question():
+    """Asking what a term MEANS is an ordinary question, not a vocabulary lesson.
+
+    The block used to close with "a message that quotes words which do appear in
+    the documents is still such a message: the quoted words are not the answer".
+    It was aimed at grammar asks, but it also caught "was ist die
+    Komplementaermenge?" — a question that quotes a word from the sources and
+    wants the definition standing right next to it. Measured 2026-08-16 against
+    the Mathe-Vorkurs chunk that holds the definition, 10 runs each: 5-6 wrong
+    refusals on A1 with the sentence, 0 without it, 0 with no level and 0 on B2.
+
+    Removing it does not open the grammar hole it was meant to close: the same
+    grammar question no source answers is refused 10 out of 10 either way,
+    because ADAPTIVE_SOURCES_GUARD carries that rule and ships separately.
+    """
+    b = DEFAULT_ADAPTIVE_BEHAVIOR
+    assert "the quoted words are not the answer" not in b
+    assert "quotes words which do appear" not in b
+    # What the paragraph is actually for stays untouched.
+    assert "language teacher" in b
+    assert "not-in-sources sentence" in b
+
+
 def test_default_behavior_never_drops_facts_at_the_low_levels():
     """Simplifying is about WORDING, never about leaving content out.
 

@@ -1,5 +1,7 @@
 """Default system prompts and style configs for all LLM-backed tools."""
 
+import re
+
 from src.i18n import DEFAULT_LOCALE, TRANSCRIPT_LANGUAGES
 
 # -- Screencast batch mode ----------------------------------------------------
@@ -94,16 +96,52 @@ AIA_SYSTEM_DIRECT_WITH_CONTEXT = (
     "Respond in the user's language."
 )
 
-# Frontend matches against this exact sentinel string to render the "no info" state.
-# Keep changes synchronized with rag_sentinel_text() in the frontend citation parser.
+# Der Satz, mit dem jede Absage bis 2026-08 EROEFFNETE. Er steht nicht mehr im Prompt,
+# bleibt aber als Konstante: alte Antworten im Chatverlauf tragen ihn noch, und er ist
+# einer der Referenzsaetze der Absage-Erkennung.
+#
+# Warum er weg ist: er kam zuerst und der Hinweis auf das, was die Quellen doch hergeben,
+# danach. Das las sich als Widerspruch im selben Atemzug, "ich habe nichts gefunden, aber
+# schau mal hier". Seit 2026-08-16 steht die Aussage zuerst und die Luecke zuletzt, siehe
+# den Block "NOT IN THE DOCUMENTS" in aia_system_rag.
 RAG_NO_INFO_SENTINEL: dict[str, str] = {
     "de": "Diese Information ist nicht in den bereitgestellten Quellen enthalten.",
     "en": "This information is not contained in the provided sources.",
 }
 
+# Der Luecken-Satz. Vorne frei, damit er benennt WAS fehlt, hinten eine feste Wendung.
+#
+# Das feste Ende ist kein Schoenheitsfehler, es traegt die Erkennung. Ein Luecken-Satz
+# muss von der Chip-Vergabe ausgenommen werden: er beschreibt eine Fehlstelle und hat
+# nichts zu belegen. Frei formuliert geht das nicht ueber die Einbettung, gemessen am
+# 2026-08-16: "Die Quellen nennen eine Klausur ... und geben Hinweise dazu" (ein
+# Aussagesatz, der seinen Chip BRAUCHT) landet bei 0,551 und "Wann die Klausur ist,
+# sagen sie nicht" bei 0,522, beide unter der Schwelle von 0,60. Ein Satz UEBER die
+# Quellen und ein Satz ueber eine LUECKE in den Quellen sind sich semantisch zu aehnlich.
+# Die beste Referenzliste kam auf 0,62 gegen 0,60, und zwei Hundertstel sind kein Verlass.
+# Mit festem Ende entscheidet ein Textvergleich, kein Abstand.
+RAG_NO_INFO_PATTERNS: dict[str, str] = {
+    "de": "{Was gefragt war} steht nicht in den Quellen.",
+    "en": "{What was asked} is not in the sources.",
+}
+
+# Das feste Ende, klein geschrieben. Danach wird gesucht.
+_GAP_ANCHORS: tuple[str, ...] = (
+    "steht nicht in den quellen",
+    "stehen nicht in den quellen",
+    "is not in the sources",
+    "are not in the sources",
+)
+
 # Was beim Vergleich abgeschnitten wird: Betonungszeichen, Anfuehrungszeichen und
 # Satzzeichen am Rand. Das Modell schreibt den Satz mal fett, mal ohne Punkt.
 _SENTINEL_TRIM = " \t\r\n*_`\"'“”„«».!"
+
+# Ein Satzende, dem noch etwas folgt: Punkt, dann Leerraum, dann ein Grossbuchstabe.
+# Grob mit Absicht. Ein "z.B. Der" gilt faelschlich als zweiter Satz, und das ist die
+# harmlose Richtung: der Schnellpfad greift dann nicht und die Antwort nimmt den
+# normalen Weg ueber die Einbettung.
+_MORE_THAN_ONE_SENTENCE = re.compile(r"[.!?][\"'”’)\]]?\s+[^\Wa-z\d_]", re.UNICODE)
 
 
 def _sentinel_key(text: str | None) -> str:
@@ -111,18 +149,49 @@ def _sentinel_key(text: str | None) -> str:
     return " ".join((text or "").split()).strip(_SENTINEL_TRIM).casefold()
 
 
+def refusal_reference_texts() -> list[str]:
+    """Die Saetze, gegen die per Einbettung gemessen wird.
+
+    Nur der alte Eroeffnungssatz, der noch im Chatverlauf steckt. Die heutige Bauform wird
+    NICHT hier abgedeckt: sie hat ein festes Ende und wird von ``is_gap_line`` woertlich
+    erkannt. Der Versuch, sie zusaetzlich als Referenzsatz aufzunehmen, hat am 2026-08-16
+    gemessen den Aussagesatz davor mit unter die Schwelle gezogen (0,551 statt 0,62), und
+    der haette dann seinen Quellenchip verloren."""
+    return list(RAG_NO_INFO_SENTINEL.values())
+
+
+def is_gap_line(text: str | None) -> bool:
+    """True, wenn diese Zeile der Luecken-Satz ist und darum KEINEN Quellenchip bekommt.
+
+    Woertlicher Vergleich auf das feste Satzende. Eine Fehlstelle laesst sich nicht belegen,
+    ein Chip daran waere eine Quellenangabe fuer etwas, das in keiner Quelle steht."""
+    key = _sentinel_key(text)
+    return bool(key) and any(anchor in key for anchor in _GAP_ANCHORS)
+
+
 def is_sentinel_refusal(text: str | None) -> bool:
-    """True, wenn die GANZE Antwort nur der kanonische "steht nicht in den Quellen"-Satz ist.
+    """True, wenn die GANZE Antwort nur die Absage ist, ohne Aussage davor.
 
     Reiner Textvergleich, absichtlich ohne Einbettung: eine reine Absage hat nichts zu
     belegen, also darf sie den kompletten Nachbearbeitungs-Durchgang (ein Einbettungs-Stapel
     plus die pgvector-Suchen) ueberspringen und sofort rausgehen, statt ihre einzige Zeile
-    erst zu vermessen und dann wieder zu verwerfen. Greift nur beim woertlichen de/en-Satz.
-    Jede andere Sprache und jede zusammengesetzte Antwort faellt durch auf die
-    einbettungs-basierte Erkennung (``is_refusal_answer`` / ``_refusal_lines``), die das
-    allgemeine Netz bleibt."""
+    erst zu vermessen und dann wieder zu verwerfen.
+
+    Greift beim woertlichen alten Satz (Antworten aus dem Verlauf) und beim alleinstehenden
+    Luecken-Satz. Deshalb die Bedingung, dass die Antwort aus EINEM Satz besteht: eine
+    Antwort MIT vorangestellter Aussage enthaelt dasselbe feste Ende, ist aber keine reine
+    Absage, und ihr Aussagesatz braucht seinen Quellenchip.
+
+    Jede andere Sprache faellt durch auf die einbettungs-basierte Erkennung
+    (``is_refusal_answer`` / ``_refusal_lines``), die das allgemeine Netz bleibt."""
     key = _sentinel_key(text)
-    return bool(key) and any(key == _sentinel_key(s) for s in RAG_NO_INFO_SENTINEL.values())
+    if not key:
+        return False
+    if any(key == _sentinel_key(s) for s in RAG_NO_INFO_SENTINEL.values()):
+        return True
+    if _MORE_THAN_ONE_SENTENCE.search(" ".join((text or "").split())):
+        return False
+    return is_gap_line(text)
 
 
 # Longest previous question kept as a language anchor. Enough to recognise a
@@ -198,8 +267,8 @@ def aia_system_rag(
     instead of a 5-line digest. SPECIFIC/SCOPE/popup answers keep the default
     (overview=False) — they must stay tight and on-point.
     """
-    de_sentinel = RAG_NO_INFO_SENTINEL["de"]
-    en_sentinel = RAG_NO_INFO_SENTINEL["en"]
+    de_gap = RAG_NO_INFO_PATTERNS["de"]
+    en_gap = RAG_NO_INFO_PATTERNS["en"]
     base = (
         "You are an AI tutor. Answer thoroughly based on the provided documents.\n"
         "Use ALL relevant information from ALL provided document sections.\n"
@@ -208,20 +277,28 @@ def aia_system_rag(
         "NEVER invent facts, definitions, or information not derivable from the sources.\n"
         "NEVER reference the documents by their number, index, or id, and NEVER enumerate where a fact appears. The <document index=\"N\" id=\"N\"> numbers are internal markup, NOT part of the answer: do NOT write 'in document 3', 'in Dokumenten 3, 7, 10', 'source 5', 'laut Quelle 2', or any list of such numbers. State each fact ONCE in plain language — the clickable source links are attached automatically afterwards, so you never cite, number, or list sources yourself.\n"
         "No conversation history is provided. The question is standalone - answer it using ONLY the <documents> below.\n"
-        "NOT IN THE DOCUMENTS — REFUSE, THEN POINT AT WHAT IS THERE:\n"
-        "  1. OPEN with EXACTLY ONE short sentence stating the information is not in the provided sources, written IN THE SAME LANGUAGE AS THE USER'S QUESTION "
-        f"(German question: \"{de_sentinel}\"; English question: \"{en_sentinel}\"; any other language: translate that statement into the question's language).\n"
-        "  2. THEN look through the <documents> for the CLOSEST related thing that IS there — the same matter under another name, or whatever takes its place (asked for an exam → the documents describe a written paper; asked for a term the sources never name → they describe the same practice in other words). If you find one, you MUST add ONE short sentence naming it with its concrete facts. Only if the documents hold nothing related at all do you stop after sentence 1.\n"
-        "  - THE TEST for whether a pointer is allowed: you must be able to name the SUBJECT the question and the passage SHARE ('Klausur' and 'Hausarbeit' share how the course is assessed → pointer allowed). If the only thing they share is that both appear in these documents, there is NO pointer — write the refusal alone.\n"
-        "  - SHAPE TO COPY — CASE A, the documents DO cover something related (refusal, then exactly ONE pointing sentence):\n"
+        "NOT IN THE DOCUMENTS — SAY WHAT IS THERE FIRST, THE GAP LAST:\n"
+        "  1. FIRST read the <documents> for a passage that states what was asked, in whatever words, as prose, as a formula, as a gloss, as a caption. Found one → ANSWER from it normally and use NOTHING from this block.\n"
+        "  2. Only if they do NOT state it: do NOT open with a refusal. OPEN with what the documents DO say about the subject, ONE short sentence with its concrete facts. THEN, ON ITS OWN LINE (a blank line between them, never glued to the sentence before), close with the GAP SENTENCE naming exactly what they do not give. Both sentences are written IN THE SAME LANGUAGE AS THE USER'S QUESTION, whatever language the documents are in. Never the other way round — a reader who is told 'nothing found' and is then handed something has been contradicted in the same breath.\n"
+        f"  - THE GAP SENTENCE HAS A FIXED ENDING. Name what is missing, then end with the fixed wording: \"{de_gap}\" (English question: \"{en_gap}\"). Examples: \"Wann die Klausur ist, steht nicht in den Quellen.\", \"Was die Komplementärmenge bedeutet, steht nicht in den Quellen.\", \"Der Wechselkurs von Bitcoin steht nicht in den Quellen.\" The front is yours, the ending is not: keep it word for word so the sentence is recognisable as the gap note. For any other language, write the same statement in that language.\n"
+        "  - THE TEST for whether an opening sentence is possible at all: you must be able to name the SUBJECT the question and the passage SHARE ('Klausur' and 'Hausarbeit' share how the course is assessed → allowed). If the only thing they share is that both appear in these documents, there is nothing to open with, and the gap sentence stands alone.\n"
+        "  - SHAPE TO COPY — the subject appears, but not what was asked about it:\n"
+        "      Question: Was ist die Signifikanzschwelle?\n"
+        "      Die Quellen führen die Signifikanzschwelle im Kapitel zur Auswertung der Fragebögen auf.\n"
+        "\n"
+        "      Was die Signifikanzschwelle bedeutet, steht nicht in den Quellen.\n"
+        "  - SHAPE TO COPY — the subject is absent, but something takes its place:\n"
         "      Question: Wann ist die Klausur?\n"
-        f"      {de_sentinel}\n"
         "      Die Quellen beschreiben als Prüfungsleistung eine Hausarbeit von sechs bis sieben Seiten mit Abgabe am 3. Juli.\n"
-        "  - SHAPE TO COPY — CASE B, the documents cover NOTHING related (refusal ALONE, no second sentence at all):\n"
+        "\n"
+        "      Wann die Klausur ist, steht nicht in den Quellen.\n"
+        "  - SHAPE TO COPY — the documents hold NOTHING related, so there is nothing to put first and ONE sentence stands alone:\n"
         "      Question: Wie hoch ist der Wechselkurs von Bitcoin?\n"
-        f"      {de_sentinel}\n"
-        "  - NEVER speculate, NEVER use general knowledge, NEVER write a third sentence, NEVER offer further help, and NEVER stretch for a pointer that fails the test above.\n"
-        "Do NOT add disclaimers, comments about missing information, or limitations — the ONE pointing sentence above is the only exception.\n"
+        "      Der Wechselkurs von Bitcoin steht nicht in den Quellen.\n"
+        "  - THE CLOSING GAP SENTENCE MAY ONLY NAME SOMETHING YOUR OWN ANSWER DID NOT ALREADY GIVE. Never deny what you just wrote: if your sentence explains what the thing is, you may NOT close with 'the sources do not explain what it is' — you just did. Ask yourself before writing it: is this a DIFFERENT thing than what I already said? A different level of detail counts (you gave the date, the time of day is missing → allowed). A restatement of the same thing does not (you gave the definition, then call it unexplained → forbidden). If no genuine gap remains, write NO closing sentence.\n"
+        "  - BUT THE CLOSING SENTENCE IS REQUIRED whenever the question asked what something IS, MEANS, COSTS or WHEN it happens and your sentence does not state that. Naming where a term appears is NOT stating what it is, so that case always closes with the gap sentence. Without it the reader takes a mere mention for an answer.\n"
+        "  - NEVER speculate, NEVER use general knowledge, NEVER write more than these two sentences, NEVER offer further help, and NEVER stretch for an opening sentence that fails the test above.\n"
+        "Do NOT add disclaimers, comments about missing information, or limitations — the ONE closing gap sentence above is the only exception.\n"
         "Do NOT use personal names from the sources, write 'according to the source' instead.\n"
         "LANGUAGE — TOP PRIORITY: ALWAYS write the answer in the SAME language as the USER'S QUESTION, even when the source documents are in a different language. English question + German sources -> answer in English (translate the facts). German question -> answer in German. Match the question's language every time.\n"
         f"{_ambiguous_language_rule(target_locale, prev_questions)}\n\n"

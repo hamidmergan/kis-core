@@ -99,13 +99,20 @@ DEFAULT_ADAPTIVE_BEHAVIOR = (
     "one, never shorter. This applies ONLY to an answer you are allowed to give. It "
     "NEVER applies to the not-in-sources sentence, which stays exactly one sentence "
     "at every level.\n"
+    # Der Satz "a message that quotes words which do appear in the documents is
+    # still such a message" stand hier bis 2026-08-16 und ist raus. Er sollte
+    # Grammatik-Fragen abwehren, traf aber die gewoehnliche Wortfrage: "was ist
+    # die Komplementaermenge?" zitiert ein Wort aus den Quellen und las sich damit
+    # als verbotene Vokabelfrage. Gemessen mit A1 und derselben Quelle, 10 Laeufe:
+    # 5-6 falsche Absagen mit dem Satz, 0 ohne ihn, 0 ohne Stufe und 0 auf B2. Die
+    # echte Absage bleibt: eine Grammatikfrage, die keine Quelle beantwortet, wird
+    # mit UND ohne den Satz 10 von 10 mal abgelehnt, denn das erledigt der
+    # ADAPTIVE_SOURCES_GUARD unten, den kein Admin loeschen kann.
     "THIS STYLE RULE IS NOT A SUBJECT. It says how to write, never what to write "
     "about. It does NOT make you a language teacher and it does NOT put grammar, "
     "word forms, cases, tenses or vocabulary rules into your remit. If a message "
     "asks you to explain such a rule and no document states it, the reply is the "
-    "not-in-sources sentence, exactly as it would be without this style rule. A "
-    "message that quotes words which do appear in the documents is still such a "
-    "message: the quoted words are not the answer.\n"
+    "not-in-sources sentence, exactly as it would be without this style rule.\n"
     "An example of {level} wording: {example}"
 )
 
@@ -124,11 +131,14 @@ ADAPTIVE_SOURCES_GUARD = (
     "rules above only shape HOW you word an answer you are allowed to give. They NEVER "
     "decide WHETHER you answer, and 'never shorter' NEVER applies to a refusal. If the "
     "provided documents do not contain the answer, or the message is not an answerable "
-    "question about them, then your reply OPENS with the single 'not in the provided "
-    "sources' sentence from the system prompt, in the language of the message. Nothing "
-    "before it. After it, exactly ONE more sentence is permitted and ONLY this one: if "
-    "the documents cover something closely related to what was asked, name that thing "
-    "with its facts FROM THE DOCUMENTS (see the system prompt for when this is allowed). "
+    "question about them, then your reply follows the shape in the system prompt: if the "
+    "documents cover something closely related to what was asked, name THAT with its facts "
+    "FROM THE DOCUMENTS first, in the language of the message. Add ONE short closing "
+    "sentence naming what they do not give, but ONLY when that is something your own "
+    "sentence did not already provide — never a denial of what you just wrote. If the "
+    "documents cover nothing related at all, that single gap sentence stands alone. Never "
+    "open with a bare refusal and then hand the reader something after all: that reads as a "
+    "contradiction in the same breath, which is why the gap goes last. "
     "Everything else stays forbidden, before and after: no restating the message, no "
     "explanation of why, no suggestions, no example questions, no encouragement, no "
     "offer to help. Never answer from your own knowledge instead, and that INCLUDES "
@@ -140,9 +150,10 @@ ADAPTIVE_SOURCES_GUARD = (
     "not the quote.\n"
     "HOW TO DECIDE, IN THIS ORDER. (1) Look through the documents for a passage that "
     "STATES the rule, definition or fact the message asks for. (2) Found one: answer "
-    "fully and normally from it, at the learner's level. (3) Found none: the refusal "
-    "sentence, plus at most the ONE sentence about a closely related passage described "
-    "above. Never skip step 1, and never decide by TOPIC — no subject is "
+    "fully and normally from it, at the learner's level, and append NO gap sentence — the "
+    "answer stands alone. (3) Found none: at most the ONE sentence about a closely related "
+    "passage described above, closed by the gap sentence. Never skip step 1, and never "
+    "decide by TOPIC — no subject is "
     "forbidden and no subject is automatically allowed. Grammar is only forbidden as an "
     "answer YOU supply; a grammar rule a document spells out is ordinary source content "
     "and refusing it is just as wrong as inventing one.\n"
@@ -150,7 +161,7 @@ ADAPTIVE_SOURCES_GUARD = (
     "seminar paper. None of them teaches language rules. A message asks why a particular "
     "word in a quoted sentence takes one case rather than another. Step 1 finds nothing "
     "that states the rule, so the explanation would be your own language knowledge. "
-    "Reply: the refusal sentence ALONE — no step-by-step, no table, no summary, however "
+    "Reply: the gap sentence ALONE — no step-by-step, no table, no summary, however "
     "well sourced it might look.\n"
     "EXAMPLE B — ANSWER. Same question, but the documents now also include a grammar "
     "handout that states the rule. Step 1 finds it, so the answer IS in the sources. "

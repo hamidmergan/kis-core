@@ -12,7 +12,7 @@ import re
 from src.tool_prompts import (
     aia_system_rag,
     aia_rag_user_message,
-    RAG_NO_INFO_SENTINEL,
+    RAG_NO_INFO_PATTERNS,
 )
 
 
@@ -173,11 +173,13 @@ def test_overview_prompt_keeps_the_previous_question_anchor():
     assert "OVERVIEW MODE" in sp
 
 
-def test_no_info_sentinel_is_question_language_driven():
+def test_no_info_shape_is_question_language_driven():
+    """Seit 2026-08-16 steht die Luecke am ENDE und der alte Eroeffnungssatz ist raus
+    (siehe tests/test_refusal_shape.py). Was der Test prueft, bleibt dasselbe: die
+    Sprache entscheidet die FRAGE, nicht die Sprache der Quellen."""
     sp = aia_system_rag("de")
-    # Both canonical sentinels are offered, keyed to the question language.
-    assert RAG_NO_INFO_SENTINEL["de"] in sp
-    assert RAG_NO_INFO_SENTINEL["en"] in sp
+    assert RAG_NO_INFO_PATTERNS["de"] in sp
+    assert "in the language of the message" in sp or "SAME LANGUAGE AS THE USER'S QUESTION" in sp
     assert "same language as the user's question" in sp.lower()
 
 
