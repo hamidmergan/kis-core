@@ -2070,7 +2070,7 @@
           "expand": "Hinweis öffnen",
           "collapse": "Hinweis schließen",
           "edit": "Hinweis bearbeiten",
-          "emptyOwnerHint": "Hinweis für Nutzer hinzufügen",
+          "emptyOwnerHint": "Hinweis hinzufügen",
           "modalTitle": "Hinweis",
           "modalSubtitle": "Sichtbar für alle Nutzer · {label}",
           "textLabel": "Hinweistext",

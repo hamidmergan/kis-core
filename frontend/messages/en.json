@@ -2070,7 +2070,7 @@
           "expand": "Open note",
           "collapse": "Close note",
           "edit": "Edit note",
-          "emptyOwnerHint": "Add a note for users",
+          "emptyOwnerHint": "Add note",
           "modalTitle": "Note",
           "modalSubtitle": "Visible to all users · {label}",
           "textLabel": "Note text",
