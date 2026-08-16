@@ -186,3 +186,18 @@ def test_prompt_keeps_one_fact_per_sentence_in_the_opening():
     assert "a sentence built from two passages can be linked to neither" in p
     # Die alte Vorgabe darf nicht zurueckkommen.
     assert "OPEN with what the documents DO say about the subject, ONE short sentence" not in p
+
+
+def test_prompt_demands_a_precise_gap_not_an_echo_of_the_question():
+    """"Wann die Klausur ist, steht nicht in den Quellen" nach einem Satz mit Datum.
+
+    Beobachtet am 2026-08-16: der Satz davor lautete "In einer Aufzeichnung wird eine
+    Klausur vom 8.9. gezeigt", der Luecken-Satz nahm ihn scheinbar zurueck. Beide
+    stimmen, aber die 8.9. ist eine ALTE Klausur, die der Dozent auf dem Bildschirm
+    zeigt, und kein Termin. Der Luecken-Satz muss das benennen ("ein Termin fuer die
+    kommende Klausur") statt die Frage zurueckzuwerfen.
+    """
+    p = aia_system_rag("de")
+    assert "NAME THE MISSING PIECE EXACTLY" in p
+    assert "NEVER by echoing the question back" in p
+    assert "If the second one seems to take back the first" in p

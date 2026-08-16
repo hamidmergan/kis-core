@@ -100,6 +100,38 @@ def test_media_chip_matches_across_inflection():
     assert out == ["[8, 02:08]"]
 
 
+def test_media_chip_counts_a_short_number_as_a_feature():
+    """Eine Zahl ist im gesprochenen Text das trennschaerfste Merkmal.
+
+    ``_significant_tokens`` verlangt vier Zeichen, und daran fiel die "8.9" durch.
+    Beobachtet am 2026-08-16 an der WuK-Aufzeichnung: zu "In einer Aufzeichnung wird
+    eine Klausur vom 8.9. gezeigt" blieben nur die Staemme "aufzei", "gezeig" und
+    "klausu". Das gesuchte Segment lautet "So, das ist die Klausur 8.9." und trug davon
+    genau einen, also einen zu wenig. Der Chip zeigte auf 00:00 statt auf 01:00, und
+    das ist zwei Bloecke vor der Stelle, um die es geht.
+    """
+    segs = [
+        {"start": 0.0, "end": 29.0, "text": "Startet doch jetzt, Leute, der rote Punkt."},
+        {"start": 30.0, "end": 46.0, "text": "Das sind die Lösungen, die zeigen wir auch noch."},
+        {"start": 60.0, "end": 72.0, "text": "So, das ist die Klausur 8.9."},
+        {"start": 450.0, "end": 469.0, "text": "Dann können Sie jetzt die Klausur sehen."},
+    ]
+    chunk = dict(_LANGSAMER_CHUNK, end_time=504.0)
+    out = _attribution_chip(8, chunk, "In einer Aufzeichnung wird eine Klausur vom 8.9. gezeigt.", segs)
+    assert out == ["[8, 01:00]"]
+
+
+def test_media_chip_still_needs_two_features_with_a_number():
+    """Die Zahl ersetzt die Zwei-Treffer-Regel nicht, sie zaehlt nur mit."""
+    segs = [
+        {"start": 0.0, "end": 29.0, "text": "Guten Morgen, wir fangen an."},
+        {"start": 60.0, "end": 72.0, "text": "Seite 8.9 im Skript."},
+    ]
+    chunk = dict(_LANGSAMER_CHUNK, end_time=504.0)
+    out = _attribution_chip(8, chunk, "Es geht um 8.9.", segs)
+    assert out == ["[8, 00:00]"]
+
+
 def test_media_chip_falls_back_to_chunk_start_without_segments():
     assert _attribution_chip(8, _LANGSAMER_CHUNK, "Ein Strich darüber") == ["[8, 00:00]"]
 

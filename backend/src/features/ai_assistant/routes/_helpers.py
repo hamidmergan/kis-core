@@ -682,6 +682,30 @@ _SEGMENT_STEM_CHARS = 6
 # 12,5 auf 1,4 Sekunden. Traegt kein Segment zwei, bleibt es beim Chunk-Anfang.
 _SEGMENT_MIN_STEM_HITS = 2
 
+# Zahlen zaehlen als eigenes Merkmal, auch wenn sie kurz sind. ``_significant_tokens``
+# verlangt vier Zeichen, und daran fiel ausgerechnet das Auffaelligste durch: zu
+# "In einer Aufzeichnung wird eine Klausur vom 8.9. gezeigt" blieben nur die Staemme
+# "aufzei", "gezeig", "klausu". Das gesuchte Segment lautet "So, das ist die Klausur
+# 8.9." und trug davon genau einen, also einen zu wenig, und der Chip zeigte wieder auf
+# den Chunk-Anfang (00:00 statt 01:00). Mit der Zahl sind es zwei und das Segment
+# gewinnt deutlich. Ein Datum, eine Uhrzeit oder eine Nummer ist in gesprochenem Text
+# das trennschaerfste Merkmal ueberhaupt, und sie sind sprachunabhaengig.
+_SEGMENT_MIN_NUM_CHARS = 2
+
+
+def _segment_stems(line: str) -> set[str]:
+    """Merkmale einer Antwortzeile fuer den Segment-Vergleich.
+
+    Wortstaemme der langen Woerter plus die Zahlen der Zeile. Die Zahl bleibt ganz,
+    sie ist kurz genug und wird nicht gebeugt."""
+    stems = {_norm_for_match(t)[:_SEGMENT_STEM_CHARS] for t in _significant_tokens(line)}
+    for w in _TOKEN_RE.findall(re.sub(r"[*_`~#>]+", " ", line)):
+        wl = _norm_for_match(w.strip(".,-:;"))
+        if len(wl) >= _SEGMENT_MIN_NUM_CHARS and any(ch.isdigit() for ch in wl):
+            stems.add(wl)
+    stems.discard("")
+    return stems
+
 
 def _chunk_segments(chunk: dict, segments: list[dict]) -> list[dict]:
     """Die Whisper-Segmente, die innerhalb dieses Medien-Chunks liegen.
@@ -712,8 +736,7 @@ def _line_segment_start(line: str, chunk: dict, segments: list[dict]) -> Optiona
     segs = _chunk_segments(chunk, segments)
     if len(segs) < 2:
         return None
-    stems = {_norm_for_match(t)[:_SEGMENT_STEM_CHARS] for t in _significant_tokens(line)}
-    stems.discard("")
+    stems = _segment_stems(line)
     if not stems:
         return None
     scores = [
