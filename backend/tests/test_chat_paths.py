@@ -579,14 +579,49 @@ def test_expand_pulls_neighbours_of_an_anchor():
     assert all(c["_anchor_dist"] == 0.4 for c in out)
 
 
-def test_expand_merges_overlapping_windows_with_best_distance():
+def test_expand_merges_overlapping_windows_keeping_per_chunk_distance():
     doc = [{"id": 100 + i, "page_number": i, "content": f"c{i}"} for i in range(10)]
     anchors = [{"id": 102, "vec_distance": 0.6}, {"id": 104, "vec_distance": 0.3}]
     out = _expand_with_neighbors(anchors, doc, radius=1, source_id=7)
     ids = [c["id"] for c in out]
     assert ids == [101, 102, 103, 104, 105]         # union, deduped, document order
-    # one merged span -> all carry the span's best (smallest) anchor distance
-    assert all(c["_anchor_dist"] == 0.3 for c in out)
+    # Merged span, but every chunk keeps the distance of the anchor it actually sits
+    # next to. Equidistant (103 is one step from both) -> the better of the two.
+    assert {c["id"]: c["_anchor_dist"] for c in out} == {
+        101: 0.6, 102: 0.6, 103: 0.3, 104: 0.3, 105: 0.3,
+    }
+
+
+def test_expand_keeps_a_weak_anchors_neighbours_at_the_weak_distance():
+    """Regression "wann ist die Klausur" / "wann ist die Fragestunde".
+
+    A lecture transcript is short (14-31 chunks), so 24 anchors x radius 3 cover the
+    WHOLE document and merge into ONE span. While the span carried a single distance,
+    every chunk sorted equal, ``sorted(key=_anchor_dist)`` became a no-op and the
+    per-source budget cut the transcript from the FRONT — the answer at index 17
+    never reached the model although the search had it as anchor #1. Measured on the
+    real workspace: 4 of 10 eval cases found by the search, lost in the context.
+    """
+    doc = [{"id": 100 + i, "page_number": i, "content": f"c{i}"} for i in range(20)]
+    anchors = [{"id": 101, "vec_distance": 0.9}, {"id": 117, "vec_distance": 0.2}]
+    out = _expand_with_neighbors(anchors, doc, radius=3, source_id=1)
+    by_id = {c["id"]: c["_anchor_dist"] for c in out}
+    assert by_id[117] == 0.2                        # the on-topic anchor
+    assert by_id[101] == 0.9                        # the weak one keeps ITS distance
+    # Trimming best-first must reach the on-topic window before the weak one.
+    best_first = sorted(out, key=lambda c: c["_anchor_dist"])
+    assert [c["id"] for c in best_first[:6]] == [114, 115, 116, 117, 118, 119]
+
+
+def test_expand_bridge_filler_inherits_the_nearer_anchor():
+    # Chunks pulled in only to bridge a gap belong to whichever anchor they sit
+    # closer to, so a bridge cannot smuggle weak material in at a good score.
+    doc = [{"id": 100 + i, "page_number": i, "content": f"c{i}"} for i in range(20)]
+    anchors = [{"id": 100, "vec_distance": 0.2}, {"id": 110, "vec_distance": 0.8}]
+    out = _expand_with_neighbors(anchors, doc, radius=3, source_id=1)
+    by_id = {c["id"]: c["_anchor_dist"] for c in out}
+    assert by_id[104] == 0.2                        # still nearer the good anchor
+    assert by_id[106] == 0.8                        # nearer the weak one
 
 
 def test_expand_bridges_gap_between_nearby_anchors():

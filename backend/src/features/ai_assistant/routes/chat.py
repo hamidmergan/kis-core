@@ -4,6 +4,7 @@ import asyncio
 import json
 import re
 import time
+from bisect import bisect_left
 from collections.abc import AsyncGenerator
 from pathlib import Path
 from typing import Optional
@@ -827,41 +828,200 @@ def _expand_with_neighbors(
     content, start/end_time). Each anchor becomes a window ``[i-radius, i+radius]``;
     windows whose gap is ``<= bridge`` are merged so two anchors that BRACKET the
     answer also pull the chunks between them. Returns the covered chunks in document
-    order, each tagged with ``_anchor_dist`` (the merged span's best/smallest anchor
-    distance) so the caller can trim to one context window best-first.
+    order, each tagged with ``_anchor_dist`` — the distance of the anchor that chunk
+    actually sits NEAREST to — so the caller can trim best-first.
 
     Why: a fact often sits NEXT TO a hit, or BETWEEN two hits, rather than in either
     (a co-author named between the "Autoren" heading and the contact section). The
     window + bridge catches it in a single coherent call — no whole-document read.
+
+    Why PER CHUNK and not per span. Until 2026-08-16 a merged span handed its single
+    best distance to every chunk in it. On a long PDF that is harmless (24 anchors do
+    not cover 500 chunks, so several spans with distinct distances survive). On a
+    lecture transcript of 14-31 chunks the anchors cover the WHOLE document and merge
+    into ONE span: every chunk scored equal, ``sorted(key=_anchor_dist)`` in the
+    caller became a no-op, and the per-source budget then cut the transcript from the
+    FRONT — the greeting instead of the answer. Measured on a real 13-recording
+    workspace: 4 of 10 eval cases were found by the search at rank 1-9 and thrown
+    away here (``scripts/rag_retrieval_eval.py``).
+
+    Distance to the nearest anchor, ties to the better distance. Bridge-filler chunks
+    are covered by the same rule, so a bridge cannot smuggle weak material in at a
+    good score.
     """
     pos = {c["id"]: i for i, c in enumerate(doc_chunks)}
     n = len(doc_chunks)
-    windows: list[tuple[int, int, float]] = []
+    # (index, distance) per anchor, sorted by index — the input for both the windows
+    # below and the per-chunk nearest-anchor lookup.
+    marks: list[tuple[int, float]] = []
     for a in anchors:
         i = pos.get(a["id"])
         if i is None:
             continue
         ad = a.get("vec_distance")
-        ad = ad if ad is not None else 1.0
-        windows.append((max(0, i - radius), min(n - 1, i + radius), ad))
-    if not windows:
+        marks.append((i, ad if ad is not None else 1.0))
+    if not marks:
         return []
-    windows.sort()
-    spans: list[list] = [list(windows[0])]
-    for lo, hi, ad in windows[1:]:
+    marks.sort()
+    mark_idx = [i for i, _d in marks]
+
+    windows = sorted((max(0, i - radius), min(n - 1, i + radius)) for i, _d in marks)
+    spans: list[list[int]] = [list(windows[0])]
+    for lo, hi in windows[1:]:
         if lo - spans[-1][1] - 1 <= bridge:  # gap small enough -> merge + fill
             spans[-1][1] = max(spans[-1][1], hi)
-            spans[-1][2] = min(spans[-1][2], ad)
         else:
-            spans.append([lo, hi, ad])
+            spans.append([lo, hi])
+
+    def _nearest(j: int) -> float:
+        """Distance of the anchor closest to chunk index ``j``, ties to the better one.
+
+        bisect over the sorted anchor indices, so only the two neighbouring anchors
+        are compared instead of all of them — the whole expansion stays linear in the
+        number of covered chunks even at 24 anchors per source."""
+        k = bisect_left(mark_idx, j)
+        best: Optional[tuple[int, float]] = None
+        for cand in (k - 1, k):
+            if 0 <= cand < len(marks):
+                gap = abs(marks[cand][0] - j)
+                key = (gap, marks[cand][1])
+                if best is None or key < best:
+                    best = key
+        return best[1] if best else 1.0
+
     out: list[dict] = []
-    for lo, hi, ad in spans:
+    for lo, hi in spans:
         for j in range(lo, hi + 1):
             c = dict(doc_chunks[j])
             c["source_id"] = source_id
-            c["_anchor_dist"] = ad
+            c["_anchor_dist"] = _nearest(j)
             out.append(c)
     return out
+
+
+async def _retrieve_specific_context(
+    provider,
+    workspace_id: int,
+    search_source_ids: list[int],
+    retrieval_queries: list[str],
+    question: str,
+    char_budget: int,
+) -> list[dict]:
+    """The SPECIFIC retrieval path: per-source hybrid anchors + neighbour expansion.
+
+    Extracted from :func:`chat` so the retrieval EVAL harness
+    (``scripts/rag_retrieval_eval.py``) exercises the exact code that ships,
+    instead of a copy that silently drifts. Pure retrieval: no request object, no
+    streaming, no LLM — it takes the already-resolved queries and returns the
+    chunks that go into the prompt, in document order per source.
+    """
+    # Cap each retrieval query (embed + lexical search) — see _truncate_query_for_embedding.
+    _retrieval_queries = [_truncate_query_for_embedding(q) for q in retrieval_queries]
+    _qvecs = await asyncio.to_thread(provider.embed, _retrieval_queries)
+    _query_pairs = list(zip(_retrieval_queries, _qvecs))
+
+    # NEIGHBOR-CHUNK EXPANSION (single call). Plain top-K throws the tail away,
+    # so a fact that sits NEXT TO a hit is lost (author "Thorsten Lübben" at
+    # vec_rank ~645 — two chunks past the "Autoren" heading the search DOES
+    # find). Instead we take the relevance ANCHORS (hybrid search) and pull each
+    # anchor's document neighbours (±_NEIGHBOR_RADIUS): the answer almost always
+    # sits beside something retrievable. Everything fits ONE coherent context
+    # window, answered in a single call — a window can't be split, so it can't
+    # grow a gap-filling hallucination (the earlier map-reduce "Prof. Böhm").
+    #
+    # SOURCE-level distance gate: drop a source only when its CLOSEST anchor is
+    # off-topic (cosine > _DIST_FACTOR x global best). Single source → always kept.
+    # No trigram fuzzy here: it is a no-index per-row word_similarity scan (~3s/call,
+    # the n=30 latency killer) and vector search is already typo-robust at the
+    # SEMANTIC level (embeddings put "authoren" next to "Autoren"), with BM25 + ILIKE
+    # covering exact tokens. So the per-source anchor search runs WITHOUT fuzzy
+    # (~0.01s each). And since the sources are independent, the searches run
+    # CONCURRENTLY (semaphore-bounded), turning ~0.8s sequential into ~0.15s at n=30.
+    _sem = _get_retrieve_sem()
+
+    async def _expand_one(sid: int) -> Optional[tuple[list[dict], Optional[float], str]]:
+        async with _sem:
+            # Search this source with EACH retrieval query (clause); merge anchors,
+            # keeping each chunk's BEST (smallest) distance across the clauses.
+            merged: dict[int, dict] = {}
+            for _qtext, _qvec in _query_pairs:
+                for a in (await asyncio.to_thread(
+                        db.hybrid_search_chunks, workspace_id, _qtext, _qvec,
+                        [sid], _NEIGHBOR_ANCHORS, fuzzy=False) or []):
+                    ad = a.get("vec_distance")
+                    prev = merged.get(a["id"])
+                    if prev is None or (ad is not None and (prev.get("vec_distance") is None
+                                                            or ad < prev["vec_distance"])):
+                        merged[a["id"]] = a
+            if not merged:
+                return None
+            doc = await asyncio.to_thread(db.get_chunks_by_source, sid)
+        anchors = list(merged.values())
+        _sd = [a["vec_distance"] for a in anchors if a.get("vec_distance") is not None]
+        _hdr = ((doc[0].get("content") if doc else None) or "")[:_NAME_TITLE_CHARS].lower()
+        return (_expand_with_neighbors(anchors, doc, _NEIGHBOR_RADIUS, sid),
+                min(_sd) if _sd else None, _hdr)
+
+    _results = await asyncio.gather(*[_expand_one(s) for s in search_source_ids])
+    per_source_expanded: list[tuple[list[dict], Optional[float], str]] = [
+        r for r in _results if r is not None
+    ]
+    _all_best = [d for _, d, _h in per_source_expanded if d is not None]
+    _global_best = min(_all_best) if _all_best else None
+    logger.info("Retrieval relevance: global best cosine distance {} over {} sources",
+                f"{_global_best:.3f}" if _global_best is not None else "n/a",
+                len(per_source_expanded))
+    _dist_threshold = _global_best * _DIST_FACTOR if _global_best is not None else None
+    # Title header (page-1 self-name) per source — input to the named-source boost below.
+    _headers = {exp[0]["source_id"]: hdr for exp, _d, hdr in per_source_expanded if exp}
+    # Hard drop-gate (off by default at _DIST_FACTOR=999) — kept as a safety net.
+    # The SOFT concentration below is what actually stops the multi-source flood.
+    kept: list[tuple[list[dict], Optional[float]]] = []
+    for expanded, _src_best, _hdr in per_source_expanded:
+        if (len(per_source_expanded) > 1 and _dist_threshold is not None
+                and _src_best is not None and _src_best > _dist_threshold):
+            logger.info("Per-source: source {} skipped off-topic (dist {:.3f} > {:.3f})",
+                        expanded[0]["source_id"] if expanded else "?", _src_best, _dist_threshold)
+            continue
+        # order each source's windows best-anchor-first so its budget share takes
+        # the most on-point chunks first
+        kept.append((sorted(expanded, key=lambda c: c.get("_anchor_dist", 1.0)), _src_best))
+    # NAMED-SOURCE BOOST: if the question uniquely names a source by its title
+    # (self-name match), pull that source's distance just under the global best so the
+    # allocator below makes it Primary — a distractor that merely CITES it can no longer
+    # steal the bulk. No-op when nothing is uniquely named or a single source is active.
+    if len(kept) > 1 and _global_best is not None:
+        _named = _named_source_ids(question, _headers)
+        if _named:
+            _nd = _global_best * _NAME_BOOST_FACTOR
+            kept = [
+                (hits, (_nd if (hits and hits[0]["source_id"] in _named
+                                and (d is None or _nd < d)) else d))
+                for hits, d in kept
+            ]
+            logger.info("SPECIFIC named-source boost → sources {} → Primary (dist {:.3f})",
+                        sorted(_named), _nd)
+    # RELEVANCE-CONCENTRATED budget split: the source(s) closest to the query get
+    # the bulk, far sources only a floor — a single-target question is no longer
+    # flooded by unrelated laws (which also keeps context + latency small). See
+    # _allocate_specific_budget. Then re-sort into document order so each source
+    # reads as a coherent passage for the model.
+    chunks = _allocate_specific_budget(kept, char_budget)
+    chunks.sort(key=lambda c: (
+        c["source_id"],
+        c.get("page_number") if c.get("page_number") is not None else -1,
+        c.get("start_time") if c.get("start_time") is not None else -1.0,
+        c.get("id") or 0,
+    ))
+    _used = sum(len(c.get("content") or "") for c in chunks)
+    from collections import Counter as _Counter
+    _per_src = _Counter(c["source_id"] for c in chunks)
+    logger.info(
+        "SPECIFIC neighbor-expansion: {} chunks ({} chars) from {} kept sources | per-source: {} | anchors<={} radius+-{} | Query: '{}'",
+        len(chunks), _used, len(kept), dict(_per_src), _NEIGHBOR_ANCHORS, _NEIGHBOR_RADIUS,
+        (_retrieval_queries[0] if _retrieval_queries else "")[:80],
+    )
+    return chunks
 
 
 def _pack_context_batches(
@@ -1293,9 +1453,6 @@ async def chat(
         provider = get_embedding_provider()
 
         embed_text = body.source_text if body.source_text else rewritten_question
-        # Run sync embedding call in a worker thread so a stalled provider
-        # cannot block the FastAPI event loop.
-        import asyncio as _asyncio
         # COMPOUND-question decomposition: a question that asks about several distinct
         # things ("X und Y") is searched per CLAUSE, so a secondary source is anchored by
         # the clause that concerns it. Without this the dominant clause's embedding hides
@@ -1304,11 +1461,6 @@ async def chat(
         # Single-target questions / popup text keep exactly ONE query → identical to before.
         _retrieval_queries = (subqueries if (len(subqueries) > 1 and not body.source_text)
                               else [embed_text])
-        # Cap each retrieval query (embed + lexical search) — see _truncate_query_for_embedding.
-        _retrieval_queries = [_truncate_query_for_embedding(q) for q in _retrieval_queries]
-        _qvecs = await _asyncio.to_thread(provider.embed, _retrieval_queries)
-        _query_pairs = list(zip(_retrieval_queries, _qvecs))
-        query_vector = _qvecs[0]  # primary vector, kept for any downstream use
 
         # For popup actions, only search in the source file
         search_source_ids = source_ids
@@ -1317,105 +1469,9 @@ async def chat(
             if popup_source:
                 search_source_ids = [popup_source["id"]]
 
-        # NEIGHBOR-CHUNK EXPANSION (single call). Plain top-K throws the tail away,
-        # so a fact that sits NEXT TO a hit is lost (author "Thorsten Lübben" at
-        # vec_rank ~645 — two chunks past the "Autoren" heading the search DOES
-        # find). Instead we take the relevance ANCHORS (hybrid search) and pull each
-        # anchor's document neighbours (±_NEIGHBOR_RADIUS): the answer almost always
-        # sits beside something retrievable. Everything fits ONE coherent context
-        # window, answered in a single call — a window can't be split, so it can't
-        # grow a gap-filling hallucination (the earlier map-reduce "Prof. Böhm").
-        #
-        # SOURCE-level distance gate: drop a source only when its CLOSEST anchor is
-        # off-topic (cosine > _DIST_FACTOR x global best). Single source → always kept.
-        # No trigram fuzzy here: it is a no-index per-row word_similarity scan (~3s/call,
-        # the n=30 latency killer) and vector search is already typo-robust at the
-        # SEMANTIC level (embeddings put "authoren" next to "Autoren"), with BM25 + ILIKE
-        # covering exact tokens. So the per-source anchor search runs WITHOUT fuzzy
-        # (~0.01s each). And since the sources are independent, the searches run
-        # CONCURRENTLY (semaphore-bounded), turning ~0.8s sequential into ~0.15s at n=30.
-        _sem = _get_retrieve_sem()
-
-        async def _expand_one(sid: int) -> Optional[tuple[list[dict], Optional[float], str]]:
-            async with _sem:
-                # Search this source with EACH retrieval query (clause); merge anchors,
-                # keeping each chunk's BEST (smallest) distance across the clauses.
-                merged: dict[int, dict] = {}
-                for _qtext, _qvec in _query_pairs:
-                    for a in (await _asyncio.to_thread(
-                            db.hybrid_search_chunks, workspace["id"], _qtext, _qvec,
-                            [sid], _NEIGHBOR_ANCHORS, fuzzy=False) or []):
-                        ad = a.get("vec_distance")
-                        prev = merged.get(a["id"])
-                        if prev is None or (ad is not None and (prev.get("vec_distance") is None
-                                                                or ad < prev["vec_distance"])):
-                            merged[a["id"]] = a
-                if not merged:
-                    return None
-                doc = await _asyncio.to_thread(db.get_chunks_by_source, sid)
-            anchors = list(merged.values())
-            _sd = [a["vec_distance"] for a in anchors if a.get("vec_distance") is not None]
-            _hdr = ((doc[0].get("content") if doc else None) or "")[:_NAME_TITLE_CHARS].lower()
-            return (_expand_with_neighbors(anchors, doc, _NEIGHBOR_RADIUS, sid),
-                    min(_sd) if _sd else None, _hdr)
-
-        _results = await _asyncio.gather(*[_expand_one(s) for s in search_source_ids])
-        per_source_expanded: list[tuple[list[dict], Optional[float], str]] = [
-            r for r in _results if r is not None
-        ]
-        _all_best = [d for _, d, _h in per_source_expanded if d is not None]
-        _global_best = min(_all_best) if _all_best else None
-        logger.info("Retrieval relevance: global best cosine distance {} over {} sources",
-                    f"{_global_best:.3f}" if _global_best is not None else "n/a",
-                    len(per_source_expanded))
-        _dist_threshold = _global_best * _DIST_FACTOR if _global_best is not None else None
-        # Title header (page-1 self-name) per source — input to the named-source boost below.
-        _headers = {exp[0]["source_id"]: hdr for exp, _d, hdr in per_source_expanded if exp}
-        # Hard drop-gate (off by default at _DIST_FACTOR=999) — kept as a safety net.
-        # The SOFT concentration below is what actually stops the multi-source flood.
-        kept: list[tuple[list[dict], Optional[float]]] = []
-        for expanded, _src_best, _hdr in per_source_expanded:
-            if (len(per_source_expanded) > 1 and _dist_threshold is not None
-                    and _src_best is not None and _src_best > _dist_threshold):
-                logger.info("Per-source: source {} skipped off-topic (dist {:.3f} > {:.3f})",
-                            expanded[0]["source_id"] if expanded else "?", _src_best, _dist_threshold)
-                continue
-            # order each source's windows best-anchor-first so its budget share takes
-            # the most on-point chunks first
-            kept.append((sorted(expanded, key=lambda c: c.get("_anchor_dist", 1.0)), _src_best))
-        # NAMED-SOURCE BOOST: if the question uniquely names a source by its title
-        # (self-name match), pull that source's distance just under the global best so the
-        # allocator below makes it Primary — a distractor that merely CITES it can no longer
-        # steal the bulk. No-op when nothing is uniquely named or a single source is active.
-        if len(kept) > 1 and _global_best is not None:
-            _named = _named_source_ids(rewritten_question, _headers)
-            if _named:
-                _nd = _global_best * _NAME_BOOST_FACTOR
-                kept = [
-                    (hits, (_nd if (hits and hits[0]["source_id"] in _named
-                                    and (d is None or _nd < d)) else d))
-                    for hits, d in kept
-                ]
-                logger.info("SPECIFIC named-source boost → sources {} → Primary (dist {:.3f})",
-                            sorted(_named), _nd)
-        # RELEVANCE-CONCENTRATED budget split: the source(s) closest to the query get
-        # the bulk, far sources only a floor — a single-target question is no longer
-        # flooded by unrelated laws (which also keeps context + latency small). See
-        # _allocate_specific_budget. Then re-sort into document order so each source
-        # reads as a coherent passage for the model.
-        chunks = _allocate_specific_budget(kept, context_budget)
-        chunks.sort(key=lambda c: (
-            c["source_id"],
-            c.get("page_number") if c.get("page_number") is not None else -1,
-            c.get("start_time") if c.get("start_time") is not None else -1.0,
-            c.get("id") or 0,
-        ))
-        _used = sum(len(c.get("content") or "") for c in chunks)
-        from collections import Counter as _Counter
-        _per_src = _Counter(c["source_id"] for c in chunks)
-        logger.info(
-            "SPECIFIC neighbor-expansion: {} chunks ({} chars) from {} kept sources | per-source: {} | anchors<={} radius+-{} | Query: '{}'",
-            len(chunks), _used, len(kept), dict(_per_src), _NEIGHBOR_ANCHORS, _NEIGHBOR_RADIUS, embed_text[:80],
+        chunks = await _retrieve_specific_context(
+            provider, workspace["id"], search_source_ids,
+            _retrieval_queries, rewritten_question, context_budget,
         )
 
     # Single-page PDF scope ("fasse Seite 5 zusammen"): every line of the summary would

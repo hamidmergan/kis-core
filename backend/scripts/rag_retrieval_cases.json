@@ -1,0 +1,61 @@
+[
+  {"id": "klausur-termin",
+   "workspace": "7f088123-177a-464a-81dc-9d8b73c91c36",
+   "question": "wann ist die klausur",
+   "expect_any": [204210],
+   "note": "Nur hier steht der Termin: 'keinen zweiten Termin fuer die Klausur im Juli ... naechster Termin im Januar'"},
+
+  {"id": "fragestunde",
+   "workspace": "7f088123-177a-464a-81dc-9d8b73c91c36",
+   "question": "wann ist die fragestunde",
+   "expect_any": [204475],
+   "note": "Einziger Chunk im ganzen Kurs mit dem Wort 'Fragestunde' (1 von 327)"},
+
+  {"id": "taschenrechner",
+   "workspace": "7f088123-177a-464a-81dc-9d8b73c91c36",
+   "question": "sind taschenrechner in der klausur erlaubt",
+   "expect_any": [204214],
+   "note": "'Im Fachbereich MW sind alle Taschenrechner erlaubt'"},
+
+  {"id": "gruppenraum",
+   "workspace": "7f088123-177a-464a-81dc-9d8b73c91c36",
+   "question": "wie bekomme ich einen gruppenraum",
+   "expect_any": [204223],
+   "note": "'Sie koennen mir eine E-Mail schreiben, wenn Sie einen Gruppenraum haben moechten'"},
+
+  {"id": "klausur-anmeldung",
+   "workspace": "7f088123-177a-464a-81dc-9d8b73c91c36",
+   "question": "muss ich mich fuer die klausur extra anmelden",
+   "expect_any": [204211],
+   "note": "'fuer die Klausuren muessen Sie sich extra anmelden ... Pruefungsamt Ihrer Hochschule'"},
+
+  {"id": "diskreter-logarithmus",
+   "workspace": "7f088123-177a-464a-81dc-9d8b73c91c36",
+   "question": "was ist der diskrete logarithmus",
+   "expect_any": [204488, 204489],
+   "note": "Fachfrage mitten im Stoff, Gegenprobe zu den Organisationsfragen"},
+
+  {"id": "arbeitszeit-acht-stunden",
+   "workspace": "a11ea669-30a5-409e-b336-7864f2a331e1",
+   "question": "wie lang darf die werktaegliche arbeitszeit sein",
+   "expect_any": [27487],
+   "note": "ArbZG 3: 'darf acht Stunden nicht ueberschreiten', 30 Gesetze aktiv"},
+
+  {"id": "kuendigung-sozial-ungerechtfertigt",
+   "workspace": "a11ea669-30a5-409e-b336-7864f2a331e1",
+   "question": "wann ist eine kuendigung sozial ungerechtfertigt",
+   "expect_any": [23782],
+   "note": "KSchG 1"},
+
+  {"id": "entgeltfortzahlung",
+   "workspace": "a11ea669-30a5-409e-b336-7864f2a331e1",
+   "question": "wie lange wird das entgelt im krankheitsfall fortgezahlt",
+   "expect_any": [29999, 30000],
+   "note": "EntgFG 3, sechs Wochen"},
+
+  {"id": "vergleich-kschg-arbzg",
+   "workspace": "a11ea669-30a5-409e-b336-7864f2a331e1",
+   "question": "was regeln das kuendigungsschutzgesetz und das arbeitszeitgesetz",
+   "expect_sources_all": ["KSchG9.pdf", "ArbZG11.pdf"],
+   "note": "WAECHTER fuer den Umbau: eine echte Vergleichsfrage muss BEIDE Quellen im Kontext haben. Genau das soll die Quote pro Quelle leisten. Faellt dieser Fall, ist der Ersatz unzureichend."}
+]

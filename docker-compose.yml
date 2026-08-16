@@ -88,6 +88,10 @@ services:
       - ./backend/src:/app/src:ro
       - ./backend/demo:/app/demo:ro
       - ./backend/tests:/app/tests:ro
+      # Auswertungs- und Messskripte. Sie brauchen die echte Datenbank und die
+      # echten Einbettungen, laufen also im Container:
+      #   docker exec kis-backend python scripts/rag_retrieval_eval.py
+      - ./backend/scripts:/app/scripts:ro
       # pytest config (testpaths + asyncio_mode). Without it, in-container test
       # runs need `-o asyncio_mode=auto` and 18 async tests fail as "not supported".
       - ./backend/pytest.ini:/app/pytest.ini:ro
