@@ -21,7 +21,11 @@ die Trennung sieht man nur, dass etwas fehlt, aber nicht wo.
 
 Zwei Fallarten:
 
-* ``expect_any``          — mindestens eine dieser Chunk-IDs muss im Kontext sein.
+* ``expect_text``         — mindestens eine dieser Textstellen muss im Kontext stehen.
+                            Bewusst der TEXT und nicht die Chunk-ID: beim Neu-Zerlegen
+                            einer Quelle bekommen alle Chunks neue IDs, ein Messsatz
+                            an IDs waere danach wertlos. Die Stelle bleibt dieselbe.
+                            Kurz halten, damit sie keine Chunk-Grenze kreuzt.
 * ``expect_sources_all``  — von JEDER dieser Dateien muss etwas im Kontext sein.
                             Der Waechter fuer Vergleichsfragen: er haelt fest, was
                             die Quote pro Quelle leisten soll, damit ein Umbau sie
@@ -50,6 +54,12 @@ from src.features.ai_assistant.routes import chat as chat_mod
 from src.services.aia_embeddings import get_embedding_provider
 
 CASES = json.loads((Path(__file__).parent / "rag_retrieval_cases.json").read_text(encoding="utf-8"))
+
+
+def _norm(s: str) -> str:
+    """Ein Leerzeichen statt beliebigem Zwischenraum, damit ein Zeilenumbruch im
+    Dokument keine Textstelle unauffindbar macht."""
+    return " ".join((s or "").split())
 
 
 def _workspace(uuid: str) -> tuple[int, list[dict]]:
@@ -101,15 +111,33 @@ async def _run_case(case: dict) -> dict:
         "chunks": len(chunks), "chars": chars, "sources_in_context": len(got_files),
     }
 
-    if "expect_any" in case:
-        wanted = set(case["expect_any"])
-        out["context_ok"] = bool(wanted & got)
-        # Wo sitzt die Stelle in der Trefferliste ihrer eigenen Quelle?
+    if "expect_text" in case:
+        phrasen = [_norm(p) for p in case["expect_text"]]
+        out["context_ok"] = any(p in _norm(c.get("content") or "")
+                                for c in chunks for p in phrasen)
+        # Welche Chunks tragen die Stelle GERADE, und auf welchem Platz stehen sie in
+        # der Trefferliste ihrer Quelle? Ueber den Text nachgeschlagen, damit das auch
+        # nach einem Neu-Zerlegen noch stimmt.
+        wanted, owner_ids = set(), set()
         with get_connection() as conn:
-            with conn.cursor() as cur:
-                cur.execute("SELECT DISTINCT source_id FROM aia_chunks WHERE id = ANY(%s)",
-                            (list(wanted),))
-                owner_ids = [r[0] for r in cur.fetchall()]
+            with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
+                for roh in case["expect_text"]:
+                    cur.execute(
+                        """SELECT c.id, c.source_id FROM aia_chunks c
+                             JOIN aia_sources s ON s.id = c.source_id
+                            WHERE s.workspace_id = %s
+                              AND regexp_replace(c.content, '\\s+', ' ', 'g') ILIKE %s""",
+                        (ws_id, f"%{_norm(roh)}%"),
+                    )
+                    for r in cur.fetchall():
+                        wanted.add(r["id"])
+                        owner_ids.add(r["source_id"])
+        if not wanted:
+            out["context_ok"] = False
+            out["anchor_ok"] = False
+            out["anchor_rank"] = None
+            out["missing_sources"] = ["TEXTSTELLE NICHT IN DER ABLAGE"]
+            return out
         vec = provider.embed([case["question"]])[0]
         ranks = [r for sid in owner_ids
                  if (r := _anchor_rank(ws_id, case["question"], vec, sid, wanted)) is not None]
