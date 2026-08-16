@@ -21,6 +21,28 @@ jobs:
     defaults:
       run:
         working-directory: backend
+
+    # Postgres mit pgvector, damit die Tests laufen, die echtes SQL anfassen. Ohne
+    # ihn ueberspringen sich rund 76 Tests still, also wird genau der Teil nicht
+    # geprueft, der am ehesten kaputt geht. Das Abbild bringt die Erweiterung
+    # `vector` schon mit, `pg_trgm` steckt in Postgres selbst.
+    services:
+      postgres:
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: kis_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/kis_test
+
     steps:
       - uses: actions/checkout@v4
 
@@ -34,6 +56,12 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
+
+      # Baut das Schema von null auf, so wie es eine neue Hochschule auch tut.
+      # Faellt dieser Schritt um, ist die Reihenfolge im Schema kaputt, siehe
+      # scripts/check_fresh_schema.sh.
+      - name: Schema anlegen
+        run: python -c "from src.core.db.schema import init_db; init_db()"
 
       - name: Run tests with coverage
         run: |

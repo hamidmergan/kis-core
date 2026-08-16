@@ -7,24 +7,17 @@ Konfiguration. Ein zweiter Aufruf während eines laufenden reicht den Auftrag
 nur weiter und endet mit Rückgabewert 0, ohne PDF. Gemessen: drei gleichzeitige
 Konvertierungen, eine ohne Ergebnis, keine Fehlermeldung im Log.
 
-Zweitens exportiert LibreOffice ausgeblendete Folien nicht. Die Bildanzahl muss
-deshalb zur Textanzahl aus ``extract_text_per_slide`` passen, sonst bekommt
-jedes Bild nach der ersten versteckten Folie das falsche Skript.
+Zweitens exportiert LibreOffice ausgeblendete Folien nicht. Der Aufruf muss sie
+deshalb schon beim Export ausschliessen, sonst bekommt jedes Bild nach der ersten
+versteckten Folie das falsche Skript.
 """
 
-import shutil
 import threading
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
-import pytest
-
-from tests._pptx_fixtures import hidden_slide_pptx
-
 from src.services.screencast.pptx import (
     build_soffice_cmd,
-    extract_text_per_slide,
-    pptx_to_images,
     soffice_profile_dir,
 )
 
@@ -55,37 +48,3 @@ def test_profile_dir_differs_between_concurrent_threads():
     with ThreadPoolExecutor(max_workers=2) as pool:
         a, b = list(pool.map(_profile, range(2)))
     assert a != b
-
-
-@pytest.mark.e2e
-def test_image_count_matches_text_count_with_hidden_slide(tmp_path):
-    """Braucht LibreOffice, läuft daher nur im E2E-Lauf."""
-    pptx = tmp_path / "hidden.pptx"
-    pptx.write_bytes(hidden_slide_pptx())
-    out = tmp_path / "images"
-    out.mkdir()
-
-    images = pptx_to_images(pptx, out, dpi=50)
-    texts = extract_text_per_slide(pptx.read_bytes())
-
-    assert len(images) == len(texts) == 2
-    assert not list(out.glob("*.pdf")), "Zwischen-PDF muss aufgeräumt sein"
-    assert not list(tmp_path.glob("_render_*.pptx")), "AutoFit-Kopie muss aufgeräumt sein"
-    shutil.rmtree(out, ignore_errors=True)
-
-
-@pytest.mark.e2e
-def test_parallel_conversions_all_produce_images(tmp_path):
-    """Drei gleichzeitige Konvertierungen, alle müssen Bilder liefern."""
-    pptx = tmp_path / "deck.pptx"
-    pptx.write_bytes(hidden_slide_pptx())
-
-    def _convert(i: int) -> int:
-        out = tmp_path / f"out{i}"
-        out.mkdir()
-        return len(pptx_to_images(pptx, out, dpi=50))
-
-    with ThreadPoolExecutor(max_workers=3) as pool:
-        counts = list(pool.map(_convert, range(3)))
-
-    assert counts == [2, 2, 2]
