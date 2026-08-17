@@ -1155,3 +1155,53 @@ body.is-phone-landscape [title="Panel minimieren"] {
 .chip-stop-head {
   white-space: nowrap;
 }
+
+/* Der Chip-Vorrat faengt hinter der Marke an und hat unter sich immer eine freie Zeile.
+
+   Zwei Anforderungen, die sich beissen, und so sind sie aufgeteilt:
+
+   Der Vorrat selbst ist inline. Als Block gehoerte ihm die ganze Zeile, der Chip stand also
+   allein unter dem Satz, auch wenn hinter der Marke noch die halbe Breite frei war. Inline
+   nimmt er den Zeilenrest und bricht erst um, wenn er dort nicht mehr passt.
+
+   Die freie Zeile darunter kommt vom Block hinter dem Vorrat und ist immer da. Sie haelt den
+   Abstand nach JEDER Stelle gleich, unabhaengig davon, wie lang der Satz und wie breit der
+   Vorrat ist: "[1] 12:48 [4] S. 7 [1] 08:31" ist breiter als "[4] S. 7 [5] S. 4", und ohne
+   die Zeile sahen baugleiche Stellen deshalb verschieden aus. Der Block bricht ausserdem die
+   Zeile, darum gibt parseCitations kein <br> aus.
+
+   1em ist eine Chipzeile: line-height 1 setzt die Zeile des Vorrats auf Schriftgroesse statt
+   auf Texthoehe, sie liest sich als freie Zeile und nicht als freier Absatz.
+
+   Aufklappen verschiebt weiterhin nichts, weil die Chips auch zugeklappt im Layout stehen
+   (siehe CitationChip, reserved) und im Zeilenrest genau so viel Platz halten wie offen.
+
+   Eine Zeile, nie zwei: ist der Vorrat fuer den Zeilenrest zu breit, rutscht er selbst in die
+   freie Zeile, und dann ist die Zeile verbraucht. Der Block darunter faellt deshalb auf 0.
+   Welcher Fall vorliegt, kann kein Selektor sehen, das entscheidet die Messung in _chip_gap
+   und setzt data-own-line. Die Hoehe bleibt in beiden Faellen eine Zeile: leer ist sie 1em
+   hoch, mit Chips so hoch wie eine Textzeile. */
+.chip-row {
+  display: inline;
+  line-height: 1;
+}
+
+.chip-row::after {
+  content: "";
+  display: block;
+  height: 1em;
+}
+
+.chip-row[data-own-line]::after {
+  height: 0;
+}
+
+/* Endet ein Absatz auf einer Stelle, faellt sein unterer Abstand weg.
+   Er kam sonst zur Chipzeile hinzu, und der Abstand nach einer Stelle war am Absatzende um
+   das mb-2 groesser als zwischen zwei Saetzen desselben Absatzes. Genau der zweite Grund,
+   warum baugleiche Stellen verschieden aussahen.
+   Die Spezifitaet reicht ohne !important: :has zaehlt sein Argument mit, also 0,2,1 gegen
+   die 0,2,0 von Tailwinds last:mb-0. */
+p:has(> .chip-stop:last-child) {
+  margin-bottom: 0;
+}

@@ -29,7 +29,7 @@ function shape(nodes: ReturnType<typeof parseCitations>): string[] {
     return typeof t === "string" ? t : (t as { name?: string }).name ?? "?";
   });
 }
-type GroupProps = { groupId: string; tail?: string; chips: Array<{ displayQNum: number | null; label: string }> };
+type GroupProps = { groupId: string; tail?: string; ownRow?: boolean; chips: Array<{ displayQNum: number | null; label: string }> };
 function groupsOf(nodes: ReturnType<typeof parseCitations>): GroupProps[] {
   return nodes
     .filter((n) => typeof n !== "string" && ((n as ReactElement).type as { name?: string }).name === "CitationChipGroup")
@@ -59,7 +59,7 @@ describe("parseCitations — adjacent-chip accordion", () => {
     const nodes = parseCitations(text, msg, ["u1"], getFilename, noop);
     // two SEPARATE stops (each folded on its own), with the prose between them. The stop
     // ends its line, so the prose after it starts on the next one.
-    expect(shape(nodes)).toEqual(["CitationChipGroup", "br", "text", "CitationChipGroup"]);
+    expect(shape(nodes)).toEqual(["CitationChipGroup", "text", "CitationChipGroup"]);
   });
 
   it("wraps a single chip too, so nothing stays open in a folded text", () => {
@@ -112,52 +112,60 @@ describe("parseCitations — every stop has its own id", () => {
   });
 });
 
-describe("parseCitations — a stop ends its line", () => {
-  // The chips of a stop are held in the layout at ALL times (hidden until the stop opens),
-  // so hovering never moves a word. That only works while the reserved room sits at the end
-  // of a line, where nothing but the margin follows it. So every stop closes its line and
-  // the text after it starts on the next one.
-  it("breaks the line after a stop", () => {
+describe("parseCitations — jede Stelle bekommt ihre eigene Chipzeile", () => {
+  // Die Chips einer Stelle stehen IMMER im Layout (nur unsichtbar, solange die Stelle zu
+  // ist), damit ein Zeiger kein Wort verschiebt. Frueher lagen sie im Zeilenrest des Satzes:
+  // passte der Vorrat noch hin, sah man nichts, passte er nicht, erschien eine Leerzeile.
+  // Ob also eine Zeile dazukam, entschied allein die Satzlaenge. Deshalb haengt der Vorrat
+  // jetzt IMMER eine freie Zeile an (`ownRow`), und der Block dahinter bricht selbst um, ein
+  // eigenes <br> gibt es nicht mehr. Die Chips beginnen dabei im Zeilenrest hinter der Marke.
+  it("bricht ohne <br> um, die Chipzeile macht das selbst", () => {
     const nodes = parseCitations("Dies gilt [1, S. 5] und weiter.", msg, ["u1"], getFilename, noop);
-    expect(shape(nodes)).toEqual(["text", "CitationChipGroup", "br", "text"]);
+    expect(shape(nodes)).toEqual(["text", "CitationChipGroup", "text"]);
+    expect(groupOf(nodes).ownRow).toBe(true);
   });
 
   it("hands the punctuation of the finished sentence to the stop itself", () => {
     // The period must sit right behind the mark, AHEAD of the room the hidden chips hold.
     // Left in the text it landed behind that room and hung alone in the middle of the line.
     const nodes = parseCitations("Dies gilt [1, S. 5]. Und weiter.", msg, ["u1"], getFilename, noop);
-    expect(shape(nodes)).toEqual(["text", "CitationChipGroup", "br", "text"]);
+    expect(shape(nodes)).toEqual(["text", "CitationChipGroup", "text"]);
     expect(groupOf(nodes).tail).toBe(".");
-    expect(nodes[3]).toBe("Und weiter.");
+    expect(nodes[2]).toBe("Und weiter.");
   });
 
   it("takes closing punctuation of any script along", () => {
     // Not a German rule: whatever closes the sentence in the answer's language stays.
     const nodes = parseCitations("这是 [1, S. 5]。下一句", msg, ["u1"], getFilename, noop);
-    expect(shape(nodes)).toEqual(["text", "CitationChipGroup", "br", "text"]);
+    expect(shape(nodes)).toEqual(["text", "CitationChipGroup", "text"]);
     expect(groupOf(nodes).tail).toBe("。");
-    expect(nodes[3]).toBe("下一句");
+    expect(nodes[2]).toBe("下一句");
   });
 
-  it("does NOT break after the last stop of a paragraph", () => {
-    // A break with nothing behind it is an empty line at the end of every answer.
+  it("gibt auch der letzten Stelle eines Absatzes ihre Zeile", () => {
+    // Genau hier lag der zweite Unterschied: ohne eigene Zeile hing der Vorrat im Zeilenrest
+    // des letzten Satzes und der Absatz brachte sein eigenes mb-2 mit. Der Abstand nach einer
+    // Stelle sah am Absatzende anders aus als mitten im Absatz.
     const nodes = parseCitations("Dies gilt [1, S. 5].", msg, ["u1"], getFilename, noop);
     expect(shape(nodes)).toEqual(["text", "CitationChipGroup"]);
     expect(groupOf(nodes).tail).toBe(".");
+    expect(groupOf(nodes).ownRow).toBe(true);
   });
 
-  it("does NOT break when only whitespace follows the stop", () => {
+  it("frisst die Leerzeichen zwischen Stelle und naechstem Satz", () => {
+    // Sonst faengt die neue Zeile mit einem Leerzeichen an und der Satz steht eingerueckt.
     const nodes = parseCitations("Dies gilt [1, S. 5]  ", msg, ["u1"], getFilename, noop);
     expect(shape(nodes)).toEqual(["text", "CitationChipGroup"]);
   });
 
-  it("breaks after every stop, not just the first", () => {
+  it("gibt jeder Stelle eine Zeile, nicht nur der ersten", () => {
     const nodes = parseCitations("Eins [1, S. 5]. Zwei [2, S. 8]. Drei.", msg, ["u1"], getFilename, noop);
     expect(shape(nodes)).toEqual([
-      "text", "CitationChipGroup", "br",
-      "text", "CitationChipGroup", "br", "text",
+      "text", "CitationChipGroup",
+      "text", "CitationChipGroup", "text",
     ]);
     expect(groupsOf(nodes).map((g) => g.tail)).toEqual([".", "."]);
+    expect(groupsOf(nodes).map((g) => g.ownRow)).toEqual([true, true]);
   });
 
   it("writes the punctuation exactly once", () => {
@@ -167,12 +175,13 @@ describe("parseCitations — a stop ends its line", () => {
     expect(nodes.filter((n) => typeof n === "string")).toEqual(["Dies gilt ", "Und weiter."]);
   });
 
-  it("does NOT break inside a table cell", () => {
+  it("bleibt in einer Tabellenzelle inline", () => {
     // A cell has no sentence flow to break. The room for the chips is still reserved, which
     // widens the column a little — the price for a table that never jumps.
     const nodes = parseCitations("Dies gilt [1, S. 5]. Und weiter.", msg, ["u1"], getFilename, noop, "c", undefined, false);
     expect(shape(nodes)).toEqual(["text", "CitationChipGroup", "text"]);
     expect(groupOf(nodes).tail).toBe("");
+    expect(groupOf(nodes).ownRow).toBe(false);
     expect(nodes[2]).toBe(". Und weiter.");
   });
 });
