@@ -11,6 +11,9 @@ export interface EditInput {
   description: string;
   due_date: string;      // '' == leer
   due_time: string;      // '' == leer
+  // 'month' heisst: nur der Monat ist bekannt. due_date traegt dann den Monatsersten
+  // als Sortierpunkt, die Zeitleiste zeigt ihn nie als Tagesnummer.
+  date_precision: "day" | "month";
   is_optional: boolean;
 }
 
@@ -33,8 +36,17 @@ export function ScheduleEntryEditModal({
   const [description, setDescription] = useState(initial?.description || "");
   const [dueDate, setDueDate] = useState(initial?.due_date || "");
   const [dueTime, setDueTime] = useState(initial?.due_time || "");
+  const [monthOnly, setMonthOnly] = useState(initial?.date_precision === "month");
   const [isOptional, setIsOptional] = useState(initial?.is_optional || false);
   const [submitting, setSubmitting] = useState(false);
+
+  // Der Haken schaltet nur die Anzeige um. Gespeichert wird immer ein volles Datum,
+  // bei "nur Monat" der Monatserste.
+  function toggleMonthOnly() {
+    const next = !monthOnly;
+    setMonthOnly(next);
+    if (next && dueDate) setDueDate(`${dueDate.slice(0, 7)}-01`);
+  }
 
   useEffect(() => {
     const esc = (e: KeyboardEvent) => { if (e.key === "Escape") onCancel(); };
@@ -53,6 +65,7 @@ export function ScheduleEntryEditModal({
         description: description.trim(),
         due_date: dueDate,
         due_time: dueTime,
+        date_precision: monthOnly ? "month" : "day",
         is_optional: isOptional,
       });
     } finally {
@@ -103,9 +116,11 @@ export function ScheduleEntryEditModal({
             <label className="block">
               <span className="text-sm font-medium block mb-1" style={{ color: "var(--muted)" }}>{t("dateField")}</span>
               <input
-                type="date"
-                value={dueDate}
-                onChange={(e) => setDueDate(e.target.value)}
+                type={monthOnly ? "month" : "date"}
+                value={monthOnly ? dueDate.slice(0, 7) : dueDate}
+                onChange={(e) =>
+                  setDueDate(monthOnly && e.target.value ? `${e.target.value}-01` : e.target.value)
+                }
                 className="w-full px-3 py-2 rounded-lg text-base border-2 border-[var(--border)] hover:border-[var(--kb)] focus:border-[var(--kb)] focus:outline-none transition-colors"
                 style={{ backgroundColor: "var(--surface)", color: "var(--foreground)" }}
               />
@@ -121,6 +136,23 @@ export function ScheduleEntryEditModal({
               />
             </label>
           </div>
+
+          <label className="flex items-center gap-2 cursor-pointer">
+            <button
+              type="button"
+              onClick={toggleMonthOnly}
+              aria-label={monthOnly ? t("notMonthOnlyAria") : t("monthOnlyAria")}
+              className={`flex-shrink-0 w-5 h-5 rounded-md flex items-center justify-center transition-colors border-2 ${
+                monthOnly
+                  ? "border-[var(--kb)] bg-[var(--kb)]"
+                  : "border-[var(--border)] bg-background hover:border-[var(--kb)]"
+              }`}
+              style={{ color: "#fff" }}
+            >
+              {monthOnly && <Check size={11} weight="bold" />}
+            </button>
+            <span className="text-sm" style={{ color: "var(--foreground)" }}>{t("monthOnlyLabel")}</span>
+          </label>
 
           <label className="block">
             <span className="text-sm font-medium block mb-1" style={{ color: "var(--muted)" }}>{t("descriptionField")}</span>

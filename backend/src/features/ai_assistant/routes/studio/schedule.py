@@ -37,6 +37,14 @@ def _parse_date(s: Optional[str], locale: str = DEFAULT_LOCALE) -> Optional[date
         raise HTTPException(status_code=400, detail=t("ai.schedule.invalidDate", locale, value=s))
 
 
+def _month_anchor(d: Optional[date], precision: str) -> Optional[date]:
+    """Bei 'month' kennt der Eintrag keinen Tag. Der Monatserste ist nur der
+    Sortierpunkt, die Ansicht zeigt ihn nie als Tagesnummer."""
+    if precision == "month" and d:
+        return d.replace(day=1)
+    return d
+
+
 def _parse_time(s: Optional[str], locale: str = DEFAULT_LOCALE) -> Optional[time]:
     if not s:
         return None
@@ -230,14 +238,17 @@ async def create_entry(
     if body.type not in ("deadline", "termin"):
         raise HTTPException(status_code=400, detail=t("scheduleEntry.invalidType", locale))
 
+    precision = body.date_precision if body.date_precision in ("day", "month") else "day"
+
     row = db.create_schedule_entry(
         workspace["id"],
         user_id,
         type=body.type,
         title=body.title.strip(),
         description=(body.description.strip() if body.description else None),
-        due_date=_parse_date(body.due_date, locale=locale),
+        due_date=_month_anchor(_parse_date(body.due_date, locale=locale), precision),
         due_time=_parse_time(body.due_time, locale=locale),
+        date_precision=precision,
         is_optional=body.is_optional,
         origin="manual",
         source_refs=[],
@@ -265,14 +276,22 @@ async def update_entry(
     if body.type is not None and body.type not in ("deadline", "termin"):
         raise HTTPException(status_code=400, detail=t("scheduleEntry.invalidType", locale))
 
+    precision = body.date_precision if body.date_precision in ("day", "month") else None
+    # Bleibt die Genauigkeit ungenannt, gilt die des Eintrags: ein neues Datum darf
+    # einen Monats-Eintrag nicht heimlich auf einen Tag festnageln.
+    effective = precision or (existing.get("date_precision") or "day")
+
     row = db.update_schedule_entry(
         entry_id,
         user_id,
         type=body.type,
         title=(body.title.strip() if body.title else None),
         description=(body.description.strip() if body.description else None),
-        due_date=_parse_date(body.due_date, locale=locale) if body.due_date else None,
+        due_date=_month_anchor(
+            _parse_date(body.due_date, locale=locale) if body.due_date else None, effective,
+        ),
         due_time=_parse_time(body.due_time, locale=locale) if body.due_time else None,
+        date_precision=precision,
         is_optional=body.is_optional,
         is_checked=body.is_checked,
         clear_date=body.clear_date,

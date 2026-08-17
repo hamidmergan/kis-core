@@ -195,6 +195,7 @@ def update_schedule_entry(
     description: Optional[str] = None,
     due_date: Optional[date] = None,
     due_time: Optional[time] = None,
+    date_precision: Optional[str] = None,
     is_optional: Optional[bool] = None,
     is_checked: Optional[bool] = None,
     source_refs: Optional[list[dict]] = None,
@@ -224,6 +225,9 @@ def update_schedule_entry(
     elif due_time is not None:
         sets.append("due_time = %s")
         params.append(due_time)
+    if date_precision in ("day", "month"):
+        sets.append("date_precision = %s")
+        params.append(date_precision)
     if is_optional is not None:
         sets.append("is_optional = %s")
         params.append(is_optional)

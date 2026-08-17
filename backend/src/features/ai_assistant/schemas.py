@@ -189,6 +189,9 @@ class ScheduleEntryCreateBody(BaseModel):
     description: Optional[str] = Field(None, max_length=2000)
     due_date: Optional[str] = None  # ISO date 'YYYY-MM-DD' or None
     due_time: Optional[str] = None  # 'HH:MM' or None
+    # 'day' | 'month'. Bei 'month' kennt der Termin nur den Monat, due_date traegt
+    # dann den Monatsersten als Sortierpunkt.
+    date_precision: Optional[str] = None
     is_optional: bool = False
 
 
@@ -198,6 +201,7 @@ class ScheduleEntryUpdateBody(BaseModel):
     description: Optional[str] = Field(None, max_length=2000)
     due_date: Optional[str] = None
     due_time: Optional[str] = None
+    date_precision: Optional[str] = None
     is_optional: Optional[bool] = None
     is_checked: Optional[bool] = None
     clear_date: bool = False  # explicitly set to NULL

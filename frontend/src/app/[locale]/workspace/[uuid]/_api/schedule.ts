@@ -60,6 +60,7 @@ export async function createEntry(workspaceUuid: string, input: {
   description?: string | null;
   due_date?: string | null;
   due_time?: string | null;
+  date_precision?: "day" | "month";
   is_optional?: boolean;
 }): Promise<ScheduleEntry> {
   const r = await fetch(`${base(workspaceUuid)}/entries`, {
