@@ -1366,6 +1366,17 @@ async def chat(
     # (selection flow narrows to one source below). _specific_path stays False for the
     # fit-shortcut (single coherent window); it is set True only when we actually run
     # the per-source hybrid search, which is the only path that may need multi-call.
+    #
+    # Auf welchen Quellen die Frage laeuft. Bei einer Auswahl-Aktion im Dokument ist das
+    # genau dieses eine Dokument, sonst die Anhaken-Auswahl. Das stand frueher im
+    # SPECIFIC-Zweig und steht jetzt hier, weil die Quellenliste unter der Antwort es
+    # in JEDEM Zweig braucht (siehe source_qmap weiter unten).
+    search_source_ids = source_ids
+    if body.source_uuid:
+        popup_source = db.get_aia_source(body.source_uuid)
+        if popup_source:
+            search_source_ids = [popup_source["id"]]
+
     _specific_path = False
     _fit_full = (None if (body.source_text or _umformen)
                  else _full_context_if_fits(source_ids, context_budget))
@@ -1407,13 +1418,6 @@ async def chat(
         _retrieval_queries = (subqueries if (len(subqueries) > 1 and not body.source_text)
                               else [embed_text])
 
-        # For popup actions, only search in the source file
-        search_source_ids = source_ids
-        if body.source_uuid:
-            popup_source = db.get_aia_source(body.source_uuid)
-            if popup_source:
-                search_source_ids = [popup_source["id"]]
-
         chunks = await _retrieve_specific_context(
             provider, workspace["id"], search_source_ids,
             _retrieval_queries, rewritten_question, context_budget,
@@ -1434,13 +1438,23 @@ async def chat(
     # Assign Q-numbers in the SAME order the source panel shows them — the
     # workspace source list is ordered created_at DESC (see
     # get_aia_sources_by_workspace), and this dict preserves that order. We walk
-    # it and number only the sources that actually appear in chunks. This is both
-    # STABLE (same active set -> same [N] every request, no longer dependent on
-    # chunk/selection order) and intuitive ([N] matches the visible panel order).
+    # it and number the sources the question RAN ON. This is both STABLE (same
+    # active set -> same [N] every request, no longer dependent on chunk/selection
+    # order) and intuitive ([N] matches the visible panel order).
+    #
+    # Nummeriert wird die AUSWAHL, nicht nur die Quellen, aus denen Text in den
+    # Kontext kam. Vorher stand unter einer Antwort "11 Quellen", obwohl 13 angehakt
+    # waren: die Suche liefert eine globale Rangliste und fuellt bis das Zeichen-
+    # Budget voll ist, also fallen schwach passende Quellen heraus. Fuer den Leser
+    # sah das aus, als haette er zwei Quellen abgewaehlt. Die Liste zeigt jetzt
+    # immer die Auswahl. Quellen ohne Fundstelle bekommen dabei eine Nummer, die im
+    # Prompt nie auftaucht (Luecken in den <document index="N"> sind harmlos, die
+    # Nummer ist nur ein Etikett) und auf die deshalb auch kein Beleg zeigt.
     chunk_sids = {c["source_id"] for c in chunks}
+    qmap_sids = set(search_source_ids or []) | chunk_sids
     qnum_counter = 0
     for sid in all_sources_list:
-        if sid not in chunk_sids:
+        if sid not in qmap_sids:
             continue
         qnum_counter += 1
         source_id_to_qnum[sid] = qnum_counter
