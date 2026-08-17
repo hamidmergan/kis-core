@@ -265,6 +265,75 @@ export function claimLineIndex(claim: string, lines: string[], corpus?: string[]
 }
 
 
+// Ein Wort, das im GANZEN Transkript an nur einer Stelle faellt, zeigt auf diese Stelle.
+// Traegt eine andere Zeile der Spanne so ein Wort des Anspruchs, das dem Gewinner fehlt,
+// dann ruht der Anspruch auch auf ihr.
+//
+// Der Anteil ist eng gewaehlt und gemessen. Am gemeldeten Fall — "eine Fragestunde
+// durchgefuehrt, nachdem in der darauffolgenden Woche noch affine Schifren behandelt
+// wurden", zwei Saetze der Vorlesung 25 Sekunden auseinander:
+//
+//   0,5%  ->  genau eine Zeile kommt dazu, die mit "Fragestunde". Richtig.
+//   1,0%  ->  zusaetzlich eine Zeile, die "Videoaufzeichnung" enthaelt, weil der
+//             Antwortsatz mit "laut einer Aufzeichnung" beginnt. Zufallstreffer.
+//
+// Bei 362 Untertitelzeilen sind 0,5% eine Zeile, das Wort faellt also woertlich EINMAL.
+// Die Untergrenze haelt das auch fuer kurze Aufnahmen so.
+const PIN_SHARE = 0.005;
+
+// Selten allein reicht nicht, das Wort muss auch etwas BEDEUTEN. An 139 echten Belegen aus
+// 14 Aufnahmen kamen ohne Laengenregel neun Zeilen dazu, davon drei aus Versehen:
+//
+//   "stellt"    traf in "hochgestellt" — der Abgleich ist absichtlich eine Teilzeichenkette,
+//               damit "Sprechstunde" auch "Sprechstunden" findet, und kurze Woerter stecken
+//               dann eben in laengeren drin.
+//   "wurden"    ein Hilfsverb, das in DIESER Aufnahme zufaellig selten ist.
+//   "logische"  in der Zeile in einer ganz anderen Bedeutung ("aus logischen Gruenden").
+//
+// Ab neun Zeichen fallen genau diese drei weg und alle fuenf richtigen bleiben
+// (fragestunde, abgabetermine, klausuraufgaben, vorbereitung, notwendig). Bei zehn faellt
+// "notwendig" mit weg. Ein langes Wort ist im Deutschen fast immer ein Inhaltswort oder ein
+// Kompositum; in Sprachen mit kurzen Inhaltswoertern greift die Regel seltener, und dann
+// bleibt es beim bisherigen Verhalten — die harmlose Richtung.
+const MIN_PIN_LEN = 9;
+
+const _hay = (s: string) => s.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, " ");
+
+/**
+ * ALLE Zeilen der Spanne, auf denen der Anspruch ruht — leer, wenn keine heraussticht.
+ *
+ * Der Gewinner aus :func:`claimLineIndex` ist der Kern. Dazu kommt jede weitere Zeile, die
+ * ein Pin-Wort des Anspruchs traegt, das dem Gewinner FEHLT. Ein Antwortsatz nennt oft zwei
+ * Dinge aus zwei Momenten ("eine Fragestunde, nachdem affine Chiffren behandelt wurden");
+ * nur den Gewinner zu markieren laesst die zweite Tatsache unmarkiert daneben stehen, und
+ * genau das liest sich, als stuende sie nicht in der Quelle.
+ *
+ * Haeufige Woerter zaehlen hier NICHT, sonst zieht jedes "noch" eine Zeile herein.
+ */
+export function claimLineIndices(claim: string, lines: string[], corpus?: string[]): number[] {
+  const sieger = claimLineIndex(claim, lines, corpus);
+  if (sieger < 0 || !corpus) return sieger < 0 ? [] : [sieger];
+  const hays = corpus.map(_hay);
+  const grenze = Math.max(1, hays.length * PIN_SHARE);
+  const pins = discriminatingTokens(claimTokens(claim), corpus).filter((t) => {
+    if (t.length < MIN_PIN_LEN) return false;
+    let df = 0;
+    for (const h of hays) if (h.includes(t) && ++df > grenze) return false;
+    return true;
+  });
+  const beimSieger = _hay(lines[sieger]);
+  const fehlend = pins.filter((t) => !beimSieger.includes(t));
+  if (fehlend.length === 0) return [sieger];
+  const raus = [sieger];
+  lines.forEach((line, i) => {
+    if (i === sieger) return;
+    const h = _hay(line);
+    if (fehlend.some((t) => h.includes(t))) raus.push(i);
+  });
+  return raus.sort((a, b) => a - b);
+}
+
+
 // --- Everything one citation jump points at ---------------------------------------------
 
 export interface CitationFocus {
@@ -274,6 +343,9 @@ export interface CitationFocus {
   endIdx: number;
   /** The line inside the chunk carrying the claim, -1 when none stands out. */
   claimIdx: number;
+  /** ALLE Zeilen, auf denen der Anspruch ruht (siehe claimLineIndices). Leer, wenn keine
+   *  heraussticht — dann ist der ganze Abschnitt markiert. Enthaelt immer ``claimIdx``. */
+  claimIdxs: number[];
   /** The one cue everything points at: the claim line if there is one, else the chunk start. */
   focusIdx: number;
   /** Start of that cue, i.e. where the media has to play from. null when there is no focus. */
@@ -301,7 +373,9 @@ export function resolveCitationFocus(
   chunkStart?: number,
 ): CitationFocus {
   const timeIdx = cueIndexAtTime(cues, time);
-  if (timeIdx < 0) return { idx: -1, endIdx: -1, claimIdx: -1, focusIdx: -1, focusTime: null };
+  if (timeIdx < 0) {
+    return { idx: -1, endIdx: -1, claimIdx: -1, claimIdxs: [], focusIdx: -1, focusTime: null };
+  }
   // Der markierte Abschnitt ist der GANZE Chunk, nicht "ab der Zeitmarke". Die Zeitmarke des
   // Chips ist die beste Vermutung des Backends, wo im Chunk die Aussage faellt, und liegt
   // deshalb meist mittendrin. Ab ihr zu markieren liesse alles davor unmarkiert — und wenn
@@ -316,12 +390,17 @@ export function resolveCitationFocus(
     while (endIdx + 1 < cues.length && cues[endIdx + 1].start < endTime - 0.05) endIdx++;
   }
   let claimIdx = -1;
+  let claimIdxs: number[] = [];
   if (endIdx > from && claim) {
-    const rel = claimLineIndex(claim, corpus.slice(from, endIdx + 1), corpus);
-    if (rel >= 0) claimIdx = from + rel;
+    const zeilen = corpus.slice(from, endIdx + 1);
+    const rel = claimLineIndex(claim, zeilen, corpus);
+    if (rel >= 0) {
+      claimIdx = from + rel;
+      claimIdxs = claimLineIndices(claim, zeilen, corpus).map((r) => from + r);
+    }
   }
   // Findet sich keine tragende Zeile, bleibt der Abschnitt als Ganzes markiert — angesteuert
   // wird trotzdem die Zeitmarke des Chips, unsere beste Vermutung, statt des Chunk-Anfangs.
   const focusIdx = claimIdx >= 0 ? claimIdx : timeIdx;
-  return { idx: from, endIdx, claimIdx, focusIdx, focusTime: cues[focusIdx]?.start ?? null };
+  return { idx: from, endIdx, claimIdx, claimIdxs, focusIdx, focusTime: cues[focusIdx]?.start ?? null };
 }

@@ -158,6 +158,9 @@ export function TranscriptPanel({
   // both the marked line and the scroll target: centring the passage's first line would put a
   // claim in the last one back at the bottom edge, which is the whole complaint.
   const [citationClaimIdx, setCitationClaimIdx] = useState<number>(-1);
+  // ALLE tragenden Zeilen, nicht nur die staerkste. Ein Antwortsatz nennt oft zwei Dinge
+  // aus zwei Momenten; nur eine zu markieren laesst die zweite unmarkiert daneben stehen.
+  const [citationClaimIdxs, setCitationClaimIdxs] = useState<number[]>([]);
   const [citationInView, setCitationInView] = useState(true);
   const [citationDir, setCitationDir] = useState<"up" | "down">("down");
   const citationNonceRef = useRef<number | undefined>(undefined);
@@ -345,6 +348,7 @@ export function TranscriptPanel({
     if (cuesUuidRef.current !== sourceUuid) return;
     if (citationTime == null || masterCues.length === 0) {
       setCitationIdx(-1); setCitationEndIdx(-1); setCitationClaimIdx(-1);
+      setCitationClaimIdxs([]);
       return;
     }
     // One resolver for the pin, the scroll and the play head. Both language tracks go into
@@ -356,6 +360,7 @@ export function TranscriptPanel({
     setCitationIdx(focus.idx);
     setCitationEndIdx(focus.endIdx);
     setCitationClaimIdx(focus.claimIdx);
+    setCitationClaimIdxs(focus.claimIdxs);
     // Steht eine tragende Zeile fest, spielt der Player von DORT, nicht von der Zeitmarke des
     // Chips. Verglichen wird gegen `citationTime`, nicht gegen `focus.idx`: der ist seit der
     // Verbreiterung der Chunk-Anfang, waehrend der Player von der Zeitmarke ausgeht. Ohne
@@ -443,7 +448,10 @@ export function TranscriptPanel({
 
   // Drop the pin AND the cited chip's yellow border in lockstep, exactly like the PDF
   // viewer's dismiss button (clearActiveChipTarget), so the chat chip stops looking active.
-  const dismissCitation = () => { setCitationIdx(-1); setCitationEndIdx(-1); setCitationClaimIdx(-1); clearActiveChipTarget(); };
+  const dismissCitation = () => {
+    setCitationIdx(-1); setCitationEndIdx(-1); setCitationClaimIdx(-1); setCitationClaimIdxs([]);
+    clearActiveChipTarget();
+  };
 
   // Poll for the target VTT to appear after a translation task was dispatched.
   useEffect(() => {
@@ -680,14 +688,14 @@ export function TranscriptPanel({
           // inline span only paints the boxes around its glyphs, so a wrapped sentence came out
           // as stripes with gaps between the lines and ragged ends.
           //
-          // ONE marking, never two shades of it. When a line clearly carries the claim, its
-          // paragraph is the only one marked — the rest of the chunk is implementation detail
-          // the reader never asked about. Only when no line stands out does every paragraph of
-          // the span get marked, because then picking one would be guessing, and a guess that
-          // lands next to the sentence is the original bug: the answer's basis sitting just
-          // outside the marking.
-          const hasCitation = citationClaimIdx >= 0
-            ? citationClaimIdx >= b.from && citationClaimIdx <= b.to
+          // ONE marking, never two shades of it. Markiert werden die Absaetze, auf denen der
+          // Antwortsatz ruht — meist einer, bei einem Satz aus zwei Momenten beide (siehe
+          // claimLineIndices). Der Rest des Chunks ist Implementierungsdetail, nach dem der
+          // Leser nie gefragt hat. Sticht KEINE Zeile heraus, wird der ganze Abschnitt
+          // markiert, weil eine geratene Zeile neben dem belegenden Satz landet und sich das
+          // liest, als stuende er nicht in der Quelle.
+          const hasCitation = citationClaimIdxs.length > 0
+            ? citationClaimIdxs.some((i) => i >= b.from && i <= b.to)
             : citationIdx >= 0 && b.from <= citationEndIdx && b.to >= citationIdx;
           // Only ONE of the two tracks may own the scroll anchors, or the second would
           // overwrite the first and the citation jump would land on the wrong track's line.

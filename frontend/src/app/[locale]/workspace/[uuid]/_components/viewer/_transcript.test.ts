@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { buildTranscriptModes, claimLineIndex, claimOverlap, claimTokens, cueIndexAtTime, groupCues, resolveCitationFocus, type TextCue, type TimedCue } from "./_transcript";
+import { buildTranscriptModes, claimLineIndex, claimLineIndices, claimOverlap, claimTokens, cueIndexAtTime, groupCues, resolveCitationFocus, type TextCue, type TimedCue } from "./_transcript";
 
 // `time` is now the chunk's EXACT start (a Whisper segment start, i.e. a VTT cue start),
 // resolved from source_pages — NOT the lossy whole-second display timestamp.
@@ -241,7 +241,7 @@ describe("resolveCitationFocus — marking and play head land on the same line",
 
   it("points at nothing while the cues are still missing", () => {
     const focus = resolveCitationFocus([], 179.0, 211.0, claim, corpus);
-    expect(focus).toEqual({ idx: -1, endIdx: -1, claimIdx: -1, focusIdx: -1, focusTime: null });
+    expect(focus).toEqual({ idx: -1, endIdx: -1, claimIdx: -1, claimIdxs: [], focusIdx: -1, focusTime: null });
   });
 
   // Die Zeitmarke des Chips ist seit aia_segment_pick nicht mehr der Chunk-Anfang, sondern
@@ -391,5 +391,84 @@ describe("groupCues — sentence-sized cues into readable blocks", () => {
     // Two paragraphs of 306 and 168 characters, cut where KISSKI cut it too — except that the
     // stray "oder Latex." no longer stands alone: it is the tail of the sentence before it.
     expect(groupCues(cues).map((b) => [b.from, b.to])).toEqual([[0, 4], [5, 8]]);
+  });
+});
+
+
+// Wortgetreu aus 2026-06-15.mp4, Chunk 45:01-46:30. Der Antwortsatz nennt ZWEI Dinge aus
+// zwei Momenten: die Fragestunde und die affinen Chiffren. Markiert war nur der zweite,
+// weil seine Zeile vier Anspruchswoerter traegt und die andere zwei — "noch" zaehlte dabei
+// so viel wie "Schifren". Die Zeile mit der Fragestunde stand unmarkiert daneben, und das
+// liest sich, als stuende sie nicht in der Quelle.
+
+
+// Wortgetreu aus 2026-06-15.mp4, Chunk 45:01-46:30. Der Antwortsatz nennt ZWEI Dinge aus
+// zwei Momenten: die Fragestunde und die affinen Chiffren. Markiert war nur der zweite,
+// weil seine Zeile drei Anspruchswoerter traegt und die andere eines. Die Zeile mit der
+// Fragestunde stand unmarkiert daneben, und das liest sich, als stuende sie nicht in der
+// Quelle.
+describe("claimLineIndices — ein Satz aus zwei Momenten", () => {
+  const spanne = [
+    "Also nochmals",
+    "zur Klausur, also in der Klausur kommt",
+    "ja nichts dran, was wir nicht irgendwie",
+    "auch vorbereitet",
+    "haben, also da kommt nicht irgendwas ganz anderes",
+    "dran, aber insofern",
+    "kommen ja auch eine ganze Reihe von",
+    "Aufgaben dran, acht Aufgaben, man hat ja schon mal",
+    "neun Aufgaben dran bekommen",
+    "die müssen",
+    "auch geübt werden.",
+    "Wir machen nächste Woche noch affine Schifren.",
+    "Dann haben wir noch Zeit, da machen wir noch eine Fragestunde.",
+    "Da können Sie sich noch mal die Sachen angucken.",
+  ];
+  // Fuellmaterial mit dem Fuellwortschatz einer echten Vorlesung, damit der
+  // Haeufigkeitsfilter "noch", "eine", "der" und "werden" als gaengig erkennt. Ohne das
+  // waeren sie im Testkorpus selten und wuerden mitentscheiden.
+  const fueller = Array.from({ length: 60 }, (_, i) =>
+    `Und dann ist das noch eine Sache von der Art ${i}, die wir uns dann ansehen werden.`);
+  const korpus = [...fueller, ...spanne];
+  const claim = "Ja, laut einer Aufzeichnung wird eine Fragestunde durchgeführt, nachdem "
+    + "in der darauffolgenden Woche noch affine Schifren behandelt wurden";
+
+  it("waehlt weiterhin die staerkste Zeile", () => {
+    expect(claimLineIndex(claim, spanne, korpus)).toBe(11);
+  });
+
+  it("nimmt die Zeile mit dem fehlenden Pin-Wort dazu", () => {
+    expect(claimLineIndices(claim, spanne, korpus)).toEqual([11, 12]);
+  });
+
+  it("laesst die uebrigen Zeilen in Ruhe", () => {
+    const raus = claimLineIndices(claim, spanne, korpus);
+    expect(raus).not.toContain(0);
+    expect(raus).not.toContain(13);
+  });
+
+  it("bleibt bei einer Zeile, wenn ihr kein Pin-Wort fehlt", () => {
+    const nurEins = "In der darauffolgenden Woche werden noch affine Schifren behandelt.";
+    expect(claimLineIndices(nurEins, spanne, korpus)).toEqual([11]);
+  });
+
+  it("ein haeufiges Wort zieht keine Zeile herein", () => {
+    // "noch" steht in Zeile 0 ("Also nochmals") und in fast jeder Fuellzeile. Haeufige
+    // Woerter duerfen nicht zaehlen, sonst haengt an jedem Beleg der halbe Chunk.
+    expect(claimLineIndices(claim, spanne, korpus)).not.toContain(0);
+  });
+
+  it("ohne Sieger bleibt die Liste leer, der ganze Abschnitt wird markiert", () => {
+    expect(claimLineIndices("Das ist so.", spanne, korpus)).toEqual([]);
+  });
+
+  it("ein kurzes Wort zieht keine Zeile herein, auch wenn es selten ist", () => {
+    // "geübt" steht in genau einer Zeile der Spanne und sonst nirgends, ist also selten —
+    // sagt aber nichts. Genau daran haengt die Laengenregel: an 139 echten Belegen zogen
+    // "wurden", "stellt" und "logische" Zeilen herein, die nichts mit der Aussage zu tun
+    // hatten. "stellt" traf dabei mitten in "hochgestellt", weil der Abgleich absichtlich
+    // eine Teilzeichenkette ist (damit "Sprechstunde" auch "Sprechstunden" findet).
+    const kurz = "In der Woche werden noch affine Schifren geübt.";
+    expect(claimLineIndices(kurz, spanne, korpus)).toEqual([11]);
   });
 });
