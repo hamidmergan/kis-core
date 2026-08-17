@@ -40,19 +40,17 @@ function sortByDate<T extends DatedEntry>(entries: T[]): T[] {
 
 function formatDay(
   dateStr: string,
-  today: Date,
   locale: string,
   monthOnly = false,
-): { day: string | null; month: string; year: string | null } {
+): { day: string | null; month: string; year: string } {
   const d = parseYMD(dateStr);
   const tag = locale === "en" ? "en-US" : "de-DE";
-  const showYear = d.getFullYear() !== today.getFullYear();
   return {
     // Nennt die Quelle nur einen Monat, steht hier keine Tagesnummer. Der Monatserste
     // ist nur der Sortierpunkt, im Dokument stand er nie.
     day: monthOnly ? null : String(d.getDate()).padStart(2, "0"),
     month: new Intl.DateTimeFormat(tag, { month: "short" }).format(d),
-    year: monthOnly ? String(d.getFullYear()) : showYear ? String(d.getFullYear()) : null,
+    year: String(d.getFullYear()),
   };
 }
 
@@ -101,11 +99,14 @@ export function ScheduleTimeline<T extends DatedEntry>({
       />
 
       <div className="flex flex-col">
-        {dated.map((entry) => {
+        {dated.map((entry, i) => {
           const monthOnly = entry.date_precision === "month";
           const today_ = !monthOnly && isToday(entry.due_date!, today);
           const past_ = isPast(entry.due_date!, entry.due_time, today);
-          const { day, month, year } = formatDay(entry.due_date!, today, locale, monthOnly);
+          const { day, month, year } = formatDay(entry.due_date!, locale, monthOnly);
+          // Die Jahreszahl steht nur dort, wo ein Jahr anfängt. Danach reicht der Monat.
+          const prev = i > 0 ? dated[i - 1].due_date : null;
+          const startsYear = !prev || String(parseYMD(prev).getFullYear()) !== year;
           const urgency = urgencyColor(entry.due_date, todayStr);
 
           return (
@@ -151,7 +152,7 @@ export function ScheduleTimeline<T extends DatedEntry>({
                 >
                   {month}
                 </div>
-                {year && (
+                {startsYear && (
                   <div
                     className="mt-0.5 font-semibold"
                     style={{ color: "var(--error-strong)", fontSize: "0.625rem" }}
