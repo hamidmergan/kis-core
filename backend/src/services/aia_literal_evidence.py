@@ -19,6 +19,7 @@ section number, on a chemistry slide a formula.
 """
 
 import re
+from typing import Optional
 
 # A word must be this long before its presence means anything. Shorter ones ("Uhr",
 # "Plan", "Teil") ride along in almost any German sentence.
@@ -108,6 +109,64 @@ def distinctive_tokens(line: str, corpus: list[str]) -> tuple[set[str], set[str]
     rare_words = {w for w in words if sum(_carries_word(s, w) for s in stems) <= limit}
     rare_figs = {f for f in figures if sum(f in fs for fs in figs) <= limit}
     return rare_words, rare_figs
+
+
+# Ein PIN-WORT ist das eine Wort, an dem eine Aussage haengt: lang genug, um etwas zu
+# bedeuten, und im Material so selten, dass es auf eine Stelle zeigt. Traegt der beste
+# Treffer es, muss jeder WEITERE Chip es auch tragen — sonst belegt er die Aussage nicht,
+# sondern nur ihr Thema.
+#
+# Der gemeldete Fall: zu "nach der Behandlung von affinen Chiffren bleibt noch Zeit fuer
+# eine Fragestunde" standen drei Chips. Der erste traf die Stelle mit der Fragestunde. Die
+# anderen beiden hingen an der NEBENSACHE: einer an "dann kommt hier die affine Chiffre
+# dran" (es ging dort um den Klausurstoff), einer an einer Aufzaehlung von
+# Verschluesselungsverfahren. Beide sagen zur Fragestunde nichts.
+#
+# Neun Zeichen, gemessen: kuerzer geraten Hilfsverben und Wortteile hinein, die in DIESEM
+# Material zufaellig selten sind ("wurden", "stellt" — letzteres traf mitten in
+# "hochgestellt"). Ein langes deutsches Wort ist fast immer ein Inhaltswort.
+_PIN_MIN_CHARS = 9
+
+# Wie selten. Ein halbes Prozent des Materials, mindestens aber ein Vorkommen: das Wort
+# faellt also praktisch an einer Stelle. Bewusst viel enger als ``_COMMON_SHARE``, das nur
+# entscheidet, ob ein Wort ueberhaupt etwas unterscheidet.
+_PIN_SHARE = 0.005
+
+
+def pin_words(line: str, corpus: list[str]) -> set[str]:
+    """ALLE Pin-Woerter der Zeile, moeglicherweise leer.
+
+    Eine MENGE, nicht das eine seltenste: mehrere Woerter kommen im Material gleich oft
+    vor, naemlich einmal, und dann waere die Wahl reine Willkuer. Gemessen am gemeldeten
+    Fall — "In einer Aufzeichnung ... wird erwaehnt ... Fragestunde" — trugen
+    "aufzeichnung", "fragestunde" und "behandelt" alle die Haeufigkeit eins, und der Zufall
+    griff nach "aufzeichnung". Damit haette ein Chip ueber die AUFNAHME als Beleg fuer die
+    FRAGESTUNDE durchgereicht.
+
+    Wer die Menge einschraenkt, ist der beste Treffer: nur seine Pin-Woerter zaehlen (siehe
+    Aufrufer). Ein Wort, das er selbst nicht traegt, sagt nichts darueber, was ein zweiter
+    Beleg tragen muss.
+
+    ``corpus`` ist alles, woraus die Antwort geschrieben wurde. Ohne genug Material laesst
+    sich Seltenheit nicht messen, dann gibt es keine Pin-Woerter und alles bleibt wie
+    bisher."""
+    if len(corpus) < _MIN_CORPUS:
+        return set()
+    lows = [c.lower() for c in corpus]
+    limit = max(1.0, len(corpus) * _PIN_SHARE)
+    raus = set()
+    for w in _words(line):
+        if len(w) < _PIN_MIN_CHARS:
+            continue
+        df = sum(1 for c in lows if w in c)
+        if 0 < df <= limit:
+            raus.add(w)
+    return raus
+
+
+def carries_pin(pin: str, chunk: str) -> bool:
+    """Ob dieser Chunk das Pin-Wort woertlich traegt."""
+    return pin.lower() in (chunk or "").lower()
 
 
 def lookup_figures(line: str, corpus: list[str]) -> list[str]:

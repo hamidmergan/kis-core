@@ -16,6 +16,7 @@ from langfuse.decorators import langfuse_context
 
 from src import database as db
 from src.i18n import DEFAULT_LOCALE, t
+from src.services.aia_literal_evidence import pin_words
 from src.services.aia_segment_pick import best_index, rarity_weights
 from src.services.aia_transcript_offsets import TranscriptIndex
 from src.storage import (
@@ -919,7 +920,8 @@ def _content_words(text: str) -> set:
     return {w.casefold() for w in _CONTENT_WORD_RE.findall(text or "")}
 
 
-def _extra_chip_earns_place(unit: str, primary: dict, extra: dict) -> bool:
+def _extra_chip_earns_place(unit: str, primary: dict, extra: dict,
+                            pins: frozenset = frozenset()) -> bool:
     """Whether an ADDITIONAL chip earns its place next to the closest one.
 
     Two different rules, because "adds nothing" means different things across and within a
@@ -936,7 +938,21 @@ def _extra_chip_earns_place(unit: str, primary: dict, extra: dict) -> bool:
       first was missing — near misses, not co-sources. Overlap between the two passages
       cannot catch this: they ARE different (mean overlap 0.17), just about something else.
 
+    ``pins`` sind die Pin-Woerter der GANZEN Zeile (siehe aia_literal_evidence): lange
+    Woerter, die im Material praktisch an einer Stelle fallen. Gibt es welche, entscheiden
+    sie allein, auch ueber Dateigrenzen hinweg — traegt der beste Treffer sie alle, ist
+    nichts mehr abzudecken und ein zweiter Chip belegt nur noch das Thema. Gemeldeter Fall:
+    zu "nach den affinen Chiffren ... noch eine Fragestunde" haengte sich eine
+    Terminabsprache aus einer anderen Vorlesung an, allein weil sie aus einer anderen Datei
+    stammte. "fragestunde" faellt im ganzen Kurs genau einmal, und zwar beim besten Treffer.
+
     Word sets only (4+ characters, case-folded), so no per-language stop list is involved."""
+    if pins:
+        from src.services.aia_literal_evidence import carries_pin
+        fehlend = {p for p in pins if not carries_pin(p, primary.get("content") or "")}
+        if not fehlend:
+            return False
+        return any(carries_pin(p, extra.get("content") or "") for p in fehlend)
     if primary.get("source_id") != extra.get("source_id"):
         return True
     unit_words = _content_words(unit)
@@ -1162,13 +1178,17 @@ def _chips_for_line(cands: list[dict], source_id_to_qnum: dict,
 
     ``transcript_by_source`` sind die Whisper-Segmente je Quelle. Damit zeigt ein
     Medien-Chip auf das Segment, das ``line`` traegt, statt auf den Chunk-Anfang."""
-    from src.services.aia_literal_evidence import adds_literal_evidence
+    from src.services.aia_literal_evidence import adds_literal_evidence, carries_pin, pin_words
     chips: list[str] = []
     keys: set = set()
     primary_d: Optional[float] = None
     primary_content = ""
     primary_source = None
     evidence_corpus = corpus or [c.get("content") or "" for c in cands]
+    # Die Woerter, an denen die Zeile haengt. Gleich unten auf die eingeschraenkt, die der
+    # BESTE Treffer traegt: jeder WEITERE Chip muss dann mindestens eines davon tragen,
+    # sonst belegt er nur das THEMA der Aussage und nicht die Aussage.
+    pins = pin_words(line, evidence_corpus) if line else set()
     for h in cands:
         qnum = source_id_to_qnum.get(h.get("source_id"))
         if qnum is None:
@@ -1181,6 +1201,9 @@ def _chips_for_line(cands: list[dict], source_id_to_qnum: dict,
             primary_d = d                # the guarantee chip; anchors the relative gate
             primary_content = h.get("content") or ""
             primary_source = h.get("source_id")
+            pins = {p for p in pins if carries_pin(p, primary_content)}
+        elif pins and not any(carries_pin(p, h.get("content") or "") for p in pins):
+            continue                     # belegt nur das Thema, nicht die Aussage
         elif h.get("literal"):
             pass                         # states the claim's figure verbatim: it IS the source
         elif d > max_distance:
@@ -1379,6 +1402,8 @@ def _attribute_prose_line(sentences: list[str], search_one, source_id_to_qnum: d
             cands = _line_candidates(sent, search_one, context_chunks,
                                      seen_pages_by_source, scope_ids,
                                      literal_lookup=literal_lookup, corpus=corpus)
+            satz_pins = frozenset(pin_words(sent, corpus or
+                                            [c.get("content") or "" for c in cands]))
             if cands and not (overview and _enum_chip_unbacked(sent, cands[0].get("content") or "")):
                 chips = _chips_for_line(cands, source_id_to_qnum, max_distance,
                                         guarantee_dist=guarantee, line=sent, corpus=corpus,
@@ -1396,7 +1421,8 @@ def _attribute_prose_line(sentences: list[str], search_one, source_id_to_qnum: d
                     # earn its place: it only stays if its passage covers a word of the
                     # SENTENCE the closest passage is missing.
                     if (cchips and cchips[0] not in seen_targets
-                            and _extra_chip_earns_place(sent, cands[0], ccands[0])):
+                            and _extra_chip_earns_place(sent, cands[0], ccands[0],
+                                                        satz_pins)):
                         chips.append(cchips[0])
                         seen_targets.add(cchips[0])
                         if len(chips) >= _COVERAGE_MAX_CHIPS_PER_LINE:

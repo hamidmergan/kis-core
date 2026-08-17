@@ -141,3 +141,55 @@ def test_a_range_is_looked_up_whole_and_by_its_ends():
 def test_at_most_a_handful_is_looked_up():
     line = "Termine: 01.04.2026, 15.04.2026, 22.04.2026, 28.05.2026, 29.05.2026, 03.07.2026"
     assert len(lookup_figures(line, CORPUS)) <= 3
+
+
+# ── Pin-Woerter: woran eine Aussage haengt ──────────────────────────────────
+
+# Gemeldet 17.08.2026 per Screenshot. Zu "nach der Behandlung von affinen Chiffren bleibt
+# noch Zeit fuer eine Fragestunde" standen drei Chips. Der erste traf die Stelle mit der
+# Fragestunde, die anderen beiden hingen an der Nebensache: einer an "dann kommt hier die
+# affine Chiffre dran" (dort ging es um den Klausurstoff), einer an einer Aufzaehlung von
+# Verschluesselungsverfahren. "Nur weil affine Chiffre in der zweiten Quelle vorkommt,
+# heisst es nicht, dass ich das wissen wollte."
+_KORPUS = [
+    "Wir machen nächste Woche noch affine Schifren. Dann haben wir noch Zeit, "
+    "da machen wir noch eine Fragestunde. Da können Sie sich die Sachen angucken.",
+    "Ich habe in der letzten Webkonferenz gesagt, was drankommt. Und dann kommt "
+    "hier die affine Chiffre dran.",
+    "Das ist im Grunde die Verallgemeinerung des Rechnens mit Rest. Und dann so "
+    "gängige Verschlüsselungsverfahren, das Diffie-Hellmann-Verfahren.",
+] + [f"Wir rechnen jetzt das Beispiel {i} zusammen durch und gucken uns das an."
+     for i in range(20)]
+
+_ZEILE = ("Es wird erwähnt, dass nach der Behandlung von affinen Chiffren noch Zeit "
+          "für eine Fragestunde bleibt")
+
+
+def test_pin_wort_ist_das_seltene_lange_wort():
+    from src.services.aia_literal_evidence import pin_words
+    assert pin_words(_ZEILE, _KORPUS) == {"fragestunde"}
+
+
+def test_kurze_woerter_werden_nie_pin():
+    """"Chiffren" hat acht Zeichen und faellt durch, obwohl es selten ist."""
+    from src.services.aia_literal_evidence import pin_words
+    assert "chiffren" not in pin_words(_ZEILE, _KORPUS)
+
+
+def test_haeufiges_wort_wird_nie_pin():
+    from src.services.aia_literal_evidence import pin_words
+    zeile = "Wir rechnen das Beispiel zusammen durch und gucken uns die Sache an."
+    assert pin_words(zeile, _KORPUS) == set()
+
+
+def test_ohne_genug_material_gibt_es_keine_pin_woerter():
+    """Unter acht Texten laesst sich Seltenheit nicht messen, dann bleibt alles wie bisher."""
+    from src.services.aia_literal_evidence import pin_words
+    assert pin_words(_ZEILE, _KORPUS[:3]) == set()
+
+
+def test_traegt_der_chunk_das_pin_wort():
+    from src.services.aia_literal_evidence import carries_pin
+    assert carries_pin("fragestunde", _KORPUS[0])
+    assert not carries_pin("fragestunde", _KORPUS[1])
+    assert not carries_pin("fragestunde", _KORPUS[2])
