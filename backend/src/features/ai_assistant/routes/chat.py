@@ -18,8 +18,9 @@ from langfuse.decorators import langfuse_context, observe
 from src import database as db
 from src.dependencies import get_current_user, get_llm_client
 from src.i18n import get_locale, t
-from src.limits import AIA_EMBED_QUERY_MAX_CHARS
+from src.limits import AIA_ATTRIBUTION_EMBED_TIMEOUT_SECONDS, AIA_EMBED_QUERY_MAX_CHARS
 from src.services import model_limits
+from src.services.aia_embeddings import get_embedding_provider
 from src.security.rate_limit import enforce_burst
 from src.security.usage_log import log_request as _log_usage
 from src.features.ai_assistant.prompts.popup_prompts import AIA_POPUP_ACTIONS
@@ -160,9 +161,9 @@ def _named_source_ids(question: str, headers: dict[int, str]) -> set[int]:
         return set()
     hdr_words = {sid: set(_NAME_TOKEN_RE.findall(h or "")) for sid, h in headers.items()}
     named: set[int] = set()
-    for t in qtokens:
+    for tok in qtokens:
         hits = [sid for sid, words in hdr_words.items()
-                if any(_title_word_match(t, w) for w in words)]
+                if any(_title_word_match(tok, w) for w in words)]
         if len(hits) == 1:
             named.add(hits[0])
     return named
@@ -1190,7 +1191,6 @@ async def chat(
         if popup_source:
             search_source_ids = [popup_source["id"]]
 
-    _specific_path = False
     _fit_full = (None if (body.source_text or _umformen)
                  else _full_context_if_fits(source_ids, context_budget))
     if _umformen:
@@ -1208,15 +1208,12 @@ async def chat(
         # ── GENERIC: eine breite Suche plus Auffuellen reihum ueber ALLE Quellen,
         # damit der Ueberblick jede Quelle beruehrt. Der Ueberblick-Prompt unten sorgt
         # dann fuer die Abdeckung Dokument fuer Dokument.
-        from src.services.aia_embeddings import get_embedding_provider
         provider = get_embedding_provider()
         chunks = await _retrieve_generic_context(
             provider, workspace["id"], source_ids, rewritten_question, budget=context_budget,
         )
     else:
         # ── Retrieval path: per-source hybrid + neighbor expansion (SPECIFIC) ──
-        _specific_path = True
-        from src.services.aia_embeddings import get_embedding_provider
         provider = get_embedding_provider()
 
         embed_text = body.source_text if body.source_text else rewritten_question
@@ -1391,9 +1388,8 @@ async def chat(
     elif popup_entry:
         source_pages.append(popup_entry)
     else:
-        all_sources = {s["id"]: s for s in db.get_aia_sources_by_workspace(workspace["id"])}
         for chunk in chunks:
-            source = all_sources.get(chunk["source_id"])
+            source = all_sources_list.get(chunk["source_id"])
             if source:
                 raw = (chunk.get("content") or "").strip()
                 raw = re.sub(r"^\d{1,3}\s+", "", raw).strip()
@@ -1451,12 +1447,10 @@ async def chat(
             # was fehlt.
             _do_prewarm = bool(source_ids) and not is_popup and not scope_single_page
             if _do_prewarm:
-                from src.services.aia_embeddings import get_embedding_provider as _get_ep
-                from src.limits import AIA_ATTRIBUTION_EMBED_TIMEOUT_SECONDS
                 # Kurze Schranke, kein zweiter Versuch: das Vorwaermen ist eine Abkuerzung.
                 # Antwortet die Gegenstelle nicht, soll es das schnell merken und den Weg
                 # freigeben, statt Threads an einer haengenden Anfrage zu binden.
-                _pw_prov = _get_ep(timeout=AIA_ATTRIBUTION_EMBED_TIMEOUT_SECONDS,
+                _pw_prov = get_embedding_provider(timeout=AIA_ATTRIBUTION_EMBED_TIMEOUT_SECONDS,
                                    retry_on_timeout=False)
 
                 def _pw_search(_ln, _vec):
@@ -1631,8 +1625,6 @@ async def chat(
                 _aqn = source_id_to_qnum.get(scope_chunks[0]["source_id"]) if scope_chunks else None
                 _apg = next(iter(_scope_pages), None)
                 if _aqn and _apg is not None:
-                    from src.services.aia_embeddings import get_embedding_provider
-                    from src.limits import AIA_ATTRIBUTION_EMBED_TIMEOUT_SECONDS
                     _refused = await asyncio.to_thread(
                         is_refusal_answer, _clean_answer,
                         get_embedding_provider(
@@ -1643,8 +1635,6 @@ async def chat(
                 else:
                     answer = _clean_answer
             else:
-                from src.services.aia_embeddings import get_embedding_provider
-                from src.limits import AIA_ATTRIBUTION_EMBED_TIMEOUT_SECONDS
                 # Der Nutzer liest den Text schon fertig und wartet nur noch auf die Chips.
                 # Deshalb kurze Schranke und kein zweiter Versuch: kommt nichts, geht die
                 # Antwort chiplos raus, statt sie an einer haengenden Gegenstelle festzuhalten.
