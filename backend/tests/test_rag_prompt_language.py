@@ -9,11 +9,8 @@ itself.
 
 import re
 
-from src.tool_prompts import (
-    aia_system_rag,
-    aia_rag_user_message,
-    RAG_NO_INFO_PATTERNS,
-)
+from src.features.ai_assistant.prompts.rag_prompts import aia_system_rag, aia_rag_user_message
+from src.features.ai_assistant.prompts.refusal_prompts import RAG_NO_INFO_PATTERNS
 
 
 # ── system prompt: answer language follows the question ──────────────────────

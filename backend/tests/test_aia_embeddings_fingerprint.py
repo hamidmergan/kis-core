@@ -1,7 +1,7 @@
 """Tests for the embedding fingerprint used to detect model drift.
 
 The fingerprint must be DETERMINISTIC for a given model: real providers
-(vLLM/KISSKI) return slightly different float vectors on every call, so a
+(vLLM) return slightly different float vectors on every call, so a
 fingerprint built from the raw vector can never match itself and the admin
 "needs reindex" warning would be stuck forever. The fingerprint identifies the
 embedding space (model name + dimension), not the exact floats.

@@ -1,7 +1,7 @@
 """Tests for the adaptive tutor prompt appendix."""
 
 from src.services.aia_adaptive_chat import adaptive_chat_appendix, DEFAULT_ADAPTIVE_BEHAVIOR
-from src.tool_prompts import aia_system_rag
+from src.features.ai_assistant.prompts.rag_prompts import aia_system_rag
 
 
 def test_no_level_means_no_change():

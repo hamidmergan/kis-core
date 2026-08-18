@@ -37,7 +37,7 @@ def test_get_llm_client_default_uses_route(monkeypatch):
 
     monkeypatch.setattr(
         "src.dependencies._resolve_llm_provider",
-        lambda: ("k", "http://llm.example.com", "qwen3-30b", "KISSKI"),
+        lambda: ("k", "http://llm.example.com", "qwen3-30b", "Anbieter A"),
     )
     monkeypatch.setattr(
         "src.services.feature_provider_choices.resolve_binding",

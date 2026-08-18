@@ -17,7 +17,10 @@ from src.features.ai_assistant.routes._helpers import (
     _refusal_lines,
     is_refusal_answer,
 )
-from src.tool_prompts import RAG_NO_INFO_SENTINEL, is_sentinel_refusal
+from src.features.ai_assistant.prompts.refusal_prompts import (
+    RAG_NO_INFO_SENTINEL,
+    is_sentinel_refusal,
+)
 
 
 def _hit(sid, page, content, dist, start=None):

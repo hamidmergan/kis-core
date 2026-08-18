@@ -20,7 +20,6 @@ from src.features.ai_assistant.routes.chat import (
     _context_budget,
     _diversify_by_source,
     _order_round_robin,
-    _classify_intent,
     _understand_query,
     _parse_understanding,
     _stream_usage_tokens,
@@ -94,35 +93,6 @@ def test_skip_intent_for_long_question():
 def test_does_not_skip_for_short_question_with_sources():
     # Short question + real sources + no popup -> worth an LLM classification.
     assert _should_skip_intent_classification(None, [1, 2], "Worum geht es?") is False
-
-
-# ── routing: LLM verdict parsing (provider faked) ────────────────────────────
-
-@pytest.mark.asyncio
-async def test_classify_intent_reads_generic():
-    assert await _classify_intent(FakeLLM(content="GENERIC"), "Worum geht es?") == "GENERIC"
-
-
-@pytest.mark.asyncio
-async def test_classify_intent_defaults_specific_on_unknown():
-    assert await _classify_intent(FakeLLM(content="banana"), "x") == "SPECIFIC"
-
-
-@pytest.mark.asyncio
-async def test_classify_intent_strips_think_block_and_punctuation():
-    raw = "<think>hmm overview-ish</think>  'GENERIC.'"
-    assert await _classify_intent(FakeLLM(content=raw), "x") == "GENERIC"
-
-
-@pytest.mark.asyncio
-async def test_classify_intent_falls_back_to_reasoning_content():
-    # Some reasoning models leave content empty and put the verdict in reasoning.
-    assert await _classify_intent(FakeLLM(content="", reasoning="GENERIC"), "x") == "GENERIC"
-
-
-@pytest.mark.asyncio
-async def test_classify_intent_defaults_specific_on_error():
-    assert await _classify_intent(FakeLLM(raise_exc=True), "x") == "SPECIFIC"
 
 
 # ── combined query understanding (intent + scope in ONE call) ────────────────
@@ -699,6 +669,6 @@ def test_pack_single_batch_is_one_window():
     # skipped rather than spilled into a second batch.
     chunks = [_chunk(i, i, f"FACT-{i:02d} " + "x" * 300) for i in range(1, 13)]
     batches, seen = _pack_context_batches(
-        chunks, 1200, {1: 1}, {1: {"filename": "doc.pdf"}}, {}, multi=False,
+        chunks, 1200, {1: 1}, {1: {"filename": "doc.pdf"}}, {},
     )
     assert len(batches) == 1

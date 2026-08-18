@@ -124,14 +124,9 @@ SCREENCAST_TTS_PARALLELISM = 8
 
 # --- Transkription: gleichzeitig hochgeladene Audio-Teile --------------------
 # Eine lange Aufnahme wird in Teile von je 9 Minuten geschnitten. Wie viele
-# davon gleichzeitig zum Anbieter gehen, hängt am Anbieter und nicht am Code:
-# ein geteiltes Kontingent (GWDG, hochschulweit 2 Anfragen/s) verträgt viel
-# weniger als ein eigener Dienst.
-#
-# Bleibt bei 2, dem gemessenen Wert, jetzt als Konstante statt als Einstellung.
-# Bewusst niedrig: das Kontingent teilt sich die ganze Hochschule, und wie viel
-# davon gerade frei ist, kann KIS nicht wissen. Bei einer Absage wiederholt der
-# Aufruf mit wachsender Wartezeit, das reicht.
+# davon gleichzeitig zum Anbieter gehen, ist der gemessene Wert 2, jetzt als
+# Konstante statt als Einstellung. Bei einer Absage wiederholt der Aufruf mit
+# wachsender Wartezeit, das reicht.
 STT_CHUNK_PARALLELISM = 2
 
 # --- Celery task timeouts (in seconds) --------------------------------------
@@ -229,17 +224,15 @@ AIA_TOOL_CONTEXT_MAX_CHARS             = 250000
 # model (target up to ~900k chars ≈ ~257k tokens). Enforced on write (admin
 # PATCH validation) and on read (tool_context_budget clamp).
 AIA_TOOL_CONTEXT_HARD_CAP              = 1_000_000
-# Per-batch char cap for the ingest-side DOC SUMMARY (aia_summarizer). Sized to
-# MINIMISE the number of GWDG-rate-limited summary calls per ingest (the shared
-# limit is 2/s, 15/min for the whole university), while keeping each batch small
-# enough that its summary still carries real detail (the output is capped, so a
-# huge batch compresses too hard — see private/summary-batching-erklaert.md).
-# 360k chars ≈ ~102k tokens; measured ~23s/call on KISSKI qwen3-30b (256k ctx),
-# well within limits. A large doc still spills into more batches + a combine call.
+# Per-batch char cap for the ingest-side DOC SUMMARY (aia_summarizer). Sized to keep
+# each batch small enough that its summary still carries real detail (the output is
+# capped, so a huge batch compresses too hard — see private/summary-batching-erklaert.md).
+# 360k chars ≈ ~102k tokens; measured ~23s/call on qwen3-30b (256k ctx). A large doc
+# still spills into more batches + a combine call.
 # Admin-tunable: ``aia_summary_batch_max_chars``.
 AIA_SUMMARY_BATCH_MAX_CHARS            = 360000
-# Chunks (input texts) per embedding request at ingest. Higher = fewer requests
-# against the shared GWDG rate limit. Measured safe on myLab qwen3-embedding-4b:
+# Chunks (input texts) per embedding request at ingest. Higher = fewer requests.
+# Measured safe on myLab qwen3-embedding-4b:
 # 1000 OK (~13s), 2000 → 502. Each chunk is tiny (~300 tok, well under the
 # model's 40k/input limit), so a full 1000-batch is fine.
 # BEWUSST KEINE Admin-Einstellung: der frühere Regler hatte Standard UND
@@ -263,8 +256,7 @@ GLOSSARY_LIMIT                        = 150     # max glossary entries per works
 
 # --- AI tutor background dispatcher -----------------------------------------
 # We manage a shared pool of parallel processing slots for BACKGROUND jobs, NOT
-# API rate limits (the per-second / 15-per-minute caps are KISSKI/GWDG's concern,
-# not ours). Chat is NOT in this pool: it runs synchronously in the request, not
+# API quotas (those are the provider's concern, not ours). Chat is NOT in this pool: it runs synchronously in the request, not
 # as a background job. The pool covers upload (ingest) and studio tools.
 #
 # A freed slot goes to an area by weight, then round-robin across users so one
@@ -341,7 +333,7 @@ DB_POOL_MAX_CONNECTIONS                = 40
 # komprimierten Format, Dauer 121 Sekunden. Der Hauptteil sind die
 # Einbettungsvektoren in aia_chunks (2,7 GB in der Datenbank). Die sind bewusst
 # MIT drin: sie liessen sich zwar neu berechnen, aber nur ueber viele
-# Modell-Aufrufe, und die laufen ins Rate-Limit.
+# Modell-Aufrufe.
 #
 # Gestaffelt aufbewahrt, weil manche Fehler erst nach Wochen auffallen. Nur
 # taegliche Sicherungen wuerden bedeuten: was vor drei Wochen still kaputtging,

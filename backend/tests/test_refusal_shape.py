@@ -22,10 +22,10 @@ gemessen (je 5 Laeufe, gleiches Modell, gleiche Quelle):
 import pytest
 
 from src.services.aia_adaptive_chat import ADAPTIVE_SOURCES_GUARD
-from src.tool_prompts import (
+from src.features.ai_assistant.prompts.rag_prompts import aia_system_rag
+from src.features.ai_assistant.prompts.refusal_prompts import (
     RAG_NO_INFO_PATTERNS,
     RAG_NO_INFO_SENTINEL,
-    aia_system_rag,
     is_gap_line,
     is_sentinel_refusal,
     refusal_reference_texts,

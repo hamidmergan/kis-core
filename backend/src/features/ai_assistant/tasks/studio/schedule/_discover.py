@@ -29,7 +29,7 @@ from datetime import date
 from loguru import logger
 
 from src.features.ai_assistant.tasks._helpers import _clean_llm_json
-from src.tool_prompts import AIA_SCHEDULE_TBD_DISCOVER_PROMPT
+from src.features.ai_assistant.prompts.schedule_prompts import AIA_SCHEDULE_TBD_DISCOVER_PROMPT
 
 
 # Ein Block ist ein Chunk, der Chunker schneidet bei 1000 Zeichen. 24000 Zeichen je

@@ -262,7 +262,7 @@ def compute_fingerprint(provider: EmbeddingProvider) -> str:
 
     We embed a fixed sentinel ONLY to learn the provider's true output
     dimension; we deliberately do NOT hash the raw floats. Real providers
-    (vLLM/KISSKI e.g. e5-mistral) return slightly different vectors on every
+    (vLLM, e.g. e5-mistral) return slightly different vectors on every
     call (non-deterministic), so a float-based fingerprint never matches itself
     and the reindex warning would be permanently stuck — even right after a
     successful reindex.

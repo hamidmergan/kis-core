@@ -7,7 +7,7 @@ from datetime import date
 from loguru import logger
 
 from src.features.ai_assistant.tasks._helpers import _clean_llm_json
-from src.tool_prompts import AIA_SCHEDULE_HARMONIZE_PROMPT
+from src.features.ai_assistant.prompts.schedule_prompts import AIA_SCHEDULE_HARMONIZE_PROMPT
 
 from src.features.ai_assistant.tasks.studio.schedule._classify import _CLASSIFY_TIMEOUT_SECS
 from src.features.ai_assistant.tasks.studio.schedule._parse import (

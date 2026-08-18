@@ -1652,7 +1652,7 @@ def _init_db(admin_email: Optional[str] = None) -> None:
             # ─── Modellvermessung ─────────────────────────────────────────────
             # Was ein Modell vertraegt, einmal gemessen statt im Admin geraten:
             # Fenstergroesse in Token, ob es vor der Antwort denkt, und welcher
-            # Schalter dieses Denken abstellt. Gemessen an den 16 GWDG-Modellen
+            # Schalter dieses Denken abstellt. Gemessen an 16 Modellen
             # reichen die Fenster von 20.080 bis 1.048.576 Token, eine feste
             # Zeichenzahl fuer alle kann es also gar nicht geben.
             #

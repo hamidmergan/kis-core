@@ -9,7 +9,9 @@ import json
 from loguru import logger
 
 from src.features.ai_assistant.tasks._helpers import _clean_llm_json
-from src.tool_prompts import AIA_KARTEIKARTEN_QA_PROMPT
+from src.features.ai_assistant.prompts.language_training_prompts import (
+    AIA_KARTEIKARTEN_QA_PROMPT,
+)
 
 from src.features.ai_assistant.tasks.language_training._attribution import attach_chips
 from src.features.ai_assistant.tasks.language_training._context import QuelleContext

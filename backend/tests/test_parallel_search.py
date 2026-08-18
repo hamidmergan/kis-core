@@ -2,8 +2,8 @@
 
 The per-sentence chips search the DB once per sentence/clause. Done
 sequentially that is the dominant cost of the post-answer pause (measured ~13.7s
-of a ~15.3s pause). The searches hit LOCAL Postgres (not the rate-limited GWDG
-embed API), so they can run concurrently. ``_parallel_search`` runs one search
+of a ~15.3s pause). The searches hit LOCAL Postgres (not the embed API), so they
+can run concurrently. ``_parallel_search`` runs one search
 per UNIQUE line across a thread pool and returns a ``{line: hits}`` map the
 sequential attribution walk then just looks up. Correctness is unchanged: the
 map holds exactly what ``search_fn`` would have returned per line; a failing

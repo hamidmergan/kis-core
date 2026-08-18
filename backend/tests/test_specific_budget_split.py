@@ -2,9 +2,8 @@
 
 - ``_take_chunks_within`` — fuellt eine nach Note sortierte Liste bis zur Grenze auf
   und nimmt mindestens eine Stelle, auch wenn sie allein schon zu gross ist.
-- ``_pack_context_batches`` — single-batch (GENERIC/SCOPE: drop overflow) vs
-  multi-batch (SPECIFIC: spill, never drop), per-batch id restart, media page set.
-- ``aia_reduce_user_message`` — map-reduce merge prompt.
+- ``_pack_context_batches`` — single batch fuer jeden Weg: was nicht mehr passt,
+  faellt raus. Dazu die Seitenmenge und der leere Fall bei Medien.
 
 All pure functions: no DB, no LLM, fully deterministic/offline.
 """
@@ -14,7 +13,6 @@ from src.features.ai_assistant.routes.chat import (
     _take_chunks_within,
     _pack_context_batches,
 )
-from src.tool_prompts import aia_reduce_user_message
 
 
 def _mk(sid, n, *, chars=100, dist=0.5, first_marker=None, page_start=1):
@@ -71,52 +69,28 @@ def _chunks_for_pack():
 
 def test_pack_single_batch_drops_overflow():
     batches, seen = _pack_context_batches(
-        _chunks_for_pack(), 700, _S2Q, _SRCS, {}, multi=False)
+        _chunks_for_pack(), 700, _S2Q, _SRCS, {})
     assert len(batches) == 1                    # one context only
     assert seen == {1: {10}}                    # only the first chunk fit → page 10
 
 
-def test_pack_multi_batch_spills_nothing_dropped():
-    batches, seen = _pack_context_batches(
-        _chunks_for_pack(), 700, _S2Q, _SRCS, {}, multi=True)
-    assert len(batches) == 3                    # spilled, never dropped
-    assert seen == {1: {10, 11}, 2: {20}}       # union across all batches
-
-
-def test_pack_multi_restarts_ids_per_batch():
+def test_pack_never_opens_a_second_batch():
     import re
     batches, _ = _pack_context_batches(
-        _chunks_for_pack(), 700, _S2Q, _SRCS, {}, multi=True)
-    for b in batches:
-        assert re.findall(r'id="(\d+)"', b) == ["1"]  # each batch numbers from 1
+        _chunks_for_pack(), 700, _S2Q, _SRCS, {})
+    assert len(batches) == 1                          # es gibt keinen zweiten Weg mehr
+    assert re.findall(r'id="(\d+)"', batches[0]) == ["1"]  # nummeriert ab 1
 
 
 def test_pack_media_source_gets_empty_page_set():
     media = [{"source_id": 3, "start_time": 5.0, "end_time": 9.0,
               "content": "M" * 100, "page_number": None}]
     _, seen = _pack_context_batches(
-        media, 5000, {3: 1}, {3: {"filename": "v.mp4"}}, {}, multi=True)
+        media, 5000, {3: 1}, {3: {"filename": "v.mp4"}}, {})
     assert seen == {3: set()}  # timestamp chip has no page to validate → accept
 
 
 def test_pack_empty_chunks():
-    batches, seen = _pack_context_batches([], 5000, {}, {}, {}, multi=True)
+    batches, seen = _pack_context_batches([], 5000, {}, {}, {})
     assert batches == []
     assert seen == {}
-
-
-# ── aia_reduce_user_message ──────────────────────────────────────────────────
-
-def test_reduce_message_contains_question_and_all_partials():
-    msg = aia_reduce_user_message("Wer sind die Autoren?",
-                                  ["Anna Schmidt.", "Boris Klein."])
-    assert "Wer sind die Autoren?" in msg
-    assert "Anna Schmidt." in msg
-    assert "Boris Klein." in msg
-
-
-def test_reduce_message_states_keep_every_fact_rule():
-    msg = aia_reduce_user_message("q", ["p1", "p2"])
-    low = msg.lower()
-    assert "at least one" in low      # keep a fact present in any partial
-    assert "ignore" in low            # drop "not in the sources" partials

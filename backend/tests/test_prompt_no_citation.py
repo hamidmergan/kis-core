@@ -1,4 +1,4 @@
-from src.tool_prompts import aia_system_rag
+from src.features.ai_assistant.prompts.rag_prompts import aia_system_rag
 
 
 def test_prompt_has_no_citation_injection():

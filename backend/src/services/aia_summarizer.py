@@ -24,15 +24,15 @@ from typing import Any, Optional
 
 from loguru import logger
 
-from src.tool_prompts import (
+from src.features.ai_assistant.prompts.summarizer_prompts import (
     aia_summary_system,
     aia_summary_user,
     aia_summary_combine_system,
     aia_summary_combine_user,
 )
 
-# Markers for a shared-rate-limit rejection (GWDG: 2/s, 15/min for the whole
-# university). String-based on purpose — providers raise heterogeneous types.
+# Markers for a throttling rejection. String-based on purpose — providers raise
+# heterogeneous types.
 _RATE_LIMIT_MARKERS = ("429", "rate limit", "rate_limit", "too many requests")
 
 
@@ -105,9 +105,9 @@ def _call(
                 "Summary call failed (attempt {}/{}, rate_limit={}): {}",
                 attempt + 1, retries + 1, rate_limited, e,
             )
-        # Back off before the next attempt (no sleep after the final one). The
-        # shared GWDG limit needs a real wait on 429; other errors get a short
-        # pause. Exponential + jitter so concurrent ingests don't resync.
+        # Back off before the next attempt (no sleep after the final one). A
+        # throttled call needs a real wait; other errors get a short pause.
+        # Exponential + jitter so concurrent ingests don't resync.
         if attempt < retries:
             base = 8.0 if (last is not None and _is_rate_limit(last)) else 2.0
             delay = min(base * (2 ** attempt), 60.0) + random.uniform(0, 1.0)

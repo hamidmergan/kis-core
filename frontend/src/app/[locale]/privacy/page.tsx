@@ -95,7 +95,7 @@ export default function DatenschutzPage() {
             </p>
             <ul className="list-disc pl-6 text-foreground-soft space-y-1 mb-2">
               <li>
-                <strong>{t("thirdParty.kisskiLabel")}</strong> - {t("thirdParty.kisskiBody")}
+                <strong>{t("thirdParty.aiProviderLabel")}</strong> - {t("thirdParty.aiProviderBody")}
               </li>
             </ul>
             <p className="text-foreground-soft">

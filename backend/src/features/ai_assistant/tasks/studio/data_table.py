@@ -27,7 +27,7 @@ def run_generate_data_table(self, data_table_id: int, source_ids: list[int],
     learner's CEFR level); None for older queued tasks keeps the shipped register.
     """
     import json as _json
-    from src.tool_prompts import AIA_DATENTABELLE_PROMPT
+    from src.features.ai_assistant.prompts.studio_prompts import AIA_DATENTABELLE_PROMPT
     from src.services.aia_adaptive_tools import build_adaptive_tool_suffix
 
     from src.features.ai_assistant.tasks._helpers import tool_output_language

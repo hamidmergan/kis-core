@@ -64,7 +64,7 @@ class _WhisperChunkedMixin:
     def transcribe_chunked(self, file_path: str, response_format: str = "text",
                            cache_key: str | None = None,
                            on_progress: ProgressFn = None) -> str:
-        """Transcribe audio, splitting files that exceed KISSKI's 600s limit at silence points.
+        """Transcribe audio, splitting files that exceed the provider's 600s cap at silence points.
 
         ``cache_key`` (e.g. the job_uuid) enables per-chunk Redis caching so a Celery
         retry skips chunks that already succeeded instead of restarting from zero.
@@ -119,7 +119,7 @@ class _WhisperChunkedMixin:
     def transcribe_and_translate_chunked(self, file_path: str, response_format: str = "text",
                                          cache_key: str | None = None,
                                          on_progress: ProgressFn = None) -> str:
-        """Transcribe and translate audio, splitting files that exceed KISSKI's 600s limit.
+        """Transcribe and translate audio, splitting files that exceed the provider's 600s cap.
 
         ``cache_key`` (e.g. the job_uuid) enables per-chunk Redis caching so a retry
         skips chunks that already succeeded. ``on_progress(done, total)`` fires

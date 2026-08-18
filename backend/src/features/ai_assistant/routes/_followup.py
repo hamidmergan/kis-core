@@ -63,7 +63,7 @@ def ist_nachfrage_moeglich(
     ohne vorherige Runde, ohne Antwort in dieser Runde (eine abgebrochene Runde
     traegt keinen Zusammenhang) und bei einer ausformulierten Frage.
     """
-    from src.tool_prompts import is_sentinel_refusal
+    from src.features.ai_assistant.prompts.refusal_prompts import is_sentinel_refusal
 
     if quelltext:
         return False
@@ -116,7 +116,10 @@ def umform_nachrichten(
     fallen raus, damit das Modell sie nicht in den neuen Text abschreibt - die
     Chips werden hinterher ohnehin frisch angehaengt.
     """
-    from src.tool_prompts import aia_reformat_user_message, aia_system_reformat
+    from src.features.ai_assistant.prompts.rag_prompts import (
+        aia_reformat_user_message,
+        aia_system_reformat,
+    )
 
     text = _strip_inline_citation_chips(letzte_runde.get("answer") or "").strip()
     return [

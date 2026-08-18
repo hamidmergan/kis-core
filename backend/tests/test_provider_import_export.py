@@ -49,7 +49,7 @@ def test_export_omits_api_key_when_export_key_unset(monkeypatch):
     monkeypatch.delenv("KIS_EXPORT_KEY", raising=False)
     monkeypatch.setattr(
         "src.routes.admin.providers.db.list_providers",
-        lambda: [_make_provider(1, "KISSKI", api_key="sk-secret",
+        lambda: [_make_provider(1, "Anbieter A", api_key="sk-secret",
                                 capabilities=["chat"])],
     )
     monkeypatch.setattr("src.routes.admin.providers.db.list_routes",
@@ -60,7 +60,7 @@ def test_export_omits_api_key_when_export_key_unset(monkeypatch):
     p = result["providers"][0]
     assert "api_key" not in p
     assert "id" not in p
-    assert p["name"] == "KISSKI"
+    assert p["name"] == "Anbieter A"
     assert p["capabilities"] == ["chat"]
 
 
@@ -72,7 +72,7 @@ def test_export_wraps_api_key_when_export_key_set(monkeypatch):
     monkeypatch.setenv("KIS_EXPORT_KEY", "test-secret-xyz")
     monkeypatch.setattr(
         "src.routes.admin.providers.db.list_providers",
-        lambda: [_make_provider(1, "KISSKI", api_key="sk-secret")],
+        lambda: [_make_provider(1, "Anbieter A", api_key="sk-secret")],
     )
     monkeypatch.setattr("src.routes.admin.providers.db.list_routes",
                         lambda: [])
@@ -82,7 +82,7 @@ def test_export_wraps_api_key_when_export_key_set(monkeypatch):
     p = result["providers"][0]
     env = p["api_key"]
     assert env["alg"] == "aesgcm-v2"
-    assert try_unwrap_api_key(env, provider_name="KISSKI") == "sk-secret"
+    assert try_unwrap_api_key(env, provider_name="Anbieter A") == "sk-secret"
 
 
 def test_export_envelope_rejects_provider_name_swap(monkeypatch):
@@ -93,8 +93,8 @@ def test_export_envelope_rejects_provider_name_swap(monkeypatch):
     )
 
     monkeypatch.setenv("KIS_EXPORT_KEY", "test-secret-xyz")
-    env = wrap_api_key("sk-secret", provider_name="KISSKI")
-    assert try_unwrap_api_key(env, provider_name="KISSKI") == "sk-secret"
+    env = wrap_api_key("sk-secret", provider_name="Anbieter A")
+    assert try_unwrap_api_key(env, provider_name="Anbieter A") == "sk-secret"
     assert try_unwrap_api_key(env, provider_name="Evil") is None
 
 
@@ -132,7 +132,7 @@ def test_export_translates_route_ids_to_provider_names(monkeypatch):
     from src.routes.admin.providers import build_export
 
     providers = [
-        _make_provider(1, "KISSKI"),
+        _make_provider(1, "Anbieter A"),
         _make_provider(2, "DeepL DE-EN", protocol="deepl"),
     ]
     routes = [
@@ -150,15 +150,15 @@ def test_export_translates_route_ids_to_provider_names(monkeypatch):
 
     result = build_export(exported_from=None)
     chat = next(r for r in result["feature_routes"] if r["feature"] == "chat")
-    assert chat["provider_name"] == "KISSKI"
+    assert chat["provider_name"] == "Anbieter A"
     assert chat["model_name"] == "mistral-large"
 
     tr = next(r for r in result["feature_routes"]
               if r["feature"] == "doc_translate")
     assert tr["provider_name"] == "DeepL DE-EN"
-    assert sorted(tr["user_choices"]) == sorted(["KISSKI", "DeepL DE-EN"])
+    assert sorted(tr["user_choices"]) == sorted(["Anbieter A", "DeepL DE-EN"])
     assert tr["provider_models"] == {
-        "KISSKI": "mistral-small", "DeepL DE-EN": ""
+        "Anbieter A": "mistral-small", "DeepL DE-EN": ""
     }
 
 
@@ -169,7 +169,7 @@ def test_export_drops_routes_with_missing_provider_id(monkeypatch):
 
     monkeypatch.setattr(
         "src.routes.admin.providers.db.list_providers",
-        lambda: [_make_provider(1, "KISSKI")],
+        lambda: [_make_provider(1, "Anbieter A")],
     )
     monkeypatch.setattr(
         "src.routes.admin.providers.db.list_routes",
@@ -219,12 +219,12 @@ def test_preview_new_provider_action_create(monkeypatch):
 
     monkeypatch.setattr("src.routes.admin.providers.db.list_providers",
                         lambda: [])
-    cfg = _valid_config(providers=[_exported_provider("KISSKI")])
+    cfg = _valid_config(providers=[_exported_provider("Anbieter A")])
 
     result = build_import_preview(cfg)
     assert len(result["providers"]) == 1
     p = result["providers"][0]
-    assert p["name"] == "KISSKI"
+    assert p["name"] == "Anbieter A"
     assert p["action"] == "create"
     assert p["needs_api_key"] is True  # remote openai_compat
     assert p["existing_has_key"] is False
@@ -234,10 +234,10 @@ def test_preview_new_provider_action_create(monkeypatch):
 def test_preview_existing_provider_action_update_preserves_key_flag(monkeypatch):
     from src.routes.admin.providers import build_import_preview
 
-    existing = _make_provider(1, "KISSKI", api_key="sk-existing")
+    existing = _make_provider(1, "Anbieter A", api_key="sk-existing")
     monkeypatch.setattr("src.routes.admin.providers.db.list_providers",
                         lambda: [existing])
-    cfg = _valid_config(providers=[_exported_provider("KISSKI")])
+    cfg = _valid_config(providers=[_exported_provider("Anbieter A")])
 
     result = build_import_preview(cfg)
     p = result["providers"][0]
@@ -283,9 +283,9 @@ def test_preview_route_with_unknown_provider_skipped(monkeypatch):
     monkeypatch.setattr("src.routes.admin.providers.db.get_route",
                         lambda f: None)
     cfg = _valid_config(
-        providers=[_exported_provider("KISSKI")],
+        providers=[_exported_provider("Anbieter A")],
         routes=[
-            _exported_route("chat", provider_name="KISSKI",
+            _exported_route("chat", provider_name="Anbieter A",
                             model_name="m1"),
             _exported_route("doc_translate", provider_name="GhostProvider"),
         ],
@@ -294,7 +294,7 @@ def test_preview_route_with_unknown_provider_skipped(monkeypatch):
     result = build_import_preview(cfg)
     routes_by_feature = {r["feature"]: r for r in result["routes"]}
     assert routes_by_feature["chat"]["action"] == "create"
-    assert routes_by_feature["chat"]["resolved_provider"] == "KISSKI"
+    assert routes_by_feature["chat"]["resolved_provider"] == "Anbieter A"
     assert routes_by_feature["doc_translate"]["action"] == "skip_unresolved"
     assert "GhostProvider" in routes_by_feature["doc_translate"]["reason"]
 
@@ -312,7 +312,7 @@ def test_preview_does_not_modify_db(monkeypatch):
     monkeypatch.setattr("src.routes.admin.providers.db.update_provider",
                         update_mock)
 
-    cfg = _valid_config(providers=[_exported_provider("KISSKI")])
+    cfg = _valid_config(providers=[_exported_provider("Anbieter A")])
     build_import_preview(cfg)
 
     create_mock.assert_not_called()
@@ -392,19 +392,19 @@ def test_import_creates_new_provider_without_api_key(monkeypatch):
                         lambda: [])
     monkeypatch.setattr("src.routes.admin.providers.db.list_routes",
                         lambda: [])
-    create_mock = MagicMock(return_value=_make_provider(10, "KISSKI"))
+    create_mock = MagicMock(return_value=_make_provider(10, "Anbieter A"))
     monkeypatch.setattr("src.routes.admin.providers.db.create_provider",
                         create_mock)
     monkeypatch.setattr("src.routes.admin.providers.probe_provider",
                         lambda pid, **kw: None)
 
-    cfg = _valid_config(providers=[_exported_provider("KISSKI")])
+    cfg = _valid_config(providers=[_exported_provider("Anbieter A")])
     result = perform_import(cfg)
 
     create_mock.assert_called_once()
     kwargs = create_mock.call_args.kwargs
     assert kwargs["api_key"] is None  # never carries a key in
-    assert kwargs["name"] == "KISSKI"
+    assert kwargs["name"] == "Anbieter A"
     assert result["providers_created"] == 1
     assert result["providers_updated"] == 0
 
@@ -419,15 +419,15 @@ def test_import_decrypts_envelope_and_sets_key_on_create(monkeypatch):
                         lambda: [])
     monkeypatch.setattr("src.routes.admin.providers.db.list_routes",
                         lambda: [])
-    create_mock = MagicMock(return_value=_make_provider(10, "KISSKI",
+    create_mock = MagicMock(return_value=_make_provider(10, "Anbieter A",
                                                        api_key="sk-real"))
     monkeypatch.setattr("src.routes.admin.providers.db.create_provider",
                         create_mock)
     monkeypatch.setattr("src.routes.admin.providers.probe_provider",
                         lambda pid, **kw: None)
 
-    provider = _exported_provider("KISSKI")
-    provider["api_key"] = wrap_api_key("sk-real", provider_name="KISSKI")
+    provider = _exported_provider("Anbieter A")
+    provider["api_key"] = wrap_api_key("sk-real", provider_name="Anbieter A")
     cfg = _valid_config(providers=[provider])
     perform_import(cfg)
 
@@ -441,7 +441,7 @@ def test_import_ignores_envelope_with_wrong_secret(monkeypatch):
     from src.services.export_crypto import wrap_api_key
 
     monkeypatch.setenv("KIS_EXPORT_KEY", "secret-A")
-    envelope = wrap_api_key("sk-real", provider_name="KISSKI")
+    envelope = wrap_api_key("sk-real", provider_name="Anbieter A")
     monkeypatch.setenv("KIS_EXPORT_KEY", "secret-B")
 
     monkeypatch.setattr("src.routes.admin.providers.db.list_providers",
@@ -449,20 +449,20 @@ def test_import_ignores_envelope_with_wrong_secret(monkeypatch):
     monkeypatch.setattr("src.routes.admin.providers.db.list_routes",
                         lambda: [])
     create_mock = MagicMock(return_value=_make_provider(
-        1, "KISSKI", base_url="https://api.example", api_key=None,
+        1, "Anbieter A", base_url="https://api.example", api_key=None,
     ))
     monkeypatch.setattr("src.routes.admin.providers.db.create_provider",
                         create_mock)
     monkeypatch.setattr("src.routes.admin.providers.probe_provider",
                         lambda pid, **kw: None)
 
-    provider = _exported_provider("KISSKI", base_url="https://api.example")
+    provider = _exported_provider("Anbieter A", base_url="https://api.example")
     provider["api_key"] = envelope
     cfg = _valid_config(providers=[provider])
     result = perform_import(cfg)
 
     assert create_mock.call_args.kwargs["api_key"] is None
-    assert "KISSKI" in result["providers_needing_key"]
+    assert "Anbieter A" in result["providers_needing_key"]
 
 
 def test_import_does_not_overwrite_existing_key_with_envelope(monkeypatch):
@@ -472,7 +472,7 @@ def test_import_does_not_overwrite_existing_key_with_envelope(monkeypatch):
     from src.services.export_crypto import wrap_api_key
 
     monkeypatch.setenv("KIS_EXPORT_KEY", "same-secret")
-    existing = _make_provider(1, "KISSKI", api_key="sk-existing")
+    existing = _make_provider(1, "Anbieter A", api_key="sk-existing")
     monkeypatch.setattr("src.routes.admin.providers.db.list_providers",
                         lambda: [existing])
     monkeypatch.setattr("src.routes.admin.providers.db.list_routes",
@@ -483,8 +483,8 @@ def test_import_does_not_overwrite_existing_key_with_envelope(monkeypatch):
     monkeypatch.setattr("src.routes.admin.providers.probe_provider",
                         lambda pid, **kw: None)
 
-    provider = _exported_provider("KISSKI")
-    provider["api_key"] = wrap_api_key("sk-from-backup", provider_name="KISSKI")
+    provider = _exported_provider("Anbieter A")
+    provider["api_key"] = wrap_api_key("sk-from-backup", provider_name="Anbieter A")
     perform_import(_valid_config(providers=[provider]))
 
     assert "api_key" not in update_mock.call_args.kwargs
@@ -496,21 +496,21 @@ def test_import_restores_key_into_empty_existing_row(monkeypatch):
     from src.services.export_crypto import wrap_api_key
 
     monkeypatch.setenv("KIS_EXPORT_KEY", "same-secret")
-    existing = _make_provider(1, "KISSKI", api_key=None)
+    existing = _make_provider(1, "Anbieter A", api_key=None)
     monkeypatch.setattr("src.routes.admin.providers.db.list_providers",
                         lambda: [existing])
     monkeypatch.setattr("src.routes.admin.providers.db.list_routes",
                         lambda: [])
     update_mock = MagicMock(return_value=_make_provider(
-        1, "KISSKI", api_key="sk-from-backup",
+        1, "Anbieter A", api_key="sk-from-backup",
     ))
     monkeypatch.setattr("src.routes.admin.providers.db.update_provider",
                         update_mock)
     monkeypatch.setattr("src.routes.admin.providers.probe_provider",
                         lambda pid, **kw: None)
 
-    provider = _exported_provider("KISSKI")
-    provider["api_key"] = wrap_api_key("sk-from-backup", provider_name="KISSKI")
+    provider = _exported_provider("Anbieter A")
+    provider["api_key"] = wrap_api_key("sk-from-backup", provider_name="Anbieter A")
     perform_import(_valid_config(providers=[provider]))
 
     assert update_mock.call_args.kwargs["api_key"] == "sk-from-backup"
@@ -519,7 +519,7 @@ def test_import_restores_key_into_empty_existing_row(monkeypatch):
 def test_import_update_preserves_existing_api_key(monkeypatch):
     from src.routes.admin.providers import perform_import
 
-    existing = _make_provider(1, "KISSKI", api_key="sk-existing")
+    existing = _make_provider(1, "Anbieter A", api_key="sk-existing")
     monkeypatch.setattr("src.routes.admin.providers.db.list_providers",
                         lambda: [existing])
     monkeypatch.setattr("src.routes.admin.providers.db.list_routes",
@@ -530,7 +530,7 @@ def test_import_update_preserves_existing_api_key(monkeypatch):
     monkeypatch.setattr("src.routes.admin.providers.probe_provider",
                         lambda pid, **kw: None)
 
-    cfg = _valid_config(providers=[_exported_provider("KISSKI")])
+    cfg = _valid_config(providers=[_exported_provider("Anbieter A")])
     perform_import(cfg)
 
     update_mock.assert_called_once()
@@ -541,7 +541,7 @@ def test_import_update_preserves_existing_api_key(monkeypatch):
 def test_import_creates_route_resolving_provider_names(monkeypatch):
     from src.routes.admin.providers import perform_import
 
-    created = _make_provider(42, "KISSKI")
+    created = _make_provider(42, "Anbieter A")
     list_calls = {"n": 0}
 
     def fake_list_providers():
@@ -562,8 +562,8 @@ def test_import_creates_route_resolving_provider_names(monkeypatch):
                         set_route_mock)
 
     cfg = _valid_config(
-        providers=[_exported_provider("KISSKI")],
-        routes=[_exported_route("chat", provider_name="KISSKI",
+        providers=[_exported_provider("Anbieter A")],
+        routes=[_exported_route("chat", provider_name="Anbieter A",
                                 model_name="mistral")],
     )
     result = perform_import(cfg)
@@ -600,7 +600,7 @@ def test_import_filters_unresolved_user_choices(monkeypatch):
     should keep only the resolvable ones and still set the route."""
     from src.routes.admin.providers import perform_import
 
-    p = _make_provider(7, "KISSKI")
+    p = _make_provider(7, "Anbieter A")
     monkeypatch.setattr("src.routes.admin.providers.db.list_providers",
                         lambda: [p])
     monkeypatch.setattr("src.routes.admin.providers.db.list_routes",
@@ -615,13 +615,13 @@ def test_import_filters_unresolved_user_choices(monkeypatch):
                         set_route_mock)
 
     cfg = _valid_config(
-        providers=[_exported_provider("KISSKI")],
+        providers=[_exported_provider("Anbieter A")],
         routes=[
             _exported_route(
                 "tts",
-                provider_name="KISSKI",
-                user_choices=["KISSKI", "Ghost"],
-                provider_models={"KISSKI": "m1", "Ghost": "m2"},
+                provider_name="Anbieter A",
+                user_choices=["Anbieter A", "Ghost"],
+                provider_models={"Anbieter A": "m1", "Ghost": "m2"},
             ),
         ],
     )
@@ -701,14 +701,14 @@ def test_import_response_lists_providers_needing_key(monkeypatch):
                         lambda pid, **kw: None)
 
     cfg = _valid_config(providers=[
-        _exported_provider("KISSKI",
+        _exported_provider("Anbieter A",
                            base_url="https://chat-ai.example.de"),
         _exported_provider("Kokoro",
                            base_url="http://localhost:8880/v1"),
     ])
     result = perform_import(cfg)
 
-    assert "KISSKI" in result["providers_needing_key"]
+    assert "Anbieter A" in result["providers_needing_key"]
     assert "Kokoro" not in result["providers_needing_key"]
 
 

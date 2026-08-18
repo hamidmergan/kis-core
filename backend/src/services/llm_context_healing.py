@@ -7,7 +7,7 @@ nicht, und das fiel nicht auf, solange ein unvermessenes Modell den Vorsichtswer
 
 Seit die Budgets eine feste Obergrenze haben, ist das anders herum. Ein Modell, dessen
 Groesse KIS nicht kennt, bekommt 600.000 Zeichen, also rund 200.000 Token. Von den 16
-GWDG-Modellen verraten zwei ihre Groesse nicht, und ``openai-gpt-oss-120b`` hat davon
+gemessenen Modellen verraten zwei ihre Groesse nicht, und ``openai-gpt-oss-120b`` hat davon
 nur 131.072. Ohne diese Wiederholung braeche dort jeder Werkzeug-Lauf ab, und weil
 nichts gelernt wuerde, auch jeder naechste.
 

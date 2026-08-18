@@ -1,4 +1,4 @@
-"""Adapter for the GWDG-style Docling document-conversion API.
+"""Adapter for the Docling document-conversion API.
 
 Single capability: OCR via a multipart POST to ``/documents/convert``. The
 server returns a JSON payload with a ``markdown`` field; layout, tables, and

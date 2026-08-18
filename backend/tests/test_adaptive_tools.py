@@ -184,7 +184,9 @@ def test_flashcards_system_prompt_carries_suffix(monkeypatch):
 
 def test_flashcards_empty_suffix_is_noop(monkeypatch):
     from src.features.ai_assistant.tasks.language_training import _source_flashcards as mod
-    from src.tool_prompts import AIA_LERNKARTEN_PROMPT
+    from src.features.ai_assistant.prompts.language_training_prompts import (
+        AIA_LERNKARTEN_PROMPT,
+    )
     monkeypatch.setattr(mod, "attach_chips", lambda *a, **k: None)
     content = json.dumps({"title": "T", "cards": [{"begriff": "X", "definition": "Y"}]})
     client, calls = _make_client(content)

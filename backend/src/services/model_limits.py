@@ -2,8 +2,8 @@
 
 Bis 2026-08-14 stand die Kontextgroesse als feste Zeichenzahl in zwei Admin-Feldern.
 Das ging schief, sobald jemand ein Modell mit kleinerem Fenster eintrug: der Anbieter
-lehnte die Anfrage mit HTTP 400 ab und der Chat zeigte einen Fehler. Gemessen an den
-16 GWDG-Modellen reichen die Fenster von 20.080 bis 1.048.576 Token, ein einziger fester
+lehnte die Anfrage mit HTTP 400 ab und der Chat zeigte einen Fehler. Gemessen an
+16 Modellen reichen die Fenster von 20.080 bis 1.048.576 Token, ein einziger fester
 Wert kann also gar nicht fuer alle stimmen.
 
 Drei Dinge werden je Anbieter und Modell EINMAL gemessen und weggeschrieben:
@@ -13,13 +13,13 @@ Drei Dinge werden je Anbieter und Modell EINMAL gemessen und weggeschrieben:
 * welcher Schalter dieses Denken abstellt
 
 Warum ueberhaupt Schalter gemessen werden, obwohl Denken ueberall aus sein soll:
-GWDG ignoriert unbekannte Felder stillschweigend (alle fuenf probierten Schalter kamen
+Manche Anbieter ignorieren unbekannte Felder stillschweigend (alle fuenf probierten Schalter kamen
 mit HTTP 200 zurueck, nur zwei wirkten), andere Anbieter lehnen sie mit einem Fehler ab.
 ``reasoning_effort: "none"`` ist bei OpenAI kein gueltiger Wert. Beide Schalter blind
 mitzuschicken zerlegt also genau die Anbieter, fuer die dieses Modul gedacht ist.
 Erkannt wird deshalb an der WIRKUNG, nicht am Fehler.
 
-Verraet ein Anbieter seine Grenze nicht (zwei der 16 GWDG-Modelle tun das nicht), gilt
+Verraet ein Anbieter seine Grenze nicht (zwei der 16 gemessenen Modelle tun das nicht), gilt
 ein vorsichtiger Wert als ``geraten``. Trifft spaeter eine echte Absage ein, liest
 :func:`learn_from_error` die Zahl heraus und ersetzt den geratenen Wert durch ``gelernt``.
 """
@@ -83,7 +83,7 @@ _PROBE_ANTWORT_TOKENS = 400
 THINK_OFF_SWITCHES: dict[str, dict] = {
     # vLLM / Qwen / GLM: geht ueber die Chat-Vorlage
     "chat_template_kwargs": {"chat_template_kwargs": {"enable_thinking": False}},
-    # OpenAI-naher Wortlaut, den GWDG ebenfalls versteht
+    # OpenAI-naher Wortlaut, den viele Anbieter ebenfalls verstehen
     "reasoning_effort_none": {"reasoning_effort": "none"},
 }
 _SWITCH_ORDER = ("chat_template_kwargs", "reasoning_effort_none")
@@ -507,7 +507,7 @@ def _with_v1(base_url: str) -> str:
 def _thought(antwort) -> bool:
     """Hat das Modell gedacht?
 
-    Drei Wege, weil jeder Anbieter es anders nennt: ``reasoning`` (GWDG),
+    Drei Wege, weil jeder Anbieter es anders nennt: ``reasoning``,
     ``reasoning_content`` (vLLM-Standard), oder ``<think>`` mitten im Text. Kommt gar
     kein Inhalt zurueck und der Platz ist aufgebraucht, hat das Denken ihn gefressen,
     was fuer uns dasselbe bedeutet.

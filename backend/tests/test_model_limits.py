@@ -2,7 +2,7 @@
 
 Kein Netz, keine Datenbank: die reine Logik wird geprueft, der Messaufruf gegen
 einen gefaelschten Client. Die Fehlertexte in ``_ECHTE_ABSAGEN`` stammen wortwoertlich
-von GWDG (chat-ai.academiccloud.de, vLLM 0.22) und sind der einzige Ort, an dem ein
+von einem vLLM-Anbieter und sind der einzige Ort, an dem ein
 Anbieter seine Fenstergroesse ueberhaupt verraet.
 """
 import pytest
@@ -142,7 +142,7 @@ def test_misst_fenster_denken_und_wirksamen_schalter():
 
 
 def test_findet_den_zweiten_schalter_wenn_der_erste_nichts_bewirkt():
-    """GWDG lehnt unbekannte Schalter nicht ab, es ignoriert sie stillschweigend.
+    """Der Anbieter lehnt unbekannte Schalter nicht ab, er ignoriert sie stillschweigend.
     Erkannt wird deshalb an der Wirkung, nicht am Fehler."""
     client = _Denker(wirksam="reasoning_effort_none")
     profil = _messen(client)
@@ -179,7 +179,7 @@ def test_modell_ohne_denken_wird_nicht_weiter_behelligt():
 
 
 def test_schweigsamer_anbieter_ergibt_geratenes_fenster():
-    """Zwei GWDG-Modelle nennen ihre Grenze nicht. Die bekommen einen vorsichtigen
+    """Zwei Modelle nennen ihre Grenze nicht. Die bekommen einen vorsichtigen
     Wert, der als geraten markiert ist, damit die Selbstheilung ihn spaeter ersetzt."""
     class _Schweiger(_Denker):
         def create(self, **kwargs):

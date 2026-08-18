@@ -30,7 +30,7 @@ async def get_maintenance(_admin=Depends(_require)):
         progress = None
 
     # Read fingerprint from DB only - do NOT compute on demand (compute takes
-    # 15-50s against KISSKI cold). If not cached yet, fire a background task
+    # 15-50s against a cold provider). If not cached yet, fire a background task
     # to prime it; the user's next page refresh will see the stale_workspaces.
     key = f"fingerprint_{active_embedding_provider_key()}"
     current_fingerprint = db.get_setting(key, "") or None

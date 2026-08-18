@@ -76,7 +76,7 @@ def test_truncated_answer_is_not_taken_as_finished():
 def test_single_item_truncation_retries_with_more_room():
     """Reasoning-Modelle denken lange, bevor überhaupt etwas herauskommt.
 
-    Gemessen an qwen3.5-122b-a10b über KISSKI: ein Satz mit 52 Zeichen
+    Gemessen an qwen3.5-122b-a10b: ein Satz mit 52 Zeichen
     verbraucht 998 Ausgabe-Token und liefert 45 Zeichen Text. Bei zu knappem
     Budget kommt finish_reason "length" und content None zurück. Teilen hilft
     da nicht, der Block ist ja schon einer. Also mehr Platz geben.

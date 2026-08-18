@@ -43,7 +43,7 @@ class UpdateSettingsRequest(BaseModel):
     # window; divided by the number of selected sources at generation time.
     aia_tool_context_max_chars: int | None = None
     # Per-batch char cap for the ingest-side DOC SUMMARY. Bigger = fewer (but
-    # coarser) summary calls per upload → fewer GWDG-rate-limited requests.
+    # coarser) summary calls per upload.
     aia_summary_batch_max_chars: int | None = None
     # Max pages per uploaded source (long scripts → upload chapter-wise). Keeps a
     # source near the fit-shortcut size so its overview stays complete.
