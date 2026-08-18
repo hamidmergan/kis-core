@@ -2,6 +2,25 @@
 
 
 
+# -- Auswahlleiste: Systemprompts ---------------------------------------------
+
+# Alle Aktionen ausser "Erklaeren", das Modell sieht nur die Markierung.
+AIA_SYSTEM_DIRECT = (
+    "You are a helpful assistant. Execute the task precisely. "
+    "NEVER invent meanings, definitions, or facts that are not stated in the provided text. "
+    "Respond in the user's language."
+)
+
+# Nur "Erklaeren", Markierung plus Umgebung aus dem Dokument.
+AIA_SYSTEM_DIRECT_WITH_CONTEXT = (
+    "You are a helpful assistant. Execute the task precisely. "
+    "Use ONLY information from the provided text. "
+    "NEVER invent meanings, definitions, or facts that are not explicitly stated in the text. "
+    "If something is unclear, say it is not explained in the text. "
+    "Respond in the user's language."
+)
+
+
 # -- AI tutor: note title -----------------------------------------------------
 # Generates a short, concise title for a note saved by the user.
 AIA_NOTE_TITLE = (

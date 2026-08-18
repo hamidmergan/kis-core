@@ -1,4 +1,4 @@
-from src.features.ai_assistant.prompts.rag_prompts import aia_system_rag
+from src.features.ai_assistant.prompts.rag_chat import aia_system_rag
 
 
 def test_prompt_has_no_citation_injection():
@@ -11,4 +11,4 @@ def test_prompt_has_no_citation_injection():
 def test_prompt_still_demands_grounded_answer():
     p = aia_system_rag()
     assert "ONLY" in p                # answer only from <documents>
-    assert "NEVER invent" in p
+    assert "invent nothing" in p

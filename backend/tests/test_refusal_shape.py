@@ -22,7 +22,7 @@ gemessen (je 5 Laeufe, gleiches Modell, gleiche Quelle):
 import pytest
 
 from src.services.aia_adaptive_chat import ADAPTIVE_SOURCES_GUARD
-from src.features.ai_assistant.prompts.rag_prompts import aia_system_rag
+from src.features.ai_assistant.prompts.rag_chat import aia_system_rag
 from src.features.ai_assistant.prompts.refusal_prompts import (
     RAG_NO_INFO_PATTERNS,
     RAG_NO_INFO_SENTINEL,
@@ -34,29 +34,26 @@ from src.features.ai_assistant.prompts.refusal_prompts import (
 
 # ── der Prompt schreibt die Reihenfolge vor ──────────────────────────────────
 
-def test_prompt_puts_the_gap_last_not_first():
+def test_prompt_opens_with_what_is_missing_then_lists_what_is_there():
+    """Seit 2026-08-19 die NotebookLM-Form: erst der Satz ueber das fehlende WORT,
+    dann die Ankuendigung mit Doppelpunkt, dann alles Verwandte als Aufzaehlung."""
     p = aia_system_rag("de")
-    assert "SAY WHAT IS THERE FIRST, THE GAP LAST" in p
-    assert "do NOT open with a refusal" in p
-    # Der alte Eroeffnungssatz darf nicht mehr als Vorlage im Prompt stehen.
+    assert "## Missing information" in p
+    assert "four moves" in p
+    assert "at least as WIDE as the list" in p
+    assert "not a refusal" in p
+    # Der alte Eroeffnungssatz darf nicht als Vorlage im Prompt stehen.
     assert RAG_NO_INFO_SENTINEL["de"] not in p
     assert RAG_NO_INFO_SENTINEL["en"] not in p
 
 
-def test_prompt_forbids_denying_what_was_just_answered():
-    p = aia_system_rag("de")
-    assert "MAY ONLY NAME SOMETHING YOUR OWN ANSWER DID NOT ALREADY GIVE" in p
-    assert "Never deny what you just wrote" in p
-
-
-def test_prompt_requires_the_gap_sentence_for_a_what_is_question():
-    p = aia_system_rag("de")
-    assert "THE CLOSING SENTENCE IS REQUIRED" in p
-    assert "Naming where a term appears is NOT stating what it is" in p
+# ENTFALLEN mit der NotebookLM-Form (2026-08-19): "kein Absage-Satz darf zuruecknehmen,
+# was du gerade geschrieben hast". Die Regel hing daran, dass der Satz HINTEN stand.
+# Jetzt steht er vorne und kann nichts mehr zuruecknehmen.
 
 
 def test_prompt_keeps_the_alone_shape_for_a_subject_that_is_absent():
-    assert RAG_NO_INFO_PATTERNS["de"] in aia_system_rag("de")
+    assert "Nothing related at all: that opening stands alone." in aia_system_rag("de")
 
 
 def test_guard_agrees_with_the_prompt_on_the_order():
@@ -140,7 +137,7 @@ def test_reference_texts_stay_at_the_old_sentence_only():
     assert sorted(texts) == sorted(RAG_NO_INFO_SENTINEL.values())
 
 
-# ── der Luecken-Satz wird woertlich erkannt ──────────────────────────────────
+# ── der Absage-Satz wird woertlich erkannt ──────────────────────────────────
 
 @pytest.mark.parametrize("line", [
     "Wann die Klausur ist, steht nicht in den Quellen.",
@@ -183,21 +180,38 @@ def test_prompt_keeps_one_fact_per_sentence_in_the_opening():
     """
     p = aia_system_rag("de")
     assert "ONE FACT PER SENTENCE" in p
-    assert "a sentence built from two passages can be linked to neither" in p
     # Die alte Vorgabe darf nicht zurueckkommen.
     assert "OPEN with what the documents DO say about the subject, ONE short sentence" not in p
 
 
-def test_prompt_demands_a_precise_gap_not_an_echo_of_the_question():
-    """"Wann die Klausur ist, steht nicht in den Quellen" nach einem Satz mit Datum.
+# ENTFALLEN mit der Kurzfassung des Prompts (2026-08-19): "NAME THE MISSING PIECE
+# EXACTLY", "NEVER by echoing the question back" und die Gegenprobe "If the second
+# one seems to take back the first". Anlass war der 2026-08-16: der Satz davor nannte
+# eine Klausur vom 8.9., die Absage warf die Frage nur zurueck ("wann die Klausur
+# ist") und las sich wie ein Widerspruch, obwohl die 8.9. eine ALTE Klausur war.
 
-    Beobachtet am 2026-08-16: der Satz davor lautete "In einer Aufzeichnung wird eine
-    Klausur vom 8.9. gezeigt", der Luecken-Satz nahm ihn scheinbar zurueck. Beide
-    stimmen, aber die 8.9. ist eine ALTE Klausur, die der Dozent auf dem Bildschirm
-    zeigt, und kein Termin. Der Luecken-Satz muss das benennen ("ein Termin fuer die
-    kommende Klausur") statt die Frage zurueckzuwerfen.
-    """
-    p = aia_system_rag("de")
-    assert "NAME THE MISSING PIECE EXACTLY" in p
-    assert "NEVER by echoing the question back" in p
-    assert "If the second one seems to take back the first" in p
+
+# ── freie Formulierung wird trotzdem erkannt ─────────────────────────────────
+
+def test_gap_line_erkennt_freie_formulierungen():
+    """Seit der Prompt die Wortwahl freigibt, endet der Satz auch anders. Erkannt
+    wird er an Quellenwort UND Verneinung zugleich."""
+    for zeile in (
+        "In den bereitgestellten Materialien wird der Begriff \"Folien\" nicht explizit verwendet.",
+        "In den Unterlagen wird eine Sprechstunde nicht erwähnt.",
+        "Eine Sprechstunde mit festen Zeiten steht nicht in den Quellen.",
+        "The term is not mentioned in the provided materials.",
+    ):
+        assert is_gap_line(zeile), zeile
+
+
+def test_gap_line_faengt_keinen_inhaltssatz():
+    """Ein Inhaltssatz mit Verneinung braucht seinen Chip. Ohne Quellenwort greift
+    die Erkennung deshalb nicht, sonst verloere er ihn."""
+    for zeile in (
+        "Taschenrechner werden in der Klausur nicht verwendet.",
+        "Eine Anmeldung ist nicht erforderlich.",
+        "Die Ausarbeitung umfasst sechs bis sieben Seiten.",
+        "Der Dozent ist per E-Mail erreichbar.",
+    ):
+        assert not is_gap_line(zeile), zeile

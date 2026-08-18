@@ -116,7 +116,7 @@ def umform_nachrichten(
     fallen raus, damit das Modell sie nicht in den neuen Text abschreibt - die
     Chips werden hinterher ohnehin frisch angehaengt.
     """
-    from src.features.ai_assistant.prompts.rag_prompts import (
+    from src.features.ai_assistant.prompts.rag_chat import (
         aia_reformat_user_message,
         aia_system_reformat,
     )

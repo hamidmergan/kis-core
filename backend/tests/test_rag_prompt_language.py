@@ -9,7 +9,7 @@ itself.
 
 import re
 
-from src.features.ai_assistant.prompts.rag_prompts import aia_system_rag, aia_rag_user_message
+from src.features.ai_assistant.prompts.rag_chat import aia_system_rag, aia_rag_user_message
 from src.features.ai_assistant.prompts.refusal_prompts import RAG_NO_INFO_PATTERNS
 
 
@@ -20,14 +20,14 @@ def test_system_prompt_orders_answer_language_to_match_question():
     low = sp.lower()
     # The directive must be present and tie the answer to the *question's*
     # language, not the source/document language.
-    assert "same language as the user" in low or "same language as the question" in low
+    assert "language of the question" in low
     assert "question" in low
 
 
 def test_system_prompt_enforces_source_terminology():
     sp = aia_system_rag("de")
     # The TERMINOLOGY rule must still require reusing the source's exact terms.
-    assert "TERMINOLOGY" in sp
+    assert "exact technical terms" in sp
     assert "source" in sp.lower()
     # No citation chips are injected; the old keyword/chip rule is gone.
     assert "[N, #C" not in sp
@@ -39,15 +39,12 @@ def test_system_prompt_defaults_to_mixed_prose_and_bullets():
     # The default is a MIX of short prose and bullets, decided from the
     # request in ANY language (no keyword list), NOT bullets-only. Pure bullets or pure
     # prose only when the request itself calls for it.
-    assert "MIX OF SHORT PROSE AND BULLETS" in sp
-    assert "PURE bullets" in sp and "PURE continuous prose" in sp
+    assert "Mix short prose and bullets" in sp
     # Unrelated topics still stay in separate sentences so each one can be linked to its own
     # passage — but the rule must NOT chop a statement and its qualifiers into a chain of
     # short sentences. That chain was what produced a chip behind every five words.
-    assert "KEEP UNRELATED FACTS APART, BUT DO NOT CHOP UP RELATED ONES" in sp
-    assert "chain of short sentences that all open the same way" in sp
     # No separate, redundant summary block; the old bullets-only default is gone.
-    assert "SEPARATE, redundant summary" in sp
+    assert "no closing summary" in sp
     assert "DEFAULT TO BULLET POINTS" not in sp
 
 
@@ -57,7 +54,7 @@ def test_overview_mode_is_prose_first_not_a_bullet_dump():
     # per-document bullet list. The old bullet-forcing wording ("2-4 bullets", "1-2 bullets
     # per source", "document by document") is what made "Überblick" come out as pure bullets.
     sp = aia_system_rag("de", overview=True)
-    assert "OVERVIEW MODE" in sp
+    assert "## Overview mode" in sp
     low = sp.lower()
     assert "prose" in low                                   # prose is the lead
     assert "narrative" in low or "weave" in low             # woven together, not listed
@@ -80,8 +77,8 @@ def test_overview_mode_still_forbids_numbering_sources():
 def test_overview_block_is_off_by_default():
     # SPECIFIC / SCOPE / popup answers stay tight: the default prompt has no OVERVIEW
     # MODE block, so a focused fact question is never inflated into a doc-by-doc tour.
-    assert "OVERVIEW MODE" not in aia_system_rag("de")
-    assert "OVERVIEW MODE" not in aia_system_rag("de", overview=False)
+    assert "## Overview mode" not in aia_system_rag("de")
+    assert "## Overview mode" not in aia_system_rag("de", overview=False)
     # The overview prompt is a strict superset of the default (base unchanged).
     assert aia_system_rag("de", overview=True).startswith(aia_system_rag("de"))
 
@@ -167,7 +164,7 @@ def test_overview_prompt_keeps_the_previous_question_anchor():
     # GENERIC answers too.
     sp = aia_system_rag("de", overview=True, prev_questions=["Worum geht es hier?"])
     assert "Worum geht es hier?" in sp
-    assert "OVERVIEW MODE" in sp
+    assert "## Overview mode" in sp
 
 
 def test_no_info_shape_is_question_language_driven():
@@ -175,9 +172,8 @@ def test_no_info_shape_is_question_language_driven():
     (siehe tests/test_refusal_shape.py). Was der Test prueft, bleibt dasselbe: die
     Sprache entscheidet die FRAGE, nicht die Sprache der Quellen."""
     sp = aia_system_rag("de")
-    assert RAG_NO_INFO_PATTERNS["de"] in sp
-    assert "in the language of the message" in sp or "SAME LANGUAGE AS THE USER'S QUESTION" in sp
-    assert "same language as the user's question" in sp.lower()
+    assert "## Missing information" in sp
+    assert "language of the QUESTION" in sp
 
 
 # ── user message: the language sandwich around the retrieved context ─────────

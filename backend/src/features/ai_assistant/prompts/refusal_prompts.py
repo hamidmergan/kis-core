@@ -11,10 +11,11 @@ RAG_NO_INFO_SENTINEL: dict[str, str] = {
     "en": "This information is not contained in the provided sources.",
 }
 
-# Der Luecken-Satz: vorne frei (WAS fehlt), hinten eine feste Wendung.
-# Das feste Ende traegt die Erkennung, denn ein Luecken-Satz darf keinen Quellenchip
+# Der Absage-Satz (im Prompt: GAP SENTENCE): vorne frei (WAS fehlt), hinten eine
+# feste Wendung.
+# Das feste Ende traegt die Erkennung, denn ein Absage-Satz darf keinen Quellenchip
 # bekommen und ist per Einbettung nicht trennbar: gemessen am 2026-08-16 lag ein
-# Aussagesatz MIT Chip-Bedarf bei 0,551 und ein Luecken-Satz bei 0,522, Schwelle 0,60.
+# Aussagesatz MIT Chip-Bedarf bei 0,551 und ein Absage-Satz bei 0,522, Schwelle 0,60.
 RAG_NO_INFO_PATTERNS: dict[str, str] = {
     "de": "{Was gefragt war} steht nicht in den Quellen.",
     "en": "{What was asked} is not in the sources.",
@@ -26,6 +27,23 @@ _GAP_ANCHORS: tuple[str, ...] = (
     "stehen nicht in den quellen",
     "is not in the sources",
     "are not in the sources",
+)
+
+# Seit der Prompt die Formulierung freigibt, endet der Satz auch anders ("in den
+# Materialien wird der Begriff nicht explizit verwendet"). Erkannt wird er dann an
+# ZWEI Teilen zugleich, einem Wort fuer die Quellen und einer Verneinung. Einzeln
+# waere jedes zu weit: "Taschenrechner werden nicht verwendet" ist ein Inhaltssatz
+# und braucht seinen Chip.
+_SOURCE_WORDS: tuple[str, ...] = (
+    "quellen", "unterlagen", "materialien", "dokument", "vorlesungsmaterial",
+    "sources", "materials", "documents",
+)
+_NEGATIONS: tuple[str, ...] = (
+    "nicht erwaehnt", "nicht erwähnt", "nicht genannt", "nicht explizit",
+    "nicht enthalten", "nicht beschrieben", "nicht aufgefuehrt", "nicht aufgeführt",
+    "kommt nicht vor", "kommen nicht vor", "findet sich nicht", "keine angaben",
+    "not mentioned", "not explicitly", "not contained", "not described",
+    "does not appear", "do not appear", "no information",
 )
 
 # Rand-Zeichen, die vor dem Vergleich abfallen. Mal fett geschrieben, mal ohne Punkt.
@@ -51,11 +69,17 @@ def refusal_reference_texts() -> list[str]:
 
 
 def is_gap_line(text: str | None) -> bool:
-    """True, wenn diese Zeile der Luecken-Satz ist und darum KEINEN Quellenchip bekommt.
+    """True, wenn diese Zeile der Absage-Satz ist und darum KEINEN Quellenchip bekommt.
 
-    Woertlicher Vergleich auf das feste Satzende. Eine Fehlstelle laesst sich nicht belegen."""
+    Woertlich, entweder am festen Satzende oder an Quellenwort UND Verneinung
+    zugleich. Eine Fehlstelle laesst sich nicht belegen."""
     key = _sentinel_key(text)
-    return bool(key) and any(anchor in key for anchor in _GAP_ANCHORS)
+    if not key:
+        return False
+    if any(anchor in key for anchor in _GAP_ANCHORS):
+        return True
+    return (any(w in key for w in _SOURCE_WORDS)
+            and any(n in key for n in _NEGATIONS))
 
 
 def is_sentinel_refusal(text: str | None) -> bool:

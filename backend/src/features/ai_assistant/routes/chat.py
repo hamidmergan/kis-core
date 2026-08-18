@@ -23,13 +23,15 @@ from src.services import model_limits
 from src.services.aia_embeddings import get_embedding_provider
 from src.security.rate_limit import enforce_burst
 from src.security.usage_log import log_request as _log_usage
-from src.features.ai_assistant.prompts.popup_prompts import AIA_POPUP_ACTIONS
+from src.features.ai_assistant.prompts.popup_prompts import (
+    AIA_POPUP_ACTIONS,
+    AIA_SYSTEM_DIRECT,
+    AIA_SYSTEM_DIRECT_WITH_CONTEXT,
+)
 from src.features.ai_assistant.prompts.query_understanding_prompts import (
     aia_query_understanding_system,
 )
-from src.features.ai_assistant.prompts.rag_prompts import (
-    AIA_SYSTEM_DIRECT,
-    AIA_SYSTEM_DIRECT_WITH_CONTEXT,
+from src.features.ai_assistant.prompts.rag_chat import (
     aia_system_rag,
     aia_rag_user_message,
 )
@@ -347,7 +349,7 @@ def _retrieve_time_scoped_context(source_id: int, ranges_seconds: list[tuple]) -
 
 
 # Absage fuer einen Seiten- oder Zeitbezug, den wir nicht bedienen koennen. BEWUSST
-# anders formuliert als der Luecken-Satz: der meldet eine echte inhaltliche Luecke,
+# anders formuliert als der Absage-Satz: der meldet eine echte inhaltliche Luecke,
 # dieser hier nur, dass genau diese Einschraenkung nicht geht.
 _SCOPE_UNFULFILLABLE_MSG = {
     "de": "Dabei kann ich dir leider nicht weiterhelfen. Bitte formuliere deine Frage anders oder wähle die passende Quelle aus.",
@@ -1688,7 +1690,7 @@ async def chat(
                             # minutenlang ausbleiben. Ohne Vektor eben kein Chip.
                             _embed_down = True
                             logger.warning("post-hoc batch embedding failed, answer ships without chips: {}", e)
-                    # Der Luecken-Satz wird WOERTLICH erkannt, nicht per Abstand: er und der
+                    # Der Absage-Satz wird WOERTLICH erkannt, nicht per Abstand: er und der
                     # Satz davor liegen zu dicht beieinander (0,551 gegen 0,522 bei Schwelle
                     # 0,60), sonst verlöre der Aussagesatz seinen Chip mit.
                     _refusals = _refusal_lines(_cands, _vec_by_line, _sentinel_vecs)

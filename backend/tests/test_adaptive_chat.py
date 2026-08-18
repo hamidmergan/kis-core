@@ -1,7 +1,7 @@
 """Tests for the adaptive tutor prompt appendix."""
 
 from src.services.aia_adaptive_chat import adaptive_chat_appendix, DEFAULT_ADAPTIVE_BEHAVIOR
-from src.features.ai_assistant.prompts.rag_prompts import aia_system_rag
+from src.features.ai_assistant.prompts.rag_chat import aia_system_rag
 
 
 def test_no_level_means_no_change():
@@ -26,7 +26,7 @@ def test_level_and_behavior_build_suffix():
 def test_suffix_appends_after_base_prompt():
     suffix, _ = adaptive_chat_appendix("A1", DEFAULT_ADAPTIVE_BEHAVIOR)
     combined = aia_system_rag("de") + suffix
-    assert combined.startswith("You are an AI tutor")
+    assert combined.startswith("## Role\nYou are an AI tutor")
     # The learner's level is substituted into the appendix.
     assert "level A1" in combined
 
