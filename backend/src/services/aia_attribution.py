@@ -117,7 +117,13 @@ def attribute_claims(
         def search_fn(text, vec):
             return db.hybrid_search_chunks(workspace_id, text, vec,
                                            source_ids=source_ids,
-                                           limit=_ATTRIB_CANDIDATES, fuzzy=False)
+                                           limit=_ATTRIB_CANDIDATES, fuzzy=False,
+                                           # Die Einschraenkung auf gesehene Seiten gehoert
+                                           # in die ABFRAGE, nicht nur in den Filter unten:
+                                           # sonst rankt die Datenbank je Aussage den ganzen
+                                           # Workspace und die Kandidaten sind zum Teil schon
+                                           # verbraucht, bevor chips_for_claim sie sieht.
+                                           seen_pages=seen_pages_by_source)
 
     try:
         vecs = embed_fn(claims)

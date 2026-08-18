@@ -182,6 +182,51 @@ def _vector_search_sql(source_filter: str) -> str:
                 LIMIT 80"""
 
 
+def _seen_pages_filter(seen_pages: dict[int, set] | None) -> tuple[str, list]:
+    """WHERE-Fragment, das die Suche auf ABGERUFENE Quellen und Seiten einschraenkt.
+
+    Fuer die Beleg-Suche nach der Antwort. Ein Chip darf nur auf eine Stelle zeigen,
+    die das Modell auch gelesen hat, sonst schickt er den Leser auf eine Seite, die an
+    der Antwort nicht beteiligt war. Bisher stand diese Pruefung als ``_is_seen`` NACH
+    der Suche in Python: die Datenbank rankte den ganzen Workspace und die Liste wurde
+    hinterher zerrissen. Hier steht dieselbe Regel, nur frueher, damit die Kandidaten
+    von vornherein alle gueltig sind und der Suchraum auf die paar Dutzend Chunks der
+    gesehenen Seiten faellt.
+
+    ``seen_pages`` bildet Quelle auf Seitenmenge ab, genau wie ``seen_pages_by_source``
+    aus ``_pack_context_batches``. Eine LEERE Menge heisst Medienquelle: dort zeigt der
+    Chip auf eine Zeitmarke, es gibt keine Seite zu pruefen, also kommt die Quelle ganz
+    durch. Ohne Angabe gibt es kein Fragment, der Hauptabruf sucht unveraendert breit.
+
+    Eine ODER-Kette je Quelle, keine Mengenoperation. Das ist gemessen, nicht Geschmack:
+    die kuerzere Fassung ``EXISTS (SELECT 1 FROM unnest(...))`` wird zu einem Semi-Join,
+    den der Planer nicht auf einen Index abbilden kann, und faellt auf den vollen
+    Durchlauf zurueck (675 ms). Die Kette wird zu einem BitmapOr ueber
+    ``idx_chunks_source_page`` und braucht 6,8 ms. Ohne diesen Index bringt der Filter
+    ueberhaupt nur ein Drittel (64 ms -> 40 ms statt -> 7 ms).
+
+    Das Fragment wird an ``source_filter`` gehaengt und ist keine Nutzereingabe: alle
+    Werte reisen als Parameter, nicht im Text.
+    """
+    if not seen_pages:
+        return "", []
+    teile: list[str] = []
+    params: list = []
+    # Sortiert, damit dieselbe Eingabe dieselbe Abfrage ergibt und Postgres den Plan
+    # wiederverwenden kann.
+    for sid in sorted(seen_pages):
+        pages = seen_pages[sid]
+        if not pages:
+            teile.append("(c.source_id = %s)")
+            params.append(sid)
+        else:
+            teile.append("(c.source_id = %s AND c.page_number = ANY(%s))")
+            params += [sid, sorted(pages)]
+    # Kein Zweig fuer ``c.page_number IS NULL``: die Spalte ist NOT NULL. Die Nachsicht
+    # in _is_seen deckt Stellen ab, die gar nicht aus dieser Tabelle kommen.
+    return " AND (" + " OR ".join(teile) + ")", params
+
+
 _SEARCH_MODES = ("hybrid", "dense", "keyword")
 
 
@@ -329,6 +374,7 @@ def hybrid_search_chunks(
     rrf_k: int = 60,
     fuzzy: bool = False,
     mode: str = "hybrid",
+    seen_pages: dict[int, set] | None = None,
 ) -> list[dict]:
     """Hybrid search: combines vector similarity + BM25 keyword search via RRF.
 
@@ -340,7 +386,10 @@ def hybrid_search_chunks(
     ("authoren") still anchors the right chunk. It is a per-row word_similarity
     scan (no index), so enable it ONLY for the short user query — NOT for the
     post-hoc attribution, which fires once per answer line over clean text and
-    would otherwise pay seconds of needless fuzzy scans (slow citation chips)."""
+    would otherwise pay seconds of needless fuzzy scans (slow citation chips).
+
+    ``seen_pages`` schraenkt die Suche auf abgerufene Quellen und Seiten ein, siehe
+    ``_seen_pages_filter``. Nur die Beleg-Suche setzt das, der Hauptabruf sucht breit."""
 
     if mode not in _SEARCH_MODES:
         raise ValueError(f"unbekannter Suchmodus: {mode!r}")
@@ -350,6 +399,13 @@ def hybrid_search_chunks(
     if source_ids is not None:
         source_filter = "AND s.id = ANY(%s)"
         source_param = [source_ids]
+
+    # An source_filter angehaengt statt eigenstaendig eingebaut: so erbt JEDER der vier
+    # Arme (Vektor, Stichwort, Teilstring, Fuzzy) den Filter an derselben Stelle im Text
+    # UND in der Parameterliste, ohne dass unten eine Zeile anzufassen waere.
+    _seen_sql, _seen_param = _seen_pages_filter(seen_pages)
+    source_filter += _seen_sql
+    source_param += _seen_param
 
     with get_connection() as conn:
         with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:

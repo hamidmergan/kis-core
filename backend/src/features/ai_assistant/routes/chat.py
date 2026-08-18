@@ -1457,7 +1457,11 @@ async def chat(
                     try:
                         return db.hybrid_search_chunks(
                             workspace["id"], _ln, _vec or _pw_prov.embed_one(_ln),
-                            source_ids=source_ids, limit=_ATTRIB_CANDIDATES)
+                            source_ids=source_ids, limit=_ATTRIB_CANDIDATES,
+                            # MUSS dieselbe Einschraenkung sein wie in _raw_search: der
+                            # Cache liegt unter dem Zeilentext, zwei Kandidatenkreise
+                            # unter demselben Schluessel waeren ein Zufallsergebnis.
+                            seen_pages=seen_pages_by_source)
                     except Exception:
                         return []
 
@@ -1697,12 +1701,16 @@ async def chat(
                             return []
                         try:
                             _qv = _vec_by_line.get(_line) or _prov.embed_one(_line)
-                            # limit 10 (was 4): the attribution now FILTERS hits to pages
-                            # actually retrieved, so it needs enough candidates to find the
-                            # closest one the model saw (a fact often sits on several pages).
+                            # Die Einschraenkung auf gesehene Seiten steht in der ABFRAGE,
+                            # nicht mehr nur als Filter dahinter. Vorher rankte die
+                            # Datenbank den ganzen Workspace und _is_seen zerriss die
+                            # Liste danach: ein passender Chunk hinter Platz 40 war schon
+                            # weg, bevor der Filter ihn sah. Deshalb wurde das Limit
+                            # zweimal hochgezogen (4 -> 10 -> 40), ein Pflaster.
                             return db.hybrid_search_chunks(workspace["id"], _line, _qv,
                                                            source_ids=source_ids,
-                                                           limit=_ATTRIB_CANDIDATES)
+                                                           limit=_ATTRIB_CANDIDATES,
+                                                           seen_pages=seen_pages_by_source)
                         except Exception as e:
                             logger.warning("post-hoc attribution search failed for a line: {}", e)
                             return []
