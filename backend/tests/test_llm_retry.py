@@ -3,7 +3,7 @@
 Ein Übungs-Set starb heute an einem einzelnen "Connection error" nach 23 Sekunden,
 obwohl der erste Lauf schon 14 fertige Aufgaben geliefert hatte. Zwei Dinge müssen
 deshalb stimmen: ein gestörter Aufruf wird wiederholt, und eine Absage wegen
-Überlastung wird NICHT wiederholt, weil das Kontingent hochschulweit geteilt ist.
+Überlastung wird NICHT wiederholt.
 
 Kein Netzzugriff, die Wartezeit wird hineingereicht.
 """
@@ -33,7 +33,7 @@ def _status_error(cls, code):
     openai.APITimeoutError(request=_REQ),
 ])
 def test_a_broken_connection_is_worth_another_try(exc):
-    # Kostet kein Kontingent: die Anfrage kam nie an.
+    # Kostet nichts: die Anfrage kam nie an.
     assert is_retryable(exc)
 
 
@@ -42,9 +42,8 @@ def test_a_server_fault_is_worth_another_try():
 
 
 def test_an_overload_refusal_is_never_repeated():
-    """Der wichtigste Fall. Das Anfragen-Kontingent teilt sich die ganze Hochschule.
-    Ein sofortiger zweiter Versuch nimmt jemand anderem den Platz weg und verschärft
-    genau die Überlastung, die zur Absage geführt hat."""
+    """Der wichtigste Fall. Ein sofortiger zweiter Versuch verschärft genau die
+    Überlastung, die zur Absage geführt hat."""
     assert not is_retryable(_status_error(openai.RateLimitError, 429))
 
 

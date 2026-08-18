@@ -1305,8 +1305,7 @@ def _holds_for_every_sentence(text: str, predicate) -> bool:
 
 def _attribution_subunits(line: str) -> list[str]:
     """Sub-line text units to pre-embed alongside a candidate ``line``, so ``search_one``
-    reuses a batched vector instead of one embed call PER unit (which would hammer the
-    shared rate limit). Mirrors EXACTLY what attribution searches below the line level:
+    reuses a batched vector instead of one embed call PER unit. Mirrors EXACTLY what attribution searches below the line level:
 
     - a PROSE paragraph of > 1 sentence is attributed per sentence, so return each sentence
       AND each sentence's clauses (what :func:`_attribute_prose_line` searches),
@@ -1475,8 +1474,8 @@ class _AttributionPrewarmer:
     batch in ONE provider call and parallel-searches it, filling ``vecs`` and ``hits``.
     Attribution then reads those caches and only computes the misses.
 
-    Rate-limit safe: a single flush runs at a time (``_lock``), so bursts coalesce into a
-    few batched embed calls rather than one-per-line — the shared 2/s embed budget holds.
+    Call-count safe: a single flush runs at a time (``_lock``), so bursts coalesce into a
+    few batched embed calls rather than one-per-line.
     Correctness safe: everything is keyed by exact text and a miss is just recomputed
     inline at attribution, so a failed or stale prewarm can never change the answer."""
 

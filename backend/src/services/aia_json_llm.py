@@ -49,7 +49,7 @@ def call_json_llm(llm, messages: list[dict]):
     Der JSON-Modus zaehlt hier mehr als anderswo: der Prompt verlangt zugleich
     Fliesstext-Ton und JSON, und ohne die Fessel driftet das Modell oft genug in
     reine Prosa ab, dass der Reparaturdurchlauf regelmaessig feuert und das
-    Aufrufvolumen gegen ein geteiltes Limit verdoppelt.
+    Aufrufvolumen verdoppelt.
     """
     global _json_mode_supported
     if _json_mode_supported:

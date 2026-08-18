@@ -1,4 +1,4 @@
-"""Wiederholt einen gestörten Modell-Aufruf, ohne das geteilte Kontingent zu belasten.
+"""Wiederholt einen gestörten Modell-Aufruf, ohne den Anbieter zusätzlich zu belasten.
 
 Am 2026-08-05 ist ein Übungs-Set nach 23 Sekunden an einem einzelnen "Connection error"
 gestorben, obwohl der erste Lauf schon 14 fertige Aufgaben geliefert hatte. Ein solcher
@@ -9,9 +9,8 @@ Zwei Entscheidungen tragen dieses Modul:
 * **Wiederholt wird nur, was ohne Zutun des Aufrufs schiefging**, also eine abgerissene
   Verbindung, eine Zeitüberschreitung oder ein Fehler des Anbieters. Ein fehlerhafter
   Aufruf (400er) scheitert beim zweiten Mal genauso, nur später.
-* **Eine Absage wegen Überlastung (429) wird NIE wiederholt.** Das Anfragen-Kontingent
-  teilt sich die ganze Hochschule. Ein sofortiger zweiter Versuch nimmt jemand anderem
-  den Platz weg und verschärft genau den Engpass, der zur Absage geführt hat. Deshalb
+* **Eine Absage wegen Überlastung (429) wird NIE wiederholt.** Ein sofortiger zweiter
+  Versuch verschärft genau den Engpass, der zur Absage geführt hat. Deshalb
   steht der Client auch weiterhin auf ``max_retries=0``: die eingebaute Wiederholung des
   SDK macht diese Unterscheidung nicht.
 

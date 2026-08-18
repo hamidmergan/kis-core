@@ -1465,9 +1465,8 @@ async def chat(
                 _pump_stop = asyncio.Event()
 
                 async def _prewarm_pump():
-                    # Bremse fuer das GETEILTE Einbettungs-Budget (hochschulweit ~2/s). Das
-                    # Vorwaermen darf nur ein paar verteilte Aufrufe je Antwort kosten, nicht
-                    # einen je Zeile. Der Rest laeuft am Ende in einem Aufruf mit.
+                    # Das Vorwaermen darf nur ein paar verteilte Aufrufe je Antwort kosten,
+                    # nicht einen je Zeile. Der Rest laeuft am Ende in einem Aufruf mit.
                     _PREWARM_POLL_SECONDS = 2.0
                     _PREWARM_MAX_FLUSHES = 6
                     while not _pump_stop.is_set():
@@ -1649,7 +1648,7 @@ async def chat(
                     _cands = [ln for ln in _stripped.split("\n") if _needs_attribution(ln)]
                     # Auch die Teilstuecke fahren im selben Stapel: Fliesstext wird je Satz
                     # belegt, eine Zeile mit mehreren Angaben je Angabe. Das ist keine reine
-                    # Beschleunigung, die geteilte Schranke vertraegt keinen Aufruf je Satz.
+                    # Beschleunigung, ein eigener Aufruf je Satz waere zu teuer.
                     _extra_units: list[str] = []
                     for _ln in _cands:
                         for _u in _attribution_subunits(_ln):

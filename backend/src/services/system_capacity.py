@@ -77,7 +77,7 @@ from loguru import logger
 
 # Obergrenzen. Nicht als Einstellung gedacht, sondern als Schutz gegen absurde
 # Ergebnisse auf sehr großen Maschinen. Über diesen Werten liegt der Engpass eh
-# nicht mehr bei uns, sondern beim Anbieter oder bei der Datenbank.
+# nicht mehr bei den Kernen, sondern bei der Datenbank.
 _MAX_CONCURRENT_UPLOADS = 8
 _MAX_RENDER_WORKERS = 8
 

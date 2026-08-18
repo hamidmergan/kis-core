@@ -1062,7 +1062,7 @@ def test_partially_bold_prose_line_is_still_cited():
 # ── _attribution_subunits (what the caller pre-embeds in ONE batch) ───────────
 # The prose per-sentence path searches each sentence (and its clauses). Those must ride in
 # the same embed batch as the lines/clauses, or search_one falls back to one embed PER
-# sentence and hammers the shared rate limit. This helper enumerates those sub-units.
+# sentence. This helper enumerates those sub-units.
 
 def test_subunits_prose_multisentence_returns_each_sentence():
     line = "Der Kurs vermittelt die Grundlagen. Die Abgabe ist im Juli faellig."

@@ -1543,8 +1543,8 @@
     "thirdParty": {
       "heading": "5. Third parties and external AI services",
       "intro": "To provide the AI features, content is transmitted to external services:",
-      "aiProviderLabel": "AI service provider",
-      "aiProviderBody": "Language models and transcription services. Texts and audio content are processed in this context. Processing takes place under a data processing agreement pursuant to Art. 28 GDPR.",
+      "kisskiLabel": "KISSKI / GWDG",
+      "kisskiBody": "Language models and transcription services. Texts and audio content are processed in this context. KISSKI is a service of Gesellschaft für wissenschaftliche Datenverarbeitung mbH Göttingen (GWDG) and is subject to German data protection law. Processing takes place under a data processing agreement pursuant to Art. 28 GDPR.",
       "outro": "Only the content required for the respective function is transmitted. The third-party providers do not retain the data beyond the duration of processing."
     },
     "logs": {

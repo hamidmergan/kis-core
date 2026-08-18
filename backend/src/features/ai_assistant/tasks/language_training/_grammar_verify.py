@@ -16,9 +16,8 @@ eingesetzt. Was der Prüfer NICHT beurteilt, ist die Umformung selbst, also ob `
 zu ``before`` passt. Das war nicht gemeldet, und ein Prüfer, der alles beurteilt,
 urteilt überall ein bisschen.
 
-EIN Aufruf für alle Aufgaben eines Wurfs. Das Anfragen-Kontingent teilt sich die ganze
-Hochschule, ein Aufruf je Aufgabe wäre dieselbe Falle, in die die Freitext-Prüfung
-schon einmal gelaufen ist (siehe :mod:`src.services.aia_grammar_check`).
+EIN Aufruf für alle Aufgaben eines Wurfs. Ein Aufruf je Aufgabe wäre dieselbe Falle,
+in die die Freitext-Prüfung schon einmal gelaufen ist (siehe :mod:`src.services.aia_grammar_check`).
 
 Verworfen wird nur, was das Modell ausdrücklich meldet. Eine unlesbare Antwort, eine
 fehlende Nummer, eine Störung des Anbieters: alles kommt durch. Die Aufgaben sind ohne

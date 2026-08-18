@@ -62,8 +62,8 @@ def test_winzige_maschine_bekommt_trotzdem_einen_platz():
 
 
 def test_riesige_maschine_wird_gedeckelt():
-    """Ab einer gewissen Größe liegt der Engpass nicht mehr bei uns, sondern
-    beim Anbieter oder der Datenbank. Unbegrenzt hochzuzählen bringt nichts."""
+    """Ab einer gewissen Größe liegt der Engpass nicht mehr bei den Kernen,
+    sondern bei der Datenbank. Unbegrenzt hochzuzählen bringt nichts."""
     c = _capacity(256, 1024)
     assert c.max_concurrent_uploads <= sc._MAX_CONCURRENT_UPLOADS
     assert c.render_workers <= sc._MAX_RENDER_WORKERS

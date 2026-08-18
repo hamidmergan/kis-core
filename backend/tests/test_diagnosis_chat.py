@@ -475,7 +475,7 @@ class _ProviderError(Exception):
 
 def test_rate_limit_does_not_disable_json_mode():
     """A 429 is load, not a capability signal. Disabling on it would give up
-    JSON mode permanently the first time the shared limit is hit."""
+    JSON mode permanently the first time the provider is busy."""
     assert not _rejects_json_mode(_ProviderError("Failed to process request", 429))
 
 

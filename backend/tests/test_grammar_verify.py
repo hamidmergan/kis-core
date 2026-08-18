@@ -10,8 +10,7 @@ kein Filter im Code fangen kann:
 * "Das Verb steht im Relativsatz immer am Ende." ist eine Aussage ÜBER die Grammatik
   und keine Übung IN ihr. Ohne Wortlisten ist das im Code nicht zu erkennen.
 
-Deshalb ein Modell-Urteil, und deshalb nur EIN Aufruf für alle Aufgaben zusammen: das
-Anfragen-Kontingent teilt sich die ganze Hochschule.
+Deshalb ein Modell-Urteil, und deshalb nur EIN Aufruf für alle Aufgaben zusammen.
 
 Verworfen wird nur, was das Modell ausdrücklich meldet. Alles andere kommt durch,
 auch eine unlesbare Antwort und auch eine Störung des Anbieters. Ein Prüfer, der bei
@@ -184,7 +183,7 @@ def test_ok_als_wort_zaehlt_auch_als_meldung():
 
 
 def test_ohne_aufgaben_kein_aufruf():
-    """Das Anfragen-Kontingent teilt sich die ganze Hochschule."""
+    """Ohne Aufgaben faellt kein einziger Modell-Aufruf an."""
     client, calls = _client(_urteil())
     assert verdicts(client, "m", [], _FORM, _RULE) == []
     assert calls == []

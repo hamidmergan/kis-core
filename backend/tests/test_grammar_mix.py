@@ -264,8 +264,7 @@ def test_the_same_sentence_never_appears_twice(attributed):
 
 def test_a_short_draw_is_topped_up_to_the_requested_count(attributed):
     """Gemeldet: 10 bestellt, 7 bekommen. Die Filter werfen weg, aber nichts füllte
-    wieder auf. Ein zweiter Wurf holt die fehlenden nach, mehr nicht: das
-    Anfragen-Kontingent teilt sich die ganze Hochschule."""
+    wieder auf. Ein zweiter Wurf holt die fehlenden nach, mehr nicht."""
     thin = json.dumps({"title": "T", "exercises": _GOOD_FOUR + _BAD_FOUR})
     full = json.dumps({"title": "T", "exercises": [
         {"kind": "transform", "before": f"Das Team prüft die Quelle {i} genau.",

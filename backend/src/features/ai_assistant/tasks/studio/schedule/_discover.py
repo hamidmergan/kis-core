@@ -231,8 +231,7 @@ def _discover_in_blocks(client, model, blocks: list[tuple[int, str]]) -> dict[in
     hinter der Anfragengrenze fehlen im Ergebnis, sie hat niemand angesehen.
 
     Ein Fehler bleibt folgenlos fuer den Rest des Auftrags, der Zeitplan entsteht auch
-    ohne diese Suche. Beim ersten Fehlschlag wird abgebrochen statt weiter angefragt,
-    das Anfragebudget ist hochschulweit geteilt.
+    ohne diese Suche. Beim ersten Fehlschlag wird abgebrochen statt weiter angefragt.
     """
     if client is None:
         return {}

@@ -201,8 +201,7 @@ class LLMTranslationClient:
 
         On a parse mismatch we retranslate only the missing items individually rather
         than the whole chunk, so a single dropped line costs one extra call instead of
-        exploding a 40-item chunk into 40 per-item calls (matters under the shared rate
-        limit). Only a fully unparseable response falls all the way back to per-item.
+        exploding a 40-item chunk into 40 per-item calls. Only a fully unparseable response falls all the way back to per-item.
         """
         if source_lang:
             instruction = f"from {source_lang} to {target_lang}"

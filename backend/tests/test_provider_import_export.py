@@ -702,7 +702,7 @@ def test_import_response_lists_providers_needing_key(monkeypatch):
 
     cfg = _valid_config(providers=[
         _exported_provider("Anbieter A",
-                           base_url="https://chat-ai.example.de"),
+                           base_url="https://llm.example.de"),
         _exported_provider("Kokoro",
                            base_url="http://localhost:8880/v1"),
     ])

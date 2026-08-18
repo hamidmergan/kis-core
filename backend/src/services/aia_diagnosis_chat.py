@@ -45,8 +45,8 @@ VALID_LEVELS = {"A1", "A2", "B1", "B2", "C1", "C2"}
 # JEDE Frage im Plan ist ausgeschrieben, entweder von Hand oder einmalig von der
 # KI im Adminbereich. Es gibt keinen Plan mehr, der nur Typen nennt und dessen
 # Fragen das Modell waehrend des Tests erfindet: das kostete einen Aufruf je Frage
-# je Lernendem gegen ein hochschulweit geteiltes Limit, niemand konnte die Fragen
-# vorher pruefen, und der Lernende wartete vor jeder Frage. Der ausgelieferte Plan
+# je Lernendem, niemand konnte die Fragen vorher pruefen, und der Lernende wartete
+# vor jeder Frage. Der ausgelieferte Plan
 # steht weiter unten als DEFAULT_GERMAN_QUESTION_PLAN.
 
 # ZWEI Aufgabenarten, nicht mehr sechs. Frueher standen sechs im Dropdown (gap

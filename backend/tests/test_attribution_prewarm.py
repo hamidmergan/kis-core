@@ -92,7 +92,7 @@ async def test_two_flushes_accumulate_across_batches():
 
 
 async def test_flushes_counter_tracks_embed_calls_only_when_work_done():
-    # The counter is how the caller bounds embed calls against the shared rate budget:
+    # The counter is how the caller bounds the number of embed calls:
     # it advances once per NON-empty flush and never on an empty one.
     pw = _AttributionPrewarmer(fake_embed, fake_search)
     await pw.flush()                 # nothing pending

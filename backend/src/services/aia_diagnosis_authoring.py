@@ -5,8 +5,7 @@ erzeugen lassen und danach von Hand nachbessern. Beide enden in derselben Liste
 und derselben Einstellung, es gibt keinen zweiten Testtyp.
 
 Warum einmalig und nicht waehrend des Tests: ein Aufruf je Frage je Lernendem
-lief gegen ein hochschulweit geteiltes Limit, niemand konnte die Fragen vorher
-lesen, und der Lernende wartete vor jeder Frage auf das Modell. Einmal erzeugen
+war teuer, niemand konnte die Fragen vorher lesen, und der Lernende wartete vor jeder Frage auf das Modell. Einmal erzeugen
 kostet EINEN Aufruf fuer den ganzen Kurs, die Verwaltung sieht das Ergebnis, und
 jeder Test laeuft danach ohne Modell.
 

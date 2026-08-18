@@ -1543,8 +1543,8 @@
     "thirdParty": {
       "heading": "5. Drittanbieter und externe KI-Dienste",
       "intro": "Zur Bereitstellung der KI-Funktionen werden Inhalte an externe Dienste übermittelt:",
-      "aiProviderLabel": "KI-Dienstleister",
-      "aiProviderBody": "Sprachmodelle und Transkriptionsdienste. Dabei werden Texte und Audio-Inhalte verarbeitet. Die Verarbeitung erfolgt im Rahmen einer Auftragsverarbeitung gemäß Art. 28 DSGVO.",
+      "kisskiLabel": "KISSKI / GWDG",
+      "kisskiBody": "Sprachmodelle und Transkriptionsdienste. Dabei werden Texte und Audio-Inhalte verarbeitet. KISSKI ist ein Dienst der Gesellschaft für wissenschaftliche Datenverarbeitung mbH Göttingen (GWDG) und unterliegt deutschem Datenschutzrecht. Die Verarbeitung erfolgt im Rahmen einer Auftragsverarbeitung gemäß Art. 28 DSGVO.",
       "outro": "Es werden nur die für die jeweilige Funktion notwendigen Inhalte übermittelt. Eine dauerhafte Speicherung bei den Drittanbietern über die Verarbeitungsdauer hinaus erfolgt nicht."
     },
     "logs": {
