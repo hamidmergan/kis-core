@@ -182,6 +182,38 @@ def _vector_search_sql(source_filter: str) -> str:
                 LIMIT 80"""
 
 
+_SEARCH_MODES = ("hybrid", "dense", "keyword")
+
+
+def _rrf_fuse(vec_rows, kw_rows, rrf_k: int, mode: str = "hybrid"):
+    """Reciprocal Rank Fusion ueber die beiden Trefferlisten.
+
+    Rueckgabe ``(scores, kw_ids)``. Zwei Listen, deren Rohwerte man nicht
+    vergleichen kann (Kosinus-Abstand gegen Wortgewicht), werden ueber ihre
+    PLAETZE zusammengelegt: jeder Treffer steuert ``1 / (rrf_k + Platz)`` bei.
+
+    ``mode`` blendet einen der beiden Wege aus. Nur fuer die Messung gedacht
+    (backend/scripts/rag_retrieval_eval.py --vergleich), der Chat laeuft immer
+    auf "hybrid". Ein unbekannter Wert ist ein Fehler statt eines stillen
+    Rueckfalls, sonst vergleicht ein Tippfehler zwei gleiche Laeufe."""
+    if mode not in _SEARCH_MODES:
+        raise ValueError(f"unbekannter Suchmodus: {mode!r}")
+
+    scores: dict[int, float] = {}
+    if mode != "keyword":
+        for row in vec_rows:
+            scores[row["id"]] = scores.get(row["id"], 0) + 1.0 / (rrf_k + row["rank"])
+    # Keyword hits (BM25 + exact-substring): the actual term-overlap signal.
+    # A chunk matched by vector ONLY is merely "semantically near" and may
+    # be off-topic — callers use kw_hit to tell the two apart.
+    kw_ids: set[int] = set()
+    if mode != "dense":
+        kw_ids = {row["id"] for row in kw_rows}
+        for row in kw_rows:
+            scores[row["id"]] = scores.get(row["id"], 0) + 1.0 / (rrf_k + row["rank"])
+    return scores, kw_ids
+
+
 def create_aia_chunk(
     source_id: int,
     page_number: int,
@@ -296,14 +328,22 @@ def hybrid_search_chunks(
     limit: int = 15,
     rrf_k: int = 60,
     fuzzy: bool = False,
+    mode: str = "hybrid",
 ) -> list[dict]:
     """Hybrid search: combines vector similarity + BM25 keyword search via RRF.
+
+    ``mode`` schaltet einen der beiden Wege ab ("dense" / "keyword") und dient
+    NUR der Messung, welcher Weg das Ergebnis traegt. Der Chat laeuft immer auf
+    dem Vorgabewert "hybrid". Siehe _rrf_fuse und scripts/rag_retrieval_eval.py.
 
     ``fuzzy`` adds a trigram word-similarity fallback so a MISSPELLED query word
     ("authoren") still anchors the right chunk. It is a per-row word_similarity
     scan (no index), so enable it ONLY for the short user query — NOT for the
     post-hoc attribution, which fires once per answer line over clean text and
     would otherwise pay seconds of needless fuzzy scans (slow citation chips)."""
+
+    if mode not in _SEARCH_MODES:
+        raise ValueError(f"unbekannter Suchmodus: {mode!r}")
 
     source_filter = ""
     source_param: list = []
@@ -323,12 +363,14 @@ def hybrid_search_chunks(
             # conversational query like "erkläre mir bitte die X" still focuses on
             # X). Callers use it to tell a genuinely on-topic source from one that
             # only shares filler words. Uses the halfvec hnsw index (see _vector_search_sql).
-            cur.execute(
-                _vector_search_sql(source_filter),
-                [str(query_embedding), str(query_embedding), workspace_id] + source_param + [str(query_embedding)],
-            )
-            vec_rows = cur.fetchall()
-            vec_distance = {row["id"]: float(row["distance"]) for row in vec_rows}
+            vec_rows, vec_distance = [], {}
+            if mode != "keyword":
+                cur.execute(
+                    _vector_search_sql(source_filter),
+                    [str(query_embedding), str(query_embedding), workspace_id] + source_param + [str(query_embedding)],
+                )
+                vec_rows = cur.fetchall()
+                vec_distance = {row["id"]: float(row["distance"]) for row in vec_rows}
 
             # 2) Keyword search (top 80). Content words only, OR-joined, ranked by the
             # RARITY of the matched terms.
@@ -343,12 +385,15 @@ def hybrid_search_chunks(
             #
             # Die Gewichte kommen aus ``_term_idf`` und sind je Workspace gemerkt, weil
             # eine Frage diese Suche einmal PRO QUELLE ausloest.
-            words = _content_words(query_text)
+            # Bei mode="dense" bleiben beide Listen leer, dann entfallen die drei
+            # Stichwort-Abfragen unten (2a/2b/2c) samt ihrer Laufzeit.
+            words = _content_words(query_text) if mode != "dense" else []
             # Rueckfall Wort fuer Wort, nicht die ganze Zeichenkette: ``plainto_tsquery``
             # verbindet eine mehrwortige Eingabe mit UND, eine Frage aus lauter
             # Fuellwoertern ("was ist das") faende damit fast nichts. Einzelne Woerter
             # bleiben ODER-verknuepft wie vorher.
-            _terms = _term_idf(cur, workspace_id, words or query_text.split())
+            _terms = (_term_idf(cur, workspace_id, words or query_text.split())
+                      if mode != "dense" else [])
             if _terms:
                 # Summe der Gewichte aller getroffenen Woerter, bei Gleichstand die
                 # Dichte. Die Gewichte sind gerechnete Zahlen, keine Nutzereingabe.
@@ -425,16 +470,8 @@ def hybrid_search_chunks(
                 if fuzzy_rows:
                     kw_rows = kw_rows + fuzzy_rows
 
-            # 3) RRF fusion
-            scores: dict[int, float] = {}
-            for row in vec_rows:
-                scores[row["id"]] = scores.get(row["id"], 0) + 1.0 / (rrf_k + row["rank"])
-            # Keyword hits (BM25 + exact-substring): the actual term-overlap signal.
-            # A chunk matched by vector ONLY is merely "semantically near" and may
-            # be off-topic — callers use kw_hit to tell the two apart.
-            kw_ids = {row["id"] for row in kw_rows}
-            for row in kw_rows:
-                scores[row["id"]] = scores.get(row["id"], 0) + 1.0 / (rrf_k + row["rank"])
+            # 3) RRF fusion (siehe _rrf_fuse, dort auch die Bedeutung von mode)
+            scores, kw_ids = _rrf_fuse(vec_rows, kw_rows, rrf_k, mode)
 
             if not scores:
                 return []
