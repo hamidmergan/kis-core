@@ -10,7 +10,6 @@ itself.
 import re
 
 from src.features.ai_assistant.prompts.rag_chat import aia_system_rag, aia_rag_user_message
-from src.features.ai_assistant.prompts.refusal_prompts import RAG_NO_INFO_PATTERNS
 
 
 # ── system prompt: answer language follows the question ──────────────────────

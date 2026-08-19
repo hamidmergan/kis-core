@@ -41,19 +41,13 @@ AIA_QUERY_UNDERSTANDING_SYSTEM = (
     "Examples (Input -> Output):\n"
     'was sind neuronale Netze -> {"intent":"SPECIFIC","scope":{"unit":null,"intervals":[]},"subqueries":["was sind neuronale Netze"]}\n'
     'was schützt das Urheberrechtsgesetz und was das Markengesetz -> {"intent":"SPECIFIC","scope":{"unit":null,"intervals":[]},"subqueries":["was schützt das Urheberrechtsgesetz","was schützt das Markengesetz"]}\n'
-    'Welche Stelle ist für die Steuerfestsetzung zuständig (Abgabenordnung) und welche Stellung hat der Rechtsanwalt (BRAO)? -> {"intent":"SPECIFIC","scope":{"unit":null,"intervals":[]},"subqueries":["Welche Stelle ist für die Steuerfestsetzung zuständig (Abgabenordnung)?","Welche Stellung hat der Rechtsanwalt (BRAO)?"]}\n'
     'fasse zusammen -> {"intent":"GENERIC","scope":{"unit":null,"intervals":[]}}\n'
-    'gib mir einen Überblick -> {"intent":"GENERIC","scope":{"unit":null,"intervals":[]}}\n'
-    'was sind die Hauptthemen -> {"intent":"GENERIC","scope":{"unit":null,"intervals":[]}}\n'
-    'was sind neuronale Netze -> {"intent":"SPECIFIC","scope":{"unit":null,"intervals":[]}}\n'
     'wer hat das gesagt -> {"intent":"SPECIFIC","scope":{"unit":null,"intervals":[]}}\n'
     'unterschied zwischen X und Y -> {"intent":"SPECIFIC","scope":{"unit":null,"intervals":[]}}\n'
-    'fasse Seite 12 zusammen -> {"intent":"GENERIC","scope":{"unit":"page","intervals":[[12,12]]}}\n'
     'fasse Seite 12 bis 14 zusammen -> {"intent":"GENERIC","scope":{"unit":"page","intervals":[[12,14]]}}\n'
     'ab Seite 10 -> {"intent":"GENERIC","scope":{"unit":"page","intervals":[[10,null]]}}\n'
     'Seite 5 und 10 -> {"intent":"SPECIFIC","scope":{"unit":"page","intervals":[[5,5],[10,10]]}}\n'
     'was wird bei Minute 10 erzählt -> {"intent":"SPECIFIC","scope":{"unit":"time","intervals":[[10,10]]}}\n'
-    'fasse alles ab 10 min zusammen -> {"intent":"GENERIC","scope":{"unit":"time","intervals":[[10,null]]}}\n'
     'alles zwischen 12 und 13 -> {"intent":"SPECIFIC","scope":{"unit":"unknown","intervals":[[12,13]]}}\n'
 )
 

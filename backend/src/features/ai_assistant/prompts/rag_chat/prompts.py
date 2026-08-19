@@ -1,6 +1,5 @@
 """System- und User-Prompts fuer den RAG-Chat der KI-Assistenz."""
 
-from src.features.ai_assistant.prompts.refusal_prompts import RAG_NO_INFO_PATTERNS
 from src.features.ai_assistant.prompts.rag_chat.language_anchor import (
     ambiguous_language_rule,
     language_anchors,
@@ -13,8 +12,6 @@ def aia_system_rag(
 ) -> str:
     """Haupt-Prompt des Antwort-Calls: Sprache folgt der Frage, ``overview``
     haengt den Ueberblick-Modus an."""
-    de_gap = RAG_NO_INFO_PATTERNS["de"]
-    en_gap = RAG_NO_INFO_PATTERNS["en"]
     base = (
         "## Role\n"
         "You are an AI tutor. Answer from the <documents> below, thoroughly and in "

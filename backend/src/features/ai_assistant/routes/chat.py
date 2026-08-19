@@ -419,6 +419,9 @@ async def _understand_query(
                 {"role": "user", "content": _followup.vorcall_eingabe(question, letzte_runde)},
             ],
             temperature=0.0,
+            # Erzwingt gueltiges JSON statt es nur zu erbitten, wie in den drei Aufrufen
+            # des Zeitplans auch. Nimmt dem Prompt die Formatarbeit ab.
+            response_format={"type": "json_object"},
             # Platz fuer die Teilfragen einer zusammengesetzten Frage, und fuer ein
             # Modell, dessen Denken sich nicht abstellen laesst.
             max_tokens=model_limits.PRECALL_MAX_TOKENS,

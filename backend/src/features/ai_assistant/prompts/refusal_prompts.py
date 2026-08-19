@@ -3,25 +3,13 @@
 import re
 
 
-# Der Eroeffnungssatz jeder Absage bis 2026-08. Nicht mehr im Prompt, bleibt aber
-# Referenzsatz der Erkennung, weil alte Antworten im Verlauf ihn noch tragen. Raus, weil
-# er vor dem Hinweis auf das Vorhandene stand und wie ein Widerspruch las.
+# Vergleichstext, an dem eine Absage in jeder Sprache am Abstand erkannt wird.
 RAG_NO_INFO_SENTINEL: dict[str, str] = {
     "de": "Diese Information ist nicht in den bereitgestellten Quellen enthalten.",
     "en": "This information is not contained in the provided sources.",
 }
 
-# Der Absage-Satz (im Prompt: GAP SENTENCE): vorne frei (WAS fehlt), hinten eine
-# feste Wendung.
-# Das feste Ende traegt die Erkennung, denn ein Absage-Satz darf keinen Quellenchip
-# bekommen und ist per Einbettung nicht trennbar: gemessen am 2026-08-16 lag ein
-# Aussagesatz MIT Chip-Bedarf bei 0,551 und ein Absage-Satz bei 0,522, Schwelle 0,60.
-RAG_NO_INFO_PATTERNS: dict[str, str] = {
-    "de": "{Was gefragt war} steht nicht in den Quellen.",
-    "en": "{What was asked} is not in the sources.",
-}
-
-# Das feste Ende, klein geschrieben. Danach wird gesucht.
+# Sicherheitsnetz fuer die alte Wendung, die das Modell aus Gewohnheit noch schreibt.
 _GAP_ANCHORS: tuple[str, ...] = (
     "steht nicht in den quellen",
     "stehen nicht in den quellen",
@@ -29,28 +17,10 @@ _GAP_ANCHORS: tuple[str, ...] = (
     "are not in the sources",
 )
 
-# Seit der Prompt die Formulierung freigibt, endet der Satz auch anders ("in den
-# Materialien wird der Begriff nicht explizit verwendet"). Erkannt wird er dann an
-# ZWEI Teilen zugleich, einem Wort fuer die Quellen und einer Verneinung. Einzeln
-# waere jedes zu weit: "Taschenrechner werden nicht verwendet" ist ein Inhaltssatz
-# und braucht seinen Chip.
-_SOURCE_WORDS: tuple[str, ...] = (
-    "quellen", "unterlagen", "materialien", "dokument", "vorlesungsmaterial",
-    "sources", "materials", "documents",
-)
-_NEGATIONS: tuple[str, ...] = (
-    "nicht erwaehnt", "nicht erwähnt", "nicht genannt", "nicht explizit",
-    "nicht enthalten", "nicht beschrieben", "nicht aufgefuehrt", "nicht aufgeführt",
-    "kommt nicht vor", "kommen nicht vor", "findet sich nicht", "keine angaben",
-    "not mentioned", "not explicitly", "not contained", "not described",
-    "does not appear", "do not appear", "no information",
-)
-
-# Rand-Zeichen, die vor dem Vergleich abfallen. Mal fett geschrieben, mal ohne Punkt.
+# Rand-Zeichen, die vor dem Vergleich abfallen.
 _SENTINEL_TRIM = " \t\r\n*_`\"'“”„«».!"
 
-# Satzende mit Nachfolger: Punkt, Leerraum, Grossbuchstabe. Grob mit Absicht, ein
-# "z.B. Der" gilt faelschlich als zweiter Satz und faellt auf den normalen Weg zurueck.
+# Satzende mit Nachfolger, grob mit Absicht.
 _MORE_THAN_ONE_SENTENCE = re.compile(r"[.!?][\"'”’)\]]?\s+[^\Wa-z\d_]", re.UNICODE)
 
 
@@ -60,35 +30,18 @@ def _sentinel_key(text: str | None) -> str:
 
 
 def refusal_reference_texts() -> list[str]:
-    """Die Saetze, gegen die per Einbettung gemessen wird.
-
-    Nur der alte Eroeffnungssatz aus dem Verlauf. Die heutige Bauform erkennt
-    ``is_gap_line`` woertlich. Sie hier zusaetzlich aufzunehmen zog den Aussagesatz
-    davor unter die Schwelle (0,551 statt 0,62) und kostete ihn seinen Chip."""
+    """Die Saetze, gegen die per Einbettung gemessen wird, absichtlich nur einer."""
     return list(RAG_NO_INFO_SENTINEL.values())
 
 
 def is_gap_line(text: str | None) -> bool:
-    """True, wenn diese Zeile der Absage-Satz ist und darum KEINEN Quellenchip bekommt.
-
-    Woertlich, entweder am festen Satzende oder an Quellenwort UND Verneinung
-    zugleich. Eine Fehlstelle laesst sich nicht belegen."""
+    """True, wenn diese Zeile eine Absage ist und darum KEINEN Quellenchip bekommt."""
     key = _sentinel_key(text)
-    if not key:
-        return False
-    if any(anchor in key for anchor in _GAP_ANCHORS):
-        return True
-    return (any(w in key for w in _SOURCE_WORDS)
-            and any(n in key for n in _NEGATIONS))
+    return bool(key) and any(anchor in key for anchor in _GAP_ANCHORS)
 
 
 def is_sentinel_refusal(text: str | None) -> bool:
-    """True, wenn die GANZE Antwort nur die Absage ist, ohne Aussage davor.
-
-    Dann darf sie die Nachbearbeitung (Einbettungs-Stapel plus pgvector-Suchen) ganz
-    ueberspringen. Die Ein-Satz-Bedingung trennt sie von einer Antwort MIT Aussage, die
-    dasselbe feste Ende traegt, deren Aussagesatz aber seinen Chip braucht. Andere
-    Sprachen faengt die einbettungs-basierte ``is_refusal_answer`` ab."""
+    """True, wenn die GANZE Antwort nur die Absage ist und die Nachbearbeitung entfaellt."""
     key = _sentinel_key(text)
     if not key:
         return False

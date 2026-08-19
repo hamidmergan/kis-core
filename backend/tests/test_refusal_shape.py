@@ -24,7 +24,6 @@ import pytest
 from src.services.aia_adaptive_chat import ADAPTIVE_SOURCES_GUARD
 from src.features.ai_assistant.prompts.rag_chat import aia_system_rag
 from src.features.ai_assistant.prompts.refusal_prompts import (
-    RAG_NO_INFO_PATTERNS,
     RAG_NO_INFO_SENTINEL,
     is_gap_line,
     is_sentinel_refusal,
@@ -189,29 +188,3 @@ def test_prompt_keeps_one_fact_per_sentence_in_the_opening():
 # one seems to take back the first". Anlass war der 2026-08-16: der Satz davor nannte
 # eine Klausur vom 8.9., die Absage warf die Frage nur zurueck ("wann die Klausur
 # ist") und las sich wie ein Widerspruch, obwohl die 8.9. eine ALTE Klausur war.
-
-
-# ── freie Formulierung wird trotzdem erkannt ─────────────────────────────────
-
-def test_gap_line_erkennt_freie_formulierungen():
-    """Seit der Prompt die Wortwahl freigibt, endet der Satz auch anders. Erkannt
-    wird er an Quellenwort UND Verneinung zugleich."""
-    for zeile in (
-        "In den bereitgestellten Materialien wird der Begriff \"Folien\" nicht explizit verwendet.",
-        "In den Unterlagen wird eine Sprechstunde nicht erwähnt.",
-        "Eine Sprechstunde mit festen Zeiten steht nicht in den Quellen.",
-        "The term is not mentioned in the provided materials.",
-    ):
-        assert is_gap_line(zeile), zeile
-
-
-def test_gap_line_faengt_keinen_inhaltssatz():
-    """Ein Inhaltssatz mit Verneinung braucht seinen Chip. Ohne Quellenwort greift
-    die Erkennung deshalb nicht, sonst verloere er ihn."""
-    for zeile in (
-        "Taschenrechner werden in der Klausur nicht verwendet.",
-        "Eine Anmeldung ist nicht erforderlich.",
-        "Die Ausarbeitung umfasst sechs bis sieben Seiten.",
-        "Der Dozent ist per E-Mail erreichbar.",
-    ):
-        assert not is_gap_line(zeile), zeile
