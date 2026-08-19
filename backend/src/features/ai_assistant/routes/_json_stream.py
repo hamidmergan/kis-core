@@ -10,6 +10,7 @@ class AntwortStrom:
 
     def __init__(self) -> None:
         self.gap: Optional[str] = None
+        self._luecke = ""
         self._zustand = "start"
         self._gesehen = ""
         self._puffer = ""
@@ -44,6 +45,23 @@ class AntwortStrom:
         else:
             self._wort += z
         return None
+
+    def _absage(self, bruecke: str = "") -> str:
+        """Fuegt Absage und Brueckenteil zu einem einzigen Satz zusammen."""
+        luecke, self._luecke = self._luecke, ""
+        if not luecke:
+            return (self._gross(bruecke) + "\n") if bruecke else ""
+        # gap traegt die gerenderte Form, sonst findet chat.py die Absage-Zeile nicht mehr.
+        if not bruecke:
+            self.gap = self._gross(luecke)
+            return self.gap + "\n\n"
+        self.gap = self._gross(luecke.rstrip().rstrip("."))
+        return self.gap + ", " + bruecke + "\n"
+
+    @staticmethod
+    def _gross(satz: str) -> str:
+        """Satzanfang gross, weil die Kleinschreib-Regel der Bruecke auf die Absage abfaerbt."""
+        return satz[:1].upper() + satz[1:]
 
     def _warte_auf(self, z: str, schluessel: str) -> bool:
         self._puffer += z
@@ -81,8 +99,9 @@ class AntwortStrom:
             fertig = self._sammle(z)
             if fertig is not None:
                 self.gap = fertig
+                # Zurueckhalten, bis die Bruecke da ist: beide bilden einen Satz.
+                self._luecke = fertig
                 self._zustand = "warte_bridge"
-                return fertig + "\n\n"
             return ""
 
         if zustand == "warte_bridge":
@@ -91,6 +110,7 @@ class AntwortStrom:
             elif '"body"' in self._puffer:
                 self._puffer = ""
                 self._zustand = "body"
+                return self._absage()
             return ""
 
         if zustand == "bridge":
@@ -99,11 +119,12 @@ class AntwortStrom:
                 if self._puffer.endswith("null"):
                     self._puffer = ""
                     self._zustand = "warte_items"
+                    return self._absage()
                 return ""
             fertig = self._sammle(z)
             if fertig is not None:
                 self._zustand = "warte_items"
-                return (fertig + "\n") if fertig else ""
+                return self._absage(fertig)
             return ""
 
         if zustand == "warte_items":
@@ -112,6 +133,7 @@ class AntwortStrom:
             elif '"body"' in self._puffer:
                 self._puffer = ""
                 self._zustand = "body"
+                return self._absage()
             return ""
 
         if zustand == "warte_term":
