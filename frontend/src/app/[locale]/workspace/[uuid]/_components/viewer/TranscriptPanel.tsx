@@ -515,12 +515,11 @@ export function TranscriptPanel({
     }
   };
 
-  // Clicking a SENTENCE plays from that sentence, not from the top of its paragraph: the
-  // grouping is about reading, and it must not cost the fine-grained seek the cues give us.
-  const onCueClick = (cue: Cue) => {
+  // Ein Klick spielt immer ab der Zeitmarke der Karte, egal wo in der Karte er landet.
+  const onBlockClick = (start: number) => {
     const media = mediaRef.current;
     if (!media) return;
-    media.currentTime = cue.start;
+    media.currentTime = start;
     media.play().catch(() => { });
   };
 
@@ -713,7 +712,6 @@ export function TranscriptPanel({
                 <span
                   key={i}
                   ref={lang === anchorTrack ? (el) => { itemRefs.current[i] = el; } : undefined}
-                  onClick={(e) => { e.stopPropagation(); onCueClick(masterCues[i]); }}
                   style={{ fontWeight: !italic && i === currentIdx ? 600 : undefined }}
                 >
                   {text}{i < b.to ? " " : ""}
@@ -731,6 +729,7 @@ export function TranscriptPanel({
             >
               <div
                 className="px-3 py-2 rounded-md cursor-pointer transition-colors"
+                onClick={() => onBlockClick(b.start)}
                 style={{
                   // The amber ALWAYS wins the background so the marking stays visible even
                   // while that same paragraph is the one playing, which would otherwise paint
@@ -739,9 +738,12 @@ export function TranscriptPanel({
                   backgroundColor: hasCitation
                     ? citationTint
                     : isCurrent ? "rgba(var(--kb-rgb), 0.12)" : "transparent",
-                  borderLeft: hasCitation
-                    ? `3px solid ${CITATION_HL_COLOR}`
-                    : isCurrent ? "3px solid var(--kb)" : "3px solid transparent",
+                  // Der laufende Absatz bekommt rundum den blauen Rahmen, weil der linke
+                  // Streifen allein unter der gelben Markierung nicht mehr zu sehen war.
+                  border: isCurrent ? "2px solid var(--kb)" : "2px solid transparent",
+                  borderLeft: isCurrent
+                    ? "3px solid var(--kb)"
+                    : hasCitation ? `3px solid ${CITATION_HL_COLOR}` : "3px solid transparent",
                 }}
                 onMouseEnter={(e) => {
                   if (!isCurrent && !hasCitation) e.currentTarget.style.backgroundColor = "var(--surface-dim)";
