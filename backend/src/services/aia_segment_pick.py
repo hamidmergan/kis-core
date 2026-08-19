@@ -79,9 +79,25 @@ def rarity_weights(source_id, segments: Sequence[dict],
 
     Gezaehlt wird einmal je Quelle und dann aus dem Gedaechtnis. Ohne
     ``source_id`` (Tests, unzuordenbare Chunks) wird frisch gezaehlt."""
-    n = len(segments)
-    if not n:
+    if not segments:
         return {}
+    return _tabellen(source_id, segments, stems_of, norm)[1]
+
+
+def rare_stems(source_id, segments: Sequence[dict],
+               stems_of: Callable[[str], set], norm: Callable[[str], str],
+               max_df: int) -> set:
+    """Die Wortstaemme, die in hoechstens ``max_df`` Segmenten der Quelle vorkommen."""
+    if not segments:
+        return set()
+    return {stem for stem, anzahl in _tabellen(source_id, segments, stems_of, norm)[0].items()
+            if anzahl <= max_df}
+
+
+def _tabellen(source_id, segments: Sequence[dict],
+              stems_of: Callable[[str], set], norm: Callable[[str], str]) -> tuple:
+    """Wie viele Segmente jeden Stamm tragen und was er wiegt, einmal je Quelle gezaehlt."""
+    n = len(segments)
     schluessel = (source_id, n)
     if source_id is not None and schluessel in _CACHE:
         return _CACHE[schluessel]
@@ -91,12 +107,12 @@ def rarity_weights(source_id, segments: Sequence[dict],
         for stem in stems_of(s.get("text") or ""):
             if stem in text:
                 df[stem] += 1
-    gewichte = {stem: math.log(1.0 + n / (1.0 + anzahl)) for stem, anzahl in df.items()}
+    tabellen = (df, {stem: math.log(1.0 + n / (1.0 + anzahl)) for stem, anzahl in df.items()})
     if source_id is not None:
         if len(_CACHE) >= _CACHE_MAX:
             _CACHE.pop(next(iter(_CACHE)))
-        _CACHE[schluessel] = gewichte
-    return gewichte
+        _CACHE[schluessel] = tabellen
+    return tabellen
 
 
 def best_index(hits_per_segment: Sequence[Sequence[str]], weights: dict,

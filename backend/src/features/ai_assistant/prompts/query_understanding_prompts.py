@@ -38,13 +38,16 @@ AIA_QUERY_UNDERSTANDING_SYSTEM = (
     "laws/topics/sources in one sentence — split it into ONE self-contained sub-question "
     "per distinct thing. EACH sub-question must stand alone and KEEP the name of the "
     "law/source/topic it refers to, so it can be searched on its own. If the question "
-    "asks about ONE thing, return a single-element list with the question itself. Max 3 "
-    "items, same language as the question.\n"
+    "asks about ONE NAMED thing, keep the question itself as the FIRST sub-question and "
+    "fill the remaining slots with that SAME thing asked WIDELY, so retrieval brings back "
+    "everything the documents say about it: its BARE NAME, and one sub-question asking "
+    "what is said about it. A question that names no thing at all (small talk) stays a "
+    "single-element list. Max 3 items, same language as the question.\n"
     "\n"
     "Understand ANY language and ANY phrasing; ignore typos and glued tokens.\n"
     "\n"
     "Examples (Input -> Output):\n"
-    'was sind neuronale Netze -> {"intent":"SPECIFIC","scope":{"unit":null,"intervals":[]},"subqueries":["was sind neuronale Netze"]}\n'
+    'was sind neuronale Netze -> {"intent":"SPECIFIC","scope":{"unit":null,"intervals":[]},"subqueries":["was sind neuronale Netze","neuronale Netze","was wird über neuronale Netze gesagt"]}\n'
     'was schützt das Urheberrechtsgesetz und was das Markengesetz -> {"intent":"SPECIFIC","scope":{"unit":null,"intervals":[]},"subqueries":["was schützt das Urheberrechtsgesetz","was schützt das Markengesetz"]}\n'
     'fasse zusammen -> {"intent":"GENERIC","scope":{"unit":null,"intervals":[]}}\n'
     'wer hat das gesagt -> {"intent":"SPECIFIC","scope":{"unit":null,"intervals":[]}}\n'
@@ -58,7 +61,8 @@ AIA_QUERY_UNDERSTANDING_SYSTEM = (
     'guten morgen -> {"intent":"GREETING","scope":{"unit":null,"intervals":[]}}\n'
     'wie geht es dir -> {"intent":"SPECIFIC","scope":{"unit":null,"intervals":[]},"subqueries":["wie geht es dir"]}\n'
     'mir gehts gut -> {"intent":"SPECIFIC","scope":{"unit":null,"intervals":[]},"subqueries":["mir gehts gut"]}\n'
-    'hallo, wo finde ich die Folien -> {"intent":"SPECIFIC","scope":{"unit":null,"intervals":[]},"subqueries":["wo finde ich die Folien"]}\n'
+    'hallo, wo finde ich die Folien -> {"intent":"SPECIFIC","scope":{"unit":null,"intervals":[]},"subqueries":["wo finde ich die Folien","Folien","was wird über die Folien gesagt"]}\n'
+    'when is the deadline -> {"intent":"SPECIFIC","scope":{"unit":null,"intervals":[]},"subqueries":["when is the deadline","deadline","what is said about the deadline"]}\n'
 )
 
 

@@ -24,9 +24,11 @@ from src.features.ai_assistant.routes._helpers import (
     _line_segment_start,
     _load_transcript_segments,
     _GENERIC_ATTRIB_MAX_DIST,
-    _MULTI_CHIP_MAX_DELTA,
     _MAX_CHIPS_PER_LINE,
 )
+
+# Eigener Wert, weil eine Lernkarte keinen Kontext hat, an dem sich der Chat messen liesse.
+_TOOL_MULTI_CHIP_MAX_DELTA = 0.08
 
 # Minimum chunk length (chars) to be a citation anchor. Slide decks get chunked into tiny
 # running-header/title fragments (e.g. "WISSENSCHAFTLICHES ARBEITEN UND PUBLIZIEREN? VON DER
@@ -160,9 +162,8 @@ def chips_for_claim(
     """Turn ranked search hits for one claim into nav-only structured source chips.
 
     With ``multi=True`` a claim genuinely drawn from several passages also cites the
-    co-sources that sit CLOSE to the best one (within ``_MULTI_CHIP_MAX_DELTA``), deduped
-    by source/page and capped at ``_MAX_CHIPS_PER_LINE`` — the same relative gate the chat
-    uses, so a clearly-best single source never collects on-topic near-misses.
+    co-sources that sit CLOSE to the best one (within ``_TOOL_MULTI_CHIP_MAX_DELTA``),
+    deduped by source/page and capped at ``_MAX_CHIPS_PER_LINE``.
 
     ``seen_pages_by_source`` (optional) restricts hits to source/pages the LLM was actually
     shown (chat-style seen-check) BEFORE selecting — so a chip can never point at a page that
@@ -202,7 +203,7 @@ def chips_for_claim(
         if len(chips) >= _MAX_CHIPS_PER_LINE:
             break
         d = h.get("vec_distance")
-        if d is None or d > max_distance or d - best_dist > _MULTI_CHIP_MAX_DELTA:
+        if d is None or d > max_distance or d - best_dist > _TOOL_MULTI_CHIP_MAX_DELTA:
             continue
         chip = _chip_from_chunk(h, source_id_to_label.get(h["source_id"], ""), claim, _segs(h))
         key = _chip_key(chip)

@@ -123,3 +123,49 @@ def test_zeitmarke_ohne_treffer_bleibt_offen():
     """Traegt kein Segment genug Wortstaemme, gibt es keine geratene Minute."""
     c = _chunk(2, 6)
     assert _line_segment_start("Voellig anderes Thema hier.", c, SEGMENTE) is None
+
+
+# ── Ein seltenes Wort allein reicht ─────────────────────────────────────────
+# Gemeldeter Fall (Quelle 2026-03-23.mp4, Chunk 204213, 32:28 bis 33:56): der Chip zu
+# "Du darfst eine handgeschriebene, zweiseitige DIN-A4-Formelsammlung verwenden" zeigte
+# auf 32:28, den Chunk-Anfang, wo es um Klausuraufgaben geht. Die Stelle faellt bei 32:48.
+# Whisper hatte die Passage in Schnipsel von ein bis drei Sekunden zerlegt, die Aussage
+# verteilt sich ueber vier davon, und in keinem stehen zwei der gesuchten Woerter. Das
+# Fenster hilft nicht, weil zwischen "Formelsammlung" und "DIN A4" fuenf Segmente liegen.
+
+_FUELL = [{"start": float(i * 10), "end": float(i * 10 + 9), "text": f"Wir rechnen die Aufgabe {i} durch."}
+          for i in range(30)]
+_PRUEFUNG = [
+    {"start": 300.0, "end": 302.0, "text": "So muss das irgendwie funktionieren."},
+    {"start": 303.0, "end": 306.0, "text": "Sie koennen einen Taschenrechner benutzen."},
+    {"start": 308.0, "end": 312.0, "text": "Eine Formelsammlung, Sie koennen sich eine schreiben."},
+    {"start": 313.0, "end": 314.0, "text": "Und mitbringen."},
+    {"start": 315.0, "end": 316.0, "text": "Das duerfen Sie."},
+    {"start": 318.0, "end": 319.0, "text": "Ja, der ist begrenzt."},
+    {"start": 320.0, "end": 321.0, "text": "Jetzt ein DIN A4"},
+    {"start": 322.0, "end": 324.0, "text": "Platz, Vor- und Rueckseite."},
+]
+_QUELLE = _FUELL + _PRUEFUNG
+_PRUEFUNGS_CHUNK = {
+    "id": 204213, "source_id": None, "page_number": 31,
+    "content": " ".join(s["text"] for s in _PRUEFUNG),
+    "start_time": 300.0, "end_time": 324.0,
+}
+
+
+def test_ein_seltenes_wort_allein_traegt_die_zeitmarke():
+    """Nur "Formelsammlung" passt, und das Wort faellt in der Quelle genau einmal."""
+    zeile = "Du darfst eine handgeschriebene, zweiseitige DIN-A4-Formelsammlung verwenden."
+    assert _line_segment_start(zeile, _PRUEFUNGS_CHUNK, _QUELLE) == 308.0
+
+
+def test_ein_haeufiges_wort_allein_traegt_sie_nicht():
+    """Ein Wort aus jedem zweiten Segment zeigt auf nichts, da bleibt der Chunk-Anfang."""
+    zeile = "Die Aufgabe wird spaeter noch ausfuehrlich besprochen."
+    assert _line_segment_start(zeile, _PRUEFUNGS_CHUNK, _QUELLE) is None
+
+
+def test_bindestrich_zaehlt_wie_ein_leerzeichen():
+    """Die Antwort schreibt "DIN-A4", das Transkript "DIN A4"."""
+    zeile = "Erlaubt ist ein DIN-A4-Blatt, Vor- und Rueckseite."
+    assert _line_segment_start(zeile, _PRUEFUNGS_CHUNK, _QUELLE) == 320.0

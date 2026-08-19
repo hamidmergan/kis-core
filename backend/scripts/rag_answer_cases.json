@@ -10,6 +10,22 @@
     "bekannt_rot": true
   },
   {
+    "id": "klausur-nur-die-pruefungsleistung",
+    "workspace": "1ea7b2fa-b237-4bbd-801b-c9793d388984",
+    "frage": "wann ist die klausur",
+    "erwartet": [
+      "Juli"
+    ],
+    "verboten": [
+      "Webkonferenz",
+      "Sprechstunde",
+      "Peer-Review",
+      "Einführungskonferenz",
+      "Extended Abstract"
+    ],
+    "begruendung": "Gemeldet 19.08.2026: acht Punkte, davon sechs ueber Webkonferenzen, Sprechstunden und freiwillige Abgaben. Gefragt war nach der Pruefung, und dazu gehoeren nur die Hausarbeit und die Praesentation."
+  },
+  {
     "id": "klausur-wiederholung-januar",
     "workspace": "7f088123-177a-464a-81dc-9d8b73c91c36",
     "frage": "gibt es einen zweiten pruefungstermin",
