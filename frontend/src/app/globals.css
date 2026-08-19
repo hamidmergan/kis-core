@@ -152,6 +152,10 @@
   --shadow:       0 1px 4px rgba(0,66,97,.10);
   --shadow-hover: 0 6px 20px rgba(0,66,97,.15);
 
+  /* Belegstelle: Rahmen des Chips, Strich und Flaeche des markierten Absatzes. */
+  --cite-border: var(--kb);
+  --cite-bg:     rgba(0,66,97,0.16);
+
   /* Cross-mode tokens (mode-stable in light, see [data-theme="dark"] for overrides) */
   --scrollbar-color: #d8d8d8;
   --tooltip-bg:      #1a1a1a;
@@ -233,6 +237,10 @@
 
   --shadow:       0 1px 4px rgba(0,0,0,.4);
   --shadow-hover: 0 6px 20px rgba(0,0,0,.55);
+
+  /* Belegstelle: das dunkle Marken-Blau verschwindet auf Dunkel, darum die helle Tonung. */
+  --cite-border: #7BBDE5;
+  --cite-bg:     rgba(123,189,229,0.18);
 
   /* Cross-mode overrides */
   --scrollbar-color: #3A3C42;

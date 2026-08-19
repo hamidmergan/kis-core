@@ -5,7 +5,7 @@
 // re-mark that exact selection on the page. Citation chips themselves NO LONGER draw
 // any highlight — a chip click only scrolls to the page/timestamp.
 //
-// The marker is a passive YELLOW Highlight annotation, drawn as an ephemeral
+// The marker is a passive LIGHT BLUE Highlight annotation, drawn as an ephemeral
 // annotation (created but NEVER committed, so the PDF file is untouched). It is NOT a
 // text selection, so it never triggers the selection action-popup. The user's own
 // manual text selection still uses EmbedPDF's native blue selection + popup, and the
@@ -30,19 +30,21 @@ export type HighlightRefs = {
 //   scroll (default true): scroll the highlight into view after drawing.
 type DrawOpts = { scroll?: boolean };
 
-// Exact-selection highlight = passive yellow marker (NOT a text selection), so it
+// Exact-selection highlight = passive light-blue marker (NOT a text selection), so it
 // never triggers the selection action-popup. Single colour constant — swap for a
 // tenant brand colour here if desired.
-export const CITATION_HL_COLOR = "#FFE14D";   // highlighter yellow (shared with the active citation chip border)
+export const CITATION_HL_COLOR = "#9BD2F0";   // helles CD-Blau, dasselbe wie beim Markieren-Werkzeug
 const CITATION_HL_OPACITY = 0.4;
 const HIGHLIGHT_SUBTYPE = 9;           // PdfAnnotationSubtype.HIGHLIGHT
 
-// Page-frame marker for citation-chip jumps: a yellow border drawn around the whole
+// Page-frame marker for citation-chip jumps: a blue border drawn around the whole
 // target page (no fill) so the user sees which page the chip landed on. Persistent
 // until the next jump or the "Markierung aufheben" button. SQUARE (subtype 5) renders
 // for programmatically-created annotations in our EmbedPDF build (verified by the
 // Docling layer-box overlay), unlike the HIGHLIGHT subtype which needs segmentRects.
 const SQUARE_SUBTYPE = 5;              // PdfAnnotationSubtype.SQUARE
+// Der Seitenrahmen nimmt das kraeftige Marken-Blau, nicht die helle Markierungsfarbe.
+const CITATION_FRAME_COLOR = "#004261";   // --kb
 const BORDER_STYLE_SOLID = 1;         // PdfAnnotationBorderStyle.SOLID
 const PAGE_BORDER_WIDTH = 3;          // px frame thickness
 const PAGE_BORDER_OPACITY = 0.95;     // crisp frame
@@ -136,7 +138,7 @@ export function clearCitationHighlight(refs: HighlightRefs, reg: unknown) {
 }
 
 
-// Draw a yellow frame around the whole target page when a citation chip jumps here,
+// Draw a blue frame around the whole target page when a citation chip jumps here,
 // so the user sees which page they landed on. Border only (no fill); persistent until
 // the next jump or the "Markierung aufheben" button. Ephemeral SQUARE annotation —
 // created but NEVER committed, so the PDF file is untouched — and readOnly+locked so
@@ -170,7 +172,7 @@ export function flashPageBorder(refs: HighlightRefs, reg: unknown, page: number)
       id,
       rect: { origin: { x: 0, y: 0 }, size: { width: pageW, height: pageH } },
       color: "transparent",
-      strokeColor: CITATION_HL_COLOR,
+      strokeColor: CITATION_FRAME_COLOR,
       strokeWidth: PAGE_BORDER_WIDTH,
       strokeStyle: BORDER_STYLE_SOLID,
       opacity: PAGE_BORDER_OPACITY,
@@ -205,7 +207,7 @@ export function scrollToCitationPage(refs: HighlightRefs, reg: unknown) {
 }
 
 
-// Draw the highlight as a passive yellow Highlight annotation (ephemeral: created
+// Draw the highlight as a passive light-blue Highlight annotation (ephemeral: created
 // but never committed). No text selection is made, so the selection action-popup
 // never appears. Purges any previous one first (one highlight at a time), deselects
 // so no edit handles show, and scrolls the range into view.
