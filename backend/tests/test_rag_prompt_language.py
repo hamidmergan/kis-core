@@ -171,7 +171,7 @@ def test_no_info_shape_is_question_language_driven():
     (siehe tests/test_refusal_shape.py). Was der Test prueft, bleibt dasselbe: die
     Sprache entscheidet die FRAGE, nicht die Sprache der Quellen."""
     sp = aia_system_rag("de")
-    assert "## Missing information" in sp
+    assert "## Answer format" in sp
     assert "language of the QUESTION" in sp
 
 

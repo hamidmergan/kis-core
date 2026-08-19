@@ -33,26 +33,15 @@ from src.features.ai_assistant.prompts.refusal_prompts import (
 
 # ── der Prompt schreibt die Reihenfolge vor ──────────────────────────────────
 
-def test_prompt_opens_with_what_is_missing_then_lists_what_is_there():
-    """Seit 2026-08-19 die NotebookLM-Form: erst der Satz ueber das fehlende WORT,
-    dann die Ankuendigung mit Doppelpunkt, dann alles Verwandte als Aufzaehlung."""
+def test_prompt_trennt_die_absage_in_ein_eigenes_feld():
+    """Der Satz ueber das Fehlende steht in "gap", damit er nie einen Chip bekommt."""
     p = aia_system_rag("de")
-    assert "## Missing information" in p
-    assert "four moves" in p
-    assert "at least as WIDE as the list" in p
-    assert "not a refusal" in p
-    # Der alte Eroeffnungssatz darf nicht als Vorlage im Prompt stehen.
+    assert "## Answer format" in p
+    for feld in ('"gap"', '"items"', '"body"'):
+        assert feld in p
+    assert "belongs in \"gap\" alone" in p
     assert RAG_NO_INFO_SENTINEL["de"] not in p
-    assert RAG_NO_INFO_SENTINEL["en"] not in p
 
-
-# ENTFALLEN mit der NotebookLM-Form (2026-08-19): "kein Absage-Satz darf zuruecknehmen,
-# was du gerade geschrieben hast". Die Regel hing daran, dass der Satz HINTEN stand.
-# Jetzt steht er vorne und kann nichts mehr zuruecknehmen.
-
-
-def test_prompt_keeps_the_alone_shape_for_a_subject_that_is_absent():
-    assert "Nothing related at all: that opening stands alone." in aia_system_rag("de")
 
 
 def test_guard_beschreibt_keine_antwortform_mehr():

@@ -41,6 +41,7 @@ from src.features.ai_assistant.prompts.refusal_prompts import (
     refusal_reference_texts,
 )
 from . import _followup
+from ._json_stream import AntwortStrom
 from src.services.aia_adaptive_chat import (
     adaptive_chat_appendix,
     level_texts,
@@ -1493,6 +1494,36 @@ async def chat(
                     await _prewarmer.flush()  # final drain of whatever is still pending
 
                 _pump_task = asyncio.create_task(_prewarm_pump())
+            # Felder statt Fliesstext: die Form baut der Code, das Modell fuellt nur.
+            _ANTWORT_SCHEMA = {
+                "type": "json_schema",
+                "json_schema": {
+                    "name": "antwort", "strict": True,
+                    "schema": {
+                        "type": "object",
+                        "properties": {
+                            "gap": {"type": ["string", "null"]},
+                            "bridge": {"type": ["string", "null"]},
+                            "items": {
+                                "type": "array",
+                                "items": {
+                                    "type": "object",
+                                    "properties": {"term": {"type": "string"},
+                                                   "text": {"type": "string"}},
+                                    "required": ["term", "text"],
+                                    "additionalProperties": False,
+                                },
+                            },
+                            "body": {"type": "string"},
+                        },
+                        "required": ["gap", "bridge", "items", "body"],
+                        "additionalProperties": False,
+                    },
+                },
+            }
+            _felder = not (body.source_text or _umformen)
+            _strom_bau = AntwortStrom() if _felder else None
+
             async def _open_stream(messages):
                 # 90s connect/first-token timeout so an Ollama cold-start model
                 # load can finish before we abort. Once tokens flow the
@@ -1502,6 +1533,7 @@ async def chat(
                     messages=messages,
                     temperature=0.2,
                     stream=True,
+                    **({"response_format": _ANTWORT_SCHEMA} if _felder else {}),
                     # Ask for a final usage chunk so chat token counts land in
                     # usage_log + Langfuse. Providers that ignore it send no
                     # usage and _stream_usage_tokens just returns (None, None).
@@ -1556,10 +1588,14 @@ async def chat(
                         tokens_out = _to
                     delta = chunk_resp.choices[0].delta if chunk_resp.choices else None
                     if delta and delta.content:
+                        _roh_tok = (_strom_bau.feed(delta.content)
+                                    if _strom_bau is not None else delta.content)
+                        if not _roh_tok:
+                            continue
                         # Arrow connectors are dropped here, before the token reaches the
                         # browser — the live stream is what the learner reads, so a later
                         # cleanup of the finished answer would come too late.
-                        _tok = _strip_arrow_connectors(delta.content)
+                        _tok = _strip_arrow_connectors(_roh_tok)
                         answer_parts.append(_tok)
                         yield f"data: {json.dumps({'token': _tok})}\n\n"
                         _line_buf += _tok
@@ -1618,6 +1654,8 @@ async def chat(
             # anhaengt: eine Ein-Zeilen-Tabelle und eine Quellenliste im Text. Die Chips
             # zeigen das schon. Wird im Code erzwungen, nicht per Prompt erhofft.
             _clean_answer = _strip_tiny_tables(_clean_answer)
+            # Der Satz aus dem eigenen Feld ist als Absage gesetzt, nicht geraten.
+            _gap_satz = (_strom_bau.gap or "").strip() if _strom_bau is not None else ""
             if source_ids:
                 _clean_answer = _strip_source_list(_clean_answer, [q.get("filename", "") for q in source_qmap])
             # BELEGE NACHTRAEGLICH: jede tragende Zeile wird eingebettet, in den aktiven
@@ -1698,6 +1736,8 @@ async def chat(
                     # 0,60), sonst verlöre der Aussagesatz seinen Chip mit.
                     _refusals = _refusal_lines(_cands, _vec_by_line, _sentinel_vecs)
                     _refusals |= {ln for ln in _cands if is_gap_line(ln)}
+                    if _gap_satz:
+                        _refusals |= {ln for ln in _cands if _gap_satz in ln}
                     if _refusals:
                         logger.info("post-hoc attribution: {} refusal line(s) excluded from citation", len(_refusals))
 
