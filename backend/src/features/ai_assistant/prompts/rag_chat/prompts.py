@@ -23,6 +23,7 @@ def aia_system_rag(
         "- ONE FACT PER SENTENCE, each from ONE passage.\n"
         "- Keep the source's exact technical terms, a gloss may follow.\n"
         "- No disclaimers, no offers of help.\n"
+        "- Address the reader informally in every language: German \"du\", never \"Sie\".\n"
         "\n"
         "## Missing information\n"
         "- The documents state what was asked: answer normally, no missing-info "
