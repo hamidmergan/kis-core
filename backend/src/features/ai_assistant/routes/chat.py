@@ -32,6 +32,8 @@ from src.features.ai_assistant.prompts.query_understanding_prompts import (
     aia_query_understanding_system,
 )
 from src.features.ai_assistant.prompts.rag_chat import (
+    aia_greeting_user_message,
+    aia_system_greeting,
     aia_system_rag,
     aia_rag_user_message,
 )
@@ -372,7 +374,8 @@ def _parse_understanding(content: str) -> tuple[str, dict, list[str]]:
     ``(intent, scope, subqueries)``.
 
     Tolerant: strips <think>/code-fences, takes the first JSON object. ``intent``
-    defaults to SPECIFIC (the conservative route); ``scope`` is validated by
+    defaults to SPECIFIC (the conservative route) and is GREETING only for a line that
+    is nothing but a greeting; ``scope`` is validated by
     ``_parse_scope_response``; ``subqueries`` is the question split into its distinct
     asks for retrieval (empty when not decomposed / missing → caller uses the full
     question). If the JSON is broken we still salvage a GENERIC token if present. Any
@@ -388,7 +391,8 @@ def _parse_understanding(content: str) -> tuple[str, dict, list[str]]:
     except Exception:
         cleaned = re.sub(r"[^A-Za-z]+", " ", raw).upper().split()
         return ("GENERIC" if "GENERIC" in cleaned else "SPECIFIC"), {"unit": None, "intervals": []}, []
-    intent = "GENERIC" if "GENERIC" in str(obj.get("intent", "")).upper() else "SPECIFIC"
+    _roh = str(obj.get("intent", "")).upper()
+    intent = "GREETING" if "GREET" in _roh else ("GENERIC" if "GENERIC" in _roh else "SPECIFIC")
     scope_obj = obj.get("scope")
     scope = _parse_scope_response(json.dumps(scope_obj)) if scope_obj else {"unit": None, "intervals": []}
     subs_raw = obj.get("subqueries")
@@ -1102,6 +1106,14 @@ async def chat(
         logger.info("Chat: Folgefrage eigenstaendig gemacht: '{}' → '{}'",
                     body.question[:60], rewritten_question[:80])
 
+    # Reiner Gruss: "hi" fragt nichts, eine Absage waere also falsch. Er bekommt den
+    # breiten Kontext wie ein Ueberblick, aber einen eigenen Prompt, der zurueckgruesst,
+    # die Themen nennt, Beispielfragen anbietet und zurueckfragt. NUR der nackte
+    # Gruss, "wie geht es dir" nicht.
+    _gruss = intent == "GREETING" and not body.source_text and not _umformen
+    if _gruss:
+        logger.info("Chat: reiner Gruss ('{}'), eigener Weg ohne Absage", body.question[:40])
+
     # Kontext-Budget in Zeichen, vom Admin einstellbar. Platz fuer die Frage wird
     # abgezogen: sie steht im Prompt NACH den Quellen, beides muss zusammen ins
     # Modellfenster passen.
@@ -1210,7 +1222,7 @@ async def chat(
         from collections import Counter
         _ps = Counter(c["source_id"] for c in chunks)
         logger.info("Fit-shortcut: {} chunks fit budget ({} chars), skipping retrieval | per-source: {}", len(chunks), context_budget, dict(_ps))
-    elif intent == "GENERIC":
+    elif intent in ("GENERIC", "GREETING"):
         # ── GENERIC: eine breite Suche plus Auffuellen reihum ueber ALLE Quellen,
         # damit der Ueberblick jede Quelle beruehrt. Der Ueberblick-Prompt unten sorgt
         # dann fuer die Abdeckung Dokument fuer Dokument.
@@ -1344,6 +1356,14 @@ async def chat(
         messages = [
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": user_message + _adaptive_suffix},
+        ]
+    elif _gruss:
+        # Gruss: eigener Prompt, keine Felder, keine Belege. Der Kontext steht nur da,
+        # damit das Modell die Themen benennen kann.
+        messages = [
+            {"role": "system", "content": aia_system_greeting(chat_lang, _prev_questions)},
+            {"role": "user",
+             "content": aia_greeting_user_message(context, body.question) + _adaptive_suffix},
         ]
     else:
         # OVERVIEW MODE only for a broad GENERIC ask (not a page/time SCOPE summary):
@@ -1521,7 +1541,7 @@ async def chat(
                     },
                 },
             }
-            _felder = not (body.source_text or _umformen)
+            _felder = not (body.source_text or _umformen or _gruss)
             _strom_bau = AntwortStrom() if _felder else None
 
             async def _open_stream(messages):
@@ -1663,7 +1683,8 @@ async def chat(
             # einen Chip zum Hinspringen. Auswahl-Aktionen bekommen keine Belege.
             # Eine reine Absage ueberspringt den Durchgang: sie hat nichts zu belegen, und
             # das Einbetten ihrer einen Zeile war die Pause unter einer Antwort ohne Chip.
-            if is_popup or not source_ids or is_sentinel_refusal(_clean_answer):
+            # Ein Gruss ebenso: er behauptet nichts ueber die Quellen.
+            if is_popup or _gruss or not source_ids or is_sentinel_refusal(_clean_answer):
                 answer = _clean_answer
             elif scope_single_page:
                 # Einzelne Seite: statt Chips je Zeile EIN Anker unten. Ausser bei einer

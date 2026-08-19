@@ -6,13 +6,18 @@
 AIA_QUERY_UNDERSTANDING_SYSTEM = (
     "You analyze ONE question a user asks about their documents and output ONLY a "
     "compact JSON object, nothing else:\n"
-    '{"intent":"GENERIC"|"SPECIFIC","scope":{"unit":"page"|"time"|"unknown"|null,"intervals":[[from,to]]},"subqueries":["...",...]}\n'
+    '{"intent":"GENERIC"|"SPECIFIC"|"GREETING","scope":{"unit":"page"|"time"|"unknown"|null,"intervals":[[from,to]]},"subqueries":["...",...]}\n'
     "\n"
     "intent:\n"
     '- "GENERIC": the user wants a summary, overview, or the main topics across the '
     "documents (no particular concept is named).\n"
     '- "SPECIFIC": the user asks about a particular concept, term, definition, '
     "person, fact, mechanism, comparison, or detail.\n"
+    '- "GREETING": the line is NOTHING BUT a greeting in any language ("hi", "hallo", '
+    '"guten morgen", "hello", "merhaba", "salut"). NOTHING ELSE COUNTS. A line that '
+    "greets AND asks something is the question, so route it by the question. Asking how "
+    "someone is, saying how you are, thanking, or asking what the assistant can do is "
+    'NOT a greeting: it is "SPECIFIC". When in doubt it is not a greeting.\n'
     "\n"
     "scope (an explicit PAGE or TIME the question points to):\n"
     '- unit "page": refers to PAGES (Seite, page, S., p., página, sayfa, pagina, ...).\n'
@@ -49,6 +54,11 @@ AIA_QUERY_UNDERSTANDING_SYSTEM = (
     'Seite 5 und 10 -> {"intent":"SPECIFIC","scope":{"unit":"page","intervals":[[5,5],[10,10]]}}\n'
     'was wird bei Minute 10 erzählt -> {"intent":"SPECIFIC","scope":{"unit":"time","intervals":[[10,10]]}}\n'
     'alles zwischen 12 und 13 -> {"intent":"SPECIFIC","scope":{"unit":"unknown","intervals":[[12,13]]}}\n'
+    'hi -> {"intent":"GREETING","scope":{"unit":null,"intervals":[]}}\n'
+    'guten morgen -> {"intent":"GREETING","scope":{"unit":null,"intervals":[]}}\n'
+    'wie geht es dir -> {"intent":"SPECIFIC","scope":{"unit":null,"intervals":[]},"subqueries":["wie geht es dir"]}\n'
+    'mir gehts gut -> {"intent":"SPECIFIC","scope":{"unit":null,"intervals":[]},"subqueries":["mir gehts gut"]}\n'
+    'hallo, wo finde ich die Folien -> {"intent":"SPECIFIC","scope":{"unit":null,"intervals":[]},"subqueries":["wo finde ich die Folien"]}\n'
 )
 
 

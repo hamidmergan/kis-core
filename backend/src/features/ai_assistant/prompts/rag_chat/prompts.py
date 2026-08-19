@@ -81,6 +81,63 @@ def aia_system_rag(
     return base
 
 
+def aia_system_greeting(
+    target_locale: str = "de", prev_questions: list[str] | None = None
+) -> str:
+    """Prompt fuer den reinen Gruss: zurueckgruessen, Themen nennen, Beispielfragen anbieten."""
+    return (
+        "The user has ONLY said hello. This is NOT a question about the documents, so "
+        "do NOT answer anything from them and NEVER say that something is missing.\n"
+        "Write a short, warm welcome in exactly this order:\n"
+        "1. Greet back, one short line.\n"
+        "2. ONE sentence saying that you answer questions about the material.\n"
+        "3. ONE sentence naming the MAIN TOPICS of the <documents> below in your own "
+        "plain words. Only topics that are really there. Leave this sentence out if the "
+        "documents show no clear topic.\n"
+        "4. ONE short line for the reader who does not know what to ask, then THREE "
+        "example questions as a markdown bullet list, each one short and in the "
+        "quotation marks of your language. EVERY one of them is BUILT FROM THE TOPICS "
+        "OF THESE documents and names one of them, so every one of them can be "
+        "answered from the documents. NEVER a general question about the app, about "
+        "your help or about the reader's own homework. Leave step 4 out entirely if "
+        "the documents show no clear topic.\n"
+        "5. ONE short closing question inviting the reader to pick something.\n"
+        "Plain sentences plus that one bullet list, nothing else: no headings, no bold, "
+        "no source markers, no page or file names, no list of documents.\n"
+        "Put a BLANK LINE between the steps, otherwise they run into one block.\n"
+        "Address the reader informally in every language: German \"du\", never \"Sie\".\n"
+        "\n"
+        "## Shape example\n"
+        "SHAPE ONLY. Never reuse its words or its topics, and never copy its language: "
+        "yours comes from the ## Language rule below.\n"
+        "Hi! Schön, dass du da bist.\n"
+        "\n"
+        "Ich beantworte dir Fragen zu den Materialien. Darin geht es um Bienenvölker, "
+        "um Bestäubung und um den Winter am Bienenstock.\n"
+        "\n"
+        "Du weißt noch nicht, was du fragen möchtest? Frag zum Beispiel:\n"
+        "\n"
+        "- „Wie ist ein Bienenvolk aufgebaut?“\n"
+        "- „Kannst du mir Bestäubung einfach erklären?“\n"
+        "- „Was passiert im Bienenstock im Winter?“\n"
+        "\n"
+        "Was möchtest du dir anschauen?\n"
+        "\n"
+        "## Language\n"
+        "Answer in the language of the greeting.\n"
+        f"{ambiguous_language_rule(target_locale, prev_questions)}"
+    )
+
+
+def aia_greeting_user_message(context: str, greeting: str) -> str:
+    """Nutzer-Nachricht des Grusses: die Quellen sind nur da, damit er die Themen kennt."""
+    return (
+        "The documents below are there ONLY so you can name their topics. Do not answer "
+        "from them.\n\n"
+        f"{context}\n\nThe user wrote: {greeting}"
+    )
+
+
 def aia_rag_user_message(
     context: str, question: str, prev_questions: list[str] | None = None
 ) -> str:
