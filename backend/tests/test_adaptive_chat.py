@@ -170,38 +170,10 @@ def test_sources_guard_is_the_last_thing_the_model_reads():
     assert "BEHAVIOUR TEXT" in sealed
 
 
-def test_guard_holds_without_an_adaptive_block():
-    """The sources rule does not depend on the Fachsprachentrainer being on.
-
-    It used to be skipped without an adaptive block, on the theory that the system
-    prompt refuses on its own. It does not: with the trainer off the tutor still
-    invented a grammar lesson its sources never contained (2026-07-29)."""
-    from src.services.aia_adaptive_chat import seal_adaptive_suffix, ADAPTIVE_SOURCES_GUARD
-    assert seal_adaptive_suffix("").endswith(ADAPTIVE_SOURCES_GUARD)
-
-
-def test_guard_laesst_genau_einen_hinweis_auf_verwandtes_zu():
-    """Die Sperre darf den Hinweis auf etwas Verwandtes nicht mehr verbieten.
-
-    Sie stand am Ende der Nutzer-Nachricht und sagte woertlich, die GANZE Antwort
-    sei der eine Absage-Satz, davor und danach nichts. Damit hat sie die Regel im
-    Systemprompt ueberstimmt, und auf "wann ist die Klausur" kam die blanke
-    Absage, obwohl die Hausarbeit als Pruefungsleistung im Kontext stand
-    (gemessen 14.08.2026). Neu: genau EIN Satz aus den Quellen darf folgen.
-
-    Was die Sperre weiterhin verbietet, bleibt Wort fuer Wort verboten: eigenes
-    Wissen, Begruendungen, Vorschlaege, Hilfsangebote.
-    """
-    from src.services.aia_adaptive_chat import ADAPTIVE_SOURCES_GUARD
-    g = ADAPTIVE_SOURCES_GUARD
-    # Der Hinweis ist ausdruecklich erlaubt und auf einen Satz begrenzt.
-    assert "ONE sentence" in g
-    assert "closely related" in g
-    # Und er kommt aus den Quellen, nie aus eigenem Wissen.
-    assert "own knowledge" in g
-    # Das Gefaess bleibt zu: keine Angebote, keine Begruendungen.
-    assert "offer to help" in g
-    assert "no explanation of why" in g
+# ENTFALLEN am 2026-08-19: der Guard geht nur noch mit dem Sprachtrainer raus, und er
+# beschreibt keine Antwortform mehr. Beides regelt jetzt der Hauptprompt allein. Der
+# alte Anlass, Erfinden ohne Trainer am 2026-07-29, lief gegen den alten Hauptprompt
+# ohne eigenen Abschnitt fuer fehlende Information.
 
 
 def test_sources_guard_cannot_be_deleted_by_an_admin_edit():

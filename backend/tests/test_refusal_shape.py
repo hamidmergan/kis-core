@@ -55,20 +55,11 @@ def test_prompt_keeps_the_alone_shape_for_a_subject_that_is_absent():
     assert "Nothing related at all: that opening stands alone." in aia_system_rag("de")
 
 
-def test_guard_agrees_with_the_prompt_on_the_order():
-    """Die Wach-Regel haengt IMMER hinten dran und wird darum zuletzt gelesen.
-
-    Sie schrieb die alte Reihenfolge woertlich vor. Solange das so war, brach der
-    Fall "nur genannt" auf 1/5 ein und das Modell schrieb mitten in einer deutschen
-    Antwort das englische Fragment 'not in the provided sources'."""
-    assert "Never open with a bare refusal" in ADAPTIVE_SOURCES_GUARD
-    assert "gap sentence stands alone" in ADAPTIVE_SOURCES_GUARD
-    assert "never a denial of what you just wrote" in ADAPTIVE_SOURCES_GUARD
-    assert "'not in the provided sources' sentence" not in ADAPTIVE_SOURCES_GUARD
-
-
-def test_guard_forbids_a_gap_sentence_after_a_real_answer():
-    assert "append NO gap sentence" in ADAPTIVE_SOURCES_GUARD
+def test_guard_beschreibt_keine_antwortform_mehr():
+    """Die Form steht nur noch im Hauptprompt, sonst widersprechen sich beide."""
+    for satz in ("gap sentence", "Never open with a bare refusal", "goes last"):
+        assert satz not in ADAPTIVE_SOURCES_GUARD
+    assert "decided by the system prompt alone" in ADAPTIVE_SOURCES_GUARD
 
 
 # ── Schnellpfad: nur die alleinstehende Absage ist eine reine Absage ─────────

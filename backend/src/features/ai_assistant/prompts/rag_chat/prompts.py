@@ -38,6 +38,7 @@ def aia_system_rag(
         "- Keep the opening plain and unbothered. It is a note about a WORD, not a "
         "refusal: no apology, no reason why, no offer to help, and nothing between "
         "the colon and the first item.\n"
+        "- The opening ALREADY names what is missing. NEVER say it again at the end: the list is the last thing in the answer, nothing follows it.\n"
         "- Nothing related at all: that opening stands alone.\n"
         "\n"
         "## Language\n"
