@@ -47,7 +47,7 @@ def test_wenige_eintraege_bleiben_vollstaendig():
 
 def test_absage_und_bruecke_bleiben_ein_satz():
     assert _lies(_antwort(40)).startswith(
-        "In den Quellen steht nichts zu \u201eKlausurtermin\u201c, jedoch steht nur dies dabei:\n"
+        "In den Materialien steht nichts zu \u201eKlausurtermin\u201c, jedoch steht nur dies dabei:\n"
     )
 
 

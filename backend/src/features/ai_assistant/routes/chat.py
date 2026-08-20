@@ -355,7 +355,7 @@ def _retrieve_time_scoped_context(source_id: int, ranges_seconds: list[tuple]) -
 # anders formuliert als der Absage-Satz: der meldet eine echte inhaltliche Luecke,
 # dieser hier nur, dass genau diese Einschraenkung nicht geht.
 _SCOPE_UNFULFILLABLE_MSG = {
-    "de": "Dabei kann ich dir leider nicht weiterhelfen. Bitte formuliere deine Frage anders oder wähle die passende Quelle aus.",
+    "de": "Dabei kann ich dir leider nicht weiterhelfen. Bitte formuliere deine Frage anders oder wähle das passende Material aus.",
     "en": "I'm afraid I can't help with that. Please rephrase your question or select the relevant source.",
 }
 

@@ -731,7 +731,7 @@
         "label": "KI-Assistent",
         "sub": "Der Assistent im Modul.",
         "sources": {
-          "label": "Quellen",
+          "label": "Materialien",
           "sub": "Was hochgeladen werden darf, wie es eingelesen wird und wie viel davon in eine Anfrage geht."
         },
         "level": {
@@ -899,7 +899,7 @@
       "summaryExercises": "Übungen ({days}T)",
       "summaryChat": "Chat ({days}T)",
       "colCreator": "Ersteller",
-      "colSources": "Quellen",
+      "colSources": "Materialien",
       "colParticipants": "Teilnehmer",
       "colExercises": "Übungen",
       "colChat": "Chat",
@@ -1166,7 +1166,7 @@
       "ocrMasterLabel": "OCR aktiviert (Master-Schalter)",
       "ocrMasterOn": "Seiten mit großen eingebetteten Bildern werden an das Vision-Modell gesendet.",
       "ocrMasterOff": "Deaktiviert - PDF-Seiten mit Screenshots/Scans werden nicht transkribiert.",
-      "ocrMasterWarning": "Achtung: mit Docling dauert jede OCR-Seite ~7 Sekunden (mit THL myLab chandra: 30-70 Sekunden). Ein gescanntes 300-Seiten-Dokument kann 30+ Minuten brauchen. Deaktivieren wenn deine Quellen überwiegend Text sind.",
+      "ocrMasterWarning": "Achtung: mit Docling dauert jede OCR-Seite ~7 Sekunden (mit THL myLab chandra: 30-70 Sekunden). Ein gescanntes 300-Seiten-Dokument kann 30+ Minuten brauchen. Deaktivieren wenn deine Materialien überwiegend Text sind.",
       "embeddingTitle": "Embeddings (KI-Assistent)",
       "embeddingHint": "Nur ein Anbieter gleichzeitig - Wechsel erfordert Reindex (siehe unten).",
       "llmTitle": "LLM Chat",
@@ -1205,7 +1205,7 @@
     },
     "reindexCard": {
       "staleNotice": "<strong>Hinweis:</strong> {n} {label} {n, plural, =1 {wurde} other {wurden}} mit einem anderen Embedding-Modell indexiert. Chat-Suche kann fehlschlagen, bis du unten \"Reindex starten\" ausführst.",
-      "title": "Alle Quellen neu indexieren",
+      "title": "Alle Materialien neu indexieren",
       "description": "Berechnet alle Embeddings mit dem aktuellen Anbieter neu. Chips, Notes und Tools bleiben gültig (gleiche UUIDs). Nötig nach Wechsel des Embedding-Modells.",
       "running": "Läuft: {current}",
       "progressCount": "{done}/{total} ({pct}%)",
@@ -1219,8 +1219,8 @@
     },
     "languageTrainerCard": {
       "title": "Sprachtrainer",
-      "description": "Der Sprachtrainer ist ein Übungsbereich im Studio für alle, die dem Kurs in einer Fremdsprache folgen. Er enthält Lernkarten für Fachbegriffe und eine Grammatik-Übung, jeweils aus den Quellen des Workspace gebaut. Ist er eingeschaltet, wird der Sprachstand einmalig eingestuft, und Chat-Antworten sowie Aufgaben werden auf dieses Niveau angepasst.",
-      "active": "Aktiv. Eigentümer und Tutoren entscheiden in den Workspace-Einstellungen, ob ihr Kurs den Sprachtrainer anbietet. Sie brauchen dafür passende Quellen zur Grammatik der Kurssprache.",
+      "description": "Der Sprachtrainer ist ein Übungsbereich im Studio für alle, die dem Kurs in einer Fremdsprache folgen. Er enthält Lernkarten für Fachbegriffe und eine Grammatik-Übung, jeweils aus den Materialien des Workspace gebaut. Ist er eingeschaltet, wird der Sprachstand einmalig eingestuft, und Chat-Antworten sowie Aufgaben werden auf dieses Niveau angepasst.",
+      "active": "Aktiv. Eigentümer und Tutoren entscheiden in den Workspace-Einstellungen, ob ihr Kurs den Sprachtrainer anbietet. Sie brauchen dafür passende Materialien zur Grammatik der Kurssprache.",
       "disabled": "Aus. Der Sprachtrainer taucht nirgendwo auf. Bereits getroffene Entscheidungen bleiben gespeichert und gelten wieder, sobald du hier einschaltest.",
       "toggleAria": "Sprachtrainer umschalten"
     },
@@ -1314,9 +1314,9 @@
       "description": "Prompt-Texte für Test, Chat und Werkzeuge. Nur anfassen, wenn du weißt, was du tust."
     },
     "workspaceLimitsCard": {
-      "title": "Maximale Quellen pro {label}",
+      "title": "Maximale Materialien pro {label}",
       "hint": "Wie viele Dokumente Nutzer pro {label} hochladen dürfen. Greift sofort für neue Uploads.",
-      "unit": "Quellen",
+      "unit": "Materialien",
       "outOfRange": "Wert muss zwischen 1 und 1000 liegen.",
       "saveFailed": "Speichern fehlgeschlagen."
     },
@@ -1332,7 +1332,7 @@
     },
     "contextBudgetCard": {
       "title": "KI-Tutor Kontext-Budget",
-      "hint": "Wie viel Quelltext (in Zeichen) der KI-Tutor pro Frage ins Modell gibt. Default 60000 ist für kleine Modelle (32k) sicher. Passt eine ausgewählte Quelle komplett ins Budget, wird sie bei Übersichtsfragen ganz statt nur als Auszug gesendet. Höher setzen nur, wenn ausschließlich Modelle mit großem Kontext laufen.",
+      "hint": "Wie viel Text aus den Materialien (in Zeichen) der KI-Tutor pro Frage ins Modell gibt. Default 60000 ist für kleine Modelle (32k) sicher. Passt ein ausgewähltes Material komplett ins Budget, wird es bei Übersichtsfragen ganz statt nur als Auszug gesendet. Höher setzen nur, wenn ausschließlich Modelle mit großem Kontext laufen.",
       "unit": "Zeichen",
       "approxTokens": "≈ {n}k Token",
       "outOfRange": "Wert muss zwischen 1000 und 500000 liegen.",
@@ -1340,7 +1340,7 @@
     },
     "toolContextBudgetCard": {
       "title": "Tools Kontext-Budget",
-      "hint": "Wie viel Quelltext (in Zeichen) die Lern-Tools (Mindmap, Datentabelle, Quiz, Lernkarte, Grammatik-Übung, Karteikarten) ins Modell geben. Getrennt vom Chat-Budget, weil ein Tool ein ganzes Dokument in einem Aufruf verarbeitet. Der Wert wird durch die Anzahl der ausgewählten Quellen geteilt. Default 250000 ist für mittlere Modelle sicher. Höher setzen (z.B. 450000 oder 900000) nur, wenn ein Modell mit großem Kontext läuft.",
+      "hint": "Wie viel Text aus den Materialien (in Zeichen) die Lern-Tools (Mindmap, Datentabelle, Quiz, Lernkarte, Grammatik-Übung, Karteikarten) ins Modell geben. Getrennt vom Chat-Budget, weil ein Tool ein ganzes Dokument in einem Aufruf verarbeitet. Der Wert wird durch die Anzahl der ausgewählten Materialien geteilt. Default 250000 ist für mittlere Modelle sicher. Höher setzen (z.B. 450000 oder 900000) nur, wenn ein Modell mit großem Kontext läuft.",
       "unit": "Zeichen",
       "approxTokens": "≈ {n}k Token",
       "outOfRange": "Wert muss zwischen 1000 und 1000000 liegen.",
@@ -1355,8 +1355,8 @@
       "saveFailed": "Speichern fehlgeschlagen."
     },
     "sourceMaxPagesCard": {
-      "title": "Maximale Seiten pro Quelle",
-      "hint": "Wie viele Seiten ein hochgeladenes Dokument (PDF/DOCX/PPTX) maximal haben darf. Größere werden abgelehnt – lange Skripte bitte kapitelweise hochladen. Default 100: so bleibt jede Quelle klein genug für einen vollständigen Überblick. Medien (mp3/mp4) sind nicht betroffen.",
+      "title": "Maximale Seiten pro Material",
+      "hint": "Wie viele Seiten ein hochgeladenes Dokument (PDF/DOCX/PPTX) maximal haben darf. Größere werden abgelehnt – lange Skripte bitte kapitelweise hochladen. Default 100: so bleibt jedes Material klein genug für einen vollständigen Überblick. Medien (mp3/mp4) sind nicht betroffen.",
       "unit": "Seiten",
       "outOfRange": "Wert muss zwischen 1 und 2000 liegen.",
       "saveFailed": "Speichern fehlgeschlagen."
@@ -1485,7 +1485,7 @@
           "stats": "Statistik der Werkzeuge"
         },
         "assistent": {
-          "sources": "Quellen und Kontext-Budgets",
+          "sources": "Materialien und Kontext-Budgets",
           "level": "Sprachniveau und KI-Verhalten, also die Prompts",
           "usage": "Nutzung des KI-Assistenten"
         },
@@ -1721,24 +1721,24 @@
           "hintFrom": "Tipp von {name}:",
           "hintHide": "Tipp ausblenden",
           "learnMore": "Mehr erfahren",
-          "sourcesToggle": "{count, plural, =1 {1 Quelle} other {# Quellen}}",
+          "sourcesToggle": "{count, plural, =1 {1 Material} other {# Materialien}}",
           "rename": "Umbenennen",
           "renameFailed": "Umbenennen fehlgeschlagen."
         },
         "sourceStatus": {
-          "none": "Keine Quelle ausgewählt",
-          "one": "1 Quelle ausgewählt",
-          "few": "{count} Quellen ausgewählt",
-          "many": "{count} Quellen vorhanden, es werden maximal 5 berücksichtigt"
+          "none": "Kein Material ausgewählt",
+          "one": "1 Material ausgewählt",
+          "few": "{count} Materialien ausgewählt",
+          "many": "{count} Materialien vorhanden, es werden maximal 5 berücksichtigt"
         },
         "createModal": {
           "title": "{tool} erstellen",
-          "sourceHeading": "Quelle",
+          "sourceHeading": "Material",
           "fromGlossary": "Aus Glossar",
           "glossaryTermsCount": "({count} Begriffe)",
-          "fromSelectedSource": "{count, plural, =0 {Aus ausgewählter Quelle} =1 {Aus ausgewählter Quelle} other {Aus ausgewählten Quellen}}",
-          "selectedSourcesCount": "{count} Quellen",
-          "noSourceHint": "Wähle links eine Quelle aus, um aus ihr zu generieren.",
+          "fromSelectedSource": "{count, plural, =0 {Aus ausgewähltem Material} =1 {Aus ausgewähltem Material} other {Aus ausgewählten Materialien}}",
+          "selectedSourcesCount": "{count} Materialien",
+          "noSourceHint": "Wähle links ein Material aus, um daraus zu generieren.",
           "countHeading": "Anzahl",
           "grammarTypeHeading": "Thema",
           "formatHeading": "Aufgabenformat",
@@ -1757,11 +1757,11 @@
           "flashcardSetHeading": "Lernkarten-Satz"
         },
         "exerciseSets": {
-          "emptyText": "Wähle Quellen aus und drücke auf Erstellen.",
+          "emptyText": "Wähle Materialien aus und drücke auf Erstellen.",
           "createButton": "Erstellen ({current}/{max})",
           "exercisesCount": "{count, plural, =1 {1 Übung} other {# Übungen}}",
           "cardsCount": "{count, plural, =1 {1 Karte} other {# Karten}}",
-          "sourcesCount": "{count, plural, =1 {1 Quelle} other {# Quellen}}",
+          "sourcesCount": "{count, plural, =1 {1 Material} other {# Materialien}}",
           "modeLabel": "{mode}",
           "modeGlossary": "Glossar",
           "modeQuiz": "Quiz",
@@ -1920,7 +1920,7 @@
         "hideHeader": "Header ausblenden"
       },
       "panels": {
-        "sources": "Quellen",
+        "sources": "Materialien",
         "chat": "Chat",
         "studio": "Studio",
         "minimize": "Panel minimieren"
@@ -1941,19 +1941,19 @@
         "languageTrainingPersonalTitle": "Sprachtrainer",
         "languageTrainingPersonalDescription": "Blendet den Sprachtrainer für dich ein, mit Lernkarten und Grammatik-Übung. Beim Einschalten wirst du einmalig eingestuft, wenn du noch kein Sprachniveau hast. Gilt nur für dich und nur in diesem Workspace.",
         "languageTrainingTitle": "Sprachtrainer",
-        "languageTrainingDescription": "Gibt den Sprachtrainer im Workspace frei, mit Lernkarten und Grammatik-Übung. Danach entscheidet jede Person in ihren eigenen Einstellungen, ob sie ihn nutzt. Alle Übungen werden aus den Quellen dieses Workspace gebaut. Dafür müssen passende Quellen zur Grammatik der Kurssprache hochgeladen sein, sonst sind die Übungen unbrauchbar. Gib das nur frei, wenn du weißt, welche Quellen hier liegen.",
+        "languageTrainingDescription": "Gibt den Sprachtrainer im Workspace frei, mit Lernkarten und Grammatik-Übung. Danach entscheidet jede Person in ihren eigenen Einstellungen, ob sie ihn nutzt. Alle Übungen werden aus den Materialien dieses Workspace gebaut. Dafür müssen passende Materialien zur Grammatik der Kurssprache hochgeladen sein, sonst sind die Übungen unbrauchbar. Gib das nur frei, wenn du weißt, welche Materialien hier liegen.",
         "translationModeTitle": "Übersetzung der Transkripte",
-        "translationModeDescription": "Übersetzt Untertitel von Audio-/Video-Quellen in die unten gewählte Zielsprache. Die Quellsprache wird automatisch erkannt. Studierende können im Transkript-Panel zwischen Original und Übersetzung umschalten. Die Übersetzung läuft als Hintergrund-Job und kann ein paar Minuten dauern.",
+        "translationModeDescription": "Übersetzt Untertitel von Audio-/Video-Materialien in die unten gewählte Zielsprache. Die Quellsprache wird automatisch erkannt. Studierende können im Transkript-Panel zwischen Original und Übersetzung umschalten. Die Übersetzung läuft als Hintergrund-Job und kann ein paar Minuten dauern.",
         "translationModeOff": "Aus",
-        "translationModeAuto": "Automatisch, sobald die Quelle fertig ist",
+        "translationModeAuto": "Automatisch, sobald das Material fertig ist",
         "translationModeManual": "Manuell (per Klick)",
         "translationModeOffHint": "Es werden keine Übersetzungen erstellt.",
-        "translationModeAutoHint": "Sobald eine Quelle fertig verarbeitet ist, startet die Übersetzung automatisch.",
+        "translationModeAutoHint": "Sobald ein Material fertig verarbeitet ist, startet die Übersetzung automatisch.",
         "translationModeManualHint": "Übersetzung erst per Klick im Transkript-Panel (Standard).",
         "transcriptTargetLangTitle": "Zielsprache der Übersetzung",
         "transcriptTargetLangDescription": "In welche Sprache Transkripte übersetzt werden. Die Quellsprache erkennt das System automatisch. Es wird immer in genau eine Sprache übersetzt.",
         "transcriptDefaultLangTitle": "Standard-Ansicht im Transkript",
-        "transcriptDefaultLangDescription": "Welche Spur beim Öffnen einer Audio-/Video-Quelle vorausgewählt ist. Studierende können im Transkript-Panel jederzeit umschalten.",
+        "transcriptDefaultLangDescription": "Welche Spur beim Öffnen eines Audio-/Video-Materials vorausgewählt ist. Studierende können im Transkript-Panel jederzeit umschalten.",
         "transcriptDefaultLangSource": "Original",
         "transcriptDefaultLangTarget": "Übersetzung",
         "transcriptDefaultLangBoth": "Beide",
@@ -1971,13 +1971,13 @@
         "stop": "Stoppen",
         "clearInput": "Eingabe löschen",
         "inputPlaceholder": "Text eingeben…",
-        "sourcesActive": "{n, plural, =1 {1 Quelle aktiv} other {# Quellen aktiv}}",
+        "sourcesActive": "{n, plural, =1 {1 Material aktiv} other {# Materialien aktiv}}",
         "scrollToTop": "Nach oben scrollen",
         "scrollToBottom": "Nach unten scrollen",
         "aiNotice": "Diese Plattform nutzt KI und kann Fehler machen. Überprüfen Sie die Antworten.",
         "emptyHildeGreeting": "Hallo, ich bin Hilde.",
         "emptyFrancisGreeting": "Hallo, ich bin Francis.",
-        "emptyHildeIntro": "Frag mich was zu deinen Quellen - ich helfe dir beim Verstehen, Zusammenfassen und Wiederholen.",
+        "emptyHildeIntro": "Frag mich was zu deinen Materialien - ich helfe dir beim Verstehen, Zusammenfassen und Wiederholen.",
         "emptyPromptOverview": "Gib mir einen Überblick über den Inhalt.",
         "emptyPromptSummary": "Fasse die wichtigsten Punkte zusammen.",
         "emptyPromptTerms": "Erkläre zentrale Begriffe kurz und verständlich.",
@@ -1988,13 +1988,13 @@
         "noAnswer": "(keine Antwort)",
         "aborted": "Abgebrochen",
         "retry": "Erneut versuchen",
-        "showAllCitations": "Alle Quellenangaben einblenden",
-        "hideAllCitations": "Alle Quellenangaben ausblenden",
+        "showAllCitations": "Alle Belege einblenden",
+        "hideAllCitations": "Alle Belege ausblenden",
         "copy": "Kopieren",
         "saveAsNote": "Als Notiz speichern",
         "expand": "Mehr anzeigen",
         "collapse": "Einklappen",
-        "sourcesCount": "{n, plural, =1 {1 Quelle} other {# Quellen}}",
+        "sourcesCount": "{n, plural, =1 {1 Material} other {# Materialien}}",
         "indexingInProgress": "{label} wird noch indiziert. Bitte warte einen Moment und versuche es erneut.",
         "tooManyRequests": "Zu viele Anfragen. Bitte einen Moment warten und erneut senden.",
         "genericError": "Es ist ein Fehler aufgetreten.",
@@ -2002,32 +2002,32 @@
         "translateFailed": "Diese Passage konnte nicht übersetzt werden."
       },
       "sources": {
-        "title": "Quellen",
-        "addSources": "Quellen hinzufügen",
+        "title": "Materialien",
+        "addSources": "Materialien hinzufügen",
         "uploadingMulti": "Datei {current}/{total} – {percent}%",
         "uploadingSingle": "Hochladen… {percent}%",
         "selectAll": "Alle auswählen",
         "deselectAll": "Alle abwählen",
-        "selectSource": "Quelle auswählen",
-        "deselectSource": "Quelle abwählen",
-        "stillProcessing": "Quelle wird noch verarbeitet",
+        "selectSource": "Material auswählen",
+        "deselectSource": "Material abwählen",
+        "stillProcessing": "Material wird noch verarbeitet",
         "openInViewer": "Im Viewer öffnen",
         "indexingFailed": "Indizierung fehlgeschlagen",
         "retry": "Erneut versuchen",
         "ocrIncompleteShort": "Texterkennung unvollständig, {open} Seiten offen",
         "ocrWasOffShort": "Texterkennung war aus, {open} Seiten offen",
-        "ocrIncomplete": "{done} Seiten wurden gelesen, {open} nicht. Die Quelle lässt sich trotzdem nutzen.",
-        "ocrWasOff": "{open} Seiten mit Bildern wurden nicht gelesen. Die Quelle lässt sich trotzdem nutzen.",
+        "ocrIncomplete": "{done} Seiten wurden gelesen, {open} nicht. Das Material lässt sich trotzdem nutzen.",
+        "ocrWasOff": "{open} Seiten mit Bildern wurden nicht gelesen. Das Material lässt sich trotzdem nutzen.",
         "ocrCatchUp": "Texterkennung nachholen",
         "options": "Optionen",
         "delete": "Löschen",
         "rename": "Umbenennen",
-        "renamePlaceholder": "Name der Quelle",
+        "renamePlaceholder": "Name des Materials",
         "renameFailed": "Umbenennen fehlgeschlagen.",
         "emptyHint": "Dateien hier ablegen oder oben auf das Plus tippen",
-        "deleteTitle": "Quelle löschen?",
-        "deleteFallback": "Quelle",
-        "deleteWarning": "Die Quelle wird vollständig entfernt und kann nicht wiederhergestellt werden.",
+        "deleteTitle": "Material löschen?",
+        "deleteFallback": "Material",
+        "deleteWarning": "Das Material wird vollständig entfernt und kann nicht wiederhergestellt werden.",
         "cancel": "Abbrechen",
         "addChapter": "Kapitel anlegen",
         "chapterNamePlaceholder": "Name des Kapitels",
@@ -2046,7 +2046,7 @@
         "deleteChapterTitle": "Kapitel löschen?",
         "deleteChapterWarning": "Die Dateien bleiben erhalten und stehen danach ohne Kapitel.",
         "dropHere": "Dateien hier ablegen",
-        "emptyHintStudent": "Noch keine Quellen vorhanden.",
+        "emptyHintStudent": "Noch keine Materialien vorhanden.",
         "selectChapter": "Kapitel auswählen",
         "deselectChapter": "Kapitel abwählen",
         "progressStage": {
@@ -2135,7 +2135,7 @@
       "studio": {
         "panelTitle": "Studio",
         "minimizePanel": "Panel minimieren",
-        "sourcesToggle": "{count, plural, =1 {1 Quelle} other {# Quellen}}",
+        "sourcesToggle": "{count, plural, =1 {1 Material} other {# Materialien}}",
         "tabs": {
           "tools": "Tools",
           "glossary": "Glossar",
@@ -2157,13 +2157,13 @@
           "grammar": "Grammatikübungen"
         },
         "tileDescriptions": {
-          "karteikarten": "Karten mit Frage und Antwort aus den ausgewählten Quellen erstellen",
-          "quiz": "Quiz zum Ankreuzen aus den ausgewählten Quellen erstellen",
-          "dataTable": "Fakten aus den ausgewählten Quellen in einer Tabelle sammeln",
-          "mindmap": "Die Themen der ausgewählten Quellen als Baum darstellen",
-          "lernkarten": "Fachwörter aus den ausgewählten Quellen mit Grundform und Beispiel erklären",
-          "grammar": "Sätze aus den ausgewählten Quellen nach einem Muster umformen",
-          "vocabulary": "Einen Text aus den ausgewählten Quellen schreiben lassen, in dem die Fachbegriffe fehlen"
+          "karteikarten": "Karten mit Frage und Antwort aus den ausgewählten Materialien erstellen",
+          "quiz": "Quiz zum Ankreuzen aus den ausgewählten Materialien erstellen",
+          "dataTable": "Fakten aus den ausgewählten Materialien in einer Tabelle sammeln",
+          "mindmap": "Die Themen der ausgewählten Materialien als Baum darstellen",
+          "lernkarten": "Fachwörter aus den ausgewählten Materialien mit Grundform und Beispiel erklären",
+          "grammar": "Sätze aus den ausgewählten Materialien nach einem Muster umformen",
+          "vocabulary": "Einen Text aus den ausgewählten Materialien schreiben lassen, in dem die Fachbegriffe fehlen"
         },
         "recent": {
           "heading": "Letzte Aktivitäten",
@@ -2175,10 +2175,10 @@
           "daysAgo": "vor {n} Tagen"
         },
         "sources": {
-          "none": "Keine Quelle ausgewählt",
-          "one": "1 Quelle ausgewählt",
-          "few": "{n} Quellen ausgewählt",
-          "tooMany": "{n} Quellen vorhanden, es werden maximal 5 berücksichtigt"
+          "none": "Kein Material ausgewählt",
+          "one": "1 Material ausgewählt",
+          "few": "{n} Materialien ausgewählt",
+          "tooMany": "{n} Materialien vorhanden, es werden maximal 5 berücksichtigt"
         },
         "generate": {
           "create": "Erstellen",
@@ -2188,18 +2188,18 @@
         "dataTable": {
           "title": "Datentabelle",
           "fallbackTitle": "Datentabelle",
-          "emptyHint": "Wähle Quellen aus und drücke auf Erstellen.",
+          "emptyHint": "Wähle Materialien aus und drücke auf Erstellen.",
           "countOne": "Datentabelle",
           "countMany": "Datentabellen",
           "loadingViewer": "Datentabelle wird generiert…",
-          "basedOn": "{n, plural, =1 {Basierend auf 1 Quelle} other {Basierend auf # Quellen}}",
-          "sourceCol": "Quelle",
+          "basedOn": "{n, plural, =1 {Basierend auf 1 Material} other {Basierend auf # Materialien}}",
+          "sourceCol": "Material",
           "pageLabel": "S. {page}"
         },
         "mindmap": {
           "title": "Mindmap",
           "fallbackTopic": "Mindmap",
-          "emptyHint": "Wähle Quellen aus und drücke auf Erstellen.",
+          "emptyHint": "Wähle Materialien aus und drücke auf Erstellen.",
           "countOne": "Mindmap",
           "countMany": "Mindmaps",
           "loadingViewer": "Mindmap wird generiert…",
@@ -2225,8 +2225,8 @@
         },
         "schedule": {
           "selection": {
-            "noSources": "Keine Quellen vorhanden",
-            "noSelection": "Keine Quelle ausgewählt",
+            "noSources": "Keine Materialien vorhanden",
+            "noSelection": "Kein Material ausgewählt",
             "allProcessed": "{n} ausgewählt · alle bereits verarbeitet",
             "pendingOnly": "{n} ausgewählt · nicht verarbeitet",
             "mixed": "{pending} neu · {processed} bereits verarbeitet"
@@ -2246,10 +2246,10 @@
           "newEntry": "Neuer Eintrag",
           "deleteAll": "Alles löschen",
           "loading": "Lade Zeitplan...",
-          "empty": "Noch keine Einträge. Wähle Quellen links aus und generiere, oder erstelle manuelle Einträge.",
+          "empty": "Noch keine Einträge. Wähle Materialien links aus und generiere, oder erstelle manuelle Einträge.",
           "confirmDeleteAll": {
             "title": "Zeitplan komplett löschen?",
-            "body": "Alle Einträge werden gelöscht und alle Quellen werden wieder generierbar. Diese Aktion kann nicht rückgängig gemacht werden.",
+            "body": "Alle Einträge werden gelöscht und alle Materialien werden wieder generierbar. Diese Aktion kann nicht rückgängig gemacht werden.",
             "cancel": "Abbrechen",
             "confirm": "Alles löschen"
           },
@@ -2341,13 +2341,13 @@
       "deactivate": "{label} deaktivieren",
       "active": "Aktiv",
       "inactive": "Inaktiv",
-      "sourcesCount": "{n} Quellen",
+      "sourcesCount": "{n} Materialien",
       "linksCount": "{n} Links",
       "maxLinksReached": "Maximal {n} Einschreibelinks erreicht. Lösche einen alten Link, um einen neuen zu erstellen.",
       "linksTitle": "Einschreibelinks",
       "noLinks": "Noch kein Einschreibelink vorhanden.",
       "newLink": "Neuer Link",
-      "colSources": "Quellen",
+      "colSources": "Materialien",
       "colLinks": "Links",
       "colStatus": "Status",
       "statusHelp": "Aktiv: Studierende können sich über Zugangslinks einschreiben und die Inhalte nutzen. Inaktiv: für Studierende gesperrt. Bestehende Einschreibungen bleiben erhalten.",

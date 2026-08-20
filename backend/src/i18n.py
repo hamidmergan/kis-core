@@ -274,7 +274,7 @@ MESSAGES: dict[str, dict[str, str]] = {
         "en": "Hourly limit reached ({limit} uploads per hour). Try again in ~{minutes} min.",
     },
     "admin.settings.maxSourcesOutOfRange": {
-        "de": "Quellen-Limit muss zwischen {min} und {max} liegen.",
+        "de": "Materialien-Limit muss zwischen {min} und {max} liegen.",
         "en": "Source limit must be between {min} and {max}.",
     },
     "admin.settings.contextBudgetOutOfRange": {
@@ -290,7 +290,7 @@ MESSAGES: dict[str, dict[str, str]] = {
         "en": "Summary batch must be between {min} and {max} characters.",
     },
     "admin.settings.maxPagesOutOfRange": {
-        "de": "Maximale Seiten pro Quelle muss zwischen {min} und {max} liegen.",
+        "de": "Maximale Seiten pro Material muss zwischen {min} und {max} liegen.",
         "en": "Max pages per source must be between {min} and {max}.",
     },
     "admin.settings.flashcardVoiceProviderInvalid": {

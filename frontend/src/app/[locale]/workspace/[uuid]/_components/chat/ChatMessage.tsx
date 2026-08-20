@@ -31,7 +31,7 @@ const POPUP_ACTION_ICONS: Record<string, PhosphorIconType> = {
 // Ohne sie schaut Francis zufrieden, obwohl er die eigentliche Frage nicht beantworten
 // konnte. Der Rest bleibt für alte Antworten aus dem Chatverlauf stehen.
 // Siehe RAG_NO_INFO_PATTERNS in backend/src/tool_prompts.py.
-const SORRY_PATTERN = /nichts gefunden|keine information|in den quellen nicht enthalten|nicht in den (?:bereitgestellten |angegebenen )?quellen|kann ich nicht beantworten|steht nicht in den|not in the (?:provided |given )?sources?|no information (?:found|available|in)|could(?:n['']t| not) find|cannot find|is not (?:in|available in|contained in) (?:the )?sources?|stehe?n nicht in den quellen|(?:is|are) not in the sources/i;
+const SORRY_PATTERN = /nichts gefunden|keine information|in den (?:quellen|materialien) nicht enthalten|nicht in den (?:bereitgestellten |angegebenen )?(?:quellen|materialien)|kann ich nicht beantworten|steht nicht in den|not in the (?:provided |given )?sources?|no information (?:found|available|in)|could(?:n['']t| not) find|cannot find|is not (?:in|available in|contained in) (?:the )?sources?|stehe?n nicht in den (?:quellen|materialien)|(?:is|are) not in the sources/i;
 
 // Translate popup may fail silently in two ways: LLM echoes the input verbatim, or
 // it follows the (now-removed but legacy) "no personal names" rule and outputs a
@@ -46,7 +46,7 @@ function _isTranslateNoop(output: string, input: string | undefined): boolean {
   if (!out) return false;
   const inp = _normalizeForCompare(input);
   if (out === inp) return true;
-  return /^(laut quelle|according to the source)\b/.test(out);
+  return /^(laut quelle|laut material|according to the source)\b/.test(out);
 }
 
 

@@ -24,7 +24,7 @@ def _antwort(gap: str, bridge: str, items: str = '{"term": "T", "text": "S."}') 
 
 def test_nackter_begriff_wird_zum_satz():
     text = _lies(_antwort("Folien", "jedoch wird die Präsentation übertragen"))
-    assert text.startswith("In den Quellen steht nichts zu „Folien“, jedoch wird")
+    assert text.startswith("In den Materialien steht nichts zu „Folien“, jedoch wird")
 
 
 def test_ganzer_satz_bleibt_wie_er_ist():
@@ -35,12 +35,12 @@ def test_ganzer_satz_bleibt_wie_er_ist():
 
 def test_begriff_mit_eigenen_anfuehrungszeichen_wird_nicht_doppelt_gerahmt():
     text = _lies(_antwort("„Folien“", "jedoch wird die Präsentation übertragen"))
-    assert text.startswith("In den Quellen steht nichts zu „Folien“, jedoch")
+    assert text.startswith("In den Materialien steht nichts zu „Folien“, jedoch")
 
 
 def test_kurze_wortgruppe_zaehlt_auch_als_begriff():
     text = _lies(_antwort("der genaue Klausurtermin", "jedoch steht ein Zeitraum dabei"))
-    assert text.startswith("In den Quellen steht nichts zu „der genaue Klausurtermin“,")
+    assert text.startswith("In den Materialien steht nichts zu „der genaue Klausurtermin“,")
 
 
 # -- Die Sprache haengt an der Bruecke, nicht an der Oberflaeche -----------------
@@ -70,7 +70,7 @@ def test_vorhandener_doppelpunkt_bleibt_einfach():
 
 def test_absage_ohne_bruecke_endet_mit_punkt():
     roh = '{"gap": "Folien", "bridge": null, "items": [], "body": ""}'
-    assert _lies(roh).startswith("In den Quellen steht nichts zu „Folien“.\n\n")
+    assert _lies(roh).startswith("In den Materialien steht nichts zu „Folien“.\n\n")
 
 
 # -- chat.py findet die Absage-Zeile nur ueber diesen Text ----------------------

@@ -35,7 +35,7 @@ _SOURCE_RULE = (
     "- For every question, include source_label and page_number, the source/page the content came from.\n"
 )
 _PERSONAL_RULE = (
-    "IMPORTANT:\n- Do NOT use personal names in questions. Instead of 'laut Prof. X', write 'laut Quelle' (German) or 'according to the source' (English), matching the output language.\n"
+    "IMPORTANT:\n- Do NOT use personal names in questions. Instead of 'laut Prof. X', write 'laut Material' (German) or 'according to the source' (English), matching the output language.\n"
 )
 # The title ships with the generation response so no extra LLM call is needed for it
 # (that call used to come back empty on reasoning models and left the raw filename behind).

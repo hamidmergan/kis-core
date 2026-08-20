@@ -404,7 +404,7 @@ def test_multi_chip_same_source_near_miss_still_dropped():
 def test_ungrounded_answer_borderline_gets_no_chip():
     # Honest "not contained" case: the only line's closest seen chunk is 0.7 (> gate)
     # -> the answer is NOT grounded -> no chip, even though 0.7 < the guarantee ceiling.
-    line = "Diese Information ist nicht in den bereitgestellten Quellen enthalten."
+    line = "Diese Information ist nicht in den bereitgestellten Materialien enthalten."
     search = _searcher({"Information": [_hit(1, 5, "x", 0.7)]})
     out = _attribute_generic_text(line, search, {1: 1},
                                   seen_pages_by_source={1: {5}}, max_distance=0.6)
@@ -419,7 +419,7 @@ def test_ungrounded_answer_borderline_gets_no_chip():
 # Two SEPARATE bullets (= separate blocks), as the answer actually renders — so each line
 # is attributed on its own and the refusal sentence carries its own (spurious) chip.
 _ANSWERED = "- Die Würde des Menschen ist unantastbar laut Grundgesetz Artikel 1 Absatz 1."
-_REFUSAL = "- Informationen darüber sind nicht in den bereitgestellten Quellen enthalten."
+_REFUSAL = "- Informationen darüber sind nicht in den bereitgestellten Materialien enthalten."
 _COMPOUND = f"{_ANSWERED}\n{_REFUSAL}"
 
 
@@ -502,14 +502,14 @@ def _fake_embed(mapping, fallback):
 
 
 def test_refusal_answer_near_sentinel_is_flagged():
-    sentinel = "Diese Information ist nicht in den bereitgestellten Quellen enthalten."
+    sentinel = "Diese Information ist nicht in den bereitgestellten Materialien enthalten."
     answer = sentinel  # the model emits the sentinel verbatim
     embed = _fake_embed({sentinel: [1.0, 0.0, 0.0]}, fallback=[1.0, 0.0, 0.0])
     assert is_refusal_answer(answer, embed, [sentinel], max_dist=0.40) is True
 
 
 def test_real_answer_far_from_sentinel_keeps_anchor():
-    sentinel = "Diese Information ist nicht in den bereitgestellten Quellen enthalten."
+    sentinel = "Diese Information ist nicht in den bereitgestellten Materialien enthalten."
     answer = "Ab dem dritten Juli gilt die neue Prüfungsordnung mit verkürzten Fristen."
     embed = _fake_embed({sentinel: [1.0, 0.0, 0.0], answer: [0.0, 1.0, 0.0]},
                         fallback=[0.0, 1.0, 0.0])

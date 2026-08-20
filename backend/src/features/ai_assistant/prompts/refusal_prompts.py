@@ -7,12 +7,14 @@ from src.i18n import DEFAULT_LOCALE
 
 # Vergleichstext, an dem eine Absage in jeder Sprache am Abstand erkannt wird.
 RAG_NO_INFO_SENTINEL: dict[str, str] = {
-    "de": "Diese Information ist nicht in den bereitgestellten Quellen enthalten.",
+    "de": "Diese Information ist nicht in den bereitgestellten Materialien enthalten.",
     "en": "This information is not contained in the provided sources.",
 }
 
 # Sicherheitsnetz fuer die alte Wendung, die das Modell aus Gewohnheit noch schreibt.
 _GAP_ANCHORS: tuple[str, ...] = (
+    "steht nicht in den materialien",
+    "stehen nicht in den materialien",
     "steht nicht in den quellen",
     "stehen nicht in den quellen",
     "is not in the sources",
@@ -21,7 +23,7 @@ _GAP_ANCHORS: tuple[str, ...] = (
 
 # Rahmen fuer den Fall, dass das Modell nur den fehlenden Begriff nennt statt eines Satzes.
 _GAP_FRAME: dict[str, str] = {
-    "de": "In den Quellen steht nichts zu \u201e{begriff}\u201c",
+    "de": "In den Materialien steht nichts zu \u201e{begriff}\u201c",
     "en": "The sources say nothing about \"{begriff}\"",
 }
 

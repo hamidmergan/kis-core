@@ -61,10 +61,12 @@ def test_old_opening_sentence_still_counts(locale):
 
 def test_old_opening_sentence_survives_bold_and_a_missing_period():
     assert is_sentinel_refusal(
-        "**Diese Information ist nicht in den bereitgestellten Quellen enthalten**") is True
+        "**Diese Information ist nicht in den bereitgestellten Materialien enthalten**") is True
 
 
 @pytest.mark.parametrize("answer", [
+    "Der Wechselkurs von Bitcoin steht nicht in den Materialien.",
+    "Was die Komplementärmenge bedeutet, steht nicht in den Materialien.",
     "Der Wechselkurs von Bitcoin steht nicht in den Quellen.",
     "Was die Komplementärmenge bedeutet, steht nicht in den Quellen.",
     "The exchange rate is not in the sources.",
@@ -121,6 +123,8 @@ def test_reference_texts_stay_at_the_old_sentence_only():
 @pytest.mark.parametrize("line", [
     "Wann die Klausur ist, steht nicht in den Quellen.",
     "Was die Komplementärmenge bedeutet, steht nicht in den Quellen.",
+    "Der Wechselkurs von Bitcoin steht nicht in den Materialien.",
+    "Was die Komplementärmenge bedeutet, steht nicht in den Materialien.",
     "Der Wechselkurs von Bitcoin steht nicht in den Quellen.",
     "Die genauen Uhrzeiten stehen nicht in den Quellen.",
     "When the exam takes place is not in the sources.",
