@@ -62,6 +62,10 @@ MIN_CONTEXT_CHARS = 2000
 # nur eine Obergrenze, ein Modell ohne Denken hoert vorher von selbst auf und zahlt nichts.
 PRECALL_MAX_TOKENS = 1000
 
+# Obergrenze fuer die Chat-Antwort, aus 5670 gemessenen Antworten gewaehlt: p99 liegt bei
+# 2.870 Token, oberhalb von 8192 lag genau eine und die war eine Wiederholungsschleife.
+CHAT_MAX_OUTPUT_TOKENS = 8192
+
 # Merkmale, die ueber /chat/completions laufen und deshalb vermessbar sind. Eine
 # Einbettungs- oder Whisper-Route kennt gar keine Chat-Anfrage.
 CHAT_LIKE_FEATURES = frozenset({"chat", "vision", "ocr", "doc_translate", "transcript_translate"})

@@ -2,9 +2,19 @@
 
 from typing import Optional
 
+from src.features.ai_assistant.prompts.refusal_prompts import (
+    gap_locale,
+    gap_sentence,
+    is_bare_term,
+)
+from src.i18n import DEFAULT_LOCALE
+
 # Ein Rueckstrich vor einem Buchstaben ist in dieser Antwort fast immer ein LaTeX-Befehl
 # und kein JSON-Zeichen, darum bleibt er stehen.
 _ECHTE_FLUCHT = {"n": "\n", '"': '"', "\\": "\\", "/": "/"}
+
+# Ohne Deckel fuellt das Modell das Feld weiter, bis der echte Stoff alle ist.
+MAX_EINTRAEGE = 5
 
 
 def _entwerte(z: str) -> str:
@@ -15,8 +25,13 @@ def _entwerte(z: str) -> str:
 class AntwortStrom:
     """Nimmt die Haeppchen des Modells und gibt fertigen Text fuer den Chat heraus."""
 
-    def __init__(self) -> None:
+    def __init__(
+        self,
+        max_eintraege: int | None = MAX_EINTRAEGE,
+        sprache: str = DEFAULT_LOCALE,
+    ) -> None:
         self.gap: Optional[str] = None
+        self._sprache = sprache
         self._luecke = ""
         self._zustand = "start"
         self._gesehen = ""
@@ -25,6 +40,9 @@ class AntwortStrom:
         self._offen = False
         self._escape = False
         self._erstes_item = True
+        self._eintraege = 0
+        self._max = max_eintraege
+        self.genug = False
 
     def feed(self, stueck: str) -> str:
         """Gibt zurueck, was von diesem Haeppchen in den Chat gehoert."""
@@ -53,22 +71,38 @@ class AntwortStrom:
             self._wort += z
         return None
 
+    def _zeige(self, text: str) -> str:
+        """Haelt zurueck, was ueber die Obergrenze der Eintraege hinausgeht."""
+        if self._max is None or self._eintraege <= self._max:
+            return text
+        self.genug = True
+        return ""
+
     def _absage(self, bruecke: str = "") -> str:
         """Fuegt Absage und Brueckenteil zu einem einzigen Satz zusammen."""
         luecke, self._luecke = self._luecke, ""
         if not luecke:
-            return (self._gross(bruecke) + "\n") if bruecke else ""
+            return (self._schluss(self._gross(bruecke), ":") + "\n") if bruecke else ""
+        # Nennt das Feld nur den fehlenden Begriff, baut der Code den Satz drumherum.
+        if is_bare_term(luecke):
+            luecke = gap_sentence(luecke, gap_locale(bruecke, self._sprache))
         # gap traegt die gerenderte Form, sonst findet chat.py die Absage-Zeile nicht mehr.
         if not bruecke:
-            self.gap = self._gross(luecke)
+            self.gap = self._schluss(self._gross(luecke), ".")
             return self.gap + "\n\n"
         self.gap = self._gross(luecke.rstrip().rstrip("."))
-        return self.gap + ", " + bruecke + "\n"
+        return self._schluss(self.gap + ", " + bruecke, ":") + "\n"
 
     @staticmethod
     def _gross(satz: str) -> str:
         """Satzanfang gross, weil die Kleinschreib-Regel der Bruecke auf die Absage abfaerbt."""
         return satz[:1].upper() + satz[1:]
+
+    @staticmethod
+    def _schluss(satz: str, zeichen: str) -> str:
+        """Setzt das fehlende Satzende, das Modell laesst es beim Streamen oft weg."""
+        kern = satz.rstrip()
+        return kern if not kern or kern[-1] in ".:!?" else kern + zeichen
 
     def _warte_auf(self, z: str, schluessel: str) -> bool:
         self._puffer += z
@@ -165,7 +199,8 @@ class AntwortStrom:
                 self._gesehen = ""
                 begriff, self._puffer = self._puffer, ""
                 self._zustand = "text"
-                return f"- **{begriff}**: "
+                self._eintraege += 1
+                return self._zeige(f"- **{begriff}**: ")
             return ""
 
         if zustand == "text":
@@ -176,7 +211,7 @@ class AntwortStrom:
                 return ""
             if self._escape:
                 self._escape = False
-                return _entwerte(z)
+                return self._zeige(_entwerte(z))
             if z == "\\":
                 self._escape = True
                 return ""
@@ -184,8 +219,8 @@ class AntwortStrom:
                 self._offen = False
                 self._zustand = "warte_term"
                 self._puffer = ""
-                return "\n"
-            return z
+                return self._zeige("\n")
+            return self._zeige(z)
 
         if zustand == "warte_body":
             if self._warte_auf(z, '"body"'):

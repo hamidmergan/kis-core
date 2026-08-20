@@ -43,7 +43,7 @@ from src.features.ai_assistant.prompts.refusal_prompts import (
     refusal_reference_texts,
 )
 from . import _followup
-from ._json_stream import AntwortStrom
+from ._json_stream import MAX_EINTRAEGE, AntwortStrom
 from src.services.aia_adaptive_chat import (
     adaptive_chat_appendix,
     level_texts,
@@ -1542,7 +1542,12 @@ async def chat(
                 },
             }
             _felder = not (body.source_text or _umformen or _gruss)
-            _strom_bau = AntwortStrom() if _felder else None
+            # Der Ueberblick lebt von der Breite, nur die Einzelfrage bekommt einen Deckel.
+            _strom_bau = AntwortStrom(
+                max_eintraege=None if _overview else MAX_EINTRAEGE,
+                # Rueckfallsprache fuer den Absage-Satz, sonst entscheidet die Bruecke.
+                sprache=locale,
+            ) if _felder else None
 
             async def _open_stream(messages):
                 # 90s connect/first-token timeout so an Ollama cold-start model
@@ -1551,7 +1556,11 @@ async def chat(
                 return await llm._async_client.with_options(timeout=90.0, max_retries=0).chat.completions.create(
                     model=llm._model,
                     messages=messages,
-                    temperature=0.2,
+                    # 0.7 statt 0.2, wie der Steckbrief des Modells es empfiehlt: eine sehr
+                    # enge Auswahl beguenstigt Wiederholungsschleifen.
+                    temperature=0.7,
+                    # Ohne Obergrenze lief eine Schleife schon bis 178.820 Token durch.
+                    max_tokens=model_limits.CHAT_MAX_OUTPUT_TOKENS,
                     stream=True,
                     **({"response_format": _ANTWORT_SCHEMA} if _felder else {}),
                     # Ask for a final usage chunk so chat token counts land in
@@ -1610,6 +1619,11 @@ async def chat(
                     if delta and delta.content:
                         _roh_tok = (_strom_bau.feed(delta.content)
                                     if _strom_bau is not None else delta.content)
+                        # Ohne Abbruch schriebe das Modell unsichtbar weiter und die
+                        # Leitung bliebe waehrenddessen stumm.
+                        if _strom_bau is not None and _strom_bau.genug:
+                            logger.info("Eintragsgrenze erreicht, Strom beendet")
+                            break
                         if not _roh_tok:
                             continue
                         # Arrow connectors are dropped here, before the token reaches the

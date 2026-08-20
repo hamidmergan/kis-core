@@ -78,8 +78,12 @@ def test_overview_block_is_off_by_default():
     # MODE block, so a focused fact question is never inflated into a doc-by-doc tour.
     assert "## Overview mode" not in aia_system_rag("de")
     assert "## Overview mode" not in aia_system_rag("de", overview=False)
-    # The overview prompt is a strict superset of the default (base unchanged).
-    assert aia_system_rag("de", overview=True).startswith(aia_system_rag("de"))
+    # The overview prompt adds the block and drops exactly ONE line of the base: the
+    # five-entry limit, which would otherwise cut an overview short.
+    knapp, breit = aia_system_rag("de"), aia_system_rag("de", overview=True)
+    nur_knapp = [ln for ln in knapp.splitlines() if ln not in breit.splitlines()]
+    assert len(nur_knapp) == 1 and "AT MOST FIVE" in nur_knapp[0]
+    assert breit.endswith("- Be thorough, state each fact once, invent nothing.\n")
 
 
 def test_locale_only_decides_the_ambiguous_fallback():
