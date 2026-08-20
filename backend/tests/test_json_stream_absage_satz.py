@@ -43,16 +43,45 @@ def test_kurze_wortgruppe_zaehlt_auch_als_begriff():
     assert text.startswith("In den Materialien steht nichts zu „der genaue Klausurtermin“,")
 
 
-# -- Die Sprache haengt an der Bruecke, nicht an der Oberflaeche -----------------
+# -- Die Sprache haengt an der Prosa, nicht am Bindewort ------------------------
 
-def test_englische_bruecke_bringt_den_englischen_rahmen():
+def test_englische_prosa_bringt_den_englischen_rahmen():
     text = _lies(_antwort("slides", "however the screen is shared"), sprache="de")
     assert text.startswith('The sources say nothing about "slides", however')
 
 
-def test_ohne_erkennbare_bruecke_entscheidet_die_oberflaeche():
-    text = _lies(_antwort("slides", "instead a screen is shared"), sprache="en")
-    assert text.startswith('The sources say nothing about "slides", instead')
+def test_ohne_sprachsignal_entscheidet_die_oberflaeche():
+    text = _lies(_antwort("slides", "stattdessen Bildschirmfreigabe"), sprache="en")
+    assert text.startswith('The sources say nothing about "slides", stattdessen')
+
+
+# -- Ein Bindewort aus der falschen Sprache wird getauscht ----------------------
+
+def test_englisches_bindewort_im_deutschen_satz_wird_deutsch():
+    gap = "In den Materialien steht nichts zu \u201eKlausur\u201c"
+    text = _lies(_antwort(gap, "however beschreiben sie die Pr\u00fcfungsleistung"))
+    assert text.startswith(
+        "In den Materialien steht nichts zu \u201eKlausur\u201c, jedoch beschreiben")
+    assert "however" not in text
+
+
+def test_deutsches_bindewort_im_englischen_satz_wird_englisch():
+    gap = 'The sources say nothing about \\"exam\\"'
+    text = _lies(_antwort(gap, "jedoch they describe the assessment"), sprache="de")
+    assert text.startswith('The sources say nothing about "exam", however they describe')
+
+
+def test_nackter_begriff_folgt_der_prosa_und_nicht_dem_bindewort():
+    text = _lies(_antwort("Klausur", "however beschreiben sie die Pr\u00fcfungsleistung"))
+    assert text.startswith(
+        "In den Materialien steht nichts zu \u201eKlausur\u201c, jedoch beschreiben")
+
+
+def test_eine_dritte_sprache_bleibt_unberuehrt():
+    gap = "Les documents ne disent rien sur \u00ab examen \u00bb"
+    text = _lies(_antwort(gap, "cependant ils d\u00e9crivent la prestation"), sprache="fr")
+    assert text.startswith(
+        "Les documents ne disent rien sur \u00ab examen \u00bb, cependant ils d\u00e9crivent")
 
 
 # -- Das Satzende steht immer da ------------------------------------------------
