@@ -136,16 +136,24 @@ AIA_LERNKARTEN_PROMPT = (
 # SIEHT, befolgt es, eine bloss formulierte oft nicht.
 AIA_HINT_RULE = (
     "- tip: ONE short sentence that helps a learner who is stuck, WITHOUT giving the answer away. "
-    "Point at where to look or what to think about: the situation, the comparison, or the example in "
+    "Point at the thought that leads there: the situation, the comparison, or the example in "
     "the source that carries the idea. Never name the answer, never name one of the options, and never "
     "restate the answer in other words. Write it in {language} and address the learner directly and "
     "INFORMALLY: German 'du'/'dein' and the du-imperative ('Denk', 'Vergleich', 'Schau'), NEVER the "
     "formal 'Sie'/'Ihnen'/'Ihr'; in other languages the informal second person.\n"
+    "  NEVER point at a place in the material: no page number, no timestamp, no filename, no section "
+    "number, and never an ordinal such as 'die erste Quelle' or 'das zweite Dokument'. The learner "
+    "never sees that numbering, and a clickable source link already sits right under the tip.\n"
+    "  If the tip names a term, write it EXACTLY as the source text writes it, never a paraphrase of "
+    "it. A learner who searches for a word that is not in the material finds nothing.\n"
     "  GOOD: \"Denk an das Beispiel der falsch kalibrierten Waage aus der Quelle.\"\n"
     "  BAD: \"Denken Sie an das Beispiel der falsch kalibrierten Waage.\" (formal address)\n"
     "  BAD: \"Erinnern Sie sich an die Aktivitaeten aus der Quelle.\" (formal address)\n"
     "  BAD: \"Die Antwort ist der systematische Fehler.\" (names the answer)\n"
     "  BAD: \"Lies den Text noch einmal.\" (helps nobody)\n"
+    "  BAD: \"Schau in S. 2 der ersten Quelle nach.\" (points at a place, and the numbering means "
+    "nothing to the learner)\n"
+    "  BAD: \"Achte auf das wichtigste Hilfsmittel.\" (invents a word the source never uses)\n"
 )
 
 
