@@ -1331,8 +1331,16 @@
       "saveFailed": "Speichern fehlgeschlagen."
     },
     "contextBudgetCard": {
-      "title": "KI-Tutor Kontext-Budget",
-      "hint": "Wie viel Text aus den Materialien (in Zeichen) der KI-Tutor pro Frage ins Modell gibt. Default 250000. Passen alle ausgewählten Materialien zusammen ins Budget, gehen sie bei jeder Frage komplett ins Modell. Sonst sucht der Tutor die passenden Stellen heraus und nimmt bei einer gezielten Frage nie mehr als 60000 Zeichen, egal was hier steht. Übersichtsfragen schöpfen das Budget dagegen aus. Der Wert wird zusätzlich auf das gemessene Kontextfenster des Modells gekürzt.",
+      "title": "Chat Kontext-Budget für Überblicksfragen",
+      "hint": "Wie viel Text der KI-Tutor bei einer Überblicksfrage ins Modell gibt.",
+      "unit": "Zeichen",
+      "approxTokens": "≈ {n}k Token",
+      "outOfRange": "Wert muss zwischen 1000 und 800000 liegen.",
+      "saveFailed": "Speichern fehlgeschlagen."
+    },
+    "specificBudgetCard": {
+      "title": "Chat Kontext-Budget für gezielte Fragen",
+      "hint": "Wie viel Text der KI-Tutor bei einer gezielten Frage ins Modell gibt.",
       "unit": "Zeichen",
       "approxTokens": "≈ {n}k Token",
       "outOfRange": "Wert muss zwischen 1000 und 800000 liegen.",

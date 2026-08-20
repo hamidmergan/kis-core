@@ -83,10 +83,8 @@ _MAX_PAGE_SPAN = 50
 _NEIGHBOR_ANCHORS = 24
 # Wie viele Stellen die globale Suche liefert, bevor Nachbarn dazukommen.
 _GLOBAL_CANDIDATES = 120
-# Harte Obergrenze fuer den SPECIFIC-Kontext, unabhaengig vom Admin-Budget.
-# Gemessen am 16.08.2026: Budget 250k -> 320k liess den Messsatz von 8/9 auf 6/9
-# fallen. Mehr Kontext war schlechter.
-_SPECIFIC_MAX_CHARS = 60000
+# Absichten, die auf Breite zielen und deshalb das ganze Material sehen duerfen.
+_UEBERBLICK_INTENTS = ("GENERIC", "GREETING")
 _NEIGHBOR_RADIUS = 3
 # Zwei Anker naeher als so viele Stellen: die Luecke dazwischen wird gefuellt, damit
 # eine Angabe ZWISCHEN beiden nicht durchfaellt.
@@ -820,7 +818,8 @@ async def _retrieve_specific_context(
     # Beste Stellen zuerst, bei gleicher Note der Anker vor seinen Nachbarn. Dann
     # auffuellen bis das Budget voll ist. Das ist die ganze Verteilung.
     alle.sort(key=lambda c: (c.get("_anchor_dist", 1.0), c.get("_anchor_gap", 0)))
-    chunks = _take_chunks_within(alle, min(char_budget, _SPECIFIC_MAX_CHARS))
+    from src.features.ai_assistant.tasks._context_budget import specific_context_budget
+    chunks = _take_chunks_within(alle, min(char_budget, specific_context_budget()))
     chunks.sort(key=lambda c: (
         c["source_id"],
         c.get("page_number") if c.get("page_number") is not None else -1,
@@ -1209,7 +1208,7 @@ async def chat(
         if popup_source:
             search_source_ids = [popup_source["id"]]
 
-    _fit_full = (None if (body.source_text or _umformen)
+    _fit_full = (None if (body.source_text or _umformen or intent not in _UEBERBLICK_INTENTS)
                  else _full_context_if_fits(source_ids, context_budget))
     if _umformen:
         # Kein Suchtreffer, kein Kontext: der Stoff ist die letzte Antwort selbst
@@ -1222,7 +1221,7 @@ async def chat(
         from collections import Counter
         _ps = Counter(c["source_id"] for c in chunks)
         logger.info("Fit-shortcut: {} chunks fit budget ({} chars), skipping retrieval | per-source: {}", len(chunks), context_budget, dict(_ps))
-    elif intent in ("GENERIC", "GREETING"):
+    elif intent in _UEBERBLICK_INTENTS:
         # ── GENERIC: eine breite Suche plus Auffuellen reihum ueber ALLE Quellen,
         # damit der Ueberblick jede Quelle beruehrt. Der Ueberblick-Prompt unten sorgt
         # dann fuer die Abdeckung Dokument fuer Dokument.

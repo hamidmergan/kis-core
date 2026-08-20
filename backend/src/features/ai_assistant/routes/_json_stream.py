@@ -3,7 +3,8 @@
 from typing import Optional
 
 from src.features.ai_assistant.prompts.refusal_prompts import (
-    gap_locale,
+    align_bridge,
+    answer_locale,
     gap_sentence,
     is_bare_term,
 )
@@ -81,11 +82,14 @@ class AntwortStrom:
     def _absage(self, bruecke: str = "") -> str:
         """Fuegt Absage und Brueckenteil zu einem einzigen Satz zusammen."""
         luecke, self._luecke = self._luecke, ""
+        # Das Modell greift beim Bindewort daneben, darum entscheidet hier die Prosa.
+        sprache = answer_locale(luecke, bruecke, self._sprache)
+        bruecke = align_bridge(bruecke, sprache)
         if not luecke:
             return (self._schluss(self._gross(bruecke), ":") + "\n") if bruecke else ""
         # Nennt das Feld nur den fehlenden Begriff, baut der Code den Satz drumherum.
         if is_bare_term(luecke):
-            luecke = gap_sentence(luecke, gap_locale(bruecke, self._sprache))
+            luecke = gap_sentence(luecke, sprache)
         # gap traegt die gerenderte Form, sonst findet chat.py die Absage-Zeile nicht mehr.
         if not bruecke:
             self.gap = self._schluss(self._gross(luecke), ".")

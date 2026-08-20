@@ -31,6 +31,7 @@ minimum for that document at that budget, 2.17M chars / 800k), every page betwee
 from src.limits import (
     AIA_CONTEXT_MAX_CHARS,
     AIA_CONTEXT_HARD_CAP,
+    AIA_SPECIFIC_MAX_CHARS,
     AIA_TOOL_CONTEXT_MAX_CHARS,
     AIA_TOOL_CONTEXT_HARD_CAP,
 )
@@ -74,6 +75,24 @@ def tool_context_budget() -> int:
         value = AIA_TOOL_CONTEXT_MAX_CHARS
     return model_limits.cap_for_model(
         max(1000, min(value, AIA_TOOL_CONTEXT_HARD_CAP)), model_limits.TOOL_SHARE,
+    )
+
+
+def specific_context_budget() -> int:
+    """Zeichenbudget fuer eine GEZIELTE Frage, admin-einstellbar ueber ``aia_specific_max_chars``.
+
+    Eigenes Feld neben dem Ueberblick-Budget, weil hier weniger besser ist als mehr:
+    zu viel Beiwerk laesst das Modell die eine Stelle uebersehen, die die Antwort traegt.
+    Ist ein Modellfenster GEMESSEN, wird zusaetzlich darauf gekuerzt.
+    """
+    from src import database as db
+    from src.services import model_limits
+    try:
+        value = int(db.get_setting("aia_specific_max_chars", str(AIA_SPECIFIC_MAX_CHARS)))
+    except (ValueError, TypeError):
+        value = AIA_SPECIFIC_MAX_CHARS
+    return model_limits.cap_for_model(
+        max(1000, min(value, AIA_CONTEXT_HARD_CAP)), model_limits.SPECIFIC_SHARE,
     )
 
 

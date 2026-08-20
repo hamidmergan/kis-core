@@ -178,9 +178,9 @@ def test_modell_ohne_denken_wird_nicht_weiter_behelligt():
     assert len(client.aufrufe) == 2
 
 
-def test_schweigsamer_anbieter_ergibt_geratenes_fenster():
-    """Zwei Modelle nennen ihre Grenze nicht. Die bekommen einen vorsichtigen
-    Wert, der als geraten markiert ist, damit die Selbstheilung ihn spaeter ersetzt."""
+def test_schweigsamer_anbieter_bleibt_unbekannt():
+    """Zwei Modelle nennen ihre Grenze nicht. Fuer die wird KEINE Zahl erfunden: bis
+    20.08.2026 standen dort 32.768 Token, die wie eine Messung aussahen."""
     class _Schweiger(_Denker):
         def create(self, **kwargs):
             if kwargs.get("max_tokens", 0) > 1_000_000:
@@ -188,8 +188,17 @@ def test_schweigsamer_anbieter_ergibt_geratenes_fenster():
             return _Antwort("ok")
 
     profil = _messen(_Schweiger())
-    assert profil.window_tokens == ml.DEFAULT_WINDOW_TOKENS
-    assert profil.source == ml.QUELLE_GERATEN
+    assert profil.window_tokens == 0
+    assert profil.source == ml.QUELLE_UNBEKANNT
+    assert not profil.measured
+
+
+def test_unbekanntes_fenster_deckelt_nichts(monkeypatch):
+    """Ohne Wissen ueber das Modell gilt allein die Einstellung im Admin."""
+    profil = ml.ModelProfile(0, ml.QUELLE_UNBEKANNT, False, "")
+    monkeypatch.setattr(ml, "profile_for_feature", lambda feature="chat": profil)
+    assert ml.cap_for_model(250000, ml.CHAT_SHARE) == 250000
+    assert ml.as_dict(profil)["context_chars"] is None
 
 
 # ── Zusatzangaben fuer den echten Aufruf ────────────────────────────────────

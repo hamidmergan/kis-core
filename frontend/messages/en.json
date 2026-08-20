@@ -1331,8 +1331,16 @@
       "saveFailed": "Save failed."
     },
     "contextBudgetCard": {
-      "title": "AI tutor context budget",
-      "hint": "How much source text (in characters) the AI tutor sends to the model per question. Default 250000. If all selected sources together fit the budget, they go to the model in full for every question. Otherwise the tutor retrieves the matching passages and never uses more than 60000 characters for a precise question, no matter what you set here. Overview questions do use the full budget. The value is additionally capped by the model's measured context window.",
+      "title": "Chat context budget for overview questions",
+      "hint": "How much text the AI tutor sends to the model for an overview question.",
+      "unit": "characters",
+      "approxTokens": "≈ {n}k tokens",
+      "outOfRange": "Value must be between 1000 and 800000.",
+      "saveFailed": "Save failed."
+    },
+    "specificBudgetCard": {
+      "title": "Chat context budget for precise questions",
+      "hint": "How much text the AI tutor sends to the model for a precise question.",
       "unit": "characters",
       "approxTokens": "≈ {n}k tokens",
       "outOfRange": "Value must be between 1000 and 800000.",

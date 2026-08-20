@@ -61,7 +61,7 @@ export type Provider = {
  */
 export type ModelLimits = {
   window_tokens: number;
-  source: "gemessen" | "geraten" | "gelernt";
+  source: "gemessen" | "unbekannt" | "gelernt" | "gesetzt";
   thinks: boolean;
   think_off: string;
   context_chars: number;

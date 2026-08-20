@@ -38,6 +38,9 @@ class UpdateSettingsRequest(BaseModel):
     # path. Sized for the smallest supported model (32k) by default; a deployment
     # on large-context models can raise it.
     aia_context_max_chars: int | None = None
+    # Kontext einer GEZIELTEN Frage. Eigenes Feld, weil dort weniger besser ist als
+    # mehr: zu viel Beiwerk laesst das Modell die eine tragende Stelle uebersehen.
+    aia_specific_max_chars: int | None = None
     # Context budget (chars) for the GENERATION TOOLS (mindmap, data table, quiz,
     # flashcards, …). Separate from the chat budget so the tools can get a larger
     # window; divided by the number of selected sources at generation time.
