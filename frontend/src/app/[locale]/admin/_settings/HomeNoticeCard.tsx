@@ -43,16 +43,15 @@ export default function HomeNoticeCard() {
         />
       }
     >
-      <input
-        type="text"
+      <textarea
         value={draft}
         onChange={(e) => setDraft(e.target.value)}
         onBlur={commit}
-        onKeyDown={(e) => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); }}
         disabled={text.saving}
+        rows={8}
         placeholder={t("placeholder")}
         aria-label={t("title")}
-        className="mt-3 w-full rounded-lg border border-border bg-background px-3 py-1.5 text-sm text-foreground focus:outline-none focus:border-kb disabled:opacity-50"
+        className="mt-3 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:border-kb disabled:opacity-50 resize-y"
       />
       <p className="mt-2 text-xs text-muted-soft max-w-2xl">{t("hint")}</p>
     </SettingCard>
