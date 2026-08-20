@@ -251,6 +251,13 @@ describe("_guardMathDollars", () => {
       .toBe("Kosten 5\\$-10\\$ pro Stunde.");
   });
 
+  it("keeps a pure-number calculation as math, so no dollar leaks into the text", () => {
+    // "$11 + 13$" hat keinen Buchstaben, ist aber eine Rechnung und kein Preis.
+    expect(_guardMathDollars("also 24 ($11 + 13$).")).toBe("also 24 ($11 + 13$).");
+    expect(_guardMathDollars("Paare $(11, 10)$ und $(24, 10)$."))
+      .toBe("Paare $(11, 10)$ und $(24, 10)$.");
+  });
+
   it("keeps spaced formulas as math (relation/operator with a variable)", () => {
     // These have no ^_{} and contain spaces, but "=", "+", "-" alongside a letter
     // make them formulas — the old length/space rule wrongly escaped them.

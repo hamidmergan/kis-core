@@ -2,7 +2,14 @@
 
 from typing import Optional
 
-_ENTWERTET = {"n": "\n", "t": "\t", "r": "\r", "b": "", "f": ""}
+# Ein Rueckstrich vor einem Buchstaben ist in dieser Antwort fast immer ein LaTeX-Befehl
+# und kein JSON-Zeichen, darum bleibt er stehen.
+_ECHTE_FLUCHT = {"n": "\n", '"': '"', "\\": "\\", "/": "/"}
+
+
+def _entwerte(z: str) -> str:
+    """Loest ein JSON-Fluchtzeichen auf und laesst LaTeX-Befehle unversehrt."""
+    return _ECHTE_FLUCHT.get(z, "\\" + z)
 
 
 class AntwortStrom:
@@ -35,7 +42,7 @@ class AntwortStrom:
                 self._wort = ""
             return None
         if self._escape:
-            self._wort += _ENTWERTET.get(z, z)
+            self._wort += _entwerte(z)
             self._escape = False
         elif z == "\\":
             self._escape = True
@@ -169,7 +176,7 @@ class AntwortStrom:
                 return ""
             if self._escape:
                 self._escape = False
-                return _ENTWERTET.get(z, z)
+                return _entwerte(z)
             if z == "\\":
                 self._escape = True
                 return ""
@@ -192,7 +199,7 @@ class AntwortStrom:
                 return ""
             if self._escape:
                 self._escape = False
-                return _ENTWERTET.get(z, z)
+                return _entwerte(z)
             if z == "\\":
                 self._escape = True
                 return ""

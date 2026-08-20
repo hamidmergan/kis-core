@@ -90,7 +90,12 @@ function _looksLikeMath(inner: string): boolean {
   // ("5", "-10", "5.99", "1,000") are digits and punctuation only, never math —
   // so "5$-10$" no longer renders as a bogus formula. \p{L} stays language-
   // agnostic (Greek, Cyrillic, ... also count as variable letters).
-  if (!/\p{L}/u.test(inner)) return false;
+  if (!/\p{L}/u.test(inner)) {
+    // Ohne Buchstaben ist es meist Geld, aber eine ganze Rechnung ("11 + 13") oder ein
+    // geklammertes Zahlenpaar ("(11, 10)") ist eine Formel.
+    if (/\d\s*[+*/=<>−]\s*\d/.test(inner) || /\d\s+-\s+\d/.test(inner)) return true;
+    return /^\(\s*-?\d[\d\s.,]*\)$/.test(inner);
+  }
   // With a letter present, a relation or operator makes it a formula and covers
   // the spaced forms the old length/space rule dropped ("x = 5", "a + b",
   // "a - b", "n < m"). The hyphen is safe here: letter-free currency ranges were
