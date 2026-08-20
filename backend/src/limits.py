@@ -210,6 +210,11 @@ AIA_CONTEXT_MAX_CHARS                  = 250000
 # overflow the model and waste a giant DB read. Enforced both on write (admin
 # PATCH validation, which imports this constant) and on read (_context_budget clamp).
 AIA_CONTEXT_HARD_CAP                    = 800000
+# Kontext einer GEZIELTEN Frage, gemessen am 16.08.2026 (mehr Kontext liess den
+# Messsatz von 8/9 auf 6/9 fallen). Admin-einstellbar ueber ``aia_specific_max_chars``,
+# gedeckelt wie das Chat-Budget und zusaetzlich auf einen Anteil eines GEMESSENEN
+# Modellfensters, siehe model_limits.SPECIFIC_SHARE.
+AIA_SPECIFIC_MAX_CHARS                  = 60000
 # Separate context budget for the GENERATION TOOLS (mindmap, data table, quiz,
 # flashcards, glossary, cloze, cards) — kept distinct from the chat budget above
 # so an admin can give the tools a much larger window without enlarging every

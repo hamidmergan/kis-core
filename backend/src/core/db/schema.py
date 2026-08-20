@@ -1668,9 +1668,9 @@ def _init_db(admin_email: Optional[str] = None) -> None:
             # Zeichenzahl fuer alle kann es also gar nicht geben.
             #
             # source sagt, wie verlaesslich die Zahl ist: "gemessen" (Anbieter hat
-            # sie genannt), "geraten" (er schweigt, Vorsichtswert), "gelernt" (aus
-            # einer echten Absage im Betrieb nachtraeglich korrigiert), "gesetzt"
-            # (der Admin hat sie eingetragen, weil der Anbieter dauerhaft schweigt).
+            # sie genannt), "unbekannt" (er schweigt, dann steht dort 0 und es wird
+            # nichts gedeckelt), "gelernt" (aus einer echten Absage im Betrieb
+            # nachtraeglich korrigiert), "gesetzt" (der Admin hat sie eingetragen).
             cur.execute("""
                 CREATE TABLE IF NOT EXISTS model_limits (
                     provider_id   INTEGER NOT NULL REFERENCES providers(id) ON DELETE CASCADE,
@@ -1682,6 +1682,13 @@ def _init_db(admin_email: Optional[str] = None) -> None:
                     updated_at    TIMESTAMP NOT NULL DEFAULT NOW(),
                     PRIMARY KEY (provider_id, model_name)
                 )
+            """)
+
+            # Bis 20.08.2026 wurde ein schweigender Anbieter mit 32.768 Token geraten.
+            # Die Zahl sah aus wie eine Messung, war aber keine. Idempotent.
+            cur.execute("""
+                UPDATE model_limits SET window_tokens = 0, source = 'unbekannt'
+                 WHERE source = 'geraten'
             """)
 
             # ─── LLM Usage Log ────────────────────────────────────────────────

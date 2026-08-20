@@ -296,14 +296,14 @@ def test_admin_zahl_bleibt_wenn_sie_unter_dem_modell_liegt(monkeypatch):
 
 
 def test_ohne_wissen_ueber_das_modell_gilt_die_admin_zahl(monkeypatch):
-    """Kein Profil und ein geratenes Fenster sind dasselbe: nichts bekannt. Dann darf
-    nichts gedeckelt werden, sonst nimmt ein Ratewert dem Admin seine Einstellung weg."""
+    """Kein Profil und ein unbekanntes Fenster sind dasselbe: nichts bekannt. Dann darf
+    nichts gedeckelt werden, sonst nimmt ein erfundener Wert dem Admin seine Einstellung weg."""
     from src.services import model_limits
 
     monkeypatch.setattr(chat_mod.db, "get_setting", lambda k, d=None: "250000")
     _kenne_fenster(monkeypatch, None)
     assert _context_budget() == 250000
-    _kenne_fenster(monkeypatch, 32768, model_limits.QUELLE_GERATEN)
+    _kenne_fenster(monkeypatch, 0, model_limits.QUELLE_UNBEKANNT)
     assert _context_budget() == 250000
 
 
@@ -315,6 +315,97 @@ def test_gelerntes_fenster_deckelt_ebenfalls(monkeypatch):
     monkeypatch.setattr(chat_mod.db, "get_setting", lambda k, d=None: "800000")
     _kenne_fenster(monkeypatch, 65536, model_limits.QUELLE_GELERNT)
     assert _context_budget() < 800000
+
+
+# ── gezielte Frage: eigener Deckel, gerechnet aus dem gemessenen Fenster ─────
+#
+# Bis 20.08.2026 stand dort eine feste Zahl (60.000 Zeichen), egal welches Modell lief.
+# Bei einem 32k-Modell haette der Materialtext damit das halbe Fenster belegt.
+
+def test_gezielte_frage_folgt_ihrem_eigenen_feld(monkeypatch):
+    """Seit 20.08.2026 hat die gezielte Frage ein eigenes Feld im Admin. Vorher stand die
+    Zahl im Code und ueberstimmte die Einstellung unsichtbar."""
+    from src.features.ai_assistant.tasks._context_budget import specific_context_budget
+
+    monkeypatch.setattr(chat_mod.db, "get_setting", lambda k, d=None: "25000")
+    _kenne_fenster(monkeypatch, 262144)
+    assert specific_context_budget() == 25000
+
+
+def test_gezielte_frage_wird_nach_oben_und_unten_begrenzt(monkeypatch):
+    """Ein Vertipper darf weder aushungern noch das Modell sprengen."""
+    from src.features.ai_assistant.tasks._context_budget import specific_context_budget
+    from src.limits import AIA_CONTEXT_HARD_CAP
+
+    from src.services import model_limits
+
+    # Ohne gemessenes Fenster greift nur die Klammer um die Admin-Zahl selbst.
+    _kenne_fenster(monkeypatch, 0, model_limits.QUELLE_UNBEKANNT)
+    monkeypatch.setattr(chat_mod.db, "get_setting", lambda k, d=None: "5")
+    assert specific_context_budget() == 1000
+    monkeypatch.setattr(chat_mod.db, "get_setting", lambda k, d=None: "99999999")
+    assert specific_context_budget() == AIA_CONTEXT_HARD_CAP
+
+    # Mit gemessenem Fenster kuerzt zusaetzlich das Modell.
+    _kenne_fenster(monkeypatch, 262144)
+    assert specific_context_budget() == model_limits.context_chars(
+        262144, model_limits.SPECIFIC_SHARE)
+
+
+def test_grosses_modell_behaelt_die_volle_obergrenze(monkeypatch):
+    """Ein weites Fenster aendert nichts: die eingetragene Zahl bleibt die Grenze."""
+    from src.features.ai_assistant.tasks._context_budget import specific_context_budget
+    from src.limits import AIA_SPECIFIC_MAX_CHARS
+
+    monkeypatch.setattr(chat_mod.db, "get_setting", lambda k, d=None: d)
+    _kenne_fenster(monkeypatch, 262144)
+    assert specific_context_budget() == AIA_SPECIFIC_MAX_CHARS
+
+
+def test_kleines_modell_bekommt_weniger(monkeypatch):
+    """Bei einem engen Fenster faellt die Grenze mit, sonst frisst das Material den Platz
+    fuer Systemanweisung, Frage und Antwort."""
+    from src.features.ai_assistant.tasks._context_budget import specific_context_budget
+    from src.services import model_limits
+
+    monkeypatch.setattr(chat_mod.db, "get_setting", lambda k, d=None: d)
+    _kenne_fenster(monkeypatch, 32768)
+    erwartet = model_limits.context_chars(32768, model_limits.SPECIFIC_SHARE)
+    assert specific_context_budget() == erwartet
+    assert erwartet < 60000
+
+
+def test_unbekanntes_fenster_aendert_die_obergrenze_nicht(monkeypatch):
+    """Schweigt der Anbieter, wird nichts erfunden und nichts gekuerzt."""
+    from src.features.ai_assistant.tasks._context_budget import specific_context_budget
+    from src.limits import AIA_SPECIFIC_MAX_CHARS
+    from src.services import model_limits
+
+    monkeypatch.setattr(chat_mod.db, "get_setting", lambda k, d=None: d)
+    _kenne_fenster(monkeypatch, 0, model_limits.QUELLE_UNBEKANNT)
+    assert specific_context_budget() == AIA_SPECIFIC_MAX_CHARS
+
+
+def test_gezielte_frage_liegt_unter_dem_chat_budget(monkeypatch):
+    """Der Chat darf mehr sehen als eine gezielte Frage, sonst waere der eigene Deckel
+    wirkungslos."""
+    from src.features.ai_assistant.tasks._context_budget import specific_context_budget
+    from src.services import model_limits
+
+    monkeypatch.setattr(chat_mod.db, "get_setting", lambda k, d=None: "250000")
+    _kenne_fenster(monkeypatch, 262144)
+    assert specific_context_budget() < _context_budget()
+    assert model_limits.SPECIFIC_SHARE < model_limits.CHAT_SHARE
+
+
+# ── Kurzschluss: alles ohne Suche schicken, aber nur beim Ueberblick ─────────
+
+def test_nur_ueberblicksfragen_duerfen_den_kurzschluss_nehmen():
+    """Am 20.08.2026 gemessen: 'wann wo wie klausur' wurde als gezielte Frage erkannt und
+    bekam trotzdem 202.069 Zeichen ohne jede Suche, weil der Kurzschluss vor der
+    Fallunterscheidung stand. Genau die Absichten hier duerfen das noch."""
+    assert chat_mod._UEBERBLICK_INTENTS == ("GENERIC", "GREETING")
+    assert "SPECIFIC" not in chat_mod._UEBERBLICK_INTENTS
 
 
 # ── generic path: single-search pgvector retrieval (db/provider monkeypatched) ──

@@ -97,7 +97,7 @@ def shrink_model_window(provider_id: int, model_name: str, window_tokens: int) -
                        (provider_id, model_name, window_tokens, source, updated_at)
                    VALUES (%s, %s, %s, 'gelernt', NOW())
                    ON CONFLICT (provider_id, model_name) DO UPDATE
-                       SET window_tokens = LEAST(model_limits.window_tokens, EXCLUDED.window_tokens),
+                       SET window_tokens = LEAST(NULLIF(model_limits.window_tokens, 0), EXCLUDED.window_tokens),
                            source        = 'gelernt',
                            updated_at    = NOW()""",
                 (provider_id, model_name, int(window_tokens)),

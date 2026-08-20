@@ -19,9 +19,10 @@ mit HTTP 200 zurueck, nur zwei wirkten), andere Anbieter lehnen sie mit einem Fe
 mitzuschicken zerlegt also genau die Anbieter, fuer die dieses Modul gedacht ist.
 Erkannt wird deshalb an der WIRKUNG, nicht am Fehler.
 
-Verraet ein Anbieter seine Grenze nicht (zwei der 16 gemessenen Modelle tun das nicht), gilt
-ein vorsichtiger Wert als ``geraten``. Trifft spaeter eine echte Absage ein, liest
-:func:`learn_from_error` die Zahl heraus und ersetzt den geratenen Wert durch ``gelernt``.
+Verraet ein Anbieter seine Grenze nicht (zwei der 16 gemessenen Modelle tun das nicht), bleibt
+das Fenster ``unbekannt`` und es wird KEINE Zahl erfunden: dann deckelt nichts und allein die
+Einstellung im Admin entscheidet. Trifft spaeter eine echte Absage ein, liest
+:func:`learn_from_error` die Zahl heraus und traegt sie als ``gelernt`` nach.
 """
 
 from __future__ import annotations
@@ -34,9 +35,9 @@ from loguru import logger
 
 # ── Stellschrauben ──────────────────────────────────────────────────────────
 
-# Wenn ein Anbieter nichts verraet. Bewusst klein: ein zu kleines Budget kostet
-# Ueberblick, ein zu grosses kostet die ganze Anfrage.
-DEFAULT_WINDOW_TOKENS = 32768
+# Verraet ein Anbieter sein Fenster nicht, wird KEINE Zahl erfunden: 0 heisst
+# unbekannt, und dann entscheidet allein die Einstellung im Admin.
+UNBEKANNTES_FENSTER = 0
 
 # Gemessen wurden 3,3 (dichter KIS-Kontext mit Seitenmarken und Kennungen) bis 6,2
 # (deutscher Fliesstext) Zeichen je Token. Gerechnet wird mit dem dichten Fall, sonst
@@ -49,6 +50,9 @@ CHAT_SHARE = 0.60
 # Ein Werkzeug packt ein ganzes Dokument in EINEN Aufruf, ohne Verlauf und ohne lange
 # Antwort, und darf deshalb mehr vom Fenster belegen.
 TOOL_SHARE = 0.75
+# Eine gezielte Frage braucht nur die passenden Stellen, und zu viel Beiwerk laesst
+# das Modell die Antwort uebersehen.
+SPECIFIC_SHARE = 0.20
 
 
 # Auch ein winziges Fenster muss noch eine Anfrage zulassen.
@@ -71,7 +75,7 @@ CHAT_MAX_OUTPUT_TOKENS = 8192
 CHAT_LIKE_FEATURES = frozenset({"chat", "vision", "ocr", "doc_translate", "transcript_translate"})
 
 QUELLE_GEMESSEN = "gemessen"
-QUELLE_GERATEN = "geraten"
+QUELLE_UNBEKANNT = "unbekannt"
 QUELLE_GELERNT = "gelernt"
 
 # Die Sonde: eine absichtlich unmoegliche Anfrage. Der Anbieter lehnt sie ab, bevor er
@@ -105,7 +109,7 @@ class ModelProfile:
 
     @property
     def measured(self) -> bool:
-        return self.source != QUELLE_GERATEN
+        return self.window_tokens > 0 and self.source != QUELLE_UNBEKANNT
 
 
 # ── Fenstergroesse aus einer Absage lesen ───────────────────────────────────
@@ -177,8 +181,7 @@ def measure_with(call) -> ModelProfile:
 
 
 def _measure_window(call) -> tuple[int, str]:
-    """Fenstergroesse per Sonde. Antwortet der Anbieter statt abzulehnen, verraet er
-    nichts und wir raten vorsichtig."""
+    """Fenstergroesse per Sonde, oder unbekannt. Geraten wird nie."""
     try:
         call(messages=[{"role": "user", "content": "hi"}], max_tokens=_PROBE_MAX_TOKENS)
     except Exception as e:  # noqa: BLE001 — die Absage IST das Messergebnis
@@ -186,7 +189,7 @@ def _measure_window(call) -> tuple[int, str]:
         if fenster:
             return fenster, QUELLE_GEMESSEN
         logger.debug("Sonde abgelehnt, aber ohne Zahl: {}", str(e)[:200])
-    return DEFAULT_WINDOW_TOKENS, QUELLE_GERATEN
+    return UNBEKANNTES_FENSTER, QUELLE_UNBEKANNT
 
 
 def _measure_thinking(call) -> bool:
@@ -332,11 +335,11 @@ def ensure_profile(provider: dict, model: str) -> ModelProfile:
     """Die Messung dieses Modells, notfalls jetzt nachgeholt und weggeschrieben.
 
     Ist bereits etwas gemerkt, kostet der Aufruf eine Zeile aus der Datenbank. Sonst
-    wird einmal gemessen. Scheitert das Messen, gilt der Vorsichtswert und der naechste
-    Versuch wartet ein paar Minuten.
+    wird einmal gemessen. Scheitert das Messen, bleibt das Fenster unbekannt und der
+    naechste Versuch wartet ein paar Minuten.
     """
     provider_id = (provider or {}).get("id")
-    fallback = ModelProfile(DEFAULT_WINDOW_TOKENS, QUELLE_GERATEN, False, "")
+    fallback = ModelProfile(UNBEKANNTES_FENSTER, QUELLE_UNBEKANNT, False, "")
     if not provider_id or not model:
         return fallback
 
@@ -424,13 +427,14 @@ def as_dict(profile: ModelProfile | None) -> dict | None:
     """Fuer die Oberflaeche: die Messung als schlichtes Wortverzeichnis."""
     if profile is None:
         return None
+    bekannt = profile.measured
     return {
         "window_tokens": profile.window_tokens,
         "source": profile.source,
         "thinks": profile.thinks,
         "think_off": profile.think_off,
-        "context_chars": context_chars(profile.window_tokens, CHAT_SHARE),
-        "tool_context_chars": context_chars(profile.window_tokens, TOOL_SHARE),
+        "context_chars": context_chars(profile.window_tokens, CHAT_SHARE) if bekannt else None,
+        "tool_context_chars": context_chars(profile.window_tokens, TOOL_SHARE) if bekannt else None,
     }
 
 
@@ -472,23 +476,17 @@ def profile_for_feature(feature: str = "chat") -> ModelProfile | None:
 
 
 def window_for_feature(feature: str = "chat") -> int:
-    """Fenstergroesse des Modells, das dieses Merkmal bedient. Nie Netzverkehr.
-
-    Wurde noch nie gemessen, gilt der Vorsichtswert. Das ist der Preis dafuer, dass
-    die Budgetrechnung keine Anfrage aufhalten darf.
-    """
+    """Fenstergroesse des Modells, das dieses Merkmal bedient, oder 0 fuer unbekannt."""
     profil = profile_for_feature(feature)
-    return profil.window_tokens if profil else DEFAULT_WINDOW_TOKENS
+    return profil.window_tokens if profil else UNBEKANNTES_FENSTER
 
 
 def cap_for_model(budget_chars: int, share: float, feature: str = "chat") -> int:
     """Ein Admin-Budget auf das kuerzen, was das Modell nachweislich vertraegt.
 
     Die Zahl im Admin bleibt die Vorgabe. Dieser Deckel greift nur, wenn ueber das
-    Modell wirklich etwas bekannt ist: gemessen, im Betrieb gelernt oder als Absage
-    gesehen. Ein ``geraten`` ist keine Aussage ueber das Modell, sondern das
-    Eingestaendnis, keine zu haben, und darf dem Admin seine Einstellung nicht
-    wegnehmen.
+    Modell wirklich etwas bekannt ist: gemessen, im Betrieb gelernt oder von Hand
+    eingetragen. Schweigt der Anbieter, wird nichts erfunden und nichts gekuerzt.
 
     Warum es den Deckel ueberhaupt gibt: am 14.08.2026 am echten Modell geprueft,
     qwen3-omni kann 65.536 Token. Die im Admin stehenden 800.000 Zeichen fuer die
@@ -497,7 +495,7 @@ def cap_for_model(budget_chars: int, share: float, feature: str = "chat") -> int
     denselben Fehlversuch, weil die Einstellung unveraendert dasteht.
     """
     profil = profile_for_feature(feature)
-    if profil is None or profil.source == QUELLE_GERATEN:
+    if profil is None or not profil.measured:
         return budget_chars
     return min(budget_chars, context_chars(profil.window_tokens, share))
 

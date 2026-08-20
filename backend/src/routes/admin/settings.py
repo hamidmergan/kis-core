@@ -17,6 +17,7 @@ from src.limits import (
     TTS_MAX_CHARS_PER_REQUEST,
     AIA_CONTEXT_MAX_CHARS,
     AIA_CONTEXT_HARD_CAP,
+    AIA_SPECIFIC_MAX_CHARS,
     AIA_TOOL_CONTEXT_MAX_CHARS,
     AIA_TOOL_CONTEXT_HARD_CAP,
     AIA_SUMMARY_BATCH_MAX_CHARS,
@@ -115,6 +116,10 @@ async def get_settings(_admin=Depends(require_any_settings)):
         # KI-tutor chat context budget (chars). Default sized for 32k models.
         "aia_context_max_chars": int(
             db.get_setting("aia_context_max_chars", str(AIA_CONTEXT_MAX_CHARS))
+        ),
+        # Kontext einer gezielten Frage, getrennt vom Ueberblick-Budget darueber.
+        "aia_specific_max_chars": int(
+            db.get_setting("aia_specific_max_chars", str(AIA_SPECIFIC_MAX_CHARS))
         ),
         # Context budget (chars) for the generation tools (mindmap, data table, quiz, …).
         # Separate from the chat budget; divided by the number of sources at generation time.
@@ -404,6 +409,17 @@ async def update_settings(
                 detail=t("admin.settings.contextBudgetOutOfRange", locale, min=1000, max=AIA_CONTEXT_HARD_CAP),
             )
         db.set_setting("aia_context_max_chars", str(value))
+
+    # Kontext einer gezielten Frage. Dieselben Grenzen wie beim Ueberblick-Budget:
+    # die kleinere der beiden Zahlen gewinnt ohnehin an der Auswertung.
+    if body.aia_specific_max_chars is not None:
+        value = body.aia_specific_max_chars
+        if value < 1000 or value > AIA_CONTEXT_HARD_CAP:
+            raise HTTPException(
+                status_code=400,
+                detail=t("admin.settings.contextBudgetOutOfRange", locale, min=1000, max=AIA_CONTEXT_HARD_CAP),
+            )
+        db.set_setting("aia_specific_max_chars", str(value))
 
     # Generation-tools context budget in characters. Same lower bound as the chat
     # budget; upper bound = AIA_TOOL_CONTEXT_HARD_CAP (higher than the chat cap, the

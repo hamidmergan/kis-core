@@ -33,12 +33,14 @@ export default function SourcesPage() {
   const tPages = useTranslations("admin.sourceMaxPagesCard");
   const tOcr = useTranslations("admin.ocrCard");
   const tChat = useTranslations("admin.contextBudgetCard");
+  const tSpecific = useTranslations("admin.specificBudgetCard");
   const tTools = useTranslations("admin.toolContextBudgetCard");
 
   const maxSources = useSetting<number>("aia_workspace_max_sources", 50);
   const maxPages = useSetting<number>("aia_source_max_pages", 200);
   const ocr = useSetting<boolean>("ocr_enabled", true);
   const chat = useSetting<number>("aia_context_max_chars", 250000);
+  const specific = useSetting<number>("aia_specific_max_chars", 60000);
   const tools = useSetting<number>("aia_tool_context_max_chars", 250000);
 
   return (
@@ -80,6 +82,20 @@ export default function SourcesPage() {
         suffix={(v) => (
           <span className="text-xs text-muted-soft whitespace-nowrap">
             {tChat("approxTokens", { n: approxTokens(v) })}
+          </span>
+        )}
+      />
+      <NumberSetting
+        field={specific}
+        title={tSpecific("title")}
+        hint={tSpecific("hint")}
+        unit={tSpecific("unit")}
+        min={1000}
+        max={800000}
+        outOfRange={tSpecific("outOfRange")}
+        suffix={(v) => (
+          <span className="text-xs text-muted-soft whitespace-nowrap">
+            {tSpecific("approxTokens", { n: approxTokens(v) })}
           </span>
         )}
       />
