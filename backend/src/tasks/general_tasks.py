@@ -312,7 +312,7 @@ def run_image_edit(
         # myLab/THL's image-edit pipeline crashes with "unsupported operand
         # type(s) for /: 'int' and 'NoneType'" when these numerics aren't
         # supplied — its internal defaults are absent. Vanilla OpenAI ignores
-        # unknown fields; KISSKI's image-edit isn't reached via this path
+        # unknown fields; that image-edit path isn't reached here
         # anyway. Values match the "standard" quality preset documented in
         # the myLab wiki (guidance_scale=3.5, num_inference_steps=25).
         with job_heartbeat(job_uuid), client:

@@ -19,7 +19,7 @@ from src.limits import AIA_EMBEDDING_BATCH_SIZE
 # eine Eingabegrenze in dieser Groessenordnung hat. Die Schranke ist wichtig,
 # damit ein dauerhaft kaputter Endpunkt nicht hunderte Anfragen absetzt.
 _MAX_SHRINKS = 3
-# Pause vor dem zweiten Versuch, wenn das Kontingent des Anbieters voll ist.
+# Pause vor dem zweiten Versuch, wenn der Anbieter abwinkt.
 _RATE_LIMIT_PAUSE_SECONDS = 3
 # Wie oft eine Zeitueberschreitung mit GLEICHER Groesse wiederholt wird, bevor der
 # Aufruf doch kleiner schneidet. Eins, denn jeder Versuch kostet die volle
@@ -30,7 +30,7 @@ _MAX_TIMEOUT_RETRIES = 1
 # Vom Endpunkt gelernte Stapelgroessen, Schluessel ist (base_url, model).
 # Der Provider wird pro Upload neu gebaut, das Gedaechtnis lebt im Worker-
 # Prozess. Sonst wuerde jede Quelle die Grenze neu ertasten und dabei Aufrufe
-# am geteilten Rate-Limit verbrennen. Eingetragen wird nur eine Groesse, die der
+# verschwenden. Eingetragen wird nur eine Groesse, die der
 # Endpunkt wirklich angenommen hat, damit eine voruebergehende Stoerung den Wert
 # nicht dauerhaft nach unten zieht.
 _learned_batch_size: dict[tuple[str, str], int] = {}
@@ -196,7 +196,7 @@ class OpenAICompatEmbeddingProvider(EmbeddingProvider):
 
             results.extend(vectors)
             pending = pending[len(batch):]
-            # Das Kontingent fuer Zeitschranken gilt je Stapel, nicht je Aufruf. Sonst
+            # Der Vorrat an Wiederholungen gilt je Stapel, nicht je Aufruf. Sonst
             # wuerde ein Aussetzer beim ersten von fuenfzig Stapeln einen ganzen Upload
             # am dreissigsten Stapel scheitern lassen.
             timeout_retries = 0
@@ -262,7 +262,7 @@ def compute_fingerprint(provider: EmbeddingProvider) -> str:
 
     We embed a fixed sentinel ONLY to learn the provider's true output
     dimension; we deliberately do NOT hash the raw floats. Real providers
-    (vLLM/KISSKI e.g. e5-mistral) return slightly different vectors on every
+    (vLLM, e.g. e5-mistral) return slightly different vectors on every
     call (non-deterministic), so a float-based fingerprint never matches itself
     and the reindex warning would be permanently stuck — even right after a
     successful reindex.

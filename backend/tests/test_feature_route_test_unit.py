@@ -137,7 +137,7 @@ def test_stt_canary_passes_no_backend_evidence_returns_soft_warning(monkeypatch)
     result = run_feature_route_test(
         feature="stt",
         protocol="openai_compat",
-        base_url="http://kisski.example.com",
+        base_url="http://llm.example.com",
         api_key="k",
         model_name="anything-the-admin-typed",
     )
@@ -147,7 +147,7 @@ def test_stt_canary_passes_no_backend_evidence_returns_soft_warning(monkeypatch)
 
 
 def test_stt_canary_passes_with_backend_evidence_upgrades_warning(monkeypatch):
-    """KISSKI returns 200 with Kong + rate-limit headers proving the request
+    """The provider returns 200 with Kong headers proving the request
     was forwarded to the real Whisper backend (not a stub). The warning is
     upgraded to the positive 'endpoint verified' variant."""
     from src.services.feature_route_check import run_feature_route_test
@@ -156,7 +156,7 @@ def test_stt_canary_passes_with_backend_evidence_upgrades_warning(monkeypatch):
     def fake_post(self, url, **kwargs):
         resp = MagicMock(spec=httpx.Response)
         resp.status_code = 200
-        # Mirrors actual KISSKI response headers we captured during debugging.
+        # Mirrors actual response headers we captured during debugging.
         resp.headers = {
             "x-ratelimit-remaining-minute": "8",
             "x-kong-upstream-latency": "247",
@@ -172,7 +172,7 @@ def test_stt_canary_passes_with_backend_evidence_upgrades_warning(monkeypatch):
     result = run_feature_route_test(
         feature="stt",
         protocol="openai_compat",
-        base_url="https://saia.gwdg.de/v1",
+        base_url="https://llm.example.com/v1",
         api_key="k",
         model_name="whisper-large-v2",
     )
@@ -253,7 +253,7 @@ def test_image_edit_requires_model_name():
 
 
 def test_image_gen_posts_real_generation(monkeypatch):
-    """image_gen must POST to /v1/images/generations so providers (KISSKI)
+    """image_gen must POST to /v1/images/generations so providers
     whose /v1/models listing is undifferentiated can't pass a chat model id
     off as an image model."""
     from src.services.feature_route_check import run_feature_route_test
@@ -311,7 +311,7 @@ def test_image_gen_rejects_invalid_model(monkeypatch):
 def test_image_edit_posts_standard_openai_form(monkeypatch):
     """image_edit uses the same transport as image_gen / chat / vision:
     standard OpenAI-style — model in body, no trailing slash, no provider-
-    specific headers. Providers that need something else (KISSKI's
+    specific headers. Providers that need something else (a
     inference-service header) are explicitly NOT supported via this path."""
     from src.services.feature_route_check import run_feature_route_test
     import httpx
@@ -392,7 +392,7 @@ def test_image_gen_does_not_use_models_listing(monkeypatch):
 
 
 def test_classify_http_passes_plain_text_404(monkeypatch):
-    """KISSKI returns 404 with plain text body 'Model Not Found' — must not
+    """A provider returns 404 with plain text body 'Model Not Found' — must not
     be swallowed as generic 'endpoint_not_found'."""
     from src.services.feature_route_check import run_feature_route_test
     import httpx

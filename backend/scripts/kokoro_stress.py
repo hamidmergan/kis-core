@@ -2,7 +2,7 @@
 """Kokoro TTS concurrency stress test — no external deps (urllib + threads).
 
 Run ON the box that can reach the endpoint (e.g. the prod host where the autossh
-tunnel kokoro-tunnel.service exposes the KISSKI/GWDG GPU Kokoro). Fires bursts at
+tunnel kokoro-tunnel.service exposes the GPU Kokoro). Fires bursts at
 rising concurrency and reports per-request latency, throughput and errors — so you
 can see whether the GPU server PARALLELISES concurrent requests or serialises them
 (the local CPU container serialises: C=8 took 8x as long).

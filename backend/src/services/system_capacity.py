@@ -61,8 +61,8 @@ mit 16 Kernen und 2 GB darf trotzdem keine 12 Uploads gleichzeitig umwandeln,
 LibreOffice und ffmpeg brauchen den Speicher. Der jeweils kleinere der beiden
 Werte gewinnt.
 
-Diese Datei sagt NICHTS über Anbieter-Grenzen. Wie viele Anfragen GWDG oder
-myLab gleichzeitig vertragen, hat mit unseren Kernen nichts zu tun. Das sind
+Diese Datei sagt NICHTS über Anbieter-Grenzen. Wie viele Anfragen ein Anbieter
+gleichzeitig verträgt, hat mit unseren Kernen nichts zu tun. Das sind
 gemessene Konstanten in ``limits.py``.
 """
 
@@ -77,7 +77,7 @@ from loguru import logger
 
 # Obergrenzen. Nicht als Einstellung gedacht, sondern als Schutz gegen absurde
 # Ergebnisse auf sehr großen Maschinen. Über diesen Werten liegt der Engpass eh
-# nicht mehr bei uns, sondern beim Anbieter oder bei der Datenbank.
+# nicht mehr bei den Kernen, sondern bei der Datenbank.
 _MAX_CONCURRENT_UPLOADS = 8
 _MAX_RENDER_WORKERS = 8
 

@@ -3,12 +3,11 @@ import { _chunkLabel, type ChipLabelT } from "../../_utils";
 import type { ChatMessage } from "../../_types";
 import { citationPattern, citationsAreAdjacentSameTarget, stripCitations, type CitationFields } from "./_citation_parse";
 import { registerChipRow, scheduleChipGapPass, unregisterChipRow } from "./_chip_gap";
-import { CITATION_HL_COLOR } from "../viewer/_highlight";
 
 
 // The single citation target (source + page/timestamp) currently framed in the viewer,
 // i.e. the last clicked chip. Mirrors the viewer's one-frame-at-a-time behaviour so the
-// active chip wears the SAME yellow border as the page frame. Module scope (like
+// active chip wears the SAME blue border as the page frame. Module scope (like
 // _openChipGroups below) so the active state survives the remount churn of streaming /
 // the 15s poll. Chips subscribe individually, so a click re-renders only the
 // previously- and newly-active chip, not the whole message tree.
@@ -28,7 +27,7 @@ function setActiveChipTarget(key: string): void {
   _activeChipSubs.forEach((fn) => fn());
 }
 
-// Drop the active chip's yellow border. Called when the viewer's page frame is
+// Drop the active chip's blue border. Called when the viewer's page frame is
 // dismissed (the X button bottom-right of the PDF), so the chip in the chat loses its
 // frame in lock-step with the page. No-op when no chip is active.
 export function clearActiveChipTarget(): void {
@@ -134,7 +133,7 @@ function CitationChip({ desc, onChipClick, reserved }: { desc: ChipDesc; onChipC
   // with onClick, react-markdown often unmounts the chip between down and up, so the
   // native click lands on an ancestor. Pointer (not Mouse) so touch devices trigger it.
   const activate = () => {
-    // Mark this chip as the active one so it wears the same yellow border as the page
+    // Mark this chip as the active one so it wears the same blue border as the page
     // frame the click is about to draw in the viewer.
     setActiveChipTarget(targetKey);
     onChipClick(clickUuid, args.page, filename, args.sourceText, clickSeconds,
@@ -148,12 +147,12 @@ function CitationChip({ desc, onChipClick, reserved }: { desc: ChipDesc; onChipC
       // chips are a side note, not a headline — at text-xs with 2px padding they dominated
       // the answer.
       className={`inline-flex items-center whitespace-nowrap text-3xs px-[0.3125rem] py-px rounded-full font-medium chip-cite align-middle mx-px cursor-pointer${reserved ? " invisible" : ""}`}
-      // Transparent border by default so the active state adds the yellow frame without
-      // shifting layout. Yellow matches the viewer page frame (CITATION_HL_COLOR).
+      // Der aktive Chip traegt exakt denselben Rahmen wie beim Zeigen: die 2px-Outline aus
+      // .chip-cite, hier nur eingefaerbt, damit nichts verrutscht.
       style={{
         backgroundColor: "rgba(var(--kb-rgb),0.12)",
         color: "var(--kb)",
-        border: `1px solid ${isActive ? CITATION_HL_COLOR : "transparent"}`,
+        outlineColor: isActive ? "var(--cite-border)" : undefined,
       }}
       title={`${filename}, ${label}`}
     >{displayQNum ? `[${displayQNum}] ` : ""}{label}</span>

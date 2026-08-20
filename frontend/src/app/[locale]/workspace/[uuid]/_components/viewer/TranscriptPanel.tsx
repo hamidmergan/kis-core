@@ -6,7 +6,6 @@ import Select from "@/components/ui/Select";
 import { langLabel } from "../../_types";
 import type { AddNoteExtras } from "../../_hooks/useNotes";
 import { buildTranscriptModes, groupCues, resolveCitationFocus, type TranscriptMode } from "./_transcript";
-import { CITATION_HL_COLOR } from "./_highlight";
 import { clearActiveChipTarget } from "../chat/_citations";
 
 interface Cue {
@@ -515,12 +514,11 @@ export function TranscriptPanel({
     }
   };
 
-  // Clicking a SENTENCE plays from that sentence, not from the top of its paragraph: the
-  // grouping is about reading, and it must not cost the fine-grained seek the cues give us.
-  const onCueClick = (cue: Cue) => {
+  // Ein Klick spielt immer ab der Zeitmarke der Karte, egal wo in der Karte er landet.
+  const onBlockClick = (start: number) => {
     const media = mediaRef.current;
     if (!media) return;
-    media.currentTime = cue.start;
+    media.currentTime = start;
     media.play().catch(() => { });
   };
 
@@ -682,7 +680,7 @@ export function TranscriptPanel({
           // so grouping does not cost the "where am I" resolution the cues gave us.
           const isCurrent = currentIdx >= b.from && currentIdx <= b.to;
           const isPast = currentIdx >= 0 && b.to < currentIdx;
-          const citationTint = `${CITATION_HL_COLOR}33`;  // ~20% amber, the pinned-segment tint
+          const citationTint = "var(--cite-bg)";  // dezentes CD-Blau, abgesetzt vom Panel-Hintergrund
           // The marking is the paragraph's BACKGROUND, a filled surface. It once sat on the
           // sentences themselves, which is more precise on paper and unreadable in practice: an
           // inline span only paints the boxes around its glyphs, so a wrapped sentence came out
@@ -713,7 +711,6 @@ export function TranscriptPanel({
                 <span
                   key={i}
                   ref={lang === anchorTrack ? (el) => { itemRefs.current[i] = el; } : undefined}
-                  onClick={(e) => { e.stopPropagation(); onCueClick(masterCues[i]); }}
                   style={{ fontWeight: !italic && i === currentIdx ? 600 : undefined }}
                 >
                   {text}{i < b.to ? " " : ""}
@@ -731,17 +728,18 @@ export function TranscriptPanel({
             >
               <div
                 className="px-3 py-2 rounded-md cursor-pointer transition-colors"
+                onClick={() => onBlockClick(b.start)}
                 style={{
-                  // The amber ALWAYS wins the background so the marking stays visible even
-                  // while that same paragraph is the one playing, which would otherwise paint
-                  // it blue and leave the marking as a thin border. Once playback moves on, the
-                  // marked paragraph stays amber and the new current one takes the blue.
+                  // Die Markierung gewinnt IMMER den Hintergrund, damit sie sichtbar bleibt,
+                  // waehrend derselbe Absaetz gerade laeuft. Sie ist die kraeftigere Toenung,
+                  // der laufende Absatz die blassere plus Rahmen.
                   backgroundColor: hasCitation
                     ? citationTint
                     : isCurrent ? "rgba(var(--kb-rgb), 0.12)" : "transparent",
-                  borderLeft: hasCitation
-                    ? `3px solid ${CITATION_HL_COLOR}`
-                    : isCurrent ? "3px solid var(--kb)" : "3px solid transparent",
+                  // Der laufende Absatz bekommt rundum den blauen Rahmen und links den dickeren
+                  // Streifen. Die Markierung traegt nur die Flaeche, ohne eigenen Streifen.
+                  border: isCurrent ? "2px solid var(--kb)" : "2px solid transparent",
+                  borderLeft: isCurrent ? "3px solid var(--kb)" : "3px solid transparent",
                 }}
                 onMouseEnter={(e) => {
                   if (!isCurrent && !hasCitation) e.currentTarget.style.backgroundColor = "var(--surface-dim)";

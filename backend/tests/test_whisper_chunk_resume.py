@@ -22,7 +22,7 @@ class _StubWhisper(wc._WhisperChunkedMixin):
         i = self._idx(path)
         self.transcribed.append(i)
         if i in self._fail_on:
-            raise RuntimeError("Whisper API error (KISSKI): Error code: 429 - rate limit")
+            raise RuntimeError("Whisper API error (Anbieter A): Error code: 429 - rate limit")
         return f"t{i}"
 
 

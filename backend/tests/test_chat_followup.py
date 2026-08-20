@@ -49,7 +49,7 @@ def test_runde_ohne_antwort_traegt_keinen_zusammenhang():
 def test_eine_reine_absage_traegt_keinen_zusammenhang():
     # "Steht nicht in den Quellen" und sonst nichts nennt kein Thema. Eine
     # Nachfrage darauf eigenstaendig machen zu wollen, kann nur raten.
-    from src.tool_prompts import RAG_NO_INFO_SENTINEL
+    from src.features.ai_assistant.prompts.refusal_prompts import RAG_NO_INFO_SENTINEL
     for absage in RAG_NO_INFO_SENTINEL.values():
         assert fu.ist_nachfrage_moeglich("erklaere genauer", {**RUNDE, "answer": absage}) is False
 
@@ -57,7 +57,7 @@ def test_eine_reine_absage_traegt_keinen_zusammenhang():
 def test_absage_mit_hinweis_traegt_sehr_wohl_einen_zusammenhang():
     # Absage plus Hinweis auf etwas Verwandtes: der Hinweis IST ein Thema, auf
     # das sich "erklaere genauer" beziehen kann.
-    from src.tool_prompts import RAG_NO_INFO_SENTINEL
+    from src.features.ai_assistant.prompts.refusal_prompts import RAG_NO_INFO_SENTINEL
     mit_hinweis = (RAG_NO_INFO_SENTINEL["de"]
                    + "\n\nDie Quellen nennen stattdessen eine Hausarbeit als Pruefungsleistung.")
     assert fu.ist_nachfrage_moeglich("erklaere genauer", {**RUNDE, "answer": mit_hinweis}) is True
@@ -207,13 +207,17 @@ def test_runde_ohne_quellen_gibt_leere_zuordnung():
 def test_ohne_verlauf_ist_der_prompt_unveraendert():
     # Die Wegwahl des Vor-Calls ist fein abgestimmt. Ohne Nachfrage-Fall darf
     # sich an seinem Prompt kein Zeichen aendern.
-    from src.tool_prompts import (
-        AIA_QUERY_UNDERSTANDING_SYSTEM, aia_query_understanding_system)
+    from src.features.ai_assistant.prompts.query_understanding_prompts import (
+        AIA_QUERY_UNDERSTANDING_SYSTEM,
+        aia_query_understanding_system,
+    )
     assert aia_query_understanding_system(False) == AIA_QUERY_UNDERSTANDING_SYSTEM
 
 
 def test_mit_verlauf_kommen_die_beiden_felder_dazu():
-    from src.tool_prompts import aia_query_understanding_system
+    from src.features.ai_assistant.prompts.query_understanding_prompts import (
+        aia_query_understanding_system,
+    )
     prompt = aia_query_understanding_system(True)
     assert '"followup"' in prompt
     assert '"standalone"' in prompt
@@ -252,7 +256,9 @@ class _MitschreibenderLLM:
 @pytest.mark.asyncio
 async def test_ohne_letzte_runde_geht_nur_die_frage_raus():
     from src.features.ai_assistant.routes.chat import _understand_query
-    from src.tool_prompts import AIA_QUERY_UNDERSTANDING_SYSTEM
+    from src.features.ai_assistant.prompts.query_understanding_prompts import (
+        AIA_QUERY_UNDERSTANDING_SYSTEM,
+    )
     llm = _MitschreibenderLLM('{"intent":"SPECIFIC","scope":{"unit":null,"intervals":[]}}')
     _intent, _scope, _subs, art, frage = await _understand_query(llm, "Was ist Quellenkritik?")
     nachrichten = llm.gesendet[0]["messages"]

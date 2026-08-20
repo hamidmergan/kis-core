@@ -8,7 +8,7 @@ import { FileIcon } from "../sources/FileIcon";
 
 import { EMBEDPDF_ICON_MAP } from "./_icons";
 import { wrapEngineGeometry } from "./_geometry";
-import { doHighlightSearch, clearCitationHighlight, scrollToCitationPage, flashPageBorder, type HighlightRefs } from "./_highlight";
+import { doHighlightSearch, clearCitationHighlight, scrollToCitationPage, flashPageBorder, CITATION_HL_COLOR, type HighlightRefs } from "./_highlight";
 import { clearActiveChipTarget } from "../chat/_citations";
 import { copyTextFromPromise } from "@/lib/clipboard";
 import { useTheme } from "@/hooks/useTheme";
@@ -485,7 +485,12 @@ export function PdfViewer({
             src: `/api/ai-assistant/workspaces/${workspaceUuid}/sources/${source.uuid}/file`,
             worker: true,
             search: { showAllResults: false },
-            annotations: { locked: { type: LockModeType.All } },
+            annotations: {
+              locked: { type: LockModeType.All },
+              // Das Markieren-Werkzeug der Auswahlleiste malt im hellen CD-Blau statt in
+              // EmbedPDFs Gelb, genau wie unsere eigene Markierung (CITATION_HL_COLOR).
+              tools: [{ id: "highlight", defaults: { color: CITATION_HL_COLOR, strokeColor: CITATION_HL_COLOR } }],
+            },
             // KIS Corporate Design — values mirror tokens in globals.css.
             // Update both files together when CD changes.
             theme: {

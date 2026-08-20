@@ -5,8 +5,7 @@ gegen die gültigen Zweitfassungen, die schon beim Erzeugen der Aufgabe entstand
 sind. Die Erklärung hängt ebenfalls seit dem Erzeugen an der Aufgabe.
 
 Vorher lief bei jeder abweichenden Antwort ein Modell-Aufruf. Er urteilte gut, war
-aber der teuerste Weg zu einer Rückmeldung, die es schon gab, und das geteilte
-GWDG-Limit trägt keinen Aufruf pro getippter Antwort.
+aber der teuerste Weg zu einer Rückmeldung, die es schon gab.
 
 Die Normalisierung ist bewusst sprach-unabhängig: kein Wörterbuch, keine deutschen
 Sonderregeln, nur Unicode-Kategorien.

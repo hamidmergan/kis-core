@@ -402,7 +402,7 @@ _OCR_IMAGE_COVERAGE_THRESHOLD = 0.20
 # Also kein Ausrutscher des Dienstes und auch nicht "je hoeher desto besser", sondern
 # genau dieser eine Wert. 150 DPI liegt bei der Aufloesung, mit der solche Modelle
 # ueblicherweise arbeiten, las in der Messung jede Seite mindestens so gut wie 200 DPI
-# und schickt dabei ein Drittel weniger Daten ueber die geteilte Leitung.
+# und schickt dabei ein Drittel weniger Daten.
 _OCR_RENDER_DPI = 150
 
 

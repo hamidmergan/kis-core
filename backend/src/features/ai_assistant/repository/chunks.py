@@ -182,6 +182,83 @@ def _vector_search_sql(source_filter: str) -> str:
                 LIMIT 80"""
 
 
+def _seen_pages_filter(seen_pages: dict[int, set] | None) -> tuple[str, list]:
+    """WHERE-Fragment, das die Suche auf ABGERUFENE Quellen und Seiten einschraenkt.
+
+    Fuer die Beleg-Suche nach der Antwort. Ein Chip darf nur auf eine Stelle zeigen,
+    die das Modell auch gelesen hat, sonst schickt er den Leser auf eine Seite, die an
+    der Antwort nicht beteiligt war. Bisher stand diese Pruefung als ``_is_seen`` NACH
+    der Suche in Python: die Datenbank rankte den ganzen Workspace und die Liste wurde
+    hinterher zerrissen. Hier steht dieselbe Regel, nur frueher, damit die Kandidaten
+    von vornherein alle gueltig sind und der Suchraum auf die paar Dutzend Chunks der
+    gesehenen Seiten faellt.
+
+    ``seen_pages`` bildet Quelle auf Seitenmenge ab, genau wie ``seen_pages_by_source``
+    aus ``_pack_context_batches``. Eine LEERE Menge heisst Medienquelle: dort zeigt der
+    Chip auf eine Zeitmarke, es gibt keine Seite zu pruefen, also kommt die Quelle ganz
+    durch. Ohne Angabe gibt es kein Fragment, der Hauptabruf sucht unveraendert breit.
+
+    Eine ODER-Kette je Quelle, keine Mengenoperation. Das ist gemessen, nicht Geschmack:
+    die kuerzere Fassung ``EXISTS (SELECT 1 FROM unnest(...))`` wird zu einem Semi-Join,
+    den der Planer nicht auf einen Index abbilden kann, und faellt auf den vollen
+    Durchlauf zurueck (675 ms). Die Kette wird zu einem BitmapOr ueber
+    ``idx_chunks_source_page`` und braucht 6,8 ms. Ohne diesen Index bringt der Filter
+    ueberhaupt nur ein Drittel (64 ms -> 40 ms statt -> 7 ms).
+
+    Das Fragment wird an ``source_filter`` gehaengt und ist keine Nutzereingabe: alle
+    Werte reisen als Parameter, nicht im Text.
+    """
+    if not seen_pages:
+        return "", []
+    teile: list[str] = []
+    params: list = []
+    # Sortiert, damit dieselbe Eingabe dieselbe Abfrage ergibt und Postgres den Plan
+    # wiederverwenden kann.
+    for sid in sorted(seen_pages):
+        pages = seen_pages[sid]
+        if not pages:
+            teile.append("(c.source_id = %s)")
+            params.append(sid)
+        else:
+            teile.append("(c.source_id = %s AND c.page_number = ANY(%s))")
+            params += [sid, sorted(pages)]
+    # Kein Zweig fuer ``c.page_number IS NULL``: die Spalte ist NOT NULL. Die Nachsicht
+    # in _is_seen deckt Stellen ab, die gar nicht aus dieser Tabelle kommen.
+    return " AND (" + " OR ".join(teile) + ")", params
+
+
+_SEARCH_MODES = ("hybrid", "dense", "keyword")
+
+
+def _rrf_fuse(vec_rows, kw_rows, rrf_k: int, mode: str = "hybrid"):
+    """Reciprocal Rank Fusion ueber die beiden Trefferlisten.
+
+    Rueckgabe ``(scores, kw_ids)``. Zwei Listen, deren Rohwerte man nicht
+    vergleichen kann (Kosinus-Abstand gegen Wortgewicht), werden ueber ihre
+    PLAETZE zusammengelegt: jeder Treffer steuert ``1 / (rrf_k + Platz)`` bei.
+
+    ``mode`` blendet einen der beiden Wege aus. Nur fuer die Messung gedacht
+    (backend/scripts/rag_retrieval_eval.py --vergleich), der Chat laeuft immer
+    auf "hybrid". Ein unbekannter Wert ist ein Fehler statt eines stillen
+    Rueckfalls, sonst vergleicht ein Tippfehler zwei gleiche Laeufe."""
+    if mode not in _SEARCH_MODES:
+        raise ValueError(f"unbekannter Suchmodus: {mode!r}")
+
+    scores: dict[int, float] = {}
+    if mode != "keyword":
+        for row in vec_rows:
+            scores[row["id"]] = scores.get(row["id"], 0) + 1.0 / (rrf_k + row["rank"])
+    # Keyword hits (BM25 + exact-substring): the actual term-overlap signal.
+    # A chunk matched by vector ONLY is merely "semantically near" and may
+    # be off-topic — callers use kw_hit to tell the two apart.
+    kw_ids: set[int] = set()
+    if mode != "dense":
+        kw_ids = {row["id"] for row in kw_rows}
+        for row in kw_rows:
+            scores[row["id"]] = scores.get(row["id"], 0) + 1.0 / (rrf_k + row["rank"])
+    return scores, kw_ids
+
+
 def create_aia_chunk(
     source_id: int,
     page_number: int,
@@ -296,20 +373,39 @@ def hybrid_search_chunks(
     limit: int = 15,
     rrf_k: int = 60,
     fuzzy: bool = False,
+    mode: str = "hybrid",
+    seen_pages: dict[int, set] | None = None,
 ) -> list[dict]:
     """Hybrid search: combines vector similarity + BM25 keyword search via RRF.
+
+    ``mode`` schaltet einen der beiden Wege ab ("dense" / "keyword") und dient
+    NUR der Messung, welcher Weg das Ergebnis traegt. Der Chat laeuft immer auf
+    dem Vorgabewert "hybrid". Siehe _rrf_fuse und scripts/rag_retrieval_eval.py.
 
     ``fuzzy`` adds a trigram word-similarity fallback so a MISSPELLED query word
     ("authoren") still anchors the right chunk. It is a per-row word_similarity
     scan (no index), so enable it ONLY for the short user query — NOT for the
     post-hoc attribution, which fires once per answer line over clean text and
-    would otherwise pay seconds of needless fuzzy scans (slow citation chips)."""
+    would otherwise pay seconds of needless fuzzy scans (slow citation chips).
+
+    ``seen_pages`` schraenkt die Suche auf abgerufene Quellen und Seiten ein, siehe
+    ``_seen_pages_filter``. Nur die Beleg-Suche setzt das, der Hauptabruf sucht breit."""
+
+    if mode not in _SEARCH_MODES:
+        raise ValueError(f"unbekannter Suchmodus: {mode!r}")
 
     source_filter = ""
     source_param: list = []
     if source_ids is not None:
         source_filter = "AND s.id = ANY(%s)"
         source_param = [source_ids]
+
+    # An source_filter angehaengt statt eigenstaendig eingebaut: so erbt JEDER der vier
+    # Arme (Vektor, Stichwort, Teilstring, Fuzzy) den Filter an derselben Stelle im Text
+    # UND in der Parameterliste, ohne dass unten eine Zeile anzufassen waere.
+    _seen_sql, _seen_param = _seen_pages_filter(seen_pages)
+    source_filter += _seen_sql
+    source_param += _seen_param
 
     with get_connection() as conn:
         with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
@@ -323,12 +419,14 @@ def hybrid_search_chunks(
             # conversational query like "erkläre mir bitte die X" still focuses on
             # X). Callers use it to tell a genuinely on-topic source from one that
             # only shares filler words. Uses the halfvec hnsw index (see _vector_search_sql).
-            cur.execute(
-                _vector_search_sql(source_filter),
-                [str(query_embedding), str(query_embedding), workspace_id] + source_param + [str(query_embedding)],
-            )
-            vec_rows = cur.fetchall()
-            vec_distance = {row["id"]: float(row["distance"]) for row in vec_rows}
+            vec_rows, vec_distance = [], {}
+            if mode != "keyword":
+                cur.execute(
+                    _vector_search_sql(source_filter),
+                    [str(query_embedding), str(query_embedding), workspace_id] + source_param + [str(query_embedding)],
+                )
+                vec_rows = cur.fetchall()
+                vec_distance = {row["id"]: float(row["distance"]) for row in vec_rows}
 
             # 2) Keyword search (top 80). Content words only, OR-joined, ranked by the
             # RARITY of the matched terms.
@@ -343,12 +441,15 @@ def hybrid_search_chunks(
             #
             # Die Gewichte kommen aus ``_term_idf`` und sind je Workspace gemerkt, weil
             # eine Frage diese Suche einmal PRO QUELLE ausloest.
-            words = _content_words(query_text)
+            # Bei mode="dense" bleiben beide Listen leer, dann entfallen die drei
+            # Stichwort-Abfragen unten (2a/2b/2c) samt ihrer Laufzeit.
+            words = _content_words(query_text) if mode != "dense" else []
             # Rueckfall Wort fuer Wort, nicht die ganze Zeichenkette: ``plainto_tsquery``
             # verbindet eine mehrwortige Eingabe mit UND, eine Frage aus lauter
             # Fuellwoertern ("was ist das") faende damit fast nichts. Einzelne Woerter
             # bleiben ODER-verknuepft wie vorher.
-            _terms = _term_idf(cur, workspace_id, words or query_text.split())
+            _terms = (_term_idf(cur, workspace_id, words or query_text.split())
+                      if mode != "dense" else [])
             if _terms:
                 # Summe der Gewichte aller getroffenen Woerter, bei Gleichstand die
                 # Dichte. Die Gewichte sind gerechnete Zahlen, keine Nutzereingabe.
@@ -425,16 +526,8 @@ def hybrid_search_chunks(
                 if fuzzy_rows:
                     kw_rows = kw_rows + fuzzy_rows
 
-            # 3) RRF fusion
-            scores: dict[int, float] = {}
-            for row in vec_rows:
-                scores[row["id"]] = scores.get(row["id"], 0) + 1.0 / (rrf_k + row["rank"])
-            # Keyword hits (BM25 + exact-substring): the actual term-overlap signal.
-            # A chunk matched by vector ONLY is merely "semantically near" and may
-            # be off-topic — callers use kw_hit to tell the two apart.
-            kw_ids = {row["id"] for row in kw_rows}
-            for row in kw_rows:
-                scores[row["id"]] = scores.get(row["id"], 0) + 1.0 / (rrf_k + row["rank"])
+            # 3) RRF fusion (siehe _rrf_fuse, dort auch die Bedeutung von mode)
+            scores, kw_ids = _rrf_fuse(vec_rows, kw_rows, rrf_k, mode)
 
             if not scores:
                 return []

@@ -48,6 +48,5 @@ def test_vertonung_laeuft_nicht_einzeln():
 
 
 def test_spracherkennung_bleibt_zurueckhaltend():
-    """Gegen ein hochschulweit geteiltes Kontingent ist Zurückhaltung richtig.
-    Ein hoher Wert hier trifft nicht nur KIS, sondern alle anderen mit."""
+    """Der Wert bleibt in einem gemessenen, zurückhaltenden Rahmen."""
     assert 1 <= STT_CHUNK_PARALLELISM <= 4

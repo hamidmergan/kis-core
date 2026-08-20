@@ -6,7 +6,7 @@ from loguru import logger
 from src.celery_app import celery_app
 from src.limits import AIA_TOOL_SOFT_TIME_LIMIT, AIA_TOOL_TIME_LIMIT
 from src import database as db
-from src.tool_prompts import AIA_MINDMAP_PROMPT
+from src.features.ai_assistant.prompts.studio_prompts import AIA_MINDMAP_PROMPT
 from src.services.aia_adaptive_tools import build_adaptive_tool_suffix
 from src.services.llm_context_healing import create_with_shrink
 

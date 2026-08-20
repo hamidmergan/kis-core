@@ -5,9 +5,7 @@ from fastapi import APIRouter, Depends, Query
 
 
 from src.i18n import get_locale, TRANSCRIPT_LANGUAGES, DEFAULT_TRANSCRIPT_TARGET
-from src.tool_prompts import (
-    AIA_POPUP_ACTIONS,
-)
+from src.features.ai_assistant.prompts.popup_prompts import AIA_POPUP_ACTIONS
 
 
 router = APIRouter(tags=["ki-assistent: popup"])

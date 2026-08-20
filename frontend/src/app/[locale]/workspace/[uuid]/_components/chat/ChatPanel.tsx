@@ -8,6 +8,7 @@ import { ChatHeader } from "./ChatHeader";
 import { ChatEmptyState } from "./ChatEmptyState";
 import { ChatMessage } from "./ChatMessage";
 import { ChatInputBar } from "./ChatInputBar";
+import IconButton from "@/components/ui/IconButton";
 
 
 export function ChatPanel({
@@ -54,6 +55,7 @@ export function ChatPanel({
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const isFirstRender = useRef(true);
   const stickBottomRef = useRef(true);
+  const [showJumpDown, setShowJumpDown] = useState(false);
 
   // Tracks window scroll on landscape mobile (inner scroll is disabled there)
   // to flip the jump button between "go to top" and "go to bottom".
@@ -97,8 +99,10 @@ export function ChatPanel({
     const el = scrollContainerRef.current;
     if (!el) return;
     const onScroll = () => {
-      const atBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 50;
-      stickBottomRef.current = atBottom;
+      const distance = el.scrollHeight - el.scrollTop - el.clientHeight;
+      stickBottomRef.current = distance < 50;
+      // Erst ab vier Bildschirmhoehen Rueckstand zeigen wir den Knopf.
+      setShowJumpDown(distance > el.clientHeight * 4);
     };
     el.addEventListener("scroll", onScroll, { passive: true });
     return () => el.removeEventListener("scroll", onScroll);
@@ -106,9 +110,23 @@ export function ChatPanel({
 
   useEffect(() => {
     const el = scrollContainerRef.current;
-    if (!el || !stickBottomRef.current) return;
-    el.scrollTop = el.scrollHeight;
+    if (!el) return;
+    if (stickBottomRef.current) {
+      el.scrollTop = el.scrollHeight;
+      setShowJumpDown(false);
+      return;
+    }
+    setShowJumpDown(el.scrollHeight - el.scrollTop - el.clientHeight > el.clientHeight * 4);
   }, [messages]);
+
+  // Springt ans Ende und nimmt das Mitlaufen wieder auf.
+  function jumpDown() {
+    const el = scrollContainerRef.current;
+    if (!el) return;
+    el.scrollTo({ top: el.scrollHeight, behavior: "smooth" });
+    stickBottomRef.current = true;
+    setShowJumpDown(false);
+  }
 
   // Stable callback identities via refs - otherwise React.memo on ChatMessage
   // gets invalidated on every re-render of page.tsx (e.g. tab switch), because
@@ -171,6 +189,7 @@ export function ChatPanel({
       />
 
       {/* Messages */}
+      <div className="relative flex-1 min-h-0 flex flex-col">
       <div ref={scrollContainerRef} className="flex-1 overflow-y-auto">
         <div data-testid="chat-messages" className="mx-auto w-full p-3 flex flex-col gap-5" style={{ maxWidth: 920 }}>
           {messages.length === 0 && !loading && (
@@ -208,6 +227,20 @@ export function ChatPanel({
             ));
           })()}
         </div>
+      </div>
+
+      {showJumpDown && (
+        <IconButton
+          onClick={jumpDown}
+          aria-label={t("scrollToBottom")}
+          title={t("scrollToBottom")}
+          data-testid="chat-jump-down"
+          className="hide-on-short absolute bottom-3 right-4 z-20 shadow-md"
+          style={{ backgroundColor: "var(--surface)", border: "1px solid var(--border)", color: "var(--muted)" }}
+        >
+          <CaretDown size={14} weight="bold" />
+        </IconButton>
+      )}
       </div>
 
       <ChatInputBar

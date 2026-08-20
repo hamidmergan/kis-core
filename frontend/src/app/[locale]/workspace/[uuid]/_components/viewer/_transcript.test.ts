@@ -372,11 +372,11 @@ describe("groupCues — sentence-sized cues into readable blocks", () => {
   });
 
   // Measured, not invented: this is verbatim what THL myLab (whisper-3-large) returned for a
-  // 30-second German recording — nine segments of two to five seconds. KISSKI's whisper handed
+  // 30-second German recording — nine segments of two to five seconds. The other whisper handed
   // back the SAME audio as two segments, the first 432 characters over 27 seconds, and that is
   // the paragraph size this is tuned to. So the numbers are pinned here: change a constant and
   // this test says what it does to a real transcript.
-  it("turns a real myLab transcript into KISSKI-sized paragraphs", () => {
+  it("turns a real myLab transcript into coarse paragraphs", () => {
     const cues: TextCue[] = [
       { start: 0.00, end: 4.46, text: "Herzlich willkommen zur Einführungskonferenz im wissenschaftlichen Seminar." },
       { start: 4.78, end: 9.52, text: "Mein Name ist Lenka Kleinau. Ich bin die Mentorin und Tutorin in diesem Kurs." },
@@ -388,7 +388,7 @@ describe("groupCues — sentence-sized cues into readable blocks", () => {
       { start: 27.06, end: 29.30, text: "Bitte nutzen Sie die Vorlage in Word." },
       { start: 29.30, end: 30.30, text: "oder Latex." },
     ];
-    // Two paragraphs of 306 and 168 characters, cut where KISSKI cut it too — except that the
+    // Two paragraphs of 306 and 168 characters, cut where the coarse provider cut it too — except that the
     // stray "oder Latex." no longer stands alone: it is the tail of the sentence before it.
     expect(groupCues(cues).map((b) => [b.from, b.to])).toEqual([[0, 4], [5, 8]]);
   });

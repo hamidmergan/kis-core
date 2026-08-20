@@ -2,7 +2,7 @@
 
 When a chunked transcription task fails partway and Celery retries it, we want
 to skip chunks that already succeeded so the user does not lose progress and we
-do not re-burn provider quota. Cache is keyed by ``(source_id, chunk_index)``
+do not redo finished work. Cache is keyed by ``(source_id, chunk_index)``
 and holds the (segments, language) tuple as JSON.
 
 TTL is generous: indexing tasks may sit in retry-backoff for hours while a
@@ -78,7 +78,7 @@ def clear(cache_key: str, total_chunks: int) -> None:
 # ── Plain-text variant (non-verbose transcribe/translate tool) ───────────────
 # The standalone transcription tool produces a TEXT string per chunk (text/srt/vtt),
 # not (segments, language). Same per-(job, chunk) keying and TTL so a failed run can
-# resume instead of re-burning quota.
+# resume instead of redoing the finished chunks.
 
 def get_text(cache_key: str, chunk_index: int) -> str | None:
     """Return the cached chunk text, or None if not cached. An empty cached string ('')

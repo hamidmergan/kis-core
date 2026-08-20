@@ -17,7 +17,7 @@ from src.features.ai_assistant.tasks.language_training._source_flashcards import
     _format_lernkarte,
     AIA_FLASHCARD_EXTRAS_FIELDS,
 )
-from src.tool_prompts import AIA_LERNKARTEN_PROMPT
+from src.features.ai_assistant.prompts.language_training_prompts import AIA_LERNKARTEN_PROMPT
 
 
 def _fake_client(content: str):

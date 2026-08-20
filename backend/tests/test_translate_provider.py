@@ -9,8 +9,8 @@ def _make_provider(id, name, protocol="openai_compat", api_key=None, base_url="h
 def test_get_translation_providers_merges_translation_and_chat(monkeypatch):
     from src.dependencies import get_translation_providers
     p1 = _make_provider(1, "DeepL", protocol="deepl")
-    p2 = _make_provider(2, "KISSKI", protocol="openai_compat")
-    p3 = _make_provider(2, "KISSKI", protocol="openai_compat")  # duplicate, different cap
+    p2 = _make_provider(2, "Anbieter A", protocol="openai_compat")
+    p3 = _make_provider(2, "Anbieter A", protocol="openai_compat")  # duplicate, different cap
 
     def fake_list(cap):
         if cap == "translation":
@@ -45,7 +45,7 @@ def test_get_translate_client_for_provider_deepl(monkeypatch):
 def test_get_translate_client_for_provider_llm(monkeypatch):
     from src.dependencies import get_translate_client_for_provider
 
-    provider = _make_provider(7, "KISSKI", protocol="openai_compat", api_key="key",
+    provider = _make_provider(7, "Anbieter A", protocol="openai_compat", api_key="key",
                               base_url="https://llm.example.com/v1")
     route = {"provider_models": {"7": "mistral-small"}, "model_name": None}
 

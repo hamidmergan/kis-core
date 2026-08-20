@@ -16,8 +16,8 @@ _RETRY_BASE_DELAY = 2.0  # seconds, exponential: 2, 4, 8 plus jitter
 
 # Reasoning-Modelle verbrauchen den Großteil ihrer Ausgabe fürs Denken, bevor
 # ein einziges Zeichen Übersetzung erscheint, und der Aufwand wächst mit der
-# Zahl der Einträge, nicht mit deren Länge. Gemessen an qwen3.5-122b-a10b über
-# KISSKI: 1 kurzer Satz kostet rund 1000 Token, 6 kurze Sätze kosten 6856.
+# Zahl der Einträge, nicht mit deren Länge. Gemessen an qwen3.5-122b-a10b:
+# 1 kurzer Satz kostet rund 1000 Token, 6 kurze Sätze kosten 6856.
 #
 # max_tokens ist eine Obergrenze, keine Reservierung. Großzügig ansetzen kostet
 # nichts, zu knapp ansetzen dagegen viel: jeder Abriss löst eine Teilung und
@@ -201,8 +201,7 @@ class LLMTranslationClient:
 
         On a parse mismatch we retranslate only the missing items individually rather
         than the whole chunk, so a single dropped line costs one extra call instead of
-        exploding a 40-item chunk into 40 per-item calls (matters under the shared rate
-        limit). Only a fully unparseable response falls all the way back to per-item.
+        exploding a 40-item chunk into 40 per-item calls. Only a fully unparseable response falls all the way back to per-item.
         """
         if source_lang:
             instruction = f"from {source_lang} to {target_lang}"

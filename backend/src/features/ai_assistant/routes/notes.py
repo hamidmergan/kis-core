@@ -14,9 +14,7 @@ from src.i18n import get_locale, t
 from src.limits import (
     AIA_NOTES_MAX_PER_USER,
 )
-from src.tool_prompts import (
-    AIA_NOTE_TITLE,
-)
+from src.features.ai_assistant.prompts.popup_prompts import AIA_NOTE_TITLE
 
 _NOTE_TITLE_SAFETY_CAP = 80
 

@@ -33,7 +33,7 @@ class FeatureTestResult:
     status: str  # "ok" | "error"
     error: Optional[str] = None
     # Soft signal alongside status="ok" — the request succeeded but a caveat
-    # applies (e.g. KISSKI's STT silently accepts any model name, so we can't
+    # applies (e.g. some STT silently accepts any model name, so we can't
     # actually verify the model is valid).
     warning: Optional[str] = None
 
@@ -193,7 +193,7 @@ def _silence_wav(duration_sec: float = 0.1, sample_rate: int = 16000) -> bytes:
     ])
 
 
-# An obviously-bogus model name we use to detect providers (KISSKI) whose
+# An obviously-bogus model name we use to detect providers whose
 # /v1/audio/transcriptions silently ignores the ``model`` field — i.e. accept
 # anything, return 200 with an empty body. Without this canary, a passing
 # real probe would falsely report 'ok' for any string the admin typed.
@@ -248,7 +248,7 @@ def _post_stt(
     primary = _classify_http(resp, expect_json=False)
     if primary.status != "ok":
         return primary
-    # The user's model came back ok — but some providers (notably KISSKI)
+    # The user's model came back ok — but some providers
     # accept any model name and silently fall back to a default. Send a
     # canary with a guaranteed-invalid name: if THAT also passes, the model
     # field is being ignored and we can't validate the name. We still surface
@@ -272,8 +272,8 @@ def _post_stt(
 def _make_grey_png(side: int = 64) -> bytes:
     """Build a side×side mono PNG of mid-grey.
 
-    A 1×1 PNG was rejected by KISSKI's image-edit reader ("broken data stream"
-    — their PIL/cv2 stack can't handle degenerate sizes). 64×64 stays under
+    A 1×1 PNG was rejected by an image-edit reader ("broken data stream" — a
+    PIL/cv2 stack that can't handle degenerate sizes). 64×64 stays under
     ~200 bytes thanks to PNG's deflate but is large enough that any sane
     image reader will accept it.
     """
@@ -374,7 +374,7 @@ def _classify_http(resp: httpx.Response, *, expect_json: bool) -> FeatureTestRes
         return FeatureTestResult(status="error", error="auth_rejected")
     # For non-2xx (including 5xx), try to extract a human-readable detail
     # from the body first — many servers (incl. vLLM/myLab) return 404 with
-    # {"detail":"Model X not found"}, KISSKI returns plain "Model Not Found",
+    # {"detail":"Model X not found"}, others return plain "Model Not Found",
     # and myLab's broken image-edit returns plain "Internal Server Error".
     # All of these tell the admin far more than a generic 'server_error'.
     detail = ""
@@ -395,7 +395,7 @@ def _classify_http(resp: httpx.Response, *, expect_json: bool) -> FeatureTestRes
             detail = body.get("message", "")
     except Exception:
         pass
-    # Plain-text body fallback (e.g. KISSKI's "Model Not Found").
+    # Plain-text body fallback (e.g. a plain "Model Not Found").
     if not detail and resp.text:
         detail = resp.text.strip()[:200]
     if detail:

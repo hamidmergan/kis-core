@@ -1,7 +1,7 @@
 """Batch-chunk parsing for the LLM translation client.
 
 Covers the hardened fallback: a partial parse retranslates only the missing items,
-not the whole chunk (keeps call count near ceil(N/40) under the shared rate limit).
+not the whole chunk (keeps the call count near ceil(N/40)).
 """
 from src.services.llm_translation_client import LLMTranslationClient
 

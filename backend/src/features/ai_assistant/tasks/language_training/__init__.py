@@ -52,9 +52,8 @@ from src.features.ai_assistant.tasks.language_training._variation import (
 )
 
 
-# So oft wird nachbestellt, bis die verlangte Anzahl steht. Zwei Runden und nicht mehr:
-# das Anfragen-Kontingent teilt sich die ganze Hochschule. Eine Runde, die keine einzige
-# neue Aufgabe bringt, beendet den Nachschlag ohnehin sofort, denn dann hat das Dokument
+# So oft wird nachbestellt, bis die verlangte Anzahl steht. Zwei Runden und nicht mehr.
+# Eine Runde, die keine einzige neue Aufgabe bringt, beendet den Nachschlag ohnehin sofort, denn dann hat das Dokument
 # nichts mehr herzugeben und ein kuerzerer Satz ist die ehrliche Antwort.
 _NACHSCHLAG_RUNDEN = 2
 

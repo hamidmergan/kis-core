@@ -43,7 +43,7 @@ AI-powered media and learning platform for TH Lübeck. Translates documents, gen
 - PostgreSQL 16 + pgvector (RAG embeddings)
 - Redis (Celery broker)
 - Celery + Celery Beat
-- DeepL, OpenAI-compatible LLM clients (KISSKI, myLab, Ollama)
+- DeepL, OpenAI-compatible LLM clients (myLab, Ollama)
 - Kokoro TTS
 - S3-compatible object storage
 
@@ -107,7 +107,7 @@ source is preferred over a wrong one).
 
 This needs a model that can reliably copy the chunk `id`:
 
-- **Tested & working:** mid / large tiers (e.g. hosted KISSKI / myLab models).
+- **Tested & working:** mid / large tiers (e.g. hosted myLab models).
 - **Not yet validated:** the small tier (8B / 32k context) may emit chunk ids
   unreliably. When it does, KIS falls back to deterministic lexical grounding — still
   safe, just less complete. Per-tier validation is pending.

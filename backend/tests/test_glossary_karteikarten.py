@@ -53,8 +53,7 @@ def test_the_front_is_a_question_not_the_term():
 
 
 def test_one_call_for_the_whole_set():
-    # Ein gebuendelter Aufruf, nicht einer je Begriff: das geteilte Anfragelimit der
-    # Hochschule ist der Engpass, nicht die Rechenzeit.
+    # Ein gebuendelter Aufruf, nicht einer je Begriff.
     antwort = json.dumps({"cards": [
         {"term": b, "question": f"Was ist {b}?", "answer": f"Das ist {b}."}
         for b in ("Abstract", "Peer Review", "Exposé")

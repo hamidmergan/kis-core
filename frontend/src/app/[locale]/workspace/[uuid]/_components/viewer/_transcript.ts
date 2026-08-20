@@ -60,11 +60,11 @@ export interface CueBlock {
 }
 
 // The sizes come from measuring what a paragraph-returning provider actually returns. On the
-// same 30 seconds of German speech, KISSKI's whisper-large-v2 handed back ONE segment of 432
+// same 30 seconds of German speech, another whisper-large-v2 handed back ONE segment of 432
 // characters over 27.2 seconds, while myLab's whisper-3-large returned nine of 52 characters
 // on average. So a paragraph is roughly 300 to 500 characters, and that is what these say.
 //
-// KISSKI gets there by not deciding anything: its segment is just Whisper's 30-second window,
+// It gets there by not deciding anything: its segment is just Whisper's 30-second window,
 // which is why its cuts land wherever the window ends, sentence or no sentence. The rules below
 // aim at the same size and cut better — at a pause, or at a sentence end, never in the middle
 // of one unless a transcript without punctuation leaves no choice.

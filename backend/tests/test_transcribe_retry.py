@@ -86,7 +86,7 @@ def _run(self_obj):
 
 def test_429_requeues_with_backoff_not_failed(env):
     set_error, failed = env
-    set_error("Chunk 1 transcription failed: Whisper API error (KISSKI): Error code: 429 - rate limit")
+    set_error("Chunk 1 transcription failed: Whisper API error (Anbieter A): Error code: 429 - rate limit")
     s = _FakeSelf(retries=0)
     with pytest.raises(_Retrying):
         _run(s)
@@ -105,7 +105,7 @@ def test_429_after_max_retries_marks_failed(env):
 
 
 @pytest.mark.parametrize("msg", [
-    "Chunk 1 transcription failed: Whisper API error (KISSKI): Internal Server Error",
+    "Chunk 1 transcription failed: Whisper API error (Anbieter A): Internal Server Error",
     "Chunk 9 transcription failed: Whisper API error (myLab): Bad Gateway",
     "Whisper API error (myLab): Service Unavailable",
     "Whisper API error (myLab): Read timeout",

@@ -869,6 +869,17 @@ def _init_db(admin_email: Optional[str] = None) -> None:
                 CREATE INDEX IF NOT EXISTS idx_chunks_content_trgm
                 ON aia_chunks USING gin(content gin_trgm_ops)
             """)
+            # Quelle + Seite fuer die Beleg-Suche nach einer Chat-Antwort: die schraenkt
+            # auf die Seiten ein, die das Modell wirklich gelesen hat (siehe
+            # chunks._seen_pages_filter). Ohne diesen Index findet Postgres jene paar
+            # Dutzend Zeilen nur ueber den vollen Durchlauf und der Filter bringt statt
+            # 62 -> 6 ms nur 62 -> 40 ms je Antwortsatz. Die Spaltenreihenfolge zaehlt:
+            # source_id steht vorn, weil eine Medienquelle OHNE Seitenbedingung gesucht
+            # wird (dort belegt eine Zeitmarke, keine Seite).
+            cur.execute("""
+                CREATE INDEX IF NOT EXISTS idx_chunks_source_page
+                ON aia_chunks (source_id, page_number)
+            """)
             # Migration: legacy page/paragraph summary TABLES were removed
             # (pgvector-only retrieval). NOTE: the per-source ``summary`` column is
             # BACK (added above) for the DOC SUMMARY feature (GENERIC answers) — do
@@ -1652,7 +1663,7 @@ def _init_db(admin_email: Optional[str] = None) -> None:
             # ─── Modellvermessung ─────────────────────────────────────────────
             # Was ein Modell vertraegt, einmal gemessen statt im Admin geraten:
             # Fenstergroesse in Token, ob es vor der Antwort denkt, und welcher
-            # Schalter dieses Denken abstellt. Gemessen an den 16 GWDG-Modellen
+            # Schalter dieses Denken abstellt. Gemessen an 16 Modellen
             # reichen die Fenster von 20.080 bis 1.048.576 Token, eine feste
             # Zeichenzahl fuer alle kann es also gar nicht geben.
             #

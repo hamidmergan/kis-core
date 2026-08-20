@@ -102,7 +102,7 @@ def get_last_aia_user_questions(
     keinen Verlauf an das Modell, deshalb hat eine Eingabe wie "hi" kein
     Sprachsignal und die Antwort kippt ins Englische. Es werden mehr Zeilen
     gelesen als gebraucht, weil kurze Eingaben spaeter als Sprachprobe
-    ausscheiden (siehe ``_language_anchors``). Nur Nachrichten der Person
+    ausscheiden (siehe ``language_anchors``). Nur Nachrichten der Person
     kommen infrage, die Antworten des Tutors wuerden dessen eigene Sprachwahl
     nur bestaetigen. Chats je Zugangslink bleiben getrennt.
     """

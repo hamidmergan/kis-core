@@ -1,0 +1,902 @@
+[
+  {
+    "id": "auto-001",
+    "workspace": "f789732f-b9aa-4d40-900f-3585976edb85",
+    "question": "Welche Unterlagen müssen Betroffene einer Lohnsteuer-Nachschau dem zuständigen Beamten auf Anfrage zur Verfügung stellen?",
+    "note": "maschinell erzeugt aus EStG95.pdf, Chunk 92962",
+    "expect_text": [
+      "dem mit der Nachschau Beauftragten auf Verlangen Lohn- und"
+    ]
+  },
+  {
+    "id": "auto-002",
+    "workspace": "f789732f-b9aa-4d40-900f-3585976edb85",
+    "question": "Unter welchen Bedingungen gibt es eine Steuerentlastung für Energieerzeugnisse, die zur Wärmeerzeugung genutzt wurden?",
+    "note": "maschinell erzeugt aus EnergieStG55.pdf, Chunk 88283",
+    "expect_text": [
+      "in begünstigten Anlagen nach § 3 verwendet worden sind."
+    ]
+  },
+  {
+    "id": "auto-003",
+    "workspace": "f789732f-b9aa-4d40-900f-3585976edb85",
+    "question": "Welche Informationen muss ein Angestellter seinem neuen Arbeitgeber für den Abruf der Lohnsteuerabzugsmerkmale übermitteln?",
+    "note": "maschinell erzeugt aus EStG95.pdf, Chunk 92866",
+    "expect_text": [
+      "Satz 2 Nummer 4 vorliegen. 4 Das Bundeszentralamt für"
+    ]
+  },
+  {
+    "id": "auto-004",
+    "workspace": "f789732f-b9aa-4d40-900f-3585976edb85",
+    "question": "Welche Mengenbeschränkungen gelten für Mais und Getreidekorn bei der Erzeugung von Biogas-Strom je nach Zuschlagsdatum?",
+    "note": "maschinell erzeugt aus EEG_2023149.pdf, Chunk 85922",
+    "expect_text": [
+      "1 für Strom aus Biogas besteht nur, wenn der zur Erzeugung"
+    ]
+  },
+  {
+    "id": "auto-005",
+    "workspace": "f789732f-b9aa-4d40-900f-3585976edb85",
+    "question": "Wie läuft der Beginn einer Hauptverhandlung ab und was passiert zu diesem Zeitpunkt?",
+    "note": "maschinell erzeugt aus StPO197.pdf, Chunk 126520",
+    "expect_text": [
+      "stellt fest, ob der Angeklagte und der Verteidiger anwesend"
+    ]
+  },
+  {
+    "id": "auto-006",
+    "workspace": "f789732f-b9aa-4d40-900f-3585976edb85",
+    "question": "Wer kann eine Steuerentlastung für die Lieferung von Energieerzeugnissen an NATO-Hauptquartiere oder ausländische Streitkräfte beantragen?",
+    "note": "maschinell erzeugt aus EnergieStG55.pdf, Chunk 88302",
+    "expect_text": [
+      "für ausländische Streitkräfte und Hauptquartiere (NATO) (1)"
+    ]
+  },
+  {
+    "id": "auto-007",
+    "workspace": "f789732f-b9aa-4d40-900f-3585976edb85",
+    "question": "Welche Informationen müssen dauerhaft auf dem Typenschild eines Heißwassererzeugers stehen?",
+    "note": "maschinell erzeugt aus SchSV147.pdf, Chunk 118118",
+    "expect_text": [
+      "Heißwassererzeuger gefährdenden Einbruchs von Fremdstoffen"
+    ]
+  },
+  {
+    "id": "auto-008",
+    "workspace": "f789732f-b9aa-4d40-900f-3585976edb85",
+    "question": "Bis wann muss die Steuer gezahlt werden, wenn sie im vorherigen Monat entstanden ist?",
+    "note": "maschinell erzeugt aus EnergieStG55.pdf, Chunk 88181",
+    "expect_text": [
+      "Fällen des § 18 Absatz 3 Satz 5 für Energieerzeugnisse, für"
+    ]
+  },
+  {
+    "id": "auto-009",
+    "workspace": "f789732f-b9aa-4d40-900f-3585976edb85",
+    "question": "Unter welchen Bedingungen darf eine spezielle Photovoltaikanlage auf Ackerland errichtet werden?",
+    "note": "maschinell erzeugt aus EEG_2023149.pdf, Chunk 85983",
+    "expect_text": [
+      "Bundesnaturschutzgesetzes liegen, kein Lebensraumtyp sind,"
+    ]
+  },
+  {
+    "id": "auto-010",
+    "workspace": "f789732f-b9aa-4d40-900f-3585976edb85",
+    "question": "Welche verschiedenen Notenstufen gibt es bei den Prüfungen für Fluglotsen und das Flugsicherungsbetriebspersonal?",
+    "note": "maschinell erzeugt aus FSPersAV61.pdf, Chunk 90750",
+    "expect_text": [
+      "1 und Flugsicherungsbetriebspersonal nach § 1 Nr. 2 1.1"
+    ]
+  },
+  {
+    "id": "auto-011",
+    "workspace": "f789732f-b9aa-4d40-900f-3585976edb85",
+    "question": "Welche Themen müssen im Unterricht beim Umgang mit dem Schienenverkehr zwingend behandelt werden?",
+    "note": "maschinell erzeugt aus FahrlAusbV85.pdf, Chunk 95376",
+    "expect_text": [
+      "§ 9 DV-FahrlG rücksichtsvoll. Sie können das kommentierende"
+    ]
+  },
+  {
+    "id": "auto-012",
+    "workspace": "f789732f-b9aa-4d40-900f-3585976edb85",
+    "question": "Unter welchen Bedingungen ist die Nutzung eines Parkscheins oder Parkausweises gültig?",
+    "note": "maschinell erzeugt aus StVO82.pdf, Chunk 129861",
+    "expect_text": [
+      "Erläuterungen Parken mit Parkscheibe und dessen zulässige"
+    ]
+  },
+  {
+    "id": "auto-013",
+    "workspace": "f789732f-b9aa-4d40-900f-3585976edb85",
+    "question": "Unter welcher Bedingung darf Strom einer Anlage einer Direktvermarktung zugeordnet werden?",
+    "note": "maschinell erzeugt aus EEG_2023149.pdf, Chunk 85679",
+    "expect_text": [
+      "einhalten. Die Sätze 1 und 2 sind nicht für die"
+    ]
+  },
+  {
+    "id": "auto-014",
+    "workspace": "f789732f-b9aa-4d40-900f-3585976edb85",
+    "question": "Welche Leistungen kann ein Besatzungsmitglied vom Reeder verlangen, wenn es im Ausland medizinisch behandelt werden muss?",
+    "note": "maschinell erzeugt aus SeeArbG67.pdf, Chunk 107308",
+    "expect_text": [
+      "bei der medizinischen Betreuung im Ausland (1) Hat ein"
+    ]
+  },
+  {
+    "id": "auto-015",
+    "workspace": "f789732f-b9aa-4d40-900f-3585976edb85",
+    "question": "Wer muss eine Sicherheit hinterlegen, wenn Energieerzeugnisse durch andere EU-Mitgliedstaaten transportiert werden?",
+    "note": "maschinell erzeugt aus EnergieStG55.pdf, Chunk 88144",
+    "expect_text": [
+      "L 203 vom 26.6.2020, S. 1) geändert worden ist, in der"
+    ]
+  },
+  {
+    "id": "auto-016",
+    "workspace": "f789732f-b9aa-4d40-900f-3585976edb85",
+    "question": "In welchen Fällen wird das Verhalten einer leitenden Person dem durch sie vertretenen Unternehmen zugerechnet?",
+    "note": "maschinell erzeugt aus StGB173.pdf, Chunk 121853",
+    "expect_text": [
+      "Stellung als Prokurist oder Handlungsbevollmächtigter einer"
+    ]
+  },
+  {
+    "id": "auto-017",
+    "workspace": "f789732f-b9aa-4d40-900f-3585976edb85",
+    "question": "Wie viele Anwälte darf ein Beschuldigter maximal in seinem Verfahren beauftragen?",
+    "note": "maschinell erzeugt aus StPO197.pdf, Chunk 126308",
+    "expect_text": [
+      "Einsichtsfähigkeit des Beschuldigten beeinträchtigen, sind"
+    ]
+  },
+  {
+    "id": "auto-018",
+    "workspace": "f789732f-b9aa-4d40-900f-3585976edb85",
+    "question": "Welche Anforderungen muss die Bundesnetzagentur bei der Festlegung von Regeln für den Frequenzhandel und das Pooling beachten?",
+    "note": "maschinell erzeugt aus TKG82.pdf, Chunk 115372",
+    "expect_text": [
+      "die Bundesnetzagentur eine Freigabeentscheidung nach Absatz"
+    ]
+  },
+  {
+    "id": "auto-019",
+    "workspace": "f789732f-b9aa-4d40-900f-3585976edb85",
+    "question": "Welche finanzielle Entschädigung steht einem Besatzungsmitglied nach einer außerordentlichen Kündigung in den genannten Fällen zu?",
+    "note": "maschinell erzeugt aus SeeArbG67.pdf, Chunk 107247",
+    "expect_text": [
+      "7 bis 10 ist das Besatzungsmitglied zur außerordentlichen"
+    ]
+  },
+  {
+    "id": "auto-020",
+    "workspace": "f789732f-b9aa-4d40-900f-3585976edb85",
+    "question": "Ab welcher Personenanzahl dürfen Radfahrer in einem geschlossenen Verband nebeneinander fahren?",
+    "note": "maschinell erzeugt aus StVO82.pdf, Chunk 129630",
+    "expect_text": [
+      "soweit möglich, die Gehwege benutzen. (2) Geschlossene"
+    ]
+  },
+  {
+    "id": "auto-021",
+    "workspace": "f789732f-b9aa-4d40-900f-3585976edb85",
+    "question": "Wie müssen die geforderten Informationen an die zuständigen Stellen übermittelt werden?",
+    "note": "maschinell erzeugt aus StromPBG56.pdf, Chunk 109012",
+    "expect_text": [
+      "entsprechend anzuwenden. § 35 Formularvorgaben und digitale"
+    ]
+  },
+  {
+    "id": "auto-022",
+    "workspace": "f789732f-b9aa-4d40-900f-3585976edb85",
+    "question": "Wie wird der finanzielle Wert einer Preissicherungsmeldung ermittelt?",
+    "note": "maschinell erzeugt aus StromPBG56.pdf, Chunk 109132",
+    "expect_text": [
+      "des Erfüllungszeitraums. 4.3 Es werden bei"
+    ]
+  },
+  {
+    "id": "auto-023",
+    "workspace": "f789732f-b9aa-4d40-900f-3585976edb85",
+    "question": "Wie lange müssen die Unterlagen zur steuerlichen Unterstützung der Mitglieder archiviert werden?",
+    "note": "maschinell erzeugt aus StBerG88.pdf, Chunk 112866",
+    "expect_text": [
+      "Die Ausübung einer anderen wirtschaftlichen Tätigkeit in"
+    ]
+  },
+  {
+    "id": "auto-024",
+    "workspace": "f789732f-b9aa-4d40-900f-3585976edb85",
+    "question": "Welche Bedingungen gelten für die Anwendung eines Gütefaktors von unter 60 Prozent bei Windkraftanlagen?",
+    "note": "maschinell erzeugt aus EEG_2023149.pdf, Chunk 85812",
+    "expect_text": [
+      "ist: Gütefaktor 50 Prozent 60 Prozent 70 Prozent 80 Prozent"
+    ]
+  },
+  {
+    "id": "auto-025",
+    "workspace": "f789732f-b9aa-4d40-900f-3585976edb85",
+    "question": "In welchen Fällen darf ein Steuerberater die Auskunft an den Vorstand oder das Organ verweigern?",
+    "note": "maschinell erzeugt aus StBerG88.pdf, Chunk 113063",
+    "expect_text": [
+      "ihre Handakten vorzulegen oder vor der zuständigen"
+    ]
+  },
+  {
+    "id": "auto-026",
+    "workspace": "f789732f-b9aa-4d40-900f-3585976edb85",
+    "question": "Wer darf die Ablehnung eines bestellten Gutachters beantragen?",
+    "note": "maschinell erzeugt aus StPO197.pdf, Chunk 125988",
+    "expect_text": [
+      "des Sachverständigen (1) Die Auswahl der zuzuziehenden"
+    ]
+  },
+  {
+    "id": "auto-027",
+    "workspace": "f789732f-b9aa-4d40-900f-3585976edb85",
+    "question": "Wie wird der erfolgreiche Abschluss der betrieblichen Ausbildung nachgewiesen?",
+    "note": "maschinell erzeugt aus FSPersAV61.pdf, Chunk 90579",
+    "expect_text": [
+      "der Flugsicherungsorganisation statt. Für das"
+    ]
+  },
+  {
+    "id": "auto-028",
+    "workspace": "f789732f-b9aa-4d40-900f-3585976edb85",
+    "question": "Wie geht die Bundesnetzagentur bei der Vergabe von Zuschlägen für Biomasseanlagen vor, wenn zu wenige Gebote eingehen?",
+    "note": "maschinell erzeugt aus EEG_2023149.pdf, Chunk 85894",
+    "expect_text": [
+      "(+++ § 39c: Zur Nichtanwendung vgl. § 38 Abs. 2 GEEV 2017"
+    ]
+  },
+  {
+    "id": "auto-029",
+    "workspace": "f789732f-b9aa-4d40-900f-3585976edb85",
+    "question": "Welche Voraussetzungen müssen Vorschriften gemäß § 86 Absatz 3 Satz 3 erfüllen, um zulässig zu sein?",
+    "note": "maschinell erzeugt aus StBerG88.pdf, Chunk 113249",
+    "expect_text": [
+      "der der Zugang zu einer beruflichen Tätigkeit oder einer"
+    ]
+  },
+  {
+    "id": "auto-030",
+    "workspace": "f789732f-b9aa-4d40-900f-3585976edb85",
+    "question": "Welche Paragrafen regeln die Voraussetzungen und Fristen für die Beantragung von Förderungen?",
+    "note": "maschinell erzeugt aus FFG50.pdf, Chunk 83804",
+    "expect_text": [
+      "Punktwertung bei Talent-, Kinder- und Dokumentarfilmen § 64"
+    ]
+  },
+  {
+    "id": "auto-031",
+    "workspace": "f789732f-b9aa-4d40-900f-3585976edb85",
+    "question": "Welche Paragrafen regeln die Bewertung von Leistungen und die Durchführung von Prüfungen?",
+    "note": "maschinell erzeugt aus StBAPO71.pdf, Chunk 110590",
+    "expect_text": [
+      "Ausbildungsplan § 10 Lehrende § 11"
+    ]
+  },
+  {
+    "id": "auto-032",
+    "workspace": "f789732f-b9aa-4d40-900f-3585976edb85",
+    "question": "Welcher Paragraph regelt die Entscheidung über die Erhebung einer Anklage?",
+    "note": "maschinell erzeugt aus StPO197.pdf, Chunk 125824",
+    "expect_text": [
+      "§ 168a Art der Protokollierung; Aufzeichnungen § 168b"
+    ]
+  },
+  {
+    "id": "auto-033",
+    "workspace": "f789732f-b9aa-4d40-900f-3585976edb85",
+    "question": "Wann wird bei der Kontrolle von Anlagen mindestens die gesamte Kapazität des Hauptbehälters besteuert?",
+    "note": "maschinell erzeugt aus EnergieStG55.pdf, Chunk 88189",
+    "expect_text": [
+      "enthalten und die als Kraftstoff bereitgehalten, abgegeben,"
+    ]
+  },
+  {
+    "id": "auto-034",
+    "workspace": "f789732f-b9aa-4d40-900f-3585976edb85",
+    "question": "Was muss die medizinische Ausstattung an Bord eines Schiffes beinhalten und welche Kriterien muss sie erfüllen?",
+    "note": "maschinell erzeugt aus SeeArbG67.pdf, Chunk 107323",
+    "expect_text": [
+      "Ausrüstung, insbesondere Tagebücher und ärztliche"
+    ]
+  },
+  {
+    "id": "auto-035",
+    "workspace": "f789732f-b9aa-4d40-900f-3585976edb85",
+    "question": "Welche Regeln gelten für den Steuerabzug bei Wertpapieren, die vor 1994 herausgegeben wurden?",
+    "note": "maschinell erzeugt aus EStG95.pdf, Chunk 93430",
+    "expect_text": [
+      "die von der das Bundesschuldbuch führenden Stelle oder"
+    ]
+  },
+  {
+    "id": "auto-036",
+    "workspace": "f789732f-b9aa-4d40-900f-3585976edb85",
+    "question": "Wie lange darf die erste Vertragslaufzeit bei öffentlich zugänglichen Telekommunikationsdiensten für Verbraucher maximal sein?",
+    "note": "maschinell erzeugt aus TKG82.pdf, Chunk 115182",
+    "expect_text": [
+      "nach Artikel 5 Absatz 1 Unterabsatz 1 Satz 2 der Verordnung"
+    ]
+  },
+  {
+    "id": "auto-037",
+    "workspace": "f789732f-b9aa-4d40-900f-3585976edb85",
+    "question": "Auf welcher Seite der Gleise muss man bei zweigleisigen Strecken normalerweise fahren?",
+    "note": "maschinell erzeugt aus EBO51.pdf, Chunk 100917",
+    "expect_text": [
+      "besonderer Vorsichtsmaßnahmen in Züge einzustellen und zu"
+    ]
+  },
+  {
+    "id": "auto-038",
+    "workspace": "f789732f-b9aa-4d40-900f-3585976edb85",
+    "question": "Wie wird die Schweiz im Zusammenhang mit den Regelungen für EU-Mitgliedstaaten behandelt?",
+    "note": "maschinell erzeugt aus EStG95.pdf, Chunk 93228",
+    "expect_text": [
+      "ausgeübt wird. (4) § 50d Absatz 3 gilt entsprechend. (5)"
+    ]
+  },
+  {
+    "id": "auto-039",
+    "workspace": "f789732f-b9aa-4d40-900f-3585976edb85",
+    "question": "Welche Bedingungen müssen für eine Steuerbefreiung gemäß dem NATO-Truppenstatut in Deutschland erfüllt sein?",
+    "note": "maschinell erzeugt aus EnergieStG55.pdf, Chunk 88129",
+    "expect_text": [
+      "nach Artikel XI des NATO￾Truppenstatuts und Artikel 15 des"
+    ]
+  },
+  {
+    "id": "auto-040",
+    "workspace": "f789732f-b9aa-4d40-900f-3585976edb85",
+    "question": "Welche Institutionen dürfen personenbezogene Daten für die Verwaltung von Vorgängen in Dateisystemen nutzen?",
+    "note": "maschinell erzeugt aus StPO197.pdf, Chunk 126984",
+    "expect_text": [
+      "Strafverfahrens, nach den Polizeigesetzen. § 485"
+    ]
+  },
+  {
+    "id": "auto-041",
+    "workspace": "f789732f-b9aa-4d40-900f-3585976edb85",
+    "question": "Welche Bedingung muss eine anerkannte Klassifikationsgesellschaft erfüllen, um Schiffsbesichtigungen in Deutschland durchführen zu dürfen?",
+    "note": "maschinell erzeugt aus SchSV147.pdf, Chunk 118254",
+    "expect_text": [
+      "anerkannte Klassifikationsgesellschaft die im Anhang I der"
+    ]
+  },
+  {
+    "id": "auto-042",
+    "workspace": "f789732f-b9aa-4d40-900f-3585976edb85",
+    "question": "Unter welchen Bedingungen ist eine Zahlung nach § 19 bei Strom aus erneuerbaren Energien ausgeschlossen?",
+    "note": "maschinell erzeugt aus EEG_2023149.pdf, Chunk 86111",
+    "expect_text": [
+      "in Anspruch genommen werden. Die Sätze 1 und 2 sind nicht"
+    ]
+  },
+  {
+    "id": "auto-043",
+    "workspace": "f789732f-b9aa-4d40-900f-3585976edb85",
+    "question": "Wozu werden die Zahlungen an den Übertragungsnetzbetreiber gemäß dem Energiefinanzierungsgesetz verwendet?",
+    "note": "maschinell erzeugt aus EEG_2023149.pdf, Chunk 86031",
+    "expect_text": [
+      "nach Maßgabe der Marktstammdatenregisterverordnung an das"
+    ]
+  },
+  {
+    "id": "auto-044",
+    "workspace": "f789732f-b9aa-4d40-900f-3585976edb85",
+    "question": "Welche Mindestreichweite muss ein Elektroboot bei schlechten Umweltbedingungen bei Regelgeschwindigkeit erreichen?",
+    "note": "maschinell erzeugt aus SchSV147.pdf, Chunk 117644",
+    "expect_text": [
+      "Motor, so ist dessen Energieversorgung so auszulegen, dass"
+    ]
+  },
+  {
+    "id": "auto-045",
+    "workspace": "f789732f-b9aa-4d40-900f-3585976edb85",
+    "question": "Welche Risiken ergeben sich durch den Einsatz von teil- und hochautomatisierten Fahrsystemen?",
+    "note": "maschinell erzeugt aus FahrlAusbV85.pdf, Chunk 95342",
+    "expect_text": [
+      "und Gefahrenvermeidung) sowie mögliche Gefahren im"
+    ]
+  },
+  {
+    "id": "auto-046",
+    "workspace": "f789732f-b9aa-4d40-900f-3585976edb85",
+    "question": "Wie muss die Aufhebung einer Beschlagnahme kommuniziert werden?",
+    "note": "maschinell erzeugt aus StPO197.pdf, Chunk 126600",
+    "expect_text": [
+      "Bundesanzeiger erfolgt, ist zudem deren Löschung zu"
+    ]
+  },
+  {
+    "id": "auto-047",
+    "workspace": "f789732f-b9aa-4d40-900f-3585976edb85",
+    "question": "Welche Strafe droht einem Täter, wenn das Opfer infolge der Tat stirbt?",
+    "note": "maschinell erzeugt aus StGB173.pdf, Chunk 122277",
+    "expect_text": [
+      "unter einem Jahr. (3) Verursacht der Täter durch die Tat"
+    ]
+  },
+  {
+    "id": "auto-048",
+    "workspace": "f789732f-b9aa-4d40-900f-3585976edb85",
+    "question": "Welche Tätigkeiten sind einem Steuerberater trotz eines Vertretungsverbots weiterhin gestattet?",
+    "note": "maschinell erzeugt aus StBerG88.pdf, Chunk 113197",
+    "expect_text": [
+      "(§ 134 Absatz 1) verhängt ist, darf weder als Vertreter"
+    ]
+  },
+  {
+    "id": "auto-049",
+    "workspace": "f789732f-b9aa-4d40-900f-3585976edb85",
+    "question": "Welche Informationen müssen über den Inhaber eines Depots übermittelt werden, wenn keine deutsche Steuernummer vorliegt?",
+    "note": "maschinell erzeugt aus EStG95.pdf, Chunk 93094",
+    "expect_text": [
+      "verfügt der Depotinhaber nicht über eine inländische"
+    ]
+  },
+  {
+    "id": "auto-050",
+    "workspace": "f789732f-b9aa-4d40-900f-3585976edb85",
+    "question": "Wie hoch darf die maximale Überhöhung bei durchgehenden Hauptgleisen sein?",
+    "note": "maschinell erzeugt aus EBO51.pdf, Chunk 100844",
+    "expect_text": [
+      "äußere Schiene höher liegen als die innere (Überhöhung)."
+    ]
+  },
+  {
+    "id": "auto-051",
+    "workspace": "f789732f-b9aa-4d40-900f-3585976edb85",
+    "question": "Unter welchen Bedingungen kann die Anerkennung einer Berufsausübungsgesellschaft entzogen werden?",
+    "note": "maschinell erzeugt aus StBerG88.pdf, Chunk 112956",
+    "expect_text": [
+      "zu bestimmenden angemessenen Frist einen den genannten"
+    ]
+  },
+  {
+    "id": "auto-052",
+    "workspace": "f789732f-b9aa-4d40-900f-3585976edb85",
+    "question": "Unter welchen Bedingungen muss eine Erlaubnis entzogen werden?",
+    "note": "maschinell erzeugt aus EnergieStG55.pdf, Chunk 88215",
+    "expect_text": [
+      "4 oder § 37 Absatz 1 sind, geliefert wird. (5) Die"
+    ]
+  },
+  {
+    "id": "auto-053",
+    "workspace": "f789732f-b9aa-4d40-900f-3585976edb85",
+    "question": "Welche beruflichen Voraussetzungen und welche Mindeststunden im Steuerbereich sind für die Bewerbung erforderlich?",
+    "note": "maschinell erzeugt aus StBerG88.pdf, Chunk 112884",
+    "expect_text": [
+      "Steuerfachwirt sechs Jahre praktisch tätig gewesen ist oder"
+    ]
+  },
+  {
+    "id": "auto-054",
+    "workspace": "f789732f-b9aa-4d40-900f-3585976edb85",
+    "question": "Welche Strafen drohen Amtsträgern, wenn sie die Vertraulichkeit des Wortes verletzen?",
+    "note": "maschinell erzeugt aus StGB173.pdf, Chunk 122184",
+    "expect_text": [
+      "öffentliche Mitteilung zur Wahrnehmung überragender"
+    ]
+  },
+  {
+    "id": "auto-055",
+    "workspace": "f789732f-b9aa-4d40-900f-3585976edb85",
+    "question": "Wer ist dafür verantwortlich, dass die Steuer einbehalten und an das Finanzamt überwiesen wird?",
+    "note": "maschinell erzeugt aus EStG95.pdf, Chunk 93175",
+    "expect_text": [
+      "anzumelden und die einbehaltene Steuer an das"
+    ]
+  },
+  {
+    "id": "auto-056",
+    "workspace": "f789732f-b9aa-4d40-900f-3585976edb85",
+    "question": "Welche persönlichen Daten dürfen dem Sachverständigen bei der Übergabe des Untersuchungsmaterials nicht mitgeteilt werden?",
+    "note": "maschinell erzeugt aus StPO197.pdf, Chunk 126015",
+    "expect_text": [
+      "ist. Diese haben durch technische und organisatorische"
+    ]
+  },
+  {
+    "id": "auto-057",
+    "workspace": "f789732f-b9aa-4d40-900f-3585976edb85",
+    "question": "Wer ist für die Koordination und Leitung der praktischen Einarbeitung bei der Oberfinanzdirektion zuständig?",
+    "note": "maschinell erzeugt aus StBAPO71.pdf, Chunk 110755",
+    "expect_text": [
+      "Leitung der berufspraktischen Einweisung bei der"
+    ]
+  },
+  {
+    "id": "auto-058",
+    "workspace": "f789732f-b9aa-4d40-900f-3585976edb85",
+    "question": "Welche Strafen drohen bei der Beschaffung gefälschter amtlicher Ausweise oder Fahrzeugpapiere?",
+    "note": "maschinell erzeugt aus StGB173.pdf, Chunk 122363",
+    "expect_text": [
+      "falsche Beurkundung der in den §§ 271 und 348 bezeichneten"
+    ]
+  },
+  {
+    "id": "auto-059",
+    "workspace": "f789732f-b9aa-4d40-900f-3585976edb85",
+    "question": "Welche Grenzwerte gelten für die maximalen Mengen in Preissicherungsmeldungen von Stromerzeugungsanlagen?",
+    "note": "maschinell erzeugt aus StromPBG56.pdf, Chunk 109123",
+    "expect_text": [
+      "eine Stromerzeugungsanlage mit Wirkung für einen"
+    ]
+  },
+  {
+    "id": "auto-060",
+    "workspace": "f789732f-b9aa-4d40-900f-3585976edb85",
+    "question": "Welcher Schwellenwert gilt für Betreiber, die nach dem 31. Dezember 2022 keine neue Anlage in Betrieb genommen haben?",
+    "note": "maschinell erzeugt aus EEG_2023149.pdf, Chunk 86281",
+    "expect_text": [
+      "in Anspruch nehmen, ist Satz 1 mit der Maßgabe anzuwenden,"
+    ]
+  },
+  {
+    "id": "auto-061",
+    "workspace": "f789732f-b9aa-4d40-900f-3585976edb85",
+    "question": "Bis zu welchem Veranlagungszeitraum findet die Bestimmung des Paragrafen 4j Anwendung?",
+    "note": "maschinell erzeugt aus EStG95.pdf, Chunk 93341",
+    "expect_text": [
+      "nicht vor dem 1. Januar 2024 enden. (8c) 1 § 4j in der"
+    ]
+  },
+  {
+    "id": "auto-062",
+    "workspace": "f789732f-b9aa-4d40-900f-3585976edb85",
+    "question": "Was ist der Unterschied zwischen den Erlaubnissen ADV und ADI bei der Flugplatzkontrolle?",
+    "note": "maschinell erzeugt aus FSPersAV61.pdf, Chunk 90484",
+    "expect_text": [
+      "von Flugverkehrskontrolldiensten für den Flugplatzverkehr"
+    ]
+  },
+  {
+    "id": "auto-063",
+    "workspace": "f789732f-b9aa-4d40-900f-3585976edb85",
+    "question": "Welche Fächer werden im Hauptstudium für den gehobenen Steuerverwaltungsdienst bewertet?",
+    "note": "maschinell erzeugt aus StBAPO71.pdf, Chunk 110826",
+    "expect_text": [
+      "Vor- und Familienname der beurteilten Person Anlage 14 (zu"
+    ]
+  },
+  {
+    "id": "auto-064",
+    "workspace": "f789732f-b9aa-4d40-900f-3585976edb85",
+    "question": "Was versteht man unter einer Auslandfahrt im Kontext dieser Regelungen?",
+    "note": "maschinell erzeugt aus SchSV147.pdf, Chunk 118302",
+    "expect_text": [
+      "von Stockholm“ das am 28. Februar 1996 in Stockholm"
+    ]
+  },
+  {
+    "id": "auto-065",
+    "workspace": "f789732f-b9aa-4d40-900f-3585976edb85",
+    "question": "Welche Pflichten haben börsennotierte Firmen in Deutschland bezüglich der Daten ihrer Aktionäre gegenüber dem Bundeszentralamt für Steuern?",
+    "note": "maschinell erzeugt aus EStG95.pdf, Chunk 93088",
+    "expect_text": [
+      "Abgabenordnung ist mit der Maßgabe anzuwenden, dass die"
+    ]
+  },
+  {
+    "id": "auto-066",
+    "workspace": "f789732f-b9aa-4d40-900f-3585976edb85",
+    "question": "Unter welchen Bedingungen kann die Kommunikation zwischen einem Beschuldigten und seinem Anwalt kontrolliert werden?",
+    "note": "maschinell erzeugt aus StPO197.pdf, Chunk 126355",
+    "expect_text": [
+      "dass sie zunächst dem nach § 148a zuständigen Gericht"
+    ]
+  },
+  {
+    "id": "auto-067",
+    "workspace": "f789732f-b9aa-4d40-900f-3585976edb85",
+    "question": "Unter welchen Bedingungen bleibt ein versuchtes Vergehen straffrei?",
+    "note": "maschinell erzeugt aus StGB173.pdf, Chunk 121677",
+    "expect_text": [
+      "seiner Vorstellung von der Tat zur Verwirklichung des"
+    ]
+  },
+  {
+    "id": "auto-068",
+    "workspace": "f789732f-b9aa-4d40-900f-3585976edb85",
+    "question": "Welche Anforderungen gibt es für die Installation von Armaturen und Sicherheitsvorrichtungen bei Dampferzeugern?",
+    "note": "maschinell erzeugt aus SchSV147.pdf, Chunk 118135",
+    "expect_text": [
+      "Befestigungselemente eingeleiteten Kräfte dürfen in den"
+    ]
+  },
+  {
+    "id": "auto-069",
+    "workspace": "f789732f-b9aa-4d40-900f-3585976edb85",
+    "question": "An wen wird der Bescheid der Prüfbehörde übermittelt?",
+    "note": "maschinell erzeugt aus StromPBG56.pdf, Chunk 108868",
+    "expect_text": [
+      "Elektrizitätsversorgungsunternehmen sowie dem"
+    ]
+  },
+  {
+    "id": "auto-070",
+    "workspace": "f789732f-b9aa-4d40-900f-3585976edb85",
+    "question": "Unter welchen Bedingungen ist bei öl-elektrischen Zündanlagen bis 50 kW keine Kontrolle der Zündflamme nötig?",
+    "note": "maschinell erzeugt aus SchSV147.pdf, Chunk 118164",
+    "expect_text": [
+      "oder unabhängig von der Hauptflamme überwacht werden. 3.9.4"
+    ]
+  },
+  {
+    "id": "auto-071",
+    "workspace": "f789732f-b9aa-4d40-900f-3585976edb85",
+    "question": "Welche Informationen kann das Umweltbundesamt von den Nutzern des Herkunftsnachweisregisters anfordern?",
+    "note": "maschinell erzeugt aus EEG_2023149.pdf, Chunk 86098",
+    "expect_text": [
+      "die Übermittlung insbesondere folgender Angaben an das"
+    ]
+  },
+  {
+    "id": "auto-072",
+    "workspace": "f789732f-b9aa-4d40-900f-3585976edb85",
+    "question": "Welche Rechtsform hat die Filmförderungsanstalt und wo befindet sich ihr Sitz?",
+    "note": "maschinell erzeugt aus FFG50.pdf, Chunk 83813",
+    "expect_text": [
+      "Filmförderung § 152 Inkrafttreten, Außerkrafttreten Teil 1"
+    ]
+  },
+  {
+    "id": "auto-073",
+    "workspace": "f789732f-b9aa-4d40-900f-3585976edb85",
+    "question": "Wie erfährt ein Leistungsempfänger, ob eine entsprechende Freistellungsbescheinigung beim Bundeszentralamt für Steuern hinterlegt ist?",
+    "note": "maschinell erzeugt aus EStG95.pdf, Chunk 93121",
+    "expect_text": [
+      "Freistellungsbescheinigung vorliegt, gilt § 48 Absatz 4"
+    ]
+  },
+  {
+    "id": "auto-074",
+    "workspace": "f789732f-b9aa-4d40-900f-3585976edb85",
+    "question": "Was unterscheidet Ausdehnungstrommeln von Druckausdehnungsgefäßen in Bezug auf ihre Absperrbarkeit?",
+    "note": "maschinell erzeugt aus SchSV147.pdf, Chunk 118069",
+    "expect_text": [
+      "erhebliches Überschreiten der zulässigen Betriebstemperatur"
+    ]
+  },
+  {
+    "id": "auto-075",
+    "workspace": "f789732f-b9aa-4d40-900f-3585976edb85",
+    "question": "Wie lange ist das Sicherheitszeugnis für Fischereifahrzeuge maximal gültig?",
+    "note": "maschinell erzeugt aus SchSV147.pdf, Chunk 117851",
+    "expect_text": [
+      "die Dauer von höchstens fünf Jahren, gerechnet von dem"
+    ]
+  },
+  {
+    "id": "auto-076",
+    "workspace": "f789732f-b9aa-4d40-900f-3585976edb85",
+    "question": "Was passiert mit der letzten Vorauszahlung, wenn diese nachträglich angehoben wird?",
+    "note": "maschinell erzeugt aus EStG95.pdf, Chunk 92780",
+    "expect_text": [
+      "8 gilt für negative Einkünfte aus der Vermietung oder"
+    ]
+  },
+  {
+    "id": "auto-077",
+    "workspace": "f789732f-b9aa-4d40-900f-3585976edb85",
+    "question": "Was kann ein Mitglied tun, wenn der Vorstand den Einspruch gegen einen Rügebescheid ablehnt?",
+    "note": "maschinell erzeugt aus StBerG88.pdf, Chunk 113070",
+    "expect_text": [
+      "der Zustellung bei dem Vorstand Einspruch erheben. Über den"
+    ]
+  },
+  {
+    "id": "auto-078",
+    "workspace": "f789732f-b9aa-4d40-900f-3585976edb85",
+    "question": "Wie muss die erstattete Lohnsteuer im Lohnkonto des Ausgleichsjahres dokumentiert werden?",
+    "note": "maschinell erzeugt aus EStG95.pdf, Chunk 92945",
+    "expect_text": [
+      "für seine Arbeitnehmer für den Lohnzahlungszeitraum"
+    ]
+  },
+  {
+    "id": "auto-079",
+    "workspace": "f789732f-b9aa-4d40-900f-3585976edb85",
+    "question": "Unter welchen Bedingungen darf bei einer körperlichen Untersuchung Zwang angewendet werden?",
+    "note": "maschinell erzeugt aus StPO197.pdf, Chunk 126010",
+    "expect_text": [
+      "die Vorschrift des § 70 entsprechend. Unmittelbarer Zwang"
+    ]
+  },
+  {
+    "id": "auto-080",
+    "workspace": "f789732f-b9aa-4d40-900f-3585976edb85",
+    "question": "Wann ist ein vorderes Nummernschild bei Fahrzeugen gemäß der Verordnung (EU) 168/2013 nicht erforderlich?",
+    "note": "maschinell erzeugt aus FZV148.pdf, Chunk 103849",
+    "expect_text": [
+      "hinteren Kennzeichens müssen folgenden Vorgaben"
+    ]
+  },
+  {
+    "id": "auto-081",
+    "workspace": "f789732f-b9aa-4d40-900f-3585976edb85",
+    "question": "In welcher Form müssen die Akten im Verfahren geführt werden?",
+    "note": "maschinell erzeugt aus StPO197.pdf, Chunk 125901",
+    "expect_text": [
+      "für Urkundsbeamte der Geschäftsstelle und andere als"
+    ]
+  },
+  {
+    "id": "auto-082",
+    "workspace": "f789732f-b9aa-4d40-900f-3585976edb85",
+    "question": "Wann ist eine offizielle Zuteilung von Frequenzen für Behörden nicht notwendig?",
+    "note": "maschinell erzeugt aus TKG82.pdf, Chunk 115319",
+    "expect_text": [
+      "Verfahren. Eine Frequenzzuteilung ist nicht erforderlich,"
+    ]
+  },
+  {
+    "id": "auto-083",
+    "workspace": "f789732f-b9aa-4d40-900f-3585976edb85",
+    "question": "Was müssen Bahnbetreiber tun, um die Nutzung ihrer Anlagen für Menschen mit Einschränkungen zu erleichtern?",
+    "note": "maschinell erzeugt aus EBO51.pdf, Chunk 100832",
+    "expect_text": [
+      "Kinder und sonstige Personen mit Nutzungsschwierigkeiten"
+    ]
+  },
+  {
+    "id": "auto-084",
+    "workspace": "f789732f-b9aa-4d40-900f-3585976edb85",
+    "question": "Welche Ziele werden bei der Zuteilung von Frequenzen in der EU bezüglich des Gesundheitsschutzes verfolgt?",
+    "note": "maschinell erzeugt aus TKG82.pdf, Chunk 115308",
+    "expect_text": [
+      "die am besten geeignete und mit dem geringstmöglichen"
+    ]
+  },
+  {
+    "id": "auto-085",
+    "workspace": "f789732f-b9aa-4d40-900f-3585976edb85",
+    "question": "Welche ausländischen Ausbildungsnachweise werden als gleichwertig zur Qualifikation für die Hilfe in Steuersachen anerkannt?",
+    "note": "maschinell erzeugt aus StBerG88.pdf, Chunk 112890",
+    "expect_text": [
+      "einem anderen Mitgliedstaat oder Vertragsstaat oder der"
+    ]
+  },
+  {
+    "id": "auto-086",
+    "workspace": "f789732f-b9aa-4d40-900f-3585976edb85",
+    "question": "Welches Gericht ist für die Genehmigung von Maßnahmen im Untersuchungshaftvollzug zuständig?",
+    "note": "maschinell erzeugt aus StPO197.pdf, Chunk 126280",
+    "expect_text": [
+      "eine Maßnahme der vorherigen gerichtlichen Anordnung oder"
+    ]
+  },
+  {
+    "id": "auto-087",
+    "workspace": "f789732f-b9aa-4d40-900f-3585976edb85",
+    "question": "Wie oft müssen junge Besatzungsmitglieder über die Risiken an ihrem Arbeitsplatz belehrt werden?",
+    "note": "maschinell erzeugt aus SeeArbG67.pdf, Chunk 107358",
+    "expect_text": [
+      "Arbeiten, bei denen sie mit gesundheitsgefährdenden Stoffen"
+    ]
+  },
+  {
+    "id": "auto-088",
+    "workspace": "f789732f-b9aa-4d40-900f-3585976edb85",
+    "question": "Wer kann von der Bundesnetzagentur eine Typmusterprüfung für technische Einrichtungen zur Überwachung beantragen?",
+    "note": "maschinell erzeugt aus TKG82.pdf, Chunk 115650",
+    "expect_text": [
+      "den berechtigten Stellen und unter Beteiligung der Verbände"
+    ]
+  },
+  {
+    "id": "auto-089",
+    "workspace": "f789732f-b9aa-4d40-900f-3585976edb85",
+    "question": "Wie müssen sich Fahrer verhalten, wenn sie rückwärtsfahren oder in ein Grundstück abbiegen?",
+    "note": "maschinell erzeugt aus StVO82.pdf, Chunk 129566",
+    "expect_text": [
+      "entgegenkommende Fahrzeuge, die jeweils nach links abbiegen"
+    ]
+  },
+  {
+    "id": "auto-090",
+    "workspace": "f789732f-b9aa-4d40-900f-3585976edb85",
+    "question": "Darf ein Richter in einer höheren Instanz mitwirken, wenn er bereits an der ursprünglichen Entscheidung beteiligt war?",
+    "note": "maschinell erzeugt aus StPO197.pdf, Chunk 125889",
+    "expect_text": [
+      "Entscheidung (1) Ein Richter, der bei einer durch ein"
+    ]
+  },
+  {
+    "id": "auto-091",
+    "workspace": "f789732f-b9aa-4d40-900f-3585976edb85",
+    "question": "Bis wann dürfen Autos bei winterlichen Straßenverhältnissen mit Reifen gemäß der Richtlinie 92/23/EWG gefahren werden?",
+    "note": "maschinell erzeugt aus StVO82.pdf, Chunk 129752",
+    "expect_text": [
+      "2 Nummer 25 Spalte 3 Nummer 4 sowie Nummer 25.1, 27.1, 63.5"
+    ]
+  },
+  {
+    "id": "auto-092",
+    "workspace": "f789732f-b9aa-4d40-900f-3585976edb85",
+    "question": "In welchen Fällen ist es erlaubt, die Begrenzung der Mittelinsel in einem Kreisverkehr zu überqueren?",
+    "note": "maschinell erzeugt aus StVO82.pdf, Chunk 129835",
+    "expect_text": [
+      "halten, wenn rechts ein Seitenstreifen oder Sonderweg"
+    ]
+  },
+  {
+    "id": "auto-093",
+    "workspace": "f789732f-b9aa-4d40-900f-3585976edb85",
+    "question": "Welche Unterlagen können eingereicht werden, um die Anforderungen des Erdgas-Wärme-Preisbremsengesetzes zu erfüllen?",
+    "note": "maschinell erzeugt aus StromPBG56.pdf, Chunk 108863",
+    "expect_text": [
+      "2021 oder im ersten Halbjahr des Kalenderjahres 2022, b)"
+    ]
+  },
+  {
+    "id": "auto-094",
+    "workspace": "f789732f-b9aa-4d40-900f-3585976edb85",
+    "question": "Welche Zeiträume werden für die Betrachtung im Rahmen des Paragrafen 32c herangezogen?",
+    "note": "maschinell erzeugt aus EStG95.pdf, Chunk 93411",
+    "expect_text": [
+      "2016 anzuwenden. 2 § 32c ist im Veranlagungszeitraum 2016"
+    ]
+  },
+  {
+    "id": "auto-095",
+    "workspace": "f789732f-b9aa-4d40-900f-3585976edb85",
+    "question": "Wie lange ist die Kündigungsfrist für das Ausbildungsverhältnis während der Probezeit?",
+    "note": "maschinell erzeugt aus SeeArbG67.pdf, Chunk 107285",
+    "expect_text": [
+      "Kündigungsfrist von einer Woche gekündigt werden. Wird die"
+    ]
+  },
+  {
+    "id": "auto-096",
+    "workspace": "f789732f-b9aa-4d40-900f-3585976edb85",
+    "question": "Welche Sicherheitsmaßnahmen gelten an Bahnsteigen, wenn Züge schneller als 200 km/h durchfahren?",
+    "note": "maschinell erzeugt aus EBO51.pdf, Chunk 100868",
+    "expect_text": [
+      "als 160 km/h befahren werden, sind die bei Durchfahrten"
+    ]
+  },
+  {
+    "id": "auto-097",
+    "workspace": "f789732f-b9aa-4d40-900f-3585976edb85",
+    "question": "Wie muss ein Besatzungsmitglied vorgehen, um rechtzeitig Einspruch gegen einen Bußgeldbescheid einzulegen?",
+    "note": "maschinell erzeugt aus SeeArbG67.pdf, Chunk 107451",
+    "expect_text": [
+      "Handlung begeht und dadurch die betroffene Person in ihrer"
+    ]
+  },
+  {
+    "id": "auto-098",
+    "workspace": "f789732f-b9aa-4d40-900f-3585976edb85",
+    "question": "Welche Voraussetzungen müssen erfüllt sein, um eine Erlaubnis für die steuerfreie Nutzung von Erdgas zu erhalten?",
+    "note": "maschinell erzeugt aus EnergieStG55.pdf, Chunk 88245",
+    "expect_text": [
+      "Verwender. Wer Erdgas steuerfrei nach Absatz 2b abgeben"
+    ]
+  },
+  {
+    "id": "auto-099",
+    "workspace": "f789732f-b9aa-4d40-900f-3585976edb85",
+    "question": "Bis wann muss das Gericht spätestens über die Anordnung einer Sicherungsverwahrung entscheiden?",
+    "note": "maschinell erzeugt aus StPO197.pdf, Chunk 126594",
+    "expect_text": [
+      "spätestens sechs Monate vor der vollständigen Vollstreckung"
+    ]
+  },
+  {
+    "id": "auto-100",
+    "workspace": "f789732f-b9aa-4d40-900f-3585976edb85",
+    "question": "Unter welchen Bedingungen muss die Aufsichtsbehörde die Anerkennung eines Lohnsteuerhilfevereins widerrufen?",
+    "note": "maschinell erzeugt aus StBerG88.pdf, Chunk 112851",
+    "expect_text": [
+      "(1) Die Aufsichtsbehörde hat die Anerkennung"
+    ]
+  }
+]

@@ -17,7 +17,7 @@ from langfuse.decorators import langfuse_context
 from src import database as db
 from src.i18n import DEFAULT_LOCALE, t
 from src.services.aia_literal_evidence import pin_words
-from src.services.aia_segment_pick import best_index, rarity_weights
+from src.services.aia_segment_pick import best_index, rare_stems, rarity_weights
 from src.services.aia_transcript_offsets import TranscriptIndex
 from src.storage import (
     aia_transcript_key,
@@ -480,23 +480,8 @@ _GUARANTEE_MAX_DIST = 0.85
 # praktisch nichts und gibt dem Auswaehler die Chance, seinen eigenen Massstab anzuwenden.
 _ATTRIB_CANDIDATES = 40
 _MAX_CHIPS_PER_LINE = 3
-# An ADDITIONAL chip from the SAME source is only added when its chunk sits CLOSE to the
-# block's best chunk — within this distance delta. A relative gate, not just the absolute
-# 0.6: otherwise a clearly-best passage (e.g. 0.21) collects spurious near-misses (0.32)
-# that are on-topic enough to pass 0.6 but are not where the claim actually came from.
-# Genuine co-sources within one document (a fact stated on two pages / in two laws) sit at
-# ~equal distance and stay.
-#
-# It does NOT gate a chunk from ANOTHER source. A workspace typically holds the slides AND
-# the recording of the same session, so most statements exist twice, once written and once
-# spoken — and those two never land at the same distance, because talking around a fact at
-# length is what embeddings reward. Measured: a deadline stated at 08:58 in the talk (0.31)
-# and on the slide (0.47) lost the slide to this gate, and the literal-evidence exemption
-# could not save it either — the words the two share ("Abgabe", "Hausarbeit") are the words
-# the whole course carries, so rarity never calls them distinctive. One reader wants the
-# slide, another wants to hear the passage; that is the same rule _extra_chip_earns_place
-# already applies on the clause path, now applied here too.
-_MULTI_CHIP_MAX_DELTA = 0.08
+# Ein weiterer Chip kommt nur mit, wenn sein Abstand praktisch der des besten ist.
+_MULTI_CHIP_MAX_DELTA = 0.04
 # Clause coverage: a multi-fact unit is also attributed fact-by-fact, so ONE chip stop may
 # carry up to this many chips total (unit-level chips PLUS one per distinct clause source).
 # In prose a chip stop is a SENTENCE, so this is the per-sentence ceiling. Matches the
@@ -704,6 +689,12 @@ _SEGMENT_STEM_CHARS = 6
 # den Ausreissern ueber zehn Sekunden 72 statt 661, der mittlere Fehler faellt von
 # 12,5 auf 1,4 Sekunden. Traegt kein Segment zwei, bleibt es beim Chunk-Anfang.
 _SEGMENT_MIN_STEM_HITS = 2
+# Ein Stamm traegt die Zeitmarke allein, wenn er in hoechstens so vielen Segmenten der
+# Quelle faellt.
+_SEGMENT_RARE_MAX_DF = 3
+# Dafuer muss die Quelle so viele Segmente je erlaubtem Vorkommen haben. Unter einem
+# Dutzend Segmente wirkt jedes Wort selten, und dann waere die Zeitmarke geraten.
+_SEGMENT_RARE_SEGMENTS_PER_HIT = 25
 
 # Zahlen zaehlen als eigenes Merkmal, auch wenn sie kurz sind. ``_significant_tokens``
 # verlangt vier Zeichen, und daran fiel ausgerechnet das Auffaelligste durch: zu
@@ -716,14 +707,23 @@ _SEGMENT_MIN_STEM_HITS = 2
 _SEGMENT_MIN_NUM_CHARS = 2
 
 
+_SEGMENT_HYPHEN_RE = re.compile(r"-+")
+
+
+def _norm_for_segment(s: str) -> str:
+    """Wie :func:`_norm_for_match`, aber der Bindestrich zaehlt als Leerzeichen."""
+    return re.sub(r"\s+", " ", _SEGMENT_HYPHEN_RE.sub(" ", _norm_for_match(s))).strip()
+
+
 def _segment_stems(line: str) -> set[str]:
     """Merkmale einer Antwortzeile fuer den Segment-Vergleich.
 
     Wortstaemme der langen Woerter plus die Zahlen der Zeile. Die Zahl bleibt ganz,
     sie ist kurz genug und wird nicht gebeugt."""
-    stems = {_norm_for_match(t)[:_SEGMENT_STEM_CHARS] for t in _significant_tokens(line)}
+    line = _SEGMENT_HYPHEN_RE.sub(" ", line)
+    stems = {_norm_for_segment(t)[:_SEGMENT_STEM_CHARS] for t in _significant_tokens(line)}
     for w in _TOKEN_RE.findall(re.sub(r"[*_`~#>]+", " ", line)):
-        wl = _norm_for_match(w.strip(".,-:;"))
+        wl = _norm_for_segment(w.strip(".,-:;"))
         if len(wl) >= _SEGMENT_MIN_NUM_CHARS and any(ch.isdigit() for ch in wl):
             stems.add(wl)
     stems.discard("")
@@ -771,12 +771,16 @@ def _line_segment_start(line: str, chunk: dict, segments: list[dict]) -> Optiona
     stems = _segment_stems(line)
     if not stems:
         return None
-    treffer = [[stem for stem in stems if stem in _norm_for_match(s.get("text") or "")]
+    treffer = [[stem for stem in stems if stem in _norm_for_segment(s.get("text") or "")]
                for s in segs]
-    if max((len(t) for t in treffer), default=0) < _SEGMENT_MIN_STEM_HITS:
+    selten = rare_stems(chunk.get("source_id"), segments, _segment_stems, _norm_for_segment,
+                        min(_SEGMENT_RARE_MAX_DF,
+                            len(segments) // _SEGMENT_RARE_SEGMENTS_PER_HIT))
+    if (max((len(t) for t in treffer), default=0) < _SEGMENT_MIN_STEM_HITS
+            and not any(selten.intersection(t) for t in treffer)):
         return None
     gewichte = rarity_weights(chunk.get("source_id"), segments,
-                              _segment_stems, _norm_for_match)
+                              _segment_stems, _norm_for_segment)
     return segs[best_index(treffer, gewichte)]["start"]
 
 
@@ -920,8 +924,30 @@ def _content_words(text: str) -> set:
     return {w.casefold() for w in _CONTENT_WORD_RE.findall(text or "")}
 
 
+def _figure_first(unit: str, cands: list[dict],
+                  corpus: Optional[list[str]] = None) -> list[dict]:
+    """Kandidaten, die eine Zahl der Zeile woertlich nennen, zuerst.
+
+    Eine Klausel-Suche liefert ihren naechsten Chunk, und der redet oft nur um die Sache
+    herum ("die Moeglichkeit, Fragen zu stellen") waehrend die Stelle mit der Zahl weiter
+    hinten liegt. Geprueft wird nur unter den schon gefundenen Kandidaten, es kostet also
+    keine Suche, und die Reihenfolge der uebrigen bleibt wie sie war."""
+    if not cands or not corpus:
+        return cands
+    from src.services.aia_literal_evidence import distinctive_tokens, figure_runs
+    _, zahlen = distinctive_tokens(unit, corpus)
+    if not zahlen:
+        return cands
+    vorne, hinten = [], []
+    for c in cands:
+        ziel = vorne if zahlen & figure_runs(c.get("content") or "") else hinten
+        ziel.append(c)
+    return vorne + hinten
+
+
 def _extra_chip_earns_place(unit: str, primary: dict, extra: dict,
-                            pins: frozenset = frozenset()) -> bool:
+                            pins: frozenset = frozenset(),
+                            corpus: Optional[list[str]] = None) -> bool:
     """Whether an ADDITIONAL chip earns its place next to the closest one.
 
     Two different rules, because "adds nothing" means different things across and within a
@@ -946,7 +972,22 @@ def _extra_chip_earns_place(unit: str, primary: dict, extra: dict,
     Terminabsprache aus einer anderen Vorlesung an, allein weil sie aus einer anderen Datei
     stammte. "fragestunde" faellt im ganzen Kurs genau einmal, und zwar beim besten Treffer.
 
+    Vor allem anderen zaehlt eine ZAHL der Zeile, die nur der Zusatzbeleg woertlich
+    traegt: die Pin-Woerter sehen Zahlen nicht, und genau daran hing der gemeldete Fall
+    ("eine 20-minuetige Praesentation mit einer anschliessenden 10-minuetigen Fragerunde,
+    wobei die Termine ... vereinbart werden"), wo die Aufzeichnung nur die Termine sagt
+    und die Folie mit "20 Minuten Praesentation + 10 Minuten anschliessende Fragerunde"
+    keinen Chip bekam. Dieselbe Regel wie in ``adds_literal_evidence``, wo EINE Zahl
+    genuegt, denn eine Zahl ist der Teil einer Aussage, den ein Leser nachschlaegt.
+
     Word sets only (4+ characters, case-folded), so no per-language stop list is involved."""
+    from src.services.aia_literal_evidence import distinctive_tokens, figure_runs
+    if corpus:
+        _, zahlen = distinctive_tokens(unit, corpus)
+        traegt_extra = figure_runs(extra.get("content") or "")
+        traegt_primary = figure_runs(primary.get("content") or "")
+        if any(z in traegt_extra and z not in traegt_primary for z in zahlen):
+            return True
     if pins:
         from src.services.aia_literal_evidence import carries_pin
         fehlend = {p for p in pins if not carries_pin(p, primary.get("content") or "")}
@@ -1154,36 +1195,12 @@ def _chips_for_line(cands: list[dict], source_id_to_qnum: dict,
                     guarantee_dist: float = _GUARANTEE_MAX_DIST,
                     line: str = "", corpus: Optional[list[str]] = None,
                     transcript_by_source: Optional[dict[int, list[dict]]] = None) -> list[str]:
-    """Build the chip list for ONE line from its closest-first candidates.
-
-    The first usable candidate is the GUARANTEE chip (closest retrieved chunk, accepted
-    up to ``guarantee_dist`` so a grounded claim is never left chip-less); each further
-    chip must be a DISTINCT source/page within the normal ``max_distance`` (a genuine
-    additional contributing passage), capped at ``_MAX_CHIPS_PER_LINE``. A passage from
-    ANOTHER source needs only that absolute gate — the relative ``_MULTI_CHIP_MAX_DELTA``
-    sorts near-misses out within one document and has nothing to say across two. Overview mode
-    passes ``guarantee_dist = max_distance`` so a loose, misleading single chip on a
-    many-source synthesis line is dropped instead of guaranteed.
-
-    Past the relative gate one thing still earns a chip: stating the claim WORD FOR WORD
-    where the closest passage does not (``line`` given; see aia_literal_evidence). The
-    gate ranks by distance alone, and a transcript segment talking around a fact reliably
-    beats the slide that states it — measured 0.394 against 0.501 for an office hour whose
-    time only the slide carries. The absolute ``max_distance`` still applies, so this
-    widens what may be cited, never how far.
-
-    ``corpus`` is what "word for word" is judged against: every chunk the answer was
-    written from. Falling back to this line's own candidates makes the sample too small
-    to separate a filler adverb from a technical term.
-
-    ``transcript_by_source`` sind die Whisper-Segmente je Quelle. Damit zeigt ein
-    Medien-Chip auf das Segment, das ``line`` traegt, statt auf den Chunk-Anfang."""
-    from src.services.aia_literal_evidence import adds_literal_evidence, carries_pin, pin_words
+    """Baut die Chips einer Zeile: den besten Treffer, dazu nur praktisch gleich nahe."""
+    from src.services.aia_literal_evidence import carries_pin, pin_words
     chips: list[str] = []
     keys: set = set()
     primary_d: Optional[float] = None
     primary_content = ""
-    primary_source = None
     evidence_corpus = corpus or [c.get("content") or "" for c in cands]
     # Die Woerter, an denen die Zeile haengt. Gleich unten auf die eingeschraenkt, die der
     # BESTE Treffer traegt: jeder WEITERE Chip muss dann mindestens eines davon tragen,
@@ -1200,20 +1217,15 @@ def _chips_for_line(cands: list[dict], source_id_to_qnum: dict,
                 break
             primary_d = d                # the guarantee chip; anchors the relative gate
             primary_content = h.get("content") or ""
-            primary_source = h.get("source_id")
             pins = {p for p in pins if carries_pin(p, primary_content)}
-        elif pins and not any(carries_pin(p, h.get("content") or "") for p in pins):
-            continue                     # belegt nur das Thema, nicht die Aussage
-        elif h.get("literal"):
-            pass                         # states the claim's figure verbatim: it IS the source
         elif d > max_distance:
             break                        # off topic for everyone, evidence or not
-        elif h.get("source_id") != primary_source:
-            pass                         # another document: a second way in, not a near-miss
-        elif d > primary_d + _MULTI_CHIP_MAX_DELTA and not (
-                line and adds_literal_evidence(
-                    line, h.get("content") or "", primary_content, evidence_corpus)):
-            continue                     # further away AND adds nothing the best one lacks
+        elif h.get("literal"):
+            pass                         # nennt die Zahl der Aussage woertlich, das IST die Stelle
+        elif d > primary_d + _MULTI_CHIP_MAX_DELTA:
+            continue                     # merklich weiter weg als der beste Treffer
+        elif pins and not any(carries_pin(p, h.get("content") or "") for p in pins):
+            continue                     # belegt nur das Thema, nicht die Aussage
         c = _attribution_chip(qnum, h, line,
                               (transcript_by_source or {}).get(h.get("source_id")))
         if not c:
@@ -1305,8 +1317,7 @@ def _holds_for_every_sentence(text: str, predicate) -> bool:
 
 def _attribution_subunits(line: str) -> list[str]:
     """Sub-line text units to pre-embed alongside a candidate ``line``, so ``search_one``
-    reuses a batched vector instead of one embed call PER unit (which would hammer the
-    shared rate limit). Mirrors EXACTLY what attribution searches below the line level:
+    reuses a batched vector instead of one embed call PER unit. Mirrors EXACTLY what attribution searches below the line level:
 
     - a PROSE paragraph of > 1 sentence is attributed per sentence, so return each sentence
       AND each sentence's clauses (what :func:`_attribute_prose_line` searches),
@@ -1410,9 +1421,11 @@ def _attribute_prose_line(sentences: list[str], search_one, source_id_to_qnum: d
                                         transcript_by_source=transcript_by_source)
                 seen_targets = set(chips)
                 for cl in _clauses(sent):
-                    ccands = _line_candidates(cl, search_one, context_chunks,
-                                              seen_pages_by_source, scope_ids,
-                                              literal_lookup=literal_lookup, corpus=corpus)
+                    if len(chips) >= _COVERAGE_MAX_CHIPS_PER_LINE:
+                        break            # voll, sonst haengt die Klausel einen vierten an
+                    ccands = _figure_first(sent, _line_candidates(
+                        cl, search_one, context_chunks, seen_pages_by_source, scope_ids,
+                        literal_lookup=literal_lookup, corpus=corpus), corpus)
                     cchips = _chips_for_line(ccands, source_id_to_qnum, max_distance,
                                              guarantee_dist=guarantee, line=cl,
                                              corpus=corpus,
@@ -1422,7 +1435,7 @@ def _attribute_prose_line(sentences: list[str], search_one, source_id_to_qnum: d
                     # SENTENCE the closest passage is missing.
                     if (cchips and cchips[0] not in seen_targets
                             and _extra_chip_earns_place(sent, cands[0], ccands[0],
-                                                        satz_pins)):
+                                                        satz_pins, corpus=corpus)):
                         chips.append(cchips[0])
                         seen_targets.add(cchips[0])
                         if len(chips) >= _COVERAGE_MAX_CHIPS_PER_LINE:
@@ -1475,8 +1488,8 @@ class _AttributionPrewarmer:
     batch in ONE provider call and parallel-searches it, filling ``vecs`` and ``hits``.
     Attribution then reads those caches and only computes the misses.
 
-    Rate-limit safe: a single flush runs at a time (``_lock``), so bursts coalesce into a
-    few batched embed calls rather than one-per-line — the shared 2/s embed budget holds.
+    Call-count safe: a single flush runs at a time (``_lock``), so bursts coalesce into a
+    few batched embed calls rather than one-per-line.
     Correctness safe: everything is keyed by exact text and a miss is just recomputed
     inline at attribution, so a failed or stale prewarm can never change the answer."""
 
@@ -1689,6 +1702,9 @@ def _attribute_generic_text(text: str, search_one, source_id_to_qnum: dict, offs
                 seen_targets = set(chips)
                 for idx in blk:
                     for ccands in clause_cands_by_idx.get(idx, []):
+                        if len(chips) >= _COVERAGE_MAX_CHIPS_PER_LINE:
+                            break        # voll, sonst haengt die Klausel einen vierten an
+                        ccands = _figure_first(block_text, ccands, evidence_corpus)
                         cchips = _chips_for_line(ccands, source_id_to_qnum, max_distance,
                                                  guarantee_dist=guarantee, line=block_text,
                                                  corpus=evidence_corpus,
@@ -1696,7 +1712,8 @@ def _attribute_generic_text(text: str, search_one, source_id_to_qnum: dict, offs
                         # Same rule as the prose path: an extra chip must cover something of
                         # the BLOCK that the closest passage does not already carry.
                         if (cchips and cchips[0] not in seen_targets
-                                and _extra_chip_earns_place(block_text, agg[0], ccands[0])):
+                                and _extra_chip_earns_place(block_text, agg[0], ccands[0],
+                                                            corpus=evidence_corpus)):
                             chips.append(cchips[0])
                             seen_targets.add(cchips[0])
                             if len(chips) >= _COVERAGE_MAX_CHIPS_PER_LINE:

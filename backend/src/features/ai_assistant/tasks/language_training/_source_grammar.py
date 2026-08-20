@@ -134,9 +134,8 @@ def task_line(kind: str, locale: str, target_form: str, eigene: dict | None = No
 _MIN_USABLE_RATIO = 0.5
 
 # Bis zu drei Wuerfe, damit die bestellte Anzahl zusammenkommt. Die Filter werfen
-# weg, und wer zehn Aufgaben bestellt, will zehn. Mehr als drei bringt nichts: das
-# Anfragen-Kontingent ist hochschulweit geteilt, und wer dreimal nichts Brauchbares
-# liefert, liefert es beim vierten Mal auch nicht.
+# weg, und wer zehn Aufgaben bestellt, will zehn. Mehr als drei bringt nichts: wer
+# dreimal nichts Brauchbares liefert, liefert es beim vierten Mal auch nicht.
 _MAX_ATTEMPTS = 3
 
 # Vier Optionen beim Ankreuzen. Weniger sieht nach einem Fehler aus, mehr passt nicht
@@ -226,9 +225,8 @@ def generate_grammar_from_source(
                 {"role": "user", "content": user_msg}]
     # Ein zweiter Wurf, wenn der erste zu wenig Brauchbares liefert. Die Filter werfen
     # weg, und ohne Nachschlag kam bei zehn bestellten Aufgaben ein Set mit sieben
-    # heraus. Genau ein Nachschlag: das Anfragen-Kontingent teilt sich die ganze
-    # Hochschule, und wer zweimal hintereinander nichts Brauchbares liefert, liefert
-    # es beim dritten Mal erfahrungsgemäss auch nicht.
+    # heraus. Genau ein Nachschlag: wer zweimal hintereinander nichts Brauchbares
+    # liefert, liefert es beim dritten Mal erfahrungsgemäss auch nicht.
     items: list[dict] = []
     claims: list[str] = []
     seen: set = set()

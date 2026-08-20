@@ -137,7 +137,7 @@ async def get_settings(_admin=Depends(require_any_settings)):
         # Zeit ab, nicht nach einer festen Länge, siehe Messung in limits.py.
         # Bleibt einstellbar, weil das eine ANBIETER-EIGENSCHAFT ist, die sich
         # nicht aus Absagen ablesen lässt: die Anfrage läuft in einen Timeout,
-        # nicht in ein 429. Alles, was sich messen oder erkennen lässt, ist
+        # nicht in eine Absage. Alles, was sich messen oder erkennen lässt, ist
         # dagegen aus diesem Bereich verschwunden.
         "tts_max_chars_per_request": int(
             db.get_setting("tts_max_chars_per_request", str(TTS_MAX_CHARS_PER_REQUEST))

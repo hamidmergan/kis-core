@@ -7,8 +7,8 @@ Reglers findet der Client die Zahl jetzt selbst: lehnt der Endpunkt eine zu
 grosse Anfrage ab, halbiert er den Stapel und versucht es erneut.
 
 Wichtig ist die Unterscheidung zweier Absagen. "Zu gross" wird kleiner
-versucht, eine Absage wegen des geteilten Rate-Limits NICHT, denn Halbieren
-wuerde dort nur noch mehr Anfragen gegen das volle Kontingent erzeugen.
+versucht, eine Absage wegen Ueberlastung NICHT, denn Halbieren wuerde dort
+nur noch mehr Anfragen erzeugen.
 """
 import pytest
 
@@ -170,7 +170,7 @@ def test_erfolg_eines_kleinen_stapels_senkt_die_gelernte_groesse_nicht():
     Nimmt der Endpunkt 3 von 6 Zeilen an, heisst das NICHT, dass seine Grenze bei
     3 liegt. Gelernt wird nur an einem Stapel, der die Grenze wirklich ausgereizt
     hat, also einem vollen. Sonst liefe der naechste Upload mit 1000 Chunks in
-    Dreier-Haeppchen gegen das geteilte Kontingent.
+    Dreier-Haeppchen los.
     """
     klein = _FakeEndpoint(max_inputs=3)
     klein.embed([f"zeile {i}" for i in range(6)])

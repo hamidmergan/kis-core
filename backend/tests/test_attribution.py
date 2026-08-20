@@ -17,7 +17,10 @@ from src.features.ai_assistant.routes._helpers import (
     _refusal_lines,
     is_refusal_answer,
 )
-from src.tool_prompts import RAG_NO_INFO_SENTINEL, is_sentinel_refusal
+from src.features.ai_assistant.prompts.refusal_prompts import (
+    RAG_NO_INFO_SENTINEL,
+    is_sentinel_refusal,
+)
 
 
 def _hit(sid, page, content, dist, start=None):
@@ -331,10 +334,9 @@ def test_chips_at_block_end_not_mid_bullet():
 
 
 def test_multi_chip_two_close_pages_both_cited():
-    # A synthesised line drawing from TWO retrieved pages at ~equal distance (genuine
-    # co-sources, within the relative delta) -> two chips.
+    # Zwei Seiten praktisch gleich weit weg, echte Mitquellen, also zwei Chips.
     line = "Eine zusammengesetzte Aussage aus mehreren Stellen zugleich."
-    search = _searcher({"zusammengesetzte": [_hit(1, 5, "x", 0.30), _hit(1, 9, "y", 0.35)]})
+    search = _searcher({"zusammengesetzte": [_hit(1, 5, "x", 0.30), _hit(1, 9, "y", 0.33)]})
     out = _attribute_generic_text(line, search, {1: 1},
                                   seen_pages_by_source={1: {5, 9}}, max_distance=0.6)
     assert "[1, S. 5]" in out and "[1, S. 9]" in out
@@ -357,36 +359,33 @@ def test_multi_chip_drops_far_secondary_relative_gate():
     assert out.count("[1,") == 1   # exactly one chip
 
 
-# ── a SECOND SOURCE stating the same fact ───────────────────────────────────
-# The deadline case from the course recording: the talk states the date at 08:58 (closest)
-# and the slide deck states it too. A spoken passage and a written one never land at the
-# same distance, so the slide sits 0.16 away — past the relative delta. The literal-evidence
-# exemption cannot save it either: the words the slide shares with the sentence ("Abgabe",
-# "Hausarbeit") are exactly the words the whole course carries, so they are not distinctive
-# and the slide looks like it adds nothing. Yet it is a second way in, not noise — the rule
-# the clause path already applies (_extra_chip_earns_place: "a DIFFERENT source always
-# earns it").
+# ── eine ZWEITE QUELLE mit derselben Aussage ──────────────────────
+# Frueher bekam eine andere Datei einen Freifahrtschein am Abstand vorbei. Gemessen an 33
+# Aussagen fand kein einziger Zusatzbeleg eine Stelle, die der beste verpasst, und weil bei
+# vielen Quellen immer jemand aus einer anderen Datei dabei ist, kamen ueberall drei Chips.
+# Jetzt gilt der Abstand fuer alle: die Aufzeichnung sagt den Termin bei 08:58 (0,31), die
+# Folie sagt ihn auch (0,47), und Reden ueber eine Sache landet nie so nah wie die Sache
+# selbst. Die Folie faellt damit weg.
 _DEADLINE = "Die finale Abgabe der Hausarbeit ist am 3. Juli 2026 fällig"
 _TALK_0858 = "der 3. Juli, da ist die finale Deadline, wann Sie einreichen"
-# No bare "2026"/"3" run: the date is written as one figure, so the figure branch of
-# adds_literal_evidence stays out of it and the SOURCE rule is what the test measures.
+# Keine nackte "2026"/"3": das Datum steht als eine Zahl, damit die Zahlen-Ausnahme
+# hier nicht greift und der Test wirklich den Abstand misst.
 _SLIDE_DEADLINE = "Abgabe der Hausarbeit bis 03.07.2026"
-# A course corpus: "Abgabe" and "Hausarbeit" sit on nearly every chunk, which is precisely
-# why rarity cannot recognise the slide as evidence. Spelled-out numbers keep stray figure
-# runs out of the corpus.
+# Ein Kurs-Korpus: "Abgabe" und "Hausarbeit" stehen auf fast jedem Chunk.
 _COURSE = [{"content": f"Kapitel {n}: Hinweise zur Abgabe der Hausarbeit im Modul."}
            for n in ("eins", "zwei", "drei", "vier", "fünf", "sechs", "sieben", "acht",
                      "neun", "zehn")]
 
 
-def test_multi_chip_other_source_passes_the_relative_gate():
+def test_multi_chip_other_source_needs_equal_distance_too():
     hits = [_hit(1, 41, _TALK_0858, 0.31, start=538.0), _hit(3, 4, _SLIDE_DEADLINE, 0.47)]
     out = _attribute_generic_text(
         _DEADLINE, _searcher({"finale Abgabe": hits}), {1: 1, 3: 2},
         context_chunks=_COURSE + [dict(h) for h in hits],
         seen_pages_by_source={1: {41}, 3: {4}}, max_distance=0.6)
-    assert "[1, 08:58]" in out    # the recording, closest
-    assert "[2, S. 4]" in out     # the slide, same fact, other source
+    assert "[1, 08:58]" in out    # die Aufzeichnung, am naechsten
+    assert "[2, S. 4]" not in out  # die Folie ist merklich weiter weg
+    assert out.count("[") == 1
 
 
 def test_multi_chip_same_source_near_miss_still_dropped():
@@ -824,6 +823,101 @@ def test_clause_coverage_no_inflation_when_clauses_share_source():
     assert out.count("[1, S. 5]") == 1
 
 
+# Die Zeile nennt zwei Zahlen, die nur die Folie traegt, und ihr einziges Pin-Wort
+# ("zusaetzlich") steht in keiner der beiden Stellen.
+_TALK_0928 = ("werden Sie auch gesehen haben, dass da auch eine Präsentation dabei ist. "
+              "Sie haben einen schriftlichen Teil und dann präsentieren Sie Ihre "
+              "Ausarbeitung, sage ich mal, oder die Ergebnisse, was Sie da recherchiert "
+              "haben. Und die Termine werden wir dann individuell vereinbaren. Die werden "
+              "dann während der Prüfungswochen sein.")
+_SLIDE_TIMES = ("ORGANISATORISCHES PRÜFUNGSLEISTUNG Die finale Hausarbeit soll ca. sechs "
+                "bis sieben Seiten betragen, inklusive Abbildungen und Tabellen, "
+                "zuzüglich Literaturverzeichnis. 20 Minuten Präsentation + 10 Minuten "
+                "anschließende Fragerunde")
+# Ein Kurs-Korpus, in dem jedes lange Wort der Zeile ueberall faellt und nur
+# "zusaetzlich" an genau einer Stelle steht.
+_SEMINAR = [{"content": ("Hinweise zur Präsentation, zur Fragerunde, zum schriftlichen "
+                         "Teil und zu individuell vereinbarten Terminen in den "
+                         f"Prüfungswochen, Abschnitt {n}.")}
+            for n in "abcdefghijklmnop"] + [
+    {"content": "Zusätzlich gilt die Anwesenheitspflicht in allen Sitzungen."}]
+
+
+def test_clause_coverage_keeps_the_page_that_states_the_lines_figures():
+    # Gemeldet 19.08.2026: die Aufzeichnung nennt nur die Termine, die Folie nennt die
+    # Dauer, und der einzige Chip zeigte auf die Aufzeichnung.
+    line = ("Zusätzlich zur schriftlichen Arbeit erfolgt eine 20-minütige Präsentation "
+            "mit einer anschließenden 10-minütigen Fragerunde, wobei die Termine "
+            "individuell während der Prüfungswochen vereinbart werden.")
+    talk = _hit(1, 22, _TALK_0928, 0.28, start=568.0)
+    slide = _hit(3, 7, _SLIDE_TIMES, 0.42)
+    out = _attribute_generic_text(
+        line, _searcher({"Prüfungswochen vereinbart": [talk],
+                         "10-minütigen Fragerunde": [slide]}), {1: 1, 3: 2},
+        context_chunks=_SEMINAR + [dict(talk), dict(slide)],
+        seen_pages_by_source={1: {22}, 3: {7}}, max_distance=0.6)
+    assert "[1, 09:28]" in out   # die Aufzeichnung, sie sagt die Termine
+    assert "[2, S. 7]" in out    # die Folie, sie sagt die 20 und die 10
+
+
+def test_clause_coverage_states_the_figures_in_a_bullet_too():
+    # Derselbe Satz als Aufzaehlungspunkt, denn so kam er beim gemeldeten Fall an.
+    # Hier hielt die Zuordnung schon vorher, die Zahlen-Regel ist also nicht noetig:
+    # ueber Dateigrenzen hinweg verdient ein Zusatzbeleg seinen Platz ohnehin.
+    line = ("- **Präsentation**: Zusätzlich zur schriftlichen Arbeit erfolgt eine "
+            "20-minütige Präsentation mit einer anschließenden 10-minütigen Fragerunde, "
+            "wobei die Termine individuell während der Prüfungswochen vereinbart werden.")
+    talk = _hit(1, 22, _TALK_0928, 0.28, start=568.0)
+    slide = _hit(3, 7, _SLIDE_TIMES, 0.42)
+    out = _attribute_generic_text(
+        line, _searcher({"Prüfungswochen vereinbart": [talk],
+                         "10-minütigen Fragerunde": [slide]}), {1: 1, 3: 2},
+        context_chunks=_SEMINAR + [dict(talk), dict(slide)],
+        seen_pages_by_source={1: {22}, 3: {7}}, max_distance=0.6)
+    assert "[1, 09:28]" in out
+    assert "[2, S. 7]" in out
+
+
+def test_clause_coverage_picks_the_figure_passage_over_a_nearer_stranger():
+    # Gemeldet 19.08.2026: der Zusatzbeleg landete auf "Fragen zu stellen, Diskussionen zu
+    # machen" aus einer anderen Aufzeichnung, die Folie mit den Zahlen blieb ungenutzt.
+    line = ("- **Präsentation**: Die schriftliche Ausarbeitung wird in einer 20-minütigen "
+            "Präsentation vorgestellt, auf die eine 10-minütige Fragerunde folgt.")
+    talk = _hit(1, 45, "es sind 20 Minuten Präsentation und anschließend geht man in einen "
+                       "Fragekontext", 0.25, start=931.0)
+    # Naeher dran, redet aber nur um die Sache herum, und aus einer dritten Datei.
+    fremd = _hit(4, 2, "Dann gibt es natürlich immer die Möglichkeit Fragen zu stellen, "
+                       "Diskussionen zu machen, je nachdem wie schnell wir durchkommen",
+                 0.30, start=43.9)
+    folie = _hit(3, 3, "ORGANISATORISCHES PRÜFUNGSLEISTUNG Präsentationsvorgaben "
+                       "20 Minuten PPT-Präsentation 10 Minuten Fragerunde/Diskussion", 0.44)
+    out = _attribute_generic_text(
+        line, _searcher({"schriftliche Ausarbeitung": [talk],
+                         "10-minütige Fragerunde": [fremd, folie]}), {1: 1, 3: 2, 4: 3},
+        context_chunks=_SEMINAR + [dict(talk), dict(fremd), dict(folie)],
+        seen_pages_by_source={1: {45}, 3: {3}, 4: {2}}, max_distance=0.6)
+    assert "[2, S. 3]" in out      # die Folie, sie nennt die 20 und die 10
+    assert "[3, 00:43]" not in out  # das Gerede ueber Fragen im Vorlesungsablauf nicht
+
+
+def test_coverage_chips_never_exceed_the_cap():
+    # Gemessen: die Zeilensuche lieferte schon drei Belege, und die Klausel-Abdeckung
+    # haengte einen vierten an, weil die Grenze erst NACH dem Anhaengen geprueft wurde.
+    line = ("- **Präsentation**: Die Ausarbeitung wird in einer 20-minütigen Präsentation "
+            "vorgestellt, auf die eine 10-minütige Fragerunde folgt.")
+    nah = [_hit(1, 45, "20 Minuten Präsentation und ein Fragekontext danach", 0.25, start=931.0),
+           _hit(3, 3, "20 Minuten PPT-Präsentation 10 Minuten Fragerunde/Diskussion", 0.26),
+           _hit(2, 7, "20 Minuten Präsentation + 10 Minuten anschließende Fragerunde", 0.27)]
+    fremd = _hit(4, 2, "die Möglichkeit Fragen zu stellen, Diskussionen zu machen", 0.30, start=43.9)
+    out = _attribute_generic_text(
+        line, _searcher({"Die Ausarbeitung wird": nah,
+                         "10-minütige Fragerunde": [fremd]}), {1: 1, 2: 2, 3: 3, 4: 4},
+        context_chunks=_SEMINAR + [dict(h) for h in nah + [fremd]],
+        seen_pages_by_source={1: {45}, 2: {7}, 3: {3}, 4: {2}}, max_distance=0.6)
+    assert out.count("[") == 3        # nie mehr als die Obergrenze
+    assert "[4, 00:43]" not in out    # der vierte faellt weg, und zwar der schwaechste
+
+
 # ── per-sentence attribution in PROSE ─────────────────────────────────────────
 # A prose paragraph attaches a chip AFTER EACH sentence (its own closest source), not one
 # aggregated chip at the paragraph end. Each sentence is searched on its OWN focused
@@ -1059,7 +1153,7 @@ def test_partially_bold_prose_line_is_still_cited():
 # ── _attribution_subunits (what the caller pre-embeds in ONE batch) ───────────
 # The prose per-sentence path searches each sentence (and its clauses). Those must ride in
 # the same embed batch as the lines/clauses, or search_one falls back to one embed PER
-# sentence and hammers the shared rate limit. This helper enumerates those sub-units.
+# sentence. This helper enumerates those sub-units.
 
 def test_subunits_prose_multisentence_returns_each_sentence():
     line = "Der Kurs vermittelt die Grundlagen. Die Abgabe ist im Juli faellig."

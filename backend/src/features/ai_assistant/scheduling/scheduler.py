@@ -3,7 +3,7 @@
 Two pure pieces, no IO:
 
 - ``WeightedAreaSelector`` -- work-conserving weighted picker that distributes a
-  shared budget (the rate-gate tokens) across areas by weight. An idle area is
+  shared budget (the available slots) across areas by weight. An idle area is
   skipped so its share is lent to others, while a busy area never starves
   because every area with weight > 0 keeps getting turns.
 

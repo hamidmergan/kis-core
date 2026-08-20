@@ -29,7 +29,7 @@ from datetime import date
 from loguru import logger
 
 from src.features.ai_assistant.tasks._helpers import _clean_llm_json
-from src.tool_prompts import AIA_SCHEDULE_TBD_DISCOVER_PROMPT
+from src.features.ai_assistant.prompts.schedule_prompts import AIA_SCHEDULE_TBD_DISCOVER_PROMPT
 
 
 # Ein Block ist ein Chunk, der Chunker schneidet bei 1000 Zeichen. 24000 Zeichen je
@@ -231,8 +231,7 @@ def _discover_in_blocks(client, model, blocks: list[tuple[int, str]]) -> dict[in
     hinter der Anfragengrenze fehlen im Ergebnis, sie hat niemand angesehen.
 
     Ein Fehler bleibt folgenlos fuer den Rest des Auftrags, der Zeitplan entsteht auch
-    ohne diese Suche. Beim ersten Fehlschlag wird abgebrochen statt weiter angefragt,
-    das Anfragebudget ist hochschulweit geteilt.
+    ohne diese Suche. Beim ersten Fehlschlag wird abgebrochen statt weiter angefragt.
     """
     if client is None:
         return {}
