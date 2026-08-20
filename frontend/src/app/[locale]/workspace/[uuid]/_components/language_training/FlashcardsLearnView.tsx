@@ -11,6 +11,7 @@ import { _getToolBadge, type BreadcrumbItem } from "../layout/SubviewHeader";
 import { ExerciseNav } from "./ExerciseNav";
 import { HintCard } from "./HintCard";
 import { SetSourceLegend, sourceNumbers, sourceTag } from "./SetSourceLegend";
+import { splitExample } from "./_termHighlight";
 
 export function FlashcardsLearnView({
   exerciseSet, onBack, onAnswer, onAskChat, onSourceClick, breadcrumbs, showTranslation, chatLang = "de", workspaceUuid,
@@ -389,7 +390,14 @@ export function FlashcardsLearnView({
                               </IconButton>
                             )}
                           </div>
-                          <p className="text-sm italic leading-relaxed mt-1" style={{ color: "var(--foreground)" }}>{exampleSentence}</p>
+                          <p className="text-sm italic leading-relaxed mt-1" style={{ color: "var(--foreground)" }}>
+                            {/* Das gelernte Wort steht fett, damit sofort sichtbar ist, worum es geht. */}
+                            {splitExample(exampleSentence, [card.front, singular, plural, verbPresent, verbPast, verbPerfect]).map((seg, si) => (
+                              seg.focus
+                                ? <strong key={si} className="font-bold">{seg.text}</strong>
+                                : <React.Fragment key={si}>{seg.text}</React.Fragment>
+                            ))}
+                          </p>
                           {/* Kein Kasten, kein Aufklappen: nur eine schlichte Zeile, die beim
                               naechsten Klick auf den Lautsprecher wieder verschwindet. */}
                           {failed && (
