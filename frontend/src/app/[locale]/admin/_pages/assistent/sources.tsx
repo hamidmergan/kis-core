@@ -36,9 +36,9 @@ export default function SourcesPage() {
   const tTools = useTranslations("admin.toolContextBudgetCard");
 
   const maxSources = useSetting<number>("aia_workspace_max_sources", 50);
-  const maxPages = useSetting<number>("aia_source_max_pages", 100);
+  const maxPages = useSetting<number>("aia_source_max_pages", 200);
   const ocr = useSetting<boolean>("ocr_enabled", true);
-  const chat = useSetting<number>("aia_context_max_chars", 60000);
+  const chat = useSetting<number>("aia_context_max_chars", 250000);
   const tools = useSetting<number>("aia_tool_context_max_chars", 250000);
 
   return (

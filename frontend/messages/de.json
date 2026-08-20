@@ -1315,7 +1315,7 @@
     },
     "workspaceLimitsCard": {
       "title": "Maximale Materialien pro {label}",
-      "hint": "Wie viele Dokumente Nutzer pro {label} hochladen dürfen. Greift sofort für neue Uploads.",
+      "hint": "Wie viele Materialien Nutzer pro {label} hochladen dürfen. Greift sofort für neue Uploads.",
       "unit": "Materialien",
       "outOfRange": "Wert muss zwischen 1 und 1000 liegen.",
       "saveFailed": "Speichern fehlgeschlagen."
@@ -1332,15 +1332,15 @@
     },
     "contextBudgetCard": {
       "title": "KI-Tutor Kontext-Budget",
-      "hint": "Wie viel Text aus den Materialien (in Zeichen) der KI-Tutor pro Frage ins Modell gibt. Default 60000 ist für kleine Modelle (32k) sicher. Passt ein ausgewähltes Material komplett ins Budget, wird es bei Übersichtsfragen ganz statt nur als Auszug gesendet. Höher setzen nur, wenn ausschließlich Modelle mit großem Kontext laufen.",
+      "hint": "Wie viel Text aus den Materialien (in Zeichen) der KI-Tutor pro Frage ins Modell gibt. Default 250000. Passen alle ausgewählten Materialien zusammen ins Budget, gehen sie bei jeder Frage komplett ins Modell. Sonst sucht der Tutor die passenden Stellen heraus und nimmt bei einer gezielten Frage nie mehr als 60000 Zeichen, egal was hier steht. Übersichtsfragen schöpfen das Budget dagegen aus. Der Wert wird zusätzlich auf das gemessene Kontextfenster des Modells gekürzt.",
       "unit": "Zeichen",
       "approxTokens": "≈ {n}k Token",
-      "outOfRange": "Wert muss zwischen 1000 und 500000 liegen.",
+      "outOfRange": "Wert muss zwischen 1000 und 800000 liegen.",
       "saveFailed": "Speichern fehlgeschlagen."
     },
     "toolContextBudgetCard": {
       "title": "Tools Kontext-Budget",
-      "hint": "Wie viel Text aus den Materialien (in Zeichen) die Lern-Tools (Mindmap, Datentabelle, Quiz, Lernkarte, Grammatik-Übung, Karteikarten) ins Modell geben. Getrennt vom Chat-Budget, weil ein Tool ein ganzes Dokument in einem Aufruf verarbeitet. Der Wert wird durch die Anzahl der ausgewählten Materialien geteilt. Default 250000 ist für mittlere Modelle sicher. Höher setzen (z.B. 450000 oder 900000) nur, wenn ein Modell mit großem Kontext läuft.",
+      "hint": "Wie viel Text aus den Materialien (in Zeichen) die Lern-Tools (Mindmap, Datentabelle, Lernkarten, Karteikarten, Grammatikübungen, Wortschatzübungen, Quiz) ins Modell geben. Getrennt vom Chat-Budget, weil ein Tool ein ganzes Dokument in einem Aufruf verarbeitet. Der Wert wird durch die Anzahl der ausgewählten Materialien geteilt. Default 250000 ist für mittlere Modelle sicher. Höher setzen (z.B. 450000 oder 900000) nur, wenn ein Modell mit großem Kontext läuft. Der Wert wird zusätzlich auf das gemessene Kontextfenster des Modells gekürzt.",
       "unit": "Zeichen",
       "approxTokens": "≈ {n}k Token",
       "outOfRange": "Wert muss zwischen 1000 und 1000000 liegen.",
@@ -1356,7 +1356,7 @@
     },
     "sourceMaxPagesCard": {
       "title": "Maximale Seiten pro Material",
-      "hint": "Wie viele Seiten ein hochgeladenes Dokument (PDF/DOCX/PPTX) maximal haben darf. Größere werden abgelehnt – lange Skripte bitte kapitelweise hochladen. Default 100: so bleibt jedes Material klein genug für einen vollständigen Überblick. Medien (mp3/mp4) sind nicht betroffen.",
+      "hint": "Wie viele Seiten ein hochgeladenes Dokument (PDF/DOCX/PPTX) maximal haben darf. Größere werden abgelehnt, lange Skripte bitte kapitelweise hochladen. Default 200: bis dahin bleibt ein Material handhabbar, bei sehr großen Dokumenten wird der Überblick vorderlastig. Medien (mp3/mp4) sind nicht betroffen.",
       "unit": "Seiten",
       "outOfRange": "Wert muss zwischen 1 und 2000 liegen.",
       "saveFailed": "Speichern fehlgeschlagen."

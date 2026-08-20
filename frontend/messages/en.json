@@ -1315,7 +1315,7 @@
     },
     "workspaceLimitsCard": {
       "title": "Max sources per {label}",
-      "hint": "How many documents users may upload per {label}. Takes effect immediately for new uploads.",
+      "hint": "How many sources users may upload per {label}. Takes effect immediately for new uploads.",
       "unit": "sources",
       "outOfRange": "Value must be between 1 and 1000.",
       "saveFailed": "Save failed."
@@ -1332,15 +1332,15 @@
     },
     "contextBudgetCard": {
       "title": "AI tutor context budget",
-      "hint": "How much source text (in characters) the AI tutor sends to the model per question. The default 60000 is safe for small models (32k). If a selected source fits entirely within the budget, it is sent whole for overview questions instead of a retrieved sample. Raise only if you run exclusively large-context models.",
+      "hint": "How much source text (in characters) the AI tutor sends to the model per question. Default 250000. If all selected sources together fit the budget, they go to the model in full for every question. Otherwise the tutor retrieves the matching passages and never uses more than 60000 characters for a precise question, no matter what you set here. Overview questions do use the full budget. The value is additionally capped by the model's measured context window.",
       "unit": "characters",
       "approxTokens": "≈ {n}k tokens",
-      "outOfRange": "Value must be between 1000 and 500000.",
+      "outOfRange": "Value must be between 1000 and 800000.",
       "saveFailed": "Save failed."
     },
     "toolContextBudgetCard": {
       "title": "Tools context budget",
-      "hint": "How much source text (in characters) the learning tools (mind map, data table, quiz, flashcards, glossary, cloze, cards) send to the model. Separate from the chat budget because a tool processes a whole document in one call. The value is divided by the number of selected sources. The default 250000 is safe for mid-tier models. Raise it (e.g. 450000 or 900000) only when running a large-context model.",
+      "hint": "How much source text (in characters) the learning tools (mind map, data table, vocab cards, flashcards, grammar exercises, vocabulary exercises, quiz) send to the model. Separate from the chat budget because a tool processes a whole document in one call. The value is divided by the number of selected sources. The default 250000 is safe for mid-tier models. Raise it (e.g. 450000 or 900000) only when running a large-context model. The value is additionally capped by the model's measured context window.",
       "unit": "characters",
       "approxTokens": "≈ {n}k tokens",
       "outOfRange": "Value must be between 1000 and 1000000.",
@@ -1356,7 +1356,7 @@
     },
     "sourceMaxPagesCard": {
       "title": "Max. pages per source",
-      "hint": "Maximum number of pages an uploaded document (PDF/DOCX/PPTX) may have. Larger ones are rejected — please upload long scripts chapter by chapter. Default 100: keeps each source small enough for a complete overview. Media (mp3/mp4) is not affected.",
+      "hint": "Maximum number of pages an uploaded document (PDF/DOCX/PPTX) may have. Larger ones are rejected, please upload long scripts chapter by chapter. Default 200: up to that size a source stays manageable, with very large documents the overview becomes front-heavy. Media (mp3/mp4) is not affected.",
       "unit": "pages",
       "outOfRange": "Value must be between 1 and 2000.",
       "saveFailed": "Save failed."
