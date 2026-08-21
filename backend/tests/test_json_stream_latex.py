@@ -15,7 +15,7 @@ def _lies(roh: str) -> str:
 
 
 def _antwort(body: str) -> str:
-    return '{"gap": null, "bridge": null, "items": [], "body": "' + body + '"}'
+    return '{"no_info_sentence": null, "bridge": null, "items": [], "body": "' + body + '"}'
 
 
 def test_latex_befehle_behalten_ihren_rueckstrich():

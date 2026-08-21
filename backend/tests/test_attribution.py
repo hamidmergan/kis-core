@@ -537,15 +537,10 @@ def test_refusal_answer_empty_text_is_false():
 # plus a pgvector fan-out just to have its only line filtered out again afterwards.
 
 _DE = RAG_NO_INFO_SENTINEL["de"]
-_EN = RAG_NO_INFO_SENTINEL["en"]
 
 
 def test_sentinel_refusal_de_verbatim():
     assert is_sentinel_refusal(_DE) is True
-
-
-def test_sentinel_refusal_en_verbatim():
-    assert is_sentinel_refusal(_EN) is True
 
 
 def test_sentinel_refusal_tolerates_whitespace_and_emphasis():

@@ -6,9 +6,21 @@ from src.features.ai_assistant.prompts.rag_chat.language_anchor import (
 )
 
 
+def _language_order(answer_language: str) -> str:
+    """Die im Vor-Call gemessene Fragesprache als Befehl, leer wenn sie unbekannt ist."""
+    if not answer_language:
+        return ""
+    return (
+        f"WRITE THE WHOLE ANSWER IN {answer_language.upper()}. That is the language of "
+        "the question, measured before you were called. It holds for EVERY field, the "
+        "sentence about what is missing included, whatever language the examples in "
+        "these instructions happen to use.\n"
+    )
+
+
 def aia_system_rag(
     target_locale: str = "de", *, overview: bool = False,
-    prev_questions: list[str] | None = None,
+    prev_questions: list[str] | None = None, answer_language: str = "",
 ) -> str:
     """Haupt-Prompt des Antwort-Calls: Sprache folgt der Frage, ``overview``
     haengt den Ueberblick-Modus an."""
@@ -30,39 +42,46 @@ def aia_system_rag(
         "## Answer format\n"
         "You fill FIELDS. The app builds the visible answer from them, so never write "
         "markdown bullets or headings into a field yourself.\n"
-        "- \"gap\": ONE COMPLETE SENTENCE with a subject and a verb, naming exactly "
-        "what the documents do NOT state, calmly and precisely, never echoing the "
-        "question back. NEVER the bare term on its own. NAME THE MISSING THING BY THE "
-        "QUESTION'S OWN WORD, in the quotation marks of the answer's language, so the "
-        "reader sees which term the documents never use. SHAPE ONLY, take the wording "
-        "from the question, not from here. German: In den Materialien steht nichts zu "
-        "„Wartungsplan“. English: The sources say nothing about \"maintenance plan\". "
-        "null when they state what was asked. Say it here ONCE and NOWHERE else.\n"
+        "- \"no_info_sentence\": A FULL SENTENCE with a subject and a verb, saying what "
+        "the documents do not state. This field is never a bare word or phrase, it is "
+        "always a whole sentence. Inside that sentence, quote the question's own term, "
+        "in the quotation marks of the answer's language, so the reader sees which word "
+        "the documents never use. Stay calm and precise, never echo the question back. "
+        "The SHAPE, written out so it carries no language of its own: "
+        "<the documents> + <do not mention> + \"<the term from the question>\". Put "
+        "that shape into words YOURSELF, in the answer's language. Never copy a ready "
+        "sentence from these instructions, they are written in English for you, not for "
+        "the reader. null when they state what was asked. Say it here ONCE and NOWHERE "
+        "else.\n"
         "- \"bridge\": the SECOND HALF OF THAT SAME SENTENCE, which the app joins to "
-        "\"gap\" with a comma. So: start lowercase with a contrasting connector in the "
-        "language of the question (German \"jedoch\", English \"however\"), name what "
-        "the documents DO describe instead, never repeat the subject of \"gap\", and end "
-        "with a colon. Only when \"gap\" is set, else null.\n"
+        "\"no_info_sentence\" with a comma. So: start lowercase with a contrasting "
+        "connector IN THE SAME LANGUAGE AS \"no_info_sentence\", never in the language "
+        "of these instructions, name what the documents DO describe instead, never repeat "
+        "the subject of \"no_info_sentence\", and end with a colon. Only when "
+        "\"no_info_sentence\" is set, else null.\n"
         "- \"items\": one entry per thing the documents DO say ABOUT THE THING THAT WAS "
-        "ASKED FOR, the one named in \"gap\", each with a short \"term\" and a \"text\" "
+        "ASKED FOR, the one named in \"no_info_sentence\", each with a short \"term\" and a \"text\" "
         "of ONE sentence. The passages you were given are deliberately wide and hold much "
         "the question never asked for: a passage about a DIFFERENT thing is not an entry, "
         f"however close its category. {grenze}Be generous within that limit, there is "
-        "almost always something. Empty only when \"gap\" is null.\n"
-        "- \"body\": the full answer as markdown, used ONLY when \"gap\" is null. Empty "
-        "otherwise.\n"
+        "almost always something. Empty only when \"no_info_sentence\" is null.\n"
+        "- \"body\": the full answer as markdown, used ONLY when \"no_info_sentence\" "
+        "is null. Empty otherwise.\n"
         "- NEVER state in \"bridge\", \"items\" or \"body\" what the documents do not "
-        "say, do not mention or do not contain. That belongs in \"gap\" alone.\n"
+        "say, do not mention or do not contain. That belongs in \"no_info_sentence\" alone.\n"
         "- In \"items\" and \"body\": a time given only relative to the moment of "
         "speaking (\"next week\", \"tomorrow\", \"last year\") is NOT a date and is "
         "never the answer to a \"when\" question. Write what was said at that point "
         "(\"the recording announces it for the following week\").\n"
         "\n"
         "## Language\n"
+        f"{_language_order(answer_language)}"
         "ALWAYS answer in the language of the QUESTION, whatever the documents "
         "are in.\n"
-        "In German the <documents> are called \"die Materialien\", NEVER "
-        "\"Quellen\". This holds in every sentence, the gap sentence included.\n"
+        "WHEN AND ONLY WHEN you write in German, the <documents> are called "
+        "\"die Materialien\", NEVER \"Quellen\". In every OTHER language use that "
+        "language's OWN word for them and never the German one. This holds in every "
+        "sentence, \"no_info_sentence\" included.\n"
         f"{ambiguous_language_rule(target_locale, prev_questions)}\n"
         "\n"
         "## RESPONSE STRUCTURE\n"
@@ -152,7 +171,8 @@ def aia_greeting_user_message(context: str, greeting: str) -> str:
 
 
 def aia_rag_user_message(
-    context: str, question: str, prev_questions: list[str] | None = None
+    context: str, question: str, prev_questions: list[str] | None = None,
+    answer_language: str = "",
 ) -> str:
     """Nutzer-Nachricht des Antwort-Calls: die Sprachregel klammert den Kontext ein,
     sonst ziehen deutsche Quellen die Antwort mit."""
@@ -172,8 +192,9 @@ def aia_rag_user_message(
         "in the language of the Question at the end — translate the documents' "
         "facts as needed. Do NOT mirror the documents' language.\n\n"
         f"{context}\n\nQuestion: {question}\n\n"
-        "REMINDER: Write your ENTIRE answer in the SAME language as this "
-        f"Question, even though the documents above are in another language.{fallback}\n"
+        f"REMINDER: {_language_order(answer_language) or ''}Write your ENTIRE answer "
+        "in the SAME language as this Question, even though the documents above are in "
+        f"another language.{fallback}\n"
         "TABLE REMINDER: If you present data as a Markdown table, use ONLY "
         "columns you can fill from the sources — do NOT add an empty 'Hinweis'/"
         "'Note' column or any column whose cells become '–'."

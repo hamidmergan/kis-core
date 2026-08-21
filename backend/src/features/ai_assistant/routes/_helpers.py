@@ -496,7 +496,7 @@ _MAX_LITERAL_CANDIDATES = 4
 # refused). Distance alone cannot separate this from a real-but-vague claim (both sit in the
 # 0.6-0.85 guarantee band), so a refusal is detected by meaning, not by its chunk distance.
 # Language-agnostic: the model writes the refusal in the QUESTION's language and a
-# multilingual embedding places that translation near the de/en sentinel — no word lists.
+# multilingual embedding places that translation near the German sentinel — no word lists.
 # Calibrated against the live embedding model: across refusal paraphrases (de + en, incl. the
 # topic-padded "Informationen darüber, welches Gesetz …, sind nicht enthalten") the distance
 # to the nearest sentinel stayed <=0.48, while real factual answer lines were >=0.75 — a wide,
@@ -549,7 +549,7 @@ def is_refusal_answer(text: str, embed_fn, sentinels: list[str],
     the single-page-scope path: that path appends ONE nav anchor without running per-line
     attribution, so it would otherwise anchor an honest refusal to the scoped page. Language-
     agnostic: the model writes the refusal in the question's language and a multilingual
-    embedding places it near the de/en sentinel — no word lists. Any embed failure → False
+    embedding places it near the German sentinel — no word lists. Any embed failure → False
     (anchor stays), so a transient error never silently strips a legitimate citation."""
     cleaned = (text or "").strip()
     if not cleaned or not sentinels:

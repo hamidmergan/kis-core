@@ -400,15 +400,34 @@ def _parse_understanding(content: str) -> tuple[str, dict, list[str]]:
     return intent, scope, subqueries
 
 
+# Ein Sprachname, mehr nicht: der Wert geht ungeprueft in den naechsten Prompt.
+_SPRACHNAME = re.compile(r"^[A-Za-z][A-Za-z \-]{1,29}$")
+
+
+def _parse_answer_language(content: str) -> str:
+    """Der englische Name der Fragesprache aus dem Vor-Call, leer wenn unbrauchbar."""
+    import json
+    raw = re.sub(r"<think>.*?</think>", "", content or "", flags=re.DOTALL)
+    m = re.search(r"\{.*\}", raw.replace("```json", "").replace("```", ""), re.DOTALL)
+    if not m:
+        return ""
+    try:
+        name = str(json.loads(m.group(0)).get("lang", "")).strip()
+    except Exception:
+        return ""
+    return name if _SPRACHNAME.match(name) else ""
+
+
 async def _understand_query(
     llm, question: str, letzte_runde: Optional[dict] = None
-) -> tuple[str, dict, list[str], str, str]:
+) -> tuple[str, dict, list[str], str, str, str]:
     """ONE pre-call that does ALL query-understanding jobs in a single round-trip:
     route GENERIC vs SPECIFIC, extract any explicit page/time scope, split compound
     questions into subqueries, and — when ``letzte_runde`` is given — turn a follow-up
     into a self-contained question. Returns
-    ``(intent, scope, subqueries, nachfrage_art, frage)`` where ``frage`` is the
-    question retrieval should use (the original one unless it was rewritten).
+    ``(intent, scope, subqueries, nachfrage_art, frage, sprache)`` where ``frage`` is
+    the question retrieval should use (the original one unless it was rewritten) and
+    ``sprache`` is the English name of the question's language ("" when unreadable).
     On any failure → ``("SPECIFIC", empty scope, [], KEINE, question)`` — the
     conservative route; the regex fallback still covers simple page refs downstream.
     Runs in a worker thread so a stalled provider cannot block the event loop."""
@@ -437,13 +456,14 @@ async def _understand_query(
         raw = msg.content or getattr(msg, "reasoning_content", None) or ""
     except Exception as e:
         logger.warning("Query understanding failed, defaulting to SPECIFIC/no-scope: {}", e)
-        return "SPECIFIC", {"unit": None, "intervals": []}, [], _followup.KEINE, question
+        return "SPECIFIC", {"unit": None, "intervals": []}, [], _followup.KEINE, question, ""
     intent, scope, subqueries = _parse_understanding(raw)
+    sprache = _parse_answer_language(raw)
     art, frage = (_followup.nachfrage_lesen(raw, question) if letzte_runde
                   else (_followup.KEINE, question))
-    logger.info("Query understanding: '{}' → intent={} scope={} subqueries={} nachfrage={} frage='{}'",
-                question[:50], intent, scope, subqueries, art, frage[:60])
-    return intent, scope, subqueries, art, frage
+    logger.info("Query understanding: '{}' → intent={} scope={} subqueries={} nachfrage={} sprache={} frage='{}'",
+                question[:50], intent, scope, subqueries, art, sprache or "-", frage[:60])
+    return intent, scope, subqueries, art, frage, sprache
 
 
 def _context_budget() -> int:
@@ -1078,7 +1098,7 @@ async def chat(
     _letzte_runde = None
     if _should_skip_intent_classification(body.source_text, source_ids, body.question):
         intent, scope_raw, subqueries = "SPECIFIC", None, []
-        _nachfrage, rewritten_question = _followup.KEINE, body.question
+        _nachfrage, rewritten_question, _frage_sprache = _followup.KEINE, body.question, ""
         logger.info("Chat: pre-call skipped → SPECIFIC ('{}' across {} sources)",
                     body.question[:60], len(source_ids or []))
     else:
@@ -1090,7 +1110,7 @@ async def chat(
             if not _followup.ist_nachfrage_moeglich(
                     body.question, _letzte_runde, body.source_text):
                 _letzte_runde = None
-        intent, scope_raw, subqueries, _nachfrage, rewritten_question = await _understand_query(
+        intent, scope_raw, subqueries, _nachfrage, rewritten_question, _frage_sprache = await _understand_query(
             llm, body.question, _letzte_runde)
         logger.info("Chat: pre-call routed intent={} scope={} subqueries={} nachfrage={} in {:.1f}s ('{}' across {} sources)",
                     intent, scope_raw, len(subqueries), _nachfrage, _t_pc.monotonic() - _t_pc0, body.question[:60], len(source_ids or []))
@@ -1370,8 +1390,9 @@ async def chat(
         # thematic lead-in + document-by-document coverage so all sources are touched.
         _overview = intent == "GENERIC" and not scope_chunks
         messages = [
-            {"role": "system", "content": aia_system_rag(chat_lang, overview=_overview, prev_questions=_prev_questions)},
-            {"role": "user", "content": aia_rag_user_message(context, rewritten_question, _prev_questions) + _adaptive_suffix},
+            {"role": "system", "content": aia_system_rag(chat_lang, overview=_overview, prev_questions=_prev_questions,
+                                             answer_language=_frage_sprache)},
+            {"role": "user", "content": aia_rag_user_message(context, rewritten_question, _prev_questions, _frage_sprache) + _adaptive_suffix},
         ]
 
     # Build source_pages before streaming so we can send them at the end
@@ -1463,6 +1484,8 @@ async def chat(
             # cleans the handful of repeats that streamed before the stop.
             _repeat_guard = _RepetitionGuard()
             _loop_detected = False
+            # Ist aus dem Strom nichts mehr zu holen, wirft der Leser jedes Zeichen weg.
+            _nichts_mehr = False
             # Intra-line loop guard baseline: the line guard only fires on a COMPLETED
             # line (\n); a phrase looped with no newline never completes one, so we also
             # scan the growing buffer's tail every _INTRA_LINE_CHECK_EVERY chars.
@@ -1522,8 +1545,27 @@ async def chat(
                     "schema": {
                         "type": "object",
                         "properties": {
-                            "gap": {"type": ["string", "null"]},
-                            "bridge": {"type": ["string", "null"]},
+                            # Die Regel steht AM Feld, nicht nur im Systemprompt: hier
+                            # schreibt das Modell, hier muss sie stehen.
+                            "no_info_sentence": {
+                                "type": ["string", "null"],
+                                "description": (
+                                    "A whole sentence with subject and verb, saying what the "
+                                    "documents do not state, with the asked-for term quoted "
+                                    "inside it. Never a bare word or phrase. Always in the "
+                                    "language of the question, never in the language of the "
+                                    "examples. null when the documents do state what was asked."
+                                ),
+                            },
+                            "bridge": {
+                                "type": ["string", "null"],
+                                "description": (
+                                    "The second half of that same sentence, joined with a comma. "
+                                    "Starts lowercase with a contrasting connector in the SAME "
+                                    "language as no_info_sentence, names what the documents do "
+                                    "describe instead, ends with a colon."
+                                ),
+                            },
                             "items": {
                                 "type": "array",
                                 "items": {
@@ -1536,7 +1578,7 @@ async def chat(
                             },
                             "body": {"type": "string"},
                         },
-                        "required": ["gap", "bridge", "items", "body"],
+                        "required": ["no_info_sentence", "bridge", "items", "body"],
                         "additionalProperties": False,
                     },
                 },
@@ -1545,8 +1587,6 @@ async def chat(
             # Der Ueberblick lebt von der Breite, nur die Einzelfrage bekommt einen Deckel.
             _strom_bau = AntwortStrom(
                 max_eintraege=None if _overview else MAX_EINTRAEGE,
-                # Rueckfallsprache fuer den Absage-Satz, sonst entscheidet die Bruecke.
-                sprache=locale,
             ) if _felder else None
 
             async def _open_stream(messages):
@@ -1624,7 +1664,13 @@ async def chat(
                         if _strom_bau is not None and _strom_bau.genug:
                             logger.info("Eintragsgrenze erreicht, Strom beendet")
                             break
+                        # Danach sieht keine der Bremsen unten mehr etwas: der Zeilenpuffer
+                        # waechst nicht und die Eintragszahl auch nicht.
+                        _nichts_mehr = _strom_bau is not None and _strom_bau.fertig
                         if not _roh_tok:
+                            if _nichts_mehr:
+                                logger.info("Strom beendet, {}", _strom_bau.grund)
+                                break
                             continue
                         # Arrow connectors are dropped here, before the token reaches the
                         # browser — the live stream is what the learner reads, so a later
@@ -1651,6 +1697,9 @@ async def chat(
                                 _loop_detected = True
                                 break
                     if _loop_detected:
+                        break
+                    if _nichts_mehr:
+                        logger.info("Strom beendet, {}", _strom_bau.grund)
                         break
             except Exception as e:
                 _log_status = "error"

@@ -35,12 +35,12 @@ from src.features.ai_assistant.prompts.refusal_prompts import (
 # ── der Prompt schreibt die Reihenfolge vor ──────────────────────────────────
 
 def test_prompt_trennt_die_absage_in_ein_eigenes_feld():
-    """Der Satz ueber das Fehlende steht in "gap", damit er nie einen Chip bekommt."""
+    """Der Satz ueber das Fehlende steht in "no_info_sentence", damit er nie einen Chip bekommt."""
     p = aia_system_rag("de")
     assert "## Answer format" in p
-    for feld in ('"gap"', '"items"', '"body"'):
+    for feld in ('"no_info_sentence"', '"items"', '"body"'):
         assert feld in p
-    assert "belongs in \"gap\" alone" in p
+    assert "belongs in \"no_info_sentence\" alone" in p
     assert RAG_NO_INFO_SENTINEL["de"] not in p
 
 
@@ -54,10 +54,9 @@ def test_guard_beschreibt_keine_antwortform_mehr():
 
 # ── Schnellpfad: nur die alleinstehende Absage ist eine reine Absage ─────────
 
-@pytest.mark.parametrize("locale", ["de", "en"])
-def test_old_opening_sentence_still_counts(locale):
+def test_old_opening_sentence_still_counts():
     """Antworten aus dem Verlauf tragen ihn noch."""
-    assert is_sentinel_refusal(RAG_NO_INFO_SENTINEL[locale]) is True
+    assert is_sentinel_refusal(RAG_NO_INFO_SENTINEL["de"]) is True
 
 
 def test_old_opening_sentence_survives_bold_and_a_missing_period():
@@ -70,7 +69,6 @@ def test_old_opening_sentence_survives_bold_and_a_missing_period():
     "Was die Komplementärmenge bedeutet, steht nicht in den Materialien.",
     "Der Wechselkurs von Bitcoin steht nicht in den Quellen.",
     "Was die Komplementärmenge bedeutet, steht nicht in den Quellen.",
-    "The exchange rate is not in the sources.",
 ])
 def test_standalone_gap_sentence_counts_as_a_pure_refusal(answer):
     assert is_sentinel_refusal(answer) is True
@@ -128,11 +126,11 @@ def test_reference_texts_measure_against_german_alone():
     deutsche nicht schon hat, zieht aber zwei ECHTE Aussagen unter die Schranke ("The
     sources list the complement in the chapter on set operations" 0,590 statt 0,651 und
     "The recording announces the deadline for the following week" 0,554 statt 0,610).
-    Beide verlören damit ihren Quellenchip. Woertlich verglichen wird er weiter, dafuer
-    steht er in RAG_NO_INFO_SENTINEL."""
+    Beide verlören damit ihren Quellenchip. Am 2026-08-21 ist der englische Satz ganz
+    entfallen: die Absage kommt aus dem Feld "no_info_sentence" und wird woertlich
+    verglichen, den alten englischen Wortlaut schreibt der heutige Prompt nicht mehr."""
     assert refusal_reference_texts() == [RAG_NO_INFO_SENTINEL["de"]]
-    assert RAG_NO_INFO_SENTINEL["en"] not in refusal_reference_texts()
-    assert is_sentinel_refusal(RAG_NO_INFO_SENTINEL["en"]) is True
+    assert list(RAG_NO_INFO_SENTINEL) == ["de"]
 
 
 # ── der Absage-Satz wird woertlich erkannt ──────────────────────────────────
@@ -144,8 +142,6 @@ def test_reference_texts_measure_against_german_alone():
     "Was die Komplementärmenge bedeutet, steht nicht in den Materialien.",
     "Der Wechselkurs von Bitcoin steht nicht in den Quellen.",
     "Die genauen Uhrzeiten stehen nicht in den Quellen.",
-    "When the exam takes place is not in the sources.",
-    "The exact times are not in the sources.",
 ])
 def test_gap_line_is_recognised(line):
     assert is_gap_line(line) is True

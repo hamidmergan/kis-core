@@ -2,37 +2,30 @@
 
 from typing import Optional
 
-from src.features.ai_assistant.prompts.refusal_prompts import (
-    align_bridge,
-    answer_locale,
-    gap_sentence,
-    is_bare_term,
-)
-from src.i18n import DEFAULT_LOCALE
+from loguru import logger
+
+from src.features.ai_assistant.prompts.refusal_prompts import is_bare_term
 
 # Ein Rueckstrich vor einem Buchstaben ist in dieser Antwort fast immer ein LaTeX-Befehl
 # und kein JSON-Zeichen, darum bleibt er stehen.
 _ECHTE_FLUCHT = {"n": "\n", '"': '"', "\\": "\\", "/": "/"}
 
+# Nur "\\u" traegt vier Hex-Ziffern hinter sich und meint darum ein echtes Zeichen.
+_HEX = "0123456789abcdefABCDEF"
+
 # Ohne Deckel fuellt das Modell das Feld weiter, bis der echte Stoff alle ist.
 MAX_EINTRAEGE = 5
 
-
-def _entwerte(z: str) -> str:
-    """Loest ein JSON-Fluchtzeichen auf und laesst LaTeX-Befehle unversehrt."""
-    return _ECHTE_FLUCHT.get(z, "\\" + z)
+# Zwischen zwei Feldern erlaubt JSON beliebig viel Leerraum, und genau darin blieb das
+# Modell schon minutenlang haengen. Ein huebsch eingerueckter Aufbau bleibt weit darunter.
+LEERLAUF_MAX = 200
 
 
 class AntwortStrom:
     """Nimmt die Haeppchen des Modells und gibt fertigen Text fuer den Chat heraus."""
 
-    def __init__(
-        self,
-        max_eintraege: int | None = MAX_EINTRAEGE,
-        sprache: str = DEFAULT_LOCALE,
-    ) -> None:
+    def __init__(self, max_eintraege: int | None = MAX_EINTRAEGE) -> None:
         self.gap: Optional[str] = None
-        self._sprache = sprache
         self._luecke = ""
         self._zustand = "start"
         self._gesehen = ""
@@ -40,10 +33,16 @@ class AntwortStrom:
         self._wort = ""
         self._offen = False
         self._escape = False
+        self._hex: Optional[str] = None
+        self._hoch = ""
         self._erstes_item = True
         self._eintraege = 0
         self._max = max_eintraege
         self.genug = False
+        # Steht das auf True, ist aus diesem Strom nichts mehr zu holen.
+        self.fertig = False
+        self.grund = ""
+        self._leerlauf = 0
 
     def feed(self, stueck: str) -> str:
         """Gibt zurueck, was von diesem Haeppchen in den Chat gehoert."""
@@ -53,6 +52,36 @@ class AntwortStrom:
 
     # -- Hilfen ---------------------------------------------------------------
 
+    def _entwerte(self, z: str) -> str:
+        """Loest ein JSON-Fluchtzeichen auf und laesst LaTeX-Befehle unversehrt."""
+        if self._hex is None:
+            self._escape = False
+            if z == "u":
+                self._hex = ""
+                return ""
+            return _ECHTE_FLUCHT.get(z, "\\" + z)
+        if z not in _HEX:
+            # Keine vier Hex-Ziffern, also war es doch ein LaTeX-Befehl.
+            ziffern, self._hex = self._hex, None
+            return "\\u" + ziffern + z
+        self._hex += z
+        if len(self._hex) < 4:
+            return ""
+        ziffern, self._hex = self._hex, None
+        return self._aus_hex(ziffern)
+
+    def _aus_hex(self, ziffern: str) -> str:
+        """Setzt aus vier Hex-Ziffern ein Zeichen zusammen, notfalls aus zwei Haelften."""
+        punkt = int(ziffern, 16)
+        if 0xD800 <= punkt <= 0xDBFF:
+            self._hoch = ziffern
+            return ""
+        hoch, self._hoch = self._hoch, ""
+        if hoch and 0xDC00 <= punkt <= 0xDFFF:
+            paar = chr(int(hoch, 16)) + chr(punkt)
+            return paar.encode("utf-16", "surrogatepass").decode("utf-16")
+        return chr(punkt)
+
     def _sammle(self, z: str) -> Optional[str]:
         """Liest eine Zeichenkette ein und gibt sie zurueck, sobald sie zu Ende ist."""
         if not self._offen:
@@ -60,9 +89,8 @@ class AntwortStrom:
                 self._offen = True
                 self._wort = ""
             return None
-        if self._escape:
-            self._wort += _entwerte(z)
-            self._escape = False
+        if self._escape or self._hex is not None:
+            self._wort += self._entwerte(z)
         elif z == "\\":
             self._escape = True
         elif z == '"':
@@ -71,6 +99,23 @@ class AntwortStrom:
         else:
             self._wort += z
         return None
+
+    def _schluss_melden(self, grund: str) -> None:
+        """Merkt sich, warum hier Schluss ist, damit der Aufrufer den Strom beendet."""
+        if not self.fertig:
+            self.fertig = True
+            self.grund = grund
+
+    def _leerlauf_pruefen(self, z: str) -> None:
+        """Zaehlt Leerraum zwischen den Feldern und meldet ein steckengebliebenes Modell."""
+        if self._offen or not z.isspace():
+            self._leerlauf = 0
+            return
+        self._leerlauf += 1
+        if self._leerlauf > LEERLAUF_MAX:
+            logger.warning("leerlauf: modell schreibt nur noch leerraum in zustand {}",
+                           self._zustand)
+            self._schluss_melden("leerlauf")
 
     def _zeige(self, text: str) -> str:
         """Haelt zurueck, was ueber die Obergrenze der Eintraege hinausgeht."""
@@ -82,20 +127,18 @@ class AntwortStrom:
     def _absage(self, bruecke: str = "") -> str:
         """Fuegt Absage und Brueckenteil zu einem einzigen Satz zusammen."""
         luecke, self._luecke = self._luecke, ""
-        # Das Modell greift beim Bindewort daneben, darum entscheidet hier die Prosa.
-        sprache = answer_locale(luecke, bruecke, self._sprache)
-        bruecke = align_bridge(bruecke, sprache)
         if not luecke:
             return (self._schluss(self._gross(bruecke), ":") + "\n") if bruecke else ""
-        # Nennt das Feld nur den fehlenden Begriff, baut der Code den Satz drumherum.
+        # Nur melden, nicht reparieren: einen Satz kann der Code nur auf Deutsch bauen.
         if is_bare_term(luecke):
-            luecke = gap_sentence(luecke, sprache)
+            logger.warning("absage: begriff statt satz im feld, {!r}", luecke)
         # gap traegt die gerenderte Form, sonst findet chat.py die Absage-Zeile nicht mehr.
         if not bruecke:
             self.gap = self._schluss(self._gross(luecke), ".")
             return self.gap + "\n\n"
-        self.gap = self._gross(luecke.rstrip().rstrip("."))
-        return self._schluss(self.gap + ", " + bruecke, ":") + "\n"
+        # Das Komma setzt der Zusammenbau, ein eigenes am Satzende waere das zweite.
+        self.gap = self._gross(luecke.rstrip().rstrip(".,"))
+        return self._schluss(self.gap + ", " + bruecke.lstrip(" ,"), ":") + "\n"
 
     @staticmethod
     def _gross(satz: str) -> str:
@@ -121,6 +164,7 @@ class AntwortStrom:
         zustand = self._zustand
         if zustand == "roh":
             return z
+        self._leerlauf_pruefen(z)
 
         if zustand == "start":
             self._gesehen += z
@@ -130,11 +174,11 @@ class AntwortStrom:
             if not self._gesehen.lstrip().startswith("{"):
                 self._zustand = "roh"
                 return self._gesehen
-            if '"gap"' in self._gesehen:
-                self._zustand = "gap"
+            if '"no_info_sentence"' in self._gesehen:
+                self._zustand = "absage"
             return ""
 
-        if zustand == "gap":
+        if zustand == "absage":
             if not self._offen and z in "nul":
                 self._puffer += z
                 if self._puffer.endswith("null"):
@@ -213,9 +257,8 @@ class AntwortStrom:
                     self._offen = True
                     self._wort = ""
                 return ""
-            if self._escape:
-                self._escape = False
-                return self._zeige(_entwerte(z))
+            if self._escape or self._hex is not None:
+                return self._zeige(self._entwerte(z))
             if z == "\\":
                 self._escape = True
                 return ""
@@ -236,14 +279,14 @@ class AntwortStrom:
                 if z == '"':
                     self._offen = True
                 return ""
-            if self._escape:
-                self._escape = False
-                return _entwerte(z)
+            if self._escape or self._hex is not None:
+                return self._entwerte(z)
             if z == "\\":
                 self._escape = True
                 return ""
             if z == '"':
                 self._zustand = "fertig"
+                self._schluss_melden("schema")
                 return ""
             return z
 

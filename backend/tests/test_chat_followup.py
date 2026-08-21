@@ -260,7 +260,7 @@ async def test_ohne_letzte_runde_geht_nur_die_frage_raus():
         AIA_QUERY_UNDERSTANDING_SYSTEM,
     )
     llm = _MitschreibenderLLM('{"intent":"SPECIFIC","scope":{"unit":null,"intervals":[]}}')
-    _intent, _scope, _subs, art, frage = await _understand_query(llm, "Was ist Quellenkritik?")
+    _intent, _scope, _subs, art, frage, _lang = await _understand_query(llm, "Was ist Quellenkritik?")
     nachrichten = llm.gesendet[0]["messages"]
     assert nachrichten[0]["content"] == AIA_QUERY_UNDERSTANDING_SYSTEM
     assert nachrichten[1]["content"] == "Was ist Quellenkritik?"
@@ -273,7 +273,7 @@ async def test_mit_letzter_runde_wird_die_frage_eigenstaendig():
     llm = _MitschreibenderLLM(
         '{"intent":"SPECIFIC","scope":{"unit":null,"intervals":[]},'
         '"followup":"rewrite","standalone":"Erklaere die Pruefungsleistung genauer"}')
-    _intent, _scope, _subs, art, frage = await _understand_query(
+    _intent, _scope, _subs, art, frage, _lang = await _understand_query(
         llm, "erklaere genauer", letzte_runde=RUNDE)
     nachrichten = llm.gesendet[0]["messages"]
     assert "Pruefungsleistung" in nachrichten[1]["content"]
@@ -294,7 +294,7 @@ async def test_faellt_der_vorcall_aus_bleibt_die_frage_wie_sie_war():
         def _client(self, wert):
             pass
 
-    _intent, _scope, _subs, art, frage = await _understand_query(
+    _intent, _scope, _subs, art, frage, _lang = await _understand_query(
         _Kaputt(), "erklaere genauer", letzte_runde=RUNDE)
     assert (art, frage) == (fu.KEINE, "erklaere genauer")
 

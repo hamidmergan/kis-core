@@ -22,7 +22,8 @@ def _antwort(anzahl: int, body: str = "") -> str:
         for i in range(1, anzahl + 1)
     )
     return (
-        '{"gap": "Klausurtermin", "bridge": "jedoch steht nur dies dabei:", '
+        '{"no_info_sentence": "In den Materialien steht nichts zu \u201eKlausurtermin\u201c", '
+        '"bridge": "jedoch steht nur dies dabei:", '
         '"items": [' + eintraege + '], "body": "' + body + '"}'
     )
 
