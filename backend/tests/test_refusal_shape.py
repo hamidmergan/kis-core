@@ -26,6 +26,7 @@ from src.features.ai_assistant.prompts.rag_chat import aia_system_rag
 from src.features.ai_assistant.prompts.refusal_prompts import (
     RAG_NO_INFO_SENTINEL,
     is_gap_line,
+    is_only_gap,
     is_sentinel_refusal,
     refusal_reference_texts,
 )
@@ -115,7 +116,23 @@ def test_reference_texts_stay_at_the_old_sentence_only():
     LUECKE in den Quellen liegen zu dicht beieinander, darum entscheidet hier Text und
     nicht Abstand."""
     texts = refusal_reference_texts()
-    assert sorted(texts) == sorted(RAG_NO_INFO_SENTINEL.values())
+    assert RAG_NO_INFO_SENTINEL["de"] in texts
+
+
+def test_reference_texts_measure_against_german_alone():
+    """EIN Anker genuegt, ein zweiter faengt nichts dazu und macht Fehlalarme.
+
+    Gemessen 2026-08-21 mit qwen3-embedding-4b bei Schranke 0,60. Der deutsche Satz
+    allein faengt jede geprüfte Absage: neun englische (schlechteste 0,558), tuerkisch
+    0,412, spanisch 0,429, franzoesisch 0,498. Der englische Satz faengt keine, die der
+    deutsche nicht schon hat, zieht aber zwei ECHTE Aussagen unter die Schranke ("The
+    sources list the complement in the chapter on set operations" 0,590 statt 0,651 und
+    "The recording announces the deadline for the following week" 0,554 statt 0,610).
+    Beide verlören damit ihren Quellenchip. Woertlich verglichen wird er weiter, dafuer
+    steht er in RAG_NO_INFO_SENTINEL."""
+    assert refusal_reference_texts() == [RAG_NO_INFO_SENTINEL["de"]]
+    assert RAG_NO_INFO_SENTINEL["en"] not in refusal_reference_texts()
+    assert is_sentinel_refusal(RAG_NO_INFO_SENTINEL["en"]) is True
 
 
 # ── der Absage-Satz wird woertlich erkannt ──────────────────────────────────
@@ -172,3 +189,39 @@ def test_prompt_keeps_one_fact_per_sentence_in_the_opening():
 # one seems to take back the first". Anlass war der 2026-08-16: der Satz davor nannte
 # eine Klausur vom 8.9., die Absage warf die Frage nur zurueck ("wann die Klausur
 # ist") und las sich wie ein Widerspruch, obwohl die 8.9. eine ALTE Klausur war.
+
+
+# ── das eigene Feld schlaegt das Raten am Wortlaut ──────────────────────────
+
+def test_only_gap_erkennt_die_reine_absage_am_feld():
+    """Das Modell hat den Satz selbst als Absage gesetzt, mehr steht nicht da."""
+    satz = "Wann die Klausur ist, steht nicht in den Materialien."
+    assert is_only_gap(satz, satz) is True
+
+
+def test_only_gap_haelt_in_jeder_sprache():
+    """Genau dafuer das Feld: hier greift weder der Vergleichssatz noch ein Anker."""
+    satz = "Sınav tarihi materyallerde yer almıyor."
+    assert is_only_gap(satz, satz) is True
+    assert is_sentinel_refusal(satz) is False
+
+
+def test_only_gap_vertraegt_fettdruck_und_fehlenden_punkt():
+    assert is_only_gap(
+        "**Wann die Klausur ist, steht nicht in den Materialien**",
+        "Wann die Klausur ist, steht nicht in den Materialien.") is True
+
+
+def test_only_gap_ist_falsch_wenn_die_antwort_weitergeht():
+    """Bruecke und Eintraege nennen etwas Echtes und brauchen ihre Chips."""
+    gap = "Wann die Klausur ist, steht nicht in den Materialien"
+    assert is_only_gap(
+        gap + ", jedoch beschreiben die Materialien die Hausarbeit:\n"
+        "- **Umfang**: sechs bis sieben Seiten.",
+        gap) is False
+
+
+def test_only_gap_ohne_feld_ist_falsch():
+    """Ohne gesetztes Feld faellt der Aufrufer auf das Raten am Wortlaut zurueck."""
+    assert is_only_gap("Irgendein Satz.", "") is False
+    assert is_only_gap("Irgendein Satz.", None) is False

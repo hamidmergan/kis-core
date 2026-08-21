@@ -11,6 +11,9 @@ RAG_NO_INFO_SENTINEL: dict[str, str] = {
     "en": "This information is not contained in the provided sources.",
 }
 
+# Sprache des einen Ankers, gegen den per Abstand gemessen wird.
+_MESS_LOCALE = "de"
+
 # Sicherheitsnetz fuer die alte Wendung, die das Modell aus Gewohnheit noch schreibt.
 _GAP_ANCHORS: tuple[str, ...] = (
     "steht nicht in den materialien",
@@ -77,8 +80,14 @@ def _sentinel_key(text: str | None) -> str:
 
 
 def refusal_reference_texts() -> list[str]:
-    """Die Saetze, gegen die per Einbettung gemessen wird, absichtlich nur einer."""
-    return list(RAG_NO_INFO_SENTINEL.values())
+    """Der Satz, gegen den per Einbettung gemessen wird, gemessen genuegt der deutsche."""
+    return [RAG_NO_INFO_SENTINEL[_MESS_LOCALE]]
+
+
+def is_only_gap(answer: str | None, gap: str | None) -> bool:
+    """True, wenn die ganze Antwort nur der Absage-Satz aus dem Feld ``gap`` ist."""
+    schluessel = _sentinel_key(gap)
+    return bool(schluessel) and _sentinel_key(answer) == schluessel
 
 
 def is_gap_line(text: str | None) -> bool:

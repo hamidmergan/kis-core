@@ -39,6 +39,7 @@ from src.features.ai_assistant.prompts.rag_chat import (
 )
 from src.features.ai_assistant.prompts.refusal_prompts import (
     is_gap_line,
+    is_only_gap,
     is_sentinel_refusal,
     refusal_reference_texts,
 )
@@ -1697,7 +1698,11 @@ async def chat(
             # Eine reine Absage ueberspringt den Durchgang: sie hat nichts zu belegen, und
             # das Einbetten ihrer einen Zeile war die Pause unter einer Antwort ohne Chip.
             # Ein Gruss ebenso: er behauptet nichts ueber die Quellen.
-            if is_popup or _gruss or not source_ids or is_sentinel_refusal(_clean_answer):
+            # Steht der Satz im eigenen Feld, wird der Text nicht noch einmal befragt.
+            # Das haelt in jeder Sprache, das Raten am Wortlaut kann nur de und en.
+            _nur_absage = (is_only_gap(_clean_answer, _gap_satz) if _gap_satz
+                           else is_sentinel_refusal(_clean_answer))
+            if is_popup or _gruss or not source_ids or _nur_absage:
                 answer = _clean_answer
             elif scope_single_page:
                 # Einzelne Seite: statt Chips je Zeile EIN Anker unten. Ausser bei einer
