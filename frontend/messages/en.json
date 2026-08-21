@@ -1219,8 +1219,7 @@
     },
     "languageTrainerCard": {
       "title": "Language trainer",
-      "description": "The language trainer is a practice area in the studio for everyone following the course in a foreign language. It holds vocabulary cards for technical terms and a grammar exercise, each built from the workspace sources. While it is on, every reader is assessed once and chat answers as well as exercises are pitched at that level.",
-      "active": "Active. Owners and tutors decide in the workspace settings whether their course offers the language trainer. They need suitable sources on the grammar of the course language for it.",
+      "description": "The language trainer is a practice area in the studio for everyone following the course in a foreign language. It holds vocabulary cards for technical terms and a grammar exercise, each built from the workspace sources. While it is on, every reader is assessed once and chat answers as well as exercises are pitched at that level. The language trainer works in German only.",
       "disabled": "Off. The language trainer appears nowhere. Choices already made stay stored and apply again as soon as you switch this on.",
       "toggleAria": "Toggle language trainer"
     },
@@ -1248,11 +1247,10 @@
       "saveFailed": "Saving failed"
     },
     "diagnosisPlanCard": {
-      "title": "Question plan",
-      "description": "Decides which questions the placement test asks. Each row is one question with one of two task types. Choice means clicking and needs answer options with at least one marked correct. Free text means typing and needs only the question text. The solution on a free text is optional and decides who marks it: with a solution the code checks the answer word for word, without one the AI judges it at the end. Anything that belongs before the question, a short reading text or an everyday situation, simply goes into the question text. The order is the order in the test and runs from easy to hard. Either you write everything yourself, or you let the AI write it once and read it through. The test itself then runs without a single AI call. The AI assigns the level A1 to C2 at the end from the answers, not per question.",
+      "title": "Language Test questions",
+      "description": "Decides which questions the Language Test asks. Each row is one question with one of two task types. Choice means clicking and needs answer options with at least one marked correct. Free text means typing and needs only the question text. The solution on a free text is optional and decides who marks it: with a solution the code checks the answer word for word, without one the AI judges it at the end. Anything that belongs before the question, a short reading text or an everyday situation, simply goes into the question text. The order is the order in the test and runs from easy to hard. Either you write everything yourself, or you let the AI write it once and read it through. The test itself then runs without a single AI call. The AI assigns the level A1 to C2 at the end from the answers, not per question.",
       "languageHint": "The test is in German, so questions and options are too.",
       "freeTextHint": "At least 2 free-text questions without a solution are required. Only those does the AI judge itself, and only they give the level a real writing sample.",
-      "judgedCount": "Free text without a solution, judged by the AI: {count} of at least {min}.",
       "questionLabel": "Question",
       "optionsLabel": "Answer options",
       "optionsHint": "Mark exactly one correct. Several are allowed if the question says so.",
@@ -1305,13 +1303,12 @@
       "hint": "Use the same situation for every level, so the AI sees one statement rising through the levels.",
       "descriptionLabel": "How someone writes at this level",
       "examplesLabel": "Example sentences",
-      "examplesHint": "One sentence per line.",
       "reset": "Restore default",
       "saveFailed": "Saving failed"
     },
     "diagnosisAdvanced": {
       "title": "Advanced",
-      "description": "Prompt texts for test, chat and tools. Only touch these if you know what you are doing."
+      "description": "Prompt texts for test, chat and tools. Only change these with the relevant knowledge."
     },
     "workspaceLimitsCard": {
       "title": "Max sources per {label}",
@@ -1498,7 +1495,7 @@
         },
         "assistent": {
           "sources": "Sources and context budgets",
-          "level": "Language level and AI behaviour, the prompts",
+          "level": "Language level, AI behaviour and prompts",
           "usage": "AI assistant usage"
         },
         "anbieter": "Providers, models and feature routing",
@@ -1962,14 +1959,14 @@
         "translationModeOffHint": "No translations are generated.",
         "translationModeAutoHint": "Translation starts automatically once a source has finished processing.",
         "translationModeManualHint": "Translation only on click in the transcript panel (default).",
-        "transcriptTargetLangTitle": "Translation target language",
+        "transcriptTargetLangTitle": "Target language for transcript translation",
         "transcriptTargetLangDescription": "Which language transcripts are translated into. The source language is detected automatically. Transcripts are always translated into exactly one language.",
         "transcriptDefaultLangTitle": "Default transcript view",
         "transcriptDefaultLangDescription": "Which track is preselected when an audio/video source is opened. Students can switch any time in the transcript panel.",
         "transcriptDefaultLangSource": "Original",
         "transcriptDefaultLangTarget": "Translation",
         "transcriptDefaultLangBoth": "Both",
-        "popupTranslateLangTitle": "Selection bar language",
+        "popupTranslateLangTitle": "Translation language in the selection bar",
         "popupTranslateLangDescription": "Which language selected text is translated into when you tap Translate in the selection bar."
       },
       "subviewHeader": {

@@ -1219,8 +1219,7 @@
     },
     "languageTrainerCard": {
       "title": "Sprachtrainer",
-      "description": "Der Sprachtrainer ist ein Übungsbereich im Studio für alle, die dem Kurs in einer Fremdsprache folgen. Er enthält Lernkarten für Fachbegriffe und eine Grammatik-Übung, jeweils aus den Materialien des Workspace gebaut. Ist er eingeschaltet, wird der Sprachstand einmalig eingestuft, und Chat-Antworten sowie Aufgaben werden auf dieses Niveau angepasst.",
-      "active": "Aktiv. Eigentümer und Tutoren entscheiden in den Workspace-Einstellungen, ob ihr Kurs den Sprachtrainer anbietet. Sie brauchen dafür passende Materialien zur Grammatik der Kurssprache.",
+      "description": "Der Sprachtrainer ist ein Übungsbereich im Studio für alle, die dem Kurs in einer Fremdsprache folgen. Er enthält Lernkarten für Fachbegriffe und eine Grammatik-Übung, jeweils aus den Materialien des Workspace gebaut. Ist er eingeschaltet, wird der Sprachstand einmalig eingestuft, und Chat-Antworten sowie Aufgaben werden auf dieses Niveau angepasst. Der Sprachtrainer arbeitet ausschließlich auf Deutsch.",
       "disabled": "Aus. Der Sprachtrainer taucht nirgendwo auf. Bereits getroffene Entscheidungen bleiben gespeichert und gelten wieder, sobald du hier einschaltest.",
       "toggleAria": "Sprachtrainer umschalten"
     },
@@ -1248,11 +1247,10 @@
       "saveFailed": "Speichern fehlgeschlagen"
     },
     "diagnosisPlanCard": {
-      "title": "Fragen-Plan",
-      "description": "Legt fest, welche Fragen die Einstufung stellt. Jede Zeile ist eine Frage mit einer von zwei Aufgabenarten. Auswahl heißt anklicken und braucht Antwortoptionen mit mindestens einer richtigen. Freitext heißt selbst tippen und braucht nur den Fragetext. Die Lösung beim Freitext ist freiwillig und entscheidet, wer prüft: mit Lösung prüft der Code die Antwort Wort für Wort, ohne Lösung beurteilt die KI sie am Ende. Was vor der Frage stehen soll, etwa ein kurzer Lesetext oder eine Alltagssituation, schreibst du einfach mit in den Fragetext. Die Reihenfolge ist die Reihenfolge im Test und geht von leicht nach schwer. Entweder du tippst alles selbst, oder du lässt es einmal von der KI schreiben und liest es durch. Der Test selbst läuft danach ohne einen einzigen KI-Aufruf. Die Stufe A1 bis C2 vergibt die KI am Ende aus den Antworten, nicht pro Frage.",
+      "title": "Fragen im Sprach-Test",
+      "description": "Legt fest, welche Fragen der Sprach-Test stellt. Jede Zeile ist eine Frage mit einer von zwei Aufgabenarten. Auswahl heißt anklicken und braucht Antwortoptionen mit mindestens einer richtigen. Freitext heißt selbst tippen und braucht nur den Fragetext. Die Lösung beim Freitext ist freiwillig und entscheidet, wer prüft: mit Lösung prüft der Code die Antwort Wort für Wort, ohne Lösung beurteilt die KI sie am Ende. Was vor der Frage stehen soll, etwa ein kurzer Lesetext oder eine Alltagssituation, schreibst du einfach mit in den Fragetext. Die Reihenfolge ist die Reihenfolge im Test und geht von leicht nach schwer. Entweder du tippst alles selbst, oder du lässt es einmal von der KI schreiben und liest es durch. Der Test selbst läuft danach ohne einen einzigen KI-Aufruf. Die Stufe A1 bis C2 vergibt die KI am Ende aus den Antworten, nicht pro Frage.",
       "languageHint": "Der Test ist auf Deutsch, Fragen und Antwortoptionen also auch.",
       "freeTextHint": "Mindestens 2 Freitext-Fragen ohne Lösung sind Pflicht. Nur die beurteilt die KI selbst, und nur so entsteht die Stufe an einer echten Textprobe.",
-      "judgedCount": "Freitext ohne Lösung, den die KI beurteilt: {count} von mindestens {min}.",
       "questionLabel": "Frage",
       "optionsLabel": "Antwortoptionen",
       "optionsHint": "Genau eine als richtig markieren. Mehrere möglich, dann muss es in der Frage stehen.",
@@ -1305,13 +1303,12 @@
       "hint": "Am besten für alle Stufen dieselbe Situation, dann sieht die KI dieselbe Aussage auf steigendem Niveau.",
       "descriptionLabel": "So schreibt jemand auf dieser Stufe",
       "examplesLabel": "Beispielsätze",
-      "examplesHint": "Ein Satz pro Zeile.",
       "reset": "Auf Standard zurücksetzen",
       "saveFailed": "Speichern fehlgeschlagen"
     },
     "diagnosisAdvanced": {
       "title": "Erweitert",
-      "description": "Prompt-Texte für Test, Chat und Werkzeuge. Nur anfassen, wenn du weißt, was du tust."
+      "description": "Prompt-Texte für Test, Chat und Werkzeuge. Nur ändern, wenn entsprechende Kenntnisse vorhanden sind."
     },
     "workspaceLimitsCard": {
       "title": "Maximale Materialien pro {label}",
@@ -1498,7 +1495,7 @@
         },
         "assistent": {
           "sources": "Materialien und Kontext-Budgets",
-          "level": "Sprachniveau und KI-Verhalten, also die Prompts",
+          "level": "Sprachniveau, KI-Verhalten und Prompts",
           "usage": "Nutzung des KI-Assistenten"
         },
         "anbieter": "Anbieter, Modelle und Funktionszuordnung",
@@ -1962,14 +1959,14 @@
         "translationModeOffHint": "Es werden keine Übersetzungen erstellt.",
         "translationModeAutoHint": "Sobald ein Material fertig verarbeitet ist, startet die Übersetzung automatisch.",
         "translationModeManualHint": "Übersetzung erst per Klick im Transkript-Panel (Standard).",
-        "transcriptTargetLangTitle": "Zielsprache der Übersetzung",
+        "transcriptTargetLangTitle": "Zielsprache der Übersetzung vom Transkript",
         "transcriptTargetLangDescription": "In welche Sprache Transkripte übersetzt werden. Die Quellsprache erkennt das System automatisch. Es wird immer in genau eine Sprache übersetzt.",
         "transcriptDefaultLangTitle": "Standard-Ansicht im Transkript",
         "transcriptDefaultLangDescription": "Welche Spur beim Öffnen eines Audio-/Video-Materials vorausgewählt ist. Studierende können im Transkript-Panel jederzeit umschalten.",
         "transcriptDefaultLangSource": "Original",
         "transcriptDefaultLangTarget": "Übersetzung",
         "transcriptDefaultLangBoth": "Beide",
-        "popupTranslateLangTitle": "Sprache der Auswahlleiste",
+        "popupTranslateLangTitle": "Sprache der Übersetzung in der Auswahlleiste",
         "popupTranslateLangDescription": "In welche Sprache markierter Text übersetzt wird, wenn du in der Auswahlleiste auf Übersetzen tippst."
       },
       "subviewHeader": {

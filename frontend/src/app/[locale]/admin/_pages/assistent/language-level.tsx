@@ -24,7 +24,6 @@ export default function LanguageLevelPage() {
       <ToggleSetting
         field={trainer}
         title={tTrainer("title")}
-        activeText={tTrainer("active")}
         disabledText={tTrainer("disabled")}
         hint={tTrainer("description")}
         label={tTrainer("toggleAria")}

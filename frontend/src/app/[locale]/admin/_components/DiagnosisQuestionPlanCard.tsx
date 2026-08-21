@@ -67,9 +67,6 @@ const toQType = (raw: string): QType =>
 const isOptionType = (t: QType) => t === "choice";
 const MAX_OPTIONS = 8;
 const MAX_ANSWERS = 8;
-/** Spiegelt MIN_FREE_TEXT_QUESTIONS im Backend: so viele Freitext-Fragen OHNE
- *  Lösung muss ein Plan tragen, sonst lehnt der Speicherweg ihn ab. */
-const MIN_JUDGED = 2;
 
 const emptyOptions = (): Opt[] =>
   Array.from({ length: 4 }, () => ({ text: "", correct: false }));
@@ -283,12 +280,6 @@ export default function DiagnosisQuestionPlanCard() {
 
   const typeOptions = TYPES.map((ty) => ({ value: ty, label: t(`type.${TYPE_KEYS[ty]}`) }));
   const allOpen = rows.length > 0 && rows.every((r) => r.open);
-  // Wie viele Zeilen die KI wirklich beurteilt: Freitext OHNE Lösung. Genau die
-  // zählt der Speicherweg gegen sein Minimum, also steht die Zahl auch hier, statt
-  // dass die Verwaltung sie sich aus einer Fehlermeldung erschließen muss.
-  const judgedCount = rows.filter(
-    (r) => !isOptionType(r.type) && answerLines(r.answers).length === 0,
-  ).length;
   // Waehrend die KI schreibt, darf niemand daneben tippen: das Ergebnis ersetzt
   // die ganze Liste, halb eingetippte Aenderungen waeren sonst weg.
   const busy = saving || generating;
@@ -299,9 +290,6 @@ export default function DiagnosisQuestionPlanCard() {
     <CollapsibleCard title={t("title")} description={t("description")} defaultOpen>
       <p className="text-xs text-muted-soft">{t("languageHint")}</p>
       <p className="text-xs text-muted-soft mt-1">{t("freeTextHint")}</p>
-      <p className={`text-xs mt-1 ${judgedCount < MIN_JUDGED ? "text-warn" : "text-muted-soft"}`}>
-        {t("judgedCount", { count: judgedCount, min: MIN_JUDGED })}
-      </p>
 
       <div className="mt-3 flex flex-col gap-4">
         {rows.map((r, i) => (

@@ -115,8 +115,8 @@ export function ToggleSetting({
 }: {
   field: SettingHandle<boolean>;
   title: ReactNode;
-  /** Statuszeile bei an, wie bisher in den Karten. */
-  activeText: string;
+  /** Statuszeile bei an, weglassbar wenn der Schalter schon alles sagt. */
+  activeText?: string;
   disabledText: string;
   hint?: ReactNode;
   label: string;
