@@ -119,8 +119,8 @@ function ChatMessageImpl({
   const wrapCitations = (children: React.ReactNode, node?: MarkdownNode) =>
     withCitations(children, msg, activeSourceIds, getFilename, onChipClick,
       (key, vals) => tChip(key, vals), `${msgKey}#${node?.position?.start?.offset ?? 0}-`);
-  // Table cells only. A cell has no sentence flow to end, so its stops stay inline and the
-  // room their hidden chips hold simply widens the column a little.
+  // Table cells only. A cell holds no sentence that a period ends, so its stops keep the
+  // text exactly as it stands.
   const wrapCitationsInCell = (children: React.ReactNode, node?: MarkdownNode) =>
     withCitations(children, msg, activeSourceIds, getFilename, onChipClick,
       (key, vals) => tChip(key, vals), `${msgKey}#${node?.position?.start?.offset ?? 0}-`, false);

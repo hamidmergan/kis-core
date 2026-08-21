@@ -2,7 +2,6 @@ import React from "react";
 import { _chunkLabel, type ChipLabelT } from "../../_utils";
 import type { ChatMessage } from "../../_types";
 import { citationPattern, citationsAreAdjacentSameTarget, stripCitations, type CitationFields } from "./_citation_parse";
-import { registerChipRow, scheduleChipGapPass, unregisterChipRow } from "./_chip_gap";
 
 
 // The single citation target (source + page/timestamp) currently framed in the viewer,
@@ -119,12 +118,7 @@ export function chipClickArgs(desc: {
 // Renders a single citation chip that links back to the source viewer.
 // Clicking a chip only scrolls to the page/timestamp — no highlight — UNLESS it is a
 // popup/action-bar exact selection, which still passes its verbatim text to highlight.
-//
-// `reserved` renders the chip as pure layout: Tailwind's `invisible` is visibility:hidden,
-// which keeps the box in the line but takes it out of the paint, out of hit-testing and out
-// of the accessibility tree. That is what makes a stop free to open on hover without moving
-// a single word — the room was already taken.
-function CitationChip({ desc, onChipClick, reserved }: { desc: ChipDesc; onChipClick: CitationChipClickHandler; reserved?: boolean }) {
+function CitationChip({ desc, onChipClick }: { desc: ChipDesc; onChipClick: CitationChipClickHandler }) {
   const { filename, displayQNum, label, clickUuid, clickSeconds, isExactSelection } = desc;
   const args = chipClickArgs(desc);
   const targetKey = chipTargetKey(clickUuid, args.page, clickSeconds);
@@ -146,7 +140,7 @@ function CitationChip({ desc, onChipClick, reserved }: { desc: ChipDesc; onChipC
       // Deliberately smaller than the surrounding prose (9px, tight padding, 1px margin):
       // chips are a side note, not a headline — at text-xs with 2px padding they dominated
       // the answer.
-      className={`inline-flex items-center whitespace-nowrap text-3xs px-[0.3125rem] py-px rounded-full font-medium chip-cite align-middle mx-px cursor-pointer${reserved ? " invisible" : ""}`}
+      className={`inline-flex items-center whitespace-nowrap text-3xs px-[0.3125rem] py-px rounded-full font-medium chip-cite align-middle mx-px cursor-pointer`}
       // Der aktive Chip traegt exakt denselben Rahmen wie beim Zeigen: die 2px-Outline aus
       // .chip-cite, hier nur eingefaerbt, damit nichts verrutscht.
       style={{
@@ -256,13 +250,9 @@ export function ChipToggleMark({ open, size = 10, opacity = 0.55, strokeWidth = 
 // would stay open in a text where every other stop is collapsed, which reads as noise
 // rather than as a rule.
 //
-// `ownRow` haengt dem Vorrat eine freie Zeile an: er faengt im Zeilenrest hinter der Marke an
-// und darunter bleibt immer eine Zeile frei (chip-row in globals.css). Ohne diese Zeile
-// entschied ueber Satzlaenge und Chipbreite der Zufall, ob unter einem Satz Platz blieb, mit
-// ihr ist der Abstand nach JEDER Stelle derselbe.
-// Tabellenzellen setzen die Flagge nicht: dort laeuft der Vorrat ohne freie Zeile mit und
-// verbreitert die Spalte, eine Zelle hat keinen Satzfluss zum Umbrechen.
-function CitationChipGroup({ groupId, chips, onChipClick, tail, ownRow }: { groupId: string; chips: ChipDesc[]; onChipClick: CitationChipClickHandler; tail?: string; ownRow?: boolean }) {
+// Die Stelle laeuft im Satz mit: Marke, Satzzeichen und dahinter die Chips, alles im normalen
+// Zeilenfluss. Keine eigene Zeile und kein Abstand darunter, der Absatz liest sich als Text.
+function CitationChipGroup({ groupId, chips, onChipClick, tail }: { groupId: string; chips: ChipDesc[]; onChipClick: CitationChipClickHandler; tail?: string }) {
   // Two ways to be open, and they must not fight each other. PINNED is the deliberate one
   // (a click on the mark) and survives remounts via _openChipGroups. HOVERED is transient:
   // pointing at the stop reveals its sources for as long as the pointer stays, so you can
@@ -285,18 +275,6 @@ function CitationChipGroup({ groupId, chips, onChipClick, tail, ownRow }: { grou
   // while the chips it reveals keep the brand tint.
   const toggleStyle = { color: "var(--muted)" } as const;
   const action = pinned ? unpin : pin;
-  // Die Chipzeile meldet sich zum Messen an, sobald sie im Dokument steht: nur die Messung
-  // weiss, ob der Vorrat noch in den Zeilenrest gepasst hat, und danach richtet sich, ob unter
-  // ihm noch eine freie Zeile kommt (siehe _chip_gap). Anmelden einmal, nachmessen bei jedem
-  // Durchlauf: waehrend des Streams wachsen die Saetze, und ein Wort mehr verschiebt den
-  // Zeilenrest. Der rAF im Modul fasst die Durchlaeufe zu einem zusammen.
-  const rowRef = React.useRef<HTMLSpanElement>(null);
-  React.useLayoutEffect(() => {
-    const row = rowRef.current;
-    registerChipRow(row);
-    return () => unregisterChipRow(row);
-  }, []);
-  React.useLayoutEffect(() => { scheduleChipGapPass(); });
   return (
     // The hover handlers sit on the WRAPPER, not on the mark: once the chips are out, the
     // pointer travels from the mark onto a chip to click it, and that must not count as
@@ -313,9 +291,9 @@ function CitationChipGroup({ groupId, chips, onChipClick, tail, ownRow }: { grou
           opened and the eye keeps its anchor at the end of the sentence.
 
           The punctuation that closes the sentence rides along right behind the mark, ahead
-          of the reserved room. Left in the text it landed BEHIND that room and hung alone in
-          the middle of the line, a lost period a hand's width from its sentence. head is
-          nowrap so the two never break apart. */}
+          of the chips. Left in the text it landed BEHIND them and hung alone in the middle
+          of the line, a lost period a hand's width from its sentence. head is nowrap so the
+          two never break apart. */}
       <span className="chip-stop-head">
         <span role="button" tabIndex={0}
           onPointerDown={(e) => { if (e.button === 0) { e.stopPropagation(); action(); } }}
@@ -323,18 +301,10 @@ function CitationChipGroup({ groupId, chips, onChipClick, tail, ownRow }: { grou
           aria-label={`${pinned ? "−" : "+"}${chips.length}`} className={toggleCls} style={toggleStyle}
         ><ChipToggleMark open={open} /></span>{tail}
       </span>
-      {/* The chips are ALWAYS in the layout, hidden until the stop opens. Rendering them
-          only while open made every hover re-wrap the paragraph under the pointer: measured
-          on one answer, pointing at a single stop moved 54 of 58 text runs, pushed 25 of
-          them onto another line and shifted table columns by up to 460px.
-
-          Der Preis dafuer ist eine freie Zeile pro Stelle. Die Chips selbst starten aber im
-          Zeilenrest hinter der Marke, frei bleibt nur die Zeile darunter: chip-row ist inline
-          und setzt den Block erst hinter die Chips. Der bricht die Zeile, deshalb braucht der
-          Text danach kein <br> mehr. */}
-      {ownRow
-        ? <span className="chip-row" ref={rowRef}>{chips.map(c => <CitationChip key={c.key} desc={c} onChipClick={onChipClick} reserved={!open} />)}</span>
-        : chips.map(c => <CitationChip key={c.key} desc={c} onChipClick={onChipClick} reserved={!open} />)}
+      {/* Die Chips gibt es nur, solange die Stelle offen ist. Zu ist der Satz reiner Text,
+          kein reservierter Platz und keine Luecke darin. Der Preis ist bekannt und so
+          gewollt: die Chips brauchen beim Aufklappen Platz und schieben den Text weiter. */}
+      {open && chips.map(c => <CitationChip key={c.key} desc={c} onChipClick={onChipClick} />)}
     </span>
   );
 }
@@ -347,16 +317,18 @@ function CitationChipGroup({ groupId, chips, onChipClick, tail, ownRow }: { grou
 // notes) is trimmed at render time rather than reaching the reader.
 const MAX_CHIPS_PER_GROUP = 3;
 
-// What may still follow a stop on its own line: the characters that CLOSE the sentence it
-// belongs to. A period pushed onto the next line reads as a typo, so the break waits for
-// them. Listed by character, not by language — sentence ends look different per script, and
-// the answer's language is not ours to assume: Latin terminals and brackets, the CJK forms
+// What the stop takes along: the characters that CLOSE the sentence it belongs to. They
+// belong right behind the mark, ahead of the room the hidden chips hold, or they hang a
+// hand's width from their sentence. Listed by character, not by language — sentence ends
+// look different per script, and the answer's language is not ours to assume: Latin
+// terminals and brackets, the CJK forms
 // (。、！？；：）】」』), and the Arabic full stop/comma/semicolon/question mark.
-const CLOSING_PUNCT = /^[^\S\n]*[.,;:!?…·。、！？；：）〕】」』»”’)\]}۔،؛؟]*/u;
+const CLOSING_PUNCT = /^[^\S\n]*[.,;:!?…·。、！？；：）〕】」』»”’)\]}۔،؛؟]+/u;
 
 // Reads the closing punctuation off the text that follows a stop. `tail` is what the stop
-// takes along, `consumed` how much of the text that eats. Leading blanks are consumed but
-// not kept: they would only hang at the end of the closed line.
+// takes along, `consumed` how much of the text that eats. Blanks before that punctuation are
+// consumed but not kept: they would only stand between the sentence and its own period.
+// Ohne Satzzeichen wird nichts geschluckt, sonst klebte das naechste Wort an den Chips.
 function splitAfterStop(chunk: string): { tail: string; consumed: number } {
   const m = CLOSING_PUNCT.exec(chunk);
   const matched = m ? m[0] : "";
@@ -367,9 +339,9 @@ function splitAfterStop(chunk: string): { tail: string; consumed: number } {
 // CitationChip elements. Text outside matches is returned as-is. Chips are nav-only;
 // legacy tokens with a trailing offset/keyword still parse to their page/timestamp.
 //
-// breakAfterStops gibt jeder Stelle eine eigene Chipzeile unter dem Satz, damit der Abstand
-// nach jeder Stelle derselbe ist. Tabellenzellen uebergeben false: eine Zelle hat keinen
-// Satzfluss zum Umbrechen, dort verbreitert der reservierte Platz einfach die Spalte.
+// takePunctuation gibt der Stelle das Satzzeichen des beendeten Satzes mit, damit es vor dem
+// reservierten Platz der Chips steht und nicht dahinter. Tabellenzellen uebergeben false:
+// eine Zelle hat keinen Satz, den ein Punkt beendet.
 export function parseCitations(
   text: string,
   msg: ChatMessage,
@@ -378,7 +350,7 @@ export function parseCitations(
   onChipClick: CitationChipClickHandler,
   keyPrefix: string = "c",
   tChip?: ChipLabelT,
-  breakAfterStops: boolean = true,
+  takePunctuation: boolean = true,
 ): React.ReactNode[] {
   const msgSourcePages = msg.source_pages ?? [];
   const msgQmap = msg.source_qmap ?? [];
@@ -527,14 +499,8 @@ export function parseCitations(
   const nodes: React.ReactNode[] = [];
   let last = 0;
   let k = 0;
-  // Gesetzt, sobald eine Stelle mit eigener Chipzeile ausgegeben wurde. Umbrechen muss hier
-  // nichts mehr, das erledigt der Block der Chipzeile. Zu tun bleibt nur, die Leerzeichen
-  // zwischen Stelle und naechstem Satz zu schlucken, sonst faengt die neue Zeile mit einem an.
-  let stripPending = false;
   const pushText = (chunk: string) => {
-    const rest = stripPending ? chunk.replace(/^\s+/u, "") : chunk;
-    stripPending = false;
-    if (rest) nodes.push(rest);
+    if (chunk) nodes.push(chunk);
   };
 
   while (k < chips.length) {
@@ -558,10 +524,10 @@ export function parseCitations(
     // "22. April". The stretch between two chips is the claim by construction.
     const claim = text.slice(last, first.start).trim();
     const kept = run.slice(0, MAX_CHIPS_PER_GROUP).map(c => ({ ...c, claim }));
-    // Only a folded stop closes its line and takes the sentence's punctuation with it. An
-    // exact (popup) chip is the user's own selection: visible from the start, holding no
-    // hidden room, so it moves nothing on hover and needs neither.
-    const folded = breakAfterStops && !first.isExactSelection;
+    // Only a folded stop takes the sentence's punctuation with it. An exact (popup) chip is
+    // the user's own selection: visible from the start, holding no hidden room, so nothing
+    // gets pushed away from its sentence.
+    const folded = takePunctuation && !first.isExactSelection;
     const runEnd = run[run.length - 1].end;
     const following = text.slice(runEnd, chips[n]?.start ?? text.length);
     const { tail, consumed } = folded ? splitAfterStop(following) : { tail: "", consumed: 0 };
@@ -585,11 +551,8 @@ export function parseCitations(
             chips={kept}
             onChipClick={onChipClick}
             tail={tail}
-            ownRow={folded}
           />,
     );
-
-    stripPending = folded;
 
     // Advance past the WHOLE run, not just the kept chips: a chip dropped by the cap must
     // not leave its raw "[4, S. 12]" token behind as text. The punctuation the stop took
@@ -614,12 +577,12 @@ export function withCitations(
   onChipClick: CitationChipClickHandler,
   tChip?: ChipLabelT,
   nodePrefix: string = "",
-  breakAfterStops: boolean = true,
+  takePunctuation: boolean = true,
 ): React.ReactNode {
   const arr: React.ReactNode[] = Array.isArray(children) ? children : [children];
   return arr.flatMap((child, idx) =>
     typeof child === "string"
-      ? parseCitations(child, msg, activeSourceIds, getFilename, onChipClick, `${nodePrefix}c${idx}-`, tChip, breakAfterStops)
+      ? parseCitations(child, msg, activeSourceIds, getFilename, onChipClick, `${nodePrefix}c${idx}-`, tChip, takePunctuation)
       : [child],
   );
 }

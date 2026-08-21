@@ -190,7 +190,9 @@ export function ChatPanel({
 
       {/* Messages */}
       <div className="relative flex-1 min-h-0 flex flex-col">
-      <div ref={scrollContainerRef} className="flex-1 overflow-y-auto">
+      {/* Ohne Scroll-Anchoring bleibt der Rollstand stehen, wenn eine aufgeklappte Stelle
+          Platz braucht: der Text darunter rueckt nach, statt dass der obere Teil hochspringt. */}
+      <div ref={scrollContainerRef} className="flex-1 overflow-y-auto" style={{ overflowAnchor: "none" }}>
         <div data-testid="chat-messages" className="mx-auto w-full p-3 flex flex-col gap-5" style={{ maxWidth: 920 }}>
           {messages.length === 0 && !loading && (
             <ChatEmptyState
