@@ -18,8 +18,37 @@ def _format_ts(seconds: float) -> str:
 TOOL_OUTPUT_LANGUAGE = "German"
 
 
+# Admin-Einstellung: die Sprache der vier Lern-Tools.
+LEARNING_TOOLS_LANGUAGE_SETTING = "aia_learning_tools_language"
+
+# Die Werkzeuge, die dieser Einstellung folgen. Alles andere bleibt beim Kursraum.
+LEARNING_TOOLS: frozenset[str] = frozenset({"karteikarten", "quiz"})
+
+
+def learning_tools_language() -> tuple[str, str]:
+    """(Sprachcode, englischer Sprachname) fuer Karteikarten, Quiz, Datentabelle und Mindmap.
+
+    Eine Installation, eine Sprache: die Verwaltung stellt sie einmal ein, und zwar
+    global und nicht je Kursraum. Eine Hochschule unterrichtet in einer Sprache, und
+    eine Auswahl in jedem einzelnen Kursraum waere eine Frage, die niemand stellen will.
+
+    Der Sprachtrainer folgt dieser Einstellung ausdruecklich NICHT, siehe
+    ``tool_output_language``: seine Aufgaben und sein Einstufungstest sind auf Deutsch
+    ausgelegt und in keiner anderen Sprache gemessen.
+    """
+    from src.features.admin.repository.settings import get_setting
+    from src.i18n import DEFAULT_LEARNING_TOOLS_LANGUAGE, TRANSCRIPT_LANGUAGES
+
+    code = get_setting(LEARNING_TOOLS_LANGUAGE_SETTING, DEFAULT_LEARNING_TOOLS_LANGUAGE)
+    if code not in TRANSCRIPT_LANGUAGES:
+        # Ein Wert, den niemand mehr anbietet, sonst stuende der Code wortwoertlich im
+        # Prompt ("Write it in xx").
+        code = DEFAULT_LEARNING_TOOLS_LANGUAGE
+    return code, TRANSCRIPT_LANGUAGES[code]["name"]
+
+
 def tool_output_language(workspace_id) -> tuple[str, str]:
-    """(Sprachcode, englischer Sprachname) fuer die erzeugten Inhalte dieses Kursraums.
+    """(Sprachcode, englischer Sprachname) fuer die Sprachtrainer-Inhalte dieses Kursraums.
 
     NICHT die Oberflaechensprache der Person. Ein Deutschkurs bleibt ein Deutschkurs, auch
     wenn jemand die Oberflaeche auf Englisch stellt; sonst bekaeme ein Lernender eine
@@ -33,6 +62,10 @@ def tool_output_language(workspace_id) -> tuple[str, str]:
 
     Ist der Kursraum unbekannt oder nicht lesbar, gilt der Standard. Ein aelterer
     eingereihter Auftrag ohne Kursraum bekommt also Deutsch statt eines Fehlers.
+
+    Gilt nur noch fuer Lernkarten, Wortschatz-Lueckentext und Grammatik-Uebung. Die
+    vier Lern-Tools daneben folgen der globalen Einstellung, siehe
+    ``learning_tools_language``.
     """
     from src.i18n import DEFAULT_DIAGNOSIS_LANGUAGE, TRANSCRIPT_LANGUAGES
 

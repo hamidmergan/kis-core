@@ -45,6 +45,9 @@ class UpdateSettingsRequest(BaseModel):
     # flashcards, …). Separate from the chat budget so the tools can get a larger
     # window; divided by the number of selected sources at generation time.
     aia_tool_context_max_chars: int | None = None
+    # Sprache, in der Karteikarten, Quiz, Datentabelle und Mindmap geschrieben werden.
+    # Sprachcode aus i18n.TRANSCRIPT_LANGUAGES. Der Sprachtrainer folgt dem nicht.
+    aia_learning_tools_language: str | None = None
     # Per-batch char cap for the ingest-side DOC SUMMARY. Bigger = fewer (but
     # coarser) summary calls per upload.
     aia_summary_batch_max_chars: int | None = None

@@ -17,10 +17,11 @@
  * Schlüssel im Backend bleibt wie er ist, nur der Ort stimmt jetzt.
  */
 
+import { useEffect, useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
 import { useWorkspaceLabel } from "@/hooks/useWorkspaceLabel";
 import { useSetting } from "../../_settings/SettingsProvider";
-import { NumberSetting, ToggleSetting } from "../../_settings/fields";
+import { NumberSetting, SelectSetting, ToggleSetting } from "../../_settings/fields";
 import ReindexCard from "../../_settings/ReindexCard";
 
 /** Grobe Schätzung, etwa 3,5 Zeichen je Token bei gemischtem Text. Nur zur
@@ -35,6 +36,8 @@ export default function SourcesPage() {
   const tChat = useTranslations("admin.contextBudgetCard");
   const tSpecific = useTranslations("admin.specificBudgetCard");
   const tTools = useTranslations("admin.toolContextBudgetCard");
+  const tToolLang = useTranslations("admin.learningToolsLanguageCard");
+  const tLang = useTranslations("langLabels");
 
   const maxSources = useSetting<number>("aia_workspace_max_sources", 50);
   const maxPages = useSetting<number>("aia_source_max_pages", 200);
@@ -42,6 +45,29 @@ export default function SourcesPage() {
   const chat = useSetting<number>("aia_context_max_chars", 250000);
   const specific = useSetting<number>("aia_specific_max_chars", 60000);
   const tools = useSetting<number>("aia_tool_context_max_chars", 250000);
+  const toolLang = useSetting<string>("aia_learning_tools_language", "de");
+
+  // WELCHE Sprachen es gibt, sagt das Backend (i18n.TRANSCRIPT_LANGUAGES). Wie sie
+  // HEISSEN, steht in unseren eigenen langLabels, wie bei jeder anderen Sprachauswahl
+  // im Haus: der Name aus dem Backend folgt Accept-Language und nicht der Sprache,
+  // auf die der Admin seine Oberflaeche gestellt hat.
+  const [codes, setCodes] = useState<{ id: string; deepl: string }[]>([]);
+  useEffect(() => {
+    let abgebrochen = false;
+    fetch("/api/ai-assistant/transcript-languages", { credentials: "include" })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (abgebrochen || !data?.languages) return;
+        setCodes(data.languages.map((l: { id: string; deepl: string }) => ({ id: l.id, deepl: l.deepl })));
+      })
+      .catch(() => { /* die Karte bleibt dann ohne Auswahl */ });
+    return () => { abgebrochen = true; };
+  }, []);
+
+  const langOptions = useMemo(
+    () => codes.map((c) => ({ value: c.id, label: tLang(c.deepl) })),
+    [codes, tLang],
+  );
 
   return (
     <div className="space-y-4">
@@ -112,6 +138,13 @@ export default function SourcesPage() {
             {tTools("approxTokens", { n: approxTokens(v) })}
           </span>
         )}
+      />
+      <SelectSetting
+        field={toolLang}
+        title={tToolLang("title")}
+        hint={tToolLang("hint")}
+        options={langOptions}
+        label={tToolLang("title")}
       />
       {/* Ganz unten, weil das als einziges hier ein Knopf ist und nicht eine
           Einstellung. Man liest die Regeln von oben nach unten und handelt am

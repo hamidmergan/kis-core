@@ -1354,6 +1354,10 @@
       "outOfRange": "Wert muss zwischen 1000 und 1000000 liegen.",
       "saveFailed": "Speichern fehlgeschlagen."
     },
+    "learningToolsLanguageCard": {
+      "title": "Sprache der Lern-Tools",
+      "hint": "In welcher Sprache Karteikarten, Quiz, Datentabelle und Mindmap geschrieben werden. Der Sprachtrainer folgt dieser Einstellung nicht, er bleibt auf Deutsch."
+    },
     "summaryBatchCard": {
       "title": "Zusammenfassung – Häppchengröße",
       "hint": "Wie viel Text (in Zeichen) beim Hochladen pro Zusammenfassungs-Aufruf ans Modell geht. Größer = weniger Aufrufe (schont das Rate-Limit des Anbieters), aber jede Teil-Zusammenfassung wird gröber. Default 360000 (~72 Seiten) ist eine gute Balance.",

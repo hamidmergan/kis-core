@@ -45,8 +45,19 @@ _TITLE_RULE = (
 )
 
 # Feste Beschriftung statt einer vom Modell erfundenen: es schrieb sonst mal "Wahr",
-# mal "richtig", und die Ansicht zeigt die Optionen unverändert an.
-_VERDICT_LABELS = {"de": ("Richtig", "Falsch"), "en": ("True", "False")}
+# mal "richtig", und die Ansicht zeigt die Optionen unverändert an. Eine Zeile je Sprache,
+# die die Verwaltung einstellen kann, sonst stuende unter einer franzoesischen Frage
+# "Richtig" und "Falsch".
+_VERDICT_LABELS = {
+    "de": ("Richtig", "Falsch"),
+    "en": ("True", "False"),
+    "fr": ("Vrai", "Faux"),
+    "es": ("Verdadero", "Falso"),
+    "it": ("Vero", "Falso"),
+    "tr": ("Doğru", "Yanlış"),
+    "ar": ("صحيح", "خطأ"),
+    "ru": ("Верно", "Неверно"),
+}
 
 # Zwei Musteraufgaben, eine wahre und eine falsche Aussage. Sie stehen HINTER dem
 # Quellmaterial, siehe _build_user, und werden in _true_false_item gesperrt, damit sie
@@ -62,7 +73,8 @@ _EXAMPLE_MARKERS = frozenset(normalize(satz) for satz, _ in _EXAMPLE_ITEMS)
 
 
 def _verdict_labels(locale: str) -> tuple[str, str]:
-    return _VERDICT_LABELS["en" if (locale or "").lower().startswith("en") else "de"]
+    """Die beiden Beschriftungen in der eingestellten Sprache, sonst deutsch."""
+    return _VERDICT_LABELS.get((locale or "").lower()[:2], _VERDICT_LABELS["de"])
 
 
 # Regeln aus der Testkonstruktion. Ohne sie ist die Aufgabe ohne die Quelle lösbar:

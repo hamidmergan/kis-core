@@ -10,7 +10,12 @@ from loguru import logger
 from src import database as db
 from src.celery_app import celery_app
 from src.limits import AIA_TOOL_SOFT_TIME_LIMIT, AIA_TOOL_TIME_LIMIT
-from src.features.ai_assistant.tasks._helpers import _get_llm_client, tool_output_language
+from src.features.ai_assistant.tasks._helpers import (
+    LEARNING_TOOLS,
+    _get_llm_client,
+    learning_tools_language,
+    tool_output_language,
+)
 from src.services.aia_adaptive_tools import build_adaptive_tool_suffix
 from src.features.ai_assistant.repository.grammar_topics import catalog_entry
 from src.services.aia_grammar_formats import clean_kinds
@@ -67,9 +72,9 @@ def run_generate_exercise_set(self, set_id: int, workspace_id: int, tool: str,
                               locale: str = "de"):
     """Generate items for an exercise set (flashcards/karteikarten/quiz/grammatik).
 
-    `locale` kommt vom Aufrufer, wird hier aber sofort durch die Unterrichtssprache des
-    Kursraums ersetzt: was der Lernende zu sehen bekommt, folgt dem Kurs und nicht der
-    Sprachwahl in seinem Kopf der Seite.
+    `locale` kommt vom Aufrufer, wird hier aber sofort durch die Unterrichtssprache
+    ersetzt: was der Lernende zu sehen bekommt, folgt dem Kurs und nicht der Sprachwahl
+    in seinem Kopf der Seite.
     """
     try:
         workspace = db.get_aia_workspace_by_id(workspace_id)
@@ -83,12 +88,18 @@ def run_generate_exercise_set(self, set_id: int, workspace_id: int, tool: str,
             return
         user_id = ex_set["user_id"]
 
-        # Die Sprache der Aufgaben haengt am Kursraum, nicht an der Oberflaeche der
-        # Person. `locale` wird hier bewusst ueberschrieben: alles weiter unten, was den
-        # Lernenden erreicht (Anweisungszeile, Richtig/Falsch-Beschriftung, Grammatikregel
-        # und Musterbeispiel), soll in der Unterrichtssprache stehen und nicht in der
-        # Sprache, auf die jemand seine Knoepfe gestellt hat.
-        locale, language = tool_output_language(workspace_id)
+        # Die Sprache der Aufgaben haengt nicht an der Oberflaeche der Person. `locale`
+        # wird hier bewusst ueberschrieben: alles weiter unten, was den Lernenden erreicht
+        # (Anweisungszeile, Richtig/Falsch-Beschriftung, Grammatikregel und Musterbeispiel),
+        # soll in der Unterrichtssprache stehen und nicht in der Sprache, auf die jemand
+        # seine Knoepfe gestellt hat.
+        #
+        # Karteikarten und Quiz folgen der globalen Einstellung der Verwaltung. Lernkarten,
+        # Wortschatz-Lueckentext und Grammatik-Uebung gehoeren zum Sprachtrainer und bleiben
+        # am Kursraum, also auf Deutsch: ihre Prompts sind auf Deutsch ausgelegt und in
+        # keiner anderen Sprache gemessen.
+        locale, language = (learning_tools_language() if tool in LEARNING_TOOLS
+                            else tool_output_language(workspace_id))
 
         client, model, _ = _get_llm_client()
 

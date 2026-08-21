@@ -11,7 +11,12 @@ from fastapi import APIRouter, Depends, HTTPException
 
 from src import database as db
 from src.dependencies_rbac import permissions_of, require_any_settings
-from src.i18n import get_locale, t
+from src.i18n import (
+    DEFAULT_LEARNING_TOOLS_LANGUAGE,
+    TRANSCRIPT_LANGUAGES,
+    get_locale,
+    t,
+)
 from src.permissions_registry import SETTING_FIELD_PERMISSIONS
 from src.limits import (
     TTS_MAX_CHARS_PER_REQUEST,
@@ -125,6 +130,11 @@ async def get_settings(_admin=Depends(require_any_settings)):
         # Separate from the chat budget; divided by the number of sources at generation time.
         "aia_tool_context_max_chars": int(
             db.get_setting("aia_tool_context_max_chars", str(AIA_TOOL_CONTEXT_MAX_CHARS))
+        ),
+        # Sprache der vier Lern-Tools (Karteikarten, Quiz, Datentabelle, Mindmap).
+        # Der Sprachtrainer folgt dem bewusst nicht, der bleibt deutsch.
+        "aia_learning_tools_language": db.get_setting(
+            "aia_learning_tools_language", DEFAULT_LEARNING_TOOLS_LANGUAGE
         ),
         # Ingest-side DOC SUMMARY per-batch char cap (bigger = fewer summary calls).
         "aia_summary_batch_max_chars": int(
@@ -432,6 +442,17 @@ async def update_settings(
                 detail=t("admin.settings.toolContextBudgetOutOfRange", locale, min=1000, max=AIA_TOOL_CONTEXT_HARD_CAP),
             )
         db.set_setting("aia_tool_context_max_chars", str(value))
+
+    # Sprache der vier Lern-Tools. Nur ein Code aus der einen Liste, sonst stuende er
+    # spaeter wortwoertlich im Auftrag an das Modell ("Write it in xx").
+    if body.aia_learning_tools_language is not None:
+        value = (body.aia_learning_tools_language or "").strip().lower()
+        if value not in TRANSCRIPT_LANGUAGES:
+            raise HTTPException(
+                status_code=400,
+                detail=t("admin.settings.learningToolsLanguageUnknown", locale),
+            )
+        db.set_setting("aia_learning_tools_language", value)
 
     # Summary per-batch char cap. Lower bound ~ one chunk; upper bound 500k chars
     # (~140k tokens) so an admin typo can't push a single summary batch past even

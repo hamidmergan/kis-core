@@ -119,14 +119,27 @@ def _plain_flashcard(e: dict) -> dict:
     }
 
 
+# Die eine Frage des Auffangnetzes, je eingestellter Sprache. Der Begriff kommt an die
+# Stelle von {0}.
+_FALLBACK_FRAGE = {
+    "German": "Was bedeutet „{0}\"?",
+    "English": "What does \"{0}\" mean?",
+    "French": "Que signifie « {0} » ?",
+    "Spanish": "¿Qué significa «{0}»?",
+    "Italian": "Che cosa significa «{0}»?",
+    "Turkish": "“{0}” ne anlama gelir?",
+    "Arabic": "ما معنى “{0}”؟",
+    "Russian": "Что означает «{0}»?",
+}
+
+
 def _fallback_karteikarte(e: dict, language: str) -> dict:
     """Karte ohne Modellaufruf: die Frage nach der Bedeutung des Begriffs.
 
     Nur das Auffangnetz. Sie ist auf jeder Karte gleich formuliert und deshalb langweilig,
     aber sie ist eine Frage, und eine langweilige Frage ist besser als gar keine.
     """
-    frage = (f"What does \"{e['term_de']}\" mean?" if language == "English"
-             else f"Was bedeutet „{e['term_de']}\"?")
+    frage = _FALLBACK_FRAGE.get(language, _FALLBACK_FRAGE["German"]).format(e["term_de"])
     return {
         "front": frage,
         "back": e["definition"],

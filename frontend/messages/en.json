@@ -1354,6 +1354,10 @@
       "outOfRange": "Value must be between 1000 and 1000000.",
       "saveFailed": "Save failed."
     },
+    "learningToolsLanguageCard": {
+      "title": "Language of the learning tools",
+      "hint": "The language flashcards, quiz, data table and mind map are written in. The language trainer does not follow this setting, it stays German."
+    },
     "summaryBatchCard": {
       "title": "Summary – batch size",
       "hint": "How much text (in characters) is sent to the model per summary call during upload. Larger = fewer calls (eases the provider's rate limit), but each partial summary gets coarser. Default 360000 (~72 pages) is a good balance.",

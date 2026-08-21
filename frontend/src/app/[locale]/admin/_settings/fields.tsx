@@ -20,6 +20,7 @@
 
 import { useEffect, useState, type ReactNode } from "react";
 import { useTranslations } from "next-intl";
+import Select, { type SelectOption } from "@/components/ui/Select";
 import type { SettingHandle } from "./SettingsProvider";
 
 /* ------------------------------------------------------------------ */
@@ -212,7 +213,45 @@ export function NumberSetting({
 }
 
 
-/* Ein Baustein "eine Auswahl je Karte" stand hier kurz und ist wieder weg. Die
-   einzige Auswahl im Admin-Bereich sind Anbieter und Stimme der Aussprache, und die
-   gehoeren in EINE Karte, nicht in zwei. Wer spaeter eine einzelne Auswahl braucht,
-   baut sie wie NumberSetting oben, das ist ein Dutzend Zeilen. */
+/* ------------------------------------------------------------------ */
+/* Auswahl                                                             */
+/* ------------------------------------------------------------------ */
+
+/* Anbieter und Stimme der Aussprache gehoeren weiterhin in EINE eigene Karte und
+   nicht hierher: sie haengen aneinander. Dieser Baustein ist fuer die Faelle, in
+   denen eine Karte genau eine Auswahl traegt. */
+
+export function SelectSetting<T extends string>({
+  field,
+  title,
+  hint,
+  options,
+  label,
+}: {
+  field: SettingHandle<T>;
+  title: ReactNode;
+  hint?: ReactNode;
+  options: ReadonlyArray<SelectOption<T>>;
+  /** Beschriftung fuer Vorlesegeraete, wenn der Titel kein Text ist. */
+  label?: string;
+}) {
+  if (field.loading || field.value === null) return null;
+  return (
+    <SettingCard
+      title={title}
+      error={field.error}
+      control={
+        <div className="w-56" aria-label={label}>
+          <Select<T>
+            value={field.value}
+            onChange={(next) => { if (next !== field.value) void field.set(next); }}
+            options={options}
+            disabled={field.saving || options.length === 0}
+          />
+        </div>
+      }
+    >
+      {hint && <p className="mt-3 text-xs text-muted-soft max-w-2xl">{hint}</p>}
+    </SettingCard>
+  );
+}

@@ -45,6 +45,8 @@ DEFAULT_TRANSCRIPT_TARGET = "en"
 # Language a workspace holds its CEFR chat diagnosis in. Same code set as above;
 # German is the default because that is what the courses are taught in today.
 DEFAULT_DIAGNOSIS_LANGUAGE = "de"
+# Sprache, in der Karteikarten, Quiz, Datentabelle und Mindmap geschrieben werden.
+DEFAULT_LEARNING_TOOLS_LANGUAGE = "de"
 
 
 # All user-facing backend strings live here. Keys follow `area.key` convention.
@@ -284,6 +286,10 @@ MESSAGES: dict[str, dict[str, str]] = {
     "admin.settings.toolContextBudgetOutOfRange": {
         "de": "Tool-Kontext-Budget muss zwischen {min} und {max} Zeichen liegen.",
         "en": "Tool context budget must be between {min} and {max} characters.",
+    },
+    "admin.settings.learningToolsLanguageUnknown": {
+        "de": "Unbekannte Sprache für die Lern-Tools.",
+        "en": "Unknown language for the learning tools.",
     },
     "admin.settings.summaryBatchOutOfRange": {
         "de": "Zusammenfassungs-Häppchen muss zwischen {min} und {max} Zeichen liegen.",
