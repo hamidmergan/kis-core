@@ -262,7 +262,7 @@ export default function KiTutorWorkspacePage() {
     if (!studioEnabled && activeTab === "studio") setActiveTab("chat");
   }, [studioEnabled, activeTab]);
 
-  // Deep-link: arrive from /schedule with ?tab=schedule → open studio panel
+  // Deep-link: arrive from /kalender with ?tab=schedule → open studio panel
   // and jump straight to the schedule tab. Fire-once via ref so a later
   // viewport-resize doesn't yank the user back here after they navigated away.
   const tabDeepLinkHandledRef = useRef(false);

@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { usePathname } from "@/i18n/navigation";
 import { useTranslations } from "next-intl";
 import { Stack } from "@phosphor-icons/react";
 import Spinner from "@/components/ui/Spinner";
@@ -89,6 +90,8 @@ export default function JobsPanel() {
   const panelRef = useRef<HTMLDivElement>(null);
   const hoverTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const router = useRouter();
+  // Der Knopf fuehrt zu "/my-jobs", also zeigt er auch an, wenn man schon dort ist.
+  const onJobsPage = usePathname().startsWith("/my-jobs");
 
   const prevJobStatusesRef = useRef<Record<string, { status: string; isGeneratingScripts?: boolean }>>({});
 
@@ -316,7 +319,8 @@ export default function JobsPanel() {
         onMouseDown={(e) => { if (e.button === 1) { e.preventDefault(); window.open("/my-jobs", "_blank"); } }}
         aria-label={tHeader("jobs")}
         title={tHeader("jobs")}
-        className="relative flex items-center justify-center w-10 h-10 sm:w-auto sm:h-9 sm:px-3 sm:gap-1.5 rounded-full btn-on-dark"
+        aria-current={onJobsPage ? "page" : undefined}
+        className={`relative flex items-center justify-center w-10 h-10 sm:w-auto sm:h-9 sm:px-3 sm:gap-1.5 rounded-full btn-on-dark${onJobsPage ? " is-active" : ""}`}
       >
         <Stack size={17} weight="bold" aria-hidden="true" />
         <span className="hidden sm:inline text-sm font-medium">{tHeader("jobs")}</span>

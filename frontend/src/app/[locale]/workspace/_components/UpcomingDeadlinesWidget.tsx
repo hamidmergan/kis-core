@@ -10,10 +10,18 @@ import { ScheduleEntryCardGlobal, type ScheduleListEntry } from "@/components/sc
 const WIDGET_LIMIT = 3;
 const COLLAPSED_STORAGE_KEY = "kis.upcoming-deadlines.collapsed";
 
-async function toggleChecked(workspaceUuid: string, entryId: number, checked: boolean): Promise<boolean> {
+async function toggleChecked(
+  workspaceUuid: string | null,
+  entryId: number,
+  checked: boolean,
+): Promise<boolean> {
+  // Ein eigener Termin hat keinen Workspace im Pfad.
+  const url = workspaceUuid
+    ? `/api/ai-assistant/workspaces/${workspaceUuid}/schedule/entries/${entryId}`
+    : `/api/ai-assistant/schedule/entries/${entryId}`;
   try {
     const r = await fetch(
-      `/api/ai-assistant/workspaces/${workspaceUuid}/schedule/entries/${entryId}`,
+      url,
       {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
@@ -118,7 +126,7 @@ export default function UpcomingDeadlinesWidget() {
           </h3>
         </div>
         <Link
-          href="/schedule"
+          href="/kalender"
           onClick={(ev) => ev.stopPropagation()}
           onPointerDown={(ev) => ev.stopPropagation()}
           className="inline-flex items-center gap-1 text-xs font-medium rounded-md transition-colors hover:bg-[var(--surface-dim)] -my-2 px-3 py-2"
@@ -139,7 +147,7 @@ export default function UpcomingDeadlinesWidget() {
                   entry={entry}
                   isPast={ctx.isPast}
                   urgency={ctx.urgency}
-                  href={`/workspace/${entry.workspace_uuid}?tab=schedule`}
+                  href={entry.workspace_uuid ? `/workspace/${entry.workspace_uuid}?tab=schedule` : null}
                   onToggleChecked={(checked) => handleToggleChecked(entry, checked)}
                 />
               )}

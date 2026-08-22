@@ -24,6 +24,13 @@ const nextConfig: NextConfig = {
     proxyTimeout: 600000, // 10 min – für lokale Ollama-Generierung
     optimizePackageImports: ["@phosphor-icons/react"],
   },
+  async redirects() {
+    // Alte Adresse der Kalender-Seite, damit gemerkte Links weiter ankommen.
+    return [
+      { source: "/schedule", destination: "/kalender", permanent: false },
+      { source: "/:locale(de|en)/schedule", destination: "/:locale/kalender", permanent: false },
+    ];
+  },
   async rewrites() {
     return [
       {

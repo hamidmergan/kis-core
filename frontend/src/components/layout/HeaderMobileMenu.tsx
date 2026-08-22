@@ -3,10 +3,14 @@
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
-import { Globe, List, Moon, Sidebar, SignOut, Stack, Sun, UserCircleGear, X } from "@phosphor-icons/react";
+import { CalendarBlank, Check, List, Moon, Sidebar, SignOut, Stack, Sun, UserCircleGear, X } from "@phosphor-icons/react";
 import { useRouter, usePathname } from "@/i18n/navigation";
 import type { Locale } from "@/i18n/routing";
-import { useTheme } from "@/hooks/useTheme";
+import { UI_LOCALES } from "@/lib/constants";
+import { useTheme, type Theme } from "@/hooks/useTheme";
+
+const LOCALES = UI_LOCALES as readonly Locale[];
+const THEMES: readonly Theme[] = ["light", "dark"];
 
 interface HeaderMobileMenuProps {
   hasSession: boolean;
@@ -32,13 +36,13 @@ async function persistLocale(locale: Locale) {
 
 export default function HeaderMobileMenu({ hasSession, isAdmin, areaKey = "admin", hasTools = false, isLocalMode = false, showToolsToggle = false, onLogout }: HeaderMobileMenuProps) {
   const t = useTranslations("header");
+  const tLang = useTranslations("languageSwitch");
   const router = useRouter();
   const pathname = usePathname();
   const currentLocale = useLocale() as Locale;
   const [open, setOpen] = useState(false);
-  const { theme, toggle: toggleTheme } = useTheme();
+  const { theme, setTheme } = useTheme();
   const ref = useRef<HTMLDivElement>(null);
-  const isDark = theme === "dark";
 
   useEffect(() => {
     if (!open) return;
@@ -49,15 +53,28 @@ export default function HeaderMobileMenu({ hasSession, isAdmin, areaKey = "admin
     return () => document.removeEventListener("pointerdown", handler);
   }, [open]);
 
-  const toggleLocale = () => {
-    const next: Locale = currentLocale === "de" ? "en" : "de";
+  const chooseLocale = (next: Locale) => {
+    setOpen(false);
+    if (next === currentLocale) return;
+    // next-intl setzt den Sprach-Cookie erst nach dem Start, dann schickt die Middleware die erste Anfrage zurueck.
+    document.cookie = `NEXT_LOCALE=${next}; path=/; max-age=${60 * 60 * 24 * 365}; SameSite=Lax`;
     router.replace(pathname, { locale: next });
-    router.refresh();
     void persistLocale(next);
+  };
+
+  const chooseTheme = (next: Theme) => {
+    setOpen(false);
+    if (next !== theme) setTheme(next);
   };
 
   const rowClass =
     "flex items-center gap-3 w-full px-4 py-2.5 text-sm font-medium hover:bg-[var(--surface-dim)] transition-colors no-underline text-left";
+  // Die Zeile der Seite, auf der man gerade steht, bleibt hinterlegt.
+  const activeRowStyle = { backgroundColor: "var(--surface-dim)", fontWeight: 600 };
+  const onCalendar = pathname === "/kalender" || pathname.startsWith("/kalender/");
+  const onJobsPage = pathname.startsWith("/my-jobs");
+  const headingClass = "px-4 pt-2.5 pb-1 text-[11px] font-semibold uppercase tracking-wide";
+  // Ohne Sitzung stehen keine Navigations-Zeilen ueber der Sprache, dann faellt der Trennstrich weg.
 
   return (
     <div className="sm:hidden relative" ref={ref}>
@@ -80,27 +97,6 @@ export default function HeaderMobileMenu({ hasSession, isAdmin, areaKey = "admin
             boxShadow: "0 4px 16px rgba(0,0,0,0.12)",
           }}
         >
-          <button
-            type="button"
-            onClick={toggleLocale}
-            className={rowClass}
-            style={{ color: "var(--foreground)" }}
-            aria-label={t("homeAria")}
-          >
-            <Globe size={20} weight="bold" />
-            <span className="flex-1">{currentLocale === "de" ? "Deutsch" : "English"}</span>
-            <span className="text-xs font-mono uppercase" style={{ color: "var(--muted)" }}>{currentLocale}</span>
-          </button>
-          <button
-            type="button"
-            onClick={toggleTheme}
-            className={rowClass}
-            style={{ color: "var(--foreground)", borderBottom: "1px solid var(--border)" }}
-            aria-label={isDark ? t("themeToLightAria") : t("themeToDarkAria")}
-          >
-            {isDark ? <Moon size={20} weight="bold" /> : <Sun size={20} weight="bold" />}
-            <span className="flex-1">{isDark ? t("themeDark") : t("themeLight")}</span>
-          </button>
           {hasSession && showToolsToggle && (
             <button
               type="button"
@@ -115,23 +111,90 @@ export default function HeaderMobileMenu({ hasSession, isAdmin, areaKey = "admin
               <span>{t("tools")}</span>
             </button>
           )}
+          {hasSession && (
+            <Link
+              href="/kalender"
+              onClick={() => setOpen(false)}
+              aria-current={onCalendar ? "page" : undefined}
+              className={rowClass}
+              style={{ color: "var(--foreground)", ...(onCalendar ? activeRowStyle : {}) }}
+            >
+              <CalendarBlank size={20} weight="bold" />
+              <span>{t("calendar")}</span>
+            </Link>
+          )}
           {hasSession && hasTools && (
             <Link
               href="/my-jobs"
               onClick={() => setOpen(false)}
+              aria-current={onJobsPage ? "page" : undefined}
               className={rowClass}
-              style={{ color: "var(--foreground)" }}
+              style={{ color: "var(--foreground)", ...(onJobsPage ? activeRowStyle : {}) }}
             >
               <Stack size={20} weight="bold" />
               <span>{t("jobs")}</span>
             </Link>
           )}
+          <div
+            className={headingClass}
+            style={{
+              color: "var(--muted)",
+              ...(hasSession ? { borderTop: "1px solid var(--border)", marginTop: 4 } : {}),
+            }}
+          >
+            {tLang("title")}
+          </div>
+          {LOCALES.map((loc) => {
+            const isSelected = loc === currentLocale;
+            return (
+              <button
+                key={loc}
+                type="button"
+                role="menuitemradio"
+                aria-checked={isSelected}
+                onClick={() => chooseLocale(loc)}
+                className={rowClass}
+                style={{ color: "var(--foreground)" }}
+              >
+                <span className="text-xs uppercase font-mono w-5" style={{ color: "var(--muted)" }} aria-hidden="true">{loc}</span>
+                <span className="flex-1" style={{ fontWeight: isSelected ? 600 : 400 }}>{tLang(loc)}</span>
+                {isSelected && <Check size={14} weight="bold" style={{ color: "var(--kb-dark)" }} aria-hidden="true" />}
+              </button>
+            );
+          })}
+
+          <div className={headingClass} style={{ color: "var(--muted)", borderTop: "1px solid var(--border)", marginTop: 4 }}>
+            {t("sectionAppearance")}
+          </div>
+          {THEMES.map((th) => {
+            const isSelected = th === theme;
+            return (
+              <button
+                key={th}
+                type="button"
+                role="menuitemradio"
+                aria-checked={isSelected}
+                onClick={() => chooseTheme(th)}
+                className={rowClass}
+                style={{ color: "var(--foreground)" }}
+              >
+                {th === "dark"
+                  ? <Moon size={20} weight="bold" aria-hidden="true" />
+                  : <Sun size={20} weight="bold" aria-hidden="true" />}
+                <span className="flex-1" style={{ fontWeight: isSelected ? 600 : 400 }}>
+                  {th === "dark" ? t("themeDark") : t("themeLight")}
+                </span>
+                {isSelected && <Check size={14} weight="bold" style={{ color: "var(--kb-dark)" }} aria-hidden="true" />}
+              </button>
+            );
+          })}
+
           {hasSession && isAdmin && (
             <Link
               href="/admin"
               onClick={() => setOpen(false)}
               className={rowClass}
-              style={{ color: "var(--foreground)" }}
+              style={{ color: "var(--foreground)", borderTop: "1px solid var(--border)", marginTop: 4 }}
             >
               <UserCircleGear size={20} weight="bold" />
               <span>{t(areaKey)}</span>
@@ -145,7 +208,11 @@ export default function HeaderMobileMenu({ hasSession, isAdmin, areaKey = "admin
                 onLogout();
               }}
               className={rowClass}
-              style={{ color: "var(--foreground)", borderTop: "1px solid var(--border)" }}
+              style={{
+                color: "var(--foreground)",
+                // Admin und Abmelden gehoeren zusammen, der Strich steht nur vor der ersten Zeile des Blocks.
+                ...(hasSession && isAdmin ? {} : { borderTop: "1px solid var(--border)", marginTop: 4 }),
+              }}
             >
               <SignOut size={20} weight="bold" />
               <span>{t("logout")}</span>

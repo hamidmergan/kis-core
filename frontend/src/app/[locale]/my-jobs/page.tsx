@@ -5,7 +5,6 @@ import { useRouter } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
 import { checkAuthStatus } from "@/lib/auth";
 import ProtectedRoute from "@/components/auth/ProtectedRoute";
-import BackLink from "@/components/ui/BackLink";
 import { ArrowsCounterClockwise } from "@phosphor-icons/react";
 import Spinner from "@/components/ui/Spinner";
 
@@ -153,7 +152,6 @@ export default function MeineJobsPage() {
   return (
     <ProtectedRoute>
       <main className="page-shell py-8">
-        <BackLink />
         <div className="flex items-center justify-between mb-1">
           <h2 className="text-xl font-semibold mb-4">{t("title")}</h2>
           <div className="flex items-center gap-2">

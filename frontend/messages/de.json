@@ -15,7 +15,10 @@
     "themeLight": "Hell",
     "themeToDarkAria": "Dunkler Modus",
     "themeToLightAria": "Heller Modus",
-    "settings": "Verwaltung"
+    "settings": "Verwaltung",
+    "calendar": "Kalender",
+    "settingsMenu": "Einstellungen",
+    "sectionAppearance": "Ansicht"
   },
   "footer": {
     "aiNotice": "Diese Plattform nutzt KI und kann Fehler machen. Überprüfen Sie die Antworten.",
@@ -111,11 +114,8 @@
     }
   },
   "schedule": {
-    "title": "Mein Zeitplan",
-    "showAll": "Alle anzeigen",
+    "title": "Mein Kalender",
     "loadError": "Termine konnten nicht geladen werden",
-    "empty": "Keine Termine vorhanden",
-    "allLoaded": "Alle Termine geladen",
     "tbdHeading": "Nach Vereinbarung",
     "tbdLabel": "offen",
     "card": {
@@ -123,6 +123,37 @@
       "checkAria": "Als erledigt markieren",
       "ownTooltip": "Eigener Arbeitsraum",
       "sharedTooltip": "Geteilter Arbeitsraum"
+    },
+    "month": {
+      "prev": "Vorheriger Monat",
+      "next": "Nächster Monat",
+      "today": "Heute",
+      "inMonth": "Im {month}",
+      "until": "bis {datum}",
+      "noDay": "Ohne festen Tag",
+      "more": "+{count} weitere",
+      "empty": "In diesem Monat steht nichts an.",
+      "personal": "Privat",
+      "addEntry": "Termin eintragen",
+      "addEntryShort": "Termin",
+      "edit": "Termin ändern",
+      "delete": "Termin löschen",
+      "deleteConfirm": "„{title}“ wirklich löschen?"
+    },
+    "modal": {
+      "titleNew": "Eigener Termin",
+      "titleEdit": "Termin ändern",
+      "label": "Titel",
+      "multiDay": "Geht über mehrere Tage",
+      "date": "Datum",
+      "from": "Von",
+      "to": "Bis",
+      "time": "Uhrzeit, wenn es eine gibt",
+      "note": "Beschreibung (optional)",
+      "hint": "Eigene Termine gehören nur dir. Sie erscheinen im Kalender, in der Liste und im Feld auf der Startseite, aber in keinem Workspace.",
+      "cancel": "Abbrechen",
+      "save": "Eintragen",
+      "saveError": "Der Termin konnte nicht gespeichert werden."
     }
   },
   "imprint": {
@@ -1318,7 +1349,7 @@
       "saveFailed": "Speichern fehlgeschlagen."
     },
     "scheduleRetentionCard": {
-      "title": "Zeitplan-Aufbewahrung",
+      "title": "Kalender-Aufbewahrung",
       "hint": "Vergangene Einträge (erledigt oder nicht) werden nach dieser Anzahl Tagen täglich automatisch gelöscht. Leer lassen für 'nie löschen' (Default). Zukünftige Einträge bleiben immer erhalten.",
       "unit": "Tage",
       "placeholderNever": "nie",
@@ -2150,7 +2181,7 @@
           "glossary": "Glossar",
           "notes": "Notizen",
           "statistik": "Statistik",
-          "schedule": "Zeitplan"
+          "schedule": "Kalender"
         },
         "headings": {
           "learningTools": "Fachsprachentrainer",
@@ -2254,10 +2285,10 @@
           },
           "newEntry": "Neuer Eintrag",
           "deleteAll": "Alles löschen",
-          "loading": "Lade Zeitplan...",
+          "loading": "Lade Kalender...",
           "empty": "Noch keine Einträge. Wähle Materialien links aus und generiere, oder erstelle manuelle Einträge.",
           "confirmDeleteAll": {
-            "title": "Zeitplan komplett löschen?",
+            "title": "Kalender komplett löschen?",
             "body": "Alle Einträge werden gelöscht und alle Materialien werden wieder generierbar. Diese Aktion kann nicht rückgängig gemacht werden.",
             "cancel": "Abbrechen",
             "confirm": "Alles löschen"

@@ -155,7 +155,7 @@ export function ScheduleTimeline<T extends DatedEntry>({
                 {startsYear && (
                   <div
                     className="mt-0.5 font-semibold"
-                    style={{ color: "var(--error-strong)", fontSize: "0.625rem" }}
+                    style={{ color: "var(--muted-soft)", fontSize: "0.625rem" }}
                   >
                     {year}
                   </div>
@@ -178,16 +178,18 @@ export function ScheduleTimeline<T extends DatedEntry>({
             {tbd.map((entry) => (
               <div
                 key={entry.id}
-                className="grid items-start py-1.5"
+                data-entry-id={entry.id}
+                className="group schedule-row grid items-start py-1.5"
                 style={{ gridTemplateColumns: "24px 44px 1fr", columnGap: 0 }}
               >
                 <div className="flex justify-center relative pt-2.5" style={{ zIndex: 1 }}>
                   <div
-                    className="rounded-full"
+                    className={`schedule-dot rounded-full transition-[background-color,box-shadow] group-hover:bg-[var(--kb)] ${
+                      entry.is_checked ? "bg-[var(--success)]" : "bg-[var(--border)]"
+                    }`}
                     style={{
                       width: 14,
                       height: 14,
-                      backgroundColor: entry.is_checked ? "var(--success)" : "var(--border)",
                       boxShadow: entry.is_checked
                         ? "0 0 0 5px var(--background), 0 0 0 6px var(--success)"
                         : "0 0 0 5px var(--background), 0 0 0 6px var(--kb)",

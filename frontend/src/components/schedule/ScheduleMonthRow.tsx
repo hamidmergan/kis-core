@@ -1,0 +1,163 @@
+"use client";
+
+import { useLocale, useTranslations } from "next-intl";
+import { Check, PencilSimple, Trash } from "@phosphor-icons/react";
+import { Link } from "@/i18n/navigation";
+import IconButton from "@/components/ui/IconButton";
+import type { ScheduleListEntry } from "./ScheduleEntryCardGlobal";
+import { cleanScheduleDescription, urgencyColor } from "./utils";
+
+function parseYMD(s: string): Date {
+  const [y, m, d] = s.split("-").map(Number);
+  return new Date(y, m - 1, d);
+}
+
+interface Props {
+  entry: ScheduleListEntry;
+  /** Farbe des Workspace, dieselbe wie im Raster. */
+  color: string;
+  today: string;
+  onToggleChecked: (checked: boolean) => void;
+  /** Nur bei eigenen Terminen gesetzt, Workspace-Termine aendert man im Workspace. */
+  onEdit?: () => void;
+  onDelete?: () => void;
+}
+
+/**
+ * Eine Terminzeile neben dem Monatsraster: Datumsplakette, Titel, Workspace.
+ * Bewusst flacher als die Karte in der Liste, weil die Spalte schmal ist.
+ */
+export default function ScheduleMonthRow({
+  entry, color, today, onToggleChecked, onEdit, onDelete,
+}: Props) {
+  const t = useTranslations("schedule.card");
+  const tMonth = useTranslations("schedule.month");
+  const locale = useLocale();
+  const tag = locale === "en" ? "en-US" : "de-DE";
+
+  const date = parseYMD(entry.due_date);
+  const monthOnly = entry.date_precision === "month";
+  const month = new Intl.DateTimeFormat(tag, { month: "short" }).format(date);
+  // Nennt die Quelle nur den Monat, ist das Ankerdatum der Monatserste. Vergangen
+  // ist so ein Termin darum erst, wenn der ganze Monat vorbei ist.
+  const isPast = monthOnly
+    ? entry.due_date.slice(0, 7) < today.slice(0, 7)
+    : entry.due_date < today;
+  const urgency = urgencyColor(entry.due_date, today);
+  const description = cleanScheduleDescription(entry.description, entry.due_time);
+  const bis = entry.end_date ? parseYMD(entry.end_date) : null;
+  const istSpanne = bis !== null && entry.end_date !== entry.due_date;
+  // Nur innerhalb eines Monats ergibt "22-30" Sinn. Geht die Spanne darueber
+  // hinaus, stuende dort "22-11", also nennt der Text das Ende im Klartext.
+  const gleicherMonat =
+    istSpanne && (entry.end_date as string).slice(0, 7) === entry.due_date.slice(0, 7);
+  const bisText =
+    istSpanne && !gleicherMonat && bis
+      ? tMonth("until", {
+          datum: new Intl.DateTimeFormat(tag, { day: "numeric", month: "long" }).format(bis),
+        })
+      : null;
+  const eigener = entry.workspace_uuid === null;
+
+  const inhalt = (
+    <>
+      <div
+        className={`text-sm font-bold leading-snug break-words ${eigener ? "" : "group-hover:underline"}`}
+        style={{
+          color: "var(--foreground)",
+          textDecorationLine: entry.is_checked ? "line-through" : undefined,
+        }}
+      >
+        {entry.title}
+      </div>
+      {bisText && (
+        <div className="text-xs mt-0.5 font-semibold" style={{ color: "var(--muted)" }}>
+          {bisText}
+        </div>
+      )}
+      {description && (
+        <div className="text-xs mt-0.5 leading-snug break-words" style={{ color: "var(--muted)" }}>
+          {description}
+        </div>
+      )}
+      <div className="flex items-center gap-2 mt-1.5 text-xs" style={{ color: "var(--foreground-soft)" }}>
+        <span className="rounded-sm flex-shrink-0" style={{ width: 9, height: 9, backgroundColor: color }} />
+        {eigener ? (
+          <span
+            className="text-3xs font-bold uppercase tracking-wide rounded-full px-2 py-px"
+            style={{ border: "1px solid var(--border-soft)", color: "var(--muted)" }}
+          >
+            {tMonth("personal")}
+          </span>
+        ) : (
+          <span className="truncate">{entry.module_title}</span>
+        )}
+      </div>
+    </>
+  );
+
+  return (
+    <div
+      className="flex items-start gap-3 py-3.5"
+      style={{ opacity: isPast ? 0.6 : 1 }}
+    >
+      <button
+        type="button"
+        aria-label={entry.is_checked ? t("uncheckAria") : t("checkAria")}
+        onClick={() => onToggleChecked(!entry.is_checked)}
+        className="flex-shrink-0 w-5.5 h-5.5 rounded-md flex items-center justify-center transition-colors mt-1.5 border-2"
+        style={{
+          borderColor: entry.is_checked ? "var(--kb)" : "var(--border)",
+          backgroundColor: entry.is_checked ? "var(--kb)" : "var(--background)",
+          color: "#fff",
+        }}
+      >
+        {entry.is_checked && <Check size={12} weight="bold" />}
+      </button>
+
+      {/* Feste Höhe, sonst wird die Plakette ohne Tagesnummer niedriger als die anderen. */}
+      <div
+        className={`flex-shrink-0 ${gleicherMonat ? "w-16" : "w-12"} min-h-[62px] rounded-lg py-1.5 flex flex-col justify-center text-center`}
+        style={{ backgroundColor: "var(--surface)" }}
+      >
+        {/* Die Kopfzeile tritt zurueck, sonst traegt die Plakette drei Zeilen im selben Gewicht. */}
+        <div className="text-3xs font-bold uppercase tracking-wide" style={{ color: "var(--muted)" }}>
+          {month}
+        </div>
+        {/* Nennt die Quelle nur einen Monat, steht hier keine Tagesnummer. */}
+        {!monthOnly && (
+          <div
+            className={`font-extrabold leading-none mt-0.5 ${gleicherMonat ? "text-sm" : "text-base"}`}
+            style={{ color: urgency ?? "var(--foreground)" }}
+          >
+            {gleicherMonat ? `${date.getDate()}\u2013${bis!.getDate()}` : date.getDate()}
+          </div>
+        )}
+        {/* Die Jahreszahl ist nur Beiwerk und darf nie nach Fehler aussehen. */}
+        <div className="text-3xs font-bold mt-0.5" style={{ color: "var(--muted-soft)" }}>
+          {monthOnly ? date.getFullYear() : String(date.getFullYear()).slice(2)}
+        </div>
+      </div>
+
+      {eigener ? (
+        <div className="min-w-0 flex-1">{inhalt}</div>
+      ) : (
+        <Link href={`/workspace/${entry.workspace_uuid}?tab=schedule`} className="min-w-0 flex-1 group">
+          {inhalt}
+        </Link>
+      )}
+
+      {/* Nur eigene Termine lassen sich hier aendern, die anderen gehoeren einem Workspace. */}
+      {eigener && onEdit && onDelete && (
+        <span className="flex items-center gap-1 flex-shrink-0">
+          <IconButton onClick={onEdit} aria-label={tMonth("edit")} title={tMonth("edit")}>
+            <PencilSimple size={14} weight="bold" />
+          </IconButton>
+          <IconButton onClick={onDelete} aria-label={tMonth("delete")} title={tMonth("delete")}>
+            <Trash size={14} weight="bold" />
+          </IconButton>
+        </span>
+      )}
+    </div>
+  );
+}

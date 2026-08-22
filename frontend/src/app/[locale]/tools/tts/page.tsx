@@ -9,7 +9,6 @@ import TtsStatus from "@/components/jobs/TtsStatus";
 import { pollJob, downloadJobAsBlob, parseDetail } from "@/lib/api";
 import { TTS_MAX_CHARS } from "@/lib/constants";
 import type { TTSState } from "@/types";
-import BackLink from "@/components/ui/BackLink";
 import Select from "@/components/ui/Select";
 import Tabs from "@/components/ui/Tabs";
 import type { ProviderWithVoices } from "@/hooks/useVoices";
@@ -210,7 +209,6 @@ export default function TtsPage() {
   return (
     <ProtectedRoute>
       <div className="max-w-4xl mx-auto px-4 py-8">
-        <BackLink />
         <section>
           <h1 className="text-xl font-bold mb-1">{t("title")}</h1>
           <p className="text-sm text-muted mb-6">

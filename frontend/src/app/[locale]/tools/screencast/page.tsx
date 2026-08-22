@@ -6,7 +6,6 @@ import ProtectedRoute from "@/components/auth/ProtectedRoute";
 import { useGlossaries } from "@/hooks/useGlossaries";
 
 
-import BackLink from "@/components/ui/BackLink";
 import Modal from "@/components/ui/Modal";
 import Spinner from "@/components/ui/Spinner";
 import type { ScreencastStep } from "@/types";
@@ -404,7 +403,6 @@ function ScreencastPageInner() {
   return (
     <ProtectedRoute>
       <div className="max-w-4xl mx-auto px-4 py-8">
-        <BackLink />
         {/* Step indicator */}
         {showStepIndicator && (
           <>

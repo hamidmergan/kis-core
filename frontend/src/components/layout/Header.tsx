@@ -3,13 +3,13 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
-import { SignOut, UserCircleGear } from "@phosphor-icons/react";
+import { CalendarBlank } from "@phosphor-icons/react";
+import { usePathname } from "@/i18n/navigation";
 import { checkAuthStatus, logout } from "@/lib/auth";
 import { areaLabelKey } from "@/lib/permissions";
 import JobsPanel from "@/components/jobs/JobsPanel";
 import HeaderMobileMenu from "@/components/layout/HeaderMobileMenu";
-import HeaderLanguageSwitch from "@/components/layout/HeaderLanguageSwitch";
-import HeaderThemeToggle from "@/components/layout/HeaderThemeToggle";
+import HeaderSettingsMenu from "@/components/layout/HeaderSettingsMenu";
 
 interface HeaderProps {
   hasSession?: boolean;
@@ -19,6 +19,9 @@ interface HeaderProps {
 
 export default function Header({ hasSession = true, showLogout = false, showToolsToggle = false }: HeaderProps) {
   const t = useTranslations("header");
+  const pathname = usePathname();
+  // Die Adresse sagt, wo man ist, der Knopf im Kopf zeigt es an.
+  const onCalendar = pathname === "/kalender" || pathname.startsWith("/kalender/");
   const [isAdmin, setIsAdmin] = useState(false);
   // "Admin" nur fuer den, der wirklich alles darf. Wer nur eine Seite
   // pflegt, geht in seine "Einstellungen".
@@ -64,33 +67,25 @@ export default function Header({ hasSession = true, showLogout = false, showTool
         {showLogout && (
           <div className="flex items-center gap-1.5">
             <div className="hidden sm:flex items-center gap-1.5">
-              {hasSession && hasTools && <JobsPanel />}
-              <HeaderLanguageSwitch />
-              <HeaderThemeToggle />
-
-              {hasSession && isAdmin && (
+              {hasSession && (
                 <Link
-                  href="/admin"
-                  aria-label={t(areaKey)}
-                  title={t(areaKey)}
-                  className="flex items-center justify-center h-9 px-3 gap-1.5 rounded-full btn-on-dark"
+                  href="/kalender"
+                  aria-label={t("calendar")}
+                  title={t("calendar")}
+                  aria-current={onCalendar ? "page" : undefined}
+                  className={`flex items-center justify-center h-9 px-3 gap-1.5 rounded-full btn-on-dark${onCalendar ? " is-active" : ""}`}
                 >
-                  <UserCircleGear size={17} weight="bold" />
-                  <span className="text-sm font-medium">{t(areaKey)}</span>
+                  <CalendarBlank size={17} weight="bold" />
+                  <span className="text-sm font-medium">{t("calendar")}</span>
                 </Link>
               )}
-
-              {hasSession && !isLocalMode && (
-                <button
-                  onClick={handleLogout}
-                  aria-label={t("logout")}
-                  title={t("logout")}
-                  className="flex items-center justify-center h-9 px-3 gap-1.5 ml-1 rounded-full border border-white/25 btn-on-dark"
-                >
-                  <SignOut size={17} weight="bold" />
-                  <span className="text-sm font-medium">{t("logout")}</span>
-                </button>
-              )}
+              {hasSession && hasTools && <JobsPanel />}
+              <HeaderSettingsMenu
+                isAdmin={hasSession && isAdmin}
+                areaKey={areaKey}
+                showLogout={hasSession && !isLocalMode}
+                onLogout={handleLogout}
+              />
             </div>
 
             <HeaderMobileMenu

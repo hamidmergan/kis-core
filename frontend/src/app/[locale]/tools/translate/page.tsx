@@ -7,7 +7,6 @@ import FileUpload from "@/components/jobs/FileUpload";
 import GlossarySelector from "@/components/glossary/GlossarySelector";
 import { useGlossaries } from "@/hooks/useGlossaries";
 import { api, pollJob, downloadJobAsBlob, parseDetail } from "@/lib/api";
-import BackLink from "@/components/ui/BackLink";
 import Spinner from "@/components/ui/Spinner";
 import Select from "@/components/ui/Select";
 
@@ -109,7 +108,6 @@ export default function UebersetzungPage() {
   return (
     <ProtectedRoute>
       <div className="max-w-4xl mx-auto px-4 py-8">
-        <BackLink />
         <section>
           <h1 className="text-xl font-bold mb-1">{t("title")}</h1>
           <p className="text-sm text-muted mb-6">

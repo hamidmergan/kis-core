@@ -1,5 +1,6 @@
-export const URGENCY_RED = "var(--error-strong)";
-export const URGENCY_ORANGE = "var(--warn)";
+/** Heute ist kein Fehler, darum das Akzentblau und dieselbe Farbe wie die Heute-Zelle im Raster. */
+export const URGENCY_TODAY = "var(--kb-dark)";
+export const URGENCY_SOON = "var(--warn)";
 
 export function todayISO(): string {
   const d = new Date();
@@ -8,18 +9,18 @@ export function todayISO(): string {
 
 /**
  * Foreground color for a deadline's date/time text:
- *   today → red, less than 7 days away → orange, else null (use default).
+ *   today → accent blue, less than 7 days away → orange, else null (use default).
  * Past deadlines fall through to default since the "vor X Tagen" label
  * already conveys overdue status.
  */
 export function urgencyColor(dueDate: string | null | undefined, today: string): string | null {
   if (!dueDate) return null;
   if (dueDate < today) return null;
-  if (dueDate === today) return URGENCY_RED;
+  if (dueDate === today) return URGENCY_TODAY;
   const days = Math.round(
     (new Date(dueDate).getTime() - new Date(today).getTime()) / 86_400_000,
   );
-  if (days > 0 && days < 7) return URGENCY_ORANGE;
+  if (days > 0 && days < 7) return URGENCY_SOON;
   return null;
 }
 
