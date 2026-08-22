@@ -6,7 +6,6 @@ import { useLocale, useTranslations } from "next-intl";
 import { useRouter } from "@/i18n/navigation";
 import Spinner from "@/components/ui/Spinner";
 import HomeNotice from "./HomeNotice";
-import UpcomingDeadlinesWidget from "./UpcomingDeadlinesWidget";
 import WorkspaceList from "./WorkspaceList";
 
 interface LinkPreview {
@@ -189,10 +188,6 @@ export default function WorkspaceHome({ canCreate, firstName }: Props) {
       )}
 
       <HomeNotice />
-
-      <div className="mb-12">
-        <UpcomingDeadlinesWidget />
-      </div>
 
       <WorkspaceList canCreate={canCreate} />
     </div>

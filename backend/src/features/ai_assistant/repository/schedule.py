@@ -10,7 +10,7 @@ from src.core.db.pool import get_connection
 
 
 _ENTRY_COLS = (
-    "id, type, title, description, due_date, due_time, date_precision, "
+    "id, workspace_id, type, title, description, due_date, end_date, due_time, date_precision, "
     "is_optional, is_checked, checked_at, origin, "
     "source_refs, created_at, updated_at"
 )
@@ -55,25 +55,29 @@ def get_schedule_entries_for_user(
 
     sql = f"""
         SELECT s.id, s.type, s.title, s.description,
-               s.due_date, s.due_time, s.date_precision,
+               s.due_date, s.end_date, s.due_time, s.date_precision,
                s.is_optional, s.is_checked, s.checked_at, s.origin,
                s.source_refs, s.created_at, s.updated_at,
                m.uuid AS workspace_uuid,
                m.title AS module_title,
-               CASE WHEN m.user_id = %(uid)s THEN 'owned' ELSE 'enrolled' END
-                   AS module_relation
+               CASE WHEN s.workspace_id IS NULL THEN 'personal'
+                    WHEN m.user_id = %(uid)s THEN 'owned'
+                    ELSE 'enrolled' END AS module_relation
           FROM aia_schedule_entries s
-          JOIN aia_workspaces m ON m.id = s.workspace_id
+          LEFT JOIN aia_workspaces m ON m.id = s.workspace_id
          WHERE s.user_id = %(uid)s
-           AND s.workspace_id IN (
-                 SELECT id FROM aia_workspaces WHERE user_id = %(uid)s
-                 UNION
-                 SELECT m2.id
-                   FROM aia_workspaces m2
-                   JOIN aia_enrollments e ON e.workspace_id = m2.id
-                  WHERE e.user_id = %(uid)s
-                    AND m2.is_active = TRUE
-                    AND (e.enrolled_until IS NULL OR e.enrolled_until > NOW())
+           AND (
+                 s.workspace_id IS NULL
+                 OR s.workspace_id IN (
+                      SELECT id FROM aia_workspaces WHERE user_id = %(uid)s
+                      UNION
+                      SELECT m2.id
+                        FROM aia_workspaces m2
+                        JOIN aia_enrollments e ON e.workspace_id = m2.id
+                       WHERE e.user_id = %(uid)s
+                         AND m2.is_active = TRUE
+                         AND (e.enrolled_until IS NULL OR e.enrolled_until > NOW())
+                    )
                )
            AND s.due_date IS NOT NULL
            {status_filter}
@@ -133,7 +137,7 @@ def get_schedule_entry(entry_id: int, user_id: int) -> Optional[dict]:
         with conn.cursor(cursor_factory=RealDictCursor) as cur:
             cur.execute(
                 f"""
-                SELECT {_ENTRY_COLS}, workspace_id, user_id
+                SELECT {_ENTRY_COLS}, user_id
                   FROM aia_schedule_entries
                  WHERE id = %s AND user_id = %s
                 """,
@@ -463,3 +467,105 @@ def upsert_source_extraction(
                 (source_id, json.dumps(candidates), json.dumps(classifications)),
             )
         conn.commit()
+
+
+# ─── Eigene Termine ─────────────────────────────────────────────────────────
+
+def create_personal_entry(
+    user_id: int,
+    *,
+    title: str,
+    description: Optional[str],
+    due_date: date,
+    end_date: Optional[date],
+    due_time: Optional[time],
+) -> dict:
+    """Ein Termin ohne Workspace, er gehoert nur diesem Nutzer."""
+    with get_connection() as conn:
+        with conn.cursor(cursor_factory=RealDictCursor) as cur:
+            cur.execute(
+                f"""
+                INSERT INTO aia_schedule_entries
+                    (workspace_id, user_id, type, title, description,
+                     due_date, end_date, due_time, date_precision, is_optional,
+                     origin, source_refs)
+                VALUES (NULL, %s, 'termin', %s, %s, %s, %s, %s, 'day', FALSE,
+                        'manual', '[]'::jsonb)
+                RETURNING {_ENTRY_COLS}
+                """,
+                (user_id, title, description, due_date, end_date, due_time),
+            )
+            conn.commit()
+            return dict(cur.fetchone())
+
+
+def update_personal_entry(
+    entry_id: int,
+    user_id: int,
+    *,
+    title: Optional[str] = None,
+    description: Optional[str] = None,
+    due_date: Optional[date] = None,
+    end_date: Optional[date] = None,
+    due_time: Optional[time] = None,
+    is_checked: Optional[bool] = None,
+    clear_end_date: bool = False,
+    clear_time: bool = False,
+) -> Optional[dict]:
+    """Aendert einen privaten Eintrag, fremde und Workspace-Eintraege bleiben unberuehrt."""
+    sets: list[str] = []
+    vals: list[Any] = []
+    if title is not None:
+        sets.append("title = %s")
+        vals.append(title)
+    if description is not None:
+        sets.append("description = %s")
+        vals.append(description)
+    if due_date is not None:
+        sets.append("due_date = %s")
+        vals.append(due_date)
+    if clear_end_date:
+        sets.append("end_date = NULL")
+    elif end_date is not None:
+        sets.append("end_date = %s")
+        vals.append(end_date)
+    if clear_time:
+        sets.append("due_time = NULL")
+    elif due_time is not None:
+        sets.append("due_time = %s")
+        vals.append(due_time)
+    if is_checked is not None:
+        sets.append("is_checked = %s")
+        vals.append(is_checked)
+        sets.append("checked_at = %s")
+        vals.append(datetime.now() if is_checked else None)
+    if not sets:
+        return get_schedule_entry(entry_id, user_id)
+    sets.append("updated_at = NOW()")
+    vals.extend([entry_id, user_id])
+    with get_connection() as conn:
+        with conn.cursor(cursor_factory=RealDictCursor) as cur:
+            cur.execute(
+                f"""
+                UPDATE aia_schedule_entries SET {", ".join(sets)}
+                 WHERE id = %s AND user_id = %s AND workspace_id IS NULL
+                RETURNING {_ENTRY_COLS}
+                """,
+                vals,
+            )
+            conn.commit()
+            row = cur.fetchone()
+            return dict(row) if row else None
+
+
+def delete_personal_entry(entry_id: int, user_id: int) -> bool:
+    """Loescht einen privaten Eintrag, Workspace-Eintraege bleiben unberuehrt."""
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                "DELETE FROM aia_schedule_entries "
+                " WHERE id = %s AND user_id = %s AND workspace_id IS NULL",
+                (entry_id, user_id),
+            )
+            conn.commit()
+            return cur.rowcount > 0

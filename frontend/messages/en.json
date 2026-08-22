@@ -111,11 +111,8 @@
     }
   },
   "schedule": {
-    "title": "My schedule",
-    "showAll": "Show all",
+    "title": "My calendar",
     "loadError": "Could not load schedule entries",
-    "empty": "No schedule entries",
-    "allLoaded": "All entries loaded",
     "tbdHeading": "By arrangement",
     "tbdLabel": "open",
     "card": {
@@ -123,6 +120,37 @@
       "checkAria": "Mark as done",
       "ownTooltip": "Own workspace",
       "sharedTooltip": "Shared workspace"
+    },
+    "month": {
+      "prev": "Previous month",
+      "next": "Next month",
+      "today": "Today",
+      "inMonth": "In {month}",
+      "until": "until {datum}",
+      "noDay": "No fixed day",
+      "more": "+{count} more",
+      "empty": "Nothing scheduled this month.",
+      "personal": "Private",
+      "addEntry": "Add entry",
+      "addEntryShort": "Entry",
+      "edit": "Edit entry",
+      "delete": "Delete entry",
+      "deleteConfirm": "Really delete \"{title}\"?"
+    },
+    "modal": {
+      "titleNew": "Your own entry",
+      "titleEdit": "Edit entry",
+      "label": "Title",
+      "multiDay": "Spans several days",
+      "date": "Date",
+      "from": "From",
+      "to": "To",
+      "time": "Time, if there is one",
+      "note": "Description (optional)",
+      "hint": "Your own entries belong to you alone. They show up in the calendar, in the list and in the home page panel, but in no workspace.",
+      "cancel": "Cancel",
+      "save": "Add",
+      "saveError": "The entry could not be saved."
     }
   },
   "imprint": {
@@ -1318,7 +1346,7 @@
       "saveFailed": "Save failed."
     },
     "scheduleRetentionCard": {
-      "title": "Schedule retention",
+      "title": "Calendar retention",
       "hint": "Past entries (done or not) are automatically deleted daily after this many days. Leave empty for 'never delete' (default). Future entries are always kept.",
       "unit": "days",
       "placeholderNever": "never",
@@ -2150,7 +2178,7 @@
           "glossary": "Glossary",
           "notes": "Notes",
           "statistik": "Stats",
-          "schedule": "Schedule"
+          "schedule": "Calendar"
         },
         "headings": {
           "learningTools": "Technical language trainer",
@@ -2254,10 +2282,10 @@
           },
           "newEntry": "New entry",
           "deleteAll": "Delete all",
-          "loading": "Loading schedule...",
+          "loading": "Loading calendar...",
           "empty": "No entries yet. Select sources on the left and generate, or create entries manually.",
           "confirmDeleteAll": {
-            "title": "Delete the entire schedule?",
+            "title": "Delete the entire calendar?",
             "body": "All entries will be removed and every source becomes available for generation again. This action cannot be undone.",
             "cancel": "Cancel",
             "confirm": "Delete all"

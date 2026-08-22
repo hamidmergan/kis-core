@@ -7,12 +7,15 @@ import { cleanScheduleDescription } from "./utils";
 
 export interface ScheduleListEntry {
   id: number;
-  workspace_uuid: string;
-  module_title: string;
-  module_relation: "owned" | "enrolled";
+  /** null heisst: eigener Termin, er gehoert zu keinem Workspace. */
+  workspace_uuid: string | null;
+  module_title: string | null;
+  module_relation: "owned" | "enrolled" | "personal";
   title: string;
   description?: string | null;
   due_date: string;
+  /** Gesetzt heisst: der Termin geht bis zu diesem Tag. */
+  end_date?: string | null;
   due_time?: string | null;
   /** 'month': die Quelle nannte nur einen Monat, die Zeitleiste zeigt dann keinen Tag. */
   date_precision?: "day" | "month" | null;
@@ -23,7 +26,8 @@ interface ScheduleEntryCardGlobalProps {
   entry: ScheduleListEntry;
   isPast: boolean;
   urgency: string | null;
-  href: string;
+  /** null heisst: eigener Termin, dann fuehrt die Karte nirgendwohin. */
+  href: string | null;
   onToggleChecked?: (checked: boolean) => void;
 }
 
@@ -35,6 +39,10 @@ export function ScheduleEntryCardGlobal({
   onToggleChecked,
 }: ScheduleEntryCardGlobalProps) {
   const t = useTranslations("schedule.card");
+  const tMonth = useTranslations("schedule.month");
+  const eigener = entry.workspace_uuid === null;
+  // Ohne Ziel ist die Karte kein Link, sonst landete sie auf /workspace/null.
+  const Huelle: React.ElementType = href ? Link : "div";
   const containerStyle: React.CSSProperties = {
     border: "1px solid var(--border)",
     opacity: isPast ? 0.55 : 1,
@@ -71,9 +79,9 @@ export function ScheduleEntryCardGlobal({
         disabled={!onToggleChecked}
         className={`flex-shrink-0 w-5 h-5 rounded-md flex items-center justify-center transition-colors mt-0.5 border-2 ${
           entry.is_checked
-            ? "border-[var(--success)] bg-[var(--success)]"
+            ? "border-[var(--kb)] bg-[var(--kb)]"
             : onToggleChecked
-            ? "border-[var(--border)] bg-background hover:border-[var(--success)]"
+            ? "border-[var(--border)] bg-background hover:border-[var(--kb)]"
             : "border-[var(--border)] bg-background"
         }`}
         style={{
@@ -84,8 +92,8 @@ export function ScheduleEntryCardGlobal({
         {entry.is_checked && <Check size={11} weight="bold" />}
       </button>
 
-      <Link
-        href={href}
+      <Huelle
+        {...(href ? { href } : {})}
         className="flex-1 min-w-0"
         style={{ color: "inherit", textDecoration: "none" }}
       >
@@ -123,22 +131,31 @@ export function ScheduleEntryCardGlobal({
           className="mt-2 pt-2"
           style={{ borderTop: "1px dashed var(--border)" }}
         >
-          <span
-            className="inline-flex items-center gap-1 text-2xs font-medium px-2 py-0.5 rounded-full"
-            style={{
-              backgroundColor: isOwned ? "rgba(var(--kb-rgb),0.12)" : "transparent",
-              border: isOwned ? "none" : "1px solid var(--border)",
-              color: isOwned ? "var(--kb)" : "var(--muted)",
-            }}
-            title={isOwned ? t("ownTooltip") : t("sharedTooltip")}
-          >
-            <RelIcon size={10} weight="bold" />
-            <span className="truncate" style={{ maxWidth: 240 }}>
-              {entry.module_title}
+          {eigener ? (
+            <span
+              className="inline-flex items-center text-2xs font-medium px-2 py-0.5 rounded-full"
+              style={{ border: "1px solid var(--border)", color: "var(--muted)" }}
+            >
+              {tMonth("personal")}
             </span>
-          </span>
+          ) : (
+            <span
+              className="inline-flex items-center gap-1 text-2xs font-medium px-2 py-0.5 rounded-full"
+              style={{
+                backgroundColor: isOwned ? "rgba(var(--kb-rgb),0.12)" : "transparent",
+                border: isOwned ? "none" : "1px solid var(--border)",
+                color: isOwned ? "var(--kb)" : "var(--muted)",
+              }}
+              title={isOwned ? t("ownTooltip") : t("sharedTooltip")}
+            >
+              <RelIcon size={10} weight="bold" />
+              <span className="truncate" style={{ maxWidth: 240 }}>
+                {entry.module_title}
+              </span>
+            </span>
+          )}
         </div>
-      </Link>
+      </Huelle>
     </div>
   );
 }

@@ -63,6 +63,8 @@ def _serialize_entry(row: dict) -> dict:
         "title": row["title"],
         "description": row.get("description"),
         "due_date": row["due_date"].isoformat() if row.get("due_date") else None,
+        # Gesetzt heisst: der Termin geht bis zu diesem Tag.
+        "end_date": row["end_date"].isoformat() if row.get("end_date") else None,
         "due_time": row["due_time"].strftime("%H:%M") if row.get("due_time") else None,
         # 'month' = die Quelle nannte nur einen Monat, die Ansicht zeigt dann keinen Tag
         "date_precision": row.get("date_precision") or "day",
@@ -89,6 +91,8 @@ def _serialize_global_entry(row: dict) -> dict:
         "title": row["title"],
         "description": row.get("description"),
         "due_date": row["due_date"].isoformat() if row.get("due_date") else None,
+        # Gesetzt heisst: der Termin geht bis zu diesem Tag.
+        "end_date": row["end_date"].isoformat() if row.get("end_date") else None,
         "due_time": row["due_time"].strftime("%H:%M") if row.get("due_time") else None,
         # 'month' = die Quelle nannte nur einen Monat, die Ansicht zeigt dann keinen Tag
         "date_precision": row.get("date_precision") or "day",

@@ -144,6 +144,14 @@ MESSAGES: dict[str, dict[str, str]] = {
         "de": "Ungültige Uhrzeit: {value}",
         "en": "Invalid time: {value}",
     },
+    "ai.schedule.rangeReversed": {
+        "de": "Das Ende des Zeitraums liegt vor dem Anfang.",
+        "en": "The end of the range is before its start.",
+    },
+    "ai.schedule.dateRequired": {
+        "de": "Ein eigener Termin braucht ein Datum.",
+        "en": "Your own entry needs a date.",
+    },
     "ai.schedule.limitRange": {
         "de": "limit muss zwischen 1 und 500 liegen",
         "en": "limit must be between 1 and 500",

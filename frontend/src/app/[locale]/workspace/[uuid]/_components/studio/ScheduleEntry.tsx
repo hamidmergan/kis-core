@@ -72,8 +72,8 @@ export function ScheduleEntryCard({
           onClick={() => onToggleChecked(!entry.is_checked)}
           className={`flex-shrink-0 w-5 h-5 rounded-md flex items-center justify-center transition-colors mt-0.5 border-2 ${
             entry.is_checked
-              ? "border-[var(--success)] bg-[var(--success)]"
-              : "border-[var(--border)] bg-background hover:border-[var(--success)]"
+              ? "border-[var(--kb)] bg-[var(--kb)]"
+              : "border-[var(--border)] bg-background hover:border-[var(--kb)]"
           }`}
           style={{
             color: "#fff",

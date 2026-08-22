@@ -207,3 +207,31 @@ class ScheduleEntryUpdateBody(BaseModel):
     clear_date: bool = False  # explicitly set to NULL
     clear_time: bool = False
 
+
+# Grenzen fuer eigene Termine, dieselben Zahlen stehen im Dialog im Frontend.
+TITLE_MAX = 80
+NOTE_MAX = 500
+
+
+class PersonalEntryCreateBody(BaseModel):
+    """Ein eigener Termin, er gehoert zu keinem Workspace."""
+    # Enger als bei den aus Quellen gezogenen Terminen: der Titel steht in einer
+    # Rasterzelle und in einer schmalen Spalte, lang wird dort unlesbar.
+    title: str = Field(..., max_length=TITLE_MAX)
+    description: Optional[str] = Field(None, max_length=NOTE_MAX)
+    due_date: str  # ISO date 'YYYY-MM-DD'
+    # Gesetzt heisst: der Termin geht bis zu diesem Tag.
+    end_date: Optional[str] = None
+    due_time: Optional[str] = None
+
+
+class PersonalEntryUpdateBody(BaseModel):
+    title: Optional[str] = Field(None, max_length=TITLE_MAX)
+    description: Optional[str] = Field(None, max_length=NOTE_MAX)
+    due_date: Optional[str] = None
+    end_date: Optional[str] = None
+    due_time: Optional[str] = None
+    is_checked: Optional[bool] = None
+    clear_end_date: bool = False
+    clear_time: bool = False
+

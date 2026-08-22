@@ -1520,13 +1520,15 @@ def _init_db(admin_email: Optional[str] = None) -> None:
             cur.execute("""
                 CREATE TABLE IF NOT EXISTS aia_schedule_entries (
                     id           SERIAL PRIMARY KEY,
-                    workspace_id INTEGER NOT NULL
+                    -- NULL heisst: der Eintrag gehoert keinem Workspace, sondern nur dem Nutzer.
+                    workspace_id INTEGER
                                    REFERENCES aia_workspaces(id) ON DELETE CASCADE,
                     user_id      INTEGER NOT NULL,
                     type         TEXT NOT NULL CHECK (type IN ('deadline', 'termin')),
                     title        TEXT NOT NULL,
                     description  TEXT,
                     due_date     DATE,
+                    end_date     DATE,
                     due_time     TIME,
                     is_optional  BOOLEAN NOT NULL DEFAULT FALSE,
                     is_checked   BOOLEAN NOT NULL DEFAULT FALSE,
@@ -1538,6 +1540,10 @@ def _init_db(admin_email: Optional[str] = None) -> None:
                 )
             """)
             cur.execute("ALTER TABLE aia_schedule_entries ADD COLUMN IF NOT EXISTS source_refs JSONB NOT NULL DEFAULT '[]'::jsonb")
+            # Gesetzt heisst: der Termin geht bis zu diesem Tag.
+            cur.execute("ALTER TABLE aia_schedule_entries ADD COLUMN IF NOT EXISTS end_date DATE")
+            # Bestehende Datenbanken tragen workspace_id noch als NOT NULL.
+            cur.execute("ALTER TABLE aia_schedule_entries ALTER COLUMN workspace_id DROP NOT NULL")
             # Wie genau steht das Datum in der Quelle: 'day' ist der Normalfall, 'month'
             # heisst, dort stand nur ein Monat ("im Juli 2026"). due_date traegt dann den
             # Monatsersten als Sortierpunkt, die Ansicht zeigt dafuer keine Tagesnummer.
