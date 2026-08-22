@@ -15,7 +15,10 @@
     "themeLight": "Hell",
     "themeToDarkAria": "Dunkler Modus",
     "themeToLightAria": "Heller Modus",
-    "settings": "Verwaltung"
+    "settings": "Verwaltung",
+    "calendar": "Kalender",
+    "settingsMenu": "Einstellungen",
+    "sectionAppearance": "Ansicht"
   },
   "footer": {
     "aiNotice": "Diese Plattform nutzt KI und kann Fehler machen. Überprüfen Sie die Antworten.",

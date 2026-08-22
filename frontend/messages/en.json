@@ -15,7 +15,10 @@
     "themeLight": "Light",
     "themeToDarkAria": "Dark mode",
     "themeToLightAria": "Light mode",
-    "settings": "Administration"
+    "settings": "Administration",
+    "calendar": "Calendar",
+    "settingsMenu": "Settings",
+    "sectionAppearance": "Appearance"
   },
   "footer": {
     "aiNotice": "This platform uses AI and may make mistakes. Please verify the responses.",
