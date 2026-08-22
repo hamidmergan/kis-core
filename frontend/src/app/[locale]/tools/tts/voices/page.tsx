@@ -4,7 +4,6 @@ import { Suspense, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
 import ProtectedRoute from "@/components/auth/ProtectedRoute";
-import BackLink from "@/components/ui/BackLink";
 import ProviderTab from "./_tabs/ProviderTab";
 import type { ProviderWithVoices } from "./_utils";
 
@@ -35,7 +34,6 @@ function VoicesPageInner() {
   return (
     <ProtectedRoute>
       <div className="max-w-4xl mx-auto px-4 py-8">
-        <BackLink />
         <h1 className="text-xl font-bold mb-1">{t("title")}</h1>
 
         {loading && <p className="text-sm text-muted mt-4">{t("loading")}</p>}

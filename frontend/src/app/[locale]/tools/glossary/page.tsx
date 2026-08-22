@@ -5,7 +5,6 @@ import { useLocale, useTranslations } from "next-intl";
 import { BookOpen, PencilSimple, Trash, DownloadSimple } from "@phosphor-icons/react";
 import ProtectedRoute from "@/components/auth/ProtectedRoute";
 import { useGlossaries, MAX_GLOSSARIES, MAX_ENTRIES_PER_GLOSSARY } from "@/hooks/useGlossaries";
-import BackLink from "@/components/ui/BackLink";
 import { EmptyState } from "@/components/ui/EmptyState";
 
 export default function GlossaryPage() {
@@ -152,7 +151,6 @@ export default function GlossaryPage() {
   return (
     <ProtectedRoute>
       <div className="max-w-4xl mx-auto px-4 py-8">
-        <BackLink />
         <section>
           <div className="flex items-center justify-between mb-1">
             <h2 className="text-xl font-bold">{t("title")}</h2>

@@ -4,7 +4,6 @@ import { Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import ProtectedRoute from "@/components/auth/ProtectedRoute";
 import { parseDetail } from "@/lib/api";
-import BackLink from "@/components/ui/BackLink";
 import { SCREENCAST_MAX_CHARS } from "@/lib/constants";
 import { wordCount } from "@/lib/text";
 import ScreencastStepper from "@/components/screencast/ScreencastStepper";
@@ -285,7 +284,6 @@ function ScreencastDemoPageInner() {
   return (
     <ProtectedRoute>
       <div className="max-w-4xl mx-auto px-4 py-8">
-        <BackLink href="/tools/screencast" label={tDemo("backToScreencast")} />
         {showStepIndicator && (
           <>
             <ScreencastStepper
