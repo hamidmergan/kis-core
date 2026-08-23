@@ -7,27 +7,54 @@ from loguru import logger
 
 from src.services.screencast.process import run_proc
 
+# Zuschlag auf die Bildlänge, damit die Tonspur und nicht das Bild das Ende bestimmt.
+_BILD_RESERVE = 2.0
+
+# Bilder je Sekunde für das Standbild. Bei 1 bekommt eine Folie unter einer Sekunde gar kein Bild.
+_BILDRATE = 5
+
 
 def get_audio_duration(audio_path: Path | None) -> float:
-    """Get the exact duration of an audio file in seconds using ffprobe.
-
-    Returns 3.0 for silent slides (audio_path is None).
-    """
+    """Länge des Tons in Sekunden aus den gezählten Paketen, 3.0 für stumme Folien."""
     if audio_path is None:
         return 3.0
     cmd = [
         "ffprobe", "-v", "error",
-        "-show_entries", "format=duration",
-        "-of", "default=noprint_wrappers=1:nokey=1",
+        "-select_streams", "a:0",
+        "-show_entries", "packet=duration_time",
+        "-of", "csv=p=0",
         str(audio_path),
     ]
-    result = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
+    result = subprocess.run(cmd, capture_output=True, text=True, timeout=60)
     if result.returncode != 0:
         raise RuntimeError(f"ffprobe fehlgeschlagen: {result.stderr[:200]}")
-    return float(result.stdout.strip())
+    total = 0.0
+    for line in result.stdout.splitlines():
+        try:
+            total += float(line.strip().rstrip(","))
+        except ValueError:
+            continue
+    if total <= 0:
+        raise RuntimeError(f"Tonlänge nicht messbar: {audio_path}")
+    return total
 
 
-def create_slide_video(image_path: Path, audio_path: Path | None, output_path: Path, pause: float = 0.0, crf: int = 23, job_uuid: str | None = None, silent_duration: float = 3.0) -> None:
+def _tempo_anpassen(audio_path: Path, output_path: Path, speed: float, job_uuid: str | None) -> Path:
+    """Lokal verlangsamen, damit die Tonhöhe bleibt."""
+    gedehnt = output_path.with_suffix(".tempo.mp3")
+    cmd = [
+        "ffmpeg", "-y", "-i", str(audio_path),
+        "-filter:a", f"atempo={speed}",
+        "-c:a", "libmp3lame", "-q:a", "2", str(gedehnt),
+    ]
+    result = run_proc(cmd, timeout=120, job_uuid=job_uuid)
+    if result.returncode != 0:
+        logger.warning("Tempo {} nicht anwendbar, nehme den Ton wie er ist: {}", speed, result.stderr[-200:])
+        return audio_path
+    return gedehnt
+
+
+def create_slide_video(image_path: Path, audio_path: Path | None, output_path: Path, pause: float = 0.0, crf: int = 23, job_uuid: str | None = None, silent_duration: float = 3.0, speed: float = 1.0) -> None:
     """Combine a single slide image with its audio into a video clip.
 
     If audio_path is None (silent/empty slide), produces a clip with silent
@@ -49,7 +76,7 @@ def create_slide_video(image_path: Path, audio_path: Path | None, output_path: P
     if audio_path is None:
         cmd = [
             "ffmpeg", "-y",
-            "-loop", "1", "-framerate", "1", "-i", str(image_path),
+            "-loop", "1", "-framerate", str(_BILDRATE), "-i", str(image_path),
             "-f", "lavfi", "-i", "anullsrc=r=44100:cl=stereo",
             "-t", str(silent_duration),
             "-vf", "scale=trunc(iw/2)*2:trunc(ih/2)*2",
@@ -64,6 +91,10 @@ def create_slide_video(image_path: Path, audio_path: Path | None, output_path: P
             logger.error("Slide video creation failed (rc={}):\nSTDOUT: {}\nSTDERR: {}", result.returncode, result.stdout[-500:], result.stderr[-500:])
             raise RuntimeError(f"Video-Erstellung fehlgeschlagen (kein Audio): {result.stderr[-300:]}")
         return
+
+    # Der Anbieter senkt beim Verlangsamen die Tonhöhe mit, das klingt hallig.
+    if speed and abs(speed - 1.0) > 0.001:
+        audio_path = _tempo_anpassen(audio_path, output_path, speed, job_uuid)
 
     duration = get_audio_duration(audio_path)
 
@@ -92,16 +123,16 @@ def create_slide_video(image_path: Path, audio_path: Path | None, output_path: P
         ]
         run_proc(cmd_concat, timeout=30, job_uuid=job_uuid)
         final_audio = audio_with_pause_path
-        total_duration = duration + pause
+        bild_dauer = duration + pause + _BILD_RESERVE
     else:
         final_audio = audio_path
-        total_duration = duration
+        bild_dauer = duration + _BILD_RESERVE
 
+    # -t begrenzt nur das Bild, -shortest beendet den Clip am Ende der Tonspur.
     cmd = [
         "ffmpeg", "-y",
-        "-loop", "1", "-framerate", "1", "-i", str(image_path),
+        "-loop", "1", "-framerate", str(_BILDRATE), "-t", str(bild_dauer), "-i", str(image_path),
         "-i", str(final_audio),
-        "-t", str(total_duration),
         "-vf", "scale=trunc(iw/2)*2:trunc(ih/2)*2",
         "-c:v", "libx264", "-tune", "stillimage", "-preset", "ultrafast",
         "-crf", str(crf), "-pix_fmt", "yuv420p",

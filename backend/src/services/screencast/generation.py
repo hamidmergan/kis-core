@@ -61,6 +61,7 @@ async def generate_all_tts(
     job_uuid: str | None = None,
     user_id: int | None = None,
     provider_id: int = 0,
+    target_lang: str = "",
 ) -> list[tuple[Path, dict | None]]:
     """Generate TTS audio for all slides in parallel.
 
@@ -111,9 +112,10 @@ async def generate_all_tts(
                 last_error: Exception | None = None
                 for attempt in range(len(retry_delays) + 1):
                     try:
+                        # Immer 1.0: der Anbieter senkt beim Verlangsamen die Tonhöhe mit.
                         result = await asyncio.to_thread(
                             tts_client.synthesize_with_timestamps,
-                            script_text, "EN", voice_id=voice_id, speed=speed,
+                            script_text, target_lang, voice_id=voice_id, speed=1.0,
                         )
                         audio_bytes = result["audio_bytes"]
                         alignment = result["alignment"]

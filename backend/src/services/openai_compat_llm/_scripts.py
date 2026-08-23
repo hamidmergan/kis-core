@@ -47,6 +47,46 @@ class _ScriptCountMismatch(RuntimeError):
         self.got = got
 
 
+# Ab wie vielen eigenen Wörtern eine Folie als Vergleichspunkt taugt.
+_MIN_VERGLEICHSWOERTER = 6
+
+# Wie deutlich ein fremdes Skript besser passen muss, damit es als Versatz gilt.
+_VERSATZ_ABSTAND = 0.15
+
+
+def _inhaltswoerter(text: str) -> set[str]:
+    """Wörter ab vier Buchstaben, ohne Zahlen und Satzzeichen."""
+    return {w for w in re.findall(r"[^\W\d_]{4,}", (text or "").lower())}
+
+
+def _deckung(script: str, slide_text: str) -> float:
+    """Anteil der Folienwörter, die im Skript vorkommen."""
+    folie = _inhaltswoerter(slide_text)
+    return len(folie & _inhaltswoerter(script)) / len(folie) if folie else 0.0
+
+
+def find_misaligned(scripts: list[str], slide_texts: list[str]) -> int | None:
+    """Index einer Folie, deren Inhalt ein anderes Skript der Gruppe erzählt."""
+    if len(scripts) < 2:
+        return None
+    for j, text in enumerate(slide_texts):
+        if len(_inhaltswoerter(text)) < _MIN_VERGLEICHSWOERTER:
+            continue
+        werte = [_deckung(s, text) for s in scripts]
+        best = max(range(len(werte)), key=lambda k: werte[k])
+        if best != j and werte[best] > werte[j] + _VERSATZ_ABSTAND:
+            return j
+    return None
+
+
+class _ScriptMisaligned(RuntimeError):
+    """Die Skripte des Stapels gehören zu anderen Folien als angefragt."""
+
+    def __init__(self, slide_index: int):
+        super().__init__(f"Folie {slide_index + 1} der Gruppe erzählt ein fremdes Skript")
+        self.slide_index = slide_index
+
+
 def build_length_and_format_rules(
     batch_size: int,
     target_lang: str,
@@ -254,6 +294,10 @@ class _ScriptsMixin:
             if len(scripts) != batch_size:
                 raise _ScriptCountMismatch(batch_size, len(scripts))
 
+            misaligned = find_misaligned(scripts, batch_texts)
+            if misaligned is not None:
+                raise _ScriptMisaligned(misaligned)
+
             return scripts
 
         except Exception as e:
@@ -350,6 +394,14 @@ class _ScriptsMixin:
                         glossary, add_greeting, add_closing, min_chars, max_chars, target_lang, source_lang,
                     )
                     return idx, _fill_gaps(scripts, texts, idx, start)
+                except _ScriptMisaligned as e:
+                    # Ein zweiter Anlauf behebt das nicht, also gleich einzeln.
+                    logger.warning(
+                        "Batch {}/{}: {} - erzeuge {} Folie(n) einzeln",
+                        idx + 1, batch_count, e, n,
+                    )
+                    single = [_one_slide(t, idx, start + i + 1) for i, t in enumerate(texts)]
+                    return idx, _fill_gaps(single, texts, idx, start, retry=False)
                 except RuntimeError as e:
                     if attempt == 0:
                         logger.warning(

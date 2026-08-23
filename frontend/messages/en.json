@@ -87,7 +87,7 @@
     "artifacts": {
       "creating": "Creating…",
       "generatingScripts": "Generating scripts…",
-      "resumeScreencast": "Resume screencast →",
+      "resumeScreencast": "Resume screencast",
       "downloadAllZip": "Download all (ZIP)",
       "fallbackFile": "File"
     },
@@ -556,6 +556,8 @@
       "ttsSettings": {
         "heading": "Settings",
         "providerLabel": "TTS provider",
+        "langLabel": "Narration language",
+        "langHint": "The scripts are written in this language. It also decides how numbers are spoken.",
         "voiceLabel": "Voice",
         "voiceDefault": "Default",
         "previewVoices": "Preview voices →",

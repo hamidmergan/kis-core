@@ -9,10 +9,25 @@ from loguru import logger
 from src import database as db
 from src.dependencies import get_current_user, is_admin_user
 from src.i18n import get_locale, t
-from src.storage import clear_render_cache, delete_job_folder, job_file_exists, save_job_file
+from src.storage import (
+    clear_render_cache,
+    delete_job_folder,
+    job_file_exists,
+    load_result_meta,
+    save_job_file,
+    save_result_meta,
+)
 from src.utils.file_validation import MAX_SCREENCAST_SLIDES, SCREENCAST_MAX_CHARS
 
 from src.routes.screencast._models import PrerenderRequest, RenderRequest
+
+
+def _merke_zielsprache(user_id: int, job_uuid: str, target_lang: str) -> None:
+    """Die Vertonung liest die Sprache spaeter hier, auch beim Neu-Rendern."""
+    if not target_lang:
+        return
+    save_result_meta(user_id, job_uuid, {**(load_result_meta(user_id, job_uuid) or {}),
+                                         "target_lang": target_lang})
 from src.routes.screencast._shared import prerender_images_task
 
 router = APIRouter(tags=["screencast: render"])
@@ -95,6 +110,8 @@ def screencast_render(
     if translate_job["status"] == "success":
         clear_render_cache(user_id, body.translate_job_uuid)
         logger.info("Re-render: cleared render cache for job={}", body.translate_job_uuid)
+
+    _merke_zielsprache(user_id, body.translate_job_uuid, body.target_lang)
 
     # Save scripts and render params for queue dispatch (used by dispatch_next)
     save_job_file(user_id, body.translate_job_uuid, "render_scripts.json", json.dumps(body.scripts, ensure_ascii=False).encode())

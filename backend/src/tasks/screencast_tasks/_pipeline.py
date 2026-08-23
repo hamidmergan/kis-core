@@ -140,7 +140,9 @@ def _run_render_pipeline(
             _assert_not_cancelled(job_uuid)
             db.update_job_status(job_uuid, "running", progress={"step": "tts", "current": current, "total": total})
 
-        tts_results = asyncio.run(_generate_all_tts(scripts, tts_client, tmp, speed, voice_id, on_slide_done=_tts_progress, job_uuid=job_uuid, user_id=user_id, provider_id=provider_id))
+        # Ohne bekannte Zielsprache bleibt sie leer, dann raet die Vertonung nicht.
+        target_lang = (load_result_meta(user_id, job_uuid) or {}).get("target_lang", "")
+        tts_results = asyncio.run(_generate_all_tts(scripts, tts_client, tmp, speed, voice_id, on_slide_done=_tts_progress, job_uuid=job_uuid, user_id=user_id, provider_id=provider_id, target_lang=target_lang))
         audio_paths = [r[0] for r in tts_results]
         alignments = [r[1] for r in tts_results]
 
@@ -165,7 +167,7 @@ def _run_render_pipeline(
         clip_paths: list[Path] = [tmp / f"clip_{i:03d}.mp4" for i in range(num_slides)]
 
         def _render_clip_normal(i: int) -> None:
-            _create_slide_video(slide_images[i], audio_paths[i], clip_paths[i], pause=slide_pause, crf=23, job_uuid=job_uuid)
+            _create_slide_video(slide_images[i], audio_paths[i], clip_paths[i], pause=slide_pause, crf=23, job_uuid=job_uuid, speed=speed)
 
         db.update_job_status(job_uuid, "running", progress={"step": "video", "current": 0, "total": num_slides})
         with ThreadPoolExecutor(max_workers=RENDER_MAX_WORKERS) as executor:

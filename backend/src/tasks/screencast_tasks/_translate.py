@@ -131,7 +131,7 @@ def run_screencast_translate(
         # Namensstamm einmal übersetzen, gilt danach für MP4, PPTX und ZIP.
         # Über denselben Dienst wie den Folieninhalt, nicht fest über DeepL.
         translated = translate_stem(filename, source_lang, target_lang, service=service)
-        save_result_meta(user_id, job_uuid, {"translated_stem": translated})
+        save_result_meta(user_id, job_uuid, {"translated_stem": translated, "target_lang": target_lang})
 
         # awaiting_user: user must review scripts before render starts
         # Keine eigene Frist mehr. Liegengebliebene Entwuerfe holt der Wachhund ab

@@ -30,7 +30,7 @@ import { flowReducer, INITIAL_FLOW_STATE } from "./_reducer";
 import { useScreencastRenderFlow } from "./_hooks/useScreencastRenderFlow";
 import { useScreencastTranslateFlow } from "./_hooks/useScreencastTranslateFlow";
 import { notifyJobsChanged } from "@/lib/jobs-events";
-import { SCREENCAST_MAX_CHARS } from "@/lib/constants";
+import { SCREENCAST_MAX_CHARS, SCREENCAST_TARGET_LANGUAGES } from "@/lib/constants";
 import { wordCount } from "@/lib/text";
 import { useFileDropzone } from "@/hooks/useFileDropzone";
 import { useVoices } from "@/hooks/useVoices";
@@ -121,7 +121,7 @@ function ScreencastPageInner() {
   useEffect(() => {
     if (defaultVoiceId && !voiceId) setVoiceId(defaultVoiceId);
   }, [defaultVoiceId, voiceId]);
-  const { languages, targetLang, setTargetLang } = useLanguageConfig();
+  const { languages, targetLang, setTargetLang } = useLanguageConfig(SCREENCAST_TARGET_LANGUAGES);
   const [skipTranslation, setSkipTranslation] = useState(false);
   const [hasActiveJob, setHasActiveJob] = useActiveJobCheck("screencast");
 
@@ -249,6 +249,7 @@ function ScreencastPageInner() {
     translateJobUuid,
     slides,
     dispatch,
+    targetLang,
     speed,
     slidePause,
     dpi,
@@ -586,6 +587,9 @@ function ScreencastPageInner() {
             providersLoaded={providersLoaded}
             providers={providers}
             providerId={providerId}
+            targetLang={targetLang}
+            languages={languages}
+            onTargetLangChange={setTargetLang}
             voiceId={voiceId}
             speed={speed}
             slidePause={slidePause}

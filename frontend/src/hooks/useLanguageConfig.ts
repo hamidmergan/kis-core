@@ -7,6 +7,7 @@ import {
   DEFAULT_TRANSLATE_TARGET,
   TRANSLATE_LANGUAGES,
 } from "@/lib/constants";
+import { pickAllowed } from "./_language_config";
 
 export interface Language {
   id: string;
@@ -18,7 +19,7 @@ interface TranslateConfigResponse {
   default_target: string;
 }
 
-export function useLanguageConfig() {
+export function useLanguageConfig(allowed?: readonly string[]) {
   const t = useTranslations("langLabels");
   const defaults = useMemo<Language[]>(
     () => TRANSLATE_LANGUAGES.map((id) => ({ id, label: t(id) })),
@@ -37,5 +38,14 @@ export function useLanguageConfig() {
       .catch(() => {});
   }, []);
 
-  return { languages, targetLang, setTargetLang };
+  const erlaubt = useMemo(
+    () => pickAllowed(languages, allowed, targetLang),
+    [languages, allowed, targetLang],
+  );
+
+  return {
+    languages: erlaubt.languages,
+    targetLang: erlaubt.target,
+    setTargetLang,
+  };
 }

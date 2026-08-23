@@ -31,3 +31,5 @@ export const DEFAULT_UI_LOCALE: (typeof UI_LOCALES)[number] = "de";
 /** Translate-tool language codes (DeepL format). Mirrors backend TRANSLATE_LANGUAGES in i18n.py. */
 export const TRANSLATE_LANGUAGES = ["DE", "EN-US", "FR", "ES", "IT", "TR", "AR", "RU"] as const;
 export const DEFAULT_TRANSLATE_TARGET: (typeof TRANSLATE_LANGUAGES)[number] = "EN-US";
+/** Screencast: nur diese Sprachen spricht die Stimme sauber, gemessen am Anbieter. */
+export const SCREENCAST_TARGET_LANGUAGES = ["DE", "EN-US"] as const;

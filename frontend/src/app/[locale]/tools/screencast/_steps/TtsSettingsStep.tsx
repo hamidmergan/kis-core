@@ -10,6 +10,8 @@ interface TtsSettingsStepProps {
   providersLoaded: boolean;
   providers: ProviderWithVoices[];
   providerId: number;
+  targetLang: string;
+  languages: { id: string; label: string }[];
   voiceId: string;
   speed: number;
   slidePause: number;
@@ -21,6 +23,7 @@ interface TtsSettingsStepProps {
   maxChars: number;
   ttsSettingsError: string;
   onProviderIdChange: (id: number) => void;
+  onTargetLangChange: (v: string) => void;
   onVoiceIdChange: (v: string) => void;
   onSpeedChange: (v: number) => void;
   onSlidePauseChange: (v: number) => void;
@@ -34,6 +37,8 @@ export default function TtsSettingsStep(props: TtsSettingsStepProps) {
     providersLoaded,
     providers,
     providerId,
+    targetLang,
+    languages,
     voiceId,
     speed,
     slidePause,
@@ -45,6 +50,7 @@ export default function TtsSettingsStep(props: TtsSettingsStepProps) {
     maxChars,
     ttsSettingsError,
     onProviderIdChange,
+    onTargetLangChange,
     onVoiceIdChange,
     onSpeedChange,
     onSlidePauseChange,
@@ -81,6 +87,21 @@ export default function TtsSettingsStep(props: TtsSettingsStepProps) {
             }}
             options={providers.map((p) => ({ value: String(p.id), label: p.name }))}
           />
+        </div>
+      )}
+
+      {languages.length > 0 && (
+        <div className="mb-2 mt-4">
+          <label htmlFor="sc-lang-select" className="block text-sm font-medium text-foreground-soft mb-2">
+            {t("ttsSettings.langLabel")}
+          </label>
+          <Select
+            id="sc-lang-select"
+            value={targetLang}
+            onChange={onTargetLangChange}
+            options={languages.map((l) => ({ value: l.id, label: l.label }))}
+          />
+          <p className="mt-1 text-xs text-muted">{t("ttsSettings.langHint")}</p>
         </div>
       )}
 

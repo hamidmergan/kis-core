@@ -33,6 +33,7 @@ interface UseScreencastRenderFlowOptions {
   dispatch: Dispatch<FlowAction>;
 
   // Render config
+  targetLang: string;
   speed: number;
   slidePause: number;
   dpi: number;
@@ -63,6 +64,7 @@ export function useScreencastRenderFlow(opts: UseScreencastRenderFlowOptions) {
     translateJobUuid,
     slides,
     dispatch,
+    targetLang,
     speed,
     slidePause,
     dpi,
@@ -126,6 +128,7 @@ export function useScreencastRenderFlow(opts: UseScreencastRenderFlowOptions) {
         body: JSON.stringify({
           scripts: slides.map((s) => s.script),
           translate_job_uuid: translateJobUuid,
+          target_lang: targetLang,
           voice_id: voiceId,
           voice_label: computeVoiceLabel(providerId, voiceId, providers),
           speed,
@@ -174,7 +177,7 @@ export function useScreencastRenderFlow(opts: UseScreencastRenderFlowOptions) {
       goError(err instanceof Error ? err.message : messages.unknownError);
     }
   }, [
-    slides, translateJobUuid, voiceId, providerId, providers,
+    slides, translateJobUuid, targetLang, voiceId, providerId, providers,
     speed, slidePause, dpi,
     newSignal, onRenderProgress, setRenderProgressLabel, setTtsSettingsError,
     failedRender, processRenderResultFromJob,
