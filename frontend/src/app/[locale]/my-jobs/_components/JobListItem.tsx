@@ -52,13 +52,14 @@ export function JobListItem({
         <div className="flex flex-col items-end gap-2 shrink-0">
           <StatusBadge status={job.status} expired={expired} isGeneratingScripts={job.is_generating_scripts} />
           {isActive(job.status) && (
-            <button
+            <IconButton
               onClick={() => onCancel(job)}
               disabled={cancelling === job.job_uuid}
-              className="text-xs text-error hover:underline disabled:opacity-50"
+              title={t("cancel")}
+              className="mt-auto disabled:opacity-50"
             >
-              {cancelling === job.job_uuid ? "..." : t("cancel")}
-            </button>
+              <Trash size={13} />
+            </IconButton>
           )}
           {canRetry && (
             <button

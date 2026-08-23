@@ -67,7 +67,7 @@ function StatusBadge({ status, expired, isGeneratingScripts }: { status: MyJob["
   if (status === "running" || isGeneratingScripts)
     return <span className="text-xs font-medium text-info-strong bg-info-bg px-2 py-0.5 rounded-full animate-pulse">{t("running")}</span>;
   if (status === "awaiting_user")
-    return <span className="text-xs font-medium text-warn-strong bg-warn-bg px-2 py-0.5 rounded-full">{t("awaitingUser")}</span>;
+    return <span className="text-xs font-medium text-kb-dark bg-kb20 px-2 py-0.5 rounded-full">{t("awaitingUser")}</span>;
   if (status === "queued")
     return <span className="text-xs font-medium text-info-strong bg-info-bg px-2 py-0.5 rounded-full">{t("queued")}</span>;
   return <span className="text-xs font-medium text-warn-strong bg-warn-bg px-2 py-0.5 rounded-full">{t("pending")}</span>;
@@ -421,15 +421,6 @@ export default function JobsPanel() {
                         </div>
                         <div className="flex flex-col items-end gap-1.5 shrink-0">
                           <StatusBadge status={job.status} expired={expired} isGeneratingScripts={job.is_generating_scripts} />
-                          {isActive(job.status) && (
-                            <button
-                              onClick={(e) => handleCancel(e, job)}
-                              disabled={cancelling === job.job_uuid}
-                              className="text-xs text-error hover:underline disabled:opacity-50"
-                            >
-                              {cancelling === job.job_uuid ? "..." : tActions("cancel")}
-                            </button>
-                          )}
                           {(job.tool === "tts" || job.tool === "screencast_translate" || job.tool === "screencast_render") && job.status === "failed" && (
                             <button
                               onClick={(e) => handleRetry(e, job)}
@@ -452,7 +443,7 @@ export default function JobsPanel() {
                             <a
                               href={`/tools/screencast?resume=${job.job_uuid}`}
                               onClick={(e) => { e.stopPropagation(); setOpen(false); }}
-                              className="inline-flex items-center gap-1 text-xs text-warn-strong bg-warn-bg hover:bg-warn-bg border border-warn-border px-2.5 py-1 rounded-full"
+                              className="inline-flex items-center gap-1 text-xs text-kb-dark bg-kb20 hover:bg-kb20 border border-kb60 px-2.5 py-1 rounded-full"
                             >
                               {tArtifacts("resumeScreencast")}
                             </a>

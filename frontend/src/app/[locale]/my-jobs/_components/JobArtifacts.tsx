@@ -56,10 +56,13 @@ export function JobArtifacts({ job }: { job: MyJob }) {
     if (job.status === "awaiting_user") {
       return (
         <div className="mt-3 space-y-2">
-          <div className="flex flex-wrap gap-2 items-center">
-            <DisabledChip label="MP4" />
-            <DisabledChip label={downloadAllLabel} />
-          </div>
+          {/* Die ausgegrauten Downloads weichen, sobald der Fortsetzen-Knopf steht. */}
+          {job.is_generating_scripts && (
+            <div className="flex flex-wrap gap-2 items-center">
+              <DisabledChip label="MP4" />
+              <DisabledChip label={downloadAllLabel} />
+            </div>
+          )}
           <div className="flex flex-wrap gap-2 items-center">
             {job.is_generating_scripts ? (
               <span className="inline-flex items-center gap-1.5 text-xs text-muted bg-surface border border-border-soft px-2.5 py-1 rounded-full">
@@ -69,7 +72,7 @@ export function JobArtifacts({ job }: { job: MyJob }) {
             ) : (
               <a
                 href={`/tools/screencast?resume=${job.job_uuid}`}
-                className="inline-flex items-center gap-1 text-xs text-warn-strong bg-warn-bg hover:bg-warn-bg border border-warn-border px-2.5 py-1 rounded-full"
+                className="inline-flex items-center gap-1 text-xs text-kb-dark bg-kb20 hover:bg-kb20 border border-kb60 px-2.5 py-1 rounded-full"
               >
                 {t("resumeScreencast")}
               </a>
