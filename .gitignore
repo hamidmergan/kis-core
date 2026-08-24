@@ -41,3 +41,6 @@ backend/.coverage.*
 
 # Playwright, wenn aus dem Wurzelverzeichnis gestartet
 /test-results/
+
+# Legt Next bei jedem Start neu an, der Pfad wechselt je nach Build
+frontend/next-env.d.ts
