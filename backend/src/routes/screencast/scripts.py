@@ -11,6 +11,7 @@ from src import database as db
 from src.dependencies import get_current_user, get_llm_client
 from src.i18n import get_locale, t
 from src.services.screencast import generate_all_scripts
+from src.services.screencast.statistik import messe, route_kennung, zeichen_zahlen
 from src.storage import get_job_file, load_result_meta, save_job_file, save_result_meta
 from src.utils.file_validation import MAX_SCREENCAST_SLIDES
 
@@ -140,7 +141,11 @@ async def screencast_generate_scripts(
     async with lock:
         db.set_generating_scripts_flag(uuid_key, True)
         try:
-            scripts = await _do_generate()
+            with messe(uuid_user_id or 0, uuid_key, "skripte") as zahlen:
+                zahlen.update(route_kennung("chat"))
+                zahlen["ziel"] = body.target_lang
+                scripts = await _do_generate()
+                zahlen.update(zeichen_zahlen(scripts))
         finally:
             db.set_generating_scripts_flag(uuid_key, False)
         try:

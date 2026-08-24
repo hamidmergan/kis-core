@@ -1,3 +1,6 @@
+import type { JobStats } from "./_components/adminStats";
+
+
 export interface MyJob {
   job_uuid: string;
   tool: string;
@@ -16,7 +19,7 @@ export interface MyJob {
   folder_name: string | null;
   tts_params?: { voice_id?: string; voice_label?: string; provider?: string } | null;
   is_generating_scripts?: boolean;
-  meta?: Record<string, unknown> | null;
+  meta?: (Record<string, unknown> & { stats?: JobStats }) | null;
 }
 
 

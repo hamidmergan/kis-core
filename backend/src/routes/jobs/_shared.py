@@ -75,7 +75,9 @@ def _dt(val) -> str | None:
     return (val.isoformat() + "Z") if hasattr(val, "isoformat") else val
 
 
-def _format_job_rows(jobs: list[dict], locale: str = DEFAULT_LOCALE) -> list[dict]:
+def _format_job_rows(
+    jobs: list[dict], locale: str = DEFAULT_LOCALE, is_admin: bool = False
+) -> list[dict]:
     """Format raw DB job rows into the standard API response format."""
     result = []
     for job in jobs:
@@ -106,8 +108,11 @@ def _format_job_rows(jobs: list[dict], locale: str = DEFAULT_LOCALE) -> list[dic
                 pass
 
         meta = None
-        if job["status"] == "success" and tool in _META_TOOLS:
+        if job["status"] in ("success", "failed") and tool in _META_TOOLS:
             meta = load_result_meta(job["user_id"], job["job_uuid"])
+            # Die Zahlen zum Lauf sind eine Betriebsauskunft und gehen nur an Admins.
+            if meta and not is_admin:
+                meta = {k: v for k, v in meta.items() if k != "stats"}
 
         result.append({
             "job_uuid": job["job_uuid"],

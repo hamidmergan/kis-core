@@ -5,6 +5,8 @@ import { isActive, isExpired, type MyJob } from "../_types";
 import { StatusBadge } from "./StatusBadge";
 import { TimingInfo } from "./TimingInfo";
 import { JobArtifacts } from "./JobArtifacts";
+import { AdminDetails } from "./AdminDetails";
+import { screencastJumpHref, screencastJumpKind } from "@/components/jobs/_screencastJump";
 
 
 interface JobListItemProps {
@@ -24,6 +26,7 @@ export function JobListItem({
 }: JobListItemProps) {
   const t = useTranslations("myJobs.actions");
   const expired = isExpired(job);
+  const resumeHref = screencastJumpKind(job) === "resume" ? screencastJumpHref(job.job_uuid) : undefined;
   const canRetry =
     (job.tool === "tts" || job.tool === "screencast_translate" || job.tool === "screencast_render")
     && job.status === "failed";
@@ -44,13 +47,14 @@ export function JobListItem({
             <p className="text-xs text-border font-mono truncate mt-0.5">{job.folder_name}</p>
           )}
           <TimingInfo job={job} isAdmin={isAdmin} />
+          {isAdmin && job.meta?.stats && <AdminDetails stats={job.meta.stats} />}
           {job.status === "failed" && job.error && (
             <p className="text-xs text-error mt-1">{job.error}</p>
           )}
           {!expired && <JobArtifacts job={job} />}
         </div>
         <div className="flex flex-col items-end gap-2 shrink-0">
-          <StatusBadge status={job.status} expired={expired} isGeneratingScripts={job.is_generating_scripts} />
+          <StatusBadge status={job.status} expired={expired} isGeneratingScripts={job.is_generating_scripts} resumeHref={resumeHref} />
           {isActive(job.status) && (
             <IconButton
               onClick={() => onCancel(job)}
