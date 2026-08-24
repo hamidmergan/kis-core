@@ -130,7 +130,7 @@ function ScreencastPageInner() {
   }, [defaultVoiceId, voiceId]);
   const { languages, targetLang, setTargetLang } = useLanguageConfig(SCREENCAST_TARGET_LANGUAGES);
   const { geladen: standGeladen, einstellungen: gespeicherteEinstellungen, stand, hatTon } =
-    useSchritt6Stand(translateJobUuid);
+    useSchritt6Stand(translateJobUuid, step === "tts-settings");
   const auswahl = useFolienAuswahl({
     slides,
     stand,

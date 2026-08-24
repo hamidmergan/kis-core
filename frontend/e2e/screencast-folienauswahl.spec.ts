@@ -125,4 +125,20 @@ test.describe("Folienauswahl in Schritt 6", () => {
     await expect(imScreencast).toHaveAttribute("aria-checked", "true");
     await expect(neuSprechen).toHaveAttribute("aria-checked", "true");
   });
+
+  test("beim erneuten Betreten von Schritt 6 wird der Stand neu geholt", async ({ page }) => {
+    let holungen = 0;
+    await page.route("**/vertonungs-stand", async (route) => {
+      holungen += 1;
+      await route.continue();
+    });
+    await bisSchritt6Offen(page);
+    const nachDemErsten = holungen;
+
+    await page.getByRole("button", { name: /Zurück/i }).first().click();
+    await page.getByRole("button", { name: /Alle Skripte übernehmen/i }).click();
+    await expect(page.getByRole("button", { name: /Ändern|Zuklappen/i })).toBeVisible({ timeout: 30_000 });
+
+    expect(holungen).toBeGreaterThan(nachDemErsten);
+  });
 });

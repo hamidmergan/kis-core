@@ -22,15 +22,15 @@ interface Antwort {
   hat_ton: boolean[];
 }
 
-/** Holt einmal je Auftrag, was Schritt 6 zum Vorbelegen braucht. */
-export function useSchritt6Stand(jobUuid: string) {
+/** Holt bei jedem Betreten von Schritt 6, was die Anzeige zum Vorbelegen braucht. */
+export function useSchritt6Stand(jobUuid: string, aktiv: boolean) {
   const [geladen, setGeladen] = useState(false);
   const [einstellungen, setEinstellungen] = useState<GespeicherteEinstellungen | null>(null);
   const [stand, setStand] = useState<VertonterStand | null>(null);
   const [hatTon, setHatTon] = useState<boolean[]>([]);
 
   useEffect(() => {
-    if (!jobUuid) return;
+    if (!jobUuid || !aktiv) return;
     let abgebrochen = false;
     setGeladen(false);
     fetch(`/api/screencast/${jobUuid}/vertonungs-stand`, { credentials: "include" })
@@ -44,7 +44,7 @@ export function useSchritt6Stand(jobUuid: string) {
       .catch(() => {})
       .finally(() => { if (!abgebrochen) setGeladen(true); });
     return () => { abgebrochen = true; };
-  }, [jobUuid]);
+  }, [jobUuid, aktiv]);
 
   return { geladen, einstellungen, stand, hatTon };
 }

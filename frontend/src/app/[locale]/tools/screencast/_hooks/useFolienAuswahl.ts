@@ -17,7 +17,7 @@ interface Optionen {
 export function useFolienAuswahl({ slides, stand, hatTon, gespeichert, bereit }: Optionen) {
   const [imScreencast, setImScreencast] = useState<number[]>([]);
   const [neuVertonen, setNeuVertonen] = useState<number[]>([]);
-  const vorbelegt = useRef(false);
+  const vorbelegtFuer = useRef<boolean[] | null>(null);
 
   const scripts = useMemo(() => slides.map((s) => s.script ?? ""), [slides]);
   const geaendert = useMemo(() => geaenderteFolien(stand, slides), [stand, slides]);
@@ -27,11 +27,12 @@ export function useFolienAuswahl({ slides, stand, hatTon, gespeichert, bereit }:
   );
 
   useEffect(() => {
-    if (!bereit || vorbelegt.current || !slides.length) return;
+    // Ein neu geholter Stand darf die Vorbelegung noch einmal ausloesen.
+    if (!bereit || !slides.length || vorbelegtFuer.current === hatTon) return;
     const start = startAuswahl(slides.length, gespeichert, geaendert, hatTon, scripts);
     setImScreencast(start.imScreencast);
     setNeuVertonen(start.neuVertonen);
-    vorbelegt.current = true;
+    vorbelegtFuer.current = hatTon;
   }, [bereit, slides.length, gespeichert, geaendert, hatTon, scripts]);
 
   const setzeScreencast = useCallback((naechste: number[]) => {
