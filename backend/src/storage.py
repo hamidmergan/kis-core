@@ -533,9 +533,16 @@ def _slide_number(key_or_name: str) -> int:
     return int(digits) if digits.isdigit() else -1
 
 
-def save_audio_cache(user_id: int, job_uuid: str, audio_files: list[bytes]) -> None:
-    """Save per-slide MP3 files under the job's audio/ folder. S3 writes parallel."""
+def save_audio_cache(user_id: int, job_uuid: str, audio_files: list[bytes | None]) -> None:
+    """Save per-slide MP3 files under the job's audio/ folder. S3 writes parallel.
+
+    ``None`` an einer Stelle heisst: diesen Platz nicht anfassen. Folien, die
+    nicht im Screencast sind, behalten so ihren alten Ton.
+    """
     base = f"{job_prefix(user_id, job_uuid)}/audio"
+    zu_schreiben = [(i, d) for i, d in enumerate(audio_files) if d is not None]
+    if not zu_schreiben:
+        return
     if USE_S3:
         from concurrent.futures import ThreadPoolExecutor
 
@@ -543,14 +550,12 @@ def save_audio_cache(user_id: int, job_uuid: str, audio_files: list[bytes]) -> N
             i, data = i_data
             _s3().put_object(Bucket=_S3_BUCKET, Key=f"{base}/slide_{i:03d}.mp3", Body=data)
 
-        if not audio_files:
-            return
-        with ThreadPoolExecutor(max_workers=min(len(audio_files), 10)) as pool:
-            list(pool.map(_put, enumerate(audio_files)))
+        with ThreadPoolExecutor(max_workers=min(len(zu_schreiben), 10)) as pool:
+            list(pool.map(_put, zu_schreiben))
         return
     audio_dir = _local_path(base)
     audio_dir.mkdir(parents=True, exist_ok=True)
-    for i, data in enumerate(audio_files):
+    for i, data in zu_schreiben:
         (audio_dir / f"slide_{i:03d}.mp3").write_bytes(data)
 
 
@@ -565,6 +570,11 @@ def get_audio_slide(user_id: int, job_uuid: str, slide_index: int) -> bytes | No
             return None
     path = _local_path(key)
     return path.read_bytes() if path.exists() else None
+
+
+def hat_audio_slide(user_id: int, job_uuid: str, slide_index: int) -> bool:
+    """Leere Dateien gelten als kein Ton, sie stehen fuer Folien ohne Skript."""
+    return bool(get_audio_slide(user_id, job_uuid, slide_index))
 
 
 def get_audio_slide_count(user_id: int, job_uuid: str) -> int:
