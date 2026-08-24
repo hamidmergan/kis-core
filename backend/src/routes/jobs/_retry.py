@@ -14,6 +14,21 @@ from src.storage import get_job_file, save_job_file
 router = APIRouter()
 
 
+def _queue_params_from_render(render_params: dict) -> dict:
+    """Die gespeicherten Render-Angaben als Auftrag fuer die Warteschlange."""
+    return {
+        "dispatch_as": "render",
+        "voice_id": render_params["voice_id"],
+        "speed": render_params["speed"],
+        "slide_pause": render_params["slide_pause"],
+        "dpi": render_params["dpi"],
+        "provider_id": int(render_params.get("provider_id", 0)),
+        "voice_label": render_params.get("voice_label", ""),
+        "is_admin": render_params.get("is_admin", False),
+        "subtitles": bool(render_params.get("subtitles", False)),
+    }
+
+
 @router.post("/{job_uuid}/retry")
 def retry_job(
     job_uuid: str,
@@ -73,17 +88,8 @@ def retry_job(
         db.set_job_celery_task_id(job_uuid, task.id)
 
     else:  # screencast_translate / screencast_render
-        provider_id = int(render_params.get("provider_id", 0))
-        save_job_file(job["user_id"], job_uuid, "queue_params.json", json.dumps({
-            "dispatch_as": "render",
-            "voice_id": render_params["voice_id"],
-            "speed": render_params["speed"],
-            "slide_pause": render_params["slide_pause"],
-            "dpi": render_params["dpi"],
-            "provider_id": provider_id,
-            "voice_label": render_params.get("voice_label", ""),
-            "is_admin": render_params.get("is_admin", False),
-        }).encode())
+        save_job_file(job["user_id"], job_uuid, "queue_params.json",
+                      json.dumps(_queue_params_from_render(render_params)).encode())
         if not db.transition_job_to_queued(job_uuid, job["user_id"], from_statuses=("failed",)):
             raise HTTPException(status_code=409, detail=t("job.parallelRunning", locale))
         from src.tasks.screencast_tasks import dispatch_next_screencast_job_for_user

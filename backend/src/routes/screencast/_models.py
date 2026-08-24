@@ -37,10 +37,12 @@ class RenderRequest(BaseModel):
     slide_images_b64: list[str] = []
     voice_id: str = ""
     voice_label: str = ""
-    speed: float = 1.0
-    slide_pause: float = 0.5
+    speed: float = 0.9
+    slide_pause: float = 1.0
     dpi: int = 100
     provider_id: int
+    # Untertitel-Spur ins MP4, per Haken in den Einstellungen.
+    subtitles: bool = False
 
 
 class PrerenderRequest(BaseModel):

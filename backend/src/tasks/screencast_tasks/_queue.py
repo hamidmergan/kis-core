@@ -39,13 +39,9 @@ def dispatch_next_screencast_job_for_user(user_id: int) -> None:
                 _r.delete(f"job:cancel:{job_uuid}")
             except Exception:
                 pass
-            task = run_screencast_render.apply_async(args=[
-                job_uuid, scripts,
-                params["voice_id"], params["speed"], params["slide_pause"],
-                job["original_filename"] or "screencast.pptx",
-                params["dpi"], int(params.get("provider_id", 0)), params["voice_label"],
-                params["is_admin"],
-            ])
+            task = run_screencast_render.apply_async(args=_render_args(
+                job_uuid, scripts, params, job["original_filename"] or "screencast.pptx",
+            ))
             db.set_render_queued_at(job_uuid)
         else:
             logger.warning("dispatch_next: unknown dispatch_as '{}' for job {}", dispatch_as, job_uuid[:8])
@@ -56,6 +52,17 @@ def dispatch_next_screencast_job_for_user(user_id: int) -> None:
     except Exception as e:
         logger.error("dispatch_next: failed to dispatch job {}: {}", job_uuid[:8], e)
         db.update_job_status(job_uuid, "failed", error_message=f"Konnte nicht aus der Warteschlange gestartet werden: {e}")
+
+
+def _render_args(job_uuid: str, scripts: list, params: dict, original_filename: str) -> list:
+    """Argumente fuer den Render-Task, in der Reihenfolge der Task-Signatur."""
+    return [
+        job_uuid, scripts,
+        params["voice_id"], params["speed"], params["slide_pause"],
+        original_filename,
+        params["dpi"], int(params.get("provider_id", 0)), params["voice_label"],
+        params["is_admin"], bool(params.get("subtitles", False)),
+    ]
 
 
 def _maybe_dispatch_next(job_uuid: str) -> None:

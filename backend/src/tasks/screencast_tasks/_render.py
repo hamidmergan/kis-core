@@ -39,6 +39,7 @@ def run_screencast_render(
     provider_id: int = 0,
     voice_label: str = "",
     is_admin: bool = False,
+    subtitles: bool = False,
 ):
     """Render final MP4 from edited scripts and stored PPTX.
 
@@ -65,6 +66,8 @@ def run_screencast_render(
                 dpi=dpi,
                 provider_id=provider_id,
                 is_admin=is_admin,
+                subtitles=subtitles,
+                voice_label=voice_label,
             )
 
         meta_existing = load_result_meta(user_id, translate_job_uuid) or {}

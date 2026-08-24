@@ -39,6 +39,23 @@ def get_audio_duration(audio_path: Path | None) -> float:
     return total
 
 
+def get_video_duration(video_path: Path) -> float:
+    """Laenge eines fertigen Clips in Sekunden, gibt den Versatz der naechsten Folie."""
+    cmd = [
+        "ffprobe", "-v", "error",
+        "-show_entries", "format=duration",
+        "-of", "csv=p=0",
+        str(video_path),
+    ]
+    result = subprocess.run(cmd, capture_output=True, text=True, timeout=60)
+    if result.returncode != 0:
+        raise RuntimeError(f"ffprobe fehlgeschlagen: {result.stderr[:200]}")
+    try:
+        return float(result.stdout.strip().rstrip(","))
+    except ValueError:
+        raise RuntimeError(f"Cliplaenge nicht messbar: {video_path}")
+
+
 def _tempo_anpassen(audio_path: Path, output_path: Path, speed: float, job_uuid: str | None) -> Path:
     """Lokal verlangsamen, damit die Tonhöhe bleibt."""
     gedehnt = output_path.with_suffix(".tempo.mp3")
@@ -165,14 +182,17 @@ def concatenate_videos(video_paths: list[Path], output_path: Path) -> None:
         raise RuntimeError(f"Video concatenation failed: {result.stderr[:200]}")
 
 
-def apply_faststart(input_path: Path, output_path: Path) -> bytes:
-    """Apply faststart to MP4 for web streaming."""
-    cmd = [
-        "ffmpeg", "-y", "-i", str(input_path),
-        "-map", "0",
-        "-c", "copy", "-movflags", "+faststart",
-        str(output_path),
-    ]
+def apply_faststart(input_path: Path, output_path: Path, subtitle_path: Path | None = None, subtitle_lang: str = "") -> bytes:
+    """Faststart fuers Netz, dabei kommt die Untertitel-Spur ohne neues Kodieren mit rein."""
+    cmd = ["ffmpeg", "-y", "-i", str(input_path)]
+    if subtitle_path is not None:
+        cmd += ["-i", str(subtitle_path)]
+    cmd += ["-map", "0"]
+    if subtitle_path is not None:
+        cmd += ["-map", "1:0", "-c:s", "mov_text"]
+        if subtitle_lang:
+            cmd += ["-metadata:s:s:0", f"language={subtitle_lang}"]
+    cmd += ["-c:v", "copy", "-c:a", "copy", "-movflags", "+faststart", str(output_path)]
     result = subprocess.run(cmd, capture_output=True, text=True, timeout=120)
     if result.returncode != 0:
         logger.warning("faststart fix failed (rc={}): {}", result.returncode, result.stderr[:300])

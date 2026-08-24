@@ -12,6 +12,7 @@ from src.i18n import get_locale, t
 from src.storage import (
     clear_render_cache,
     delete_job_folder,
+    get_job_file,
     job_file_exists,
     load_result_meta,
     save_job_file,
@@ -28,6 +29,22 @@ def _merke_zielsprache(user_id: int, job_uuid: str, target_lang: str) -> None:
         return
     save_result_meta(user_id, job_uuid, {**(load_result_meta(user_id, job_uuid) or {}),
                                          "target_lang": target_lang})
+
+
+def _vorrat_passt_nicht(user_id: int, job_uuid: str, body) -> bool:
+    """Stimme, Anbieter oder Sprache gewechselt? Dann ist der Ton im Vorrat der falsche."""
+    try:
+        alt = json.loads(get_job_file(user_id, job_uuid, "queue_params.json"))
+    except Exception:
+        return False
+    alt_sprache = (load_result_meta(user_id, job_uuid) or {}).get("target_lang", "")
+    return (
+        alt.get("voice_id") != body.voice_id
+        or int(alt.get("provider_id", 0) or 0) != int(body.provider_id or 0)
+        or alt_sprache != body.target_lang
+    )
+
+
 from src.routes.screencast._shared import prerender_images_task
 
 router = APIRouter(tags=["screencast: render"])
@@ -105,11 +122,11 @@ def screencast_render(
         db.delete_job(body.translate_job_uuid)
         raise HTTPException(status_code=404, detail=t("screencast.jobFilesGone", locale))
 
-    # If re-rendering a previously completed job, clear stale TTS audio so the
-    # crash-recovery mechanism doesn't reuse old audio for the new scripts.
-    if translate_job["status"] == "success":
+    # Vorrat wegwerfen, wenn er nicht mehr passt: nach einem Erfolg sind die Skripte neu,
+    # nach einem Stimmwechsel spraeche sonst die alte Stimme weiter.
+    if translate_job["status"] == "success" or _vorrat_passt_nicht(user_id, body.translate_job_uuid, body):
         clear_render_cache(user_id, body.translate_job_uuid)
-        logger.info("Re-render: cleared render cache for job={}", body.translate_job_uuid)
+        logger.info("Vorrat geleert fuer job={}", body.translate_job_uuid)
 
     _merke_zielsprache(user_id, body.translate_job_uuid, body.target_lang)
 
@@ -124,6 +141,7 @@ def screencast_render(
         "provider_id": body.provider_id,
         "voice_label": body.voice_label,
         "is_admin": is_admin_user(current_user),
+        "subtitles": body.subtitles,
     }).encode())
 
     # Atomically transition to queued (prevents duplicate submissions from multiple tabs)
