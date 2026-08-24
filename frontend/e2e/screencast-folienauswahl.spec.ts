@@ -11,7 +11,7 @@ test.describe("Folienauswahl in Schritt 6", () => {
 
   test.afterEach(async ({ page }) => {
     if (!jobUuid) return;
-    await page.request.delete(`/api/jobs/${jobUuid}`).catch(() => {});
+    await page.request.delete(`/api/jobs/${jobUuid}`);
     jobUuid = "";
   });
 
@@ -72,11 +72,14 @@ test.describe("Folienauswahl in Schritt 6", () => {
 
     const zweiteFolie = page.getByRole("checkbox", { name: "Folie 2 in den Screencast" });
     await expect(zweiteFolie).toHaveAttribute("aria-checked", "true");
+
+    const gespeichert = page.waitForResponse(
+      (r) => r.url().includes("/einstellungen") && r.request().method() === "PUT",
+    );
     await zweiteFolie.click();
     await expect(zweiteFolie).toHaveAttribute("aria-checked", "false");
+    await gespeichert;
 
-    // Die Speicherung ist um 600ms entprellt, deshalb erst danach neu laden.
-    await page.waitForTimeout(1500);
     await page.goto(`/de/tools/screencast?resume=${uuid}`, { waitUntil: "domcontentloaded" });
 
     const aendern = page.getByRole("button", { name: "Ändern" });
@@ -90,5 +93,36 @@ test.describe("Folienauswahl in Schritt 6", () => {
     await page.locator('section[aria-label="Folien"]').screenshot({
       path: "e2e/screens/screencast-folienauswahl.png",
     });
+  });
+
+  test("eine Folie ohne Ton bleibt nach dem Wiederhinzufuegen angehakt", async ({ page }) => {
+    const uuid = await bisSchritt6Offen(page);
+
+    // Gestellt, weil ein echter zweiter Render-Durchlauf hier zu lange braeuchte.
+    await page.route("**/vertonungs-stand", (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ einstellungen: null, stand: null, hat_ton: [true, false] }),
+      }),
+    );
+    await page.goto(`/de/tools/screencast?resume=${uuid}`, { waitUntil: "domcontentloaded" });
+
+    const aendern = page.getByRole("button", { name: "Ändern" });
+    await expect(aendern).toBeVisible({ timeout: 30_000 });
+    await aendern.click();
+
+    const imScreencast = page.getByRole("checkbox", { name: "Folie 2 in den Screencast" });
+    const neuSprechen = page.getByRole("checkbox", { name: "Folie 2 neu sprechen" });
+
+    // Folie 2 hat ein Skript und keinen Ton, sie muss gesprochen werden.
+    await expect(neuSprechen).toHaveAttribute("aria-checked", "true");
+    await expect(neuSprechen).toBeDisabled();
+
+    await imScreencast.click();
+    await imScreencast.click();
+
+    await expect(imScreencast).toHaveAttribute("aria-checked", "true");
+    await expect(neuSprechen).toHaveAttribute("aria-checked", "true");
   });
 });
