@@ -50,6 +50,7 @@ interface TtsSettingsStepProps {
   onBackToScripts: () => void;
   onStartRender: () => void;
   laufUmsonst: boolean;
+  stimmwechselWirkungslos: boolean;
   onZumVideo: () => void;
 }
 
@@ -94,6 +95,7 @@ export default function TtsSettingsStep(props: TtsSettingsStepProps) {
     onBackToScripts,
     onStartRender,
     laufUmsonst,
+    stimmwechselWirkungslos,
     onZumVideo,
   } = props;
 
@@ -284,11 +286,16 @@ export default function TtsSettingsStep(props: TtsSettingsStepProps) {
           {t("ttsSettings.nichtsGeaendert")}
         </p>
       )}
+      {stimmwechselWirkungslos && (
+        <p className="mb-3 rounded-md border border-warn-border bg-warn-bg px-3 py-2 text-sm text-warn-strong" role="alert">
+          {t("ttsSettings.stimmwechselOhneHaken")}
+        </p>
+      )}
       <StepFooter
         onBack={onBack}
         nextLabel={laufUmsonst ? t("ttsSettings.zumFertigenVideo") : t("ttsSettings.startRender")}
         onNext={laufUmsonst ? onZumVideo : onStartRender}
-        nextDisabled={scriptOverLimit || imScreencast.length === 0}
+        nextDisabled={scriptOverLimit || imScreencast.length === 0 || stimmwechselWirkungslos}
       />
     </section>
   );

@@ -26,7 +26,7 @@ import Lightbox from "./_components/Lightbox";
 import RenderVorschau from "./_components/RenderVorschau";
 import RegenChatModal, { type RegenApplyMode } from "./_components/RegenChatModal";
 import ExitConfirmModal from "./_components/ExitConfirmModal";
-import { parseScriptJsonFile, checkHasActiveJob, checkJobValidity, checkJobFolderExists, computeVoiceLabel, laufWaereUmsonst } from "./_utils";
+import { parseScriptJsonFile, checkHasActiveJob, checkJobValidity, checkJobFolderExists, computeVoiceLabel, laufWaereUmsonst, stimmwechselOhneWirkung, type LaufStand } from "./_utils";
 import { flowReducer, INITIAL_FLOW_STATE } from "./_reducer";
 import { useScreencastRenderFlow } from "./_hooks/useScreencastRenderFlow";
 import { useScreencastTranslateFlow } from "./_hooks/useScreencastTranslateFlow";
@@ -145,8 +145,7 @@ function ScreencastPageInner() {
   });
   const zeigtNeu = hatTon.some(Boolean);
   const stimmeGewechselt = !!stand && (stand.voice_id !== voiceId || stand.provider_id !== providerId || stand.target_lang !== targetLang);
-  // Ein Lauf ohne jede Aenderung erzeugt genau dasselbe Video, das kostet nur Zeit und Kontingent.
-  const laufUmsonst = laufWaereUmsonst({
+  const laufStand: LaufStand = {
     stand,
     hatVideo: videoUrl !== null,
     imScreencast: auswahl.imScreencast,
@@ -159,7 +158,11 @@ function ScreencastPageInner() {
     speed,
     slidePause,
     subtitles,
-  });
+  };
+  // Ein Lauf ohne jede Aenderung erzeugt genau dasselbe Video, das kostet nur Zeit und Kontingent.
+  const laufUmsonst = laufWaereUmsonst(laufStand);
+  // Eine neue Stimme ohne angehakte Folie bliebe unbemerkt beim alten Video.
+  const stimmwechselWirkungslos = stimmwechselOhneWirkung(laufStand);
   // Schritt 6 wartet auf den gespeicherten Stand, sonst ueberschreibt er eine laufende Eingabe.
   const schritt6Bereit = !translateJobUuid || standGeladen;
 
@@ -771,6 +774,7 @@ function ScreencastPageInner() {
             onBackToScripts={handleBackToScripts}
             onStartRender={handleStartRender}
             laufUmsonst={laufUmsonst}
+            stimmwechselWirkungslos={stimmwechselWirkungslos}
             onZumVideo={() => dispatch({ type: "SET_STEP", step: "done" })}
           />
         )}

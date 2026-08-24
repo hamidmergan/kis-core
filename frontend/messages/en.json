@@ -625,7 +625,8 @@
         "subtitles": "Add subtitles",
         "subtitlesHint": "The spoken text is recognised and added to the video as a subtitle track. Toggle it with CC in the player. Rendering takes a little longer.",
         "nichtsGeaendert": "Nothing has changed since the last run. A new screencast would produce exactly the same video.",
-        "zumFertigenVideo": "Go to the finished video"
+        "zumFertigenVideo": "Go to the finished video",
+        "stimmwechselOhneHaken": "The voice has changed, but no slide is ticked for re-voicing. Nothing would change. Tick the slides that should be spoken with the new voice."
       },
       "folienAuswahl": {
         "titel": "Slides",

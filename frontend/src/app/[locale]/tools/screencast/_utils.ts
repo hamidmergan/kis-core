@@ -170,13 +170,29 @@ export interface LaufStand {
   subtitles: boolean;
 }
 
+/** Wahr, wenn dieser Lauf keine einzige Folie neu sprechen wuerde. */
+export function nichtsWirdGesprochen(s: LaufStand): boolean {
+  if (s.neuVertonen.length > 0) return false;
+  // Eine Folie ohne Ton bekaeme welchen, auch ohne Haken.
+  return !s.ohneTon.some((i) => s.imScreencast.includes(i));
+}
+
+/** Wahr, wenn eine neue Stimme wirkungslos bliebe, weil nichts gesprochen wird. */
+export function stimmwechselOhneWirkung(s: LaufStand): boolean {
+  if (!s.stand || !s.hatVideo) return false;
+  if (!nichtsWirdGesprochen(s)) return false;
+  return (
+    s.stand.voice_id !== s.voiceId ||
+    s.stand.provider_id !== s.providerId ||
+    s.stand.target_lang !== s.targetLang
+  );
+}
+
 /** Wahr, wenn ein neuer Lauf genau dasselbe Video ergaebe. */
 export function laufWaereUmsonst(s: LaufStand): boolean {
   if (!s.stand || !s.hatVideo) return false;
-  if (s.neuVertonen.length > 0) return false;
+  if (!nichtsWirdGesprochen(s)) return false;
   if (s.geaendert.length > 0) return false;
-  // Eine Folie ohne Ton bekaeme welchen, das ist eine Aenderung.
-  if (s.ohneTon.some((i) => s.imScreencast.includes(i))) return false;
   if (s.stand.voice_id !== s.voiceId) return false;
   if (s.stand.provider_id !== s.providerId) return false;
   if (s.stand.target_lang !== s.targetLang) return false;

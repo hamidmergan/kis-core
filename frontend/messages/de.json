@@ -625,7 +625,8 @@
         "subtitles": "Untertitel einbauen",
         "subtitlesHint": "Der gesprochene Text wird erkannt und als Untertitel-Spur ins Video gelegt. Im Player mit CC an und aus schaltbar. Das Rendern dauert dadurch etwas länger.",
         "nichtsGeaendert": "Seit dem letzten Lauf hat sich nichts geändert. Ein neuer Screencast würde genau dasselbe Video ergeben.",
-        "zumFertigenVideo": "Zum fertigen Video"
+        "zumFertigenVideo": "Zum fertigen Video",
+        "stimmwechselOhneHaken": "Die Stimme ist gewechselt, aber keine Folie zum Neusprechen angehakt. So bliebe alles beim Alten. Hake die Folien an, die mit der neuen Stimme gesprochen werden sollen."
       },
       "folienAuswahl": {
         "titel": "Folien",
