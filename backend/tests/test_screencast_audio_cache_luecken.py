@@ -41,3 +41,14 @@ def test_leere_datei_gilt_als_kein_ton(lokal):
 def test_fehlende_datei_gilt_als_kein_ton(lokal):
     save_audio_cache(1, UUID, [b"ID3"])
     assert hat_audio_slide(1, UUID, 5) is False
+
+
+def test_audio_folien_mit_ton_findet_nur_belegte_plaetze(lokal):
+    from src.storage import audio_folien_mit_ton
+    save_audio_cache(1, UUID, [b"ID3", b"", b"ID3"])
+    assert audio_folien_mit_ton(1, UUID) == {0, 2}
+
+
+def test_audio_folien_mit_ton_ohne_ordner(lokal):
+    from src.storage import audio_folien_mit_ton
+    assert audio_folien_mit_ton(1, "c" * 32) == set()

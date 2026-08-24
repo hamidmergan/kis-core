@@ -49,6 +49,16 @@ describe("startAuswahl", () => {
     const a = startAuswahl(3, { video_folien: null, neu_vertonen: [] }, [], [true, true, true], skripte);
     expect(a.imScreencast).toEqual([0, 1, 2]);
   });
+
+  it("geaenderte Folien kommen auch neben einer gespeicherten Auswahl dazu", () => {
+    const a = startAuswahl(3, { video_folien: [0, 1, 2], neu_vertonen: [] }, [1], [true, true, true], skripte);
+    expect(a.neuVertonen).toEqual([1]);
+  });
+
+  it("gespeicherte und geaenderte Folien werden vereinigt", () => {
+    const a = startAuswahl(3, { video_folien: [0, 1, 2], neu_vertonen: [0] }, [2], [true, true, true], skripte);
+    expect(a.neuVertonen).toEqual([0, 2]);
+  });
 });
 
 describe("angleichen", () => {

@@ -31,3 +31,14 @@ def folien_auswahl(
         ausgeschlossen=alle - dabei,
         alter_ton_erlaubt=dabei - neu,
     )
+
+
+def clip_paare(clip_folien: list[int], num_slides: int) -> list[tuple[int, int]]:
+    """Je Clip die Bauposition und die Foliennummer, die zusammengehoeren."""
+    return list(enumerate(i for i in clip_folien if i < num_slides))
+
+
+def ton_plaetze(anzahl: int, clip_folien: list[int]) -> list[bool]:
+    """Wahr, wo neuer Ton hinkommt. Der Rest behaelt den Ton des letzten Laufs."""
+    dabei = set(clip_folien)
+    return [i in dabei for i in range(anzahl)]

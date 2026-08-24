@@ -514,11 +514,16 @@ function ScreencastPageInner() {
 
   const showStepIndicator = step !== "upload" && step !== "error";
 
+  // Nur die gewaehlten Folien zaehlen, sonst bleibt der Startknopf gesperrt, obwohl abgewaehlt wurde.
+  const gewaehlteFolien = new Set(auswahl.imScreencast);
   const totalWords = slides.reduce(
-    (sum, s) => sum + wordCount(s.script),
+    (sum, s, i) => (gewaehlteFolien.has(i) ? sum + wordCount(s.script) : sum),
     0,
   );
-  const totalChars = slides.reduce((sum, s) => sum + (s.script?.length ?? 0), 0);
+  const totalChars = slides.reduce(
+    (sum, s, i) => (gewaehlteFolien.has(i) ? sum + (s.script?.length ?? 0) : sum),
+    0,
+  );
   const scriptOverLimit = totalChars > SCREENCAST_MAX_CHARS;
 
 

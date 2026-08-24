@@ -29,14 +29,10 @@ export function startAuswahl(
   const imScreencast = gespeichert?.video_folien
     ? gespeichert.video_folien.filter((i) => i >= 0 && i < anzahl)
     : alle;
-  const dabei = new Set(imScreencast);
-  const neu = new Set(gespeichert ? gespeichert.neu_vertonen : geaendert);
-  // Ohne Ton bleibt keine Wahl, sonst zeigte die Liste einen leeren Haken.
-  ohneTonAberMitSkript(scripts, hatTon).forEach((i) => neu.add(i));
-  return {
-    imScreencast,
-    neuVertonen: [...neu].filter((i) => dabei.has(i)).sort((a, b) => a - b),
-  };
+  // Geaendertes kommt immer dazu, sonst spricht das Video den alten Text weiter.
+  const bisher = [...(gespeichert ? gespeichert.neu_vertonen : []), ...geaendert];
+  const gesperrt = new Set(ohneTonAberMitSkript(scripts, hatTon));
+  return { imScreencast, neuVertonen: angleichen(imScreencast, bisher, gesperrt) };
 }
 
 /** Neu vertont wird nur, was im Screencast ist, und eine Folie ohne Ton immer. */

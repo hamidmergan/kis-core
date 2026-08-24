@@ -31,6 +31,8 @@ export default function TranslationReviewStep({
   const t = useTranslations("tools.screencast");
   const [downloadFailed, setDownloadFailed] = useState(false);
   const unchangedCount = slides.filter((s) => s.unchanged).length;
+  // Derselbe Endpunkt meldet auch leere Datei und zu viele Folien, die Ueberschrift passt nur zur echten Folienzahl-Meldung.
+  const istFolienzahlFehler = /folien(nummer|zahl)|slide (number|count)/i.test(uploadFehler);
   return (
     <section className="animate-[fadeIn_0.3s_ease-out]">
       <h2 className="text-lg font-bold mb-2">{t("translationReview.heading")}</h2>
@@ -128,7 +130,9 @@ export default function TranslationReviewStep({
 
       {uploadFehler && (
         <div className="mb-4 rounded-lg border border-error-border bg-error-bg px-4 py-3" role="alert">
-          <p className="text-sm font-medium text-error-strong">{t("translationReview.folienzahlTitel")}</p>
+          {istFolienzahlFehler && (
+            <p className="text-sm font-medium text-error-strong">{t("translationReview.folienzahlTitel")}</p>
+          )}
           <p className="mt-0.5 text-sm text-error">{uploadFehler}</p>
         </div>
       )}

@@ -43,7 +43,7 @@ def test_lesen_liefert_einstellungen_und_abzug(client):
     with patch(f"{MODUL}.get_job", return_value=_JOB), \
          patch(f"{MODUL}.get_job_file", side_effect=_dateien(dateien)), \
          patch(f"{MODUL}.get_audio_slide_count", return_value=3), \
-         patch(f"{MODUL}.hat_audio_slide", side_effect=lambda u, j, i: i != 1):
+         patch(f"{MODUL}.audio_folien_mit_ton", return_value={0, 2}):
         r = client.get(f"/screencast/{UUID}/vertonungs-stand")
     assert r.status_code == 200
     daten = r.json()
@@ -56,7 +56,7 @@ def test_ohne_gespeicherten_stand_kommt_null(client):
     with patch(f"{MODUL}.get_job", return_value=_JOB), \
          patch(f"{MODUL}.get_job_file", side_effect=_dateien({})), \
          patch(f"{MODUL}.get_audio_slide_count", return_value=0), \
-         patch(f"{MODUL}.hat_audio_slide", return_value=False):
+         patch(f"{MODUL}.audio_folien_mit_ton", return_value=set()):
         r = client.get(f"/screencast/{UUID}/vertonungs-stand")
     assert r.status_code == 200
     assert r.json() == {"einstellungen": None, "stand": None, "hat_ton": []}
@@ -118,7 +118,7 @@ def test_alter_ton_ueber_die_folienzahl_hinaus_zaehlt_nicht_mit(client):
     with patch(f"{MODUL}.get_job", return_value=_JOB), \
          patch(f"{MODUL}.get_job_file", side_effect=_dateien(dateien)), \
          patch(f"{MODUL}.get_audio_slide_count", return_value=7), \
-         patch(f"{MODUL}.hat_audio_slide", return_value=True):
+         patch(f"{MODUL}.audio_folien_mit_ton", return_value={0, 1, 5, 6}):
         r = client.get(f"/screencast/{UUID}/vertonungs-stand")
     assert r.status_code == 200
     assert len(r.json()["hat_ton"]) == 2
@@ -129,7 +129,7 @@ def test_ohne_skriptdatei_zaehlt_der_ordner(client):
     with patch(f"{MODUL}.get_job", return_value=_JOB), \
          patch(f"{MODUL}.get_job_file", side_effect=_dateien({})), \
          patch(f"{MODUL}.get_audio_slide_count", return_value=3), \
-         patch(f"{MODUL}.hat_audio_slide", return_value=True):
+         patch(f"{MODUL}.audio_folien_mit_ton", return_value={0, 1, 2}):
         r = client.get(f"/screencast/{UUID}/vertonungs-stand")
     assert r.status_code == 200
     assert len(r.json()["hat_ton"]) == 3

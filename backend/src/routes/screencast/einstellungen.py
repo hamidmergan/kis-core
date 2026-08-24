@@ -9,7 +9,7 @@ from pydantic import BaseModel
 from src.dependencies import get_current_user
 from src.features.jobs.repository import get_job
 from src.i18n import get_locale, t
-from src.storage import get_audio_slide_count, get_job_file, hat_audio_slide, save_job_file
+from src.storage import audio_folien_mit_ton, get_audio_slide_count, get_job_file, save_job_file
 
 router = APIRouter(tags=["screencast: einstellungen"])
 
@@ -58,10 +58,11 @@ def vertonungs_stand(
     scripts = _lies_json(user_id, job_uuid, "render_scripts.json") or []
     # Der Nummernraum kommt von den Folien, audio/ kann alten Ton ausgeschlossener Folien halten.
     anzahl = len(scripts) or get_audio_slide_count(user_id, job_uuid)
+    mit_ton = audio_folien_mit_ton(user_id, job_uuid)
     return {
         "einstellungen": _lies_json(user_id, job_uuid, "einstellungen.json"),
         "stand": stand,
-        "hat_ton": [hat_audio_slide(user_id, job_uuid, i) for i in range(anzahl)],
+        "hat_ton": [i in mit_ton for i in range(anzahl)],
     }
 
 

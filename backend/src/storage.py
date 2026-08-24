@@ -588,6 +588,26 @@ def get_audio_slide_count(user_id: int, job_uuid: str) -> int:
     return len(list(audio_dir.glob("slide_*.mp3")))
 
 
+def audio_folien_mit_ton(user_id: int, job_uuid: str) -> set[int]:
+    """Welche Folien Ton haben, in einer Abfrage statt einer je Folie."""
+    prefix = f"{job_prefix(user_id, job_uuid)}/audio/"
+    dabei: set[int] = set()
+    if USE_S3:
+        paginator = _s3().get_paginator("list_objects_v2")
+        for page in paginator.paginate(Bucket=_S3_BUCKET, Prefix=prefix):
+            for obj in page.get("Contents", []):
+                if obj["Size"] > 0:
+                    dabei.add(_slide_number(obj["Key"]))
+        return dabei - {-1}
+    audio_dir = _local_path(prefix)
+    if not audio_dir.exists():
+        return dabei
+    for pfad in audio_dir.glob("slide_*.mp3"):
+        if pfad.stat().st_size > 0:
+            dabei.add(_slide_number(pfad.name))
+    return dabei - {-1}
+
+
 def get_all_audio_slides(user_id: int, job_uuid: str) -> list[tuple[str, bytes]]:
     """Fetch all per-slide MP3s in parallel (S3) or sequentially (local).
 

@@ -20,7 +20,7 @@ from src.storage import (
     save_result_meta,
 )
 
-from src.services.screencast.auswahl import folien_auswahl
+from src.services.screencast.auswahl import clip_paare, folien_auswahl, ton_plaetze
 from src.services.screencast.statistik import (
     anbieter_und_modell,
     messe,
@@ -215,10 +215,11 @@ def _run_render_pipeline(
         # ── Video clips (parallel) ────────────────────────────────────────
         db.set_render_started_at(job_uuid)
         # Die Foliennummer bleibt der Schluessel, gebaut wird nur die Auswahl.
-        clip_folien = [i for i in auswahl.clip_folien if i < num_slides]
-        if not clip_folien:
+        paare = clip_paare(auswahl.clip_folien, num_slides)
+        if not paare:
             raise RuntimeError("Keine Folie im Screencast")
-        clip_paths: list[Path] = [tmp / f"clip_{pos:03d}.mp4" for pos in range(len(clip_folien))]
+        clip_folien = [i for _, i in paare]
+        clip_paths: list[Path] = [tmp / f"clip_{pos:03d}.mp4" for pos, _ in paare]
 
         def _render_clip_normal(pos: int) -> None:
             i = clip_folien[pos]
@@ -296,7 +297,9 @@ def _run_render_pipeline(
         db.update_job_status(job_uuid, "running", progress={"step": "saving"})
         # None heisst: den Platz nicht anfassen, dort liegt der Ton des letzten Laufs.
         audio_bytes_list: list[bytes | None] = [None] * len(scripts)
-        for i in clip_folien:
+        for i, platz in enumerate(ton_plaetze(len(scripts), clip_folien)):
+            if not platz:
+                continue
             p = audio_paths[i]
             audio_bytes_list[i] = p.read_bytes() if p is not None and p.exists() else b""
         save_audio_cache(user_id, job_uuid, audio_bytes_list)

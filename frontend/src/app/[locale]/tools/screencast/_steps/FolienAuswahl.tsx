@@ -56,15 +56,15 @@ export default function FolienAuswahl(props: Props) {
 
       {!zeigtNeu && <p className="mt-1 text-xs text-muted-soft">{t("erstlaufHinweis")}</p>}
 
+      {stimmeGewechselt && (
+        <p className="mt-2 flex items-start gap-2 rounded-lg bg-surface-dim px-3 py-2.5 text-sm text-foreground-soft">
+          <Info size={14} className="mt-0.5 flex-shrink-0 text-muted-soft" aria-hidden="true" />
+          {t("stimmeGewechselt")}
+        </p>
+      )}
+
       {offen && (
         <div className="mt-2 rounded-lg border border-border-soft overflow-hidden">
-          {stimmeGewechselt && (
-            <p className="flex items-start gap-2 border-b border-border-soft bg-surface-dim px-3 py-2.5 text-sm text-foreground-soft">
-              <Info size={14} className="mt-0.5 flex-shrink-0 text-muted-soft" aria-hidden="true" />
-              {t("stimmeGewechselt")}
-            </p>
-          )}
-
           <div className="flex flex-col gap-2 border-b border-border-soft bg-surface px-3 py-2 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex gap-1">
               <SchnellKnopf label={t("alle")} onClick={() => onAlle(zeigtNeu)} />
