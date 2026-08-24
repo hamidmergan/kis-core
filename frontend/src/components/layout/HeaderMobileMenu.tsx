@@ -73,7 +73,7 @@ export default function HeaderMobileMenu({ hasSession, isAdmin, areaKey = "admin
   const activeRowStyle = { backgroundColor: "var(--surface-dim)", fontWeight: 600 };
   const onCalendar = pathname === "/kalender" || pathname.startsWith("/kalender/");
   const onJobsPage = pathname.startsWith("/my-jobs");
-  const headingClass = "px-4 pt-2.5 pb-1 text-[11px] font-semibold uppercase tracking-wide";
+  const headingClass = "px-4 pt-2.5 pb-1 text-2xs font-semibold uppercase tracking-wide";
   // Ohne Sitzung stehen keine Navigations-Zeilen ueber der Sprache, dann faellt der Trennstrich weg.
 
   return (

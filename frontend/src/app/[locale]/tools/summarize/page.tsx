@@ -140,13 +140,13 @@ export default function ZusammenfassungPage() {
             className={[
               "border-2 border-dashed rounded-lg p-10 text-center transition-colors",
               "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-kb",
-              dragActive ? "border-kb bg-info-bg" : selectedFile ? "border-success-border bg-success-bg" : "border-border hover:border-kb",
+              dragActive ? "border-kb bg-info-bg" : selectedFile ? "border-kb60 bg-kb20" : "border-border hover:border-kb",
               processing ? "opacity-50 cursor-not-allowed" : "cursor-pointer",
             ].join(" ")}
           >
             {selectedFile ? (
               <>
-                <svg className="mx-auto h-8 w-8 text-success mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                <svg className="mx-auto h-8 w-8 text-kb-dark mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                 </svg>
                 <p className="text-sm font-medium text-foreground">{selectedFile.name}</p>

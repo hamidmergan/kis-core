@@ -51,6 +51,8 @@
   --color-warn-strong: var(--warn-strong);
   --color-warn-bg:     var(--warn-bg);
   --color-warn-border: var(--warn-border);
+  --color-warn-solid:  var(--warn-solid);
+  --color-on-warn:     var(--on-warn);
 
   --color-info:        var(--info);
   --color-info-strong: var(--info-strong);
@@ -143,6 +145,9 @@
   --warn-strong:  #92400E;
   --warn-bg:      #FFFBEB;
   --warn-border:  #FCD34D;
+  /* Gefuelltes Warn-Abzeichen: --warn traegt Weiss nur mit 3,2:1, --warn-solid mit 5,0:1. */
+  --warn-solid:   #B45309;
+  --on-warn:      #ffffff;
 
   --info:         #2563EB;
   --info-strong:  #1E40AF;
@@ -229,6 +234,8 @@
   --warn-strong:  #FCD34D;
   --warn-bg:      #2A1F0A;
   --warn-border:  #5C401A;
+  --warn-solid:   #FBBF24;
+  --on-warn:      #2A1F0A;
 
   --info:         #60A5FA;
   --info-strong:  #93C5FD;

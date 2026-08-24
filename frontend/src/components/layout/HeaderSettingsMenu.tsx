@@ -113,7 +113,7 @@ export default function HeaderSettingsMenu({ isAdmin = false, areaKey = "admin",
 
   const rowClass =
     "flex items-center gap-3 w-full px-4 py-2.5 text-sm font-medium text-left no-underline cursor-pointer outline-none hover:bg-[var(--surface-dim)] focus:bg-[var(--surface-dim)]";
-  const headingClass = "px-4 pt-2.5 pb-1 text-[11px] font-semibold uppercase tracking-wide";
+  const headingClass = "px-4 pt-2.5 pb-1 text-2xs font-semibold uppercase tracking-wide";
 
   return (
     <div ref={rootRef} className="relative" onKeyDown={onKeyDown}>
