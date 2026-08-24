@@ -10,6 +10,7 @@ import Spinner from "@/components/ui/Spinner";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { formatElapsed, toMs } from "@/lib/format";
 import { hasUnseenDone } from "./_unseen";
+import { screencastJumpHref, screencastJumpKind } from "./_screencastJump";
 
 interface MyJob {
   job_uuid: string;
@@ -22,6 +23,7 @@ interface MyJob {
   started_at: string | null;
   completed_at: string | null;
   expires_at: string | null;
+  render_queued_at: string | null;
   has_download: boolean;
   result_filename: string | null;
   tts_params?: { voice_id?: string; voice_label?: string; provider?: string } | null;
@@ -56,7 +58,7 @@ function formatDurationShort(ms: number): string {
   return formatElapsed(ms, SHORT_ELAPSED);
 }
 
-function StatusBadge({ status, expired, isGeneratingScripts }: { status: MyJob["status"]; expired: boolean; isGeneratingScripts?: boolean }) {
+function StatusBadge({ status, expired, isGeneratingScripts, resumeHref, onResume }: { status: MyJob["status"]; expired: boolean; isGeneratingScripts?: boolean; resumeHref?: string; onResume?: (e: React.MouseEvent) => void }) {
   const t = useTranslations("myJobs.status");
   if (expired)
     return <span className="text-xs font-medium text-muted-soft bg-surface px-2 py-0.5 rounded-full">{t("expired")}</span>;
@@ -66,8 +68,13 @@ function StatusBadge({ status, expired, isGeneratingScripts }: { status: MyJob["
     return <span className="text-xs font-medium text-error-strong bg-error-bg px-2 py-0.5 rounded-full">{t("failed")}</span>;
   if (status === "running" || isGeneratingScripts)
     return <span className="text-xs font-medium text-info-strong bg-info-bg px-2 py-0.5 rounded-full animate-pulse">{t("running")}</span>;
-  if (status === "awaiting_user")
-    return <span className="text-xs font-medium text-kb-dark bg-kb20 px-2 py-0.5 rounded-full">{t("awaitingUser")}</span>;
+  if (status === "awaiting_user") {
+    // Gefuellte Markenfarbe, weil das zarte Abzeichen in der Liste untergegangen ist.
+    const cls = "inline-flex text-xs font-semibold text-on-accent bg-kb px-2 py-0.5 rounded-full";
+    if (resumeHref)
+      return <a href={resumeHref} onClick={onResume} className="btn-primary inline-flex text-xs font-semibold px-2 py-0.5 rounded-full">{t("awaitingUser")}</a>;
+    return <span className={cls}>{t("awaitingUser")}</span>;
+  }
   if (status === "queued")
     return <span className="text-xs font-medium text-info-strong bg-info-bg px-2 py-0.5 rounded-full">{t("queued")}</span>;
   return <span className="text-xs font-medium text-warn-strong bg-warn-bg px-2 py-0.5 rounded-full">{t("pending")}</span>;
@@ -420,7 +427,13 @@ export default function JobsPanel() {
                           )}
                         </div>
                         <div className="flex flex-col items-end gap-1.5 shrink-0">
-                          <StatusBadge status={job.status} expired={expired} isGeneratingScripts={job.is_generating_scripts} />
+                          <StatusBadge
+                            status={job.status}
+                            expired={expired}
+                            isGeneratingScripts={job.is_generating_scripts}
+                            resumeHref={screencastJumpKind(job) === "resume" ? screencastJumpHref(job.job_uuid) : undefined}
+                            onResume={(e) => { e.stopPropagation(); setOpen(false); }}
+                          />
                           {(job.tool === "tts" || job.tool === "screencast_translate" || job.tool === "screencast_render") && job.status === "failed" && (
                             <button
                               onClick={(e) => handleRetry(e, job)}
@@ -432,22 +445,24 @@ export default function JobsPanel() {
                           )}
                         </div>
                       </div>
-                      {job.status === "awaiting_user" && job.tool === "screencast_translate" && (
+                      {job.status === "awaiting_user" && job.tool === "screencast_translate" && job.is_generating_scripts && (
                         <div className="mt-2">
-                          {job.is_generating_scripts ? (
-                            <span className="inline-flex items-center gap-1.5 text-xs text-muted bg-surface border border-border-soft px-2.5 py-1 rounded-full">
-                              <Spinner size="sm" />
-                              {tArtifacts("generatingScripts")}
-                            </span>
-                          ) : (
-                            <a
-                              href={`/tools/screencast?resume=${job.job_uuid}`}
-                              onClick={(e) => { e.stopPropagation(); setOpen(false); }}
-                              className="inline-flex items-center gap-1 text-xs text-kb-dark bg-kb20 hover:bg-kb20 border border-kb60 px-2.5 py-1 rounded-full"
-                            >
-                              {tArtifacts("resumeScreencast")}
-                            </a>
-                          )}
+                          <span className="inline-flex items-center gap-1.5 text-xs text-muted bg-surface border border-border-soft px-2.5 py-1 rounded-full">
+                            <Spinner size="sm" />
+                            {tArtifacts("generatingScripts")}
+                          </span>
+                        </div>
+                      )}
+                      {/* "Fortsetzen" sitzt jetzt im Status-Abzeichen, hier bleibt nur das Oeffnen. */}
+                      {screencastJumpKind(job) === "open" && (
+                        <div className="mt-2">
+                          <a
+                            href={screencastJumpHref(job.job_uuid)}
+                            onClick={(e) => { e.stopPropagation(); setOpen(false); }}
+                            className="inline-flex items-center gap-1 text-xs text-kb-dark bg-kb20 border border-kb60 hover:outline-2 hover:outline-kb-dark transition-colors px-2.5 py-1 rounded-full"
+                          >
+                            {tArtifacts("openScreencast")}
+                          </a>
                         </div>
                       )}
                     </li>

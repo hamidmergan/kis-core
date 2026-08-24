@@ -26,6 +26,8 @@ function mapStep(step: string): { step: ScreencastStep; idx: number } {
   if (step === "tts-settings") return { step: "tts-settings", idx: 5 };
   if (step === "translation-review") return { step: "translation-review", idx: 2 };
   if (step === "user-prompt") return { step: "user-prompt", idx: 3 };
+  if (step === "rendering") return { step: "rendering", idx: 6 };
+  if (step === "done") return { step: "done", idx: 7 };
   return { step: "script-review", idx: 4 };
 }
 
