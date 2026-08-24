@@ -618,7 +618,7 @@ def save_pptx_tmp(file_id: str, data: bytes) -> None:
     _store_bytes(tmp_pptx_key(file_id), data)
 
 
-# --- Spoken example sentences (AIA flashcards) ---
+# --- Spoken example sentences (AIA flashcards + voice previews) ---
 # Keyed by the fingerprint from repository/speech_cache.py, which owns the
 # retention rule. There is no lifecycle rule here: expiry follows last use, not
 # creation date, and only the database row knows when a sound was last heard.

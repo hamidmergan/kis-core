@@ -55,27 +55,9 @@ def tts_provider_preview(
 ):
     """Synthesize a short preview sample for a voice on the given provider."""
     from fastapi.responses import Response as FastAPIResponse
-    from src.dependencies import get_tts_client_for_provider, _voice_language_for
+    from src.services.tts_voice_preview import preview_audio
 
-    try:
-        client = get_tts_client_for_provider(provider_id)
-    except RuntimeError:
-        raise HTTPException(status_code=503, detail=t("tts.providerUnavailable", locale))
-    if client is None:
-        raise HTTPException(status_code=503, detail=t("tts.providerUnavailable", locale))
-    if not client.is_available():
-        raise HTTPException(status_code=503, detail=t("tts.providerUnavailable", locale))
-
-    voice_id = body.get("voice_id", "")
-    # Derive language from DB — do not trust client input
-    lang = _voice_language_for(provider_id, voice_id) if voice_id else locale
-
-    preview_text = (
-        "Hello! This is a preview of the selected voice. I hope you enjoy the sound."
-        if lang == "en"
-        else "Hallo! Dies ist eine Vorschau der ausgewählten Stimme. Ich hoffe, sie gefällt Ihnen."
-    )
-    audio = client.synthesize_chunk(preview_text, voice_id=voice_id, speed=1.0)
+    audio = preview_audio(provider_id, body.get("voice_id", ""), locale)
     return FastAPIResponse(content=audio, media_type="audio/mpeg")
 
 
