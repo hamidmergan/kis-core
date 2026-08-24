@@ -52,6 +52,15 @@ async def generate_all_scripts(
         )
 
 
+def _lies_ton(user_id: int, job_uuid: str, name: str) -> bytes | None:
+    """Leere Dateien gelten als nicht vorhanden, sie sind kein gueltiges MP3."""
+    try:
+        daten = get_job_file(user_id, job_uuid, name)
+    except Exception:
+        return None
+    return daten or None
+
+
 async def generate_all_tts(
     slide_scripts: list[str],
     tts_client: Any,
@@ -64,6 +73,8 @@ async def generate_all_tts(
     provider_id: int = 0,
     target_lang: str = "",
     zaehler: dict | None = None,
+    ausgeschlossen: set[int] | None = None,
+    alter_ton_erlaubt: set[int] | None = None,
 ) -> list[tuple[Path, dict | None]]:
     """Vertont alle Folien, die Text-Stuecke laufen gleichzeitig.
 
@@ -75,6 +86,8 @@ async def generate_all_tts(
     so a crash can be recovered without re-paying for completed slides.
     ``zaehler`` nimmt fuer die Admin-Anzeige auf, wie viele Folien aus dem
     Zwischenspeicher kamen statt neu vertont zu werden.
+    ``alter_ton_erlaubt`` nennt die Folien, die den Ton des letzten Laufs aus
+    ``audio/`` nehmen duerfen statt neu gesprochen zu werden.
     """
     parallelism = resolve_tts_parallelism()
     logger.info("TTS provider_id={}: parallelism={}", provider_id, parallelism)
@@ -82,6 +95,9 @@ async def generate_all_tts(
     audio_paths: list[Path | None] = [tmp / f"slide_{i:03d}.mp3" for i in range(total)]
     alignments: list[dict | None] = [None] * total
     aus_zwischenspeicher = 0
+    aus_altem_ton = 0
+    ausgeschlossen = ausgeschlossen or set()
+    alter_ton_erlaubt = alter_ton_erlaubt or set()
 
     fertige: set[int] = set()
     freigegeben = 0
@@ -98,19 +114,25 @@ async def generate_all_tts(
                 freigegeben += 1
 
     async def _zerlegen(i: int, script_text: str) -> list[str]:
-        """Leere und schon vertonte Folien fallen raus, der Rest wird zerlegt."""
-        nonlocal aus_zwischenspeicher
+        """Was nicht gesprochen werden muss, faellt hier raus."""
+        nonlocal aus_zwischenspeicher, aus_altem_ton
+        if i in ausgeschlossen:
+            audio_paths[i] = None
+            logger.info("Slide {}/{}: nicht im Screencast", i + 1, total)
+            await _melde(i)
+            return []
         if not script_text.strip():
             # Empty slide: no audio file - create_slide_video handles None as video-only
             audio_paths[i] = None
             logger.info("Slide {}/{}: empty script, audio_path set to None", i + 1, total)
             await _melde(i)
             return []
-        # Recovery: check if this slide was already synthesized in a previous (crashed) run
         if job_uuid and user_id is not None:
-            try:
-                audio_data = get_job_file(user_id, job_uuid, f"render_cache/slide_{i:03d}.mp3")
-                audio_paths[i].write_bytes(audio_data)
+            # Der Vorrat gehoert zum laufenden Lauf und muss zuerst kommen, sonst
+            # verliert ein Neuversuch die Folie, die er gerade gesprochen hat.
+            ton = _lies_ton(user_id, job_uuid, f"render_cache/slide_{i:03d}.mp3")
+            if ton is not None:
+                audio_paths[i].write_bytes(ton)
                 try:
                     align_data = get_job_file(user_id, job_uuid, f"render_cache/slide_{i:03d}_align.json")
                     alignments[i] = json.loads(align_data)
@@ -120,8 +142,14 @@ async def generate_all_tts(
                 aus_zwischenspeicher += 1
                 await _melde(i)
                 return []
-            except Exception:
-                pass  # Not saved yet - synthesize normally
+            if i in alter_ton_erlaubt:
+                ton = _lies_ton(user_id, job_uuid, f"audio/slide_{i:03d}.mp3")
+                if ton is not None:
+                    audio_paths[i].write_bytes(ton)
+                    logger.info("Slide {}/{}: Ton aus dem letzten Lauf", i + 1, total)
+                    aus_altem_ton += 1
+                    await _melde(i)
+                    return []
         return _split_text(script_text)
 
     async def _hole_stueck(i: int, k: int, chunk: str, anzahl: int) -> bytes:
@@ -203,6 +231,7 @@ async def generate_all_tts(
     finally:
         if zaehler is not None:
             zaehler["aus_zwischenspeicher"] = aus_zwischenspeicher
+            zaehler["aus_altem_ton"] = aus_altem_ton
     return list(zip(audio_paths, alignments))
 
 
