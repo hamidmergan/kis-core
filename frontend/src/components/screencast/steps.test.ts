@@ -49,6 +49,43 @@ describe("istErreichbar", () => {
     expect(istErreichbar(3, ALLE_ERREICHT, false, "rendering")).toBe(false);
     expect(istErreichbar(3, ALLE_ERREICHT, false, "generating-scripts")).toBe(false);
   });
+
+  it("waehrend des Laufs ist kein Schritt erreichbar", () => {
+    expect(istErreichbar(2, ALLE_ERREICHT, false, "rendering")).toBe(false);
+    expect(istErreichbar(4, ALLE_ERREICHT, false, "rendering")).toBe(false);
+    expect(istErreichbar(5, ALLE_ERREICHT, false, "rendering")).toBe(false);
+    expect(istErreichbar(6, ALLE_ERREICHT, false, "rendering")).toBe(false);
+  });
+
+  it("im Rueckblick sind die Schritte 2 bis 5 wieder erreichbar", () => {
+    expect(istErreichbar(2, ALLE_ERREICHT, false, "rendering", true)).toBe(true);
+    expect(istErreichbar(3, ALLE_ERREICHT, false, "rendering", true)).toBe(true);
+    expect(istErreichbar(4, ALLE_ERREICHT, false, "rendering", true)).toBe(true);
+    expect(istErreichbar(5, ALLE_ERREICHT, false, "rendering", true)).toBe(true);
+  });
+
+  it("im Rueckblick ist auch Schritt 6 selbst erreichbar", () => {
+    expect(istErreichbar(6, ALLE_ERREICHT, false, "rendering", true)).toBe(true);
+  });
+
+  it("generating-scripts sperrt immer, auch im Rueckblick", () => {
+    expect(istErreichbar(2, ALLE_ERREICHT, false, "generating-scripts", true)).toBe(false);
+    expect(istErreichbar(6, ALLE_ERREICHT, false, "generating-scripts", true)).toBe(false);
+  });
+
+  it("auf done aendert der Rueckblick-Schalter nichts, Schritt 6 bleibt erreichbar", () => {
+    expect(istErreichbar(6, ALLE_ERREICHT, false, "done")).toBe(true);
+    expect(istErreichbar(6, ALLE_ERREICHT, false, "done", true)).toBe(true);
+  });
+
+  it("maxReachedIdx begrenzt weiterhin, auch im Rueckblick", () => {
+    expect(istErreichbar(5, 3, false, "rendering", true)).toBe(false);
+  });
+
+  it("skipTranslation blendet die Uebersetzung weiterhin aus, auch im Rueckblick", () => {
+    expect(istErreichbar(1, ALLE_ERREICHT, true, "rendering", true)).toBe(false);
+    expect(istErreichbar(2, ALLE_ERREICHT, true, "rendering", true)).toBe(false);
+  });
 });
 
 describe("vorherErreichbar", () => {
@@ -69,5 +106,10 @@ describe("vorherErreichbar", () => {
 
   it("gibt nichts auf der Upload-Seite", () => {
     expect(vorherErreichbar(0, 0, false, "upload")).toBeNull();
+  });
+
+  it("findet im Rueckblick den naechsten Schritt nach links, waehrend des Laufs nichts", () => {
+    expect(vorherErreichbar(6, ALLE_ERREICHT, false, "rendering", true)).toBe(5);
+    expect(vorherErreichbar(6, ALLE_ERREICHT, false, "rendering", false)).toBeNull();
   });
 });

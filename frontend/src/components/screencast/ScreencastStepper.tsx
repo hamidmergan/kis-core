@@ -11,6 +11,7 @@ interface ScreencastStepperProps {
   step: ScreencastStep;
   maxReachedIdx: number;
   skipTranslation: boolean;
+  rueckblick?: boolean;
   onStepClick: (index: number) => void;
 }
 
@@ -18,6 +19,7 @@ export default function ScreencastStepper({
   step,
   maxReachedIdx,
   skipTranslation,
+  rueckblick = false,
   onStepClick,
 }: ScreencastStepperProps) {
   const t = useTranslations("stepper");
@@ -141,7 +143,7 @@ export default function ScreencastStepper({
             const isSkipped = skipTranslation && (i === 1 || i === 2);
             const isDone = !isSkipped && i < currentIdx;
             const isActive = i === currentIdx;
-            const isClickable = !isActive && istErreichbar(i, maxReachedIdx, skipTranslation, step);
+            const isClickable = !isActive && istErreichbar(i, maxReachedIdx, skipTranslation, step, rueckblick);
             // Nur betretbare Schritte sind ein Knopf, tote sind ein span und damit auch fuer Tastatur und Vorleseprogramm still.
             const Huelle = isClickable ? "button" : "span";
             return (

@@ -93,6 +93,9 @@ function ScreencastPageInner() {
   const renderResult = useRenderResult();
   const { videoUrl, audioId, hasSubtitles, clear: clearRenderResult } = renderResult;
 
+  // Zurueck auf Rendern kommt man nur, wenn das Video schon fertig ist.
+  const rueckblick = step === "rendering" && videoUrl !== null;
+
   const autosaveScripts = useScriptAutosave({ jobUuid: translateJobUuid });
   const {
     openAccordion,
@@ -294,15 +297,15 @@ function ScreencastPageInner() {
   }, []);
 
   const handleStepClick = useCallback((index: number) => {
-    if (!istErreichbar(index, maxReachedIdx, skipTranslation, step)) return;
+    if (!istErreichbar(index, maxReachedIdx, skipTranslation, step, rueckblick)) return;
     gotoIndex(index);
-  }, [gotoIndex, maxReachedIdx, skipTranslation, step]);
+  }, [gotoIndex, maxReachedIdx, skipTranslation, step, rueckblick]);
 
   /** Der Zuruecktritt einer Seite, oder null wenn davor nichts Betretbares liegt. */
   const zurueckVon = useCallback((index: number): (() => void) | null => {
-    const ziel = vorherErreichbar(index, maxReachedIdx, skipTranslation, step);
+    const ziel = vorherErreichbar(index, maxReachedIdx, skipTranslation, step, rueckblick);
     return ziel === null ? null : () => gotoIndex(ziel);
-  }, [gotoIndex, maxReachedIdx, skipTranslation, step]);
+  }, [gotoIndex, maxReachedIdx, skipTranslation, step, rueckblick]);
 
   const goError = useCallback((msg: string) => {
     dispatch({ type: "GO_ERROR", message: msg });
@@ -509,9 +512,6 @@ function ScreencastPageInner() {
     dispatch({ type: "ADVANCE_REACHED", idx: stepToIndex(step) });
   }, [step]);
 
-  // Zurueck auf Rendern kommt man nur, wenn das Video schon fertig ist.
-  const rueckblick = step === "rendering" && videoUrl !== null;
-
   const showStepIndicator = step !== "upload" && step !== "error";
 
   // Nur die gewaehlten Folien zaehlen, sonst bleibt der Startknopf gesperrt, obwohl abgewaehlt wurde.
@@ -546,6 +546,7 @@ function ScreencastPageInner() {
               step={step}
               maxReachedIdx={maxReachedIdx}
               skipTranslation={skipTranslation}
+              rueckblick={rueckblick}
               onStepClick={handleStepClick}
             />
           </>
