@@ -19,66 +19,62 @@ describe("ohneTonAberMitSkript", () => {
 
 describe("startAuswahl", () => {
   it("ohne gespeicherte Auswahl sind alle Folien dabei", () => {
-    const a = startAuswahl(3, null, [], [], skripte);
+    const a = startAuswahl(3, null);
     expect(a.imScreencast).toEqual([0, 1, 2]);
     expect(a.neuVertonen).toEqual([]);
   });
 
-  it("geaenderte Folien sind vorausgewaehlt", () => {
-    const a = startAuswahl(3, null, [1], [true, true, true], skripte);
-    expect(a.neuVertonen).toEqual([1]);
+  it("waehlt nichts vor, auch wenn Folien geaendert sind", () => {
+    const a = startAuswahl(3, null);
+    expect(a.neuVertonen).toEqual([]);
   });
 
   it("gespeicherte Auswahl gewinnt", () => {
-    const a = startAuswahl(3, { video_folien: [0, 2], neu_vertonen: [2] }, [1], [true, true, true], skripte);
+    const a = startAuswahl(3, { video_folien: [0, 2], neu_vertonen: [2] });
     expect(a.imScreencast).toEqual([0, 2]);
     expect(a.neuVertonen).toEqual([2]);
   });
 
-  it("Folien ohne Ton kommen immer dazu", () => {
-    const a = startAuswahl(3, { video_folien: [0, 1, 2], neu_vertonen: [] }, [], [true, false, true], skripte);
-    expect(a.neuVertonen).toEqual([1]);
+  it("uebernimmt eine gespeicherte Auswahl unveraendert", () => {
+    const a = startAuswahl(3, { video_folien: [0, 1, 2], neu_vertonen: [0, 2] });
+    expect(a.imScreencast).toEqual([0, 1, 2]);
+    expect(a.neuVertonen).toEqual([0, 2]);
+  });
+
+  it("eine Folie ohne Ton wird nicht automatisch angehakt", () => {
+    const a = startAuswahl(3, { video_folien: [0, 1, 2], neu_vertonen: [] });
+    expect(a.neuVertonen).toEqual([]);
   });
 
   it("nur Folien im Screencast koennen neu vertont werden", () => {
-    const a = startAuswahl(3, { video_folien: [0], neu_vertonen: [2] }, [], [true, true, true], skripte);
+    const a = startAuswahl(3, { video_folien: [0], neu_vertonen: [2] });
     expect(a.neuVertonen).toEqual([]);
   });
 
   it("video_folien gleich null heisst alle", () => {
-    const a = startAuswahl(3, { video_folien: null, neu_vertonen: [] }, [], [true, true, true], skripte);
+    const a = startAuswahl(3, { video_folien: null, neu_vertonen: [] });
     expect(a.imScreencast).toEqual([0, 1, 2]);
-  });
-
-  it("geaenderte Folien kommen auch neben einer gespeicherten Auswahl dazu", () => {
-    const a = startAuswahl(3, { video_folien: [0, 1, 2], neu_vertonen: [] }, [1], [true, true, true], skripte);
-    expect(a.neuVertonen).toEqual([1]);
-  });
-
-  it("gespeicherte und geaenderte Folien werden vereinigt", () => {
-    const a = startAuswahl(3, { video_folien: [0, 1, 2], neu_vertonen: [0] }, [2], [true, true, true], skripte);
-    expect(a.neuVertonen).toEqual([0, 2]);
   });
 });
 
 describe("angleichen", () => {
   it("wirft Folien raus, die nicht mehr im Screencast sind", () => {
-    expect(angleichen([0, 1], [1, 2], new Set())).toEqual([1]);
+    expect(angleichen([0, 1], [1, 2])).toEqual([1]);
   });
 
-  it("nimmt eine gesperrte Folie beim Wiederhinzufuegen zurueck auf", () => {
-    expect(angleichen([0, 1], [], new Set([1]))).toEqual([1]);
+  it("ergaenzt nichts, es filtert nur", () => {
+    expect(angleichen([0, 1], [])).toEqual([]);
   });
 
-  it("eine gesperrte Folie ausserhalb des Screencasts bleibt draussen", () => {
-    expect(angleichen([0], [], new Set([1]))).toEqual([]);
+  it("eine Folie ausserhalb des Screencasts bleibt draussen", () => {
+    expect(angleichen([0], [1])).toEqual([]);
   });
 
   it("leerer Screencast leert auch die Vertonungs-Auswahl", () => {
-    expect(angleichen([], [0, 1], new Set([0]))).toEqual([]);
+    expect(angleichen([], [0, 1])).toEqual([]);
   });
 
   it("die Nummern kommen aufsteigend zurueck", () => {
-    expect(angleichen([0, 1, 2], [2, 0], new Set([1]))).toEqual([0, 1, 2]);
+    expect(angleichen([0, 1, 2], [2, 0])).toEqual([0, 2]);
   });
 });

@@ -297,15 +297,15 @@ function ScreencastPageInner() {
   }, []);
 
   const handleStepClick = useCallback((index: number) => {
-    if (!istErreichbar(index, maxReachedIdx, skipTranslation, step, rueckblick)) return;
+    if (!istErreichbar(index, maxReachedIdx, skipTranslation, step, videoUrl !== null)) return;
     gotoIndex(index);
-  }, [gotoIndex, maxReachedIdx, skipTranslation, step, rueckblick]);
+  }, [gotoIndex, maxReachedIdx, skipTranslation, step, videoUrl]);
 
   /** Der Zuruecktritt einer Seite, oder null wenn davor nichts Betretbares liegt. */
   const zurueckVon = useCallback((index: number): (() => void) | null => {
-    const ziel = vorherErreichbar(index, maxReachedIdx, skipTranslation, step, rueckblick);
+    const ziel = vorherErreichbar(index, maxReachedIdx, skipTranslation, step, videoUrl !== null);
     return ziel === null ? null : () => gotoIndex(ziel);
-  }, [gotoIndex, maxReachedIdx, skipTranslation, step, rueckblick]);
+  }, [gotoIndex, maxReachedIdx, skipTranslation, step, videoUrl]);
 
   const goError = useCallback((msg: string) => {
     dispatch({ type: "GO_ERROR", message: msg });
@@ -525,6 +525,10 @@ function ScreencastPageInner() {
     0,
   );
   const scriptOverLimit = totalChars > SCREENCAST_MAX_CHARS;
+  // Geaendert, aber noch nicht angehakt: der Ton bleibt sonst der alte.
+  const geaenderteOhneHaken = auswahl.geaendert.filter(
+    (i) => auswahl.imScreencast.includes(i) && !auswahl.neuVertonen.includes(i),
+  ).length;
 
 
   return (
@@ -546,7 +550,7 @@ function ScreencastPageInner() {
               step={step}
               maxReachedIdx={maxReachedIdx}
               skipTranslation={skipTranslation}
-              rueckblick={rueckblick}
+              hatErgebnis={videoUrl !== null}
               onStepClick={handleStepClick}
             />
           </>
@@ -734,7 +738,8 @@ function ScreencastPageInner() {
             stand={stand}
             imScreencast={auswahl.imScreencast}
             neuVertonen={auswahl.neuVertonen}
-            gesperrtNeu={auswahl.gesperrtNeu}
+            ohneTon={auswahl.ohneTon}
+            geaenderteOhneHaken={geaenderteOhneHaken}
             zeigtNeu={zeigtNeu}
             stimmeGewechselt={stimmeGewechselt}
             onUmschaltenScreencast={auswahl.umschaltenScreencast}

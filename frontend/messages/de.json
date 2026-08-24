@@ -640,6 +640,8 @@
         "geaenderte": "Geänderte",
         "markeSkript": "Skript geändert",
         "markeFolie": "Folie geändert",
+        "markeKeinTon": "noch kein Ton",
+        "geaendertBehaeltAltenTon": "{n, plural, one {# Folie wurde geändert, behält aber ihren alten Ton} other {# Folien wurden geändert, behalten aber ihren alten Ton}}. Hake sie an, wenn sie neu gesprochen werden sollen.",
         "ohneText": "Zwischenfolie ohne Text, kein Ton",
         "hakenScreencast": "Folie {n} in den Screencast",
         "hakenNeu": "Folie {n} neu sprechen",

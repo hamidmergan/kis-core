@@ -13,7 +13,7 @@ interface Optionen {
   bereit: boolean;
 }
 
-/** Die beiden Mengen aus Schritt 6, samt Vorbelegung und Sperren. */
+/** Die beiden Mengen aus Schritt 6, samt Vorbelegung. */
 export function useFolienAuswahl({ slides, stand, hatTon, gespeichert, bereit }: Optionen) {
   const [imScreencast, setImScreencast] = useState<number[]>([]);
   const [neuVertonen, setNeuVertonen] = useState<number[]>([]);
@@ -21,7 +21,7 @@ export function useFolienAuswahl({ slides, stand, hatTon, gespeichert, bereit }:
 
   const scripts = useMemo(() => slides.map((s) => s.script ?? ""), [slides]);
   const geaendert = useMemo(() => geaenderteFolien(stand, slides), [stand, slides]);
-  const gesperrtNeu = useMemo(
+  const ohneTon = useMemo(
     () => new Set(ohneTonAberMitSkript(scripts, hatTon)),
     [scripts, hatTon],
   );
@@ -29,16 +29,16 @@ export function useFolienAuswahl({ slides, stand, hatTon, gespeichert, bereit }:
   useEffect(() => {
     // Ein neu geholter Stand darf die Vorbelegung noch einmal ausloesen.
     if (!bereit || !slides.length || vorbelegtFuer.current === hatTon) return;
-    const start = startAuswahl(slides.length, gespeichert, geaendert, hatTon, scripts);
+    const start = startAuswahl(slides.length, gespeichert);
     setImScreencast(start.imScreencast);
     setNeuVertonen(start.neuVertonen);
     vorbelegtFuer.current = hatTon;
-  }, [bereit, slides.length, gespeichert, geaendert, hatTon, scripts]);
+  }, [bereit, slides.length, gespeichert, hatTon]);
 
   const setzeScreencast = useCallback((naechste: number[]) => {
     setImScreencast(naechste);
-    setNeuVertonen((alt) => angleichen(naechste, alt, gesperrtNeu));
-  }, [gesperrtNeu]);
+    setNeuVertonen((alt) => angleichen(naechste, alt));
+  }, []);
 
   const umschaltenScreencast = useCallback((i: number) => {
     setzeScreencast(
@@ -49,9 +49,8 @@ export function useFolienAuswahl({ slides, stand, hatTon, gespeichert, bereit }:
   }, [imScreencast, setzeScreencast]);
 
   const umschaltenNeu = useCallback((i: number) => {
-    if (gesperrtNeu.has(i)) return;
     setNeuVertonen((alt) => (alt.includes(i) ? alt.filter((x) => x !== i) : [...alt, i].sort((a, b) => a - b)));
-  }, [gesperrtNeu]);
+  }, []);
 
   const alleNummern = useMemo(() => slides.map((_, i) => i), [slides]);
 
@@ -61,17 +60,16 @@ export function useFolienAuswahl({ slides, stand, hatTon, gespeichert, bereit }:
   }, [alleNummern, imScreencast, scripts, setzeScreencast]);
 
   const setzeKeine = useCallback((zeigtNeu: boolean) => {
-    if (zeigtNeu) setNeuVertonen([...gesperrtNeu].filter((i) => imScreencast.includes(i)).sort((a, b) => a - b));
+    if (zeigtNeu) setNeuVertonen([]);
     else setzeScreencast([]);
-  }, [gesperrtNeu, imScreencast, setzeScreencast]);
+  }, [setzeScreencast]);
 
   const setzeGeaenderte = useCallback(() => {
-    const menge = new Set([...geaendert, ...gesperrtNeu]);
-    setNeuVertonen([...menge].filter((i) => imScreencast.includes(i)).sort((a, b) => a - b));
-  }, [geaendert, gesperrtNeu, imScreencast]);
+    setNeuVertonen(geaendert.filter((i) => imScreencast.includes(i)).sort((a, b) => a - b));
+  }, [geaendert, imScreencast]);
 
   return {
-    imScreencast, neuVertonen, geaendert, gesperrtNeu,
+    imScreencast, neuVertonen, geaendert, ohneTon,
     umschaltenScreencast, umschaltenNeu, setzeAlle, setzeKeine, setzeGeaenderte,
   };
 }

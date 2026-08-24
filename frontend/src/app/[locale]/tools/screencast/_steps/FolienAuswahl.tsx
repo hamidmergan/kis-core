@@ -12,7 +12,7 @@ interface Props {
   stand: VertonterStand | null;
   imScreencast: number[];
   neuVertonen: number[];
-  gesperrtNeu: Set<number>;
+  ohneTon: Set<number>;
   /** Ab dem zweiten Lauf gibt es etwas wiederzuverwenden. */
   zeigtNeu: boolean;
   stimmeGewechselt: boolean;
@@ -25,7 +25,7 @@ interface Props {
 
 export default function FolienAuswahl(props: Props) {
   const {
-    slides, stand, imScreencast, neuVertonen, gesperrtNeu, zeigtNeu, stimmeGewechselt,
+    slides, stand, imScreencast, neuVertonen, ohneTon, zeigtNeu, stimmeGewechselt,
     onUmschaltenScreencast, onUmschaltenNeu, onAlle, onKeine, onGeaenderte,
   } = props;
   const t = useTranslations("tools.screencast.folienAuswahl");
@@ -88,6 +88,7 @@ export default function FolienAuswahl(props: Props) {
               const drin = dabei.has(i);
               const leer = !folie.script?.trim();
               const marke = markeFuerFolie(stand, i, folie.script ?? "", folie.extractedText ?? "");
+              const keinTon = !marke && ohneTon.has(i);
               return (
                 <div
                   key={i}
@@ -100,11 +101,15 @@ export default function FolienAuswahl(props: Props) {
                     <p className={`truncate text-sm ${leer ? "italic text-muted-soft" : "text-foreground-soft"}`}>
                       {leer ? t("ohneText") : folie.script}
                     </p>
-                    {marke && (
+                    {marke ? (
                       <span className="mt-0.5 inline-block rounded px-1.5 py-px text-2xs font-medium bg-kb/20 text-kb">
                         {marke === "skript" ? t("markeSkript") : t("markeFolie")}
                       </span>
-                    )}
+                    ) : keinTon ? (
+                      <span className="mt-0.5 inline-block rounded px-1.5 py-px text-2xs font-medium bg-kb/20 text-kb">
+                        {t("markeKeinTon")}
+                      </span>
+                    ) : null}
                   </div>
                   <div className="flex w-[3.25rem] flex-shrink-0 justify-center sm:w-[4.5rem]">
                     <Checkbox
@@ -118,7 +123,7 @@ export default function FolienAuswahl(props: Props) {
                     <div className="flex w-[3.25rem] flex-shrink-0 justify-center rounded bg-kb/5 py-0.5 sm:w-[4.5rem]">
                       <Checkbox
                         checked={neu.has(i)}
-                        disabled={!drin || leer || gesperrtNeu.has(i)}
+                        disabled={!drin || leer}
                         onChange={() => onUmschaltenNeu(i)}
                         label={t("hakenNeu", { n: i + 1 })}
                         labelClassName="sr-only"

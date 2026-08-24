@@ -95,7 +95,7 @@ test.describe("Folienauswahl in Schritt 6", () => {
     });
   });
 
-  test("eine Folie ohne Ton bleibt nach dem Wiederhinzufuegen angehakt", async ({ page }) => {
+  test("eine Folie ohne Ton wird nach dem Wiederhinzufuegen nicht von allein angehakt", async ({ page }) => {
     const uuid = await bisSchritt6Offen(page);
 
     // Gestellt, weil ein echter zweiter Render-Durchlauf hier zu lange braeuchte.
@@ -115,15 +115,15 @@ test.describe("Folienauswahl in Schritt 6", () => {
     const imScreencast = page.getByRole("checkbox", { name: "Folie 2 in den Screencast" });
     const neuSprechen = page.getByRole("checkbox", { name: "Folie 2 neu sprechen" });
 
-    // Folie 2 hat ein Skript und keinen Ton, sie muss gesprochen werden.
-    await expect(neuSprechen).toHaveAttribute("aria-checked", "true");
-    await expect(neuSprechen).toBeDisabled();
+    // Folie 2 hat ein Skript und keinen Ton, nichts wird deshalb von selbst angehakt.
+    await expect(neuSprechen).toHaveAttribute("aria-checked", "false");
+    await expect(neuSprechen).toBeEnabled();
 
     await imScreencast.click();
     await imScreencast.click();
 
     await expect(imScreencast).toHaveAttribute("aria-checked", "true");
-    await expect(neuSprechen).toHaveAttribute("aria-checked", "true");
+    await expect(neuSprechen).toHaveAttribute("aria-checked", "false");
   });
 
   test("beim erneuten Betreten von Schritt 6 wird der Stand neu geholt", async ({ page }) => {

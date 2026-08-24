@@ -640,6 +640,8 @@
         "geaenderte": "Changed",
         "markeSkript": "script changed",
         "markeFolie": "slide changed",
+        "markeKeinTon": "no audio yet",
+        "geaendertBehaeltAltenTon": "{n, plural, one {# slide was changed but keeps its old audio} other {# slides were changed but keep their old audio}}. Tick them to have them re-voiced.",
         "ohneText": "Divider slide without text, no audio",
         "hakenScreencast": "Slide {n} in the screencast",
         "hakenNeu": "Re-voice slide {n}",

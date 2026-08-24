@@ -57,34 +57,42 @@ describe("istErreichbar", () => {
     expect(istErreichbar(6, ALLE_ERREICHT, false, "rendering")).toBe(false);
   });
 
-  it("im Rueckblick sind die Schritte 2 bis 5 wieder erreichbar", () => {
+  it("mit fertigem Video sind die Schritte 2 bis 5 wieder erreichbar", () => {
     expect(istErreichbar(2, ALLE_ERREICHT, false, "rendering", true)).toBe(true);
     expect(istErreichbar(3, ALLE_ERREICHT, false, "rendering", true)).toBe(true);
     expect(istErreichbar(4, ALLE_ERREICHT, false, "rendering", true)).toBe(true);
     expect(istErreichbar(5, ALLE_ERREICHT, false, "rendering", true)).toBe(true);
   });
 
-  it("im Rueckblick ist auch Schritt 6 selbst erreichbar", () => {
+  it("mit fertigem Video ist auch Schritt 6 selbst erreichbar", () => {
     expect(istErreichbar(6, ALLE_ERREICHT, false, "rendering", true)).toBe(true);
   });
 
-  it("generating-scripts sperrt immer, auch im Rueckblick", () => {
+  it("generating-scripts sperrt immer, auch mit fertigem Video", () => {
     expect(istErreichbar(2, ALLE_ERREICHT, false, "generating-scripts", true)).toBe(false);
     expect(istErreichbar(6, ALLE_ERREICHT, false, "generating-scripts", true)).toBe(false);
   });
 
-  it("auf done aendert der Rueckblick-Schalter nichts, Schritt 6 bleibt erreichbar", () => {
+  it("auf done aendert hatErgebnis nichts, Schritt 6 bleibt erreichbar", () => {
     expect(istErreichbar(6, ALLE_ERREICHT, false, "done")).toBe(true);
     expect(istErreichbar(6, ALLE_ERREICHT, false, "done", true)).toBe(true);
   });
 
-  it("maxReachedIdx begrenzt weiterhin, auch im Rueckblick", () => {
+  it("maxReachedIdx begrenzt weiterhin, auch mit fertigem Video", () => {
     expect(istErreichbar(5, 3, false, "rendering", true)).toBe(false);
   });
 
-  it("skipTranslation blendet die Uebersetzung weiterhin aus, auch im Rueckblick", () => {
+  it("skipTranslation blendet die Uebersetzung weiterhin aus, auch mit fertigem Video", () => {
     expect(istErreichbar(1, ALLE_ERREICHT, true, "rendering", true)).toBe(false);
     expect(istErreichbar(2, ALLE_ERREICHT, true, "rendering", true)).toBe(false);
+  });
+
+  it("von Schritt 5 aus ist Schritt 6 erreichbar, wenn ein Video fertig ist", () => {
+    expect(istErreichbar(6, ALLE_ERREICHT, false, "script-review", true)).toBe(true);
+  });
+
+  it("ohne fertiges Video ist Schritt 6 von Schritt 5 aus nicht erreichbar", () => {
+    expect(istErreichbar(6, ALLE_ERREICHT, false, "script-review", false)).toBe(false);
   });
 });
 
@@ -108,7 +116,7 @@ describe("vorherErreichbar", () => {
     expect(vorherErreichbar(0, 0, false, "upload")).toBeNull();
   });
 
-  it("findet im Rueckblick den naechsten Schritt nach links, waehrend des Laufs nichts", () => {
+  it("findet mit fertigem Video den naechsten Schritt nach links, waehrend des Laufs ohne Video nichts", () => {
     expect(vorherErreichbar(6, ALLE_ERREICHT, false, "rendering", true)).toBe(5);
     expect(vorherErreichbar(6, ALLE_ERREICHT, false, "rendering", false)).toBeNull();
   });

@@ -31,7 +31,8 @@ interface TtsSettingsStepProps {
   stand: VertonterStand | null;
   imScreencast: number[];
   neuVertonen: number[];
-  gesperrtNeu: Set<number>;
+  ohneTon: Set<number>;
+  geaenderteOhneHaken: number;
   zeigtNeu: boolean;
   stimmeGewechselt: boolean;
   onUmschaltenScreencast: (i: number) => void;
@@ -72,7 +73,8 @@ export default function TtsSettingsStep(props: TtsSettingsStepProps) {
     stand,
     imScreencast,
     neuVertonen,
-    gesperrtNeu,
+    ohneTon,
+    geaenderteOhneHaken,
     zeigtNeu,
     stimmeGewechselt,
     onUmschaltenScreencast,
@@ -219,7 +221,7 @@ export default function TtsSettingsStep(props: TtsSettingsStepProps) {
         stand={stand}
         imScreencast={imScreencast}
         neuVertonen={neuVertonen}
-        gesperrtNeu={gesperrtNeu}
+        ohneTon={ohneTon}
         zeigtNeu={zeigtNeu}
         stimmeGewechselt={stimmeGewechselt}
         onUmschaltenScreencast={onUmschaltenScreencast}
@@ -262,6 +264,11 @@ export default function TtsSettingsStep(props: TtsSettingsStepProps) {
 
       {ttsSettingsError && (
         <p className="text-sm text-warn bg-warn-bg border border-warn-border rounded-md px-3 py-2 mb-3">{ttsSettingsError}</p>
+      )}
+      {geaenderteOhneHaken > 0 && (
+        <p className="mb-3 rounded-md border border-warn-border bg-warn-bg px-3 py-2 text-sm text-warn-strong" role="status">
+          {t("folienAuswahl.geaendertBehaeltAltenTon", { n: geaenderteOhneHaken })}
+        </p>
       )}
       {imScreencast.length === 0 && (
         <p className="mb-3 rounded-md border border-warn-border bg-warn-bg px-3 py-2 text-sm text-warn-strong" role="alert">

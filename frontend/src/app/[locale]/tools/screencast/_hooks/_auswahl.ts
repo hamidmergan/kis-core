@@ -21,30 +21,17 @@ export function ohneTonAberMitSkript(scripts: string[], hatTon: boolean[]): numb
 export function startAuswahl(
   anzahl: number,
   gespeichert: GespeicherteAuswahl | null,
-  geaendert: number[],
-  hatTon: boolean[],
-  scripts: string[],
 ): Startauswahl {
   const alle = Array.from({ length: anzahl }, (_, i) => i);
   const imScreencast = gespeichert?.video_folien
     ? gespeichert.video_folien.filter((i) => i >= 0 && i < anzahl)
     : alle;
-  // Geaendertes kommt immer dazu, sonst spricht das Video den alten Text weiter.
-  const bisher = [...(gespeichert ? gespeichert.neu_vertonen : []), ...geaendert];
-  const gesperrt = new Set(ohneTonAberMitSkript(scripts, hatTon));
-  return { imScreencast, neuVertonen: angleichen(imScreencast, bisher, gesperrt) };
+  // Nichts vorauswaehlen, der Nutzer entscheidet selbst was neu gesprochen wird.
+  return { imScreencast, neuVertonen: angleichen(imScreencast, gespeichert?.neu_vertonen ?? []) };
 }
 
-/** Neu vertont wird nur, was im Screencast ist, und eine Folie ohne Ton immer. */
-export function angleichen(
-  imScreencast: number[],
-  bisherNeu: number[],
-  gesperrt: Set<number>,
-): number[] {
+/** Neu vertont wird nur, was ueberhaupt im Screencast ist. */
+export function angleichen(imScreencast: number[], bisherNeu: number[]): number[] {
   const dabei = new Set(imScreencast);
-  const menge = new Set(bisherNeu.filter((i) => dabei.has(i)));
-  gesperrt.forEach((i) => {
-    if (dabei.has(i)) menge.add(i);
-  });
-  return [...menge].sort((a, b) => a - b);
+  return [...new Set(bisherNeu.filter((i) => dabei.has(i)))].sort((a, b) => a - b);
 }
