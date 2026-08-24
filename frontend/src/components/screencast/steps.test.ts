@@ -10,13 +10,13 @@ describe("indexToStep", () => {
     expect(indexToStep(3)).toBe("user-prompt");
     expect(indexToStep(4)).toBe("script-review");
     expect(indexToStep(5)).toBe("tts-settings");
+    expect(indexToStep(6)).toBe("rendering");
     expect(indexToStep(7)).toBe("done");
   });
 
-  it("gibt nichts fuer Upload und die Warteseiten", () => {
+  it("gibt nichts fuer Upload und Uebersetzen", () => {
     expect(indexToStep(0)).toBeNull();
     expect(indexToStep(1)).toBeNull();
-    expect(indexToStep(6)).toBeNull();
   });
 });
 
@@ -24,8 +24,15 @@ describe("istErreichbar", () => {
   it("laesst nur betretbare Seiten zu", () => {
     expect(istErreichbar(0, ALLE_ERREICHT, false, "done")).toBe(false);
     expect(istErreichbar(1, ALLE_ERREICHT, false, "done")).toBe(false);
-    expect(istErreichbar(6, ALLE_ERREICHT, false, "done")).toBe(false);
     expect(istErreichbar(3, ALLE_ERREICHT, false, "done")).toBe(true);
+  });
+
+  // Rendern ist eine Warteseite, bis das Video steht. Danach liegt dort der
+  // Rueckblick mit allen Folien zum Nachhoeren.
+  it("gibt Rendern erst frei, wenn das Video fertig ist", () => {
+    expect(istErreichbar(6, ALLE_ERREICHT, false, "done")).toBe(true);
+    expect(istErreichbar(6, ALLE_ERREICHT, false, "tts-settings")).toBe(false);
+    expect(istErreichbar(6, ALLE_ERREICHT, false, "script-review")).toBe(false);
   });
 
   it("sperrt, was noch nicht dran war", () => {
