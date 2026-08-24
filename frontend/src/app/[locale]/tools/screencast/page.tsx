@@ -140,6 +140,8 @@ function ScreencastPageInner() {
   });
   const zeigtNeu = hatTon.some(Boolean);
   const stimmeGewechselt = !!stand && (stand.voice_id !== voiceId || stand.provider_id !== providerId || stand.target_lang !== targetLang);
+  // Schritt 6 wartet auf den gespeicherten Stand, sonst ueberschreibt er eine laufende Eingabe.
+  const schritt6Bereit = !translateJobUuid || standGeladen;
 
   // Wer morgen wiederkommt, findet seinen Stand vor statt der Voreinstellung.
   const eingestelltRef = useRef(false);
@@ -685,8 +687,16 @@ function ScreencastPageInner() {
           />
         )}
 
+        {/* ── Step: TTS Settings, wartet auf den gespeicherten Stand ── */}
+        {!resumeBusy && step === "tts-settings" && !schritt6Bereit && (
+          <section className="animate-[fadeIn_0.2s_ease-out] text-center py-20" role="status" aria-live="polite">
+            <Spinner size="lg" className="justify-center mb-4" />
+            <p className="text-sm text-foreground-soft">{t("resuming")}</p>
+          </section>
+        )}
+
         {/* ── Step: TTS Settings ── */}
-        {!resumeBusy && step === "tts-settings" && (
+        {!resumeBusy && step === "tts-settings" && schritt6Bereit && (
           <TtsSettingsStep
             onBack={zurueckVon(5)}
             providersLoaded={providersLoaded}
