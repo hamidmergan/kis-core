@@ -27,7 +27,15 @@ from src.tasks.screencast_tasks._shared import _JobCancelled
 
 
 def _merke_vertonten_stand(
-    user_id: int, job_uuid: str, scripts: list[str], voice_id: str, provider_id: int
+    user_id: int,
+    job_uuid: str,
+    scripts: list[str],
+    voice_id: str,
+    provider_id: int,
+    speed: float,
+    slide_pause: float,
+    subtitles: bool,
+    video_folien: list[int] | None,
 ) -> None:
     """Schritt 6 vergleicht spaeter hiergegen, um Geaendertes vorauszuwaehlen."""
     try:
@@ -40,6 +48,10 @@ def _merke_vertonten_stand(
         "voice_id": voice_id,
         "provider_id": provider_id,
         "target_lang": (load_result_meta(user_id, job_uuid) or {}).get("target_lang", ""),
+        "speed": speed,
+        "slide_pause": slide_pause,
+        "subtitles": subtitles,
+        "video_folien": sorted(video_folien) if video_folien is not None else list(range(len(scripts))),
     }, ensure_ascii=False).encode())
 
 
@@ -113,7 +125,10 @@ def run_screencast_render(
         with job_heartbeat(translate_job_uuid):
             save_result_and_evict(user_id, translate_job_uuid, result["result_path"], result_filename)
         db.update_job_status(translate_job_uuid, "success")
-        _merke_vertonten_stand(user_id, translate_job_uuid, scripts, voice_id, provider_id)
+        _merke_vertonten_stand(
+            user_id, translate_job_uuid, scripts, voice_id, provider_id,
+            speed, slide_pause, subtitles, video_folien,
+        )
         clear_render_cache(user_id, translate_job_uuid)
 
         logger.info("Screencast render task {} completed", translate_job_uuid)

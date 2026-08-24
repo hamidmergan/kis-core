@@ -122,6 +122,10 @@ export interface VertonterStand {
   voice_id: string;
   provider_id: number;
   target_lang: string;
+  speed?: number;
+  slide_pause?: number;
+  subtitles?: boolean;
+  video_folien?: number[];
 }
 
 export type FolienMarke = "skript" | "folie" | null;
@@ -148,4 +152,49 @@ export function geaenderteFolien(stand: VertonterStand | null, slides: SlideData
   return slides
     .map((s, i) => (s.script?.trim() && markeFuerFolie(stand, i, s.script, s.extractedText) ? i : -1))
     .filter((i) => i >= 0);
+}
+
+/** Was ein neuer Lauf gegenueber dem letzten aendern wuerde. */
+export interface LaufStand {
+  stand: VertonterStand | null;
+  hatVideo: boolean;
+  imScreencast: number[];
+  neuVertonen: number[];
+  ohneTon: number[];
+  geaendert: number[];
+  providerId: number;
+  voiceId: string;
+  targetLang: string;
+  speed: number;
+  slidePause: number;
+  subtitles: boolean;
+}
+
+/** Wahr, wenn ein neuer Lauf genau dasselbe Video ergaebe. */
+export function laufWaereUmsonst(s: LaufStand): boolean {
+  if (!s.stand || !s.hatVideo) return false;
+  if (s.neuVertonen.length > 0) return false;
+  if (s.geaendert.length > 0) return false;
+  // Eine Folie ohne Ton bekaeme welchen, das ist eine Aenderung.
+  if (s.ohneTon.some((i) => s.imScreencast.includes(i))) return false;
+  if (s.stand.voice_id !== s.voiceId) return false;
+  if (s.stand.provider_id !== s.providerId) return false;
+  if (s.stand.target_lang !== s.targetLang) return false;
+  if (s.stand.speed !== undefined && rundeZwei(s.stand.speed) !== rundeZwei(s.speed)) return false;
+  if (s.stand.slide_pause !== undefined && rundeZwei(s.stand.slide_pause) !== rundeZwei(s.slidePause)) return false;
+  if (s.stand.subtitles !== undefined && s.stand.subtitles !== s.subtitles) return false;
+  if (s.stand.video_folien !== undefined
+      && !gleicheNummern(s.stand.video_folien, s.imScreencast)) return false;
+  return true;
+}
+
+function rundeZwei(n: number): number {
+  return Math.round(n * 100) / 100;
+}
+
+function gleicheNummern(a: number[], b: number[]): boolean {
+  if (a.length !== b.length) return false;
+  const x = [...a].sort((p, q) => p - q);
+  const y = [...b].sort((p, q) => p - q);
+  return x.every((wert, i) => wert === y[i]);
 }

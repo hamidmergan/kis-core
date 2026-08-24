@@ -49,6 +49,8 @@ interface TtsSettingsStepProps {
   onSubtitlesChange: (v: boolean) => void;
   onBackToScripts: () => void;
   onStartRender: () => void;
+  laufUmsonst: boolean;
+  onZumVideo: () => void;
 }
 
 export default function TtsSettingsStep(props: TtsSettingsStepProps) {
@@ -91,6 +93,8 @@ export default function TtsSettingsStep(props: TtsSettingsStepProps) {
     onSubtitlesChange,
     onBackToScripts,
     onStartRender,
+    laufUmsonst,
+    onZumVideo,
   } = props;
 
   const t = useTranslations("tools.screencast");
@@ -275,10 +279,15 @@ export default function TtsSettingsStep(props: TtsSettingsStepProps) {
           {t("folienAuswahl.keineFolie")}
         </p>
       )}
+      {laufUmsonst && (
+        <p className="mb-3 rounded-lg bg-surface px-4 py-3 text-sm text-foreground-soft" role="status">
+          {t("ttsSettings.nichtsGeaendert")}
+        </p>
+      )}
       <StepFooter
         onBack={onBack}
-        nextLabel={t("ttsSettings.startRender")}
-        onNext={onStartRender}
+        nextLabel={laufUmsonst ? t("ttsSettings.zumFertigenVideo") : t("ttsSettings.startRender")}
+        onNext={laufUmsonst ? onZumVideo : onStartRender}
         nextDisabled={scriptOverLimit || imScreencast.length === 0}
       />
     </section>

@@ -27,7 +27,10 @@ def test_der_abzug_haelt_skripte_und_folientexte():
          patch("src.tasks.screencast_tasks._render.load_result_meta",
                return_value={"target_lang": "ES"}), \
          patch("src.tasks.screencast_tasks._render.save_job_file") as sichern:
-        _merke_vertonten_stand(1, UUID, ["Skript eins", "Skript zwei"], "de-anna", 2)
+        _merke_vertonten_stand(
+            1, UUID, ["Skript eins", "Skript zwei"], "de-anna", 2,
+            0.9, 1.0, False, [0, 1],
+        )
     stand = _gespeichert(sichern.call_args_list)
     assert stand["scripts"] == ["Skript eins", "Skript zwei"]
     assert stand["folientexte"] == ["Folie eins", "Folie zwei"]
@@ -36,12 +39,39 @@ def test_der_abzug_haelt_skripte_und_folientexte():
     assert stand["target_lang"] == "ES"
 
 
+def test_der_abzug_traegt_tempo_pause_untertitel_und_auswahl():
+    with patch("src.tasks.screencast_tasks._render.get_job_file", side_effect=_dateien({})), \
+         patch("src.tasks.screencast_tasks._render.load_result_meta", return_value=None), \
+         patch("src.tasks.screencast_tasks._render.save_job_file") as sichern:
+        _merke_vertonten_stand(
+            1, UUID, ["Skript eins", "Skript zwei", "Skript drei"], "de-anna", 2,
+            1.1, 2.5, True, [2, 0],
+        )
+    stand = _gespeichert(sichern.call_args_list)
+    assert stand["speed"] == 1.1
+    assert stand["slide_pause"] == 2.5
+    assert stand["subtitles"] is True
+    assert stand["video_folien"] == [0, 2]
+
+
+def test_ohne_folienauswahl_steht_die_volle_liste():
+    with patch("src.tasks.screencast_tasks._render.get_job_file", side_effect=_dateien({})), \
+         patch("src.tasks.screencast_tasks._render.load_result_meta", return_value=None), \
+         patch("src.tasks.screencast_tasks._render.save_job_file") as sichern:
+        _merke_vertonten_stand(
+            1, UUID, ["Skript eins", "Skript zwei", "Skript drei"], "de-anna", 2,
+            0.9, 1.0, False, None,
+        )
+    stand = _gespeichert(sichern.call_args_list)
+    assert stand["video_folien"] == [0, 1, 2]
+
+
 def test_ohne_folientexte_bleibt_die_liste_leer():
     """Ein alter Auftrag ohne scripts.txt darf den Lauf nicht scheitern lassen."""
     with patch("src.tasks.screencast_tasks._render.get_job_file", side_effect=_dateien({})), \
          patch("src.tasks.screencast_tasks._render.load_result_meta", return_value=None), \
          patch("src.tasks.screencast_tasks._render.save_job_file") as sichern:
-        _merke_vertonten_stand(1, UUID, ["Skript"], "de-anna", 2)
+        _merke_vertonten_stand(1, UUID, ["Skript"], "de-anna", 2, 0.9, 1.0, False, None)
     stand = _gespeichert(sichern.call_args_list)
     assert stand["folientexte"] == []
     assert stand["target_lang"] == ""
@@ -51,7 +81,7 @@ def test_der_dateiname_stimmt():
     with patch("src.tasks.screencast_tasks._render.get_job_file", side_effect=_dateien({})), \
          patch("src.tasks.screencast_tasks._render.load_result_meta", return_value=None), \
          patch("src.tasks.screencast_tasks._render.save_job_file") as sichern:
-        _merke_vertonten_stand(1, UUID, [], "", 0)
+        _merke_vertonten_stand(1, UUID, [], "", 0, 0.9, 1.0, False, None)
     assert sichern.call_args_list[0][0][2] == "vertonter_stand.json"
 
 

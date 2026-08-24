@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { renderProgress, geaenderteFolien, markeFuerFolie, type VertonterStand } from "./_utils";
+import { renderProgress, geaenderteFolien, markeFuerFolie, laufWaereUmsonst, type VertonterStand, type LaufStand } from "./_utils";
 import type { JobStatus } from "@/lib/api";
 import type { SlideData } from "@/types";
 
@@ -88,5 +88,101 @@ describe("geaenderteFolien", () => {
   it("eine Folie ohne Skript zaehlt nicht, sie hat nichts zu sprechen", () => {
     const s = slides([["Skript eins", "Folie eins"], ["   ", "Folie neu"]]);
     expect(geaenderteFolien(stand, s)).toEqual([]);
+  });
+});
+
+describe("laufWaereUmsonst", () => {
+  const standMitAllenFeldern: VertonterStand = {
+    scripts: ["Skript eins", "Skript zwei"],
+    folientexte: ["Folie eins", "Folie zwei"],
+    voice_id: "de-anna",
+    provider_id: 2,
+    target_lang: "EN-US",
+    speed: 0.9,
+    slide_pause: 1.0,
+    subtitles: false,
+    video_folien: [0, 1],
+  };
+
+  const basis: LaufStand = {
+    stand: standMitAllenFeldern,
+    hatVideo: true,
+    imScreencast: [0, 1],
+    neuVertonen: [],
+    ohneTon: [],
+    geaendert: [],
+    providerId: 2,
+    voiceId: "de-anna",
+    targetLang: "EN-US",
+    speed: 0.9,
+    slidePause: 1.0,
+    subtitles: false,
+  };
+
+  it("ohne Abzug ist der Lauf nie umsonst", () => {
+    expect(laufWaereUmsonst({ ...basis, stand: null })).toBe(false);
+  });
+
+  it("ohne fertiges Video ist der Lauf nie umsonst", () => {
+    expect(laufWaereUmsonst({ ...basis, hatVideo: false })).toBe(false);
+  });
+
+  it("alles gleich und nichts angehakt: der Lauf waere umsonst", () => {
+    expect(laufWaereUmsonst(basis)).toBe(true);
+  });
+
+  it("eine angehakte Folie macht den Lauf sinnvoll", () => {
+    expect(laufWaereUmsonst({ ...basis, neuVertonen: [0] })).toBe(false);
+  });
+
+  it("eine geaenderte Folie macht den Lauf sinnvoll", () => {
+    expect(laufWaereUmsonst({ ...basis, geaendert: [1] })).toBe(false);
+  });
+
+  it("eine Folie ohne Ton im Screencast macht den Lauf sinnvoll", () => {
+    expect(laufWaereUmsonst({ ...basis, ohneTon: [1] })).toBe(false);
+  });
+
+  it("eine Folie ohne Ton ausserhalb des Screencasts aendert nichts, der Lauf bliebe umsonst", () => {
+    expect(laufWaereUmsonst({ ...basis, ohneTon: [2] })).toBe(true);
+  });
+
+  it("eine geaenderte Stimme macht den Lauf sinnvoll", () => {
+    expect(laufWaereUmsonst({ ...basis, voiceId: "de-other" })).toBe(false);
+  });
+
+  it("ein geaenderter Anbieter macht den Lauf sinnvoll", () => {
+    expect(laufWaereUmsonst({ ...basis, providerId: 3 })).toBe(false);
+  });
+
+  it("eine geaenderte Zielsprache macht den Lauf sinnvoll", () => {
+    expect(laufWaereUmsonst({ ...basis, targetLang: "DE" })).toBe(false);
+  });
+
+  it("ein geaendertes Tempo macht den Lauf sinnvoll", () => {
+    expect(laufWaereUmsonst({ ...basis, speed: 1.1 })).toBe(false);
+  });
+
+  it("eine geaenderte Folienpause macht den Lauf sinnvoll", () => {
+    expect(laufWaereUmsonst({ ...basis, slidePause: 2.0 })).toBe(false);
+  });
+
+  it("geaenderte Untertitel machen den Lauf sinnvoll", () => {
+    expect(laufWaereUmsonst({ ...basis, subtitles: true })).toBe(false);
+  });
+
+  it("eine andere Folienauswahl macht den Lauf sinnvoll", () => {
+    expect(laufWaereUmsonst({ ...basis, imScreencast: [0] })).toBe(false);
+  });
+
+  it("ein alter Abzug ohne die vier neuen Felder kippt nicht, er gilt bei sonst gleichen Werten als umsonst", () => {
+    const standOhneNeueFelder: VertonterStand = {
+      scripts: ["Skript eins", "Skript zwei"],
+      folientexte: ["Folie eins", "Folie zwei"],
+      voice_id: "de-anna",
+      provider_id: 2,
+      target_lang: "EN-US",
+    };
+    expect(laufWaereUmsonst({ ...basis, stand: standOhneNeueFelder })).toBe(true);
   });
 });
