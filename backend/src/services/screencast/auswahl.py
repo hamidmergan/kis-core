@@ -42,3 +42,8 @@ def ton_plaetze(anzahl: int, clip_folien: list[int]) -> list[bool]:
     """Wahr nur dort, wo neuer Ton hinkommt, sonst bleibt der alte liegen."""
     dabei = set(clip_folien)
     return [i in dabei for i in range(anzahl)]
+
+
+def zu_sprechende_folien(clip_folien: list[int], scripts: list[str], schon_da: set[int]) -> int:
+    """Zaehlt die Folien, die noch echten Ton brauchen, weder aus dem Vorrat noch leer."""
+    return sum(1 for i in clip_folien if i not in schon_da and scripts[i].strip())

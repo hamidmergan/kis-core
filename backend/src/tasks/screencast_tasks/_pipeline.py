@@ -13,6 +13,7 @@ from loguru import logger
 from src import database as db
 from src.limits import RENDER_MAX_WORKERS
 from src.storage import (
+    audio_folien_mit_ton,
     load_result_meta,
     save_audio_cache,
     save_job_file,
@@ -20,7 +21,7 @@ from src.storage import (
     save_result_meta,
 )
 
-from src.services.screencast.auswahl import clip_paare, folien_auswahl, ton_plaetze
+from src.services.screencast.auswahl import clip_paare, folien_auswahl, ton_plaetze, zu_sprechende_folien
 from src.services.screencast.statistik import (
     anbieter_und_modell,
     messe,
@@ -37,16 +38,16 @@ from src.tasks.screencast_tasks._shared import (
 
 
 def _fortschritt_vertonung(
-    fertige: list[int],
-    total: int,
-    vertont: int | None = None,
+    fertige: set[int],
+    zu_sprechen: int,
+    gesprochen: int,
     nicht_dabei: set[int] | None = None,
 ) -> dict:
-    """Die Vorschau schaltet ``fertige`` frei und graut ``nicht_dabei`` aus."""
+    """Der Zaehler meint die neu gesprochenen Folien, ``fertige`` traegt die Vorschau."""
     return {
         "step": "tts",
-        "current": len(fertige) if vertont is None else vertont,
-        "total": total,
+        "current": gesprochen,
+        "total": zu_sprechen,
         "fertig": sorted(fertige),
         "nicht_dabei": sorted(nicht_dabei or []),
     }
@@ -167,21 +168,26 @@ def _run_render_pipeline(
             raise _JobCancelled()
 
         # ── TTS ───────────────────────────────────────────────────────────
+        # Diese Folien liegen schon fertig vor, sie gehoeren sofort in die Vorschau.
+        schon_da = audio_folien_mit_ton(user_id, job_uuid) & auswahl.alter_ton_erlaubt
+        zu_sprechen = zu_sprechende_folien(auswahl.clip_folien, scripts, schon_da)
+        fertige_folien: set[int] = set(schon_da)
+        gesprochen = 0
         db.update_job_status(job_uuid, "running", progress=_fortschritt_vertonung(
-            [], len(auswahl.clip_folien), 0, auswahl.ausgeschlossen))
-
-        # generate_all_tts ruft das unter seinem Lock, die Liste braucht keinen eigenen.
-        fertige_folien: list[int] = []
+            fertige_folien, zu_sprechen, 0, auswahl.ausgeschlossen))
 
         def _tts_progress(current: int, total: int, folie: int) -> None:
+            nonlocal gesprochen
             if _cancelled_by_watcher.is_set():
                 raise _JobCancelled()
             _assert_not_cancelled(job_uuid)
             if folie in auswahl.ausgeschlossen:
                 return
-            fertige_folien.append(folie)
+            if folie not in fertige_folien and scripts[folie].strip():
+                gesprochen += 1
+            fertige_folien.add(folie)
             db.update_job_status(job_uuid, "running", progress=_fortschritt_vertonung(
-                fertige_folien, len(auswahl.clip_folien), len(fertige_folien), auswahl.ausgeschlossen))
+                fertige_folien, zu_sprechen, gesprochen, auswahl.ausgeschlossen))
 
         # Ohne bekannte Zielsprache bleibt sie leer, dann raet die Vertonung nicht.
         target_lang = (load_result_meta(user_id, job_uuid) or {}).get("target_lang", "")
