@@ -9,7 +9,8 @@ FeatureNotConfigured.
 """
 import pytest
 
-from src.services.openai_compat_llm._chunking import MAX_AUDIO_SEC, AudioTooLongError
+from src.limits import MAX_AUDIO_SEC
+from src.services.openai_compat_llm._chunking import AudioTooLongError
 from src.tasks import _errors
 
 
@@ -33,7 +34,7 @@ def test_german_job_gets_german_wording(captured):
     written, locale_holder = captured
     locale_holder["locale"] = "de"
 
-    _errors.handle_task_exception("j1", AudioTooLongError(11004.0), task_label="Transcribe")
+    _errors.handle_task_exception("j1", AudioTooLongError(11004.0, MAX_AUDIO_SEC), task_label="Transcribe")
 
     assert written["status"] == "failed"
     assert "zu lang" in written["msg"]
@@ -45,7 +46,7 @@ def test_english_job_gets_english_wording(captured):
     written, locale_holder = captured
     locale_holder["locale"] = "en"
 
-    _errors.handle_task_exception("j2", AudioTooLongError(11004.0), task_label="Transcribe")
+    _errors.handle_task_exception("j2", AudioTooLongError(11004.0, MAX_AUDIO_SEC), task_label="Transcribe")
 
     assert written["status"] == "failed"
     assert "too long" in written["msg"].lower()
@@ -65,6 +66,6 @@ def test_limit_is_reported_in_minutes_from_the_real_constant(captured):
     """Raising the ceiling must change the message, not just the check."""
     written, _ = captured
 
-    _errors.handle_task_exception("j4", AudioTooLongError(MAX_AUDIO_SEC + 60), task_label="Transcribe")
+    _errors.handle_task_exception("j4", AudioTooLongError(MAX_AUDIO_SEC + 60, MAX_AUDIO_SEC), task_label="Transcribe")
 
     assert str(MAX_AUDIO_SEC // 60) in written["msg"]

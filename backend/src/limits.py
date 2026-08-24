@@ -85,6 +85,11 @@ SCREENCAST_MAX_CHARS = 100_000
 BUNDLE_INCLUDE_AUDIO  = False  # include MP3s in ZIP
 BUNDLE_INCLUDE_IMAGES = False  # include slide images in ZIP
 
+# --- Transkription -----------------------------------------------------------
+# Laengste Aufnahme, die angenommen wird. Stand frueher im Chunking-Modul, gehoert
+# aber hierher: es ist eine Frage an die Hochschule, keine an die Technik.
+MAX_AUDIO_SEC                  = 6000   # 100 min
+
 # --- Screencast -------------------------------------------------------------
 MAX_SCREENCAST_SLIDES          = 50
 MAX_QUEUED_SCREENCAST_JOBS     = 5  # max jobs in user queue (including running)

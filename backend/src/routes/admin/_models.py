@@ -66,6 +66,14 @@ class UpdateSettingsRequest(BaseModel):
     # Konstanten in limits.py. Beides sind Fragen, die ein Mensch im
     # Admin-Bereich nicht beantworten kann.
     tts_max_chars_per_request: int | None = None
+    # Grenzen der globalen Werkzeuge. Was hier stehen darf und was nicht,
+    # begruendet services/tool_limits.py. Bei den beiden Zaehlgrenzen heisst -1
+    # unbegrenzt, bei den anderen dreien waere das eine Falle.
+    screencast_max_slides: int | None = None
+    transcription_max_minutes: int | None = None
+    upload_max_mb: int | None = None
+    results_kept_per_user: int | None = None
+    screencast_max_open_jobs: int | None = None
     # System prompt for the CEFR chat diagnosis. ONE prompt for every language;
     # the workspace language is substituted for the {language} placeholder. An
     # empty string restores the shipped default.

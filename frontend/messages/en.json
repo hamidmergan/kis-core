@@ -636,7 +636,7 @@
         "nachLinks": "Scroll slides left",
         "nachRechts": "Scroll slides right"
       },
-    "rendering": {
+      "rendering": {
         "fallback": "Creating video...",
         "subtle": "Voiceover and video production, this may take a few minutes.",
         "queue": "In the queue…",
@@ -818,6 +818,10 @@
         "stats": {
           "label": "Statistics",
           "sub": "Runs, failure rates and duration over a period."
+        },
+        "limits": {
+          "label": "Limits",
+          "sub": "How large and how much the tools accept."
         }
       },
       "assistent": {
@@ -1571,7 +1575,8 @@
         "werkzeuge": {
           "release": "Release and block tools",
           "jobs": "See everyone's jobs",
-          "stats": "Tool statistics"
+          "stats": "Tool statistics",
+          "limits": "Change tool limits"
         },
         "assistent": {
           "sources": "Sources and context budgets",
@@ -1587,6 +1592,48 @@
         },
         "system": "System, maintenance, labels and notice",
         "mascot": "Mascots"
+      }
+    },
+    "toolLimits": {
+      "slides": {
+        "title": "Slides per screencast",
+        "hint": "How many slides a presentation may have. Every slide is voiced separately, so more slides mainly means a longer wait. A screencast aborts after two hours, hence the ceiling of 200.",
+        "unit": "slides",
+        "outOfRange": "Value must be between 1 and 200."
+      },
+      "minutes": {
+        "title": "Length of a recording",
+        "hint": "How long a video or audio recording may be for transcription. Longer recordings are automatically split into nine-minute parts and transcribed one by one.",
+        "unit": "minutes",
+        "outOfRange": "Value must be between 5 and 480."
+      },
+      "upload": {
+        "title": "Size of a file",
+        "hint": "Applies to all tool uploads: presentations, videos, audio and documents. Sources of the AI assistant have their own limit.",
+        "unit": "MB",
+        "outOfRange": "Value must be between 10 and 2000."
+      },
+      "kept": {
+        "title": "Jobs kept per person",
+        "hint": "The only cleanup rule. There is no expiry: when a job beyond this number arrives, the oldest one is deleted, record and file. With -1 nothing is deleted any more and disk space becomes the only limit.",
+        "unit": "jobs",
+        "outOfRange": "Value must be between 1 and 10000, or -1 for unlimited."
+      },
+      "open": {
+        "title": "Open screencast jobs per person",
+        "hint": "How many screencasts someone may have in progress at once, script review included. Only one runs at a time anyway, so a higher number just allows more preparation. Use -1 for unlimited.",
+        "unit": "jobs",
+        "outOfRange": "Value must be between 1 and 100, or -1 for unlimited."
+      },
+      "fixed": {
+        "title": "Not configurable",
+        "hint": "These values are measured or dictated by the provider. Guessing them would make the platform slower or more fragile, so they stay fixed.",
+        "chunk": "length of one part when splitting, the transcriber accepts no more",
+        "chunkValue": "9 minutes",
+        "tts": "per text-to-speech request, beyond that it aborts after 60 seconds",
+        "ttsValue": "400 characters",
+        "workers": "screencasts running at once, derived from the server's cores",
+        "workersValue": "2"
       }
     }
   },

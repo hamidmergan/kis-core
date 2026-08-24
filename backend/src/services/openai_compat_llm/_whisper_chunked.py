@@ -10,7 +10,6 @@ from loguru import logger
 from src.services.openai_compat_llm import _chunk_cache
 from src.services.openai_compat_llm._chunking import (
     CHUNK_MAX_SEC,
-    MAX_AUDIO_SEC,
     AudioTooLongError,
     compute_split_points,
     find_silence_starts,
@@ -35,8 +34,12 @@ def chunk_concurrency() -> int:
 
 
 def _reject_if_too_long(duration: float) -> None:
-    if duration > MAX_AUDIO_SEC:
-        raise AudioTooLongError(duration)
+    """Grenze aus dem Admin, nicht aus dem Code. Siehe services/tool_limits.py."""
+    from src.services.tool_limits import max_transcription_seconds
+
+    grenze = max_transcription_seconds()
+    if duration > grenze:
+        raise AudioTooLongError(duration, grenze)
 
 
 def _fail_chunk(kind: str, index: int, error: Exception) -> RuntimeError:

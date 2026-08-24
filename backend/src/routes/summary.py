@@ -15,8 +15,8 @@ from src.quotas import enforce_quota
 from src.security.rate_limit import enforce_tool_burst
 from src.services import feature_provider_choices
 from src.storage import save_queue_file_from_path
+from src.services.tool_limits import max_upload_bytes
 from src.utils.file_validation import (
-    MAX_UPLOAD_BYTES,
     SUMMARY_EXTENSIONS,
     SUMMARY_MAX_CHARS,
     validate_or_raise,
@@ -67,14 +67,14 @@ async def summarize(
         )
 
     content_length = request.headers.get("content-length")
-    if content_length is not None and int(content_length) > MAX_UPLOAD_BYTES:
-        raise HTTPException(status_code=413, detail=t("file.tooLargeMb500", locale))
+    if content_length is not None and int(content_length) > max_upload_bytes():
+        raise HTTPException(status_code=413, detail=t("file.tooLargeMb", locale, max=max_upload_bytes() // (1024 * 1024)))
 
     # Stream to a temp file instead of holding the body (up to 500 MB) in RAM.
     # The extractor reads the path, storage uploads from the path.
     with tempfile.TemporaryDirectory(prefix="summary_upload_") as tmpdir:
         tmp_path = os.path.join(tmpdir, f"input{ext}")
-        total, head = await stream_upload_to_path(file, tmp_path, MAX_UPLOAD_BYTES, locale)
+        total, head = await stream_upload_to_path(file, tmp_path, max_upload_bytes(), locale)
         if not total:
             raise HTTPException(status_code=400, detail=t("file.empty", locale))
         validate_or_raise(head, ext, locale)

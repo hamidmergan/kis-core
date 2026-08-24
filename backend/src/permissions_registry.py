@@ -52,6 +52,7 @@ SETTINGS_PREFIX = "settings."
 PERM_SET_TOOLS_RELEASE = "settings.werkzeuge.release"
 PERM_SET_TOOLS_JOBS = "settings.werkzeuge.jobs"
 PERM_SET_TOOLS_STATS = "settings.werkzeuge.stats"
+PERM_SET_TOOLS_LIMITS = "settings.werkzeuge.limits"
 PERM_SET_AIA_SOURCES = "settings.assistent.sources"
 PERM_SET_AIA_LEVEL = "settings.assistent.level"
 PERM_SET_AIA_USAGE = "settings.assistent.usage"
@@ -69,6 +70,7 @@ SETTINGS_KEYS: tuple[str, ...] = (
     PERM_SET_TOOLS_RELEASE,
     PERM_SET_TOOLS_JOBS,
     PERM_SET_TOOLS_STATS,
+    PERM_SET_TOOLS_LIMITS,
     PERM_SET_AIA_SOURCES,
     PERM_SET_AIA_LEVEL,
     PERM_SET_AIA_USAGE,
@@ -131,6 +133,11 @@ SYSTEM_ROLE_PERMISSIONS: dict[str, tuple[str, ...]] = {
 # behandelt Unbekanntes wie "nur Administrator".
 SETTING_FIELD_PERMISSIONS: dict[str, str] = {
     "whitelist_enabled": PERM_SET_USERS_WHITELIST,
+    "screencast_max_slides": PERM_SET_TOOLS_LIMITS,
+    "transcription_max_minutes": PERM_SET_TOOLS_LIMITS,
+    "upload_max_mb": PERM_SET_TOOLS_LIMITS,
+    "results_kept_per_user": PERM_SET_TOOLS_LIMITS,
+    "screencast_max_open_jobs": PERM_SET_TOOLS_LIMITS,
     "workspace_label_singular_de": PERM_SET_SYSTEM,
     "workspace_label_plural_de": PERM_SET_SYSTEM,
     "workspace_label_singular_en": PERM_SET_SYSTEM,

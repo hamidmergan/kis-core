@@ -34,7 +34,7 @@ def run_cleanup_expired_files() -> int:
 
 @celery_app.task(name="cleanup.job_cap", queue="general")
 def run_cleanup_job_cap() -> int:
-    """Jeden Nutzer auf die letzten MAX_RESULT_FILES Auftraege zurechtstutzen. Stuendlich.
+    """Jeden Nutzer auf den Vorrat aus dem Admin zurechtstutzen. Stuendlich.
 
     Normalerweise raeumt schon das Speichern eines Ergebnisses mit. Wer nur
     Fehlversuche produziert, loest das aber nie aus, und seit die Frist von sieben

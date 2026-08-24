@@ -701,7 +701,7 @@ def delete_aia_workspace_folder(user_id: int, workspace_uuid: str) -> int:
 # --- Result saving with eviction ---
 
 def evict_jobs_over_cap(user_id: int) -> int:
-    """Alles ueber den letzten MAX_RESULT_FILES Auftraegen loeschen, Zeile und Ordner.
+    """Alles ueber dem Vorrat aus dem Admin loeschen, Zeile und Ordner.
 
     Einzige Aufbewahrungsregel, seit die Frist von sieben Tagen raus ist. Zaehlt
     alle Jobs eines Nutzers, also auch Fehlschlaege, die frueher nur die Frist
@@ -719,7 +719,7 @@ def evict_jobs_over_cap(user_id: int) -> int:
 
 
 def save_result_and_evict(user_id: int, job_uuid: str, result_path: str, result_filename: str) -> None:
-    """Save job result + delete oldest jobs beyond MAX_RESULT_FILES."""
+    """Save job result + delete oldest jobs beyond the configured cap."""
     update_job_result(job_uuid, result_path, result_filename)
     evict_jobs_over_cap(user_id)
 

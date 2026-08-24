@@ -18,7 +18,8 @@ from src.storage import (
     save_job_file,
     save_result_meta,
 )
-from src.utils.file_validation import MAX_SCREENCAST_SLIDES, SCREENCAST_MAX_CHARS
+from src.utils.file_validation import SCREENCAST_MAX_CHARS
+from src.services.tool_limits import max_screencast_slides
 
 from src.routes.screencast._models import PrerenderRequest, RenderRequest
 
@@ -84,14 +85,15 @@ def screencast_render(
     if not body.scripts:
         raise HTTPException(status_code=400, detail=t("screencast.noScripts", locale))
 
-    if len(body.scripts) > MAX_SCREENCAST_SLIDES:
+    folien_grenze = max_screencast_slides()
+    if len(body.scripts) > folien_grenze:
         raise HTTPException(
             status_code=400,
             detail=t(
                 "screencast.tooManySlides",
                 locale,
                 count=len(body.scripts),
-                max=MAX_SCREENCAST_SLIDES,
+                max=folien_grenze,
             ),
         )
 

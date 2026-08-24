@@ -13,7 +13,6 @@ from loguru import logger
 from src import database as db
 from src.dependencies import get_current_user, is_admin_user
 from src.i18n import get_locale, t
-from src.limits import MAX_QUEUED_SCREENCAST_JOBS
 from src.quotas import enforce_quota
 from src.security.rate_limit import enforce_tool_burst
 from src.services.screencast import (
@@ -22,7 +21,12 @@ from src.services.screencast import (
     maybe_start_cleanup_task,
 )
 from src.storage import save_job_file, save_job_file_from_path, save_queue_file_from_path
-from src.utils.file_validation import MAX_SCREENCAST_SLIDES, MAX_UPLOAD_BYTES, validate_or_raise
+from src.utils.file_validation import validate_or_raise
+from src.services.tool_limits import (
+    max_open_screencast_jobs,
+    max_screencast_slides,
+    max_upload_bytes,
+)
 from src.utils.upload_stream import stream_upload_to_path
 
 from src.routes.screencast._shared import SCREENCAST_TOOLS, validate_upload
@@ -31,10 +35,12 @@ router = APIRouter(tags=["screencast: translate"])
 
 
 def _enforce_queue_and_quota(user_id: int, current_user: dict, locale: str = "de") -> None:
-    if db.count_all_jobs_for_tool(user_id, SCREENCAST_TOOLS) >= MAX_QUEUED_SCREENCAST_JOBS:
+    # -1 heisst unbegrenzt, dann faellt die Warteschlangen-Pruefung ganz weg.
+    offene_grenze = max_open_screencast_jobs()
+    if offene_grenze >= 0 and db.count_all_jobs_for_tool(user_id, SCREENCAST_TOOLS) >= offene_grenze:
         raise HTTPException(
             status_code=409,
-            detail=t("screencast.queueFull", locale, max=MAX_QUEUED_SCREENCAST_JOBS),
+            detail=t("screencast.queueFull", locale, max=offene_grenze),
         )
     enforce_tool_burst(user_id, "screencast", locale)
     enforce_quota(user_id, "screencast", is_admin_user(current_user), locale)
@@ -56,14 +62,14 @@ async def screencast_translate(
     maybe_start_cleanup_task()
 
     content_length = request.headers.get("content-length")
-    if content_length is not None and int(content_length) > MAX_UPLOAD_BYTES:
-        raise HTTPException(status_code=413, detail=t("file.tooLargeMb500", locale))
+    if content_length is not None and int(content_length) > max_upload_bytes():
+        raise HTTPException(status_code=413, detail=t("file.tooLargeMb", locale, max=max_upload_bytes() // (1024 * 1024)))
 
     # Streamed to disk, never buffered: a PPTX with embedded media easily runs
     # to hundreds of MB, and the body limit alone allows 500.
     with tempfile.TemporaryDirectory(prefix="screencast_upload_") as tmpdir:
         tmp_path = os.path.join(tmpdir, "input.pptx")
-        total, head = await stream_upload_to_path(file, tmp_path, MAX_UPLOAD_BYTES, locale)
+        total, head = await stream_upload_to_path(file, tmp_path, max_upload_bytes(), locale)
         if not total:
             raise HTTPException(status_code=400, detail=t("file.empty", locale))
         validate_or_raise(head, ".pptx", locale)
@@ -120,7 +126,7 @@ async def screencast_upload_corrected(
     with tempfile.TemporaryDirectory() as tmpdir:
         tmp = Path(tmpdir)
         pptx_path = tmp / "upload.pptx"
-        total, head = await stream_upload_to_path(file, str(pptx_path), MAX_UPLOAD_BYTES, locale)
+        total, head = await stream_upload_to_path(file, str(pptx_path), max_upload_bytes(), locale)
         if not total:
             raise HTTPException(status_code=400, detail=t("file.empty", locale))
         validate_or_raise(head, ".pptx", locale)
@@ -139,14 +145,15 @@ async def screencast_upload_corrected(
         if not slide_texts:
             raise HTTPException(status_code=400, detail=t("screencast.noSlides", locale))
 
-        if len(slide_texts) > MAX_SCREENCAST_SLIDES:
+        folien_grenze = max_screencast_slides()
+        if len(slide_texts) > folien_grenze:
             raise HTTPException(
                 status_code=400,
                 detail=t(
                     "screencast.tooManySlides",
                     locale,
                     count=len(slide_texts),
-                    max=MAX_SCREENCAST_SLIDES,
+                    max=folien_grenze,
                 ),
             )
 

@@ -23,10 +23,6 @@ MESSAGES: dict[str, dict[str, str]] = {
         "de": "Nur .docx, .pptx, .md, .tex oder .txt erlaubt",
         "en": "Only .docx, .pptx, .md, .tex or .txt allowed",
     },
-    "file.tooLargeMb500": {
-        "de": "Datei zu groß (max 500 MB)",
-        "en": "File too large (max 500 MB)",
-    },
     "translate.documentTooLong": {
         "de": "Dokument zu lang ({chars} Zeichen). Bitte aufteilen (max. {maxChars} Zeichen).",
         "en": "Document too long ({chars} characters). Please split (max {maxChars} characters).",
@@ -207,10 +203,6 @@ MESSAGES: dict[str, dict[str, str]] = {
     "screencast.onlyPptx": {
         "de": "Nur .pptx erlaubt",
         "en": "Only .pptx allowed",
-    },
-    "file.tooLargeMb200": {
-        "de": "Datei zu groß (max 200 MB)",
-        "en": "File too large (max 200 MB)",
     },
     "screencast.queueFull": {
         "de": "Du hast bereits {max} Screencast-Jobs in der Warteschlange.",

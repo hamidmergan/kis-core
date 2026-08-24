@@ -13,7 +13,7 @@ from src.i18n import get_locale, t
 from src.services.screencast import generate_all_scripts
 from src.services.screencast.statistik import messe, route_kennung, zeichen_zahlen
 from src.storage import get_job_file, load_result_meta, save_job_file, save_result_meta
-from src.utils.file_validation import MAX_SCREENCAST_SLIDES
+from src.services.tool_limits import max_screencast_slides
 
 from src.routes.screencast._models import (
     GenerateScriptsRequest,
@@ -65,14 +65,15 @@ async def screencast_generate_scripts(
     if not body.slide_texts:
         raise HTTPException(status_code=400, detail=t("screencast.noSlideTexts", locale))
 
-    if len(body.slide_texts) > MAX_SCREENCAST_SLIDES:
+    folien_grenze = max_screencast_slides()
+    if len(body.slide_texts) > folien_grenze:
         raise HTTPException(
             status_code=400,
             detail=t(
                 "screencast.tooManySlides",
                 locale,
                 count=len(body.slide_texts),
-                max=MAX_SCREENCAST_SLIDES,
+                max=folien_grenze,
             ),
         )
 

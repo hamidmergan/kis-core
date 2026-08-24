@@ -636,7 +636,7 @@
         "nachLinks": "Folien nach links schieben",
         "nachRechts": "Folien nach rechts schieben"
       },
-    "rendering": {
+      "rendering": {
         "fallback": "Video wird erstellt...",
         "subtle": "Vertonung und Videoproduktion, das kann ein paar Minuten dauern.",
         "queue": "In der Warteschlange…",
@@ -818,6 +818,10 @@
         "stats": {
           "label": "Statistik",
           "sub": "Läufe, Fehlerquoten und Dauer über einen Zeitraum."
+        },
+        "limits": {
+          "label": "Grenzen",
+          "sub": "Wie groß und wie viel die Werkzeuge annehmen."
         }
       },
       "assistent": {
@@ -1571,7 +1575,8 @@
         "werkzeuge": {
           "release": "Werkzeuge freigeben und sperren",
           "jobs": "Aufträge aller Nutzer sehen",
-          "stats": "Statistik der Werkzeuge"
+          "stats": "Statistik der Werkzeuge",
+          "limits": "Grenzen der Werkzeuge ändern"
         },
         "assistent": {
           "sources": "Materialien und Kontext-Budgets",
@@ -1587,6 +1592,48 @@
         },
         "system": "System, Wartung, Beschriftungen und Hinweis",
         "mascot": "Maskottchen"
+      }
+    },
+    "toolLimits": {
+      "slides": {
+        "title": "Folien je Screencast",
+        "hint": "Wie viele Folien eine Präsentation haben darf. Jede Folie wird einzeln vertont, mehr Folien heißt vor allem längere Wartezeit. Ein Screencast bricht nach zwei Stunden ab, deshalb ist bei 200 Schluss.",
+        "unit": "Folien",
+        "outOfRange": "Wert muss zwischen 1 und 200 liegen."
+      },
+      "minutes": {
+        "title": "Länge einer Aufnahme",
+        "hint": "Wie lang ein Video oder eine Tonaufnahme für die Transkription sein darf. Längere Aufnahmen werden automatisch in Stücke von neun Minuten geschnitten und einzeln erkannt.",
+        "unit": "Minuten",
+        "outOfRange": "Wert muss zwischen 5 und 480 liegen."
+      },
+      "upload": {
+        "title": "Größe einer Datei",
+        "hint": "Gilt für alle Uploads der Werkzeuge: Präsentationen, Videos, Tonaufnahmen und Dokumente. Die Quellen des KI-Assistenten haben ihre eigene Grenze.",
+        "unit": "MB",
+        "outOfRange": "Wert muss zwischen 10 und 2000 liegen."
+      },
+      "kept": {
+        "title": "Aufbewahrte Aufträge je Person",
+        "hint": "Die einzige Aufräumregel. Es gibt keine Frist: kommt ein Auftrag über dieser Zahl dazu, wird der älteste gelöscht, Eintrag und Datei. Mit -1 wird nichts mehr gelöscht, dann ist der Plattenplatz die einzige Grenze.",
+        "unit": "Aufträge",
+        "outOfRange": "Wert muss zwischen 1 und 10000 liegen, oder -1 für unbegrenzt."
+      },
+      "open": {
+        "title": "Offene Screencast-Aufträge je Person",
+        "hint": "Wie viele Screencasts jemand gleichzeitig in Arbeit haben darf, das Prüfen der Skripte zählt mit. Es läuft ohnehin nur einer nach dem anderen, eine höhere Zahl lässt nur mehr vorbereiten. Mit -1 unbegrenzt.",
+        "unit": "Aufträge",
+        "outOfRange": "Wert muss zwischen 1 und 100 liegen, oder -1 für unbegrenzt."
+      },
+      "fixed": {
+        "title": "Nicht einstellbar",
+        "hint": "Diese Werte sind gemessen oder vom Anbieter vorgegeben. Sie zu raten würde die Plattform langsamer oder fehleranfälliger machen, deshalb stehen sie fest.",
+        "chunk": "Länge eines Stücks beim Zerlegen, mehr nimmt der Spracherkenner nicht an",
+        "chunkValue": "9 Minuten",
+        "tts": "je Anfrage an die Sprachausgabe, darüber bricht sie nach 60 Sekunden ab",
+        "ttsValue": "400 Zeichen",
+        "workers": "gleichzeitig laufende Screencasts, ergibt sich aus den Kernen des Servers",
+        "workersValue": "2"
       }
     }
   },

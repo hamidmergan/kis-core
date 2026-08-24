@@ -33,6 +33,7 @@ from src.limits import (
 import json
 
 from src.routes.admin._models import UpdateSettingsRequest
+from src.services import tool_limits
 from src.services.aia_diagnosis_chat import (
     ADAPTIVE_BEHAVIOR_SETTING,
     ANSWER_MAX_CHARS_SETTING,
@@ -157,6 +158,15 @@ async def get_settings(_admin=Depends(require_any_settings)):
         "tts_max_chars_per_request": int(
             db.get_setting("tts_max_chars_per_request", str(TTS_MAX_CHARS_PER_REQUEST))
         ),
+        # Grenzen der globalen Werkzeuge. Nicht aus limits.py gelesen, sondern
+        # ueber tool_limits, damit hier genau der Wert steht, den die Routen
+        # gerade benutzen. Minuten und MB, nicht Sekunden und Bytes: der Admin
+        # tippt die Einheit, die auf der Karte steht.
+        "screencast_max_slides": tool_limits.max_screencast_slides(),
+        "transcription_max_minutes": tool_limits.max_transcription_seconds() // 60,
+        "upload_max_mb": tool_limits.max_upload_bytes() // (1024 * 1024),
+        "results_kept_per_user": tool_limits.results_kept_per_user(),
+        "screencast_max_open_jobs": tool_limits.max_open_screencast_jobs(),
         # CEFR chat-diagnosis system prompt. One prompt for all languages; the
         # workspace language replaces the {language} placeholder at request time.
         "language_diagnosis_prompt": db.get_setting(
@@ -481,6 +491,26 @@ async def update_settings(
                 detail=t("admin.settings.maxPagesOutOfRange", locale, min=1, max=2000),
             )
         db.set_setting("aia_source_max_pages", str(value))
+
+    # Grenzen der globalen Werkzeuge. Die Obergrenzen sind keine Meinung: ein
+    # Screencast bricht nach zwei Stunden ab (SCREENCAST_TIME_LIMIT), eine zu
+    # lange Aufnahme wird beim Anbieter abgelehnt, und eine riesige Datei fuellt
+    # die Platte. Deshalb gibt es dort auch kein Unbegrenzt.
+    for feld, schluessel, unten, oben, darf_unbegrenzt in (
+        (body.screencast_max_slides, "screencast_max_slides", 1, 200, False),
+        (body.transcription_max_minutes, "transcription_max_minutes", 5, 480, False),
+        (body.upload_max_mb, "upload_max_mb", 10, 2000, False),
+        (body.results_kept_per_user, "results_kept_per_user", 1, 10000, True),
+        (body.screencast_max_open_jobs, "screencast_max_open_jobs", 1, 100, True),
+    ):
+        if feld is None:
+            continue
+        if not (unten <= feld <= oben) and not (darf_unbegrenzt and feld == -1):
+            raise HTTPException(
+                status_code=400,
+                detail=t("admin.settings.toolLimitOutOfRange", locale, min=unten, max=oben),
+            )
+        db.set_setting(schluessel, str(feld))
 
     # Aussprache auf der Lernkarte. Leer ist ein gültiger Wert und schaltet den
     # Lautsprecher ab, deshalb wird die leere Zeichenkette durchgelassen.

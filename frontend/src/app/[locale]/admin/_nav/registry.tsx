@@ -97,6 +97,7 @@ export interface AdminSection {
 import ToolReleasePage from "../_pages/werkzeuge/release";
 import ToolJobsPage from "../_pages/werkzeuge/jobs";
 import ToolStatsPage from "../_pages/werkzeuge/stats";
+import ToolLimitsPage from "../_pages/werkzeuge/limits";
 
 import SourcesPage from "../_pages/assistent/sources";
 import LanguageLevelPage from "../_pages/assistent/language-level";
@@ -132,6 +133,7 @@ export const SECTIONS: AdminSection[] = [
       { slug: "freigabe", key: "release", world: "tools", perm: PERM.toolsRelease, Component: ToolReleasePage },
       { slug: "auftraege", key: "jobs", world: "tools", perm: PERM.toolsJobs, Component: ToolJobsPage, home: true },
       { slug: "statistik", key: "stats", world: "tools", perm: PERM.toolsStats, Component: ToolStatsPage },
+      { slug: "grenzen", key: "limits", world: "tools", perm: PERM.toolsLimits, Component: ToolLimitsPage },
     ],
   },
   {

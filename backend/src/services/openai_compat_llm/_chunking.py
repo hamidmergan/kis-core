@@ -11,7 +11,6 @@ from pathlib import Path
 
 # ── Constants ────────────────────────────────────────────────────────────────
 CHUNK_MAX_SEC = 540        # 9 min - safely under the typical 600s upload limit
-MAX_AUDIO_SEC = 6000       # 100 min, hard upload limit
 CHUNK_REENCODE_BITRATE_KBPS = 64  # 64 kbps mono mp3 → ~4 MB / 9-min chunk; bypass nginx upload limits (e.g. myLab 413)
 CHUNK_REENCODE_SAMPLE_RATE_HZ = 16000  # Whisper resamples to 16 kHz internally — match it to skip server-side conversion
 _SILENCE_NOISE_DB = -40    # dB threshold for silence detection
@@ -20,19 +19,22 @@ _SPLIT_SEARCH_WINDOW = 60  # Search window around each target split point (s)
 
 
 class AudioTooLongError(Exception):
-    """Media longer than :data:`MAX_AUDIO_SEC`.
+    """Media longer than the configured maximum.
 
     Typed rather than a formatted string: this is raised deep in the service
     layer, which has no locale, while the wording belongs to whoever knows the
     user's language (``src.tasks._errors.handle_task_exception``). ``str()``
     stays readable for logs.
+
+    Die Grenze kommt als Argument herein, weil sie im Admin einstellbar ist
+    (``services/tool_limits.py``) und dieses Modul bewusst ohne Datenbank auskommt.
     """
 
-    def __init__(self, duration_sec: float):
+    def __init__(self, duration_sec: float, max_sec: int):
         self.duration_sec = duration_sec
-        self.max_sec = MAX_AUDIO_SEC
+        self.max_sec = max_sec
         super().__init__(
-            f"Audio too long ({duration_sec / 60:.1f} min), maximum {MAX_AUDIO_SEC // 60} min"
+            f"Audio too long ({duration_sec / 60:.1f} min), maximum {max_sec // 60} min"
         )
 
 
