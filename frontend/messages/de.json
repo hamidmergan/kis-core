@@ -35,7 +35,7 @@
   "myJobs": {
     "title": "Meine Jobs",
     "refresh": "Aktualisieren",
-    "intro": "Es werden die letzten 20 Jobs gespeichert. Kommt ein neuer dazu, fällt der älteste heraus.",
+    "intro": "Es werden die letzten 100 Jobs gespeichert. Kommt ein neuer dazu, fällt der älteste heraus.",
     "emptySearch": "Keine Ergebnisse für diese Suche",
     "emptyAll": "Keine Jobs vorhanden",
     "retryFailed": "Wiederholen fehlgeschlagen",
@@ -61,8 +61,8 @@
       "success": "Fertig",
       "failed": "Fehler",
       "running": "Läuft",
-      "awaitingUser": "Eingabe erforderlich",
-      "queued": "In der Schlange",
+      "awaitingUser": "Fortsetzen",
+      "queued": "In der Warteschlange",
       "pending": "Wartend"
     },
     "timing": {
@@ -72,6 +72,45 @@
       "processingTime": "Bearbeitungszeit:",
       "completed": "Fertig:",
       "expiresAt": "Läuft ab:"
+    },
+    "adminStats": {
+      "toggle": "Technische Details",
+      "yes": "ja",
+      "no": "nein",
+      "error": "Fehler:",
+      "phase": {
+        "uebersetzung": "Übersetzung",
+        "skripte": "Skripte",
+        "bilder": "Folienbilder",
+        "vertonung": "Vertonung",
+        "clips": "Videoclips",
+        "untertitel": "Untertitel",
+        "zusammenfuegen": "Zusammenfügen"
+      },
+      "field": {
+        "anbieter": "Anbieter",
+        "modell": "Modell",
+        "route": "Route",
+        "quelle": "Quellsprache",
+        "ziel": "Zielsprache",
+        "sprache": "Sprache",
+        "folien": "Folien",
+        "unveraenderte_folien": "unverändert",
+        "zeichen": "Zeichen",
+        "laengste_folie_zeichen": "längste Folie",
+        "leere_folien": "leere Folien",
+        "stimme": "Stimme",
+        "stimme_name": "Stimmname",
+        "tempo": "Tempo",
+        "aus_zwischenspeicher": "aus dem Zwischenspeicher",
+        "dpi": "Auflösung",
+        "vorrat_genutzt": "Vorrat genutzt",
+        "folienpause": "Folienpause",
+        "gleichzeitig": "gleichzeitig",
+        "folien_mit_ton": "Folien mit Ton",
+        "video_bytes": "Videogröße",
+        "clips": "Clips"
+      }
     },
     "actions": {
       "cancel": "Abbrechen",
@@ -88,6 +127,7 @@
       "creating": "Wird erstellt…",
       "generatingScripts": "Skripte werden generiert…",
       "resumeScreencast": "Screencast fortsetzen",
+      "openScreencast": "Screencast öffnen",
       "downloadAllZip": "Alles herunterladen (ZIP)",
       "fallbackFile": "Datei"
     },
@@ -107,7 +147,7 @@
       "days": "vor {n, plural, =1 {1 Tag} other {# Tagen}}"
     },
     "panel": {
-      "notice": "Es werden nur die letzten 20 Jobs gespeichert.",
+      "notice": "Es werden nur die letzten 100 Jobs gespeichert.",
       "empty": "Keine Jobs vorhanden",
       "viewAll": "Zur Übersicht",
       "newResults": "Neue Ergebnisse"
@@ -580,9 +620,23 @@
         "scriptTooLongBody": "Das Skript hat {chars} Zeichen (max. {max}). Bitte kürzen Sie die Folien-Texte.",
         "backToEdit": "Zurück zum Skript bearbeiten",
         "back": "Zurück",
-        "startRender": "Screencast erstellen"
+        "startRender": "Screencast erstellen",
+        "subtitles": "Untertitel einbauen",
+        "subtitlesHint": "Der gesprochene Text wird erkannt und als Untertitel-Spur ins Video gelegt. Im Player mit CC an und aus schaltbar. Das Rendern dauert dadurch etwas länger."
       },
-      "rendering": {
+      "vorschau": {
+        "ueberschrift": "Schon fertig zum Anhören",
+        "folieVon": "Folie {n} von {total}",
+        "fortschritt": "{fertig} von {total} Folien vertont",
+        "ohneTon": "Diese Folie hat keinen Sprechtext.",
+        "abspielen": "Folie {n} anhören",
+        "wartet": "Folie {n} wird noch vertont",
+        "rueckblick": "Alle Folien einzeln anhören",
+        "zumErgebnis": "Zum fertigen Video",
+        "nachLinks": "Folien nach links schieben",
+        "nachRechts": "Folien nach rechts schieben"
+      },
+    "rendering": {
         "fallback": "Video wird erstellt...",
         "subtle": "Vertonung und Videoproduktion, das kann ein paar Minuten dauern.",
         "queue": "In der Warteschlange…",
@@ -608,7 +662,8 @@
         "downloadAllZipAria": "Alles herunterladen (ZIP)",
         "downloadAllZipLabel": "Alles herunterladen (ZIP)",
         "newPresentationAria": "Neue Präsentation hochladen",
-        "newPresentation": "Neue Präsentation"
+        "newPresentation": "Neue Präsentation",
+        "subtitleTrack": "Untertitel"
       },
       "error": {
         "heading": "Fehler bei der Screencast-Erstellung",
@@ -654,10 +709,16 @@
       "demoBadge": "Demo ansehen →",
       "exit": {
         "restart": "Neu starten",
-        "cancel": "Screencast abbrechen",
+        "cancel": "Screencast verwerfen",
         "restartTitle": "Screencast verwerfen und neu starten?",
         "cancelTitle": "Screencast verwerfen und schließen?",
-        "body": "Der aktuelle Screencast wird gelöscht, samt hochgeladener Datei, Übersetzung und Skripten. Das lässt sich nicht rückgängig machen.",
+        "body": "Der aktuelle Screencast wird gelöscht, samt hochgeladener Datei, Übersetzung und Skripten.",
+        "warning": "Das lässt sich nicht rückgängig machen.",
+        "renderTitle": "Rendern abbrechen?",
+        "renderBody": "Der laufende Rendervorgang wird gestoppt. Sie kommen zurück zu den Einstellungen, Datei, Übersetzung und Skripte bleiben erhalten.",
+        "renderWarning": "Das bisher erstellte Video geht verloren.",
+        "renderKeep": "Weiter rendern",
+        "renderConfirm": "Rendern abbrechen",
         "confirm": "Verwerfen"
       }
     },
@@ -752,8 +813,7 @@
           "sub": "Welche Tools auf der Startseite erscheinen."
         },
         "jobs": {
-          "label": "Aufträge",
-          "sub": "Wie voll die Maschine ist, was läuft und was schiefging."
+          "label": "Aufträge"
         },
         "stats": {
           "label": "Statistik",
@@ -809,7 +869,7 @@
       "success": "Fertig",
       "failed": "Fehler",
       "running": "Läuft",
-      "queued": "In der Schlange",
+      "queued": "In der Warteschlange",
       "pending": "Wartend"
     },
     "pending": {
@@ -863,19 +923,6 @@
       "successWarning": "Dieses Passwort wird NUR JETZT angezeigt. Notiere oder kopiere es, bevor du den Dialog schließt.",
       "successClose": "Schließen",
       "errorGeneric": "Anlegen fehlgeschlagen"
-    },
-    "load": {
-      "title": "Auslastung",
-      "detected": "Erkannt: {cores} Kerne, {memory} GB. Alle Grenzen daraus berechnet, nichts einzustellen.",
-      "slots": "Plätze",
-      "uploads": "Uploads",
-      "cpu": "Prozessor",
-      "memory": "Speicher",
-      "slotsValue": "{running} von {total} belegt",
-      "slotsWaiting": "{running} von {total} belegt, {waiting} wartet",
-      "memoryValue": "{used} von {total} GB",
-      "unknown": "unbekannt",
-      "hint": "Alle Grenzen kommen aus der erkannten Maschine. Es gibt nichts einzustellen."
     },
     "jobs": {
       "searchPlaceholder": "Suche: User, Tool, Datei...",
@@ -1660,6 +1707,8 @@
   },
   "stepper": {
     "ariaLabel": "Fortschritt",
+    "scrollLeft": "Schritte nach links schieben",
+    "scrollRight": "Schritte nach rechts schieben",
     "steps": {
       "upload": "Upload",
       "translate": "Übersetzen",
