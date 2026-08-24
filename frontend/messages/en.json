@@ -1624,16 +1624,6 @@
         "hint": "How many screencasts someone may have in progress at once, script review included. Only one runs at a time anyway, so a higher number just allows more preparation. Use -1 for unlimited.",
         "unit": "jobs",
         "outOfRange": "Value must be between 1 and 100, or -1 for unlimited."
-      },
-      "fixed": {
-        "title": "Not configurable",
-        "hint": "These values are measured or dictated by the provider. Guessing them would make the platform slower or more fragile, so they stay fixed.",
-        "chunk": "length of one part when splitting, the transcriber accepts no more",
-        "chunkValue": "9 minutes",
-        "tts": "per text-to-speech request, beyond that it aborts after 60 seconds",
-        "ttsValue": "400 characters",
-        "workers": "screencasts running at once, derived from the server's cores",
-        "workersValue": "2"
       }
     }
   },

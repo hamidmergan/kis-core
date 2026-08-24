@@ -5,14 +5,13 @@
  *
  * Die Auswahl folgt einer einzigen Frage: hängt der richtige Wert von der
  * Nutzung der Hochschule ab oder von der Technik? Nur das Erste steht hier.
- * Alles Gemessene bleibt fest und wird in der letzten Karte bloß erklärt, damit
- * niemand danach sucht. Die Begründung je Wert steht in
+ * Alles Gemessene bleibt fest im Code, die Begründung je Wert steht in
  * ``backend/src/services/tool_limits.py``.
  */
 
 import { useTranslations } from "next-intl";
 import { useSetting } from "../../_settings/SettingsProvider";
-import { NumberSetting, SettingCard } from "../../_settings/fields";
+import { NumberSetting } from "../../_settings/fields";
 
 /** Der Wert, den die beiden Zaehlgrenzen fuer "unbegrenzt" tragen. */
 const UNBEGRENZT = -1;
@@ -75,20 +74,6 @@ export default function ToolLimitsPage() {
         max={100}
         outOfRange={t("open.outOfRange")}
       />
-
-      <SettingCard title={t("fixed.title")}>
-        <p className="mt-3 text-xs text-muted-soft max-w-2xl">{t("fixed.hint")}</p>
-        <dl className="mt-3 grid grid-cols-[auto_1fr] gap-x-4 gap-y-1.5">
-          {(["chunk", "tts", "workers"] as const).map((k) => (
-            <div key={k} className="contents">
-              <dt className="text-xs font-medium text-foreground-soft whitespace-nowrap tabular-nums">
-                {t(`fixed.${k}Value`)}
-              </dt>
-              <dd className="text-xs text-muted-soft min-w-0">{t(`fixed.${k}`)}</dd>
-            </div>
-          ))}
-        </dl>
-      </SettingCard>
     </div>
   );
 }

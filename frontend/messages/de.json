@@ -1624,16 +1624,6 @@
         "hint": "Wie viele Screencasts jemand gleichzeitig in Arbeit haben darf, das Prüfen der Skripte zählt mit. Es läuft ohnehin nur einer nach dem anderen, eine höhere Zahl lässt nur mehr vorbereiten. Mit -1 unbegrenzt.",
         "unit": "Aufträge",
         "outOfRange": "Wert muss zwischen 1 und 100 liegen, oder -1 für unbegrenzt."
-      },
-      "fixed": {
-        "title": "Nicht einstellbar",
-        "hint": "Diese Werte sind gemessen oder vom Anbieter vorgegeben. Sie zu raten würde die Plattform langsamer oder fehleranfälliger machen, deshalb stehen sie fest.",
-        "chunk": "Länge eines Stücks beim Zerlegen, mehr nimmt der Spracherkenner nicht an",
-        "chunkValue": "9 Minuten",
-        "tts": "je Anfrage an die Sprachausgabe, darüber bricht sie nach 60 Sekunden ab",
-        "ttsValue": "400 Zeichen",
-        "workers": "gleichzeitig laufende Screencasts, ergibt sich aus den Kernen des Servers",
-        "workersValue": "2"
       }
     }
   },
