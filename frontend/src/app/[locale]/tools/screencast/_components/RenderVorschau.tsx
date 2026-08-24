@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { CaretLeft, CaretRight } from "@phosphor-icons/react";
+import { CaretLeft, CaretRight, Prohibit } from "@phosphor-icons/react";
 import { useTranslations } from "next-intl";
 import IconButton from "@/components/ui/IconButton";
 import type { SlideData } from "@/types";
@@ -150,13 +150,22 @@ export default function RenderVorschau({ slides, fertig, jobUuid, speed, rueckbl
               title={raus ? beschriftung : undefined}
               className={`relative shrink-0 w-[74px] rounded-md overflow-hidden border select-none ${
                 i === zeigt ? "border-kb outline outline-2 outline-kb" : "border-border-soft"
-              } ${bereit ? "" : raus ? "opacity-20 grayscale cursor-default border-dashed" : "opacity-40 grayscale cursor-default"}`}
+              } ${bereit ? "" : raus ? "cursor-default border-dashed" : "opacity-40 grayscale cursor-default"}`}
             >
               {s.imageBase64 ? (
                 // eslint-disable-next-line @next/next/no-img-element
-                <img src={`data:image/png;base64,${s.imageBase64}`} alt="" className="w-full block" />
+                <img
+                  src={`data:image/png;base64,${s.imageBase64}`}
+                  alt=""
+                  className={`w-full block ${raus ? "opacity-20 grayscale" : ""}`}
+                />
               ) : (
-                <span className="block aspect-video bg-surface" />
+                <span className={`block aspect-video bg-surface ${raus ? "opacity-20 grayscale" : ""}`} />
+              )}
+              {raus && (
+                <span className="absolute inset-0 flex items-center justify-center" aria-hidden="true">
+                  <Prohibit size={26} weight="bold" className="text-muted-soft opacity-60" />
+                </span>
               )}
               <span className="absolute left-1 top-1 text-3xs font-semibold px-1 rounded bg-background/90 text-muted">
                 {i + 1}
