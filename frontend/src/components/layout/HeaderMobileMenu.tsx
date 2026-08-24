@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
-import { CalendarBlank, Check, List, Moon, Sidebar, SignOut, Stack, Sun, UserCircleGear, X } from "@phosphor-icons/react";
+import { CalendarBlank, CaretRight, Check, List, Moon, Sidebar, SignOut, Stack, Sun, UserCircleGear, X } from "@phosphor-icons/react";
 import { useRouter, usePathname } from "@/i18n/navigation";
 import type { Locale } from "@/i18n/routing";
 import { UI_LOCALES } from "@/lib/constants";
@@ -41,8 +41,16 @@ export default function HeaderMobileMenu({ hasSession, isAdmin, areaKey = "admin
   const pathname = usePathname();
   const currentLocale = useLocale() as Locale;
   const [open, setOpen] = useState(false);
+  const [sheetTop, setSheetTop] = useState(0);
   const { theme, setTheme } = useTheme();
   const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    // Das Blatt haengt unter dem Kopf, dessen Hoehe steht erst im Browser fest.
+    const header = ref.current?.closest("header");
+    setSheetTop(header ? Math.round(header.getBoundingClientRect().bottom) : 0);
+  }, [open]);
 
   useEffect(() => {
     if (!open) return;
@@ -68,7 +76,7 @@ export default function HeaderMobileMenu({ hasSession, isAdmin, areaKey = "admin
   };
 
   const rowClass =
-    "flex items-center gap-3 w-full px-4 py-2.5 text-sm font-medium hover:bg-[var(--surface-dim)] transition-colors no-underline text-left";
+    "flex items-center gap-3 w-full px-4 py-3 text-sm font-medium hover:bg-[var(--surface-dim)] transition-colors no-underline text-left";
   // Die Zeile der Seite, auf der man gerade steht, bleibt hinterlegt.
   const activeRowStyle = { backgroundColor: "var(--surface-dim)", fontWeight: 600 };
   const onCalendar = pathname === "/kalender" || pathname.startsWith("/kalender/");
@@ -90,11 +98,11 @@ export default function HeaderMobileMenu({ hasSession, isAdmin, areaKey = "admin
 
       {open && (
         <div
-          className="absolute right-0 top-full mt-2 z-50 w-56 rounded-xl py-1 overflow-hidden"
+          className="fixed left-0 right-0 bottom-0 z-50 py-1 overflow-y-auto"
           style={{
+            top: sheetTop,
             backgroundColor: "var(--surface)",
-            border: "1px solid var(--border)",
-            boxShadow: "0 4px 16px rgba(0,0,0,0.12)",
+            borderTop: "1px solid var(--border)",
           }}
         >
           {hasSession && showToolsToggle && (
@@ -108,7 +116,9 @@ export default function HeaderMobileMenu({ hasSession, isAdmin, areaKey = "admin
               style={{ color: "var(--foreground)" }}
             >
               <Sidebar size={20} weight="bold" />
-              <span>{t("tools")}</span>
+              <span className="flex-1">{t("tools")}</span>
+              {/* Der Pfeil zeigt, dass hinter der Zeile die Werkzeugleiste aufgeht. */}
+              <CaretRight size={14} weight="bold" style={{ color: "var(--muted)" }} aria-hidden="true" />
             </button>
           )}
           {hasSession && (

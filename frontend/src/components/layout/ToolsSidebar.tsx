@@ -88,6 +88,13 @@ export default function ToolsSidebar() {
     try { localStorage.setItem(STORAGE_KEY, next ? "1" : "0"); } catch { /* ignore */ }
   }
 
+  // Unter 1024px deckt die offene Leiste die ganze Seite ab, nach der Wahl eines Werkzeugs klappt sie darum wieder zu.
+  function closeOnSmallScreen() {
+    if (isLarge) return;
+    setUserPref(true);
+    try { localStorage.setItem(STORAGE_KEY, "1"); } catch { /* ignore */ }
+  }
+
   const expandedWidth = isLarge ? "w-[17.5rem]" : "w-full";
 
   return (
@@ -131,6 +138,7 @@ export default function ToolsSidebar() {
               <li key={tool.key}>
                 <Link
                   href={tool.href}
+                  onClick={closeOnSmallScreen}
                   title={effectiveCollapsed ? title : undefined}
                   aria-current={isActive ? "page" : undefined}
                   className={`tools-sidebar-item flex items-center gap-3 rounded-lg no-underline transition-colors hover:bg-surface-dim ${isActive ? "is-active" : ""} ${effectiveCollapsed ? "justify-center px-1 py-2" : "px-2 py-2"}`}
