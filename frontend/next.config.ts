@@ -134,6 +134,14 @@ const nextConfig: NextConfig = {
         destination: `${backendUrl}/jobs/:job_uuid/bundle`,
       },
       {
+        source: "/api/jobs/:job_uuid/subtitles",
+        destination: `${backendUrl}/jobs/:job_uuid/subtitles`,
+      },
+      {
+        source: "/api/jobs/:job_uuid/video",
+        destination: `${backendUrl}/jobs/:job_uuid/video`,
+      },
+      {
         source: "/api/jobs/:job_uuid/cancel",
         destination: `${backendUrl}/jobs/:job_uuid/cancel`,
       },
