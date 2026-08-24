@@ -277,6 +277,7 @@ function ScreencastPageInner() {
     setGlossaryIds(["", "", ""]);
     setFertigeFolien([]);
     setNichtDabei([]);
+    setUploadFehler("");
     clearRenderResult();
     resetScriptEditing();
     failedRender.clear();

@@ -108,6 +108,7 @@ export default function TranslationReviewStep({
               accept=".pptx"
               className="hidden"
               disabled={loading}
+              onClick={(e) => { e.currentTarget.value = ""; }}
               onChange={(e) => {
                 const f = e.target.files?.[0];
                 if (f) onUploadCorrectedPptx(f);

@@ -129,6 +129,8 @@ export function useScreencastRenderFlow(opts: UseScreencastRenderFlowOptions) {
   // ── Render from accepted scripts ──
   const handleStartRender = useCallback(async () => {
     setTtsSettingsError("");
+    // Ohne das haelt ein altes Video den neuen Lauf faelschlich fuer einen Rueckblick.
+    renderResult.clear();
     if (!translateJobUuid) {
       const ok = await checkBeforeSubmit();
       if (!ok) return;
@@ -198,7 +200,7 @@ export function useScreencastRenderFlow(opts: UseScreencastRenderFlowOptions) {
     slides, translateJobUuid, targetLang, voiceId, providerId, providers,
     speed, slidePause, dpi, subtitles, videoFolien, neuVertonen,
     newSignal, onRenderProgress, setRenderProgressLabel, setTtsSettingsError,
-    failedRender, processRenderResultFromJob,
+    failedRender, renderResult, processRenderResultFromJob,
     checkBeforeSubmit, goError, dispatch, currentJobUuidRef, messages,
   ]);
 

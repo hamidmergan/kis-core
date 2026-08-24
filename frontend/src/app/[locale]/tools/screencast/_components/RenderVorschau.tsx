@@ -150,7 +150,7 @@ export default function RenderVorschau({ slides, fertig, jobUuid, speed, rueckbl
               title={raus ? beschriftung : undefined}
               className={`relative shrink-0 w-[74px] rounded-md overflow-hidden border select-none ${
                 i === zeigt ? "border-kb outline outline-2 outline-kb" : "border-border-soft"
-              } ${bereit ? "" : "opacity-40 grayscale cursor-default"} ${raus ? "opacity-25" : ""}`}
+              } ${bereit ? "" : raus ? "opacity-20 grayscale cursor-default border-dashed" : "opacity-40 grayscale cursor-default"}`}
             >
               {s.imageBase64 ? (
                 // eslint-disable-next-line @next/next/no-img-element
