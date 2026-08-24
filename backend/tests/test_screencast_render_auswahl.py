@@ -84,7 +84,7 @@ def test_ohne_angabe_bleibt_die_auswahl_leer(client):
 
 def test_die_zeichengrenze_zaehlt_nur_die_gewaehlten_folien(client):
     from src.utils.file_validation import SCREENCAST_MAX_CHARS
-    lang = "x" * (SCREENCAST_MAX_CHARS - 10)
+    lang = "x" * (SCREENCAST_MAX_CHARS + 10)
     rumpf = {
         "scripts": ["kurz", lang],
         "translate_job_uuid": UUID,
@@ -103,3 +103,27 @@ def test_die_zeichengrenze_zaehlt_nur_die_gewaehlten_folien(client):
          patch("src.tasks.screencast_tasks.dispatch_next_screencast_job_for_user"):
         r = client.post("/screencast/render", json=rumpf)
     assert r.status_code == 200
+
+
+def test_die_zeichengrenze_greift_fuer_die_gewaehlten_folien(client):
+    """Sonst waere die Grenze nach der Aenderung wirkungslos."""
+    from src.utils.file_validation import SCREENCAST_MAX_CHARS
+    lang = "x" * (SCREENCAST_MAX_CHARS + 10)
+    rumpf = {
+        "scripts": ["kurz", lang],
+        "translate_job_uuid": UUID,
+        "provider_id": 1,
+        "video_folien": [1],
+    }
+    modul = "src.routes.screencast.render"
+    with patch(f"{modul}.db.get_job", return_value=_JOB), \
+         patch(f"{modul}.job_file_exists", return_value=True), \
+         patch(f"{modul}.save_job_file"), \
+         patch(f"{modul}.save_result_meta"), \
+         patch(f"{modul}.load_result_meta", return_value={}), \
+         patch(f"{modul}.get_job_file", side_effect=FileNotFoundError), \
+         patch(f"{modul}.clear_render_cache"), \
+         patch(f"{modul}.db.transition_job_to_queued", return_value=True), \
+         patch("src.tasks.screencast_tasks.dispatch_next_screencast_job_for_user"):
+        r = client.post("/screencast/render", json=rumpf)
+    assert r.status_code == 422
