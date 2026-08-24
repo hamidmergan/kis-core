@@ -1,6 +1,7 @@
 """Ausgeschlossene Folien behalten ihren alten Ton, damit Wiederaufnehmen nichts kostet."""
 
-from src.storage import hat_audio_slide, job_prefix, save_audio_cache
+from src import storage
+from src.storage import audio_folien_mit_ton, hat_audio_slide, job_prefix, save_audio_cache
 
 UUID = "b" * 32
 
@@ -52,3 +53,56 @@ def test_audio_folien_mit_ton_findet_nur_belegte_plaetze(lokal):
 def test_audio_folien_mit_ton_ohne_ordner(lokal):
     from src.storage import audio_folien_mit_ton
     assert audio_folien_mit_ton(1, "c" * 32) == set()
+
+
+class _FakePaginator:
+    """Gibt vorgegebene Seiten zurueck, wie der echte S3-Paginator."""
+
+    def __init__(self, seiten):
+        self._seiten = seiten
+
+    def paginate(self, **kw):
+        return iter(self._seiten)
+
+
+class _FakeS3Listing:
+    """S3-Attrappe, die nur list_objects_v2 ueber einen Paginator kennt."""
+
+    def __init__(self, seiten):
+        self._seiten = seiten
+
+    def get_paginator(self, name):
+        return _FakePaginator(self._seiten)
+
+
+def test_audio_folien_mit_ton_s3_findet_nur_belegte_plaetze(monkeypatch):
+    """Der S3-Zweig muss dieselbe Menge liefern wie der lokale, ueber zwei Seiten verteilt."""
+    praefix = job_prefix(1, UUID) + "/audio/"
+    seiten = [
+        {"Contents": [
+            {"Key": praefix + "slide_000.mp3", "Size": 120},
+            {"Key": praefix + "slide_001.mp3", "Size": 0},
+        ]},
+        {"Contents": [
+            {"Key": praefix + "slide_002.mp3", "Size": 88},
+        ]},
+    ]
+    monkeypatch.setattr(storage, "USE_S3", True)
+    monkeypatch.setattr(storage, "_s3", lambda: _FakeS3Listing(seiten))
+
+    assert audio_folien_mit_ton(1, UUID) == {0, 2}
+
+
+def test_audio_folien_mit_ton_s3_verwirft_unpassenden_schluessel(monkeypatch):
+    """Ein Schluessel ausserhalb des slide_NNN-Musters darf nicht als -1 in der Menge landen."""
+    praefix = job_prefix(1, UUID) + "/audio/"
+    seiten = [
+        {"Contents": [
+            {"Key": praefix + "slide_000.mp3", "Size": 120},
+            {"Key": praefix + "unsinn.txt", "Size": 999},
+        ]},
+    ]
+    monkeypatch.setattr(storage, "USE_S3", True)
+    monkeypatch.setattr(storage, "_s3", lambda: _FakeS3Listing(seiten))
+
+    assert audio_folien_mit_ton(1, UUID) == {0}

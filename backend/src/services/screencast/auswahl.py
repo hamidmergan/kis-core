@@ -39,6 +39,6 @@ def clip_paare(clip_folien: list[int], num_slides: int) -> list[tuple[int, int]]
 
 
 def ton_plaetze(anzahl: int, clip_folien: list[int]) -> list[bool]:
-    """Wahr, wo neuer Ton hinkommt. Der Rest behaelt den Ton des letzten Laufs."""
+    """Wahr nur dort, wo neuer Ton hinkommt, sonst bleibt der alte liegen."""
     dabei = set(clip_folien)
     return [i in dabei for i in range(anzahl)]

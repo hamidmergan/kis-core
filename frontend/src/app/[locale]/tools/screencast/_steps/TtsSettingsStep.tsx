@@ -234,7 +234,7 @@ export default function TtsSettingsStep(props: TtsSettingsStepProps) {
           {t.rich("ttsSettings.summary", {
             bold: (chunks) => <span className="font-medium">{chunks}</span>,
             charsTag: (chunks) => <span className={`font-medium ${scriptOverLimit ? "text-error" : ""}`}>{chunks}</span>,
-            slides: slides.length,
+            slides: imScreencast.length,
             words: totalWords,
             chars: charsText,
             max: maxText,
