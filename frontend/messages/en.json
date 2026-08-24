@@ -655,6 +655,7 @@
         "folieVon": "Slide {n} of {total}",
         "fortschritt": "{fertig} of {total} slides voiced",
         "ohneTon": "This slide has no script.",
+        "wirdVertont": "This slide is being voiced right now.",
         "abspielen": "Listen to slide {n}",
         "wartet": "Slide {n} is still being voiced",
         "nichtDabei": "Slide {n} is not in the screencast",

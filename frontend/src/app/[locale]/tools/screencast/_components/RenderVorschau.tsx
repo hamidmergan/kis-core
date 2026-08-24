@@ -29,7 +29,7 @@ export default function RenderVorschau({ slides, fertig, jobUuid, speed, rueckbl
   // Ohne Klick zeigt die Buehne die hoechste fertige Folie und wandert mit. Ein Klick
   // haelt sie fest, sonst wird man beim Zuhoeren weggerissen.
   const hoechste = fertig.length ? fertig[fertig.length - 1] : null;
-  const zeigt = gewaehlt ?? (rueckblick ? 0 : hoechste);
+  const zeigt = gewaehlt ?? (rueckblick ? 0 : hoechste) ?? 0;
 
   // Die MP3 ist immer in Tempo 1,0 vertont, das Tempo kommt erst per atempo ins Video.
   useEffect(() => {
@@ -74,9 +74,11 @@ export default function RenderVorschau({ slides, fertig, jobUuid, speed, rueckbl
     el.scrollBy({ left: richtung * (breite + 8), behavior: "smooth" });
   }, []);
 
-  if (zeigt === null || !slides.length) return null;
+  if (!slides.length) return null;
   const folie = slides[zeigt];
-  const hatTon = !!folie?.script?.trim();
+  const hatSkript = !!folie?.script?.trim();
+  const istRaus = nichtDabeiMenge.has(zeigt);
+  const istFertig = fertigeMenge.has(zeigt);
 
   return (
     <section className="mt-8" aria-label={t("ueberschrift")}>
@@ -103,7 +105,9 @@ export default function RenderVorschau({ slides, fertig, jobUuid, speed, rueckbl
           <div className="bg-surface border border-border-soft rounded-lg p-3 text-sm text-foreground-soft max-h-40 overflow-y-auto">
             {folie?.script || t("ohneTon")}
           </div>
-          {hatTon ? (
+          {istRaus ? (
+            <p className="text-xs text-muted mt-3">{t("nichtDabei", { n: zeigt + 1 })}</p>
+          ) : hatSkript && istFertig ? (
             <audio
               ref={audioRef}
               key={`${jobUuid}-${zeigt}`}
@@ -113,6 +117,8 @@ export default function RenderVorschau({ slides, fertig, jobUuid, speed, rueckbl
               className="w-full mt-3"
               src={`/api/screencast/${jobUuid}/vorschau/${zeigt}`}
             />
+          ) : hatSkript ? (
+            <p className="text-xs text-muted mt-3">{t("wirdVertont")}</p>
           ) : (
             <p className="text-xs text-muted mt-3">{t("ohneTon")}</p>
           )}

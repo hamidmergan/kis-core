@@ -655,6 +655,7 @@
         "folieVon": "Folie {n} von {total}",
         "fortschritt": "{fertig} von {total} Folien vertont",
         "ohneTon": "Diese Folie hat keinen Sprechtext.",
+        "wirdVertont": "Diese Folie wird gerade vertont.",
         "abspielen": "Folie {n} anhören",
         "wartet": "Folie {n} wird noch vertont",
         "nichtDabei": "Folie {n} ist nicht im Screencast",
