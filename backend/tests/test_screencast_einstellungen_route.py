@@ -110,3 +110,26 @@ def test_einzelabruf_gibt_404_wenn_die_datei_fehlt(client):
          patch(f"{modul}.get_audio_slide", return_value=None):
         r = client.get(f"/screencast/audio/{UUID}/5")
     assert r.status_code == 404
+
+
+def test_alter_ton_ueber_die_folienzahl_hinaus_zaehlt_nicht_mit(client):
+    """audio/ behaelt den Ton ausgeschlossener Folien, das darf hat_ton nicht verlaengern."""
+    dateien = {"render_scripts.json": json.dumps(["a", "b"]).encode()}
+    with patch(f"{MODUL}.get_job", return_value=_JOB), \
+         patch(f"{MODUL}.get_job_file", side_effect=_dateien(dateien)), \
+         patch(f"{MODUL}.get_audio_slide_count", return_value=7), \
+         patch(f"{MODUL}.hat_audio_slide", return_value=True):
+        r = client.get(f"/screencast/{UUID}/vertonungs-stand")
+    assert r.status_code == 200
+    assert len(r.json()["hat_ton"]) == 2
+
+
+def test_ohne_skriptdatei_zaehlt_der_ordner(client):
+    """Ging render_scripts.json verloren, ist die Dateizahl die beste Auskunft."""
+    with patch(f"{MODUL}.get_job", return_value=_JOB), \
+         patch(f"{MODUL}.get_job_file", side_effect=_dateien({})), \
+         patch(f"{MODUL}.get_audio_slide_count", return_value=3), \
+         patch(f"{MODUL}.hat_audio_slide", return_value=True):
+        r = client.get(f"/screencast/{UUID}/vertonungs-stand")
+    assert r.status_code == 200
+    assert len(r.json()["hat_ton"]) == 3

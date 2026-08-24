@@ -56,7 +56,8 @@ def vertonungs_stand(
     user_id = _auftrag(job_uuid, current_user, locale)
     stand = _lies_json(user_id, job_uuid, "vertonter_stand.json")
     scripts = _lies_json(user_id, job_uuid, "render_scripts.json") or []
-    anzahl = max(len(scripts), get_audio_slide_count(user_id, job_uuid))
+    # Der Nummernraum kommt von den Folien, audio/ kann alten Ton ausgeschlossener Folien halten.
+    anzahl = len(scripts) or get_audio_slide_count(user_id, job_uuid)
     return {
         "einstellungen": _lies_json(user_id, job_uuid, "einstellungen.json"),
         "stand": stand,
