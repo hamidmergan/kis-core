@@ -56,12 +56,14 @@ function ScreencastPageInner() {
 
   const [renderProgressLabel, setRenderProgressLabel] = useState("");
   const [fertigeFolien, setFertigeFolien] = useState<number[]>([]);
+  const [nichtDabei, setNichtDabei] = useState<number[]>([]);
   // Beide Knöpfe oben löschen den Job samt Dateien. Vorher passierte das ohne
   // Rückfrage bei einem einzigen Klick, und beide taten exakt dasselbe.
   const [pendingExit, setPendingExit] = useState<"restart" | "cancel" | "render" | null>(null);
   const failedRender = useFailedRender();
   const { jobUuid: failedRenderJobUuid } = failedRender;
   const [ttsSettingsError, setTtsSettingsError] = useState("");
+  const [uploadFehler, setUploadFehler] = useState<string>("");
 
   // ── Job-Flow-State via Reducer ──
   const [flow, dispatch] = useReducer(flowReducer, INITIAL_FLOW_STATE);
@@ -273,6 +275,8 @@ function ScreencastPageInner() {
     setSpeed(0.9);  // gleicher Startwert wie beim frischen Aufruf der Seite
     setSlidePause(1.0);
     setGlossaryIds(["", "", ""]);
+    setFertigeFolien([]);
+    setNichtDabei([]);
     clearRenderResult();
     resetScriptEditing();
     failedRender.clear();
@@ -370,6 +374,7 @@ function ScreencastPageInner() {
       },
     },
     setFertigeFolien,
+    setNichtDabei,
     abortControllerRef,
     currentJobUuidRef,
   });
@@ -409,6 +414,7 @@ function ScreencastPageInner() {
     checkJobStillValid,
     checkJobFolder,
     goError,
+    setUploadFehler,
     newSignal,
     messages: {
       unknownError: tCommon("unknownError"),
@@ -455,6 +461,7 @@ function ScreencastPageInner() {
     }
     sessionStorage.removeItem(RENDER_SESSION_KEY);
     setFertigeFolien([]);
+    setNichtDabei([]);
     setRenderProgressLabel("");
     dispatch({ type: "SET_STEP", step: "tts-settings" });
     dispatch({ type: "SET_LOADING", loading: false });
@@ -637,6 +644,7 @@ function ScreencastPageInner() {
             slides={slides}
             loading={loading}
             correctedFileName={correctedFileName}
+            uploadFehler={uploadFehler}
             onLightboxOpen={(idx) => dispatch({ type: "SET_LIGHTBOX", index: idx })}
             onDownloadTranslatedPptx={handleDownloadTranslatedPptx}
             onUploadCorrectedPptx={handleUploadCorrectedPptx}
@@ -751,6 +759,7 @@ function ScreencastPageInner() {
                 jobUuid={translateJobUuid}
                 speed={speed}
                 rueckblick={rueckblick}
+                nichtDabei={rueckblick ? [] : nichtDabei}
               />
             }
             onCancel={() => setPendingExit("render")}
@@ -766,6 +775,7 @@ function ScreencastPageInner() {
             hasSubtitles={hasSubtitles}
             onDownloadMp4={handleDownload}
             onReset={() => resetAll(false)}
+            onNeuVertonen={() => dispatch({ type: "SET_STEP", step: "tts-settings" })}
           />
         )}
 

@@ -575,7 +575,8 @@
         "acceptAndNext": "Übersetzung übernehmen und weiter",
         "unchangedTitle": "{n, plural, one {# Folie wirkt unübersetzt} other {# Folien wirken unübersetzt}}",
         "unchangedBody": "Der Text dieser Folien ist gleich geblieben. Das kann richtig sein, etwa bei Namen oder Zahlen. Bitte kurz prüfen.",
-        "unchangedBadge": "unverändert"
+        "unchangedBadge": "unverändert",
+        "folienzahlTitel": "Die Folienzahl passt nicht"
       },
       "generatingScripts": {
         "title": "Sprechskripte werden generiert...",
@@ -651,6 +652,7 @@
         "ohneTon": "Diese Folie hat keinen Sprechtext.",
         "abspielen": "Folie {n} anhören",
         "wartet": "Folie {n} wird noch vertont",
+        "nichtDabei": "Folie {n} ist nicht im Screencast",
         "rueckblick": "Alle Folien einzeln anhören",
         "zumErgebnis": "Zum fertigen Video",
         "nachLinks": "Folien nach links schieben",
@@ -683,6 +685,7 @@
         "downloadAllZipLabel": "Alles herunterladen (ZIP)",
         "newPresentationAria": "Neue Präsentation hochladen",
         "newPresentation": "Neue Präsentation",
+        "neuVertonen": "Einzelne Folien neu vertonen",
         "subtitleTrack": "Untertitel"
       },
       "error": {

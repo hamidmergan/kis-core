@@ -13,9 +13,11 @@ interface Props {
   speed: number;
   /** Der Lauf ist durch: kein Fortschritt mehr, sondern alle Folien zum Nachhoeren. */
   rueckblick?: boolean;
+  /** Diese Folien sind nicht im Screencast, sie bekommen nie Ton. */
+  nichtDabei?: number[];
 }
 
-export default function RenderVorschau({ slides, fertig, jobUuid, speed, rueckblick = false }: Props) {
+export default function RenderVorschau({ slides, fertig, jobUuid, speed, rueckblick = false, nichtDabei = [] }: Props) {
   const t = useTranslations("tools.screencast.vorschau");
   const audioRef = useRef<HTMLAudioElement>(null);
   const streifenRef = useRef<HTMLDivElement>(null);
@@ -23,6 +25,7 @@ export default function RenderVorschau({ slides, fertig, jobUuid, speed, rueckbl
   const [kannLinks, setKannLinks] = useState(false);
   const [kannRechts, setKannRechts] = useState(false);
   const fertigeMenge = new Set(fertig);
+  const nichtDabeiMenge = new Set(nichtDabei);
   // Ohne Klick zeigt die Buehne die hoechste fertige Folie und wandert mit. Ein Klick
   // haelt sie fest, sonst wird man beim Zuhoeren weggerissen.
   const hoechste = fertig.length ? fertig[fertig.length - 1] : null;
@@ -79,7 +82,7 @@ export default function RenderVorschau({ slides, fertig, jobUuid, speed, rueckbl
     <section className="mt-8" aria-label={t("ueberschrift")}>
       {!rueckblick && (
         <p className="text-sm text-foreground-soft mb-3">
-          {t("fortschritt", { fertig: fertig.length, total: slides.length })}
+          {t("fortschritt", { fertig: fertig.length, total: slides.length - nichtDabeiMenge.size })}
         </p>
       )}
 
@@ -129,7 +132,13 @@ export default function RenderVorschau({ slides, fertig, jobUuid, speed, rueckbl
         </span>
         <div ref={streifenRef} className="min-w-0 flex-1 flex gap-2 overflow-x-auto scrollbar-hide">
         {slides.map((s, i) => {
-          const bereit = fertigeMenge.has(i);
+          const raus = nichtDabeiMenge.has(i);
+          const bereit = fertigeMenge.has(i) && !raus;
+          const beschriftung = raus
+            ? t("nichtDabei", { n: i + 1 })
+            : bereit
+              ? t("abspielen", { n: i + 1 })
+              : t("wartet", { n: i + 1 });
           return (
             <button
               key={i}
@@ -137,10 +146,11 @@ export default function RenderVorschau({ slides, fertig, jobUuid, speed, rueckbl
               data-aktiv={i === zeigt}
               disabled={!bereit}
               onClick={() => setGewaehlt(i)}
-              aria-label={bereit ? t("abspielen", { n: i + 1 }) : t("wartet", { n: i + 1 })}
+              aria-label={beschriftung}
+              title={raus ? beschriftung : undefined}
               className={`relative shrink-0 w-[74px] rounded-md overflow-hidden border select-none ${
                 i === zeigt ? "border-kb outline outline-2 outline-kb" : "border-border-soft"
-              } ${bereit ? "" : "opacity-40 grayscale cursor-default"}`}
+              } ${bereit ? "" : "opacity-40 grayscale cursor-default"} ${raus ? "opacity-25" : ""}`}
             >
               {s.imageBase64 ? (
                 // eslint-disable-next-line @next/next/no-img-element

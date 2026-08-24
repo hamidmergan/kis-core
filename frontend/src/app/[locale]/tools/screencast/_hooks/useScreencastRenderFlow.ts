@@ -54,6 +54,7 @@ interface UseScreencastRenderFlowOptions {
   setTtsSettingsError: (msg: string) => void;
   setRenderProgressLabel: (label: string) => void;
   setFertigeFolien: (folien: number[]) => void;
+  setNichtDabei: (folien: number[]) => void;
 
   // Translated messages (from the component)
   messages: RenderFlowMessages;
@@ -85,6 +86,7 @@ export function useScreencastRenderFlow(opts: UseScreencastRenderFlowOptions) {
     setTtsSettingsError,
     setRenderProgressLabel,
     setFertigeFolien,
+    setNichtDabei,
     messages,
     abortControllerRef,
     currentJobUuidRef,
@@ -100,9 +102,12 @@ export function useScreencastRenderFlow(opts: UseScreencastRenderFlowOptions) {
     (status: JobStatus) => {
       const p = renderProgress(status);
       setRenderProgressLabel(messages.renderLabel(p));
-      if (p.kind === "tts") setFertigeFolien(p.fertig);
+      if (p.kind === "tts") {
+        setFertigeFolien(p.fertig);
+        setNichtDabei(p.nichtDabei);
+      }
     },
-    [setRenderProgressLabel, setFertigeFolien, messages],
+    [setRenderProgressLabel, setFertigeFolien, setNichtDabei, messages],
   );
 
   const processRenderResultFromJob = useCallback(

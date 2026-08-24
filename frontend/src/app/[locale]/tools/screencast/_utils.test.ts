@@ -8,12 +8,22 @@ const status = (progress: unknown) => ({ progress } as unknown as JobStatus);
 describe("renderProgress", () => {
   it("reicht die fertigen Folien durch", () => {
     expect(renderProgress(status({ step: "tts", current: 2, total: 5, fertig: [0, 3] })))
-      .toEqual({ kind: "tts", current: 2, total: 5, fertig: [0, 3] });
+      .toEqual({ kind: "tts", current: 2, total: 5, fertig: [0, 3], nichtDabei: [] });
   });
 
   it("ein alter Job ohne Liste liefert eine leere Liste", () => {
     expect(renderProgress(status({ step: "tts", current: 2, total: 5 })))
-      .toEqual({ kind: "tts", current: 2, total: 5, fertig: [] });
+      .toEqual({ kind: "tts", current: 2, total: 5, fertig: [], nichtDabei: [] });
+  });
+
+  it("reicht die ausgeschlossenen Folien durch", () => {
+    expect(renderProgress(status({ step: "tts", current: 1, total: 2, fertig: [0], nicht_dabei: [1] })))
+      .toEqual({ kind: "tts", current: 1, total: 2, fertig: [0], nichtDabei: [1] });
+  });
+
+  it("ein alter Job ohne nicht_dabei liefert eine leere Liste", () => {
+    expect(renderProgress(status({ step: "tts", current: 2, total: 5, fertig: [0, 3] })))
+      .toEqual({ kind: "tts", current: 2, total: 5, fertig: [0, 3], nichtDabei: [] });
   });
 
   it("andere Schritte bleiben unveraendert", () => {

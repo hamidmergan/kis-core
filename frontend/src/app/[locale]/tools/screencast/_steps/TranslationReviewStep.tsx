@@ -10,6 +10,7 @@ interface TranslationReviewStepProps {
   slides: SlideData[];
   loading: boolean;
   correctedFileName: string | null;
+  uploadFehler: string;
   onLightboxOpen: (index: number) => void;
   onDownloadTranslatedPptx: () => Promise<boolean>;
   onUploadCorrectedPptx: (f: File) => void;
@@ -21,6 +22,7 @@ export default function TranslationReviewStep({
   slides,
   loading,
   correctedFileName,
+  uploadFehler,
   onLightboxOpen,
   onDownloadTranslatedPptx,
   onUploadCorrectedPptx,
@@ -122,6 +124,13 @@ export default function TranslationReviewStep({
           )}
         </div>
       </div>
+
+      {uploadFehler && (
+        <div className="mb-4 rounded-lg border border-error-border bg-error-bg px-4 py-3" role="alert">
+          <p className="text-sm font-medium text-error-strong">{t("translationReview.folienzahlTitel")}</p>
+          <p className="mt-0.5 text-sm text-error">{uploadFehler}</p>
+        </div>
+      )}
 
       <StepFooter
         onBack={onBack}
