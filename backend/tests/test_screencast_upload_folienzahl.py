@@ -36,7 +36,10 @@ def _hochladen(client, neue_texte, alte_anzahl=3, mit_job=True):
          patch(f"{modul}.save_job_file_from_path"), \
          patch(f"{modul}.save_job_file") as sichern, \
          patch(f"{modul}.convert_slides_to_images_async", return_value=[]), \
-         patch(f"{modul}.maybe_start_cleanup_task"):
+         patch(f"{modul}.maybe_start_cleanup_task"), \
+         patch(f"{modul}._enforce_queue_and_quota"), \
+         patch(f"{modul}.db.create_job"), \
+         patch(f"{modul}.db.update_job_status"):
         daten = {"translate_job_uuid": UUID} if mit_job else {}
         r = client.post(
             "/screencast/upload-corrected",
