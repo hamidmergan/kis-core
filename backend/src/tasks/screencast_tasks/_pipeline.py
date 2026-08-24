@@ -13,6 +13,7 @@ from loguru import logger
 from src import database as db
 from src.limits import RENDER_MAX_WORKERS
 from src.storage import (
+    get_audio_slide_count,
     load_result_meta,
     save_audio_cache,
     save_job_file,
@@ -20,6 +21,7 @@ from src.storage import (
     save_result_meta,
 )
 
+from src.services.screencast.auswahl import folien_auswahl
 from src.services.screencast.statistik import (
     anbieter_und_modell,
     messe,
@@ -35,13 +37,19 @@ from src.tasks.screencast_tasks._shared import (
 )
 
 
-def _fortschritt_vertonung(fertige: list[int], total: int, vertont: int | None = None) -> dict:
-    """Die Vorschau schaltet die Kacheln aus ``fertige`` frei, der Zaehler zeigt ``vertont``."""
+def _fortschritt_vertonung(
+    fertige: list[int],
+    total: int,
+    vertont: int | None = None,
+    nicht_dabei: set[int] | None = None,
+) -> dict:
+    """Die Vorschau schaltet ``fertige`` frei und graut ``nicht_dabei`` aus."""
     return {
         "step": "tts",
         "current": len(fertige) if vertont is None else vertont,
         "total": total,
         "fertig": sorted(fertige),
+        "nicht_dabei": sorted(nicht_dabei or []),
     }
 
 
@@ -57,6 +65,8 @@ def _run_render_pipeline(
     is_admin: bool = False,
     subtitles: bool = False,
     voice_label: str = "",
+    video_folien: list[int] | None = None,
+    neu_vertonen: list[int] | None = None,
 ) -> dict:
     """
     Core render pipeline. Reads PPTX from job folder (corrected.pptx or translated.pptx).
@@ -80,12 +90,15 @@ def _run_render_pipeline(
     if not job_row:
         raise RuntimeError(f"Job {job_uuid} not found")
     user_id = job_row["user_id"]
+    auswahl = folien_auswahl(len(scripts), video_folien, neu_vertonen)
 
     # Save render params + scripts for crash recovery (retry button)
     save_job_file(user_id, job_uuid, "render_params.json", json.dumps({
         "voice_id": voice_id, "speed": speed,
         "slide_pause": slide_pause, "dpi": dpi,
         "provider_id": provider_id, "subtitles": subtitles,
+        "video_folien": auswahl.clip_folien,
+        "neu_vertonen": sorted(neu_vertonen or []),
     }).encode())
     save_job_file(user_id, job_uuid, "render_scripts.json", json.dumps(scripts).encode())
 
@@ -155,7 +168,8 @@ def _run_render_pipeline(
             raise _JobCancelled()
 
         # ── TTS ───────────────────────────────────────────────────────────
-        db.update_job_status(job_uuid, "running", progress=_fortschritt_vertonung([], len(scripts)))
+        db.update_job_status(job_uuid, "running", progress=_fortschritt_vertonung(
+            [], len(auswahl.clip_folien), 0, auswahl.ausgeschlossen))
 
         # generate_all_tts ruft das unter seinem Lock, die Liste braucht keinen eigenen.
         fertige_folien: list[int] = []
@@ -164,9 +178,11 @@ def _run_render_pipeline(
             if _cancelled_by_watcher.is_set():
                 raise _JobCancelled()
             _assert_not_cancelled(job_uuid)
+            if folie in auswahl.ausgeschlossen:
+                return
             fertige_folien.append(folie)
-            db.update_job_status(job_uuid, "running",
-                                 progress=_fortschritt_vertonung(fertige_folien, total, current))
+            db.update_job_status(job_uuid, "running", progress=_fortschritt_vertonung(
+                fertige_folien, len(auswahl.clip_folien), len(fertige_folien), auswahl.ausgeschlossen))
 
         # Ohne bekannte Zielsprache bleibt sie leer, dann raet die Vertonung nicht.
         target_lang = (load_result_meta(user_id, job_uuid) or {}).get("target_lang", "")
@@ -177,7 +193,7 @@ def _run_render_pipeline(
             ton_zahlen["stimme_name"] = voice_label
             ton_zahlen["tempo"] = speed
             ton_zahlen["sprache"] = target_lang
-            tts_results = asyncio.run(_generate_all_tts(scripts, tts_client, tmp, speed, voice_id, on_slide_done=_tts_progress, job_uuid=job_uuid, user_id=user_id, provider_id=provider_id, target_lang=target_lang, zaehler=ton_zahlen))
+            tts_results = asyncio.run(_generate_all_tts(scripts, tts_client, tmp, speed, voice_id, on_slide_done=_tts_progress, job_uuid=job_uuid, user_id=user_id, provider_id=provider_id, target_lang=target_lang, zaehler=ton_zahlen, ausgeschlossen=auswahl.ausgeschlossen, alter_ton_erlaubt=auswahl.alter_ton_erlaubt))
         audio_paths = [r[0] for r in tts_results]
         alignments = [r[1] for r in tts_results]
 
@@ -199,18 +215,24 @@ def _run_render_pipeline(
 
         # ── Video clips (parallel) ────────────────────────────────────────
         db.set_render_started_at(job_uuid)
-        clip_paths: list[Path] = [tmp / f"clip_{i:03d}.mp4" for i in range(num_slides)]
+        # Die Foliennummer bleibt der Schluessel, gebaut wird nur die Auswahl.
+        clip_folien = [i for i in auswahl.clip_folien if i < num_slides]
+        if not clip_folien:
+            raise RuntimeError("Keine Folie im Screencast")
+        clip_paths: list[Path] = [tmp / f"clip_{pos:03d}.mp4" for pos in range(len(clip_folien))]
 
-        def _render_clip_normal(i: int) -> None:
-            _create_slide_video(slide_images[i], audio_paths[i], clip_paths[i], pause=slide_pause, crf=23, job_uuid=job_uuid, speed=speed)
+        def _render_clip_normal(pos: int) -> None:
+            i = clip_folien[pos]
+            _create_slide_video(slide_images[i], audio_paths[i], clip_paths[pos], pause=slide_pause, crf=23, job_uuid=job_uuid, speed=speed)
 
-        db.update_job_status(job_uuid, "running", progress={"step": "video", "current": 0, "total": num_slides})
+        db.update_job_status(job_uuid, "running", progress={"step": "video", "current": 0, "total": len(clip_folien)})
         with messe(user_id, job_uuid, "clips") as clip_zahlen:
-            clip_zahlen["folien"] = num_slides
+            clip_zahlen["folien"] = len(clip_folien)
+            clip_zahlen["nicht_dabei"] = len(auswahl.ausgeschlossen)
             clip_zahlen["folienpause"] = slide_pause
             clip_zahlen["gleichzeitig"] = RENDER_MAX_WORKERS
             with ThreadPoolExecutor(max_workers=RENDER_MAX_WORKERS) as executor:
-                futures = {executor.submit(_render_clip_normal, i): i for i in range(num_slides)}
+                futures = {executor.submit(_render_clip_normal, pos): pos for pos in range(len(clip_folien))}
                 completed = 0
                 for future in as_completed(futures):
                     try:
@@ -221,7 +243,7 @@ def _run_render_pipeline(
                             raise _JobCancelled()
                         raise
                     completed += 1
-                    db.update_job_status(job_uuid, "running", progress={"step": "video", "current": completed, "total": num_slides})
+                    db.update_job_status(job_uuid, "running", progress={"step": "video", "current": completed, "total": len(clip_folien)})
                     if _cancelled_by_watcher.is_set():
                         raise _JobCancelled()
                     _assert_not_cancelled(job_uuid)
@@ -233,9 +255,9 @@ def _run_render_pipeline(
             db.update_job_status(job_uuid, "running", progress={"step": "subtitles"})
             from src.services.screencast.subtitles import create_subtitle_track, vtt_sprachkennung
             with messe(user_id, job_uuid, "untertitel") as spur_zahlen:
-                hat_sprache = [audio_paths[i] is not None for i in range(num_slides)]
+                hat_sprache = [audio_paths[i] is not None for i in clip_folien]
                 spur_zahlen["folien_mit_ton"] = sum(1 for hat in hat_sprache if hat)
-                spur_pfad = create_subtitle_track(clip_paths[:num_slides], tmp, hat_sprache)
+                spur_pfad = create_subtitle_track(clip_paths, tmp, hat_sprache)
                 spur_sprache = vtt_sprachkennung(target_lang)
                 spur_zahlen["sprache"] = spur_sprache
                 if spur_pfad is not None:
@@ -246,9 +268,9 @@ def _run_render_pipeline(
         if _cancelled_by_watcher.is_set():
             raise _JobCancelled()
         try:
-            outro_w, outro_h = _get_image_dimensions(slide_images[0])
+            outro_w, outro_h = _get_image_dimensions(slide_images[clip_folien[0]])
             outro_img = tmp / "outro.png"
-            outro_clip = tmp / f"clip_{num_slides:03d}.mp4"
+            outro_clip = tmp / "clip_outro.mp4"
             _create_outro_image(outro_w, outro_h, outro_img)
             _create_slide_video(outro_img, None, outro_clip, pause=0.0, crf=23, job_uuid=job_uuid, silent_duration=3.0)
             clip_paths.append(outro_clip)
@@ -273,7 +295,11 @@ def _run_render_pipeline(
 
         # ── Save audio cache ──────────────────────────────────────────────
         db.update_job_status(job_uuid, "running", progress={"step": "saving"})
-        audio_bytes_list = [ap.read_bytes() if ap is not None and ap.exists() else b"" for ap in audio_paths[:num_slides]]
+        # None heisst: den Platz nicht anfassen, dort liegt der Ton des letzten Laufs.
+        audio_bytes_list: list[bytes | None] = [None] * len(scripts)
+        for i in clip_folien:
+            p = audio_paths[i]
+            audio_bytes_list[i] = p.read_bytes() if p is not None and p.exists() else b""
         save_audio_cache(user_id, job_uuid, audio_bytes_list)
 
         # ── Save result ───────────────────────────────────────────────────
@@ -283,7 +309,7 @@ def _run_render_pipeline(
         meta = {
             **existing_meta,
             "audio_id": job_uuid,
-            "audio_count": num_slides,
+            "audio_count": get_audio_slide_count(user_id, job_uuid),
             "subtitles": spur_pfad is not None,
         }
         save_result_meta(user_id, job_uuid, meta)
@@ -306,5 +332,5 @@ def _run_render_pipeline(
     return {
         "result_path": result_path,
         "audio_id": job_uuid,
-        "audio_count": num_slides,
+        "audio_count": get_audio_slide_count(user_id, job_uuid),
     }
