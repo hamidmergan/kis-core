@@ -1,16 +1,15 @@
 "use client";
 
 import { Suspense, useCallback, useEffect, useReducer, useRef, useState } from "react";
+import { Trash } from "@phosphor-icons/react";
 import { useTranslations } from "next-intl";
 import ProtectedRoute from "@/components/auth/ProtectedRoute";
 import { useGlossaries } from "@/hooks/useGlossaries";
 
 
-import Modal from "@/components/ui/Modal";
 import Spinner from "@/components/ui/Spinner";
-import type { ScreencastStep } from "@/types";
 import ScreencastStepper from "@/components/screencast/ScreencastStepper";
-import { stepToIndex } from "@/components/screencast/steps";
+import { indexToStep, istErreichbar, stepToIndex, vorherErreichbar } from "@/components/screencast/steps";
 import UploadStep from "./_steps/UploadStep";
 import {
   TranslatingStep,
@@ -24,8 +23,10 @@ import TranslationReviewStep from "./_steps/TranslationReviewStep";
 import ScriptReviewStep from "./_steps/ScriptReviewStep";
 import TtsSettingsStep from "./_steps/TtsSettingsStep";
 import Lightbox from "./_components/Lightbox";
+import RenderVorschau from "./_components/RenderVorschau";
 import RegenChatModal, { type RegenApplyMode } from "./_components/RegenChatModal";
-import { parseScriptJsonFile, triggerBlobDownload, checkHasActiveJob, checkJobValidity, checkJobFolderExists } from "./_utils";
+import ExitConfirmModal from "./_components/ExitConfirmModal";
+import { parseScriptJsonFile, checkHasActiveJob, checkJobValidity, checkJobFolderExists } from "./_utils";
 import { flowReducer, INITIAL_FLOW_STATE } from "./_reducer";
 import { useScreencastRenderFlow } from "./_hooks/useScreencastRenderFlow";
 import { useScreencastTranslateFlow } from "./_hooks/useScreencastTranslateFlow";
@@ -52,9 +53,10 @@ function ScreencastPageInner() {
   const { mergeToApiJson } = useGlossaries();
 
   const [renderProgressLabel, setRenderProgressLabel] = useState("");
+  const [fertigeFolien, setFertigeFolien] = useState<number[]>([]);
   // Beide Knöpfe oben löschen den Job samt Dateien. Vorher passierte das ohne
   // Rückfrage bei einem einzigen Klick, und beide taten exakt dasselbe.
-  const [pendingExit, setPendingExit] = useState<"restart" | "cancel" | null>(null);
+  const [pendingExit, setPendingExit] = useState<"restart" | "cancel" | "render" | null>(null);
   const failedRender = useFailedRender();
   const { jobUuid: failedRenderJobUuid } = failedRender;
   const [ttsSettingsError, setTtsSettingsError] = useState("");
@@ -73,9 +75,10 @@ function ScreencastPageInner() {
     onDrop: handleDrop,
     reset: resetFile,
   } = useFileDropzone({ acceptedExtensions: ACCEPTED_EXTENSIONS });
-  const [speed, setSpeed] = useState(1.0);
-  const [slidePause, setSlidePause] = useState<number>(0.5);
-  const [dpi, setDpi] = useState(144);
+  const [speed, setSpeed] = useState(0.9);
+  const [slidePause, setSlidePause] = useState<number>(1.0);
+  const [dpi, setDpi] = useState(96);
+  const [subtitles, setSubtitles] = useState(false);
   const regen = useRegenAnchor();
   const { regeneratingSlide, anchorText: regenAnchorText, anchorSlide: regenAnchorSlide } = regen;
 
@@ -84,7 +87,7 @@ function ScreencastPageInner() {
   const [translationProviders, setTranslationProviders] = useState<{ id: number; name: string }[]>([]);
   const [translationProviderId, setTranslationProviderId] = useState<number | null>(null);
   const renderResult = useRenderResult();
-  const { downloadBlob, videoUrl, audioId, resultStem, clear: clearRenderResult } = renderResult;
+  const { videoUrl, audioId, hasSubtitles, clear: clearRenderResult } = renderResult;
 
   const autosaveScripts = useScriptAutosave({ jobUuid: translateJobUuid });
   const {
@@ -163,9 +166,20 @@ function ScreencastPageInner() {
   }, []);
 
 
+  // Die Vertonungs- und die Fertig-Seite brauchen den laufenden bzw. fertigen Job,
+  // den holt ein Effekt weiter unten, sobald der Render-Hook steht.
+  const [resumeIntoRender, setResumeIntoRender] = useState<{ uuid: string; step: "rendering" | "done" } | null>(null);
+  // Das fertige Video wird erst geladen, solange bleibt der Fortsetzen-Spinner stehen.
+  const [holeFertigesVideo, setHoleFertigesVideo] = useState(false);
+
   const { resumeLoading, resumeFailed } = useScreencastResume((payload) => {
     dispatch({ type: "RESUME", jobUuid: payload.jobUuid, slides: payload.slides, step: payload.step, stepIdx: payload.stepIdx });
+    if (payload.step === "rendering" || payload.step === "done") {
+      setResumeIntoRender({ uuid: payload.jobUuid, step: payload.step });
+      if (payload.step === "done") setHoleFertigesVideo(true);
+    }
   });
+  const resumeBusy = resumeLoading || holeFertigesVideo;
 
   useSlideImageBackfill(translateJobUuid, slides, (images) => {
     dispatch({ type: "BACKFILL_IMAGES", images });
@@ -196,8 +210,8 @@ function ScreencastPageInner() {
 
     dispatch({ type: "RESET" });
     resetFile();
-    setSpeed(1.0);  // gleicher Startwert wie beim frischen Aufruf der Seite
-    setSlidePause(0.5);
+    setSpeed(0.9);  // gleicher Startwert wie beim frischen Aufruf der Seite
+    setSlidePause(1.0);
     setGlossaryIds(["", "", ""]);
     clearRenderResult();
     resetScriptEditing();
@@ -209,23 +223,21 @@ function ScreencastPageInner() {
     if (fileRef.current) fileRef.current.value = "";
   }, [translateJobUuid]);
 
+  const gotoIndex = useCallback((index: number) => {
+    const target = indexToStep(index);
+    if (target) dispatch({ type: "SET_STEP", step: target });
+  }, []);
+
   const handleStepClick = useCallback((index: number) => {
-    if (step === "rendering" || step === "generating-scripts") return;
-    if (index > maxReachedIdx) return;
-    const targets: Record<number, ScreencastStep | null> = {
-      0: null,
-      1: null,
-      2: "translation-review",
-      3: "user-prompt",
-      4: "script-review",
-      5: "tts-settings",
-      6: null,
-      7: "done",
-    };
-    const target = targets[index];
-    if (!target) return;
-    dispatch({ type: "SET_STEP", step: target });
-  }, [maxReachedIdx, step]);
+    if (!istErreichbar(index, maxReachedIdx, skipTranslation, step)) return;
+    gotoIndex(index);
+  }, [gotoIndex, maxReachedIdx, skipTranslation, step]);
+
+  /** Der Zuruecktritt einer Seite, oder null wenn davor nichts Betretbares liegt. */
+  const zurueckVon = useCallback((index: number): (() => void) | null => {
+    const ziel = vorherErreichbar(index, maxReachedIdx, skipTranslation, step);
+    return ziel === null ? null : () => gotoIndex(ziel);
+  }, [gotoIndex, maxReachedIdx, skipTranslation, step]);
 
   const goError = useCallback((msg: string) => {
     dispatch({ type: "GO_ERROR", message: msg });
@@ -245,6 +257,8 @@ function ScreencastPageInner() {
     handleStartRender,
     handleRetryRender,
     newSignal,
+    reconnectToRender,
+    processRenderResultFromJob,
   } = useScreencastRenderFlow({
     translateJobUuid,
     slides,
@@ -253,6 +267,7 @@ function ScreencastPageInner() {
     speed,
     slidePause,
     dpi,
+    subtitles,
     voiceId,
     providerId,
     providers,
@@ -292,9 +307,26 @@ function ScreencastPageInner() {
         }
       },
     },
+    setFertigeFolien,
     abortControllerRef,
     currentJobUuidRef,
   });
+
+  // Sprung aus der Jobs-Liste auf die Vertonungs- oder die Fertig-Seite.
+  useEffect(() => {
+    if (!resumeIntoRender) return;
+    const { uuid, step: ziel } = resumeIntoRender;
+    setResumeIntoRender(null);
+    if (ziel === "rendering") {
+      reconnectToRender(uuid);
+      return;
+    }
+    fetch(`/api/jobs/${uuid}`, { credentials: "include" })
+      .then((r) => r.json())
+      .then((job) => processRenderResultFromJob(job))
+      .catch(() => goError(t("error.resumeFailed")))
+      .finally(() => setHoleFertigesVideo(false));
+  }, [resumeIntoRender, reconnectToRender, processRenderResultFromJob, goError, t]);
 
   const {
     handleUploadNext,
@@ -351,12 +383,28 @@ function ScreencastPageInner() {
     }
   }, [translateJobUuid, slides, autosaveScripts, dpi]);
 
+  const abbrechenUndZurueck = useCallback(async () => {
+    const uuid = currentJobUuidRef.current;
+    currentJobUuidRef.current = null;
+    abortControllerRef.current?.abort();
+    if (uuid) {
+      await fetch(`/api/jobs/${uuid}/cancel`, { method: "POST", credentials: "include" }).catch(() => {});
+      notifyJobsChanged();
+    }
+    sessionStorage.removeItem(RENDER_SESSION_KEY);
+    setFertigeFolien([]);
+    setRenderProgressLabel("");
+    dispatch({ type: "SET_STEP", step: "tts-settings" });
+    dispatch({ type: "SET_LOADING", loading: false });
+  }, []);
+
+  // Den Dateinamen setzt das Backend im Kopf, deshalb reicht der schlichte Link.
   const handleDownload = () => {
-    if (!downloadBlob) return;
-    // Backend computes the canonical filename (translated stem + timestamp). Fall back
-    // to the original PPTX stem only if meta is missing (e.g. legacy job restored from cache).
-    const stem = resultStem || file?.name?.replace(/\.pptx$/i, "") || "screencast";
-    triggerBlobDownload(downloadBlob, `${stem}.mp4`);
+    if (!audioId) return;
+    const a = document.createElement("a");
+    a.href = `/api/jobs/${audioId}/download`;
+    a.download = "";
+    a.click();
   };
 
   const openRegen = regen.open;
@@ -391,6 +439,9 @@ function ScreencastPageInner() {
     dispatch({ type: "ADVANCE_REACHED", idx: stepToIndex(step) });
   }, [step]);
 
+  // Zurueck auf Rendern kommt man nur, wenn das Video schon fertig ist.
+  const rueckblick = step === "rendering" && videoUrl !== null;
+
   const showStepIndicator = step !== "upload" && step !== "error";
 
   const totalWords = slides.reduce(
@@ -403,57 +454,47 @@ function ScreencastPageInner() {
 
   return (
     <ProtectedRoute>
-      <div className="max-w-4xl mx-auto px-4 py-8">
+      <div className="max-w-4xl mx-auto px-4 py-10 sm:py-14">
         {/* Step indicator */}
         {showStepIndicator && (
           <>
+            <div className="flex justify-end mb-8">
+              <button
+                onClick={() => setPendingExit("cancel")}
+                className="inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-xs text-muted-soft transition-colors hover:text-error focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-kb"
+              >
+                <Trash size={14} aria-hidden="true" />
+                {t("exit.cancel")}
+              </button>
+            </div>
             <ScreencastStepper
               step={step}
               maxReachedIdx={maxReachedIdx}
               skipTranslation={skipTranslation}
               onStepClick={handleStepClick}
             />
-            <div className="flex justify-between mb-6">
-              <button
-                onClick={() => setPendingExit("restart")}
-                className="inline-flex items-center gap-1 px-2 py-1 text-xs text-muted-soft hover:text-kb rounded transition-colors"
-              >
-                <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                </svg>
-                {t("exit.restart")}
-              </button>
-              <button
-                onClick={() => setPendingExit("cancel")}
-                className="inline-flex items-center gap-1 px-2 py-1 text-xs text-error border-2 border-error-border hover:border-error rounded transition-colors"
-              >
-                <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-                {t("exit.cancel")}
-              </button>
-            </div>
           </>
         )}
 
         {/* ── Resume loading ── */}
-        {resumeLoading && (
-          <section className="animate-[fadeIn_0.2s_ease-out] text-center py-16" role="status" aria-live="polite">
+        {resumeBusy && (
+          <section className="animate-[fadeIn_0.2s_ease-out] text-center py-20" role="status" aria-live="polite">
             <Spinner size="lg" className="justify-center mb-4" />
             <p className="text-sm text-foreground-soft">{t("resuming")}</p>
           </section>
         )}
 
         {/* Fortsetzen ist fehlgeschlagen: sagen statt schweigend beim Upload landen */}
-        {!resumeLoading && resumeFailed && step === "upload" && (
+        {!resumeBusy && resumeFailed && step === "upload" && (
           <p className="mb-4 rounded-md border border-warn-border bg-warn-bg px-3 py-2 text-sm text-warn-strong" role="alert">
             {t("error.resumeFailed")}
           </p>
         )}
 
         {/* ── Step: Upload ── */}
-        {!resumeLoading && step === "upload" && (
+        {!resumeBusy && step === "upload" && (
           <UploadStep
+            onBack={zurueckVon(0)}
             hasActiveJob={hasActiveJob}
             file={file}
             fileError={fileError}
@@ -478,7 +519,7 @@ function ScreencastPageInner() {
         )}
 
         {/* ── Step: Translating (loading) ── */}
-        {!resumeLoading && step === "translating" && (
+        {!resumeBusy && step === "translating" && (
           <TranslatingStep
             skipTranslation={skipTranslation}
             onCancel={() => {
@@ -496,8 +537,9 @@ function ScreencastPageInner() {
         )}
 
         {/* ── Step: User Prompt ── */}
-        {!resumeLoading && step === "user-prompt" && (
+        {!resumeBusy && step === "user-prompt" && (
           <UserPromptStep
+            onBack={zurueckVon(3)}
             scriptInputMode={scriptInputMode}
             importedScripts={importedScripts}
             importError={importError}
@@ -527,8 +569,9 @@ function ScreencastPageInner() {
         )}
 
         {/* ── Step: Translation Review ── */}
-        {!resumeLoading && step === "translation-review" && (
+        {!resumeBusy && step === "translation-review" && (
           <TranslationReviewStep
+            onBack={zurueckVon(2)}
             slides={slides}
             loading={loading}
             correctedFileName={correctedFileName}
@@ -543,7 +586,7 @@ function ScreencastPageInner() {
         )}
 
         {/* ── Step: Generating Scripts (loading) ── */}
-        {!resumeLoading && step === "generating-scripts" && (
+        {!resumeBusy && step === "generating-scripts" && (
           <GeneratingScriptsStep
             slideCount={slides.length}
             onCancel={() => {
@@ -561,8 +604,9 @@ function ScreencastPageInner() {
         )}
 
         {/* ── Step: Script Review ── */}
-        {!resumeLoading && step === "script-review" && (
+        {!resumeBusy && step === "script-review" && (
           <ScriptReviewStep
+            onBack={zurueckVon(4)}
             slides={slides}
             openAccordion={openAccordion}
             editingSlide={editingSlide}
@@ -582,8 +626,9 @@ function ScreencastPageInner() {
         )}
 
         {/* ── Step: TTS Settings ── */}
-        {!resumeLoading && step === "tts-settings" && (
+        {!resumeBusy && step === "tts-settings" && (
           <TtsSettingsStep
+            onBack={zurueckVon(5)}
             providersLoaded={providersLoaded}
             providers={providers}
             providerId={providerId}
@@ -594,6 +639,7 @@ function ScreencastPageInner() {
             speed={speed}
             slidePause={slidePause}
             dpi={dpi}
+            subtitles={subtitles}
             slides={slides}
             totalWords={totalWords}
             totalChars={totalChars}
@@ -605,42 +651,45 @@ function ScreencastPageInner() {
             onSpeedChange={setSpeed}
             onSlidePauseChange={setSlidePause}
             onDpiChange={setDpi}
+            onSubtitlesChange={setSubtitles}
             onBackToScripts={handleBackToScripts}
             onStartRender={handleStartRender}
           />
         )}
 
         {/* ── Step: Rendering (loading) ── */}
-        {!resumeLoading && step === "rendering" && (
+        {!resumeBusy && step === "rendering" && (
           <RenderingStep
             renderProgressLabel={renderProgressLabel}
-            onCancel={async () => {
-              const uuid = currentJobUuidRef.current;
-              currentJobUuidRef.current = null;
-              abortControllerRef.current?.abort();
-              if (uuid) {
-                await fetch(`/api/jobs/${uuid}/cancel`, { method: "POST", credentials: "include" }).catch(() => {});
-                notifyJobsChanged();
-              }
-              setRenderProgressLabel("");
-              dispatch({ type: "SET_STEP", step: "tts-settings" });
-              dispatch({ type: "SET_LOADING", loading: false });
-            }}
+            rueckblick={rueckblick}
+            vorschau={
+              <RenderVorschau
+                slides={slides}
+                // Nach dem Lauf sind alle Folien vertont, der Ton kommt dann aus audio/.
+                fertig={rueckblick ? slides.map((_, i) => i) : fertigeFolien}
+                jobUuid={translateJobUuid}
+                speed={speed}
+                rueckblick={rueckblick}
+              />
+            }
+            onCancel={() => setPendingExit("render")}
+            onWeiter={() => dispatch({ type: "SET_STEP", step: "done" })}
           />
         )}
 
         {/* ── Step: Done ── */}
-        {!resumeLoading && step === "done" && (
+        {!resumeBusy && step === "done" && (
           <DoneStep
             videoUrl={videoUrl}
             audioId={audioId}
+            hasSubtitles={hasSubtitles}
             onDownloadMp4={handleDownload}
             onReset={() => resetAll(false)}
           />
         )}
 
         {/* ── Error state ── */}
-        {!resumeLoading && step === "error" && (
+        {!resumeBusy && step === "error" && (
           <ErrorStep
             errorMessage={errorMessage}
             failedRenderJobUuid={failedRenderJobUuid}
@@ -648,35 +697,23 @@ function ScreencastPageInner() {
             onReset={() => resetAll()}
           />
         )}
-        <Modal
-          open={pendingExit !== null}
-          onClose={() => setPendingExit(null)}
-          title={t(pendingExit === "cancel" ? "exit.cancelTitle" : "exit.restartTitle")}
-          size="sm"
-          footer={
-            <>
-              <button
-                onClick={() => setPendingExit(null)}
-                className="btn-cancel px-3 py-1.5 text-sm text-foreground-soft border border-border rounded transition-colors"
-              >
-                {t("common.cancel")}
-              </button>
-              <button
-                onClick={() => {
-                  const mode = pendingExit;
-                  setPendingExit(null);
-                  resetAll(step !== "done");
-                  if (mode === "cancel") window.location.href = "/my-jobs";
-                }}
-                className="px-3 py-1.5 text-sm font-medium text-error-strong border border-error-border rounded hover:bg-error-bg transition-colors"
-              >
-                {t("exit.confirm")}
-              </button>
-            </>
-          }
-        >
-          <p className="text-sm text-foreground-soft">{t("exit.body")}</p>
-        </Modal>
+        {pendingExit !== null && (
+          <ExitConfirmModal
+            mode={pendingExit}
+            onCancel={() => setPendingExit(null)}
+            onConfirm={async () => {
+              const mode = pendingExit;
+              setPendingExit(null);
+              // Der Render-Abbruch loescht den Job nicht, er stoppt nur den Lauf.
+              if (mode === "render") {
+                await abbrechenUndZurueck();
+                return;
+              }
+              resetAll(step !== "done");
+              if (mode === "cancel") window.location.href = "/my-jobs";
+            }}
+          />
+        )}
 
         {lightboxIndex !== null && (
           <Lightbox

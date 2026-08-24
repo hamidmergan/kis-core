@@ -13,12 +13,14 @@ export default function Checkbox({
   disabled = false,
   label,
   className = "",
+  labelClassName = "text-xs text-foreground",
 }: {
   checked: boolean;
   onChange: (checked: boolean) => void;
   disabled?: boolean;
   label?: string;
   className?: string;
+  labelClassName?: string;
 }) {
   const boxCls = checked
     ? "border-[var(--kb)] bg-[var(--kb)]"
@@ -43,7 +45,7 @@ export default function Checkbox({
         {checked && <Check size={11} weight="bold" />}
       </span>
       {label && (
-        <span className="text-xs text-foreground whitespace-nowrap">{label}</span>
+        <span className={`whitespace-nowrap ${labelClassName}`}>{label}</span>
       )}
     </button>
   );

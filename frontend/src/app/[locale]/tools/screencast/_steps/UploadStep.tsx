@@ -5,10 +5,12 @@ import { useTranslations } from "next-intl";
 import { Link } from "@/i18n/navigation";
 import GlossarySelector from "@/components/glossary/GlossarySelector";
 import Select from "@/components/ui/Select";
+import StepFooter from "./StepFooter";
 
 const ACCEPTED_EXTENSIONS = [".pptx"];
 
 interface UploadStepProps {
+  onBack: (() => void) | null;
   hasActiveJob: boolean | null;
   file: File | null;
   fileError: string | null;
@@ -33,6 +35,7 @@ interface UploadStepProps {
 
 export default function UploadStep(props: UploadStepProps) {
   const {
+    onBack,
     hasActiveJob,
     file,
     fileError,
@@ -59,7 +62,7 @@ export default function UploadStep(props: UploadStepProps) {
 
   return (
     <section className="animate-[fadeIn_0.3s_ease-out]">
-      <div className="flex items-baseline justify-between mb-1">
+      <div className="flex items-baseline justify-between mb-2">
         <h1 className="text-xl font-bold">{t("title")}</h1>
         <Link
           href="/tools/screencast-demo"
@@ -101,7 +104,7 @@ export default function UploadStep(props: UploadStepProps) {
             (dragOver
               ? "border-kb bg-kb/5"
               : file
-                ? "border-success-border bg-success-bg"
+                ? "border-kb60 bg-kb20"
                 : "border-border hover:border-kb")
           }
         `}
@@ -119,7 +122,7 @@ export default function UploadStep(props: UploadStepProps) {
         />
         {file ? (
           <>
-            <svg className="w-8 h-8 text-success mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <svg className="w-8 h-8 text-kb-dark mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
             </svg>
             <p className="text-sm font-medium text-foreground">{file.name}</p>
@@ -193,15 +196,12 @@ export default function UploadStep(props: UploadStepProps) {
         </p>
       )}
 
-      <div className="flex gap-3">
-        <button
-          onClick={onUploadNext}
-          disabled={!file || !!hasActiveJob}
-          className="flex-1 px-4 py-3 btn-primary text-sm font-medium rounded-md  focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-kb transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          {t("common.next")}
-        </button>
-      </div>
+      <StepFooter
+        onBack={onBack}
+        nextLabel={t("common.next")}
+        onNext={onUploadNext}
+        nextDisabled={!file || !!hasActiveJob}
+      />
     </section>
   );
 }

@@ -34,3 +34,52 @@ export function stepToIndex(step: ScreencastStep): number {
       return 0;
   }
 }
+
+/** Nur diese Schritte darf man wieder betreten, alles andere ist Upload oder Warteseite. */
+export function indexToStep(index: number): ScreencastStep | null {
+  switch (index) {
+    case 2:
+      return "translation-review";
+    case 3:
+      return "user-prompt";
+    case 4:
+      return "script-review";
+    case 5:
+      return "tts-settings";
+    case 6:
+      return "rendering";
+    case 7:
+      return "done";
+    default:
+      return null;
+  }
+}
+
+/** Die eine Regel, die Fortschrittsbalken und Fussleiste gleich beantworten. */
+export function istErreichbar(
+  index: number,
+  maxReachedIdx: number,
+  skipTranslation: boolean,
+  step: ScreencastStep,
+): boolean {
+  if (step === "rendering" || step === "generating-scripts") return false;
+  // Rendern ist eine Warteseite. Erst nach dem Fertigstellen darf man zurueck,
+  // dann steht dort die Vorschau zum Nachhoeren.
+  if (index === 6 && step !== "done") return false;
+  if (index > maxReachedIdx) return false;
+  if (skipTranslation && (index === 1 || index === 2)) return false;
+  return indexToStep(index) !== null;
+}
+
+/** Der naechste betretbare Schritt nach links, Warteseiten werden uebersprungen. */
+export function vorherErreichbar(
+  index: number,
+  maxReachedIdx: number,
+  skipTranslation: boolean,
+  step: ScreencastStep,
+): number | null {
+  for (let i = index - 1; i >= 0; i--) {
+    if (istErreichbar(i, maxReachedIdx, skipTranslation, step)) return i;
+  }
+  return null;
+}

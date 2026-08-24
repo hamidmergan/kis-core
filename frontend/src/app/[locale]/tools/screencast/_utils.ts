@@ -22,20 +22,20 @@ export type RenderProgress =
   | { kind: "extractSlides" }
   | { kind: "scripts"; total?: number }
   | { kind: "images" }
-  | { kind: "tts"; current?: number; total?: number }
+  | { kind: "tts"; current?: number; total?: number; fertig: number[] }
   | { kind: "video"; current?: number; total?: number }
   | { kind: "concat" }
   | { kind: "subtitles" }
   | { kind: "fallback" };
 
 export function renderProgress(status: JobStatus): RenderProgress {
-  const p = status.progress as { step?: string; current?: number; total?: number } | null;
+  const p = status.progress as { step?: string; current?: number; total?: number; fertig?: number[] } | null;
   if (!p?.step) return { kind: "queue" };
   if (p.step === "translate") return { kind: "translatePresentation" };
   if (p.step === "extract") return { kind: "extractSlides" };
   if (p.step === "scripts") return { kind: "scripts", total: p.total ?? undefined };
   if (p.step === "images") return { kind: "images" };
-  if (p.step === "tts") return { kind: "tts", current: p.current ?? undefined, total: p.total ?? undefined };
+  if (p.step === "tts") return { kind: "tts", current: p.current ?? undefined, total: p.total ?? undefined, fertig: p.fertig ?? [] };
   if (p.step === "video") return { kind: "video", current: p.current ?? undefined, total: p.total ?? undefined };
   if (p.step === "concat") return { kind: "concat" };
   if (p.step === "subtitles") return { kind: "subtitles" };
