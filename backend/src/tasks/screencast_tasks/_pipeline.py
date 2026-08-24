@@ -319,6 +319,7 @@ def _run_render_pipeline(
             "audio_id": job_uuid,
             "audio_count": num_slides,
             "subtitles": spur_pfad is not None,
+            "video_folien": auswahl.clip_folien,
         }
         save_result_meta(user_id, job_uuid, meta)
 

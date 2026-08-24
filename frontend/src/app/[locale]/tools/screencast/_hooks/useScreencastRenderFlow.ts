@@ -119,6 +119,7 @@ export function useScreencastRenderFlow(opts: UseScreencastRenderFlowOptions) {
         audioCount: meta.audio_count as number | undefined,
         resultStem: meta.result_stem as string | undefined,
         hasSubtitles: meta.subtitles === true,
+        videoFolien: (meta.video_folien as number[] | undefined) ?? null,
       });
       dispatch({ type: "SET_LOADING", loading: false });
       dispatch({ type: "SET_STEP", step: "done" });

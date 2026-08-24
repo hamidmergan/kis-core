@@ -214,3 +214,15 @@ function gleicheNummern(a: number[], b: number[]): boolean {
   const y = [...b].sort((p, q) => p - q);
   return x.every((wert, i) => wert === y[i]);
 }
+
+/** Welche Folien nicht im Video sind, aus dem Fortschritt oder aus dem Ergebnis. */
+export function ausgeschlosseneFolien(
+  anzahl: number,
+  ausDemFortschritt: number[],
+  videoFolien: number[] | null,
+): number[] {
+  if (ausDemFortschritt.length > 0) return ausDemFortschritt;
+  if (!videoFolien) return [];
+  const dabei = new Set(videoFolien);
+  return Array.from({ length: anzahl }, (_, i) => i).filter((i) => !dabei.has(i));
+}

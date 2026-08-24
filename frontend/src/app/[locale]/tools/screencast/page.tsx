@@ -26,7 +26,7 @@ import Lightbox from "./_components/Lightbox";
 import RenderVorschau from "./_components/RenderVorschau";
 import RegenChatModal, { type RegenApplyMode } from "./_components/RegenChatModal";
 import ExitConfirmModal from "./_components/ExitConfirmModal";
-import { parseScriptJsonFile, checkHasActiveJob, checkJobValidity, checkJobFolderExists, computeVoiceLabel, laufWaereUmsonst, stimmwechselOhneWirkung, type LaufStand } from "./_utils";
+import { parseScriptJsonFile, checkHasActiveJob, checkJobValidity, checkJobFolderExists, computeVoiceLabel, laufWaereUmsonst, stimmwechselOhneWirkung, ausgeschlosseneFolien, type LaufStand } from "./_utils";
 import { flowReducer, INITIAL_FLOW_STATE } from "./_reducer";
 import { useScreencastRenderFlow } from "./_hooks/useScreencastRenderFlow";
 import { useScreencastTranslateFlow } from "./_hooks/useScreencastTranslateFlow";
@@ -91,10 +91,12 @@ function ScreencastPageInner() {
   const [translationProviders, setTranslationProviders] = useState<{ id: number; name: string }[]>([]);
   const [translationProviderId, setTranslationProviderId] = useState<number | null>(null);
   const renderResult = useRenderResult();
-  const { videoUrl, audioId, hasSubtitles, clear: clearRenderResult } = renderResult;
+  const { videoUrl, audioId, hasSubtitles, videoFolien, clear: clearRenderResult } = renderResult;
 
   // Zurueck auf Rendern kommt man nur, wenn das Video schon fertig ist.
   const rueckblick = step === "rendering" && videoUrl !== null;
+  // Nach einem Neuladen kommt die Auswahl aus dem Ergebnis statt aus dem Fortschritt.
+  const ausgeschlossen = ausgeschlosseneFolien(slides.length, nichtDabei, videoFolien);
 
   const autosaveScripts = useScriptAutosave({ jobUuid: translateJobUuid });
   const {
@@ -787,12 +789,12 @@ function ScreencastPageInner() {
             vorschau={
               <RenderVorschau
                 slides={slides}
-                // Nach dem Lauf sind alle Folien vertont, der Ton kommt dann aus audio/.
-                fertig={rueckblick ? slides.map((_, i) => i) : fertigeFolien}
+                // Ausgeschlossene Folien bleiben auch im Rueckblick aussen vor.
+                fertig={rueckblick ? slides.map((_, i) => i).filter((i) => !ausgeschlossen.includes(i)) : fertigeFolien}
                 jobUuid={translateJobUuid}
                 speed={speed}
                 rueckblick={rueckblick}
-                nichtDabei={rueckblick ? [] : nichtDabei}
+                nichtDabei={ausgeschlossen}
               />
             }
             onCancel={() => setPendingExit("render")}

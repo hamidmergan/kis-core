@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { renderProgress, geaenderteFolien, markeFuerFolie, laufWaereUmsonst, nichtsWirdGesprochen, stimmwechselOhneWirkung, type VertonterStand, type LaufStand } from "./_utils";
+import { renderProgress, geaenderteFolien, markeFuerFolie, laufWaereUmsonst, nichtsWirdGesprochen, stimmwechselOhneWirkung, ausgeschlosseneFolien, type VertonterStand, type LaufStand } from "./_utils";
 import type { JobStatus } from "@/lib/api";
 import type { SlideData } from "@/types";
 
@@ -236,5 +236,27 @@ describe("stimmwechselOhneWirkung", () => {
 
   it("ohne fertiges Video: falsch", () => {
     expect(stimmwechselOhneWirkung({ ...basis, hatVideo: false, voiceId: "de-other" })).toBe(false);
+  });
+});
+
+describe("ausgeschlosseneFolien", () => {
+  it("der Fortschritt gewinnt, wenn er etwas enthaelt", () => {
+    expect(ausgeschlosseneFolien(5, [1, 3], [0, 1, 2, 3, 4])).toEqual([1, 3]);
+  });
+
+  it("ohne Fortschritt wird aus den Video-Folien gerechnet", () => {
+    expect(ausgeschlosseneFolien(5, [], [0, 2, 4])).toEqual([1, 3]);
+  });
+
+  it("ohne beides kommt eine leere Liste", () => {
+    expect(ausgeschlosseneFolien(5, [], null)).toEqual([]);
+  });
+
+  it("sind alle Folien im Video, ist die Liste leer", () => {
+    expect(ausgeschlosseneFolien(3, [], [0, 1, 2])).toEqual([]);
+  });
+
+  it("die Nummern kommen aufsteigend", () => {
+    expect(ausgeschlosseneFolien(6, [], [1, 3, 5])).toEqual([0, 2, 4]);
   });
 });
