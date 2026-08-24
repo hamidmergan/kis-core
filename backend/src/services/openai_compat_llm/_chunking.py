@@ -56,10 +56,17 @@ def get_audio_duration(file_path: str) -> float:
 
 
 def find_silence_starts(file_path: str) -> list[float]:
-    """Run ffmpeg silencedetect and return a list of silence_start timestamps."""
+    """Run ffmpeg silencedetect and return a list of silence_start timestamps.
+
+    ``-vn`` ist der teuerste Buchstabe hier: ohne ihn dekodiert ffmpeg die
+    komplette Bildspur mit und wirft sie in den null-Muxer, obwohl nur die
+    Tonpausen gesucht werden. Gemessen an 5 Minuten 720p: 5,25 s CPU mit Bild
+    gegen 0,26 s ohne, und das Dekodieren lief ueber alle Kerne.
+    """
     result = subprocess.run(
         [
             "ffmpeg", "-i", file_path,
+            "-vn",
             "-af", f"silencedetect=noise={_SILENCE_NOISE_DB}dB:d={_SILENCE_MIN_DURATION}",
             "-f", "null", "-",
         ],
