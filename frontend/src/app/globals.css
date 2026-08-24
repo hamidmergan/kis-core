@@ -777,9 +777,6 @@ me-tpc:hover .mm-src-chip {
   border-color: var(--kb);
   box-shadow: 0 0 0 1px var(--kb);
 }
-.tools-sidebar-item.is-active {
-  background-color: var(--surface-dim);
-}
 :root[data-theme="dark"] .tools-sidebar-item__box {
   color: var(--muted) !important;
 }

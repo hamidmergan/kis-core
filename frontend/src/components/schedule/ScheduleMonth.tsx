@@ -25,6 +25,15 @@ const MAX_CHIPS = 2;
 /** Hoechstens so viele Balken uebereinander, der Rest zaehlt in "+N weitere" mit. */
 const MAX_LANES = 2;
 
+/** Heute traegt nur vier Winkel, kein voller Rahmen und keine Fuellung. */
+const ECK_STRICH = "2px solid var(--kb)";
+const ECKEN: React.CSSProperties[] = [
+  { top: 0, left: 0, borderTop: ECK_STRICH, borderLeft: ECK_STRICH },
+  { top: 0, right: 0, borderTop: ECK_STRICH, borderRight: ECK_STRICH },
+  { bottom: 0, left: 0, borderBottom: ECK_STRICH, borderLeft: ECK_STRICH },
+  { bottom: 0, right: 0, borderBottom: ECK_STRICH, borderRight: ECK_STRICH },
+];
+
 function parseYMD(s: string): Date {
   const [y, m, d] = s.split("-").map(Number);
   return new Date(y, m - 1, d);
@@ -337,7 +346,9 @@ export default function ScheduleMonth() {
         </button>
       </div>
 
-      <div className="grid grid-cols-7 gap-1 mb-1">
+      {/* Auf dem Handy zieht das Raster ueber den Seitenrand hinaus, sonst
+          bleiben von 390 px nur 358 fuer sieben Spalten. */}
+      <div className="-mx-4 sm:mx-0 grid grid-cols-7 gap-1 mb-1">
         {weekdays.map((w) => (
           <div
             key={w}
@@ -350,7 +361,7 @@ export default function ScheduleMonth() {
       </div>
 
       {/* Jede Woche ist ein eigener Block, damit die Balken darin liegen koennen. */}
-      <div className="flex flex-col gap-1 xl:flex-1">
+      <div className="-mx-4 sm:mx-0 flex flex-col gap-1 xl:flex-1">
       {Array.from({ length: weeks }, (_, w) => {
         const weekStart = ymdShift(y, m, 1 - startCol + w * 7);
         const segmente = weekSegments(ranges, weekStart);
@@ -415,23 +426,23 @@ export default function ScheduleMonth() {
               type="button"
               onClick={() => handleDayClick(iso)}
               aria-pressed={isSelected}
-              className={`min-h-13 md:min-h-19 px-1.5 py-1 flex flex-col text-left transition-colors ${
-                "cursor-pointer hover:bg-[var(--surface-dim)]"
-              }`}
+              className="relative min-h-13 md:min-h-19 px-1.5 py-1 flex flex-col text-left transition-colors cursor-pointer hover:bg-[var(--surface-dim)] hover:outline-2 hover:outline-[var(--kb)]"
               style={{
                 borderLeft: i === 0 ? undefined : "1px solid var(--border-soft)",
-                // Heute ist gefuellt, der gewaehlte Tag bekommt denselben Ton als Rahmen.
+                // Der gewaehlte Tag bekommt die volle Kontur, heute nur die Winkel darunter.
                 outline: isSelected ? "2px solid var(--kb)" : undefined,
                 outlineOffset: -2,
-                // Heute ist voll in der Markenfarbe gefuellt, Schrift darauf weiss.
-                backgroundColor: isToday ? "var(--kb)" : "var(--background)",
+                backgroundColor: "var(--background)",
               }}
             >
+              {isToday && ECKEN.map((eck, k) => (
+                <span key={k} aria-hidden="true" className="absolute pointer-events-none" style={{ ...eck, width: 9, height: 9 }} />
+              ))}
               <span
                 className="text-2xs font-semibold"
                 // Feste Hoehe, sonst rundet die Zeilenbox und der Abstand darunter
                 // stimmt um ein Pixel nicht mit dem zwischen den Balken ueberein.
-                style={{ height: 17, color: isToday ? "#fff" : "var(--foreground-soft)" }}
+                style={{ height: 17, color: isToday ? "var(--kb)" : "var(--foreground-soft)" }}
               >
                 {day}
               </span>
@@ -439,8 +450,8 @@ export default function ScheduleMonth() {
               {/* Der Platz fuer die Balken sitzt unter der Zahl, nie darueber. */}
               {platz > 0 && <span aria-hidden="true" style={{ height: platz }} />}
 
-              {/* Ab Tablet passen Titel in die Zelle, darunter nur Punkte. */}
-              <span className="hidden md:flex flex-col gap-0.5 min-w-0">
+              {/* Ueberall dieselben Kacheln, in schmalen Zellen kuerzt truncate den Titel. */}
+              <span className="flex flex-col gap-0.5 min-w-0">
                 {chips.map((e) => (
                   <span
                     key={e.id}
@@ -459,23 +470,14 @@ export default function ScheduleMonth() {
                 {restChips > 0 && (
                   <span
                     className="text-2xs font-bold px-1"
-                    style={{ color: isToday ? "#fff" : "var(--kb)" }}
+                    style={{ color: "var(--kb)" }}
                   >
-                    {t("month.more", { count: restChips })}
+                    {/* Das Wort "weitere" passt erst ab Tablet neben die Zahl. */}
+                    <span className="md:hidden">+{restChips}</span>
+                    <span className="hidden md:inline">{t("month.more", { count: restChips })}</span>
                   </span>
                 )}
               </span>
-
-              {/* Auf dem Handy passt kein Titel in die Zelle, und ein namenloser
-                  Streifen sagt nichts. Also nur die Zahl, sie zaehlt alles mit. */}
-              {gesamt > 0 && (
-                <span
-                  className="flex md:hidden text-3xs font-bold leading-none"
-                  style={{ color: isToday ? "#fff" : "var(--muted)" }}
-                >
-                  +{gesamt}
-                </span>
-              )}
             </button>
           );
         })}

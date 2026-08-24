@@ -122,8 +122,7 @@ export default function ToolsSidebar() {
             type="button"
             onClick={toggle}
             aria-label={effectiveCollapsed ? t("expand") : t("collapse")}
-            className="flex items-center justify-center rounded-md w-7 h-7 transition-colors hover:bg-[var(--surface-dim)]"
-            style={{ color: "var(--kb)" }}
+            className="w-7 h-7 flex items-center justify-center rounded-full btn-icon"
           >
             <Sidebar size={18} weight="bold" />
           </button>
@@ -141,7 +140,7 @@ export default function ToolsSidebar() {
                   onClick={closeOnSmallScreen}
                   title={effectiveCollapsed ? title : undefined}
                   aria-current={isActive ? "page" : undefined}
-                  className={`tools-sidebar-item flex items-center gap-3 rounded-lg no-underline transition-colors hover:bg-surface-dim ${isActive ? "is-active" : ""} ${effectiveCollapsed ? "justify-center px-1 py-2" : "px-2 py-2"}`}
+                  className={`tools-sidebar-item flex items-center gap-3 rounded-lg no-underline transition-colors ${isActive ? "is-active" : ""} ${effectiveCollapsed ? "justify-center px-1 py-2" : "px-2 py-2"}`}
                 >
                   <span className="tools-sidebar-item__box flex items-center justify-center flex-shrink-0 w-10 h-10 rounded-lg">
                     <ToolIcon size={18} weight="bold" />
