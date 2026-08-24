@@ -32,13 +32,17 @@ class RegenerateSlideScriptRequest(BaseModel):
 class RenderRequest(BaseModel):
     scripts: list[str]
     translate_job_uuid: str          # the existing translate job to update
+    # Ohne Angabe bleibt die Sprache unbekannt und die Vertonung raet nicht.
+    target_lang: str = ""
     slide_images_b64: list[str] = []
     voice_id: str = ""
     voice_label: str = ""
-    speed: float = 1.0
-    slide_pause: float = 0.5
+    speed: float = 0.9
+    slide_pause: float = 1.0
     dpi: int = 100
     provider_id: int
+    # Untertitel-Spur ins MP4, per Haken in den Einstellungen.
+    subtitles: bool = False
 
 
 class PrerenderRequest(BaseModel):

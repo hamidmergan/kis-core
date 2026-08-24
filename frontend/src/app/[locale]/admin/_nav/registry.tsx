@@ -261,7 +261,7 @@ export function resolve(segments: string[]): Resolved | null {
 /**
  * Die markierte Startseite. /admin landet dort statt auf der ersten Seite des
  * ersten Bereichs: wer den Adminbereich oeffnet, will meist wissen ob alles
- * laeuft, und das steht bei den Auftraegen samt Auslastung.
+ * laeuft, und das steht bei den Auftraegen.
  */
 export function home(): Resolved | null {
   for (const section of SECTIONS) {

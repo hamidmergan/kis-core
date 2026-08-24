@@ -69,7 +69,7 @@ export default function FileUpload({ onFileSelected, disabled = false, selectedF
   const borderClass = dragActive
     ? "border-kb bg-info-bg"
     : selectedFilename
-      ? "border-success-border bg-success-bg"
+      ? "border-kb60 bg-kb20"
       : "border-border hover:border-kb";
 
   return (
@@ -92,7 +92,7 @@ export default function FileUpload({ onFileSelected, disabled = false, selectedF
       >
         {selectedFilename ? (
           <>
-            <svg className="mx-auto h-8 w-8 text-success mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+            <svg className="mx-auto h-8 w-8 text-kb-dark mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
             </svg>
             <p className="text-sm font-medium text-foreground">{selectedFilename}</p>

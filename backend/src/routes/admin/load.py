@@ -22,7 +22,7 @@ from src.permissions_registry import PERM_SET_TOOLS_JOBS, PERM_SET_SYSTEM
 
 router = APIRouter(tags=["admin: load"])
 
-# Die Auslastungskarte steht auf zwei Seiten, deshalb zwei Schluessel.
+# Die Auslastungskarte ist raus, die Route ruft niemand mehr auf.
 _require = require_permission(PERM_SET_TOOLS_JOBS, PERM_SET_SYSTEM)
 
 

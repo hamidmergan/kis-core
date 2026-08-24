@@ -35,7 +35,7 @@
   "myJobs": {
     "title": "My jobs",
     "refresh": "Refresh",
-    "intro": "The last 20 jobs are stored. When a new one arrives, the oldest one drops out.",
+    "intro": "The last 100 jobs are stored. When a new one arrives, the oldest one drops out.",
     "emptySearch": "No results for this search",
     "emptyAll": "No jobs",
     "retryFailed": "Retry failed",
@@ -61,7 +61,7 @@
       "success": "Done",
       "failed": "Failed",
       "running": "Running",
-      "awaitingUser": "Input required",
+      "awaitingUser": "Resume",
       "queued": "Queued",
       "pending": "Pending"
     },
@@ -72,6 +72,45 @@
       "processingTime": "Processing time:",
       "completed": "Completed:",
       "expiresAt": "Expires:"
+    },
+    "adminStats": {
+      "toggle": "Technical details",
+      "yes": "yes",
+      "no": "no",
+      "error": "Error:",
+      "phase": {
+        "uebersetzung": "Translation",
+        "skripte": "Scripts",
+        "bilder": "Slide images",
+        "vertonung": "Speech",
+        "clips": "Video clips",
+        "untertitel": "Subtitles",
+        "zusammenfuegen": "Joining"
+      },
+      "field": {
+        "anbieter": "Provider",
+        "modell": "Model",
+        "route": "Route",
+        "quelle": "Source language",
+        "ziel": "Target language",
+        "sprache": "Language",
+        "folien": "Slides",
+        "unveraenderte_folien": "unchanged",
+        "zeichen": "Characters",
+        "laengste_folie_zeichen": "longest slide",
+        "leere_folien": "empty slides",
+        "stimme": "Voice",
+        "stimme_name": "Voice name",
+        "tempo": "Speed",
+        "aus_zwischenspeicher": "from cache",
+        "dpi": "Resolution",
+        "vorrat_genutzt": "cache used",
+        "folienpause": "Slide pause",
+        "gleichzeitig": "in parallel",
+        "folien_mit_ton": "slides with audio",
+        "video_bytes": "Video size",
+        "clips": "Clips"
+      }
     },
     "actions": {
       "cancel": "Cancel",
@@ -87,7 +126,8 @@
     "artifacts": {
       "creating": "Creating…",
       "generatingScripts": "Generating scripts…",
-      "resumeScreencast": "Resume screencast →",
+      "resumeScreencast": "Resume screencast",
+      "openScreencast": "Open screencast",
       "downloadAllZip": "Download all (ZIP)",
       "fallbackFile": "File"
     },
@@ -107,7 +147,7 @@
       "days": "{n, plural, =1 {1 day ago} other {# days ago}}"
     },
     "panel": {
-      "notice": "Only the last 20 jobs are stored.",
+      "notice": "Only the last 100 jobs are stored.",
       "empty": "No jobs",
       "viewAll": "View all",
       "newResults": "New results"
@@ -556,6 +596,8 @@
       "ttsSettings": {
         "heading": "Settings",
         "providerLabel": "TTS provider",
+        "langLabel": "Narration language",
+        "langHint": "The scripts are written in this language. It also decides how numbers are spoken.",
         "voiceLabel": "Voice",
         "voiceDefault": "Default",
         "previewVoices": "Preview voices →",
@@ -578,9 +620,23 @@
         "scriptTooLongBody": "The script has {chars} characters (max. {max}). Please shorten the slide texts.",
         "backToEdit": "Back to script editor",
         "back": "Back",
-        "startRender": "Create screencast"
+        "startRender": "Create screencast",
+        "subtitles": "Add subtitles",
+        "subtitlesHint": "The spoken text is recognised and added to the video as a subtitle track. Toggle it with CC in the player. Rendering takes a little longer."
       },
-      "rendering": {
+      "vorschau": {
+        "ueberschrift": "Ready to listen to",
+        "folieVon": "Slide {n} of {total}",
+        "fortschritt": "{fertig} of {total} slides voiced",
+        "ohneTon": "This slide has no script.",
+        "abspielen": "Listen to slide {n}",
+        "wartet": "Slide {n} is still being voiced",
+        "rueckblick": "Listen to every slide",
+        "zumErgebnis": "To the finished video",
+        "nachLinks": "Scroll slides left",
+        "nachRechts": "Scroll slides right"
+      },
+    "rendering": {
         "fallback": "Creating video...",
         "subtle": "Voiceover and video production, this may take a few minutes.",
         "queue": "In the queue…",
@@ -606,7 +662,8 @@
         "downloadAllZipAria": "Download all (ZIP)",
         "downloadAllZipLabel": "Download all (ZIP)",
         "newPresentationAria": "Upload new presentation",
-        "newPresentation": "New presentation"
+        "newPresentation": "New presentation",
+        "subtitleTrack": "Subtitles"
       },
       "error": {
         "heading": "Screencast creation failed",
@@ -652,10 +709,16 @@
       "demoBadge": "View demo →",
       "exit": {
         "restart": "Start over",
-        "cancel": "Cancel screencast",
+        "cancel": "Discard screencast",
         "restartTitle": "Discard screencast and start over?",
         "cancelTitle": "Discard screencast and close?",
-        "body": "The current screencast will be deleted, including the uploaded file, the translation and the scripts. This cannot be undone.",
+        "body": "The current screencast will be deleted, including the uploaded file, the translation and the scripts.",
+        "warning": "This cannot be undone.",
+        "renderTitle": "Cancel rendering?",
+        "renderBody": "The running render is stopped. You return to the settings, file, translation and scripts are kept.",
+        "renderWarning": "The video created so far is lost.",
+        "renderKeep": "Keep rendering",
+        "renderConfirm": "Cancel rendering",
         "confirm": "Discard"
       }
     },
@@ -750,8 +813,7 @@
           "sub": "Which tools show up on the home page."
         },
         "jobs": {
-          "label": "Jobs",
-          "sub": "How busy the machine is, what runs and what failed."
+          "label": "Jobs"
         },
         "stats": {
           "label": "Statistics",
@@ -861,19 +923,6 @@
       "successWarning": "This password is shown ONCE. Copy or write it down before closing the dialog.",
       "successClose": "Close",
       "errorGeneric": "Creation failed"
-    },
-    "load": {
-      "title": "Load",
-      "detected": "Detected: {cores} cores, {memory} GB. Every limit derived from this, nothing to configure.",
-      "slots": "Slots",
-      "uploads": "Uploads",
-      "cpu": "Processor",
-      "memory": "Memory",
-      "slotsValue": "{running} of {total} in use",
-      "slotsWaiting": "{running} of {total} in use, {waiting} waiting",
-      "memoryValue": "{used} of {total} GB",
-      "unknown": "unknown",
-      "hint": "Every limit is derived from the detected machine. There is nothing to configure."
     },
     "jobs": {
       "searchPlaceholder": "Search: user, tool, file...",
@@ -1658,6 +1707,8 @@
   },
   "stepper": {
     "ariaLabel": "Progress",
+    "scrollLeft": "Scroll steps left",
+    "scrollRight": "Scroll steps right",
     "steps": {
       "upload": "Upload",
       "translate": "Translate",

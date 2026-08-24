@@ -55,6 +55,9 @@ export default function AdminPage({ params }: { params: Promise<{ path?: string[
   const Body = active ? active.Component : (page?.Component ?? section.Component);
   if (!Body) return null;
 
+  // Nicht jede Seite braucht eine Unterzeile.
+  const hasSub = ts.has(`${base}.sub`);
+
   return (
     <>
       {page && (
@@ -62,8 +65,8 @@ export default function AdminPage({ params }: { params: Promise<{ path?: string[
           {ts(`${section.key}.label`)}
         </p>
       )}
-      <h2 className="text-lg font-semibold">{ts(`${base}.label`)}</h2>
-      <p className="text-xs text-muted mt-1 mb-6 max-w-2xl">{ts(`${base}.sub`)}</p>
+      <h2 className={`text-lg font-semibold${hasSub ? "" : " mb-6"}`}>{ts(`${base}.label`)}</h2>
+      {hasSub && <p className="text-xs text-muted mt-1 mb-6 max-w-2xl">{ts(`${base}.sub`)}</p>}
 
       {tabs && active && (
         <PageTabs

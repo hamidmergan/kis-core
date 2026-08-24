@@ -3,6 +3,7 @@ import { useTranslations } from "next-intl";
 import { DownloadSimple } from "@phosphor-icons/react";
 import Spinner from "@/components/ui/Spinner";
 import { SCREENCAST_RENDER_TOOLS, type MyJob } from "../_types";
+import { screencastJumpHref, screencastJumpKind } from "@/components/jobs/_screencastJump";
 
 
 function DownloadChip({ onClick, href, filename, label }: { onClick?: () => void | Promise<void>; href?: string; filename?: string; label: string }) {
@@ -53,7 +54,20 @@ export function JobArtifacts({ job }: { job: MyJob }) {
 
   // screencast_translate: single-folder workflow — show artifacts for both phases
   if (job.tool === "screencast_translate") {
+    // "Fortsetzen" sitzt jetzt im Status-Abzeichen, hier bleibt nur das Oeffnen.
+    const sprung = screencastJumpKind(job);
+    const sprungChip = sprung === "open" && (
+      <a
+        href={screencastJumpHref(job.job_uuid)}
+        className="inline-flex items-center gap-1 text-xs text-kb-dark bg-kb20 border border-kb60 hover:outline-2 hover:outline-kb-dark transition-colors px-2.5 py-1 rounded-full"
+      >
+        {t("openScreencast")}
+      </a>
+    );
+
     if (job.status === "awaiting_user") {
+      // Ohne laufende Skripte bleibt hier nichts, das Abzeichen fuehrt weiter.
+      if (!job.is_generating_scripts) return null;
       return (
         <div className="mt-3 space-y-2">
           <div className="flex flex-wrap gap-2 items-center">
@@ -61,19 +75,10 @@ export function JobArtifacts({ job }: { job: MyJob }) {
             <DisabledChip label={downloadAllLabel} />
           </div>
           <div className="flex flex-wrap gap-2 items-center">
-            {job.is_generating_scripts ? (
-              <span className="inline-flex items-center gap-1.5 text-xs text-muted bg-surface border border-border-soft px-2.5 py-1 rounded-full">
-                <Spinner size="sm" />
-                {t("generatingScripts")}
-              </span>
-            ) : (
-              <a
-                href={`/tools/screencast?resume=${job.job_uuid}`}
-                className="inline-flex items-center gap-1 text-xs text-warn-strong bg-warn-bg hover:bg-warn-bg border border-warn-border px-2.5 py-1 rounded-full"
-              >
-                {t("resumeScreencast")}
-              </a>
-            )}
+            <span className="inline-flex items-center gap-1.5 text-xs text-muted bg-surface border border-border-soft px-2.5 py-1 rounded-full">
+              <Spinner size="sm" />
+              {t("generatingScripts")}
+            </span>
           </div>
         </div>
       );
@@ -98,11 +103,14 @@ export function JobArtifacts({ job }: { job: MyJob }) {
                 label={downloadAllLabel}
               />
             )}
+            {sprungChip}
           </div>
         </div>
       );
     }
-    return null;
+
+    // Waehrend der Vertonung fuehrt der Knopf auf die Warteseite im Assistenten.
+    return sprungChip ? <div className="mt-3 flex flex-wrap gap-2 items-center">{sprungChip}</div> : null;
   }
 
   // screencast render/auto: show all artifacts (legacy + auto mode)

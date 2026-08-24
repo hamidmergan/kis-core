@@ -8,7 +8,6 @@ import Spinner from "@/components/ui/Spinner";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { formatDate, formatDuration } from "@/lib/format";
 import { JobStatusBadge, type AdminJob } from "../_shared";
-import SystemLoadCard from "./SystemLoadCard";
 
 export default function JobsTab() {
   const t = useTranslations("admin");
@@ -76,8 +75,6 @@ export default function JobsTab() {
 
   return (
     <div className="space-y-3">
-      <SystemLoadCard />
-
       <div className="flex flex-wrap gap-2 items-center">
         <input
           type="text"

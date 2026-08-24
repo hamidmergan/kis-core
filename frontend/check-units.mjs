@@ -4,7 +4,7 @@
 // Why: a single text-[11px] pins one element to a value nobody can find again.
 // Change the scale in globals.css and that element stays put, and nobody
 // notices for months. Named sizes exist for every value the app uses:
-// text-3xs (12px) … text-3xl (36px), see the @theme block in globals.css.
+// text-3xs (10px) … text-3xl (30px), see the @theme block in globals.css.
 // They also follow the browser font size setting, fixed pixels do not.
 //
 // Scope is deliberately font sizes only. Fixed pixels are correct for border
@@ -28,7 +28,7 @@ const RULES = [
   {
     // text-[11px], text-[11.5px] — Tailwind arbitrary font size in pixels
     pattern: /\btext-\[[0-9.]+px\]/g,
-    hint: "benannte Groesse nutzen: text-3xs 12px, text-2xs 13px, text-xs 14px, text-sm 16px, text-base 18px, text-lg 20px",
+    hint: "benannte Groesse nutzen: text-3xs 10px, text-2xs 11px, text-xs 12px, text-sm 14px, text-base 16px, text-lg 18px",
   },
   {
     // style={{ fontSize: 14 }} — pixel number in a style object.

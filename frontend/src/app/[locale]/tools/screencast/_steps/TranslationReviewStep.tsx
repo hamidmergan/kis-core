@@ -3,8 +3,10 @@
 import { useState } from "react";
 import { useTranslations } from "next-intl";
 import type { SlideData } from "@/types";
+import StepFooter from "./StepFooter";
 
 interface TranslationReviewStepProps {
+  onBack: (() => void) | null;
   slides: SlideData[];
   loading: boolean;
   correctedFileName: string | null;
@@ -15,6 +17,7 @@ interface TranslationReviewStepProps {
 }
 
 export default function TranslationReviewStep({
+  onBack,
   slides,
   loading,
   correctedFileName,
@@ -28,8 +31,8 @@ export default function TranslationReviewStep({
   const unchangedCount = slides.filter((s) => s.unchanged).length;
   return (
     <section className="animate-[fadeIn_0.3s_ease-out]">
-      <h2 className="text-lg font-bold mb-1">{t("translationReview.heading")}</h2>
-      <p className="text-sm text-muted mb-4">{t("translationReview.intro")}</p>
+      <h2 className="text-lg font-bold mb-2">{t("translationReview.heading")}</h2>
+      <p className="text-sm text-muted mb-6">{t("translationReview.intro")}</p>
 
       {unchangedCount > 0 && (
         <div className="mb-4 rounded-md border border-warn-border bg-warn-bg px-3 py-2">
@@ -120,15 +123,12 @@ export default function TranslationReviewStep({
         </div>
       </div>
 
-      <div className="flex gap-3">
-        <button
-          onClick={onAcceptAndNext}
-          disabled={loading}
-          className="flex-1 px-4 py-3 btn-primary text-sm font-medium rounded-md  focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-kb transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
-        >
-          {t("translationReview.acceptAndNext")}
-        </button>
-      </div>
+      <StepFooter
+        onBack={onBack}
+        nextLabel={t("translationReview.acceptAndNext")}
+        onNext={onAcceptAndNext}
+        nextDisabled={loading}
+      />
     </section>
   );
 }

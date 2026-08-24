@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, type Dispatch, type MutableRefObject } from "react";
-import { downloadJobAsBlob, parseDetail, pollJob, type JobStatus } from "@/lib/api";
+import { parseDetail, pollJob, type JobStatus } from "@/lib/api";
 import { notifyJobsChanged } from "@/lib/jobs-events";
 import type { SlideData } from "@/types";
 import type { ProviderWithVoices } from "@/hooks/useVoices";
@@ -33,8 +33,10 @@ interface UseScreencastRenderFlowOptions {
   dispatch: Dispatch<FlowAction>;
 
   // Render config
+  targetLang: string;
   speed: number;
   slidePause: number;
+  subtitles: boolean;
   dpi: number;
   voiceId: string;
   providerId: number;
@@ -49,6 +51,7 @@ interface UseScreencastRenderFlowOptions {
   goError: (msg: string) => void;
   setTtsSettingsError: (msg: string) => void;
   setRenderProgressLabel: (label: string) => void;
+  setFertigeFolien: (folien: number[]) => void;
 
   // Translated messages (from the component)
   messages: RenderFlowMessages;
@@ -63,8 +66,10 @@ export function useScreencastRenderFlow(opts: UseScreencastRenderFlowOptions) {
     translateJobUuid,
     slides,
     dispatch,
+    targetLang,
     speed,
     slidePause,
+    subtitles,
     dpi,
     voiceId,
     providerId,
@@ -75,6 +80,7 @@ export function useScreencastRenderFlow(opts: UseScreencastRenderFlowOptions) {
     goError,
     setTtsSettingsError,
     setRenderProgressLabel,
+    setFertigeFolien,
     messages,
     abortControllerRef,
     currentJobUuidRef,
@@ -88,20 +94,22 @@ export function useScreencastRenderFlow(opts: UseScreencastRenderFlowOptions) {
 
   const onRenderProgress = useCallback(
     (status: JobStatus) => {
-      setRenderProgressLabel(messages.renderLabel(renderProgress(status)));
+      const p = renderProgress(status);
+      setRenderProgressLabel(messages.renderLabel(p));
+      if (p.kind === "tts") setFertigeFolien(p.fertig);
     },
-    [setRenderProgressLabel, messages],
+    [setRenderProgressLabel, setFertigeFolien, messages],
   );
 
   const processRenderResultFromJob = useCallback(
     async (jobResult: JobStatus) => {
       sessionStorage.removeItem(RENDER_SESSION_KEY);
-      const { blob } = await downloadJobAsBlob(jobResult.job_uuid, "screencast.mp4");
       const meta = jobResult.meta ?? {};
-      renderResult.apply(blob, {
+      renderResult.apply(`/api/jobs/${jobResult.job_uuid}/video`, {
         audioId: meta.audio_id as string | undefined,
         audioCount: meta.audio_count as number | undefined,
         resultStem: meta.result_stem as string | undefined,
+        hasSubtitles: meta.subtitles === true,
       });
       dispatch({ type: "SET_LOADING", loading: false });
       dispatch({ type: "SET_STEP", step: "done" });
@@ -126,12 +134,14 @@ export function useScreencastRenderFlow(opts: UseScreencastRenderFlowOptions) {
         body: JSON.stringify({
           scripts: slides.map((s) => s.script),
           translate_job_uuid: translateJobUuid,
+          target_lang: targetLang,
           voice_id: voiceId,
           voice_label: computeVoiceLabel(providerId, voiceId, providers),
           speed,
           slide_pause: slidePause,
           dpi,
           provider_id: providerId,
+          subtitles,
         }),
         credentials: "include",
       });
@@ -174,8 +184,8 @@ export function useScreencastRenderFlow(opts: UseScreencastRenderFlowOptions) {
       goError(err instanceof Error ? err.message : messages.unknownError);
     }
   }, [
-    slides, translateJobUuid, voiceId, providerId, providers,
-    speed, slidePause, dpi,
+    slides, translateJobUuid, targetLang, voiceId, providerId, providers,
+    speed, slidePause, dpi, subtitles,
     newSignal, onRenderProgress, setRenderProgressLabel, setTtsSettingsError,
     failedRender, processRenderResultFromJob,
     checkBeforeSubmit, goError, dispatch, currentJobUuidRef, messages,
@@ -236,24 +246,17 @@ export function useScreencastRenderFlow(opts: UseScreencastRenderFlowOptions) {
     processRenderResultFromJob, goError, dispatch, currentJobUuidRef, messages,
   ]);
 
-  // ── Resume after page refresh (sessionStorage-backed) ──
-  useEffect(() => {
-    const saved = sessionStorage.getItem(RENDER_SESSION_KEY);
-    if (!saved) return;
-    let parsed: { uuid: string };
-    try {
-      parsed = JSON.parse(saved);
-    } catch {
-      sessionStorage.removeItem(RENDER_SESSION_KEY);
-      return;
-    }
-    const { uuid } = parsed;
-
+  // ── Wiederanschluss an einen laufenden Render ──
+  // Zwei Wege fuehren hierher: das Neuladen im selben Tab (sessionStorage) und
+  // der Sprung aus der Jobs-Liste, der die UUID direkt mitbringt.
+  const reconnectToRender = useCallback((uuid: string) => {
+    sessionStorage.setItem(RENDER_SESSION_KEY, JSON.stringify({ uuid }));
     fetch(`/api/jobs/${uuid}`, { credentials: "include" })
       .then((r) => r.json())
       .then((job) => {
         if (job.status === "success") {
-          sessionStorage.removeItem(RENDER_SESSION_KEY);
+          // Fertig geworden, waehrend niemand hingesehen hat: direkt die Fertig-Seite.
+          processRenderResultFromJob(job).catch(() => {});
           return;
         }
         if (job.status === "failed") {
@@ -285,6 +288,21 @@ export function useScreencastRenderFlow(opts: UseScreencastRenderFlowOptions) {
           });
       })
       .catch(() => sessionStorage.removeItem(RENDER_SESSION_KEY));
+  }, [
+    failedRender, goError, dispatch, messages, onRenderProgress,
+    processRenderResultFromJob, setRenderProgressLabel,
+    abortControllerRef, currentJobUuidRef,
+  ]);
+
+  // Beim Neuladen im selben Tab haengt sich die Seite von allein wieder an.
+  useEffect(() => {
+    const saved = sessionStorage.getItem(RENDER_SESSION_KEY);
+    if (!saved) return;
+    try {
+      reconnectToRender(JSON.parse(saved).uuid);
+    } catch {
+      sessionStorage.removeItem(RENDER_SESSION_KEY);
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -293,5 +311,7 @@ export function useScreencastRenderFlow(opts: UseScreencastRenderFlowOptions) {
     handleStartRender,
     handleRetryRender,
     newSignal,
+    reconnectToRender,
+    processRenderResultFromJob,
   };
 }

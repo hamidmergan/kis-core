@@ -4,8 +4,10 @@ import { useTranslations } from "next-intl";
 import Spinner from "@/components/ui/Spinner";
 import { wordCount } from "@/lib/text";
 import type { SlideData } from "@/types";
+import StepFooter from "./StepFooter";
 
 interface ScriptReviewStepProps {
+  onBack: (() => void) | null;
   slides: SlideData[];
   openAccordion: number;
   editingSlide: number | null;
@@ -24,6 +26,7 @@ interface ScriptReviewStepProps {
 }
 
 export default function ScriptReviewStep({
+  onBack,
   slides,
   openAccordion,
   editingSlide,
@@ -44,8 +47,8 @@ export default function ScriptReviewStep({
   const missing = slides.filter((s) => !s.script.trim()).length;
   return (
     <section className="animate-[fadeIn_0.3s_ease-out]">
-      <h2 className="text-lg font-bold mb-1">{t("scriptReview.heading")}</h2>
-      <p className="text-sm text-muted mb-4">{t("scriptReview.intro")}</p>
+      <h2 className="text-lg font-bold mb-2">{t("scriptReview.heading")}</h2>
+      <p className="text-sm text-muted mb-6">{t("scriptReview.intro")}</p>
 
       <div className="space-y-2 mb-6">
         {slides.map((slide, i) => {
@@ -186,15 +189,12 @@ export default function ScriptReviewStep({
         </p>
       )}
 
-      <div className="flex gap-3">
-        <button
-          onClick={onAcceptScripts}
-          disabled={editingSlide !== null}
-          className="flex-1 px-4 py-3 btn-primary text-sm font-medium rounded-md  focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-kb transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
-        >
-          {t("scriptReview.acceptAll")}
-        </button>
-      </div>
+      <StepFooter
+        onBack={onBack}
+        nextLabel={t("scriptReview.acceptAll")}
+        onNext={onAcceptScripts}
+        nextDisabled={editingSlide !== null}
+      />
     </section>
   );
 }

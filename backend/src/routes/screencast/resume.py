@@ -31,6 +31,18 @@ def _load_scripts_from_job(user_id: int, translate_job_uuid: str) -> tuple[list[
     return [], None
 
 
+_LAUFEND = ("queued", "running")
+
+
+def _phase_ist_vertonung(user_id: int, translate_job_uuid: str) -> bool:
+    """Die Warteschlangen-Datei sagt, welche Haelfte des Screencasts gerade laeuft."""
+    try:
+        params = json.loads(get_job_file(user_id, translate_job_uuid, "queue_params.json"))
+    except Exception:
+        return False
+    return params.get("dispatch_as") == "render"
+
+
 def _load_translate_result(result_path: str | None) -> dict:
     if not result_path:
         return {}
@@ -58,11 +70,17 @@ def get_resume_data(
     # failed → screencast render failed; let the user re-open the wizard at the
     # last input step (tts-settings if accepted_scripts.json exists) so they can
     # tweak settings before re-rendering instead of immediately re-queuing.
-    if job["status"] not in ("awaiting_user", "failed"):
-        raise HTTPException(status_code=409, detail=t("job.notInputState", locale))
-
+    # queued/running → nur die Vertonung, die hat eine eigene Warteseite im Assistenten.
+    # success → die Fertig-Seite mit dem Video.
+    status = job["status"]
     tool = job["tool"]
     user_id = job["user_id"]
+    if status not in ("awaiting_user", "failed", "success", *_LAUFEND):
+        raise HTTPException(status_code=409, detail=t("job.notInputState", locale))
+    if status in _LAUFEND and not _phase_ist_vertonung(user_id, translate_job_uuid):
+        raise HTTPException(status_code=409, detail=t("job.notInputState", locale))
+
+    ist_eingabeschritt = status in ("awaiting_user", "failed")
     slide_texts: list[str] = []
 
     try:
@@ -74,14 +92,20 @@ def get_resume_data(
         try:
             slide_texts = json.loads(get_job_file(user_id, translate_job_uuid, "scripts.txt"))
         except Exception:
-            raise HTTPException(status_code=404, detail=t("job.dataUnavailable", locale))
+            # Nur wer noch etwas eingeben soll, braucht die Folientexte wirklich.
+            if ist_eingabeschritt:
+                raise HTTPException(status_code=404, detail=t("job.dataUnavailable", locale))
 
     translate_result = _load_translate_result(job.get("result_path"))
     slide_images = translate_result.get("slide_images", [])
     unchanged_slides = translate_result.get("unchanged_slides", [])
     scripts, resolved_step = _load_scripts_from_job(user_id, translate_job_uuid)
 
-    if scripts:
+    if status == "success":
+        step = "done"
+    elif status in _LAUFEND:
+        step = "rendering"
+    elif scripts:
         step = resolved_step
     else:
         step = "user-prompt" if user_prompt else "translation-review"

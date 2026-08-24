@@ -65,7 +65,7 @@ GLOSSARY_NAME_MAX    = 120   # max chars for a glossary name
 # --- Job management ---------------------------------------------------------
 # Der Vorrat ist die einzige Aufbewahrungsregel. Es gibt keine Frist mehr: was in
 # der Liste steht, bleibt, bis es von neueren Auftraegen verdraengt wird.
-MAX_RESULT_FILES            = 20    # jobs kept per user (oldest beyond this is evicted)
+MAX_RESULT_FILES            = 100   # jobs kept per user (oldest beyond this is evicted)
 JOB_WATCHDOG_MINUTES        = 5     # job is stuck when no heartbeat for X minutes (heartbeat fires every 10 s)
 AWAITING_USER_TIMEOUT_HOURS = 168   # awaiting_user jobs older than this are abandoned and cleaned up
 

@@ -1,6 +1,14 @@
-"""WebVTT-Untertitel: Segmente in VTT schreiben und aus VTT zurueckelesen."""
+"""WebVTT-Untertitel: Segmente in VTT schreiben, kuerzen und aus VTT zurueckelesen."""
 
 from __future__ import annotations
+
+import re
+
+# Rundfunk-uebliche Grenzen fuer eine Einblendung.
+MAX_ZEICHEN_JE_ZEILE = 42
+MAX_ZEILEN_JE_EINBLENDUNG = 2
+
+_SATZENDE = re.compile(r"(?<=[.!?])\s+")
 
 
 
@@ -63,3 +71,67 @@ def vtt_to_segments(raw: str) -> list[dict]:
     return segments
 
 
+
+
+def _zeilen(text: str, max_zeile: int) -> list[str]:
+    """Woerter zu Zeilen packen, ein einzelnes zu langes Wort bleibt ganz."""
+    zeilen: list[str] = []
+    aktuell = ""
+    for wort in text.split():
+        kandidat = f"{aktuell} {wort}" if aktuell else wort
+        if aktuell and len(kandidat) > max_zeile:
+            zeilen.append(aktuell)
+            aktuell = wort
+        else:
+            aktuell = kandidat
+    if aktuell:
+        zeilen.append(aktuell)
+    return zeilen
+
+
+def _stuecke(text: str, max_zeile: int, max_zeilen: int) -> list[str]:
+    """Text in Einblendungen zerlegen, bevorzugt am Satzende."""
+    teile: list[list[str]] = []
+    for satz in _SATZENDE.split(text):
+        if not satz.strip():
+            continue
+        zeilen = _zeilen(satz, max_zeile)
+        for i in range(0, len(zeilen), max_zeilen):
+            teile.append(zeilen[i:i + max_zeilen])
+    zusammen: list[list[str]] = []
+    for teil in teile:
+        # Zwei kurze Saetze duerfen sich eine Einblendung teilen.
+        if zusammen and len(zusammen[-1]) + len(teil) <= max_zeilen:
+            zusammen[-1] = zusammen[-1] + teil
+        else:
+            zusammen.append(teil)
+    return ["\n".join(t) for t in zusammen]
+
+
+def split_long_segments(
+    segments: list[dict],
+    max_zeile: int = MAX_ZEICHEN_JE_ZEILE,
+    max_zeilen: int = MAX_ZEILEN_JE_EINBLENDUNG,
+) -> list[dict]:
+    """Lange Segmente in kurze Einblendungen zerlegen, die Zeit anteilig nach Zeichenzahl."""
+    heraus: list[dict] = []
+    for seg in segments:
+        text = " ".join(str(seg.get("text", "")).split())
+        if not text:
+            continue
+        zeilen = _zeilen(text, max_zeile)
+        if len(zeilen) <= max_zeilen:
+            heraus.append({**seg, "text": "\n".join(zeilen)})
+            continue
+        stuecke = _stuecke(text, max_zeile, max_zeilen)
+        gesamt = sum(len(s) for s in stuecke)
+        start, ende = float(seg["start"]), float(seg["end"])
+        spanne = ende - start
+        gelaufen = 0
+        grenze = start
+        for i, stueck in enumerate(stuecke):
+            gelaufen += len(stueck)
+            naechste = ende if i == len(stuecke) - 1 else start + spanne * gelaufen / gesamt
+            heraus.append({**seg, "start": grenze, "end": naechste, "text": stueck})
+            grenze = naechste
+    return heraus

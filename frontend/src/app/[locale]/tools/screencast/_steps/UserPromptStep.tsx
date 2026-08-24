@@ -2,8 +2,10 @@
 
 import type { RefObject } from "react";
 import { useTranslations } from "next-intl";
+import StepFooter from "./StepFooter";
 
 interface UserPromptStepProps {
+  onBack: (() => void) | null;
   scriptInputMode: "generate" | "manual" | "import";
   importedScripts: string[] | null;
   importError: string | null;
@@ -18,6 +20,7 @@ interface UserPromptStepProps {
 }
 
 export default function UserPromptStep({
+  onBack,
   scriptInputMode,
   importedScripts,
   importError,
@@ -34,11 +37,11 @@ export default function UserPromptStep({
 
   return (
     <section className="animate-[fadeIn_0.3s_ease-out]">
-      <h2 className="text-lg font-bold mb-1">{t("userPrompt.heading")}</h2>
+      <h2 className="text-lg font-bold mb-2">{t("userPrompt.heading")}</h2>
 
-      <div className="mt-3 space-y-2">
+      <div className="mt-6 space-y-3">
         <label
-          className={`flex items-start gap-3 p-3 rounded-lg border-2 cursor-pointer transition-colors ${scriptInputMode === "generate" ? "border-kb bg-kb/10" : "border-border hover:border-kb"}`}
+          className={`flex items-start gap-3 p-4 rounded-lg border-2 cursor-pointer transition-colors ${scriptInputMode === "generate" ? "border-kb bg-kb/10" : "border-border hover:border-kb"}`}
         >
           <input
             type="radio"
@@ -58,7 +61,7 @@ export default function UserPromptStep({
         </label>
 
         <label
-          className={`flex items-start gap-3 p-3 rounded-lg border-2 cursor-pointer transition-colors ${scriptInputMode === "manual" ? "border-kb bg-kb/10" : "border-border hover:border-kb"}`}
+          className={`flex items-start gap-3 p-4 rounded-lg border-2 cursor-pointer transition-colors ${scriptInputMode === "manual" ? "border-kb bg-kb/10" : "border-border hover:border-kb"}`}
         >
           <input
             type="radio"
@@ -78,7 +81,7 @@ export default function UserPromptStep({
         </label>
 
         <label
-          className={`flex items-start gap-3 p-3 rounded-lg border-2 cursor-pointer transition-colors ${scriptInputMode === "import" ? "border-kb bg-kb/10" : "border-border hover:border-kb"}`}
+          className={`flex items-start gap-3 p-4 rounded-lg border-2 cursor-pointer transition-colors ${scriptInputMode === "import" ? "border-kb bg-kb/10" : "border-border hover:border-kb"}`}
         >
           <input
             type="radio"
@@ -109,7 +112,7 @@ export default function UserPromptStep({
                   className={`flex flex-col items-center justify-center rounded-lg border-2 border-dashed px-4 py-5 cursor-pointer transition-colors
                     ${
                       importedScripts
-                        ? "border-success-border bg-success-bg"
+                        ? "border-kb60 bg-kb20"
                         : jsonDragOver
                           ? "border-kb bg-kb/5"
                           : "border-border hover:border-kb"
@@ -128,10 +131,10 @@ export default function UserPromptStep({
                   />
                   {importedScripts ? (
                     <>
-                      <svg className="w-6 h-6 text-success mb-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <svg className="w-6 h-6 text-kb-dark mb-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                       </svg>
-                      <p className="text-xs font-medium text-success-strong">
+                      <p className="text-xs font-medium text-kb-dark">
                         {t("userPrompt.scriptsLoaded", { n: importedScripts.length })}
                       </p>
                       <p className="text-xs text-muted-soft mt-0.5">{t("userPrompt.replaceHint")}</p>
@@ -172,15 +175,7 @@ export default function UserPromptStep({
         </label>
       </div>
 
-      <div className="flex gap-3 mt-4">
-        <button
-          onClick={onNext}
-          disabled={loading}
-          className="flex-1 px-4 py-2 btn-primary text-sm font-medium rounded-md  focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-kb transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
-        >
-          {t("common.next")}
-        </button>
-      </div>
+      <StepFooter onBack={onBack} nextLabel={t("common.next")} onNext={onNext} nextDisabled={loading} />
     </section>
   );
 }

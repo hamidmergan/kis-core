@@ -4,12 +4,12 @@ import zipfile
 from io import BytesIO
 
 from fastapi import APIRouter, Depends, HTTPException
-from fastapi.responses import StreamingResponse
+from fastapi.responses import Response, StreamingResponse
 
 from src.dependencies import get_current_user
 from src.features.jobs.repository import get_job
 from src.i18n import get_locale, t
-from src.storage import get_all_audio_slides, get_audio_slide, get_audio_slide_count
+from src.storage import get_all_audio_slides, get_audio_slide, get_audio_slide_count, get_job_file
 
 router = APIRouter(tags=["screencast: audio"])
 
@@ -81,3 +81,25 @@ def download_slide_audio(
             "Content-Disposition": f'attachment; filename="{filename}"',
         },
     )
+
+
+@router.get("/screencast/{job_uuid}/vorschau/{folie}")
+def vorschau_folie(
+    job_uuid: str,
+    folie: int,
+    current_user: dict = Depends(get_current_user),
+    locale: str = Depends(get_locale),
+):
+    """Der Ton einer einzelnen Folie, schon waehrend der Rest noch vertont wird."""
+    user_id = _resolve_user_id(job_uuid, current_user, locale)
+    if folie < 0 or folie > 999:
+        raise HTTPException(status_code=404, detail=t("screencast.slideNotFound", locale, slide=folie + 1))
+    # Waehrend des Laufs liegt der Ton im Vorrat, nach dem Erfolg im audio-Ordner.
+    for name in (f"render_cache/slide_{folie:03d}.mp3", f"audio/slide_{folie:03d}.mp3"):
+        try:
+            data = get_job_file(user_id, job_uuid, name)
+        except Exception:
+            continue
+        return Response(content=data, media_type="audio/mpeg",
+                        headers={"Cache-Control": "no-store"})
+    raise HTTPException(status_code=404, detail=t("screencast.slideNotFound", locale, slide=folie + 1))

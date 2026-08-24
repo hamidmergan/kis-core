@@ -4,16 +4,22 @@ import { useFormatter, useTranslations } from "next-intl";
 import type { SlideData } from "@/types";
 import type { ProviderWithVoices } from "@/hooks/useVoices";
 import Select from "@/components/ui/Select";
+import Checkbox from "@/components/ui/Checkbox";
 import { LANGUAGE_FLAG } from "@/lib/languageFlags";
+import StepFooter from "./StepFooter";
 
 interface TtsSettingsStepProps {
+  onBack: (() => void) | null;
   providersLoaded: boolean;
   providers: ProviderWithVoices[];
   providerId: number;
+  targetLang: string;
+  languages: { id: string; label: string }[];
   voiceId: string;
   speed: number;
   slidePause: number;
   dpi: number;
+  subtitles: boolean;
   slides: SlideData[];
   totalWords: number;
   totalChars: number;
@@ -21,23 +27,29 @@ interface TtsSettingsStepProps {
   maxChars: number;
   ttsSettingsError: string;
   onProviderIdChange: (id: number) => void;
+  onTargetLangChange: (v: string) => void;
   onVoiceIdChange: (v: string) => void;
   onSpeedChange: (v: number) => void;
   onSlidePauseChange: (v: number) => void;
   onDpiChange: (v: number) => void;
+  onSubtitlesChange: (v: boolean) => void;
   onBackToScripts: () => void;
   onStartRender: () => void;
 }
 
 export default function TtsSettingsStep(props: TtsSettingsStepProps) {
   const {
+    onBack,
     providersLoaded,
     providers,
     providerId,
+    targetLang,
+    languages,
     voiceId,
     speed,
     slidePause,
     dpi,
+    subtitles,
     slides,
     totalWords,
     totalChars,
@@ -45,10 +57,12 @@ export default function TtsSettingsStep(props: TtsSettingsStepProps) {
     maxChars,
     ttsSettingsError,
     onProviderIdChange,
+    onTargetLangChange,
     onVoiceIdChange,
     onSpeedChange,
     onSlidePauseChange,
     onDpiChange,
+    onSubtitlesChange,
     onBackToScripts,
     onStartRender,
   } = props;
@@ -81,6 +95,21 @@ export default function TtsSettingsStep(props: TtsSettingsStepProps) {
             }}
             options={providers.map((p) => ({ value: String(p.id), label: p.name }))}
           />
+        </div>
+      )}
+
+      {languages.length > 0 && (
+        <div className="mb-2 mt-4">
+          <label htmlFor="sc-lang-select" className="block text-sm font-medium text-foreground-soft mb-2">
+            {t("ttsSettings.langLabel")}
+          </label>
+          <Select
+            id="sc-lang-select"
+            value={targetLang}
+            onChange={onTargetLangChange}
+            options={languages.map((l) => ({ value: l.id, label: l.label }))}
+          />
+          <p className="mt-1 text-xs text-muted">{t("ttsSettings.langHint")}</p>
         </div>
       )}
 
@@ -151,52 +180,14 @@ export default function TtsSettingsStep(props: TtsSettingsStepProps) {
         </div>
       </div>
 
-      <div className="space-y-2">
-        <p className="text-sm font-medium text-foreground-soft">{t("ttsSettings.imageQuality")}</p>
-        <div className="flex flex-col gap-2">
-          <label className="flex items-start gap-3 cursor-pointer">
-            <input
-              type="radio"
-              name="dpi"
-              value={96}
-              checked={dpi === 96}
-              onChange={() => onDpiChange(96)}
-              className="mt-0.5 h-4 w-4 text-kb focus:ring-kb"
-            />
-            <div>
-              <span className="text-sm font-medium text-foreground-soft">{t("ttsSettings.qualityLow")}</span>
-              <p className="text-xs text-muted-soft mt-0.5">{t("ttsSettings.qualityLowDesc")}</p>
-            </div>
-          </label>
-          <label className="flex items-start gap-3 cursor-pointer">
-            <input
-              type="radio"
-              name="dpi"
-              value={144}
-              checked={dpi === 144}
-              onChange={() => onDpiChange(144)}
-              className="mt-0.5 h-4 w-4 text-kb focus:ring-kb"
-            />
-            <div>
-              <span className="text-sm font-medium text-foreground-soft">{t("ttsSettings.qualityStandard")}</span>
-              <p className="text-xs text-muted-soft mt-0.5">{t("ttsSettings.qualityStandardDesc")}</p>
-            </div>
-          </label>
-          <label className="flex items-start gap-3 cursor-pointer">
-            <input
-              type="radio"
-              name="dpi"
-              value={300}
-              checked={dpi === 300}
-              onChange={() => onDpiChange(300)}
-              className="mt-0.5 h-4 w-4 text-kb focus:ring-kb"
-            />
-            <div>
-              <span className="text-sm font-medium text-foreground-soft">{t("ttsSettings.qualityHigh")}</span>
-              <p className="text-xs text-muted-soft mt-0.5">{t("ttsSettings.qualityHighDesc")}</p>
-            </div>
-          </label>
-        </div>
+      <div className="mb-6">
+        <Checkbox
+          checked={subtitles}
+          onChange={onSubtitlesChange}
+          label={t("ttsSettings.subtitles")}
+          labelClassName="text-sm font-medium text-foreground-soft"
+        />
+        <p className="text-xs text-muted-soft mt-2">{t("ttsSettings.subtitlesHint")}</p>
       </div>
 
       <div className="mt-4 mb-4 rounded-lg bg-surface px-4 py-3">
@@ -233,21 +224,12 @@ export default function TtsSettingsStep(props: TtsSettingsStepProps) {
       {ttsSettingsError && (
         <p className="text-sm text-warn bg-warn-bg border border-warn-border rounded-md px-3 py-2 mb-3">{ttsSettingsError}</p>
       )}
-      <div className="flex gap-3">
-        <button
-          onClick={onBackToScripts}
-          className="px-4 py-3 text-sm text-foreground-soft border-2 border-border rounded-md hover:border-kb transition-colors"
-        >
-          {t("ttsSettings.back")}
-        </button>
-        <button
-          onClick={onStartRender}
-          disabled={scriptOverLimit}
-          className="flex-1 px-4 py-3 btn-primary text-sm font-medium rounded-md  focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-kb transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
-        >
-          {t("ttsSettings.startRender")}
-        </button>
-      </div>
+      <StepFooter
+        onBack={onBack}
+        nextLabel={t("ttsSettings.startRender")}
+        onNext={onStartRender}
+        nextDisabled={scriptOverLimit}
+      />
     </section>
   );
 }

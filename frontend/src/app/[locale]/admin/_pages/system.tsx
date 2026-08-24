@@ -5,8 +5,7 @@
  * Wartungsmodus und das, was vorher unter "Oberflaeche" stand.
  *
  * Die fuenf Zahlenfelder fuer Parallelitaet sind entfallen, die Maschine wird
- * erkannt und die Grenzen kommen daraus. Was gerade laeuft, steht als
- * Auslastung bei den Auftraegen.
+ * erkannt und die Grenzen kommen daraus.
  *
  * "Oberflaeche" war ein eigener Punkt in der Leiste fuer zwei Karten. Beide
  * gelten fuer die ganze Plattform, genau wie der Wartungsmodus, und stehen

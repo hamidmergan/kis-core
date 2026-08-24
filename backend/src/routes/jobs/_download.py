@@ -9,7 +9,7 @@ from fastapi.responses import StreamingResponse
 from loguru import logger
 
 from src import database as db
-from src.dependencies import get_current_user
+from src.dependencies import get_current_user, is_admin_user
 from src.i18n import get_locale, t
 from src.limits import BUNDLE_INCLUDE_AUDIO
 from src.storage import (
@@ -18,6 +18,8 @@ from src.storage import (
     job_file_exists,
     load_result_meta,
 )
+
+from src.services.screencast.infodatei import baue_info, sprach_wort
 
 from src.routes.jobs._shared import _CONTENT_TYPES
 
@@ -58,6 +60,30 @@ def download_job_result(
             "Content-Length": str(len(data)),
             "Content-Disposition": f'attachment; filename="{filename}"',
         },
+    )
+
+
+@router.get("/{job_uuid}/subtitles")
+def download_job_subtitles(
+    job_uuid: str,
+    current_user: dict = Depends(get_current_user),
+    locale: str = Depends(get_locale),
+):
+    """Die Untertitel-Spur als VTT, damit der Player im Browser CC anbieten kann."""
+    job = db.get_job(job_uuid)
+    # Nur der Eigentuemer, sonst liesse sich ueber fremde UUIDs mitlesen.
+    if not job or job["user_id"] != current_user.get("user_id", 0):
+        raise HTTPException(status_code=404, detail=t("job.notFound", locale))
+
+    try:
+        data = get_job_file(job["user_id"], job_uuid, "untertitel.vtt")
+    except Exception:
+        raise HTTPException(status_code=404, detail=t("job.noDownloadAvailable", locale))
+
+    return StreamingResponse(
+        iter([data]),
+        media_type="text/vtt; charset=utf-8",
+        headers={"Content-Length": str(len(data))},
     )
 
 
@@ -149,7 +175,10 @@ class _ZipStreamWriter:
         pass
 
 
-def _streaming_zip_bundle(user_id: int, job_uuid: str, stem: str, audio_count: int):
+def _streaming_zip_bundle(
+    user_id: int, job_uuid: str, stem: str, audio_count: int,
+    ziel_wort: str = "uebersetzt", info_text: str = "",
+):
     """Generator that yields ZIP data entry-by-entry without buffering the whole archive."""
     stream = _ZipStreamWriter()
     zf = zipfile.ZipFile(stream, mode="w", compression=zipfile.ZIP_STORED)
@@ -161,7 +190,7 @@ def _streaming_zip_bundle(user_id: int, job_uuid: str, stem: str, audio_count: i
     # MP4
     try:
         mp4_data = get_job_file(user_id, job_uuid, "output.mp4")
-        yield _add_and_yield(f"{stem}.mp4", mp4_data)
+        yield _add_and_yield(f"{stem}_video.mp4", mp4_data)
         del mp4_data
     except Exception:
         pass
@@ -171,26 +200,47 @@ def _streaming_zip_bundle(user_id: int, job_uuid: str, stem: str, audio_count: i
         for i in range(audio_count):
             try:
                 audio_data = get_job_file(user_id, job_uuid, f"audio/slide_{i:03d}.mp3")
-                yield _add_and_yield(f"Audios/slide_{i + 1:03d}.mp3", audio_data)
+                yield _add_and_yield(f"Audios/folie_{i + 1:03d}.mp3", audio_data)
             except Exception:
                 pass
 
-    # PPTX
+    # Die Folien. Gab es eine Uebersetzung, traegt die Datei die Zielsprache im
+    # Namen, sonst ist die hochgeladene Datei die einzige und heisst so.
+    hat_original = job_file_exists(user_id, job_uuid, "original.pptx")
     pptx_name = "corrected.pptx" if job_file_exists(user_id, job_uuid, "corrected.pptx") else "translated.pptx"
     try:
         pptx_data = get_job_file(user_id, job_uuid, pptx_name)
-        yield _add_and_yield(f"{stem}.pptx", pptx_data)
+        endung = ziel_wort if hat_original else "original"
+        yield _add_and_yield(f"{stem}_{endung}.pptx", pptx_data)
     except Exception:
         pass
 
-    # Script
+    # Die hochgeladene Datei vor der Uebersetzung.
+    try:
+        original_data = get_job_file(user_id, job_uuid, "original.pptx")
+        yield _add_and_yield(f"{stem}_original.pptx", original_data)
+    except Exception:
+        pass
+
+    # Untertitel
+    try:
+        vtt_data = get_job_file(user_id, job_uuid, "untertitel.vtt")
+        yield _add_and_yield(f"{stem}_untertitel.vtt", vtt_data)
+    except Exception:
+        pass
+
+    # Sprechtexte
     for script_file in ("accepted_scripts.json", "user_scripts.json", "scripts.txt"):
         try:
             script_data = get_job_file(user_id, job_uuid, script_file)
-            yield _add_and_yield(script_file, script_data)
+            yield _add_and_yield(f"{stem}_sprechtexte.json", script_data)
             break
         except Exception:
             continue
+
+    # Was drinsteckt und womit es gemacht wurde.
+    if info_text:
+        yield _add_and_yield(f"{stem}_info.txt", info_text.encode("utf-8"))
 
     # Finalize ZIP (central directory + end record)
     zf.close()
@@ -220,9 +270,15 @@ def download_job_bundle(
         or "screencast"
     )
     zip_filename = f"{stem}.zip"
+    # Anbieter, Modelle und Dauern sind eine Betriebsauskunft und stehen nur im
+    # Archiv eines Admins.
+    info_text = baue_info(job, meta, mit_technik=is_admin_user(current_user))
 
     return StreamingResponse(
-        _streaming_zip_bundle(user_id, job_uuid, stem, audio_count),
+        _streaming_zip_bundle(
+            user_id, job_uuid, stem, audio_count,
+            sprach_wort(meta.get("target_lang", "")), info_text,
+        ),
         media_type="application/zip",
         headers={
             "Content-Disposition": f'attachment; filename="{zip_filename}"',

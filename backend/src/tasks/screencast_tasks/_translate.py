@@ -13,12 +13,14 @@ from src.i18n import t
 from src.storage import (
     delete_file,
     get_file,
+    load_result_meta,
     save_job_file,
     save_result_and_evict,
     save_result_json,
     save_result_meta,
 )
 from src.services.screencast.naming import translate_stem
+from src.services.screencast.statistik import anbieter_und_modell, messe, notiere
 from src.utils.heartbeat import job_heartbeat
 
 from src.tasks._errors import handle_task_exception
@@ -64,6 +66,13 @@ def run_screencast_translate(
             except (json.JSONDecodeError, TypeError):
                 pass
 
+        # Ohne Vorgabe nimmt der Aufloeser den ersten Anbieter, hier faellt dieselbe
+        # Wahl schon vorher, damit die Admin-Anzeige den richtigen Namen nennt.
+        if provider_id is None:
+            from src.dependencies import get_translation_providers
+            verfuegbare = get_translation_providers()
+            provider_id = verfuegbare[0]["id"] if verfuegbare else None
+
         translation_client, glossary = get_translate_client_for_provider(
             provider_id, glossary_entries=glossary_entries or None
         )
@@ -75,7 +84,10 @@ def run_screencast_translate(
         # meldet. Die Übersetzung meldet von sich aus nichts und dauert bei
         # Reasoning-Modellen Minuten. Ohne diesen Herzschlag bringt ein langsames
         # Modell den Job um, obwohl alles läuft. Der Render-Task macht es genauso.
-        with job_heartbeat(job_uuid):
+        with job_heartbeat(job_uuid), messe(user_id, job_uuid, "uebersetzung") as zahlen:
+            zahlen.update(anbieter_und_modell(provider_id or 0, "doc_translate"))
+            zahlen["quelle"] = source_lang
+            zahlen["ziel"] = target_lang
             translated_bytes = translate_pptx(pptx_bytes, source_lang, target_lang, service)
 
         (
@@ -102,6 +114,11 @@ def run_screencast_translate(
                 "Screencast translate {}: {} Folie(n) unverändert: {}",
                 job_uuid, len(unchanged_slides), unchanged_slides,
             )
+
+        # Die Dauer steht schon drin, die Folienzahlen kennt man erst jetzt.
+        zahlen["folien"] = len(slide_texts)
+        zahlen["unveraenderte_folien"] = len(unchanged_slides)
+        notiere(user_id, job_uuid, "uebersetzung", zahlen)
 
         # Save translated PPTX + scripts to job folder immediately
         save_job_file(user_id, job_uuid, "translated.pptx", translated_bytes)
@@ -131,7 +148,11 @@ def run_screencast_translate(
         # Namensstamm einmal übersetzen, gilt danach für MP4, PPTX und ZIP.
         # Über denselben Dienst wie den Folieninhalt, nicht fest über DeepL.
         translated = translate_stem(filename, source_lang, target_lang, service=service)
-        save_result_meta(user_id, job_uuid, {"translated_stem": translated})
+        # Mitschreiben, nicht ueberschreiben: sonst faellt die Statistik der Uebersetzung raus.
+        save_result_meta(user_id, job_uuid, {
+            **(load_result_meta(user_id, job_uuid) or {}),
+            "translated_stem": translated, "target_lang": target_lang,
+        })
 
         # awaiting_user: user must review scripts before render starts
         # Keine eigene Frist mehr. Liegengebliebene Entwuerfe holt der Wachhund ab

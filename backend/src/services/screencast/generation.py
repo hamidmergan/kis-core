@@ -11,12 +11,13 @@ from loguru import logger
 
 from src.limits import SCREENCAST_TTS_PARALLELISM
 from src.services.openai_compat_llm import OpenAICompatLLMClient
+from src.services.openai_compat_tts import _split_text
 from src.services.screencast.pptx import pptx_to_images
 from src.storage import get_job_file, save_job_file
 
 
 def resolve_tts_parallelism() -> int:
-    """Wie viele Folien gleichzeitig vertont werden.
+    """Wie viele Text-Stuecke gleichzeitig vertont werden.
 
     Keine Einstellung mehr, sondern eine gemessene Konstante. Bleibt als
     Funktion stehen, damit Tests den Wert ersetzen können, ohne die Konstante
@@ -57,105 +58,151 @@ async def generate_all_tts(
     tmp: Path,
     speed: float,
     voice_id: str = "",
-    on_slide_done: Callable[[int, int], None] | None = None,
+    on_slide_done: Callable[[int, int, int], None] | None = None,
     job_uuid: str | None = None,
     user_id: int | None = None,
     provider_id: int = 0,
+    target_lang: str = "",
+    zaehler: dict | None = None,
 ) -> list[tuple[Path, dict | None]]:
-    """Generate TTS audio for all slides in parallel.
+    """Vertont alle Folien, die Text-Stuecke laufen gleichzeitig.
 
     Returns a list of (audio_path, alignment_or_None) tuples.
-    on_slide_done(current, total) is called after each slide completes.
+    on_slide_done(current, total, folie) meldet eine fertige Folie. Die Meldung
+    kommt streng in Folienreihenfolge, damit die Vorschau nicht auf die
+    kuerzeste Folie springt statt auf die erste.
     Each slide's audio is saved to persistent storage immediately after synthesis
     so a crash can be recovered without re-paying for completed slides.
+    ``zaehler`` nimmt fuer die Admin-Anzeige auf, wie viele Folien aus dem
+    Zwischenspeicher kamen statt neu vertont zu werden.
     """
     parallelism = resolve_tts_parallelism()
     logger.info("TTS provider_id={}: parallelism={}", provider_id, parallelism)
-    sem = asyncio.Semaphore(parallelism)
-    lock = asyncio.Lock()
-    counter = 0
     total = len(slide_scripts)
     audio_paths: list[Path | None] = [tmp / f"slide_{i:03d}.mp3" for i in range(total)]
     alignments: list[dict | None] = [None] * total
+    aus_zwischenspeicher = 0
 
-    async def _tts(i: int, script_text: str) -> None:
-        nonlocal counter
+    fertige: set[int] = set()
+    freigegeben = 0
+    melde_lock = asyncio.Lock()
+
+    async def _melde(i: int) -> None:
+        """Gibt die Folie erst frei, wenn alle davor freigegeben sind."""
+        nonlocal freigegeben
+        async with melde_lock:
+            fertige.add(i)
+            while freigegeben in fertige:
+                if on_slide_done:
+                    on_slide_done(len(fertige), total, freigegeben)
+                freigegeben += 1
+
+    async def _zerlegen(i: int, script_text: str) -> list[str]:
+        """Leere und schon vertonte Folien fallen raus, der Rest wird zerlegt."""
+        nonlocal aus_zwischenspeicher
         if not script_text.strip():
             # Empty slide: no audio file - create_slide_video handles None as video-only
             audio_paths[i] = None
             logger.info("Slide {}/{}: empty script, audio_path set to None", i + 1, total)
-        else:
-            # Recovery: check if this slide was already synthesized in a previous (crashed) run
-            if job_uuid and user_id is not None:
+            await _melde(i)
+            return []
+        # Recovery: check if this slide was already synthesized in a previous (crashed) run
+        if job_uuid and user_id is not None:
+            try:
+                audio_data = get_job_file(user_id, job_uuid, f"render_cache/slide_{i:03d}.mp3")
+                audio_paths[i].write_bytes(audio_data)
                 try:
-                    audio_data = get_job_file(user_id, job_uuid, f"render_cache/slide_{i:03d}.mp3")
-                    audio_paths[i].write_bytes(audio_data)
-                    try:
-                        align_data = get_job_file(user_id, job_uuid, f"render_cache/slide_{i:03d}_align.json")
-                        alignments[i] = json.loads(align_data)
-                    except Exception:
-                        pass
-                    logger.info("Slide {}/{}: loaded from storage (recovery)", i + 1, total)
-                    async with lock:
-                        counter += 1
-                        if on_slide_done:
-                            on_slide_done(counter, total)
-                    return
+                    align_data = get_job_file(user_id, job_uuid, f"render_cache/slide_{i:03d}_align.json")
+                    alignments[i] = json.loads(align_data)
                 except Exception:
-                    pass  # Not saved yet - synthesize normally
+                    pass
+                logger.info("Slide {}/{}: loaded from storage (recovery)", i + 1, total)
+                aus_zwischenspeicher += 1
+                await _melde(i)
+                return []
+            except Exception:
+                pass  # Not saved yet - synthesize normally
+        return _split_text(script_text)
 
-            async with sem:
-                # Retry transient server errors (5xx) with exponential backoff.
-                # myLab/Kokoro occasionally return 500s that recover within seconds.
-                retry_delays = (2.0, 5.0, 10.0)
-                last_error: Exception | None = None
-                for attempt in range(len(retry_delays) + 1):
-                    try:
-                        result = await asyncio.to_thread(
-                            tts_client.synthesize_with_timestamps,
-                            script_text, "EN", voice_id=voice_id, speed=speed,
-                        )
-                        audio_bytes = result["audio_bytes"]
-                        alignment = result["alignment"]
-                        audio_paths[i].write_bytes(audio_bytes)
-                        alignments[i] = alignment
-
-                        # Save immediately to persistent storage for crash recovery
-                        if job_uuid and user_id is not None:
-                            save_job_file(user_id, job_uuid, f"render_cache/slide_{i:03d}.mp3", audio_bytes)
-                            if alignment:
-                                save_job_file(user_id, job_uuid, f"render_cache/slide_{i:03d}_align.json",
-                                              json.dumps(alignment).encode())
-
-                        logger.info("TTS for slide {}/{} done (attempt {})", i + 1, total, attempt + 1)
-                        last_error = None
-                        break
-                    except Exception as e:
-                        last_error = e
-                        err_str = str(e)
-                        is_transient = any(f"({code})" in err_str for code in ("500", "502", "503", "504", "429"))
-                        if attempt < len(retry_delays) and is_transient:
-                            delay = retry_delays[attempt]
-                            logger.warning(
-                                "TTS failed for slide {} (attempt {}/{}): {} - retrying in {}s",
-                                i + 1, attempt + 1, len(retry_delays) + 1, e, delay,
-                            )
-                            await asyncio.sleep(delay)
-                            continue
-                        break
-
-                if last_error is not None:
-                    logger.error("TTS failed for slide {} (gave up): {}", i + 1, last_error)
-                    raise HTTPException(
-                        status_code=502,
-                        detail=f"TTS-Fehler bei Folie {i + 1}: {last_error}",
+    async def _hole_stueck(i: int, k: int, chunk: str, anzahl: int) -> bytes:
+        # Retry transient server errors (5xx) with exponential backoff.
+        # myLab/Kokoro occasionally return 500s that recover within seconds.
+        retry_delays = (2.0, 5.0, 10.0)
+        last_error: Exception | None = None
+        for attempt in range(len(retry_delays) + 1):
+            try:
+                # Immer 1.0: der Anbieter senkt beim Verlangsamen die Tonhoehe mit.
+                result = await asyncio.to_thread(
+                    tts_client.synthesize_with_timestamps,
+                    chunk, target_lang, voice_id=voice_id, speed=1.0,
+                )
+                # Zeitmarken eines Stuecks gelten nicht fuer die ganze Folie.
+                if anzahl == 1:
+                    alignments[i] = result["alignment"]
+                return result["audio_bytes"]
+            except Exception as e:
+                last_error = e
+                err_str = str(e)
+                is_transient = any(f"({code})" in err_str for code in ("500", "502", "503", "504", "429"))
+                if attempt < len(retry_delays) and is_transient:
+                    delay = retry_delays[attempt]
+                    logger.warning(
+                        "TTS failed for slide {} chunk {}/{} (attempt {}/{}): {} - retrying in {}s",
+                        i + 1, k + 1, anzahl, attempt + 1, len(retry_delays) + 1, e, delay,
                     )
-        async with lock:
-            counter += 1
-            if on_slide_done:
-                on_slide_done(counter, total)
+                    await asyncio.sleep(delay)
+                    continue
+                break
+        logger.error("TTS failed for slide {} chunk {}/{} (gave up): {}", i + 1, k + 1, anzahl, last_error)
+        raise HTTPException(
+            status_code=502,
+            detail=f"TTS-Fehler bei Folie {i + 1}: {last_error}",
+        )
 
-    await asyncio.gather(*[_tts(i, t) for i, t in enumerate(slide_scripts)])
+    def _sichern(i: int, audio_bytes: bytes) -> None:
+        audio_paths[i].write_bytes(audio_bytes)
+        # Save immediately to persistent storage for crash recovery
+        if job_uuid and user_id is not None:
+            save_job_file(user_id, job_uuid, f"render_cache/slide_{i:03d}.mp3", audio_bytes)
+            if alignments[i]:
+                save_job_file(user_id, job_uuid, f"render_cache/slide_{i:03d}_align.json",
+                              json.dumps(alignments[i]).encode())
+        logger.info("TTS for slide {}/{} done", i + 1, total)
+
+    try:
+        zerlegt = await asyncio.gather(*[_zerlegen(i, t) for i, t in enumerate(slide_scripts)])
+
+        # Auftragsliste in Folienreihenfolge: Folie 1 bekommt ihre Plaetze zuerst
+        # und ist nach einer Runde durch statt nach so vielen Runden wie Stuecken.
+        auftraege: list[tuple[int, int]] = []
+        stuecke: dict[int, list[bytes | None]] = {}
+        for i, chunks in enumerate(zerlegt):
+            if not chunks:
+                continue
+            stuecke[i] = [None] * len(chunks)
+            auftraege.extend((i, k) for k in range(len(chunks)))
+
+        naechster = 0
+        pos_lock = asyncio.Lock()
+
+        async def _arbeiter() -> None:
+            nonlocal naechster
+            while True:
+                async with pos_lock:
+                    if naechster >= len(auftraege):
+                        return
+                    i, k = auftraege[naechster]
+                    naechster += 1
+                stuecke[i][k] = await _hole_stueck(i, k, zerlegt[i][k], len(zerlegt[i]))
+                # Kein await zwischen Ablage und Pruefung, also meldet genau ein Arbeiter.
+                if all(teil is not None for teil in stuecke[i]):
+                    _sichern(i, b"".join(stuecke[i]))
+                    await _melde(i)
+
+        await asyncio.gather(*[_arbeiter() for _ in range(min(parallelism, len(auftraege)))])
+    finally:
+        if zaehler is not None:
+            zaehler["aus_zwischenspeicher"] = aus_zwischenspeicher
     return list(zip(audio_paths, alignments))
 
 

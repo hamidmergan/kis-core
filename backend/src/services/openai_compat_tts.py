@@ -12,6 +12,7 @@ from __future__ import annotations
 import httpx
 
 from src.limits import TTS_MAX_CHARS_PER_REQUEST
+from src.services.tts_number_words import spell_numbers
 
 # Ab welchem Anteil der Obergrenze nach einem Satzende gesucht wird. Darunter
 # würden die Stücke unnötig kurz und die Zahl der Anfragen unnötig groß.
@@ -95,7 +96,7 @@ class OpenAICompatTTSClient:
     def synthesize(
         self,
         text: str,
-        language: str = "de",
+        language: str = "",
         *,
         voice_id: str = "default",
         speed: float = 1.0,
@@ -107,7 +108,9 @@ class OpenAICompatTTSClient:
 
         with httpx.Client(timeout=300.0) as client:
             for chunk in chunks:
-                audio_parts.append(self._synthesize_one(client, chunk, voice_id=voice_id, speed=speed))
+                audio_parts.append(
+                    self._synthesize_one(client, chunk, voice_id=voice_id, speed=speed, language=language)
+                )
 
         return b"".join(audio_parts)
 
@@ -117,12 +120,12 @@ class OpenAICompatTTSClient:
         *,
         voice_id: str = "default",
         speed: float = 1.0,
-        language: str = "de",
+        language: str = "",
         **kwargs,
     ) -> bytes:
         """Synthesize a single chunk (for crash recovery in tts_tasks)."""
         with httpx.Client(timeout=300.0) as client:
-            return self._synthesize_one(client, text, voice_id=voice_id, speed=speed)
+            return self._synthesize_one(client, text, voice_id=voice_id, speed=speed, language=language)
 
     def _synthesize_one(
         self,
@@ -131,8 +134,11 @@ class OpenAICompatTTSClient:
         *,
         voice_id: str = "default",
         speed: float = 1.0,
+        language: str = "",
     ) -> bytes:
         text = " ".join(line.strip() for line in text.splitlines() if line.strip())
+        # Ziffern klingen sonst deutsch, weil die Stimme ihre Sprache am Text errät.
+        text = spell_numbers(text, language)
         if not voice_id or voice_id == "default":
             raise ValueError(
                 "voice_id must be set — configure voices for this provider in the admin KI panel"
@@ -160,7 +166,7 @@ class OpenAICompatTTSClient:
     def synthesize_with_timestamps(
         self,
         text: str,
-        language: str = "de",
+        language: str = "",
         *,
         voice_id: str = "default",
         speed: float = 1.0,

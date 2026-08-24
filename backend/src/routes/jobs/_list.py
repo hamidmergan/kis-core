@@ -7,7 +7,7 @@ from fastapi import APIRouter, Depends, Query, Request
 from fastapi.responses import StreamingResponse
 
 from src import database as db
-from src.dependencies import get_current_user
+from src.dependencies import get_current_user, is_admin_user
 from src.i18n import get_locale
 
 from src.routes.jobs._shared import (
@@ -43,7 +43,7 @@ def get_my_jobs(
         date_from=date_from, date_to=date_to,
         extra_tools=extra_tools, tool_filter=tool_filter_list,
     )
-    return {"jobs": _format_job_rows(jobs, locale), "total": total}
+    return {"jobs": _format_job_rows(jobs, locale, is_admin_user(current_user)), "total": total}
 
 
 @router.get("/stream")
@@ -56,11 +56,12 @@ async def job_stream(
     import redis.asyncio as aioredis
 
     user_id = current_user.get("user_id", 0)
+    is_admin = is_admin_user(current_user)
 
     async def event_generator():
         # Send initial snapshot immediately on connect
         jobs, total = db.get_jobs_by_user(user_id, limit=20)
-        yield f"data: {json_lib.dumps({'jobs': _format_job_rows(jobs, locale), 'total': total})}\n\n"
+        yield f"data: {json_lib.dumps({'jobs': _format_job_rows(jobs, locale, is_admin), 'total': total})}\n\n"
 
         r = aioredis.from_url(_REDIS_URL, socket_connect_timeout=2, socket_timeout=2)
         pubsub = r.pubsub()
@@ -73,7 +74,7 @@ async def job_stream(
                 msg = await pubsub.get_message(ignore_subscribe_messages=True, timeout=0.5)
                 if msg and msg["type"] == "message":
                     jobs, total = db.get_jobs_by_user(user_id, limit=20)
-                    yield f"data: {json_lib.dumps({'jobs': _format_job_rows(jobs, locale), 'total': total})}\n\n"
+                    yield f"data: {json_lib.dumps({'jobs': _format_job_rows(jobs, locale, is_admin), 'total': total})}\n\n"
                     last_sent = time.monotonic()
                 elif time.monotonic() - last_sent >= _KEEPALIVE_SECONDS:
                     # SSE comment, ignored by the browser. Keeps proxies from
