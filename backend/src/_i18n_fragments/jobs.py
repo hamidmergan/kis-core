@@ -212,6 +212,14 @@ MESSAGES: dict[str, dict[str, str]] = {
         "de": "Zu viele Folien ({count}). Maximum: {max} Folien.",
         "en": "Too many slides ({count}). Maximum: {max} slides.",
     },
+    "screencast.keineFolieGewaehlt": {
+        "de": "Es ist keine Folie für den Screencast ausgewählt.",
+        "en": "No slide is selected for the screencast.",
+    },
+    "screencast.folieUnbekannt": {
+        "de": "Die Auswahl nennt eine Folie, die es in dieser Präsentation nicht gibt.",
+        "en": "The selection refers to a slide that does not exist in this presentation.",
+    },
     "screencast.pptxUnavailable": {
         "de": "PPTX nicht mehr verfügbar",
         "en": "PPTX no longer available",

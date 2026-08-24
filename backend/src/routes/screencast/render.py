@@ -97,7 +97,17 @@ def screencast_render(
             ),
         )
 
-    total_chars = sum(len(s) for s in body.scripts)
+    gueltig = range(len(body.scripts))
+    if body.video_folien is not None:
+        if not body.video_folien:
+            raise HTTPException(status_code=400, detail=t("screencast.keineFolieGewaehlt", locale))
+        if any(i not in gueltig for i in body.video_folien):
+            raise HTTPException(status_code=400, detail=t("screencast.folieUnbekannt", locale))
+    if any(i not in gueltig for i in body.neu_vertonen):
+        raise HTTPException(status_code=400, detail=t("screencast.folieUnbekannt", locale))
+
+    dabei = set(body.video_folien) if body.video_folien is not None else set(gueltig)
+    total_chars = sum(len(s) for i, s in enumerate(body.scripts) if i in dabei)
     if total_chars > SCREENCAST_MAX_CHARS:
         raise HTTPException(
             status_code=422,
@@ -144,6 +154,8 @@ def screencast_render(
         "voice_label": body.voice_label,
         "is_admin": is_admin_user(current_user),
         "subtitles": body.subtitles,
+        "video_folien": body.video_folien,
+        "neu_vertonen": body.neu_vertonen,
     }).encode())
 
     # Atomically transition to queued (prevents duplicate submissions from multiple tabs)

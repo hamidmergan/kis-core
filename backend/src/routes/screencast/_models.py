@@ -43,6 +43,10 @@ class RenderRequest(BaseModel):
     provider_id: int
     # Untertitel-Spur ins MP4, per Haken in den Einstellungen.
     subtitles: bool = False
+    # None heisst alle Folien, eine Liste nennt die Nummern im Screencast.
+    video_folien: list[int] | None = None
+    # Diese Folien werden neu gesprochen statt den Ton des letzten Laufs zu nehmen.
+    neu_vertonen: list[int] = []
 
 
 class PrerenderRequest(BaseModel):
