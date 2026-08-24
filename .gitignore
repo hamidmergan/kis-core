@@ -38,3 +38,6 @@ backend/coverage.xml
 backend/.coverage
 backend/.coverage.*
 
+
+# Playwright, wenn aus dem Wurzelverzeichnis gestartet
+/test-results/
