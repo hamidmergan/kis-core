@@ -26,10 +26,12 @@ import Lightbox from "./_components/Lightbox";
 import RenderVorschau from "./_components/RenderVorschau";
 import RegenChatModal, { type RegenApplyMode } from "./_components/RegenChatModal";
 import ExitConfirmModal from "./_components/ExitConfirmModal";
-import { parseScriptJsonFile, checkHasActiveJob, checkJobValidity, checkJobFolderExists } from "./_utils";
+import { parseScriptJsonFile, checkHasActiveJob, checkJobValidity, checkJobFolderExists, computeVoiceLabel } from "./_utils";
 import { flowReducer, INITIAL_FLOW_STATE } from "./_reducer";
 import { useScreencastRenderFlow } from "./_hooks/useScreencastRenderFlow";
 import { useScreencastTranslateFlow } from "./_hooks/useScreencastTranslateFlow";
+import { useSchritt6Stand } from "./_hooks/useSchritt6Stand";
+import { useFolienAuswahl } from "./_hooks/useFolienAuswahl";
 import { notifyJobsChanged } from "@/lib/jobs-events";
 import { SCREENCAST_MAX_CHARS, SCREENCAST_TARGET_LANGUAGES } from "@/lib/constants";
 import { wordCount } from "@/lib/text";
@@ -125,6 +127,62 @@ function ScreencastPageInner() {
     if (defaultVoiceId && !voiceId) setVoiceId(defaultVoiceId);
   }, [defaultVoiceId, voiceId]);
   const { languages, targetLang, setTargetLang } = useLanguageConfig(SCREENCAST_TARGET_LANGUAGES);
+  const { geladen: standGeladen, einstellungen: gespeicherteEinstellungen, stand, hatTon } =
+    useSchritt6Stand(translateJobUuid);
+  const auswahl = useFolienAuswahl({
+    slides,
+    stand,
+    hatTon,
+    gespeichert: gespeicherteEinstellungen
+      ? { video_folien: gespeicherteEinstellungen.video_folien, neu_vertonen: gespeicherteEinstellungen.neu_vertonen }
+      : null,
+    bereit: standGeladen,
+  });
+  const zeigtNeu = hatTon.some(Boolean);
+  const stimmeGewechselt = !!stand && (stand.voice_id !== voiceId || stand.provider_id !== providerId || stand.target_lang !== targetLang);
+
+  // Wer morgen wiederkommt, findet seinen Stand vor statt der Voreinstellung.
+  const eingestelltRef = useRef(false);
+  useEffect(() => {
+    const e = gespeicherteEinstellungen;
+    if (!e || eingestelltRef.current) return;
+    eingestelltRef.current = true;
+    if (e.provider_id) setProviderId(e.provider_id);
+    if (e.voice_id) setVoiceId(e.voice_id);
+    if (e.target_lang) setTargetLang(e.target_lang);
+    setSpeed(e.speed);
+    setSlidePause(e.slide_pause);
+    setDpi(e.dpi);
+    setSubtitles(e.subtitles);
+  }, [gespeicherteEinstellungen, setTargetLang]);
+
+  // Gespeichert wird beim Aendern, nicht erst beim Rendern.
+  useEffect(() => {
+    if (!translateJobUuid || !standGeladen || step !== "tts-settings") return;
+    const zeit = setTimeout(() => {
+      fetch(`/api/screencast/${translateJobUuid}/einstellungen`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          provider_id: providerId,
+          voice_id: voiceId,
+          voice_label: computeVoiceLabel(providerId, voiceId, providers),
+          target_lang: targetLang,
+          speed,
+          slide_pause: slidePause,
+          dpi,
+          subtitles,
+          video_folien: auswahl.imScreencast,
+          neu_vertonen: auswahl.neuVertonen,
+        }),
+        credentials: "include",
+      }).catch(() => {});
+    }, 600);
+    return () => clearTimeout(zeit);
+  }, [
+    translateJobUuid, standGeladen, step, providerId, voiceId, providers, targetLang,
+    speed, slidePause, dpi, subtitles, auswahl.imScreencast, auswahl.neuVertonen,
+  ]);
   const [skipTranslation, setSkipTranslation] = useState(false);
   const [hasActiveJob, setHasActiveJob] = useActiveJobCheck("screencast");
 
@@ -271,6 +329,8 @@ function ScreencastPageInner() {
     voiceId,
     providerId,
     providers,
+    videoFolien: auswahl.imScreencast,
+    neuVertonen: auswahl.neuVertonen,
     failedRender,
     renderResult,
     checkBeforeSubmit,
@@ -646,6 +706,17 @@ function ScreencastPageInner() {
             scriptOverLimit={scriptOverLimit}
             maxChars={SCREENCAST_MAX_CHARS}
             ttsSettingsError={ttsSettingsError}
+            stand={stand}
+            imScreencast={auswahl.imScreencast}
+            neuVertonen={auswahl.neuVertonen}
+            gesperrtNeu={auswahl.gesperrtNeu}
+            zeigtNeu={zeigtNeu}
+            stimmeGewechselt={stimmeGewechselt}
+            onUmschaltenScreencast={auswahl.umschaltenScreencast}
+            onUmschaltenNeu={auswahl.umschaltenNeu}
+            onAlleFolien={auswahl.setzeAlle}
+            onKeineFolien={auswahl.setzeKeine}
+            onGeaenderteFolien={auswahl.setzeGeaenderte}
             onProviderIdChange={setProviderId}
             onVoiceIdChange={setVoiceId}
             onSpeedChange={setSpeed}

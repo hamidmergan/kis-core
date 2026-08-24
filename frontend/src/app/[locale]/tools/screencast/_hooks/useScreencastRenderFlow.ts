@@ -41,6 +41,8 @@ interface UseScreencastRenderFlowOptions {
   voiceId: string;
   providerId: number;
   providers: ProviderWithVoices[];
+  videoFolien: number[];
+  neuVertonen: number[];
 
   // Sub-hooks
   failedRender: ReturnType<typeof useFailedRender>;
@@ -74,6 +76,8 @@ export function useScreencastRenderFlow(opts: UseScreencastRenderFlowOptions) {
     voiceId,
     providerId,
     providers,
+    videoFolien,
+    neuVertonen,
     failedRender,
     renderResult,
     checkBeforeSubmit,
@@ -142,6 +146,8 @@ export function useScreencastRenderFlow(opts: UseScreencastRenderFlowOptions) {
           dpi,
           provider_id: providerId,
           subtitles,
+          video_folien: videoFolien,
+          neu_vertonen: neuVertonen,
         }),
         credentials: "include",
       });
@@ -185,7 +191,7 @@ export function useScreencastRenderFlow(opts: UseScreencastRenderFlowOptions) {
     }
   }, [
     slides, translateJobUuid, targetLang, voiceId, providerId, providers,
-    speed, slidePause, dpi, subtitles,
+    speed, slidePause, dpi, subtitles, videoFolien, neuVertonen,
     newSignal, onRenderProgress, setRenderProgressLabel, setTtsSettingsError,
     failedRender, processRenderResultFromJob,
     checkBeforeSubmit, goError, dispatch, currentJobUuidRef, messages,
