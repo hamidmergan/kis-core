@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { SlideData } from "@/types";
 import { geaenderteFolien, type VertonterStand } from "../_utils";
-import { ohneTonAberMitSkript, startAuswahl, type GespeicherteAuswahl } from "./_auswahl";
+import { angleichen, ohneTonAberMitSkript, startAuswahl, type GespeicherteAuswahl } from "./_auswahl";
 
 interface Optionen {
   slides: SlideData[];
@@ -34,11 +34,18 @@ export function useFolienAuswahl({ slides, stand, hatTon, gespeichert, bereit }:
     vorbelegt.current = true;
   }, [bereit, slides.length, gespeichert, geaendert, hatTon, scripts]);
 
+  const setzeScreencast = useCallback((naechste: number[]) => {
+    setImScreencast(naechste);
+    setNeuVertonen((alt) => angleichen(naechste, alt, gesperrtNeu));
+  }, [gesperrtNeu]);
+
   const umschaltenScreencast = useCallback((i: number) => {
-    setImScreencast((alt) => (alt.includes(i) ? alt.filter((x) => x !== i) : [...alt, i].sort((a, b) => a - b)));
-    // Eine Folie ausserhalb des Screencasts wird nicht vertont.
-    setNeuVertonen((alt) => alt.filter((x) => x !== i));
-  }, []);
+    setzeScreencast(
+      imScreencast.includes(i)
+        ? imScreencast.filter((x) => x !== i)
+        : [...imScreencast, i].sort((a, b) => a - b),
+    );
+  }, [imScreencast, setzeScreencast]);
 
   const umschaltenNeu = useCallback((i: number) => {
     if (gesperrtNeu.has(i)) return;
@@ -49,13 +56,13 @@ export function useFolienAuswahl({ slides, stand, hatTon, gespeichert, bereit }:
 
   const setzeAlle = useCallback((zeigtNeu: boolean) => {
     if (zeigtNeu) setNeuVertonen(alleNummern.filter((i) => imScreencast.includes(i) && scripts[i]?.trim()));
-    else setImScreencast(alleNummern);
-  }, [alleNummern, imScreencast, scripts]);
+    else setzeScreencast(alleNummern);
+  }, [alleNummern, imScreencast, scripts, setzeScreencast]);
 
   const setzeKeine = useCallback((zeigtNeu: boolean) => {
     if (zeigtNeu) setNeuVertonen([...gesperrtNeu].filter((i) => imScreencast.includes(i)).sort((a, b) => a - b));
-    else setImScreencast([]);
-  }, [gesperrtNeu, imScreencast]);
+    else setzeScreencast([]);
+  }, [gesperrtNeu, imScreencast, setzeScreencast]);
 
   const setzeGeaenderte = useCallback(() => {
     const menge = new Set([...geaendert, ...gesperrtNeu]);

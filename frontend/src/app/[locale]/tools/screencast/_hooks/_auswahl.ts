@@ -38,3 +38,17 @@ export function startAuswahl(
     neuVertonen: [...neu].filter((i) => dabei.has(i)).sort((a, b) => a - b),
   };
 }
+
+/** Neu vertont wird nur, was im Screencast ist, und eine Folie ohne Ton immer. */
+export function angleichen(
+  imScreencast: number[],
+  bisherNeu: number[],
+  gesperrt: Set<number>,
+): number[] {
+  const dabei = new Set(imScreencast);
+  const menge = new Set(bisherNeu.filter((i) => dabei.has(i)));
+  gesperrt.forEach((i) => {
+    if (dabei.has(i)) menge.add(i);
+  });
+  return [...menge].sort((a, b) => a - b);
+}

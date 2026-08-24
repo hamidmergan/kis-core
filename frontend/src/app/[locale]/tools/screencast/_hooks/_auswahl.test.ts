@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { ohneTonAberMitSkript, startAuswahl } from "./_auswahl";
+import { angleichen, ohneTonAberMitSkript, startAuswahl } from "./_auswahl";
 
 const skripte = ["a", "b", "c"];
 
@@ -48,5 +48,27 @@ describe("startAuswahl", () => {
   it("video_folien gleich null heisst alle", () => {
     const a = startAuswahl(3, { video_folien: null, neu_vertonen: [] }, [], [true, true, true], skripte);
     expect(a.imScreencast).toEqual([0, 1, 2]);
+  });
+});
+
+describe("angleichen", () => {
+  it("wirft Folien raus, die nicht mehr im Screencast sind", () => {
+    expect(angleichen([0, 1], [1, 2], new Set())).toEqual([1]);
+  });
+
+  it("nimmt eine gesperrte Folie beim Wiederhinzufuegen zurueck auf", () => {
+    expect(angleichen([0, 1], [], new Set([1]))).toEqual([1]);
+  });
+
+  it("eine gesperrte Folie ausserhalb des Screencasts bleibt draussen", () => {
+    expect(angleichen([0], [], new Set([1]))).toEqual([]);
+  });
+
+  it("leerer Screencast leert auch die Vertonungs-Auswahl", () => {
+    expect(angleichen([], [0, 1], new Set([0]))).toEqual([]);
+  });
+
+  it("die Nummern kommen aufsteigend zurueck", () => {
+    expect(angleichen([0, 1, 2], [2, 0], new Set([1]))).toEqual([0, 1, 2]);
   });
 });
