@@ -26,8 +26,8 @@ export function startAuswahl(
   const imScreencast = gespeichert?.video_folien
     ? gespeichert.video_folien.filter((i) => i >= 0 && i < anzahl)
     : alle;
-  // Nichts vorauswaehlen, der Nutzer entscheidet selbst was neu gesprochen wird.
-  return { imScreencast, neuVertonen: angleichen(imScreencast, gespeichert?.neu_vertonen ?? []) };
+  // Was neu gesprochen wird, gilt nur fuer einen Lauf und faengt immer leer an.
+  return { imScreencast, neuVertonen: [] };
 }
 
 /** Neu vertont wird nur, was ueberhaupt im Screencast ist. */

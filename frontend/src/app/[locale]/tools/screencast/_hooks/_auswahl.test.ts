@@ -29,16 +29,16 @@ describe("startAuswahl", () => {
     expect(a.neuVertonen).toEqual([]);
   });
 
-  it("gespeicherte Auswahl gewinnt", () => {
+  it("die gespeicherten Screencast-Folien gewinnen", () => {
     const a = startAuswahl(3, { video_folien: [0, 2], neu_vertonen: [2] });
     expect(a.imScreencast).toEqual([0, 2]);
-    expect(a.neuVertonen).toEqual([2]);
   });
 
-  it("uebernimmt eine gespeicherte Auswahl unveraendert", () => {
-    const a = startAuswahl(3, { video_folien: [0, 1, 2], neu_vertonen: [0, 2] });
+  it("ein gespeichertes neu_vertonen wird NICHT wiederhergestellt", () => {
+    // Das gilt nur fuer einen Lauf, sonst haengt ein alter Stand ewig fest.
+    const a = startAuswahl(3, { video_folien: [0, 1, 2], neu_vertonen: [0, 1, 2] });
     expect(a.imScreencast).toEqual([0, 1, 2]);
-    expect(a.neuVertonen).toEqual([0, 2]);
+    expect(a.neuVertonen).toEqual([]);
   });
 
   it("eine Folie ohne Ton wird nicht automatisch angehakt", () => {
