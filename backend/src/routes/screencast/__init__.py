@@ -8,6 +8,7 @@ from fastapi import APIRouter, Depends
 
 from src.dependencies_rbac import require_tool_access
 from src.routes.screencast.audio import router as _audio_router
+from src.routes.screencast.einstellungen import router as _einstellungen_router
 from src.routes.screencast.media import router as _media_router
 from src.routes.screencast.render import router as _render_router
 from src.routes.screencast.resume import router as _resume_router
@@ -21,5 +22,6 @@ router.include_router(_media_router)
 router.include_router(_resume_router)
 router.include_router(_render_router)
 router.include_router(_audio_router)
+router.include_router(_einstellungen_router)
 
 __all__ = ["router"]
