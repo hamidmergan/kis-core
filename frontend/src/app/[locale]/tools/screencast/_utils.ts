@@ -1,5 +1,6 @@
 import type { JobStatus } from "@/lib/api";
 import type { ProviderWithVoices } from "@/hooks/useVoices";
+import type { SlideData } from "@/types";
 import { LANGUAGE_FLAG } from "@/lib/languageFlags";
 
 export function computeVoiceLabel(
@@ -112,4 +113,39 @@ export function parseScriptJsonFile(file: File): Promise<ScriptJsonParseResult> 
     };
     reader.readAsText(file);
   });
+}
+
+/** Abzug des letzten erfolgreichen Laufs, Grundlage der Aenderungs-Erkennung. */
+export interface VertonterStand {
+  scripts: string[];
+  folientexte: string[];
+  voice_id: string;
+  provider_id: number;
+  target_lang: string;
+}
+
+export type FolienMarke = "skript" | "folie" | null;
+
+/** Beides geaendert meldet das Skript, das ist der Grund der den Nutzer betrifft. */
+export function markeFuerFolie(
+  stand: VertonterStand | null,
+  index: number,
+  script: string,
+  folientext: string,
+): FolienMarke {
+  if (!stand) return null;
+  const alterText = stand.folientexte[index];
+  const altesSkript = stand.scripts[index];
+  if (altesSkript === undefined && alterText === undefined) return "skript";
+  if ((script ?? "").trim() !== (altesSkript ?? "").trim()) return "skript";
+  if ((folientext ?? "").trim() !== (alterText ?? "").trim()) return "folie";
+  return null;
+}
+
+/** Die Folien, die Schritt 6 zum Neuvertonen vorschlaegt. */
+export function geaenderteFolien(stand: VertonterStand | null, slides: SlideData[]): number[] {
+  if (!stand) return [];
+  return slides
+    .map((s, i) => (s.script?.trim() && markeFuerFolie(stand, i, s.script, s.extractedText) ? i : -1))
+    .filter((i) => i >= 0);
 }
