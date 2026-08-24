@@ -62,6 +62,7 @@ def _render_args(job_uuid: str, scripts: list, params: dict, original_filename: 
         original_filename,
         params["dpi"], int(params.get("provider_id", 0)), params["voice_label"],
         params["is_admin"], bool(params.get("subtitles", False)),
+        params.get("video_folien"), params.get("neu_vertonen") or [],
     ]
 
 

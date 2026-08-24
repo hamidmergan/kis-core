@@ -1,5 +1,6 @@
 """Celery task: render the final MP4 from edited scripts + stored PPTX."""
 
+import json
 from pathlib import Path
 
 from loguru import logger
@@ -8,7 +9,14 @@ from src.celery_app import celery_app
 from src import database as db
 from src.i18n import t
 from src.limits import SCREENCAST_SOFT_TIME_LIMIT, SCREENCAST_TIME_LIMIT
-from src.storage import clear_render_cache, load_result_meta, save_result_and_evict, save_result_meta
+from src.storage import (
+    clear_render_cache,
+    get_job_file,
+    load_result_meta,
+    save_job_file,
+    save_result_and_evict,
+    save_result_meta,
+)
 from src.utils.heartbeat import job_heartbeat
 from src.services.screencast.naming import build_artifact_stem
 
@@ -16,6 +24,23 @@ from src.tasks._errors import handle_task_exception, is_upstream_busy, job_local
 from src.tasks.screencast_tasks._pipeline import _run_render_pipeline
 from src.tasks.screencast_tasks._queue import _maybe_dispatch_next
 from src.tasks.screencast_tasks._shared import _JobCancelled
+
+
+def _merke_vertonten_stand(
+    user_id: int, job_uuid: str, scripts: list[str], voice_id: str, provider_id: int
+) -> None:
+    """Schritt 6 vergleicht spaeter hiergegen, um Geaendertes vorauszuwaehlen."""
+    try:
+        folientexte = json.loads(get_job_file(user_id, job_uuid, "scripts.txt"))
+    except Exception:
+        folientexte = []
+    save_job_file(user_id, job_uuid, "vertonter_stand.json", json.dumps({
+        "scripts": scripts,
+        "folientexte": folientexte,
+        "voice_id": voice_id,
+        "provider_id": provider_id,
+        "target_lang": (load_result_meta(user_id, job_uuid) or {}).get("target_lang", ""),
+    }, ensure_ascii=False).encode())
 
 
 @celery_app.task(
@@ -40,6 +65,8 @@ def run_screencast_render(
     voice_label: str = "",
     is_admin: bool = False,
     subtitles: bool = False,
+    video_folien: list[int] | None = None,
+    neu_vertonen: list[int] | None = None,
 ):
     """Render final MP4 from edited scripts and stored PPTX.
 
@@ -68,6 +95,8 @@ def run_screencast_render(
                 is_admin=is_admin,
                 subtitles=subtitles,
                 voice_label=voice_label,
+                video_folien=video_folien,
+                neu_vertonen=neu_vertonen,
             )
 
         meta_existing = load_result_meta(user_id, translate_job_uuid) or {}
@@ -84,6 +113,7 @@ def run_screencast_render(
         with job_heartbeat(translate_job_uuid):
             save_result_and_evict(user_id, translate_job_uuid, result["result_path"], result_filename)
         db.update_job_status(translate_job_uuid, "success")
+        _merke_vertonten_stand(user_id, translate_job_uuid, scripts, voice_id, provider_id)
         clear_render_cache(user_id, translate_job_uuid)
 
         logger.info("Screencast render task {} completed", translate_job_uuid)
