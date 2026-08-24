@@ -624,6 +624,26 @@
         "subtitles": "Untertitel einbauen",
         "subtitlesHint": "Der gesprochene Text wird erkannt und als Untertitel-Spur ins Video gelegt. Im Player mit CC an und aus schaltbar. Das Rendern dauert dadurch etwas länger."
       },
+      "folienAuswahl": {
+        "titel": "Folien",
+        "aendern": "Ändern",
+        "zuklappen": "Zuklappen",
+        "zusammenfassung": "{dabei} von {total} Folien im Screencast",
+        "zusammenfassungMitNeu": "{dabei} von {total} Folien im Screencast · {neu, plural, one {# Folie wird} other {# Folien werden}} neu vertont",
+        "erstlaufHinweis": "Nach dem Rendern lassen sich hier einzelne Folien neu vertonen, ohne alles neu zu erzeugen.",
+        "stimmeGewechselt": "Die Stimme ist gewechselt. Folien ohne Haken behalten die alte Stimme.",
+        "spalteScreencast": "Screencast",
+        "spalteNeu": "neu sprechen",
+        "alle": "Alle",
+        "keine": "Keine",
+        "geaenderte": "Geänderte",
+        "markeSkript": "Skript geändert",
+        "markeFolie": "Folie geändert",
+        "ohneText": "Zwischenfolie ohne Text, kein Ton",
+        "hakenScreencast": "Folie {n} in den Screencast",
+        "hakenNeu": "Folie {n} neu sprechen",
+        "keineFolie": "Es ist keine Folie ausgewählt."
+      },
       "vorschau": {
         "ueberschrift": "Schon fertig zum Anhören",
         "folieVon": "Folie {n} von {total}",

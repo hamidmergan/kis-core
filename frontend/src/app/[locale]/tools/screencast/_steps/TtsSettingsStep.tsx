@@ -7,6 +7,8 @@ import Select from "@/components/ui/Select";
 import Checkbox from "@/components/ui/Checkbox";
 import { LANGUAGE_FLAG } from "@/lib/languageFlags";
 import StepFooter from "./StepFooter";
+import FolienAuswahl from "./FolienAuswahl";
+import type { VertonterStand } from "../_utils";
 
 interface TtsSettingsStepProps {
   onBack: (() => void) | null;
@@ -26,6 +28,17 @@ interface TtsSettingsStepProps {
   scriptOverLimit: boolean;
   maxChars: number;
   ttsSettingsError: string;
+  stand: VertonterStand | null;
+  imScreencast: number[];
+  neuVertonen: number[];
+  gesperrtNeu: Set<number>;
+  zeigtNeu: boolean;
+  stimmeGewechselt: boolean;
+  onUmschaltenScreencast: (i: number) => void;
+  onUmschaltenNeu: (i: number) => void;
+  onAlleFolien: (zeigtNeu: boolean) => void;
+  onKeineFolien: (zeigtNeu: boolean) => void;
+  onGeaenderteFolien: () => void;
   onProviderIdChange: (id: number) => void;
   onTargetLangChange: (v: string) => void;
   onVoiceIdChange: (v: string) => void;
@@ -56,6 +69,17 @@ export default function TtsSettingsStep(props: TtsSettingsStepProps) {
     scriptOverLimit,
     maxChars,
     ttsSettingsError,
+    stand,
+    imScreencast,
+    neuVertonen,
+    gesperrtNeu,
+    zeigtNeu,
+    stimmeGewechselt,
+    onUmschaltenScreencast,
+    onUmschaltenNeu,
+    onAlleFolien,
+    onKeineFolien,
+    onGeaenderteFolien,
     onProviderIdChange,
     onTargetLangChange,
     onVoiceIdChange,
@@ -190,6 +214,21 @@ export default function TtsSettingsStep(props: TtsSettingsStepProps) {
         <p className="text-xs text-muted-soft mt-2">{t("ttsSettings.subtitlesHint")}</p>
       </div>
 
+      <FolienAuswahl
+        slides={slides}
+        stand={stand}
+        imScreencast={imScreencast}
+        neuVertonen={neuVertonen}
+        gesperrtNeu={gesperrtNeu}
+        zeigtNeu={zeigtNeu}
+        stimmeGewechselt={stimmeGewechselt}
+        onUmschaltenScreencast={onUmschaltenScreencast}
+        onUmschaltenNeu={onUmschaltenNeu}
+        onAlle={onAlleFolien}
+        onKeine={onKeineFolien}
+        onGeaenderte={onGeaenderteFolien}
+      />
+
       <div className="mt-4 mb-4 rounded-lg bg-surface px-4 py-3">
         <p className="text-sm text-foreground-soft">
           {t.rich("ttsSettings.summary", {
@@ -224,11 +263,16 @@ export default function TtsSettingsStep(props: TtsSettingsStepProps) {
       {ttsSettingsError && (
         <p className="text-sm text-warn bg-warn-bg border border-warn-border rounded-md px-3 py-2 mb-3">{ttsSettingsError}</p>
       )}
+      {imScreencast.length === 0 && (
+        <p className="mb-3 rounded-md border border-warn-border bg-warn-bg px-3 py-2 text-sm text-warn-strong" role="alert">
+          {t("folienAuswahl.keineFolie")}
+        </p>
+      )}
       <StepFooter
         onBack={onBack}
         nextLabel={t("ttsSettings.startRender")}
         onNext={onStartRender}
-        nextDisabled={scriptOverLimit}
+        nextDisabled={scriptOverLimit || imScreencast.length === 0}
       />
     </section>
   );

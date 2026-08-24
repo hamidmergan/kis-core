@@ -624,6 +624,26 @@
         "subtitles": "Add subtitles",
         "subtitlesHint": "The spoken text is recognised and added to the video as a subtitle track. Toggle it with CC in the player. Rendering takes a little longer."
       },
+      "folienAuswahl": {
+        "titel": "Slides",
+        "aendern": "Change",
+        "zuklappen": "Collapse",
+        "zusammenfassung": "{dabei} of {total} slides in the screencast",
+        "zusammenfassungMitNeu": "{dabei} of {total} slides in the screencast · {neu, plural, one {# slide will be} other {# slides will be}} re-voiced",
+        "erstlaufHinweis": "After rendering you can re-voice single slides here without redoing everything.",
+        "stimmeGewechselt": "The voice has changed. Slides without a tick keep the old voice.",
+        "spalteScreencast": "Screencast",
+        "spalteNeu": "re-voice",
+        "alle": "All",
+        "keine": "None",
+        "geaenderte": "Changed",
+        "markeSkript": "script changed",
+        "markeFolie": "slide changed",
+        "ohneText": "Divider slide without text, no audio",
+        "hakenScreencast": "Slide {n} in the screencast",
+        "hakenNeu": "Re-voice slide {n}",
+        "keineFolie": "No slide is selected."
+      },
       "vorschau": {
         "ueberschrift": "Ready to listen to",
         "folieVon": "Slide {n} of {total}",
