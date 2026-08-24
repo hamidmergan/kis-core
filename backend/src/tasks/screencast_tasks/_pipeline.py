@@ -13,7 +13,6 @@ from loguru import logger
 from src import database as db
 from src.limits import RENDER_MAX_WORKERS
 from src.storage import (
-    get_audio_slide_count,
     load_result_meta,
     save_audio_cache,
     save_job_file,
@@ -309,7 +308,7 @@ def _run_render_pipeline(
         meta = {
             **existing_meta,
             "audio_id": job_uuid,
-            "audio_count": get_audio_slide_count(user_id, job_uuid),
+            "audio_count": num_slides,
             "subtitles": spur_pfad is not None,
         }
         save_result_meta(user_id, job_uuid, meta)
@@ -332,5 +331,5 @@ def _run_render_pipeline(
     return {
         "result_path": result_path,
         "audio_id": job_uuid,
-        "audio_count": get_audio_slide_count(user_id, job_uuid),
+        "audio_count": num_slides,
     }
