@@ -711,6 +711,11 @@ def clear_render_cache(user_id: int, job_uuid: str) -> int:
     return delete_prefix(f"{job_prefix(user_id, job_uuid)}/render_cache/")
 
 
+def clear_audio_cache(user_id: int, job_uuid: str) -> int:
+    """Loescht den fertigen Ton. Noetig, sobald Folien oder Skripte ersetzt werden."""
+    return delete_prefix(f"{job_prefix(user_id, job_uuid)}/audio/")
+
+
 def delete_aia_source_files(file_path: str) -> int:
     """Delete an AIA source together with everything derived from it.
 

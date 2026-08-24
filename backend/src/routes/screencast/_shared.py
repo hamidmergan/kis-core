@@ -12,7 +12,7 @@ from loguru import logger
 from src.i18n import t
 from src.features.jobs.repository import get_job
 from src.services.screencast import IMAGE_TMP_DIR, pptx_to_images
-from src.storage import get_job_file
+from src.storage import clear_audio_cache, delete_prefix, get_job_file, job_prefix
 from src.utils.file_validation import SCREENCAST_EXTENSIONS
 
 # Job tools that count toward the screencast in the queue/limit calculation
@@ -44,6 +44,12 @@ def get_script_gen_lock(uuid_key: str) -> asyncio.Lock:
 def prerender_dir(translate_job_uuid: str, dpi: int) -> Path:
     """Ablage der vorgerenderten Bilder. Die Auflösung gehört in den Pfad."""
     return IMAGE_TMP_DIR / translate_job_uuid / f"dpi{dpi}"
+
+
+def vertonung_verwerfen(user_id: int, job_uuid: str) -> None:
+    """Nach einem Neuanfang im selben Auftrag darf nichts aus dem Vorrat kommen."""
+    clear_audio_cache(user_id, job_uuid)
+    delete_prefix(f"{job_prefix(user_id, job_uuid)}/vertonter_stand.json")
 
 
 def validate_upload(filename: str | None, locale: str = "de") -> str:

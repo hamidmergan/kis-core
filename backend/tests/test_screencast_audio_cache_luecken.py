@@ -1,9 +1,10 @@
 """Ausgeschlossene Folien behalten ihren alten Ton, damit Wiederaufnehmen nichts kostet."""
 
 from src import storage
-from src.storage import audio_folien_mit_ton, hat_audio_slide, job_prefix, save_audio_cache
+from src.storage import audio_folien_mit_ton, clear_audio_cache, hat_audio_slide, job_prefix, save_audio_cache
 
 UUID = "b" * 32
+ANDERE_UUID = "c" * 32
 
 
 def _audio_dir(lokal):
@@ -106,3 +107,26 @@ def test_audio_folien_mit_ton_s3_verwirft_unpassenden_schluessel(monkeypatch):
     monkeypatch.setattr(storage, "_s3", lambda: _FakeS3Listing(seiten))
 
     assert audio_folien_mit_ton(1, UUID) == {0}
+
+
+def test_clear_audio_cache_entfernt_alle_tondateien(lokal):
+    save_audio_cache(1, UUID, [b"ID3alt0", b"ID3alt1"])
+    entfernt = clear_audio_cache(1, UUID)
+    assert entfernt == 2
+    assert not _audio_dir(lokal).exists()
+
+
+def test_clear_audio_cache_ohne_ordner_wirft_nicht(lokal):
+    assert clear_audio_cache(1, UUID) == 0
+
+
+def test_clear_audio_cache_laesst_anderen_auftrag_unangetastet(lokal):
+    """Der Schluessel darf nur den Ordner GENAU dieses Auftrags treffen."""
+    save_audio_cache(1, UUID, [b"ID3"])
+    save_audio_cache(1, ANDERE_UUID, [b"ID3andere"])
+
+    clear_audio_cache(1, UUID)
+
+    assert not _audio_dir(lokal).exists()
+    anderer_ordner = lokal / job_prefix(1, ANDERE_UUID) / "audio"
+    assert (anderer_ordner / "slide_000.mp3").read_bytes() == b"ID3andere"

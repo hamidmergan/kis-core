@@ -29,7 +29,7 @@ from src.services.tool_limits import (
 )
 from src.utils.upload_stream import stream_upload_to_path
 
-from src.routes.screencast._shared import SCREENCAST_TOOLS, validate_upload
+from src.routes.screencast._shared import SCREENCAST_TOOLS, validate_upload, vertonung_verwerfen
 
 router = APIRouter(tags=["screencast: translate"])
 
@@ -174,6 +174,8 @@ async def screencast_upload_corrected(
             # Ohne das behielte scripts.txt die Texte von vor der Korrektur.
             save_job_file(job["user_id"], translate_job_uuid, "scripts.txt",
                           json.dumps(slide_texts, ensure_ascii=False, indent=2).encode("utf-8"))
+            # Neue Folien, alter Ton waere falsch. Erst jetzt, die Folienzahl-Pruefung ist bestanden.
+            vertonung_verwerfen(job["user_id"], translate_job_uuid)
             logger.info("Saved corrected.pptx to job folder {}", translate_job_uuid)
         else:
             # No job yet (EN path): create a new translate job and save PPTX as translated.pptx

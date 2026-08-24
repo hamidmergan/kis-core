@@ -20,7 +20,7 @@ from src.routes.screencast._models import (
     RegenerateSlideScriptRequest,
     SaveScriptsRequest,
 )
-from src.routes.screencast._shared import get_script_gen_lock
+from src.routes.screencast._shared import get_script_gen_lock, vertonung_verwerfen
 
 
 def _merke_skriptsprache(user_id: int, job_uuid: str | None, target_lang: str) -> None:
@@ -109,6 +109,8 @@ async def screencast_generate_scripts(
             get_job_file(uuid_user_id, uuid_key, "scripts.txt")
         except Exception:
             raise HTTPException(status_code=410, detail=t("job.dataUnavailable", locale))
+        # Neue Skripte kommen, der alte Ton darf nicht liegen bleiben.
+        vertonung_verwerfen(uuid_user_id, uuid_key)
 
     _merke_skriptsprache(uuid_user_id or 0, uuid_key, body.target_lang)
 

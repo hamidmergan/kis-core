@@ -97,3 +97,21 @@ def test_der_neue_folientext_landet_in_scripts_txt(client):
         next(c[0][3] for c in sichern.call_args_list if c[0][2] == "scripts.txt").decode()
     )
     assert geschrieben == ["neu a", "neu b", "neu c"]
+
+
+def test_gleiche_folienzahl_wirft_die_vertonung_weg(client):
+    """Neue Folien unter altem Ton waeren falsch, der Vorrat muss weg."""
+    modul = "src.routes.screencast.translate"
+    with patch(f"{modul}.vertonung_verwerfen") as verwerfen:
+        r, _ = _hochladen(client, ["a", "b", "c"])
+    assert r.status_code == 200
+    verwerfen.assert_called_once_with(1, UUID)
+
+
+def test_abgelehnte_folienzahl_wirft_die_vertonung_nicht_weg(client):
+    """Der wichtigste Test: eine abgelehnte Datei darf keinen Datenverlust anrichten."""
+    modul = "src.routes.screencast.translate"
+    with patch(f"{modul}.vertonung_verwerfen") as verwerfen:
+        r, _ = _hochladen(client, ["a", "b"])
+    assert r.status_code == 400
+    verwerfen.assert_not_called()
