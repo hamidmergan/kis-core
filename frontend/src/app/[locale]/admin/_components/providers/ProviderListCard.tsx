@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useTranslations } from "next-intl";
 import { ArrowsClockwise, Cube, NotePencil, Plus, Trash, UploadSimple } from "@phosphor-icons/react";
+import StatusMark from "@/components/ui/StatusMark";
 import type { Provider } from "./_types";
 
 const _PROBE_ERROR_CODES = new Set([
@@ -163,12 +164,14 @@ function ProviderRow({
               {t("row.disabledChip")}
             </span>
           )}
-          <StatusPill provider={provider} probing={probing} />
           {!provider.api_key_set && (
             <span className="inline-flex items-center text-2xs font-medium px-1.5 py-0.5 rounded-full bg-surface-dim text-muted">
               {t("row.noApiKeyChip")}
             </span>
           )}
+          {/* Der Zustand steht hinter den Markern, sonst liest sich sein Strich
+              wie ein Trenner zwischen Name und Marker. */}
+          <StatusPill provider={provider} probing={probing} />
         </div>
         <div className="text-2xs font-mono text-muted truncate">
           {provider.base_url}
@@ -219,36 +222,13 @@ function ProviderRow({
 
 function StatusPill({ provider, probing }: { provider: Provider; probing?: boolean }) {
   const t = useTranslations("admin.providers");
-  if (probing) {
-    return (
-      <span className="inline-flex items-center gap-1 text-2xs font-medium px-1.5 py-0.5 rounded-full bg-surface-dim text-muted">
-        <span className="w-1.5 h-1.5 rounded-full bg-muted animate-pulse" />
-        {t("row.statusChecking")}
-      </span>
-    );
-  }
-  if (provider.probe_status === "error") {
-    return (
-      <span className="inline-flex items-center gap-1 text-2xs font-medium px-1.5 py-0.5 rounded-full bg-error-bg text-error-strong">
-        <span className="w-1.5 h-1.5 rounded-full bg-error" />
-        {t("row.statusError")}
-      </span>
-    );
-  }
-  if (!provider.probe_status) {
-    return (
-      <span className="inline-flex items-center gap-1 text-2xs font-medium px-1.5 py-0.5 rounded-full bg-warn-bg text-warn-strong">
-        <span className="w-1.5 h-1.5 rounded-full bg-warn" />
-        {t("row.statusUnprobed")}
-      </span>
-    );
-  }
-  return (
-    <span className="inline-flex items-center gap-1 text-2xs font-medium px-1.5 py-0.5 rounded-full bg-success-bg text-success-strong">
-      <span className="w-1.5 h-1.5 rounded-full bg-success" />
-      {t("row.statusActive")}
-    </span>
-  );
+  if (probing)
+    return <StatusMark tone="brand" pulse className="text-2xs">{t("row.statusChecking")}</StatusMark>;
+  if (provider.probe_status === "error")
+    return <StatusMark tone="error" className="text-2xs">{t("row.statusError")}</StatusMark>;
+  if (!provider.probe_status)
+    return <StatusMark tone="warn" className="text-2xs">{t("row.statusUnprobed")}</StatusMark>;
+  return <StatusMark tone="success" className="text-2xs">{t("row.statusActive")}</StatusMark>;
 }
 
 function IconButton({

@@ -6,6 +6,7 @@ import { Trash, Users } from "@phosphor-icons/react";
 import IconButton from "@/components/ui/IconButton";
 import Select from "@/components/ui/Select";
 import Spinner from "@/components/ui/Spinner";
+import StatusMark from "@/components/ui/StatusMark";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { formatDate } from "@/lib/format";
 import type { AdminUser } from "../_shared";
@@ -192,13 +193,13 @@ export default function UsersTab({ onOpenQuota }: { onOpenQuota: (userId: number
                   </td>
                   <td className="px-4 py-3">
                     {u.active ? (
-                      <span className="text-xs font-medium text-success-strong bg-success-bg px-2 py-0.5 rounded-full">
+                      <StatusMark tone="success" className="text-xs">
                         {t("users.active")}
-                      </span>
+                      </StatusMark>
                     ) : (
-                      <span className="text-xs font-medium text-error bg-error-bg px-2 py-0.5 rounded-full">
+                      <StatusMark tone="error" className="text-xs">
                         {t("users.inactive")}
-                      </span>
+                      </StatusMark>
                     )}
                   </td>
                   <td className="px-4 py-3">

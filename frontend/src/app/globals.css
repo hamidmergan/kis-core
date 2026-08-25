@@ -516,6 +516,38 @@ me-tpc:hover .mm-src-chip {
    Eine zentrale Quelle fuer alle interaktiven Hover-Patterns.
    Layer 2 oben liefert transition + focus-ring + disabled gratis. */
 @layer components {
+  /* ─── Zustands-Marke ─────────────────────────────────────────────────
+     Ein Zustand ist keine Plakette. Statt einer gefuellten Pille steht ein
+     2px-Strich links vom Wort, dieselbe Sprache wie die eingerueckten
+     Unterpunkte in der Seitenleiste. Die Farbe traegt nur der Strich, die
+     Schrift bleibt Fliesstext.
+
+     Nicht zu verwechseln mit einem Marker: Tutor und Admin sagen dauerhaft,
+     was jemand ist, und bleiben ein kleines rundes Schild. */
+  .status-mark {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    color: var(--foreground-soft);
+    white-space: nowrap;
+  }
+  .status-mark::before {
+    content: "";
+    width: 1.05em;
+    height: 1.05em;
+    flex-shrink: 0;
+    border-radius: 2px;
+    background-color: var(--status-bar, var(--border));
+  }
+  .status-mark--brand   { --status-bar: var(--kb); }
+  .status-mark--success { --status-bar: var(--success); }
+  .status-mark--error   { --status-bar: var(--error); }
+  .status-mark--warn    { --status-bar: var(--warn); }
+  .status-mark--muted   { --status-bar: var(--border); color: var(--muted-soft); }
+  /* Nur laufende Arbeit bewegt sich, und nur der Strich. Die globale Regel
+     fuer reduzierte Bewegung weiter unten schaltet das mit ab. */
+  .status-mark--pulse::before { animation: status-puls 1.8s ease-in-out infinite; }
+
   /* Icon-Button: gray default, primary + outline on hover.
      Pre-render outline as transparent 2px so the hover state only swaps the
      color (no layout/border-width jolt on hover). */
@@ -765,6 +797,11 @@ me-tpc:hover .mm-src-chip {
   background-color: rgba(255, 255, 255, 0.10);
 }
 
+/* Zustands-Marke im dunklen Modus: das Marken-Blau verschwindet auf Dunkel,
+   genau wie bei der Belegstelle weiter oben, und der Rahmenton ist zu leise. */
+:root[data-theme="dark"] .status-mark--brand { --status-bar: var(--kb-dark); }
+:root[data-theme="dark"] .status-mark--muted { --status-bar: var(--muted-soft); }
+
 /* Tools-Sidebar Item — kb-getöntes Hover, konsistent mit CD */
 .tools-sidebar-item__box {
   background-color: var(--background);
@@ -951,6 +988,11 @@ body.is-phone-landscape [title="Panel minimieren"] {
     opacity: 0.5;
     cursor: not-allowed;
   }
+}
+
+@keyframes status-puls {
+  0%, 100% { opacity: 1; }
+  50%      { opacity: 0.35; }
 }
 
 @media (prefers-reduced-motion: reduce) {

@@ -1,4 +1,6 @@
 import { useTranslations } from "next-intl";
+import StatusMark from "@/components/ui/StatusMark";
+import { jobStatusDisplay } from "@/lib/jobStatusDisplay";
 import type { MyJob } from "../_types";
 
 
@@ -13,22 +15,26 @@ interface StatusBadgeProps {
 
 export function StatusBadge({ status, expired, isGeneratingScripts, resumeHref, onResume }: StatusBadgeProps) {
   const t = useTranslations("myJobs.status");
-  if (expired)
-    return <span className="inline-flex text-xs font-medium text-muted-soft bg-surface px-2 py-0.5 rounded-full">{t("expired")}</span>;
-  if (status === "success")
-    return <span className="inline-flex text-xs font-medium text-success-strong bg-success-bg px-2 py-0.5 rounded-full">{t("success")}</span>;
-  if (status === "failed")
-    return <span className="inline-flex text-xs font-medium text-error-strong bg-error-bg px-2 py-0.5 rounded-full">{t("failed")}</span>;
-  if (status === "running" || isGeneratingScripts)
-    return <span className="inline-flex text-xs font-medium text-info-strong bg-info-bg px-2 py-0.5 rounded-full animate-pulse">{t("running")}</span>;
-  if (status === "awaiting_user") {
-    // Gefuellte Markenfarbe, weil das zarte Abzeichen in der Liste untergegangen ist.
-    const cls = "inline-flex text-xs font-semibold text-on-accent bg-kb px-2 py-0.5 rounded-full";
+  const anzeige = jobStatusDisplay(status, { expired, isGeneratingScripts });
+
+  // Fortsetzen ist eine Handlung, kein Zustand, und bekommt deshalb einen Knopf.
+  if (anzeige.kind === "action") {
     if (resumeHref)
-      return <a href={resumeHref} onClick={onResume} className="btn-primary inline-flex text-xs font-semibold px-2 py-0.5 rounded-full">{t("awaitingUser")}</a>;
-    return <span className={cls}>{t("awaitingUser")}</span>;
+      return (
+        <a
+          href={resumeHref}
+          onClick={onResume}
+          className="btn-primary inline-flex text-xs font-medium px-2.5 py-1 rounded-md"
+        >
+          {t("awaitingUser")}
+        </a>
+      );
+    return <StatusMark tone="brand" className="text-xs">{t("awaitingUser")}</StatusMark>;
   }
-  if (status === "queued")
-    return <span className="inline-flex text-xs font-medium text-info-strong bg-info-bg px-2 py-0.5 rounded-full">{t("queued")}</span>;
-  return <span className="inline-flex text-xs font-medium text-warn-strong bg-warn-bg px-2 py-0.5 rounded-full">{t("pending")}</span>;
+
+  return (
+    <StatusMark tone={anzeige.tone} pulse={anzeige.pulse} className="text-xs">
+      {t(anzeige.key as "expired" | "success" | "failed" | "running" | "queued" | "pending")}
+    </StatusMark>
+  );
 }

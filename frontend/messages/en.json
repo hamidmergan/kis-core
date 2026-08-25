@@ -834,6 +834,10 @@
           "label": "Whitelist",
           "sub": "Who gets in without approval."
         },
+        "invites": {
+          "label": "Invitations",
+          "sub": "Access by link until SSO is in place."
+        },
         "users": {
           "label": "All users",
           "sub": "Search, set role, open quotas."
@@ -1834,6 +1838,50 @@
         "colState": "State",
         "colName": "Name"
       }
+    },
+    "invites": {
+      "createButton": "+ Invite user",
+      "summary": "{n, plural, one {# invitation} other {# invitations}}, {offen} of them open",
+      "empty": "No invitations yet",
+      "disabled": "Invitations are switched off.",
+      "colEmail": "Email",
+      "colRole": "Role",
+      "colCreated": "Created",
+      "colExpires": "Valid until",
+      "colStatus": "Status",
+      "colActions": "Action",
+      "statusOpen": "Open",
+      "statusUsed": "Redeemed",
+      "statusExpired": "Expired",
+      "copyLink": "Copy link",
+      "copied": "Copied!",
+      "withdraw": "Withdraw",
+      "usedOn": "on {date}",
+      "loadError": "Invitations could not be loaded",
+      "withdrawError": "Withdrawing failed",
+      "roleStaff": "Staff",
+      "roleUser": "User"
+    },
+    "createInvite": {
+      "title": "Invite user",
+      "hint": "The invited person sets their own password. The account is active right after that.",
+      "fieldEmail": "Email",
+      "uidHint": "Username is derived from it: {uid}",
+      "fieldRole": "Role",
+      "roleStaff": "Staff",
+      "roleUser": "User",
+      "fieldDays": "Valid",
+      "days": "{n} days",
+      "submit": "Create invitation",
+      "cancel": "Cancel",
+      "successTitle": "Invitation created",
+      "successFor": "for {email}",
+      "linkLabel": "Invitation link",
+      "copy": "Copy",
+      "copied": "Copied!",
+      "warning": "The link works once and expires on {date}. Send it to this one person only.",
+      "close": "Close",
+      "errorGeneric": "The invitation could not be created"
     }
   },
   "permissions": {
@@ -2759,5 +2807,32 @@
         "transcript_translate": "Transcript translation"
       }
     }
+  },
+  "invite": {
+    "welcome": "Welcome to KIS",
+    "title": "Set up your account",
+    "email": "Email",
+    "uidHint": "Your username will be {uid}",
+    "password": "Password",
+    "passwordHint": "At least {min} characters",
+    "passwordRepeat": "Repeat password",
+    "givenName": "First name",
+    "surname": "Last name",
+    "optional": "(optional)",
+    "nameHint": "Without a name the start page greets you with your username.",
+    "submit": "Set up account",
+    "submitting": "…",
+    "showPassword": "Show password",
+    "hidePassword": "Hide password",
+    "errorTooShort": "The password needs at least {min} characters",
+    "errorMismatch": "The two passwords are not the same",
+    "errorGeneric": "The account could not be created",
+    "invalidTitle": "Invitation no longer valid",
+    "invalidText": "This link has already been used or has expired.",
+    "invalidHint": "Please contact the person who invited you. They can send you a new link.",
+    "toLogin": "To the login page",
+    "loadErrorTitle": "The page could not be loaded",
+    "loadErrorText": "The invitation could not be fetched just now. Please reload the page.",
+    "retry": "Reload"
   }
 }

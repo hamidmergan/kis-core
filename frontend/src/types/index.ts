@@ -9,6 +9,8 @@ export interface UserPermissions {
   tools: string[]; // tool keys
   /** Alle Rechte-Schluessel. Die Seitenleiste entscheidet damit je Seite. */
   keys: string[];
+  /** Kein vergebbares Recht, sondern das Recht plus der Serverschalter. */
+  allow_ldap_user_create?: boolean;
 }
 
 export interface AuthStatus {

@@ -67,6 +67,7 @@ export const EMPTY_PERMS: UserPermissions = {
   allow_workspace_create: false,
   tools: [],
   keys: [],
+  allow_ldap_user_create: false,
 };
 
 /** Ob die Rechte einen der genannten Schluessel enthalten. */

@@ -90,6 +90,10 @@ const nextConfig: NextConfig = {
         destination: `${backendUrl}/admin/:path*`,
       },
       {
+        source: "/api/invites/:path*",
+        destination: `${backendUrl}/invites/:path*`,
+      },
+      {
         source: "/api/me/:path*",
         destination: `${backendUrl}/me/:path*`,
       },
