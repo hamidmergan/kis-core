@@ -5,12 +5,13 @@ import { CaretLeft, CaretRight } from "@phosphor-icons/react";
 import { useTranslations } from "next-intl";
 import IconButton from "@/components/ui/IconButton";
 import type { ScreencastStep } from "@/types";
-import { istErreichbar, STEP_KEYS, stepToIndex } from "./steps";
+import { istErreichbar, nieBetretbar, STEP_KEYS, stepToIndex } from "./steps";
 
 interface ScreencastStepperProps {
   step: ScreencastStep;
   maxReachedIdx: number;
   skipTranslation: boolean;
+  hatErgebnis?: boolean;
   onStepClick: (index: number) => void;
 }
 
@@ -18,6 +19,7 @@ export default function ScreencastStepper({
   step,
   maxReachedIdx,
   skipTranslation,
+  hatErgebnis = false,
   onStepClick,
 }: ScreencastStepperProps) {
   const t = useTranslations("stepper");
@@ -138,10 +140,11 @@ export default function ScreencastStepper({
         <ol className="flex items-center gap-1 sm:gap-2 min-w-0 w-max sm:w-full">
           {STEP_KEYS.map((stepKey, i) => {
             const label = t(`steps.${stepKey}`);
-            const isSkipped = skipTranslation && (i === 1 || i === 2);
+            const isSkipped = skipTranslation && i === 1;
             const isDone = !isSkipped && i < currentIdx;
             const isActive = i === currentIdx;
-            const isClickable = !isActive && istErreichbar(i, maxReachedIdx, skipTranslation, step);
+            const isClickable = !isActive && istErreichbar(i, maxReachedIdx, skipTranslation, step, hatErgebnis);
+            const istTot = !isActive && nieBetretbar(i, skipTranslation);
             // Nur betretbare Schritte sind ein Knopf, tote sind ein span und damit auch fuer Tastatur und Vorleseprogramm still.
             const Huelle = isClickable ? "button" : "span";
             return (
@@ -151,6 +154,7 @@ export default function ScreencastStepper({
                   className={`
                     inline-flex items-center gap-1 sm:gap-1.5 rounded-sm px-1 py-0.5 transition-colors select-none
                     ${isClickable ? "group cursor-pointer" : "cursor-default"}
+                    ${istTot ? "opacity-50" : ""}
                   `}
                 >
                   <span

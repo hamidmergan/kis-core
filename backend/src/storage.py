@@ -533,9 +533,16 @@ def _slide_number(key_or_name: str) -> int:
     return int(digits) if digits.isdigit() else -1
 
 
-def save_audio_cache(user_id: int, job_uuid: str, audio_files: list[bytes]) -> None:
-    """Save per-slide MP3 files under the job's audio/ folder. S3 writes parallel."""
+def save_audio_cache(user_id: int, job_uuid: str, audio_files: list[bytes | None]) -> None:
+    """Save per-slide MP3 files under the job's audio/ folder. S3 writes parallel.
+
+    ``None`` an einer Stelle heisst: diesen Platz nicht anfassen. Folien, die
+    nicht im Screencast sind, behalten so ihren alten Ton.
+    """
     base = f"{job_prefix(user_id, job_uuid)}/audio"
+    zu_schreiben = [(i, d) for i, d in enumerate(audio_files) if d is not None]
+    if not zu_schreiben:
+        return
     if USE_S3:
         from concurrent.futures import ThreadPoolExecutor
 
@@ -543,14 +550,12 @@ def save_audio_cache(user_id: int, job_uuid: str, audio_files: list[bytes]) -> N
             i, data = i_data
             _s3().put_object(Bucket=_S3_BUCKET, Key=f"{base}/slide_{i:03d}.mp3", Body=data)
 
-        if not audio_files:
-            return
-        with ThreadPoolExecutor(max_workers=min(len(audio_files), 10)) as pool:
-            list(pool.map(_put, enumerate(audio_files)))
+        with ThreadPoolExecutor(max_workers=min(len(zu_schreiben), 10)) as pool:
+            list(pool.map(_put, zu_schreiben))
         return
     audio_dir = _local_path(base)
     audio_dir.mkdir(parents=True, exist_ok=True)
-    for i, data in enumerate(audio_files):
+    for i, data in zu_schreiben:
         (audio_dir / f"slide_{i:03d}.mp3").write_bytes(data)
 
 
@@ -567,6 +572,11 @@ def get_audio_slide(user_id: int, job_uuid: str, slide_index: int) -> bytes | No
     return path.read_bytes() if path.exists() else None
 
 
+def hat_audio_slide(user_id: int, job_uuid: str, slide_index: int) -> bool:
+    """Leere Dateien gelten als kein Ton, sie stehen fuer Folien ohne Skript."""
+    return bool(get_audio_slide(user_id, job_uuid, slide_index))
+
+
 def get_audio_slide_count(user_id: int, job_uuid: str) -> int:
     prefix = f"{job_prefix(user_id, job_uuid)}/audio/"
     if USE_S3:
@@ -576,6 +586,26 @@ def get_audio_slide_count(user_id: int, job_uuid: str) -> int:
     if not audio_dir.exists():
         return 0
     return len(list(audio_dir.glob("slide_*.mp3")))
+
+
+def audio_folien_mit_ton(user_id: int, job_uuid: str) -> set[int]:
+    """Welche Folien Ton haben, in einer Abfrage statt einer je Folie."""
+    prefix = f"{job_prefix(user_id, job_uuid)}/audio/"
+    dabei: set[int] = set()
+    if USE_S3:
+        paginator = _s3().get_paginator("list_objects_v2")
+        for page in paginator.paginate(Bucket=_S3_BUCKET, Prefix=prefix):
+            for obj in page.get("Contents", []):
+                if obj["Size"] > 0:
+                    dabei.add(_slide_number(obj["Key"]))
+        return dabei - {-1}
+    audio_dir = _local_path(prefix)
+    if not audio_dir.exists():
+        return dabei
+    for pfad in audio_dir.glob("slide_*.mp3"):
+        if pfad.stat().st_size > 0:
+            dabei.add(_slide_number(pfad.name))
+    return dabei - {-1}
 
 
 def get_all_audio_slides(user_id: int, job_uuid: str) -> list[tuple[str, bytes]]:
@@ -679,6 +709,11 @@ def delete_job_folder(user_id: int, job_uuid: str) -> int:
 def clear_render_cache(user_id: int, job_uuid: str) -> int:
     """Delete render-cache (TTS audio + alignments). Called before re-render."""
     return delete_prefix(f"{job_prefix(user_id, job_uuid)}/render_cache/")
+
+
+def clear_audio_cache(user_id: int, job_uuid: str) -> int:
+    """Loescht den fertigen Ton. Noetig, sobald Folien oder Skripte ersetzt werden."""
+    return delete_prefix(f"{job_prefix(user_id, job_uuid)}/audio/")
 
 
 def delete_aia_source_files(file_path: str) -> int:

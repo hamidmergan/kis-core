@@ -20,7 +20,7 @@ from src.services.screencast import (
     extract_text_per_slide,
     maybe_start_cleanup_task,
 )
-from src.storage import save_job_file, save_job_file_from_path, save_queue_file_from_path
+from src.storage import get_job_file, save_job_file, save_job_file_from_path, save_queue_file_from_path
 from src.utils.file_validation import validate_or_raise
 from src.services.tool_limits import (
     max_open_screencast_jobs,
@@ -29,7 +29,7 @@ from src.services.tool_limits import (
 )
 from src.utils.upload_stream import stream_upload_to_path
 
-from src.routes.screencast._shared import SCREENCAST_TOOLS, validate_upload
+from src.routes.screencast._shared import SCREENCAST_TOOLS, validate_upload, vertonung_verwerfen
 
 router = APIRouter(tags=["screencast: translate"])
 
@@ -158,8 +158,24 @@ async def screencast_upload_corrected(
             )
 
         if translate_job_uuid:
+            # Die Foliennummer ist der Schluessel zwischen Bild, Skript und Ton.
+            try:
+                alte_anzahl = len(json.loads(get_job_file(job["user_id"], translate_job_uuid, "scripts.txt")))
+            except Exception:
+                alte_anzahl = 0
+            if alte_anzahl and len(slide_texts) != alte_anzahl:
+                raise HTTPException(
+                    status_code=400,
+                    detail=t("screencast.folienzahlPasstNicht", locale,
+                             neu=len(slide_texts), alt=alte_anzahl),
+                )
             # Existing job: save as corrected.pptx (user re-uploaded after translation)
             save_job_file_from_path(job["user_id"], translate_job_uuid, "corrected.pptx", str(pptx_path))
+            # Ohne das behielte scripts.txt die Texte von vor der Korrektur.
+            save_job_file(job["user_id"], translate_job_uuid, "scripts.txt",
+                          json.dumps(slide_texts, ensure_ascii=False, indent=2).encode("utf-8"))
+            # Neue Folien, alter Ton waere falsch. Erst jetzt, die Folienzahl-Pruefung ist bestanden.
+            vertonung_verwerfen(job["user_id"], translate_job_uuid)
             logger.info("Saved corrected.pptx to job folder {}", translate_job_uuid)
         else:
             # No job yet (EN path): create a new translate job and save PPTX as translated.pptx

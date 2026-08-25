@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { CaretLeft, CaretRight } from "@phosphor-icons/react";
+import { CaretLeft, CaretRight, Prohibit } from "@phosphor-icons/react";
 import { useTranslations } from "next-intl";
 import IconButton from "@/components/ui/IconButton";
 import type { SlideData } from "@/types";
@@ -13,9 +13,11 @@ interface Props {
   speed: number;
   /** Der Lauf ist durch: kein Fortschritt mehr, sondern alle Folien zum Nachhoeren. */
   rueckblick?: boolean;
+  /** Diese Folien sind nicht im Screencast, sie bekommen nie Ton. */
+  nichtDabei?: number[];
 }
 
-export default function RenderVorschau({ slides, fertig, jobUuid, speed, rueckblick = false }: Props) {
+export default function RenderVorschau({ slides, fertig, jobUuid, speed, rueckblick = false, nichtDabei = [] }: Props) {
   const t = useTranslations("tools.screencast.vorschau");
   const audioRef = useRef<HTMLAudioElement>(null);
   const streifenRef = useRef<HTMLDivElement>(null);
@@ -23,10 +25,11 @@ export default function RenderVorschau({ slides, fertig, jobUuid, speed, rueckbl
   const [kannLinks, setKannLinks] = useState(false);
   const [kannRechts, setKannRechts] = useState(false);
   const fertigeMenge = new Set(fertig);
+  const nichtDabeiMenge = new Set(nichtDabei);
   // Ohne Klick zeigt die Buehne die hoechste fertige Folie und wandert mit. Ein Klick
   // haelt sie fest, sonst wird man beim Zuhoeren weggerissen.
   const hoechste = fertig.length ? fertig[fertig.length - 1] : null;
-  const zeigt = gewaehlt ?? (rueckblick ? 0 : hoechste);
+  const zeigt = gewaehlt ?? (rueckblick ? 0 : hoechste) ?? 0;
 
   // Die MP3 ist immer in Tempo 1,0 vertont, das Tempo kommt erst per atempo ins Video.
   useEffect(() => {
@@ -71,15 +74,17 @@ export default function RenderVorschau({ slides, fertig, jobUuid, speed, rueckbl
     el.scrollBy({ left: richtung * (breite + 8), behavior: "smooth" });
   }, []);
 
-  if (zeigt === null || !slides.length) return null;
+  if (!slides.length) return null;
   const folie = slides[zeigt];
-  const hatTon = !!folie?.script?.trim();
+  const hatSkript = !!folie?.script?.trim();
+  const istRaus = nichtDabeiMenge.has(zeigt);
+  const istFertig = fertigeMenge.has(zeigt);
 
   return (
     <section className="mt-8" aria-label={t("ueberschrift")}>
       {!rueckblick && (
         <p className="text-sm text-foreground-soft mb-3">
-          {t("fortschritt", { fertig: fertig.length, total: slides.length })}
+          {t("fortschritt", { fertig: fertig.length, total: slides.length - nichtDabeiMenge.size })}
         </p>
       )}
 
@@ -100,7 +105,9 @@ export default function RenderVorschau({ slides, fertig, jobUuid, speed, rueckbl
           <div className="bg-surface border border-border-soft rounded-lg p-3 text-sm text-foreground-soft max-h-40 overflow-y-auto">
             {folie?.script || t("ohneTon")}
           </div>
-          {hatTon ? (
+          {istRaus ? (
+            <p className="text-xs text-muted mt-3">{t("nichtDabei", { n: zeigt + 1 })}</p>
+          ) : hatSkript && istFertig ? (
             <audio
               ref={audioRef}
               key={`${jobUuid}-${zeigt}`}
@@ -110,6 +117,8 @@ export default function RenderVorschau({ slides, fertig, jobUuid, speed, rueckbl
               className="w-full mt-3"
               src={`/api/screencast/${jobUuid}/vorschau/${zeigt}`}
             />
+          ) : hatSkript ? (
+            <p className="text-xs text-muted mt-3">{t("wirdVertont")}</p>
           ) : (
             <p className="text-xs text-muted mt-3">{t("ohneTon")}</p>
           )}
@@ -129,7 +138,13 @@ export default function RenderVorschau({ slides, fertig, jobUuid, speed, rueckbl
         </span>
         <div ref={streifenRef} className="min-w-0 flex-1 flex gap-2 overflow-x-auto scrollbar-hide">
         {slides.map((s, i) => {
-          const bereit = fertigeMenge.has(i);
+          const raus = nichtDabeiMenge.has(i);
+          const bereit = fertigeMenge.has(i) && !raus;
+          const beschriftung = raus
+            ? t("nichtDabei", { n: i + 1 })
+            : bereit
+              ? t("abspielen", { n: i + 1 })
+              : t("wartet", { n: i + 1 });
           return (
             <button
               key={i}
@@ -137,16 +152,26 @@ export default function RenderVorschau({ slides, fertig, jobUuid, speed, rueckbl
               data-aktiv={i === zeigt}
               disabled={!bereit}
               onClick={() => setGewaehlt(i)}
-              aria-label={bereit ? t("abspielen", { n: i + 1 }) : t("wartet", { n: i + 1 })}
+              aria-label={beschriftung}
+              title={raus ? beschriftung : undefined}
               className={`relative shrink-0 w-[74px] rounded-md overflow-hidden border select-none ${
                 i === zeigt ? "border-kb outline outline-2 outline-kb" : "border-border-soft"
-              } ${bereit ? "" : "opacity-40 grayscale cursor-default"}`}
+              } ${bereit ? "" : raus ? "cursor-default border-dashed" : "opacity-40 grayscale cursor-default"}`}
             >
               {s.imageBase64 ? (
                 // eslint-disable-next-line @next/next/no-img-element
-                <img src={`data:image/png;base64,${s.imageBase64}`} alt="" className="w-full block" />
+                <img
+                  src={`data:image/png;base64,${s.imageBase64}`}
+                  alt=""
+                  className={`w-full block ${raus ? "opacity-20 grayscale" : ""}`}
+                />
               ) : (
-                <span className="block aspect-video bg-surface" />
+                <span className={`block aspect-video bg-surface ${raus ? "opacity-20 grayscale" : ""}`} />
+              )}
+              {raus && (
+                <span className="absolute inset-0 flex items-center justify-center" aria-hidden="true">
+                  <Prohibit size={26} weight="bold" className="text-muted-soft opacity-60" />
+                </span>
               )}
               <span className="absolute left-1 top-1 text-3xs font-semibold px-1 rounded bg-background/90 text-muted">
                 {i + 1}

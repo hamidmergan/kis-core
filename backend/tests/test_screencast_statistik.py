@@ -158,7 +158,7 @@ def test_zaehler_meldet_null_wenn_nichts_im_zwischenspeicher_liegt(lokal, tmp_pa
 
     _vertone(tmp_path, ["Erste Folie.", "Zweite Folie."], zaehler)
 
-    assert zaehler == {"aus_zwischenspeicher": 0}
+    assert zaehler == {"aus_zwischenspeicher": 0, "aus_altem_ton": 0}
 
 
 def test_zaehler_meldet_die_folien_aus_dem_zwischenspeicher(lokal, tmp_path):
@@ -168,7 +168,7 @@ def test_zaehler_meldet_die_folien_aus_dem_zwischenspeicher(lokal, tmp_path):
 
     _vertone(tmp_path, ["Erste Folie.", "Zweite Folie."], zaehler)
 
-    assert zaehler == {"aus_zwischenspeicher": 1}
+    assert zaehler == {"aus_zwischenspeicher": 1, "aus_altem_ton": 0}
 
 
 def test_route_kennung_nennt_anbieter_und_modell_der_route(monkeypatch):

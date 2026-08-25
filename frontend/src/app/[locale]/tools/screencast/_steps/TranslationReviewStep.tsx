@@ -10,6 +10,8 @@ interface TranslationReviewStepProps {
   slides: SlideData[];
   loading: boolean;
   correctedFileName: string | null;
+  uploadFehler: string;
+  skipTranslation: boolean;
   onLightboxOpen: (index: number) => void;
   onDownloadTranslatedPptx: () => Promise<boolean>;
   onUploadCorrectedPptx: (f: File) => void;
@@ -21,6 +23,8 @@ export default function TranslationReviewStep({
   slides,
   loading,
   correctedFileName,
+  uploadFehler,
+  skipTranslation,
   onLightboxOpen,
   onDownloadTranslatedPptx,
   onUploadCorrectedPptx,
@@ -29,10 +33,16 @@ export default function TranslationReviewStep({
   const t = useTranslations("tools.screencast");
   const [downloadFailed, setDownloadFailed] = useState(false);
   const unchangedCount = slides.filter((s) => s.unchanged).length;
+  // Derselbe Endpunkt meldet auch leere Datei und zu viele Folien, die Ueberschrift passt nur zur echten Folienzahl-Meldung.
+  const istFolienzahlFehler = /folien(nummer|zahl)|slide (number|count)/i.test(uploadFehler);
   return (
     <section className="animate-[fadeIn_0.3s_ease-out]">
-      <h2 className="text-lg font-bold mb-2">{t("translationReview.heading")}</h2>
-      <p className="text-sm text-muted mb-6">{t("translationReview.intro")}</p>
+      <h2 className="text-lg font-bold mb-2">
+        {t(skipTranslation ? "translationReview.headingOhneUebersetzung" : "translationReview.heading")}
+      </h2>
+      <p className="text-sm text-muted mb-6">
+        {t(skipTranslation ? "translationReview.introOhneUebersetzung" : "translationReview.intro")}
+      </p>
 
       {unchangedCount > 0 && (
         <div className="mb-4 rounded-md border border-warn-border bg-warn-bg px-3 py-2">
@@ -106,6 +116,7 @@ export default function TranslationReviewStep({
               accept=".pptx"
               className="hidden"
               disabled={loading}
+              onClick={(e) => { e.currentTarget.value = ""; }}
               onChange={(e) => {
                 const f = e.target.files?.[0];
                 if (f) onUploadCorrectedPptx(f);
@@ -123,9 +134,18 @@ export default function TranslationReviewStep({
         </div>
       </div>
 
+      {uploadFehler && (
+        <div className="mb-4 rounded-lg border border-error-border bg-error-bg px-4 py-3" role="alert">
+          {istFolienzahlFehler && (
+            <p className="text-sm font-medium text-error-strong">{t("translationReview.folienzahlTitel")}</p>
+          )}
+          <p className="mt-0.5 text-sm text-error">{uploadFehler}</p>
+        </div>
+      )}
+
       <StepFooter
         onBack={onBack}
-        nextLabel={t("translationReview.acceptAndNext")}
+        nextLabel={t(skipTranslation ? "translationReview.weiterOhneUebersetzung" : "translationReview.acceptAndNext")}
         onNext={onAcceptAndNext}
         nextDisabled={loading}
       />

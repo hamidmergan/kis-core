@@ -26,10 +26,12 @@ import Lightbox from "./_components/Lightbox";
 import RenderVorschau from "./_components/RenderVorschau";
 import RegenChatModal, { type RegenApplyMode } from "./_components/RegenChatModal";
 import ExitConfirmModal from "./_components/ExitConfirmModal";
-import { parseScriptJsonFile, checkHasActiveJob, checkJobValidity, checkJobFolderExists } from "./_utils";
+import { parseScriptJsonFile, checkHasActiveJob, checkJobValidity, checkJobFolderExists, computeVoiceLabel, laufWaereUmsonst, stimmwechselOhneWirkung, ausgeschlosseneFolien, type LaufStand } from "./_utils";
 import { flowReducer, INITIAL_FLOW_STATE } from "./_reducer";
 import { useScreencastRenderFlow } from "./_hooks/useScreencastRenderFlow";
 import { useScreencastTranslateFlow } from "./_hooks/useScreencastTranslateFlow";
+import { useSchritt6Stand } from "./_hooks/useSchritt6Stand";
+import { useFolienAuswahl } from "./_hooks/useFolienAuswahl";
 import { notifyJobsChanged } from "@/lib/jobs-events";
 import { SCREENCAST_MAX_CHARS, SCREENCAST_TARGET_LANGUAGES } from "@/lib/constants";
 import { wordCount } from "@/lib/text";
@@ -54,12 +56,14 @@ function ScreencastPageInner() {
 
   const [renderProgressLabel, setRenderProgressLabel] = useState("");
   const [fertigeFolien, setFertigeFolien] = useState<number[]>([]);
+  const [nichtDabei, setNichtDabei] = useState<number[]>([]);
   // Beide Knöpfe oben löschen den Job samt Dateien. Vorher passierte das ohne
   // Rückfrage bei einem einzigen Klick, und beide taten exakt dasselbe.
   const [pendingExit, setPendingExit] = useState<"restart" | "cancel" | "render" | null>(null);
   const failedRender = useFailedRender();
   const { jobUuid: failedRenderJobUuid } = failedRender;
   const [ttsSettingsError, setTtsSettingsError] = useState("");
+  const [uploadFehler, setUploadFehler] = useState<string>("");
 
   // ── Job-Flow-State via Reducer ──
   const [flow, dispatch] = useReducer(flowReducer, INITIAL_FLOW_STATE);
@@ -87,7 +91,10 @@ function ScreencastPageInner() {
   const [translationProviders, setTranslationProviders] = useState<{ id: number; name: string }[]>([]);
   const [translationProviderId, setTranslationProviderId] = useState<number | null>(null);
   const renderResult = useRenderResult();
-  const { videoUrl, audioId, hasSubtitles, clear: clearRenderResult } = renderResult;
+  const { videoUrl, audioId, hasSubtitles, videoFolien, laufStempel, clear: clearRenderResult } = renderResult;
+
+  // Zurueck auf Rendern kommt man nur, wenn das Video schon fertig ist.
+  const rueckblick = step === "rendering" && videoUrl !== null;
 
   const autosaveScripts = useScriptAutosave({ jobUuid: translateJobUuid });
   const {
@@ -125,6 +132,84 @@ function ScreencastPageInner() {
     if (defaultVoiceId && !voiceId) setVoiceId(defaultVoiceId);
   }, [defaultVoiceId, voiceId]);
   const { languages, targetLang, setTargetLang } = useLanguageConfig(SCREENCAST_TARGET_LANGUAGES);
+  const { geladen: standGeladen, einstellungen: gespeicherteEinstellungen, stand, hatTon } =
+    useSchritt6Stand(translateJobUuid, step === "tts-settings");
+  const auswahl = useFolienAuswahl({
+    slides,
+    stand,
+    hatTon,
+    gespeichert: gespeicherteEinstellungen
+      ? { video_folien: gespeicherteEinstellungen.video_folien, neu_vertonen: gespeicherteEinstellungen.neu_vertonen }
+      : null,
+    bereit: standGeladen,
+  });
+  // Nach einem Neuladen kommt die Auswahl aus dem Ergebnis statt aus dem Fortschritt.
+  const ausgeschlossen = ausgeschlosseneFolien(slides.length, nichtDabei, videoFolien, auswahl.imScreencast);
+  const zeigtNeu = hatTon.some(Boolean);
+  const stimmeGewechselt = !!stand && (stand.voice_id !== voiceId || stand.provider_id !== providerId || stand.target_lang !== targetLang);
+  const laufStand: LaufStand = {
+    stand,
+    hatVideo: videoUrl !== null,
+    imScreencast: auswahl.imScreencast,
+    neuVertonen: auswahl.neuVertonen,
+    ohneTon: [...auswahl.ohneTon],
+    geaendert: auswahl.geaendert,
+    providerId,
+    voiceId,
+    targetLang,
+    speed,
+    slidePause,
+    subtitles,
+  };
+  // Ein Lauf ohne jede Aenderung erzeugt genau dasselbe Video, das kostet nur Zeit und Kontingent.
+  const laufUmsonst = laufWaereUmsonst(laufStand);
+  // Eine neue Stimme ohne angehakte Folie bliebe unbemerkt beim alten Video.
+  const stimmwechselWirkungslos = stimmwechselOhneWirkung(laufStand);
+  // Schritt 6 wartet auf den gespeicherten Stand, sonst ueberschreibt er eine laufende Eingabe.
+  const schritt6Bereit = !translateJobUuid || standGeladen;
+
+  // Wer morgen wiederkommt, findet seinen Stand vor statt der Voreinstellung.
+  const eingestelltRef = useRef(false);
+  useEffect(() => {
+    const e = gespeicherteEinstellungen;
+    if (!e || eingestelltRef.current) return;
+    eingestelltRef.current = true;
+    if (e.provider_id) setProviderId(e.provider_id);
+    if (e.voice_id) setVoiceId(e.voice_id);
+    if (e.target_lang) setTargetLang(e.target_lang);
+    setSpeed(e.speed);
+    setSlidePause(e.slide_pause);
+    setDpi(e.dpi);
+    setSubtitles(e.subtitles);
+  }, [gespeicherteEinstellungen, setTargetLang]);
+
+  // Gespeichert wird beim Aendern, nicht erst beim Rendern.
+  useEffect(() => {
+    if (!translateJobUuid || !standGeladen || step !== "tts-settings") return;
+    const zeit = setTimeout(() => {
+      fetch(`/api/screencast/${translateJobUuid}/einstellungen`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          provider_id: providerId,
+          voice_id: voiceId,
+          voice_label: computeVoiceLabel(providerId, voiceId, providers),
+          target_lang: targetLang,
+          speed,
+          slide_pause: slidePause,
+          dpi,
+          subtitles,
+          video_folien: auswahl.imScreencast,
+          neu_vertonen: auswahl.neuVertonen,
+        }),
+        credentials: "include",
+      }).catch(() => {});
+    }, 600);
+    return () => clearTimeout(zeit);
+  }, [
+    translateJobUuid, standGeladen, step, providerId, voiceId, providers, targetLang,
+    speed, slidePause, dpi, subtitles, auswahl.imScreencast, auswahl.neuVertonen,
+  ]);
   const [skipTranslation, setSkipTranslation] = useState(false);
   const [hasActiveJob, setHasActiveJob] = useActiveJobCheck("screencast");
 
@@ -213,6 +298,9 @@ function ScreencastPageInner() {
     setSpeed(0.9);  // gleicher Startwert wie beim frischen Aufruf der Seite
     setSlidePause(1.0);
     setGlossaryIds(["", "", ""]);
+    setFertigeFolien([]);
+    setNichtDabei([]);
+    setUploadFehler("");
     clearRenderResult();
     resetScriptEditing();
     failedRender.clear();
@@ -229,15 +317,15 @@ function ScreencastPageInner() {
   }, []);
 
   const handleStepClick = useCallback((index: number) => {
-    if (!istErreichbar(index, maxReachedIdx, skipTranslation, step)) return;
+    if (!istErreichbar(index, maxReachedIdx, skipTranslation, step, videoUrl !== null)) return;
     gotoIndex(index);
-  }, [gotoIndex, maxReachedIdx, skipTranslation, step]);
+  }, [gotoIndex, maxReachedIdx, skipTranslation, step, videoUrl]);
 
   /** Der Zuruecktritt einer Seite, oder null wenn davor nichts Betretbares liegt. */
   const zurueckVon = useCallback((index: number): (() => void) | null => {
-    const ziel = vorherErreichbar(index, maxReachedIdx, skipTranslation, step);
+    const ziel = vorherErreichbar(index, maxReachedIdx, skipTranslation, step, videoUrl !== null);
     return ziel === null ? null : () => gotoIndex(ziel);
-  }, [gotoIndex, maxReachedIdx, skipTranslation, step]);
+  }, [gotoIndex, maxReachedIdx, skipTranslation, step, videoUrl]);
 
   const goError = useCallback((msg: string) => {
     dispatch({ type: "GO_ERROR", message: msg });
@@ -271,6 +359,8 @@ function ScreencastPageInner() {
     voiceId,
     providerId,
     providers,
+    videoFolien: auswahl.imScreencast,
+    neuVertonen: auswahl.neuVertonen,
     failedRender,
     renderResult,
     checkBeforeSubmit,
@@ -308,6 +398,7 @@ function ScreencastPageInner() {
       },
     },
     setFertigeFolien,
+    setNichtDabei,
     abortControllerRef,
     currentJobUuidRef,
   });
@@ -347,6 +438,7 @@ function ScreencastPageInner() {
     checkJobStillValid,
     checkJobFolder,
     goError,
+    setUploadFehler,
     newSignal,
     messages: {
       unknownError: tCommon("unknownError"),
@@ -393,6 +485,7 @@ function ScreencastPageInner() {
     }
     sessionStorage.removeItem(RENDER_SESSION_KEY);
     setFertigeFolien([]);
+    setNichtDabei([]);
     setRenderProgressLabel("");
     dispatch({ type: "SET_STEP", step: "tts-settings" });
     dispatch({ type: "SET_LOADING", loading: false });
@@ -439,17 +532,23 @@ function ScreencastPageInner() {
     dispatch({ type: "ADVANCE_REACHED", idx: stepToIndex(step) });
   }, [step]);
 
-  // Zurueck auf Rendern kommt man nur, wenn das Video schon fertig ist.
-  const rueckblick = step === "rendering" && videoUrl !== null;
-
   const showStepIndicator = step !== "upload" && step !== "error";
 
+  // Nur die gewaehlten Folien zaehlen, sonst bleibt der Startknopf gesperrt, obwohl abgewaehlt wurde.
+  const gewaehlteFolien = new Set(auswahl.imScreencast);
   const totalWords = slides.reduce(
-    (sum, s) => sum + wordCount(s.script),
+    (sum, s, i) => (gewaehlteFolien.has(i) ? sum + wordCount(s.script) : sum),
     0,
   );
-  const totalChars = slides.reduce((sum, s) => sum + (s.script?.length ?? 0), 0);
+  const totalChars = slides.reduce(
+    (sum, s, i) => (gewaehlteFolien.has(i) ? sum + (s.script?.length ?? 0) : sum),
+    0,
+  );
   const scriptOverLimit = totalChars > SCREENCAST_MAX_CHARS;
+  // Geaendert, aber noch nicht angehakt: der Ton bleibt sonst der alte.
+  const geaenderteOhneHaken = auswahl.geaendert.filter(
+    (i) => auswahl.imScreencast.includes(i) && !auswahl.neuVertonen.includes(i),
+  ).length;
 
 
   return (
@@ -471,6 +570,7 @@ function ScreencastPageInner() {
               step={step}
               maxReachedIdx={maxReachedIdx}
               skipTranslation={skipTranslation}
+              hatErgebnis={videoUrl !== null}
               onStepClick={handleStepClick}
             />
           </>
@@ -575,6 +675,8 @@ function ScreencastPageInner() {
             slides={slides}
             loading={loading}
             correctedFileName={correctedFileName}
+            uploadFehler={uploadFehler}
+            skipTranslation={skipTranslation}
             onLightboxOpen={(idx) => dispatch({ type: "SET_LIGHTBOX", index: idx })}
             onDownloadTranslatedPptx={handleDownloadTranslatedPptx}
             onUploadCorrectedPptx={handleUploadCorrectedPptx}
@@ -625,8 +727,16 @@ function ScreencastPageInner() {
           />
         )}
 
+        {/* ── Step: TTS Settings, wartet auf den gespeicherten Stand ── */}
+        {!resumeBusy && step === "tts-settings" && !schritt6Bereit && (
+          <section className="animate-[fadeIn_0.2s_ease-out] text-center py-20" role="status" aria-live="polite">
+            <Spinner size="lg" className="justify-center mb-4" />
+            <p className="text-sm text-foreground-soft">{t("resuming")}</p>
+          </section>
+        )}
+
         {/* ── Step: TTS Settings ── */}
-        {!resumeBusy && step === "tts-settings" && (
+        {!resumeBusy && step === "tts-settings" && schritt6Bereit && (
           <TtsSettingsStep
             onBack={zurueckVon(5)}
             providersLoaded={providersLoaded}
@@ -646,6 +756,18 @@ function ScreencastPageInner() {
             scriptOverLimit={scriptOverLimit}
             maxChars={SCREENCAST_MAX_CHARS}
             ttsSettingsError={ttsSettingsError}
+            stand={stand}
+            imScreencast={auswahl.imScreencast}
+            neuVertonen={auswahl.neuVertonen}
+            ohneTon={auswahl.ohneTon}
+            geaenderteOhneHaken={geaenderteOhneHaken}
+            zeigtNeu={zeigtNeu}
+            stimmeGewechselt={stimmeGewechselt}
+            onUmschaltenScreencast={auswahl.umschaltenScreencast}
+            onUmschaltenNeu={auswahl.umschaltenNeu}
+            onAlleFolien={auswahl.setzeAlle}
+            onKeineFolien={auswahl.setzeKeine}
+            onGeaenderteFolien={auswahl.setzeGeaenderte}
             onProviderIdChange={setProviderId}
             onVoiceIdChange={setVoiceId}
             onSpeedChange={setSpeed}
@@ -654,6 +776,9 @@ function ScreencastPageInner() {
             onSubtitlesChange={setSubtitles}
             onBackToScripts={handleBackToScripts}
             onStartRender={handleStartRender}
+            laufUmsonst={laufUmsonst}
+            stimmwechselWirkungslos={stimmwechselWirkungslos}
+            onZumVideo={() => dispatch({ type: "SET_STEP", step: "done" })}
           />
         )}
 
@@ -665,11 +790,12 @@ function ScreencastPageInner() {
             vorschau={
               <RenderVorschau
                 slides={slides}
-                // Nach dem Lauf sind alle Folien vertont, der Ton kommt dann aus audio/.
-                fertig={rueckblick ? slides.map((_, i) => i) : fertigeFolien}
+                // Ausgeschlossene Folien bleiben auch im Rueckblick aussen vor.
+                fertig={rueckblick ? slides.map((_, i) => i).filter((i) => !ausgeschlossen.includes(i)) : fertigeFolien}
                 jobUuid={translateJobUuid}
                 speed={speed}
                 rueckblick={rueckblick}
+                nichtDabei={ausgeschlossen}
               />
             }
             onCancel={() => setPendingExit("render")}
@@ -683,8 +809,10 @@ function ScreencastPageInner() {
             videoUrl={videoUrl}
             audioId={audioId}
             hasSubtitles={hasSubtitles}
+            laufStempel={laufStempel}
             onDownloadMp4={handleDownload}
             onReset={() => resetAll(false)}
+            onNeuVertonen={() => dispatch({ type: "SET_STEP", step: "tts-settings" })}
           />
         )}
 

@@ -26,6 +26,8 @@ def _queue_params_from_render(render_params: dict) -> dict:
         "voice_label": render_params.get("voice_label", ""),
         "is_admin": render_params.get("is_admin", False),
         "subtitles": bool(render_params.get("subtitles", False)),
+        "video_folien": render_params.get("video_folien"),
+        "neu_vertonen": render_params.get("neu_vertonen") or [],
     }
 
 

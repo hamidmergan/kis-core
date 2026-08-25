@@ -567,15 +567,19 @@
       },
       "translationReview": {
         "heading": "Review translation",
+        "headingOhneUebersetzung": "Check slides",
         "intro": "The presentation has been translated. You can download the translated PPTX, review it, and optionally upload a corrected version.",
+        "introOhneUebersetzung": "The slides were taken over. You can download the PPTX, check it and upload a corrected version. The number of slides must stay the same.",
         "downloadPptx": "PPTX",
         "uploadCorrected": "Upload corrected PPTX (optional)",
         "uploading": "Processing...",
         "uploaded": "{name} was uploaded",
         "acceptAndNext": "Accept translation and continue",
+        "weiterOhneUebersetzung": "Continue",
         "unchangedTitle": "{n, plural, one {# slide looks untranslated} other {# slides look untranslated}}",
         "unchangedBody": "The text on these slides did not change. That can be correct, for example for names or numbers. Please take a quick look.",
-        "unchangedBadge": "unchanged"
+        "unchangedBadge": "unchanged",
+        "folienzahlTitel": "Slide count does not match"
       },
       "generatingScripts": {
         "title": "Generating speech scripts...",
@@ -622,15 +626,42 @@
         "back": "Back",
         "startRender": "Create screencast",
         "subtitles": "Add subtitles",
-        "subtitlesHint": "The spoken text is recognised and added to the video as a subtitle track. Toggle it with CC in the player. Rendering takes a little longer."
+        "subtitlesHint": "The spoken text is recognised and added to the video as a subtitle track. Toggle it with CC in the player. Rendering takes a little longer.",
+        "nichtsGeaendert": "Nothing has changed since the last run. A new screencast would produce exactly the same video.",
+        "zumFertigenVideo": "Go to the finished video",
+        "stimmwechselOhneHaken": "The voice has changed, but no slide is ticked for re-voicing. Nothing would change. Tick the slides that should be spoken with the new voice."
+      },
+      "folienAuswahl": {
+        "titel": "Slides",
+        "aendern": "Change",
+        "zuklappen": "Collapse",
+        "zusammenfassung": "{dabei} of {total} slides in the screencast",
+        "zusammenfassungMitNeu": "{dabei} of {total} slides in the screencast · {neu, plural, one {# slide will be} other {# slides will be}} re-voiced",
+        "erstlaufHinweis": "After rendering you can re-voice single slides here without redoing everything.",
+        "stimmeGewechselt": "The voice has changed. Slides without a tick keep the old voice.",
+        "spalteScreencast": "in screencast",
+        "spalteNeu": "re-voice",
+        "alle": "All",
+        "keine": "None",
+        "geaenderte": "Changed",
+        "markeSkript": "script changed",
+        "markeFolie": "slide changed",
+        "markeKeinTon": "no audio yet",
+        "geaendertBehaeltAltenTon": "{n, plural, one {# slide was changed but keeps its old audio} other {# slides were changed but keep their old audio}}. Tick them to have them re-voiced.",
+        "ohneText": "Divider slide without text, no audio",
+        "hakenScreencast": "Slide {n} in the screencast",
+        "hakenNeu": "Re-voice slide {n}",
+        "keineFolie": "No slide is selected."
       },
       "vorschau": {
         "ueberschrift": "Ready to listen to",
         "folieVon": "Slide {n} of {total}",
         "fortschritt": "{fertig} of {total} slides voiced",
         "ohneTon": "This slide has no script.",
+        "wirdVertont": "This slide is being voiced right now.",
         "abspielen": "Listen to slide {n}",
         "wartet": "Slide {n} is still being voiced",
+        "nichtDabei": "Slide {n} is not in the screencast",
         "rueckblick": "Listen to every slide",
         "zumErgebnis": "To the finished video",
         "nachLinks": "Scroll slides left",
@@ -663,6 +694,7 @@
         "downloadAllZipLabel": "Download all (ZIP)",
         "newPresentationAria": "Upload new presentation",
         "newPresentation": "New presentation",
+        "neuVertonen": "Re-voice single slides",
         "subtitleTrack": "Subtitles"
       },
       "error": {

@@ -212,6 +212,28 @@ MESSAGES: dict[str, dict[str, str]] = {
         "de": "Zu viele Folien ({count}). Maximum: {max} Folien.",
         "en": "Too many slides ({count}). Maximum: {max} slides.",
     },
+    "screencast.folienzahlPasstNicht": {
+        "de": (
+            "Die hochgeladene Datei hat {neu} Folien, die Präsentation in diesem Auftrag hat "
+            "{alt}. Skripte und Ton hängen an der Foliennummer, eine andere Anzahl würde alles "
+            "verschieben. Bitte nur den Text ändern, keine Folien löschen oder hinzufügen. Soll "
+            "es wirklich eine andere Präsentation werden, dann in Schritt 1 neu anfangen."
+        ),
+        "en": (
+            "The uploaded file has {neu} slides, the presentation in this job has {alt}. "
+            "Scripts and audio are tied to the slide number, a different count would shift "
+            "everything. Please only change the text, do not delete or add slides. If you really "
+            "want a different presentation, start over at step 1."
+        ),
+    },
+    "screencast.keineFolieGewaehlt": {
+        "de": "Es ist keine Folie für den Screencast ausgewählt.",
+        "en": "No slide is selected for the screencast.",
+    },
+    "screencast.folieUnbekannt": {
+        "de": "Die Auswahl nennt eine Folie, die es in dieser Präsentation nicht gibt.",
+        "en": "The selection refers to a slide that does not exist in this presentation.",
+    },
     "screencast.pptxUnavailable": {
         "de": "PPTX nicht mehr verfügbar",
         "en": "PPTX no longer available",

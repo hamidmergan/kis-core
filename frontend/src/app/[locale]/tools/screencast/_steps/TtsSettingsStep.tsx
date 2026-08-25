@@ -7,6 +7,8 @@ import Select from "@/components/ui/Select";
 import Checkbox from "@/components/ui/Checkbox";
 import { LANGUAGE_FLAG } from "@/lib/languageFlags";
 import StepFooter from "./StepFooter";
+import FolienAuswahl from "./FolienAuswahl";
+import type { VertonterStand } from "../_utils";
 
 interface TtsSettingsStepProps {
   onBack: (() => void) | null;
@@ -26,6 +28,18 @@ interface TtsSettingsStepProps {
   scriptOverLimit: boolean;
   maxChars: number;
   ttsSettingsError: string;
+  stand: VertonterStand | null;
+  imScreencast: number[];
+  neuVertonen: number[];
+  ohneTon: Set<number>;
+  geaenderteOhneHaken: number;
+  zeigtNeu: boolean;
+  stimmeGewechselt: boolean;
+  onUmschaltenScreencast: (i: number) => void;
+  onUmschaltenNeu: (i: number) => void;
+  onAlleFolien: (zeigtNeu: boolean) => void;
+  onKeineFolien: (zeigtNeu: boolean) => void;
+  onGeaenderteFolien: () => void;
   onProviderIdChange: (id: number) => void;
   onTargetLangChange: (v: string) => void;
   onVoiceIdChange: (v: string) => void;
@@ -35,6 +49,9 @@ interface TtsSettingsStepProps {
   onSubtitlesChange: (v: boolean) => void;
   onBackToScripts: () => void;
   onStartRender: () => void;
+  laufUmsonst: boolean;
+  stimmwechselWirkungslos: boolean;
+  onZumVideo: () => void;
 }
 
 export default function TtsSettingsStep(props: TtsSettingsStepProps) {
@@ -56,6 +73,18 @@ export default function TtsSettingsStep(props: TtsSettingsStepProps) {
     scriptOverLimit,
     maxChars,
     ttsSettingsError,
+    stand,
+    imScreencast,
+    neuVertonen,
+    ohneTon,
+    geaenderteOhneHaken,
+    zeigtNeu,
+    stimmeGewechselt,
+    onUmschaltenScreencast,
+    onUmschaltenNeu,
+    onAlleFolien,
+    onKeineFolien,
+    onGeaenderteFolien,
     onProviderIdChange,
     onTargetLangChange,
     onVoiceIdChange,
@@ -65,6 +94,9 @@ export default function TtsSettingsStep(props: TtsSettingsStepProps) {
     onSubtitlesChange,
     onBackToScripts,
     onStartRender,
+    laufUmsonst,
+    stimmwechselWirkungslos,
+    onZumVideo,
   } = props;
 
   const t = useTranslations("tools.screencast");
@@ -190,12 +222,27 @@ export default function TtsSettingsStep(props: TtsSettingsStepProps) {
         <p className="text-xs text-muted-soft mt-2">{t("ttsSettings.subtitlesHint")}</p>
       </div>
 
+      <FolienAuswahl
+        slides={slides}
+        stand={stand}
+        imScreencast={imScreencast}
+        neuVertonen={neuVertonen}
+        ohneTon={ohneTon}
+        zeigtNeu={zeigtNeu}
+        stimmeGewechselt={stimmeGewechselt}
+        onUmschaltenScreencast={onUmschaltenScreencast}
+        onUmschaltenNeu={onUmschaltenNeu}
+        onAlle={onAlleFolien}
+        onKeine={onKeineFolien}
+        onGeaenderte={onGeaenderteFolien}
+      />
+
       <div className="mt-4 mb-4 rounded-lg bg-surface px-4 py-3">
         <p className="text-sm text-foreground-soft">
           {t.rich("ttsSettings.summary", {
             bold: (chunks) => <span className="font-medium">{chunks}</span>,
             charsTag: (chunks) => <span className={`font-medium ${scriptOverLimit ? "text-error" : ""}`}>{chunks}</span>,
-            slides: slides.length,
+            slides: imScreencast.length,
             words: totalWords,
             chars: charsText,
             max: maxText,
@@ -224,11 +271,31 @@ export default function TtsSettingsStep(props: TtsSettingsStepProps) {
       {ttsSettingsError && (
         <p className="text-sm text-warn bg-warn-bg border border-warn-border rounded-md px-3 py-2 mb-3">{ttsSettingsError}</p>
       )}
+      {geaenderteOhneHaken > 0 && (
+        <p className="mb-3 rounded-md border border-warn-border bg-warn-bg px-3 py-2 text-sm text-warn-strong" role="status">
+          {t("folienAuswahl.geaendertBehaeltAltenTon", { n: geaenderteOhneHaken })}
+        </p>
+      )}
+      {imScreencast.length === 0 && (
+        <p className="mb-3 rounded-md border border-warn-border bg-warn-bg px-3 py-2 text-sm text-warn-strong" role="alert">
+          {t("folienAuswahl.keineFolie")}
+        </p>
+      )}
+      {laufUmsonst && (
+        <p className="mb-3 rounded-lg bg-surface px-4 py-3 text-sm text-foreground-soft" role="status">
+          {t("ttsSettings.nichtsGeaendert")}
+        </p>
+      )}
+      {stimmwechselWirkungslos && (
+        <p className="mb-3 rounded-md border border-warn-border bg-warn-bg px-3 py-2 text-sm text-warn-strong" role="alert">
+          {t("ttsSettings.stimmwechselOhneHaken")}
+        </p>
+      )}
       <StepFooter
         onBack={onBack}
-        nextLabel={t("ttsSettings.startRender")}
-        onNext={onStartRender}
-        nextDisabled={scriptOverLimit}
+        nextLabel={laufUmsonst ? t("ttsSettings.zumFertigenVideo") : t("ttsSettings.startRender")}
+        onNext={laufUmsonst ? onZumVideo : onStartRender}
+        nextDisabled={scriptOverLimit || imScreencast.length === 0 || stimmwechselWirkungslos}
       />
     </section>
   );

@@ -48,6 +48,7 @@ interface UseScreencastTranslateFlowOptions {
   checkJobStillValid: (uuid: string) => Promise<"ok" | "running" | "deleted">;
   checkJobFolder: () => Promise<boolean>;
   goError: (msg: string) => void;
+  setUploadFehler: (msg: string) => void;
   newSignal: () => AbortSignal;
 
   // Translated messages from the component
@@ -73,6 +74,7 @@ export function useScreencastTranslateFlow(opts: UseScreencastTranslateFlowOptio
     checkJobStillValid,
     checkJobFolder,
     goError,
+    setUploadFehler,
     newSignal,
     messages,
     currentJobUuidRef,
@@ -203,6 +205,7 @@ export function useScreencastTranslateFlow(opts: UseScreencastTranslateFlowOptio
   // ── Upload corrected PPTX (re-extract from fixed slides) ──
   const handleUploadCorrectedPptx = useCallback(
     async (correctedFile: File) => {
+      setUploadFehler("");
       dispatch({ type: "SET_LOADING", loading: true });
       const signal = newSignal();
       try {
@@ -217,7 +220,13 @@ export function useScreencastTranslateFlow(opts: UseScreencastTranslateFlowOptio
         });
         if (!response.ok) {
           const err = await response.json().catch(() => ({ detail: messages.uploadError }));
-          throw new Error(parseDetail(err.detail, messages.errorWithCode(response.status)));
+          const text = parseDetail(err.detail, messages.errorWithCode(response.status));
+          if (response.status === 400) {
+            setUploadFehler(text);
+            dispatch({ type: "SET_LOADING", loading: false });
+            return;
+          }
+          throw new Error(text);
         }
         const data: { slide_texts: string[]; slide_images: string[] } = await response.json();
         dispatch({
@@ -236,7 +245,7 @@ export function useScreencastTranslateFlow(opts: UseScreencastTranslateFlowOptio
         goError(err instanceof Error ? err.message : messages.unknownError);
       }
     },
-    [translateJobUuid, goError, newSignal, dispatch],
+    [translateJobUuid, goError, setUploadFehler, newSignal, dispatch],
   );
 
   // ── Translation review → Generate scripts ──

@@ -62,10 +62,9 @@ def download_slide_audio(
 ):
     """Download a single per-slide MP3 from the render audio cache (file-based)."""
     user_id = _resolve_user_id(audio_id, current_user, locale)
-    count = get_audio_slide_count(user_id, audio_id)
-    if count == 0:
+    if get_audio_slide_count(user_id, audio_id) == 0:
         raise HTTPException(status_code=404, detail=t("audio.notFound", locale))
-    if slide_index < 0 or slide_index >= count:
+    if slide_index < 0:
         raise HTTPException(status_code=404, detail=t("screencast.slideNotFound", locale, slide=slide_index + 1))
 
     audio_bytes = get_audio_slide(user_id, audio_id, slide_index)

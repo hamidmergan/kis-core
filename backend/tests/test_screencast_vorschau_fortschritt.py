@@ -30,13 +30,13 @@ def test_folie_ohne_text_meldet_sich_auch(tmp_path):
 
 
 def test_fortschritt_traegt_die_fertigen_nummern_sortiert():
-    assert _fortschritt_vertonung([2, 0], 5) == {
-        "step": "tts", "current": 2, "total": 5, "fertig": [0, 2],
+    assert _fortschritt_vertonung({2, 0}, 5, 2) == {
+        "step": "tts", "current": 2, "total": 5, "fertig": [0, 2], "nicht_dabei": [],
     }
 
 
-def test_fortschritt_zeigt_den_echten_stand_nicht_den_freigegebenen():
-    """Die Freigabe haelt spaetere Folien zurueck, der Zaehler darf nicht stillstehen."""
-    assert _fortschritt_vertonung([0], 27, vertont=8) == {
-        "step": "tts", "current": 8, "total": 27, "fertig": [0],
+def test_gesprochen_zaehlt_unabhaengig_von_der_groesse_von_fertig():
+    """Vorrats-Folien fuellen ``fertig`` sofort, ohne den Zaehler ``gesprochen`` zu heben."""
+    assert _fortschritt_vertonung({0, 1, 2}, 27, 1) == {
+        "step": "tts", "current": 1, "total": 27, "fertig": [0, 1, 2], "nicht_dabei": [],
     }

@@ -1,5 +1,6 @@
 """Untertitel-Spur fuer den Screencast: Zeitversatz je Folie und Spur im MP4."""
 
+import inspect
 import shutil
 import subprocess
 from pathlib import Path
@@ -224,19 +225,24 @@ def test_render_anfrage_kennt_die_untertitel_wahl():
 
 def test_die_warteschlange_reicht_die_untertitel_wahl_durch():
     from src.tasks.screencast_tasks._queue import _render_args
+    from src.tasks.screencast_tasks._render import run_screencast_render
 
     params = {"voice_id": "v", "speed": 1.0, "slide_pause": 0.5, "dpi": 144,
               "provider_id": 2, "voice_label": "L", "is_admin": False, "subtitles": True}
     args = _render_args("job", ["Text"], params, "datei.pptx")
-    assert args[-1] is True
+    felder = list(inspect.signature(run_screencast_render.run).parameters)
+    assert args[felder.index("subtitles")] is True
 
 
 def test_alte_jobs_ohne_die_wahl_laufen_ohne_untertitel():
     from src.tasks.screencast_tasks._queue import _render_args
+    from src.tasks.screencast_tasks._render import run_screencast_render
 
     params = {"voice_id": "v", "speed": 1.0, "slide_pause": 0.5, "dpi": 144,
               "provider_id": 2, "voice_label": "L", "is_admin": False}
-    assert _render_args("job", ["Text"], params, "datei.pptx")[-1] is False
+    args = _render_args("job", ["Text"], params, "datei.pptx")
+    felder = list(inspect.signature(run_screencast_render.run).parameters)
+    assert args[felder.index("subtitles")] is False
 
 
 def test_wiederholen_behaelt_die_untertitel_wahl():
@@ -259,7 +265,7 @@ def test_die_argumente_passen_zur_task_signatur():
               "provider_id": 2, "voice_label": "L", "is_admin": False, "subtitles": True}
     felder = list(inspect.signature(run_screencast_render.run).parameters)
     assert felder[0] == "translate_job_uuid"
-    assert felder[-1] == "subtitles"
+    assert felder[-1] == "neu_vertonen"
     assert len(_render_args("job", ["Text"], params, "datei.pptx")) == len(felder)
 
 

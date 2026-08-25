@@ -567,15 +567,19 @@
       },
       "translationReview": {
         "heading": "Übersetzung prüfen",
+        "headingOhneUebersetzung": "Folien prüfen",
         "intro": "Die Präsentation wurde übersetzt. Sie können die übersetzte PPTX herunterladen, prüfen und optional eine korrigierte Version hochladen.",
+        "introOhneUebersetzung": "Die Folien wurden übernommen. Du kannst die PPTX herunterladen, prüfen und eine korrigierte Fassung hochladen. Die Folienzahl muss dabei gleich bleiben.",
         "downloadPptx": "PPTX",
         "uploadCorrected": "Korrigierte PPTX hochladen (optional)",
         "uploading": "Wird verarbeitet...",
         "uploaded": "{name} wurde hochgeladen",
         "acceptAndNext": "Übersetzung übernehmen und weiter",
+        "weiterOhneUebersetzung": "Weiter",
         "unchangedTitle": "{n, plural, one {# Folie wirkt unübersetzt} other {# Folien wirken unübersetzt}}",
         "unchangedBody": "Der Text dieser Folien ist gleich geblieben. Das kann richtig sein, etwa bei Namen oder Zahlen. Bitte kurz prüfen.",
-        "unchangedBadge": "unverändert"
+        "unchangedBadge": "unverändert",
+        "folienzahlTitel": "Die Folienzahl passt nicht"
       },
       "generatingScripts": {
         "title": "Sprechskripte werden generiert...",
@@ -622,15 +626,42 @@
         "back": "Zurück",
         "startRender": "Screencast erstellen",
         "subtitles": "Untertitel einbauen",
-        "subtitlesHint": "Der gesprochene Text wird erkannt und als Untertitel-Spur ins Video gelegt. Im Player mit CC an und aus schaltbar. Das Rendern dauert dadurch etwas länger."
+        "subtitlesHint": "Der gesprochene Text wird erkannt und als Untertitel-Spur ins Video gelegt. Im Player mit CC an und aus schaltbar. Das Rendern dauert dadurch etwas länger.",
+        "nichtsGeaendert": "Seit dem letzten Lauf hat sich nichts geändert. Ein neuer Screencast würde genau dasselbe Video ergeben.",
+        "zumFertigenVideo": "Zum fertigen Video",
+        "stimmwechselOhneHaken": "Die Stimme ist gewechselt, aber keine Folie zum Neusprechen angehakt. So bliebe alles beim Alten. Hake die Folien an, die mit der neuen Stimme gesprochen werden sollen."
+      },
+      "folienAuswahl": {
+        "titel": "Folien",
+        "aendern": "Ändern",
+        "zuklappen": "Zuklappen",
+        "zusammenfassung": "{dabei} von {total} Folien im Screencast",
+        "zusammenfassungMitNeu": "{dabei} von {total} Folien im Screencast · {neu, plural, one {# Folie wird} other {# Folien werden}} neu vertont",
+        "erstlaufHinweis": "Nach dem Rendern lassen sich hier einzelne Folien neu vertonen, ohne alles neu zu erzeugen.",
+        "stimmeGewechselt": "Die Stimme ist gewechselt. Folien ohne Haken behalten die alte Stimme.",
+        "spalteScreencast": "im Screencast",
+        "spalteNeu": "neu sprechen",
+        "alle": "Alle",
+        "keine": "Keine",
+        "geaenderte": "Geänderte",
+        "markeSkript": "Skript geändert",
+        "markeFolie": "Folie geändert",
+        "markeKeinTon": "noch kein Ton",
+        "geaendertBehaeltAltenTon": "{n, plural, one {# Folie wurde geändert, behält aber ihren alten Ton} other {# Folien wurden geändert, behalten aber ihren alten Ton}}. Hake sie an, wenn sie neu gesprochen werden sollen.",
+        "ohneText": "Zwischenfolie ohne Text, kein Ton",
+        "hakenScreencast": "Folie {n} in den Screencast",
+        "hakenNeu": "Folie {n} neu sprechen",
+        "keineFolie": "Es ist keine Folie ausgewählt."
       },
       "vorschau": {
         "ueberschrift": "Schon fertig zum Anhören",
         "folieVon": "Folie {n} von {total}",
         "fortschritt": "{fertig} von {total} Folien vertont",
         "ohneTon": "Diese Folie hat keinen Sprechtext.",
+        "wirdVertont": "Diese Folie wird gerade vertont.",
         "abspielen": "Folie {n} anhören",
         "wartet": "Folie {n} wird noch vertont",
+        "nichtDabei": "Folie {n} ist nicht im Screencast",
         "rueckblick": "Alle Folien einzeln anhören",
         "zumErgebnis": "Zum fertigen Video",
         "nachLinks": "Folien nach links schieben",
@@ -663,6 +694,7 @@
         "downloadAllZipLabel": "Alles herunterladen (ZIP)",
         "newPresentationAria": "Neue Präsentation hochladen",
         "newPresentation": "Neue Präsentation",
+        "neuVertonen": "Einzelne Folien neu vertonen",
         "subtitleTrack": "Untertitel"
       },
       "error": {

@@ -2,6 +2,7 @@
 
 import { useTranslations } from "next-intl";
 import Spinner from "@/components/ui/Spinner";
+import { mitLaufStempel } from "../_utils";
 
 const cancelIcon = (
   <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -115,14 +116,18 @@ export function DoneStep({
   videoUrl,
   audioId,
   hasSubtitles = false,
+  laufStempel,
   onDownloadMp4,
   onReset,
+  onNeuVertonen,
 }: {
   videoUrl: string | null;
   audioId: string;
   hasSubtitles?: boolean;
+  laufStempel: string;
   onDownloadMp4: () => void;
   onReset: () => void;
+  onNeuVertonen: () => void;
 }) {
   const t = useTranslations("tools.screencast");
   // Der Link haengt bewusst nicht in der Seite, sonst startet der Ladebalken oben und laeuft endlos weiter.
@@ -150,7 +155,7 @@ export function DoneStep({
             {hasSubtitles && audioId && (
               <track
                 kind="subtitles"
-                src={`/api/jobs/${audioId}/subtitles`}
+                src={mitLaufStempel(`/api/jobs/${audioId}/subtitles`, laufStempel)}
                 label={t("done.subtitleTrack")}
                 default
               />
@@ -186,7 +191,14 @@ export function DoneStep({
         )}
       </div>
 
-      <div className="flex justify-center">
+      <div className="flex flex-wrap justify-center gap-3">
+        <button
+          type="button"
+          onClick={onNeuVertonen}
+          className="px-6 py-2 text-sm text-foreground-soft border border-border rounded-md btn-ghost focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-kb transition-colors"
+        >
+          {t("done.neuVertonen")}
+        </button>
         <button
           onClick={onReset}
           aria-label={t("done.newPresentationAria")}

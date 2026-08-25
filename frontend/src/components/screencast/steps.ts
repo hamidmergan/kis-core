@@ -55,19 +55,26 @@ export function indexToStep(index: number): ScreencastStep | null {
   }
 }
 
+/** Diese Schritte sind fuer immer zu, nicht nur gerade eben. */
+export function nieBetretbar(index: number, skipTranslation: boolean): boolean {
+  if (skipTranslation && index === 1) return true;
+  return indexToStep(index) === null;
+}
+
 /** Die eine Regel, die Fortschrittsbalken und Fussleiste gleich beantworten. */
 export function istErreichbar(
   index: number,
   maxReachedIdx: number,
   skipTranslation: boolean,
   step: ScreencastStep,
+  hatErgebnis = false,
 ): boolean {
-  if (step === "rendering" || step === "generating-scripts") return false;
-  // Rendern ist eine Warteseite. Erst nach dem Fertigstellen darf man zurueck,
-  // dann steht dort die Vorschau zum Nachhoeren.
-  if (index === 6 && step !== "done") return false;
+  if (step === "generating-scripts") return false;
+  // Waehrend des Laufs ist die Warteseite bindend, mit fertigem Video nicht mehr.
+  if (step === "rendering" && !hatErgebnis) return false;
+  if (index === 6 && step !== "done" && !hatErgebnis) return false;
   if (index > maxReachedIdx) return false;
-  if (skipTranslation && (index === 1 || index === 2)) return false;
+  if (skipTranslation && index === 1) return false;
   return indexToStep(index) !== null;
 }
 
@@ -77,9 +84,10 @@ export function vorherErreichbar(
   maxReachedIdx: number,
   skipTranslation: boolean,
   step: ScreencastStep,
+  hatErgebnis = false,
 ): number | null {
   for (let i = index - 1; i >= 0; i--) {
-    if (istErreichbar(i, maxReachedIdx, skipTranslation, step)) return i;
+    if (istErreichbar(i, maxReachedIdx, skipTranslation, step, hatErgebnis)) return i;
   }
   return null;
 }
