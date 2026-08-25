@@ -5,7 +5,7 @@ import { CaretLeft, CaretRight } from "@phosphor-icons/react";
 import { useTranslations } from "next-intl";
 import IconButton from "@/components/ui/IconButton";
 import type { ScreencastStep } from "@/types";
-import { istErreichbar, STEP_KEYS, stepToIndex } from "./steps";
+import { istErreichbar, nieBetretbar, STEP_KEYS, stepToIndex } from "./steps";
 
 interface ScreencastStepperProps {
   step: ScreencastStep;
@@ -144,6 +144,7 @@ export default function ScreencastStepper({
             const isDone = !isSkipped && i < currentIdx;
             const isActive = i === currentIdx;
             const isClickable = !isActive && istErreichbar(i, maxReachedIdx, skipTranslation, step, hatErgebnis);
+            const istTot = !isActive && nieBetretbar(i, skipTranslation);
             // Nur betretbare Schritte sind ein Knopf, tote sind ein span und damit auch fuer Tastatur und Vorleseprogramm still.
             const Huelle = isClickable ? "button" : "span";
             return (
@@ -153,6 +154,7 @@ export default function ScreencastStepper({
                   className={`
                     inline-flex items-center gap-1 sm:gap-1.5 rounded-sm px-1 py-0.5 transition-colors select-none
                     ${isClickable ? "group cursor-pointer" : "cursor-default"}
+                    ${istTot ? "opacity-50" : ""}
                   `}
                 >
                   <span

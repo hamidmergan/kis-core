@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { indexToStep, istErreichbar, vorherErreichbar } from "./steps";
+import { indexToStep, istErreichbar, nieBetretbar, vorherErreichbar } from "./steps";
 
 const ALLE_ERREICHT = 7;
 
@@ -17,6 +17,23 @@ describe("indexToStep", () => {
   it("gibt nichts fuer Upload und Uebersetzen", () => {
     expect(indexToStep(0)).toBeNull();
     expect(indexToStep(1)).toBeNull();
+  });
+});
+
+describe("nieBetretbar", () => {
+  it("meldet Upload und Uebersetzen als fuer immer zu", () => {
+    expect(nieBetretbar(0, false)).toBe(true);
+    expect(nieBetretbar(1, false)).toBe(true);
+  });
+
+  it("meldet uebersprungene Uebersetzung als fuer immer zu", () => {
+    expect(nieBetretbar(2, true)).toBe(true);
+    expect(nieBetretbar(2, false)).toBe(false);
+  });
+
+  it("meldet nur gerade gesperrte Seiten nicht als tot", () => {
+    expect(nieBetretbar(6, false)).toBe(false);
+    expect(nieBetretbar(7, false)).toBe(false);
   });
 });
 

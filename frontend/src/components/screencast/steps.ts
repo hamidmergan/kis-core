@@ -55,6 +55,12 @@ export function indexToStep(index: number): ScreencastStep | null {
   }
 }
 
+/** Diese Schritte sind fuer immer zu, nicht nur gerade eben. */
+export function nieBetretbar(index: number, skipTranslation: boolean): boolean {
+  if (skipTranslation && (index === 1 || index === 2)) return true;
+  return indexToStep(index) === null;
+}
+
 /** Die eine Regel, die Fortschrittsbalken und Fussleiste gleich beantworten. */
 export function istErreichbar(
   index: number,
