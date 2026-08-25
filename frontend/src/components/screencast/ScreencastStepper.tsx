@@ -140,7 +140,7 @@ export default function ScreencastStepper({
         <ol className="flex items-center gap-1 sm:gap-2 min-w-0 w-max sm:w-full">
           {STEP_KEYS.map((stepKey, i) => {
             const label = t(`steps.${stepKey}`);
-            const isSkipped = skipTranslation && (i === 1 || i === 2);
+            const isSkipped = skipTranslation && i === 1;
             const isDone = !isSkipped && i < currentIdx;
             const isActive = i === currentIdx;
             const isClickable = !isActive && istErreichbar(i, maxReachedIdx, skipTranslation, step, hatErgebnis);
