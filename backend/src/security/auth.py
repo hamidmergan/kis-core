@@ -5,7 +5,10 @@ from src.dependencies import get_session_store, get_settings
 from src.i18n import parse_accept_language, t
 
 _OPEN_PATHS = {"/health", "/health/maintenance", "/health/labels", "/docs", "/redoc", "/openapi.json"}
-_OPEN_PREFIXES = ("/auth/",)
+# Die Einladungsseite gehoert dazu: wer eingeladen wird, hat noch kein Konto und
+# kann deshalb keine Sitzung vorzeigen. Der Schluessel im Link ist der Ausweis.
+# Die Verwaltung der Einladungen liegt unter /admin/invites und bleibt zu.
+_OPEN_PREFIXES = ("/auth/", "/invites/")
 
 
 async def verify_auth(request: Request):

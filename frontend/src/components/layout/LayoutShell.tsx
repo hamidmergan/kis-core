@@ -5,7 +5,8 @@ import Header from "./Header";
 import ToolsSidebar from "./ToolsSidebar";
 
 const NO_HEADER_PATHS = new Set(["/login", "/wartung", "/pending"]);
-const NO_HEADER_PREFIXES = ["/workspace/"];
+// Die Einladungsseite bringt ihren eigenen Kopf mit, wie die Anmeldeseite.
+const NO_HEADER_PREFIXES = ["/workspace/", "/einladung/"];
 
 const NO_SIDEBAR_PATHS = new Set([
   "/login",
@@ -14,7 +15,7 @@ const NO_SIDEBAR_PATHS = new Set([
   "/pending",
   "/wartung",
 ]);
-const NO_SIDEBAR_PREFIXES = ["/workspace/", "/admin"];
+const NO_SIDEBAR_PREFIXES = ["/workspace/", "/admin", "/einladung/"];
 
 function matchesPrefix(pathname: string, prefixes: string[]): boolean {
   return prefixes.some((p) => pathname.startsWith(p));

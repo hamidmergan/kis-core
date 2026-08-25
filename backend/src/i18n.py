@@ -458,9 +458,9 @@ def t(key: str, locale: str = DEFAULT_LOCALE, **params: object) -> str:
 # circular imports if a fragment ever needs `t()` itself.
 def _load_fragments() -> None:
     try:
-        from src._i18n_fragments import ai_assistant, jobs, admin  # noqa: F401
+        from src._i18n_fragments import ai_assistant, jobs, admin, invites  # noqa: F401
 
-        for module in (ai_assistant, jobs, admin):
+        for module in (ai_assistant, jobs, admin, invites):
             entries = getattr(module, "MESSAGES", None)
             if entries:
                 register_messages(entries)

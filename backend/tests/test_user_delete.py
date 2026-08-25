@@ -189,3 +189,12 @@ def test_geloescht_wird_gezaehlt(lokal):
     _dateien_anlegen(lokal, 42)
 
     assert storage.delete_user_folder(42) == 2
+
+
+def test_die_einladung_bleibt_und_verliert_nur_den_urheber(protokoll):
+    """Die Einladung gehoert der eingeladenen Person, nicht der, die sie erzeugt hat."""
+    ud.delete_user_completely(42)
+    assert any(
+        "UPDATE invites SET created_by = NULL" in sql for sql, _ in protokoll
+    )
+    assert not any("DELETE FROM invites" in sql for sql, _ in protokoll)

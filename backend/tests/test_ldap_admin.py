@@ -154,3 +154,51 @@ def test_create_ldap_user_other_failure_raises_service_error(server_mock, conn_c
             email="a@b.de",
             employee_type="staff",
         )
+
+
+@patch("src.ldap_admin.Connection")
+@patch("src.ldap_admin.Server")
+def test_create_ldap_user_uses_given_password(server_mock, conn_cls_mock):
+    conn = MagicMock()
+    conn.add.return_value = True
+    conn.result = {"description": "success"}
+    conn_cls_mock.return_value = conn
+
+    pw = create_ldap_user(
+        settings=_fake_settings(),
+        uid="invited",
+        given_name="A",
+        surname="B",
+        email="a@b.de",
+        employee_type="staff",
+        password="selbst-gesetztes-passwort",
+    )
+
+    assert pw == "selbst-gesetztes-passwort"
+    attrs = conn.add.call_args.args[2]
+    decoded = base64.b64decode(attrs["userPassword"][len("{SSHA}"):])
+    sha_bytes, salt = decoded[:20], decoded[20:]
+    assert sha_bytes == hashlib.sha1(b"selbst-gesetztes-passwort" + salt).digest()
+
+
+@patch("src.ldap_admin.Connection")
+@patch("src.ldap_admin.Server")
+def test_create_ldap_user_without_names_falls_back_to_uid(server_mock, conn_cls_mock):
+    conn = MagicMock()
+    conn.add.return_value = True
+    conn.result = {"description": "success"}
+    conn_cls_mock.return_value = conn
+
+    create_ldap_user(
+        settings=_fake_settings(),
+        uid="m.mustermann",
+        given_name="",
+        surname="",
+        email="m.mustermann@th-luebeck.de",
+        employee_type="staff",
+        password="selbst-gesetztes-passwort",
+    )
+
+    attrs = conn.add.call_args.args[2]
+    assert attrs["cn"] == "m.mustermann"
+    assert attrs["sn"] == "m.mustermann"

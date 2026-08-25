@@ -76,13 +76,22 @@ def create_ldap_user(
     surname: str,
     email: str,
     employee_type: str,
+    password: str | None = None,
 ) -> str:
-    """Add an inetOrgPerson under ou=people. Return the generated plain password.
+    """Add an inetOrgPerson under ou=people. Return the plain password.
 
+    Without ``password`` one is generated, an invited user brings their own.
     The password is hashed to {SSHA} before it leaves this function.
     The plaintext is returned to the caller exactly once and must NOT be logged
     or persisted.
     """
+    # Namen sind bei einer Einladung freiwillig, fehlt einer, traegt der Benutzername das im Schema pflichtige Feld.
+    vorname = (given_name or "").strip()
+    nachname = (surname or "").strip()
+    cn = " ".join(teil for teil in (vorname, nachname) if teil) or uid
+    given_name = vorname or uid
+    surname = nachname or uid
+
     validate_inputs(
         uid=uid,
         given_name=given_name,
@@ -91,13 +100,13 @@ def create_ldap_user(
         employee_type=employee_type,
     )
 
-    plain_password = _generate_password()
+    plain_password = password or _generate_password()
     hashed = _make_ssha_hash(plain_password)
     dn = f"uid={uid},ou=people,{settings.ldap_base_dn}"
     attrs = {
         "uid": uid,
-        "cn": f"{given_name.strip()} {surname.strip()}",
-        "sn": surname.strip(),
+        "cn": cn,
+        "sn": surname,
         "mail": email,
         "userPassword": hashed,
         "employeeType": employee_type,

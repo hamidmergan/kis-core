@@ -441,6 +441,24 @@ def _init_db(admin_email: Optional[str] = None) -> None:
                     created_at TIMESTAMP NOT NULL DEFAULT NOW()
                 )
             """)
+            # Einladungen sind der Zugang ohne SSO und verschwinden mit ihm wieder.
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS invites (
+                    id             SERIAL PRIMARY KEY,
+                    token          TEXT NOT NULL UNIQUE,
+                    email          TEXT NOT NULL,
+                    uid            TEXT NOT NULL,
+                    role           TEXT NOT NULL DEFAULT 'user',
+                    custom_role_id INTEGER,
+                    created_by     INTEGER,
+                    created_at     TIMESTAMP NOT NULL DEFAULT NOW(),
+                    expires_at     TIMESTAMP NOT NULL,
+                    used_at        TIMESTAMP
+                )
+            """)
+            # Wer eingeladen hat, darf verschwinden, die Einladung bleibt.
+            cur.execute("ALTER TABLE invites ALTER COLUMN created_by DROP NOT NULL")
+            cur.execute("CREATE INDEX IF NOT EXISTS invites_email_idx ON invites (LOWER(email))")
             cur.execute("""
                 CREATE TABLE IF NOT EXISTS jobs (
                     id                  SERIAL PRIMARY KEY,

@@ -120,6 +120,7 @@ import ProviderRoutesPage from "../_pages/anbieter/routes";
 
 import PendingPage from "../_pages/nutzer/pending";
 import WhitelistPage from "../_pages/nutzer/whitelist";
+import InvitesPage from "../_pages/nutzer/einladungen";
 import UsersPage from "../_pages/nutzer/users";
 import RolesPage from "../_pages/nutzer/roles";
 import QuotaPage from "../_pages/nutzer/quota";
@@ -222,6 +223,10 @@ export const SECTIONS: AdminSection[] = [
     pages: [
       { slug: "ausstehend", key: "pending", world: "both", perm: PERM.usersPending, Component: PendingPage },
       { slug: "whitelist", key: "whitelist", world: "both", perm: PERM.usersWhitelist, Component: WhitelistPage },
+      // Haengt am selben Recht wie "Alle Nutzer", dort steht auch das Anlegen
+      // von Hand. Ohne den Serverschalter bleibt die Seite leer statt weg, sonst
+      // waere die Adresse aus einem kopierten Link plötzlich ungueltig.
+      { slug: "einladungen", key: "invites", world: "both", perm: PERM.usersAll, Component: InvitesPage },
       { slug: "alle-nutzer", key: "users", world: "both", perm: PERM.usersAll, Component: UsersPage },
       { slug: "rollen", key: "roles", world: "both", perm: PERM.usersRoles, Component: RolesPage },
       // Kein eigener Punkt in der Leiste: die Seite ist ein Absprung aus

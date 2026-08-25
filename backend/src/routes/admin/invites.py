@@ -1,0 +1,128 @@
+"""Einladungen im Admin: erzeugen, auflisten, zuruecknehmen.
+
+Voruebergehender Zugang ohne SSO, haengt am selben Schalter wie das Anlegen von
+LDAP-Benutzern und verschwindet mit ihm.
+"""
+from datetime import datetime, timedelta
+
+from fastapi import APIRouter, Depends, HTTPException
+from pydantic import BaseModel, Field, model_validator
+
+from src import database
+from src.dependencies import get_settings
+from src.dependencies_rbac import require_permission
+from src.features.invites import repository as repo
+from src.features.invites.service import (
+    InviteValidationError,
+    new_token,
+    status_of,
+    uid_from_email,
+)
+from src.i18n import get_locale, t
+from src.permissions_registry import PERM_SET_USERS_ALL
+
+router = APIRouter(tags=["admin: invites"])
+
+_require = require_permission(PERM_SET_USERS_ALL)
+
+MAX_DAYS = 30
+
+
+def _require_feature(locale: str) -> None:
+    """Einladungen haengen am selben Schalter wie das Anlegen von LDAP-Benutzern."""
+    if not get_settings().ldap_user_creation_enabled:
+        raise HTTPException(status_code=404, detail=t("invite.featureDisabled", locale))
+
+
+class CreateInvitePayload(BaseModel):
+    email: str = Field(..., min_length=3, max_length=128)
+    kis_role: str = Field(..., pattern="^(staff|user|custom)$")
+    custom_role_id: int | None = None
+    days: int = Field(7, ge=1, le=MAX_DAYS)
+
+    @model_validator(mode="after")
+    def _custom_role_id_required_for_custom(self):
+        if self.kis_role == "custom" and self.custom_role_id is None:
+            raise ValueError("custom_role_id required when kis_role is 'custom'")
+        if self.kis_role != "custom":
+            self.custom_role_id = None
+        return self
+
+
+@router.post("/invites")
+def create_invite(
+    payload: CreateInvitePayload,
+    admin: dict = Depends(_require),
+    locale: str = Depends(get_locale),
+):
+    _require_feature(locale)
+
+    if "@" not in payload.email or "." not in payload.email.rsplit("@", 1)[-1]:
+        raise HTTPException(status_code=400, detail=t("invite.invalidEmail", locale))
+
+    try:
+        uid = uid_from_email(payload.email)
+    except InviteValidationError:
+        raise HTTPException(status_code=400, detail=t("invite.noUsableUid", locale))
+
+    if database.get_user_by_username(uid) is not None:
+        raise HTTPException(status_code=409, detail=t("invite.userExists", locale))
+
+    if repo.open_invite_for_email(payload.email) is not None:
+        raise HTTPException(status_code=409, detail=t("invite.alreadyInvited", locale))
+
+    if payload.kis_role == "custom" and database.get_custom_role(payload.custom_role_id) is None:
+        raise HTTPException(status_code=400, detail=t("invite.invalidCustomRole", locale))
+
+    token = new_token()
+    expires_at = datetime.now() + timedelta(days=payload.days)
+    invite_id = repo.create_invite(
+        token=token,
+        email=payload.email,
+        uid=uid,
+        role=payload.kis_role,
+        custom_role_id=payload.custom_role_id,
+        created_by=admin.get("user_id", 0),
+        expires_at=expires_at,
+    )
+    return {
+        "id": invite_id,
+        "token": token,
+        "uid": uid,
+        "email": payload.email,
+        "expires_at": expires_at,
+    }
+
+
+@router.get("/invites")
+def list_invites(admin: dict = Depends(_require), locale: str = Depends(get_locale)):
+    _require_feature(locale)
+    jetzt = datetime.now()
+    return {
+        "invites": [
+            {
+                **{schluessel: eintrag[schluessel] for schluessel in (
+                    "id", "email", "uid", "role", "custom_role_id",
+                    "token", "created_at", "expires_at", "used_at",
+                )},
+                "status": status_of(
+                    used_at=eintrag["used_at"],
+                    expires_at=eintrag["expires_at"],
+                    now=jetzt,
+                ),
+            }
+            for eintrag in repo.list_invites()
+        ]
+    }
+
+
+@router.delete("/invites/{invite_id}")
+def delete_invite(
+    invite_id: int,
+    admin: dict = Depends(_require),
+    locale: str = Depends(get_locale),
+):
+    _require_feature(locale)
+    if not repo.delete_invite(invite_id):
+        raise HTTPException(status_code=404, detail=t("invite.notFound", locale))
+    return {"status": "ok"}

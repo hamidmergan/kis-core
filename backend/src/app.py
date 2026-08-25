@@ -16,7 +16,7 @@ from src.dependencies import get_session_store, get_settings, is_admin_user
 from src.security.auth import verify_auth
 from src.limits import REQUEST_THREAD_LIMIT
 from src.storage import USE_S3, init_storage
-from src.routes import admin, auth, glossaries, health, image, jobs, aia, ki_status, me, screencast, screencast_demo, summary, transcription, translate, tts
+from src.routes import admin, auth, glossaries, health, image, invites, jobs, aia, ki_status, me, screencast, screencast_demo, summary, transcription, translate, tts
 
 # Routes that stay reachable during maintenance so the admin can toggle it off
 # and users see a clean maintenance page instead of 401/500.
@@ -252,6 +252,7 @@ def create_app() -> FastAPI:
 
     # Register routers
     application.include_router(auth.router)
+    application.include_router(invites.router)
     application.include_router(health.router)
     application.include_router(translate.router)
     application.include_router(image.router)

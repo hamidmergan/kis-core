@@ -834,6 +834,10 @@
           "label": "Whitelist",
           "sub": "Wer ohne Freischaltung hereinkommt."
         },
+        "invites": {
+          "label": "Einladungen",
+          "sub": "Zugang per Link, solange es kein SSO gibt."
+        },
         "users": {
           "label": "Alle Nutzer",
           "sub": "Suchen, Rolle setzen, Kontingente öffnen."
@@ -1834,6 +1838,50 @@
         "colState": "Stand",
         "colName": "Name"
       }
+    },
+    "invites": {
+      "createButton": "+ Nutzer einladen",
+      "summary": "{n, plural, one {# Einladung} other {# Einladungen}}, davon {offen} offen",
+      "empty": "Noch keine Einladungen",
+      "disabled": "Einladungen sind abgeschaltet.",
+      "colEmail": "E-Mail",
+      "colRole": "Rolle",
+      "colCreated": "Erstellt",
+      "colExpires": "Gültig bis",
+      "colStatus": "Status",
+      "colActions": "Aktion",
+      "statusOpen": "Offen",
+      "statusUsed": "Eingelöst",
+      "statusExpired": "Abgelaufen",
+      "copyLink": "Link kopieren",
+      "copied": "Kopiert!",
+      "withdraw": "Zurückziehen",
+      "usedOn": "am {date}",
+      "loadError": "Einladungen konnten nicht geladen werden",
+      "withdrawError": "Zurückziehen fehlgeschlagen",
+      "roleStaff": "Staff",
+      "roleUser": "User"
+    },
+    "createInvite": {
+      "title": "Nutzer einladen",
+      "hint": "Die eingeladene Person setzt ihr Passwort selbst. Das Konto ist danach sofort freigeschaltet.",
+      "fieldEmail": "E-Mail",
+      "uidHint": "Benutzername wird daraus abgeleitet: {uid}",
+      "fieldRole": "Rolle",
+      "roleStaff": "Staff",
+      "roleUser": "User",
+      "fieldDays": "Gültig",
+      "days": "{n} Tage",
+      "submit": "Einladung erzeugen",
+      "cancel": "Abbrechen",
+      "successTitle": "Einladung erstellt",
+      "successFor": "für {email}",
+      "linkLabel": "Einladungslink",
+      "copy": "Kopieren",
+      "copied": "Kopiert!",
+      "warning": "Der Link gilt einmal und läuft am {date} ab. Schicke ihn nur an diese eine Person.",
+      "close": "Schließen",
+      "errorGeneric": "Einladung konnte nicht erzeugt werden"
     }
   },
   "permissions": {
@@ -2759,5 +2807,32 @@
         "transcript_translate": "Transkript-Übersetzung"
       }
     }
+  },
+  "invite": {
+    "welcome": "Willkommen bei KIS",
+    "title": "Konto einrichten",
+    "email": "E-Mail",
+    "uidHint": "Dein Benutzername wird {uid}",
+    "password": "Passwort",
+    "passwordHint": "Mindestens {min} Zeichen",
+    "passwordRepeat": "Passwort wiederholen",
+    "givenName": "Vorname",
+    "surname": "Nachname",
+    "optional": "(optional)",
+    "nameHint": "Ohne Namen begrüßt dich die Startseite mit deinem Benutzernamen.",
+    "submit": "Konto einrichten",
+    "submitting": "…",
+    "showPassword": "Passwort anzeigen",
+    "hidePassword": "Passwort verbergen",
+    "errorTooShort": "Das Passwort braucht mindestens {min} Zeichen",
+    "errorMismatch": "Die beiden Passwörter sind nicht gleich",
+    "errorGeneric": "Konto konnte nicht angelegt werden",
+    "invalidTitle": "Einladung nicht mehr gültig",
+    "invalidText": "Dieser Link wurde bereits benutzt oder ist abgelaufen.",
+    "invalidHint": "Bitte wende dich an die Person, die dich eingeladen hat. Sie kann dir einen neuen Link schicken.",
+    "toLogin": "Zur Anmeldung",
+    "loadErrorTitle": "Seite konnte nicht geladen werden",
+    "loadErrorText": "Die Einladung liess sich gerade nicht abrufen. Bitte lade die Seite neu.",
+    "retry": "Neu laden"
   }
 }
