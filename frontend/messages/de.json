@@ -1603,13 +1603,25 @@
     },
     "titleSettings": "Einstellungen",
     "permissions": {
+      "chapter": {
+        "benutzen": "Benutzen",
+        "verwalten": "Verwalten"
+      },
       "group": {
         "aia": "KI-Assistent",
         "tools": "Werkzeuge",
-        "settings": "Einstellungen"
+        "set": {
+          "werkzeuge": "Werkzeuge",
+          "assistent": "KI-Assistent",
+          "statistik": "Statistik",
+          "anbieter": "Anbieter",
+          "nutzer": "Nutzer",
+          "system": "System",
+          "mascot": "Maskottchen"
+        }
       },
       "aia": {
-        "use": "KI-Assistent öffnen und geteilte {plural} lesen",
+        "use": "Öffnen und geteilte {plural} lesen",
         "workspace": {
           "create": "Eigene {plural} anlegen und verwalten"
         }
@@ -1625,31 +1637,31 @@
       },
       "settings": {
         "werkzeuge": {
-          "release": "Werkzeuge freigeben und sperren",
+          "release": "Freigeben und sperren",
           "jobs": "Aufträge aller Nutzer sehen",
-          "stats": "Statistik der Werkzeuge",
-          "limits": "Grenzen der Werkzeuge ändern"
+          "stats": "Werkzeuge",
+          "limits": "Grenzen ändern"
         },
         "assistent": {
           "sources": "Materialien und Kontext-Budgets",
           "level": "Sprachniveau, KI-Verhalten und Prompts",
-          "usage": "Nutzung des KI-Assistenten"
+          "usage": "KI-Assistent"
         },
-        "anbieter": "Anbieter, Modelle und Funktionszuordnung",
+        "anbieter": "Modelle eintragen und Funktionen zuordnen",
         "nutzer": {
           "pending": "Ausstehende Anmeldungen freischalten",
           "whitelist": "Whitelist pflegen",
           "users": "Alle Nutzer und ihre Kontingente",
           "roles": "Rollen und Rechte vergeben"
         },
-        "system": "System, Wartung, Beschriftungen und Hinweis",
-        "mascot": "Maskottchen",
+        "system": "Wartung, Beschriftungen und Hinweis",
+        "mascot": "Hilde und Francis",
         "statistik": {
-          "nutzer": "Statistik: Nutzer und Anwesenheit",
-          "modelle": "Statistik: Modelle und Tokens"
+          "nutzer": "Nutzer und Anwesenheit",
+          "modelle": "Modelle und Tokens"
         },
         "wartung": {
-          "zugang": "Zugriff auf die Plattform während der Wartung"
+          "zugang": "Zugriff während der Wartung"
         }
       }
     },

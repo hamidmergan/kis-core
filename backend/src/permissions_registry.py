@@ -16,13 +16,22 @@ Frontend-Test auf.
 
 from src.tools_registry import ALL_TOOL_KEYS
 
-# === Gruppen =================================================================
-# Die Reihenfolge ist die Reihenfolge in der Tabelle.
+# === Kapitel und Gruppen =====================================================
+# Zwei Kapitel: was jemand selbst benutzt, und was er fuer andere verwaltet.
+CHAPTER_USE = "benutzen"
+CHAPTER_MANAGE = "verwalten"
+
+# Die Gruppen unter "Verwalten" heissen wie die Bereiche der Seitenleiste, damit
+# man die Zeile dort sucht, wo man die Seite kennt.
 GROUP_AIA = "aia"
 GROUP_TOOLS = "tools"
-GROUP_SETTINGS = "settings"
-
-GROUPS: tuple[str, ...] = (GROUP_AIA, GROUP_TOOLS, GROUP_SETTINGS)
+GROUP_SET_TOOLS = "set.werkzeuge"
+GROUP_SET_AIA = "set.assistent"
+GROUP_SET_STATS = "set.statistik"
+GROUP_SET_PROVIDERS = "set.anbieter"
+GROUP_SET_USERS = "set.nutzer"
+GROUP_SET_SYSTEM = "set.system"
+GROUP_SET_MASCOT = "set.mascot"
 
 # === KI-Assistent ============================================================
 PERM_AIA_USE = "aia.use"
@@ -76,33 +85,63 @@ PERM_SET_STATS_MODELS = "settings.statistik.modelle"
 # nachschauen soll, ohne die Verwaltung ganz in die Hand zu bekommen.
 PERM_MAINTENANCE_ACCESS = "settings.wartung.zugang"
 
-SETTINGS_KEYS: tuple[str, ...] = (
+# Eine Gruppe je Bereich der Seitenleiste. Die vier Rechte, die je einen Reiter
+# der Statistik aufschliessen, stehen dadurch beieinander statt an drei Stellen.
+SET_TOOLS_KEYS: tuple[str, ...] = (
     PERM_SET_TOOLS_RELEASE,
     PERM_SET_TOOLS_JOBS,
-    PERM_SET_TOOLS_STATS,
     PERM_SET_TOOLS_LIMITS,
-    PERM_SET_AIA_SOURCES,
-    PERM_SET_AIA_LEVEL,
+)
+SET_AIA_KEYS: tuple[str, ...] = (PERM_SET_AIA_SOURCES, PERM_SET_AIA_LEVEL)
+SET_STATS_KEYS: tuple[str, ...] = (
+    PERM_SET_STATS_USERS,
+    PERM_SET_TOOLS_STATS,
     PERM_SET_AIA_USAGE,
-    PERM_SET_PROVIDERS,
+    PERM_SET_STATS_MODELS,
+)
+SET_PROVIDER_KEYS: tuple[str, ...] = (PERM_SET_PROVIDERS,)
+SET_USER_KEYS: tuple[str, ...] = (
     PERM_SET_USERS_PENDING,
     PERM_SET_USERS_WHITELIST,
     PERM_SET_USERS_ALL,
     PERM_SET_USERS_ROLES,
-    PERM_SET_SYSTEM,
-    PERM_SET_MASCOT,
-    PERM_SET_STATS_USERS,
-    PERM_SET_STATS_MODELS,
-    PERM_MAINTENANCE_ACCESS,
+)
+SET_SYSTEM_KEYS: tuple[str, ...] = (PERM_SET_SYSTEM, PERM_MAINTENANCE_ACCESS)
+SET_MASCOT_KEYS: tuple[str, ...] = (PERM_SET_MASCOT,)
+
+SETTINGS_KEYS: tuple[str, ...] = (
+    SET_TOOLS_KEYS
+    + SET_AIA_KEYS
+    + SET_STATS_KEYS
+    + SET_PROVIDER_KEYS
+    + SET_USER_KEYS
+    + SET_SYSTEM_KEYS
+    + SET_MASCOT_KEYS
 )
 
 # === Der ganze Katalog =======================================================
 ALL_PERMISSION_KEYS: tuple[str, ...] = AIA_KEYS + TOOL_KEYS + SETTINGS_KEYS
 
+# Kapitel, Gruppe und Zeilen in Anzeigereihenfolge, alles andere leitet sich
+# daraus ab, damit eine neue Gruppe an genau einer Stelle entsteht.
+MATRIX_LAYOUT: tuple[tuple[str, str, tuple[str, ...]], ...] = (
+    (CHAPTER_USE, GROUP_AIA, AIA_KEYS),
+    (CHAPTER_USE, GROUP_TOOLS, TOOL_KEYS),
+    (CHAPTER_MANAGE, GROUP_SET_TOOLS, SET_TOOLS_KEYS),
+    (CHAPTER_MANAGE, GROUP_SET_AIA, SET_AIA_KEYS),
+    (CHAPTER_MANAGE, GROUP_SET_STATS, SET_STATS_KEYS),
+    (CHAPTER_MANAGE, GROUP_SET_PROVIDERS, SET_PROVIDER_KEYS),
+    (CHAPTER_MANAGE, GROUP_SET_USERS, SET_USER_KEYS),
+    (CHAPTER_MANAGE, GROUP_SET_SYSTEM, SET_SYSTEM_KEYS),
+    (CHAPTER_MANAGE, GROUP_SET_MASCOT, SET_MASCOT_KEYS),
+)
+
+GROUPS: tuple[str, ...] = tuple(group for _, group, _ in MATRIX_LAYOUT)
+
+GROUP_CHAPTER: dict[str, str] = {group: chapter for chapter, group, _ in MATRIX_LAYOUT}
+
 PERMISSION_GROUPS: dict[str, tuple[str, ...]] = {
-    GROUP_AIA: AIA_KEYS,
-    GROUP_TOOLS: TOOL_KEYS,
-    GROUP_SETTINGS: SETTINGS_KEYS,
+    group: keys for _, group, keys in MATRIX_LAYOUT
 }
 
 

@@ -14,6 +14,7 @@ from fastapi import HTTPException
 from src.dependencies_rbac import assert_may_grant, permissions_of
 from src.permissions import custom_role_permissions, permissions_for_system_role
 from src.permissions_registry import (
+    ALL_PERMISSION_KEYS,
     PERM_AIA_USE,
     PERM_SET_AIA_LEVEL,
     PERM_SET_SYSTEM,
@@ -167,7 +168,11 @@ async def test_matrix_lists_groups_system_roles_and_own_roles(monkeypatch):
     )
     body = await roles_route.list_roles(admin=ADMIN)
 
-    assert [g["key"] for g in body["groups"]] == ["aia", "tools", "settings"]
+    # Jede Zeile des Katalogs steht in genau einer Gruppe, in Katalogreihenfolge.
+    # Wie die Gruppen heissen und in welchem Kapitel sie stehen, prueft
+    # test_permission_matrix_layout.
+    rows = [k for g in body["groups"] for k in g["permissions"]]
+    assert rows == list(ALL_PERMISSION_KEYS)
     assert [r["key"] for r in body["system_roles"]] == ["admin", "staff", "user"]
     assert body["custom_roles"][0]["name"] == "Sprachexperte"
     # Der Administrator darf jedes Haekchen setzen.

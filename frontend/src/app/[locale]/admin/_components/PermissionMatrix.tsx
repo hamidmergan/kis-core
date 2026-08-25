@@ -12,7 +12,7 @@
  * der Tabelle, damit man sieht, wogegen man eine eigene Rolle vergleicht.
  */
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { Fragment, useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
 import { Check, Plus } from "@phosphor-icons/react";
 
@@ -21,10 +21,13 @@ import Modal from "@/components/ui/Modal";
 import Spinner from "@/components/ui/Spinner";
 import { InlineRename } from "@/components/ui/InlineRename";
 import RoleMenu from "./RoleMenu";
+import { byChapter } from "./_chapters";
 import { useWorkspaceLabel } from "@/hooks/useWorkspaceLabel";
 
 interface Group {
   key: string;
+  /** Kapitel, in dem die Gruppe steht. Fehlt es, bleibt die Tabelle einstufig. */
+  chapter?: string;
   permissions: string[];
 }
 
@@ -293,18 +296,34 @@ export default function PermissionMatrix() {
           </thead>
 
           <tbody>
-            {data.groups.map((group) => (
-              <GroupRows
-                key={group.key}
-                group={group}
-                columns={columns}
-                grantable={grantable}
-                busy={busy}
-                label={permLabel}
-                groupLabel={permLabel(`group.${group.key}`)}
-                onToggle={toggle}
-                lockedLabel={t("locked")}
-              />
+            {byChapter(data.groups).map((block, i) => (
+              <Fragment key={block.chapter ?? `block-${i}`}>
+                {block.chapter && (
+                  <tr>
+                    <th
+                      colSpan={columns.length + 1}
+                      scope="colgroup"
+                      className="sticky left-0 bg-kb px-3 py-2 text-left text-xs font-bold uppercase tracking-[0.12em] text-on-accent"
+                    >
+                      {permLabel(`chapter.${block.chapter}`)}
+                    </th>
+                  </tr>
+                )}
+                {block.groups.map((group) => (
+                  <GroupRows
+                    key={group.key}
+                    group={group}
+                    columns={columns}
+                    grantable={grantable}
+                    busy={busy}
+                    label={permLabel}
+                    groupLabel={permLabel(`group.${group.key}`)}
+                    indent={!!block.chapter}
+                    onToggle={toggle}
+                    lockedLabel={t("locked")}
+                  />
+                ))}
+              </Fragment>
             ))}
           </tbody>
         </table>
@@ -405,6 +424,7 @@ function GroupRows({
   busy,
   label,
   groupLabel,
+  indent,
   onToggle,
   lockedLabel,
 }: {
@@ -414,16 +434,19 @@ function GroupRows({
   busy: Set<string>;
   label: (key: string) => string;
   groupLabel: string;
+  /** Unter einer Kapitelzeile ruecken Gruppe und Zeilen eine Stufe ein. */
+  indent: boolean;
   onToggle: (role: CustomRole, key: string, next: boolean) => void;
   lockedLabel: string;
 }) {
+  const pad = indent ? "pl-7" : "px-3";
   return (
     <>
       <tr>
         <th
           colSpan={columns.length + 1}
           scope="colgroup"
-          className="sticky left-0 bg-surface-dim px-3 py-1.5 text-left text-2xs font-semibold uppercase tracking-[0.09em] text-muted"
+          className={`sticky left-0 bg-surface-dim ${pad} pr-3 py-1.5 text-left text-2xs font-semibold uppercase tracking-[0.09em] text-muted`}
         >
           {groupLabel}
         </th>
@@ -432,7 +455,7 @@ function GroupRows({
         <tr key={key} className="border-t border-border-soft hover:bg-surface/60">
           <th
             scope="row"
-            className="sticky left-0 z-10 bg-background px-3 py-2 text-left font-normal text-foreground"
+            className={`sticky left-0 z-10 bg-background ${pad} pr-3 py-2 text-left font-normal text-foreground`}
           >
             {label(key)}
           </th>

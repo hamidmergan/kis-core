@@ -1603,13 +1603,25 @@
     },
     "titleSettings": "Settings",
     "permissions": {
+      "chapter": {
+        "benutzen": "Use",
+        "verwalten": "Manage"
+      },
       "group": {
         "aia": "AI assistant",
         "tools": "Tools",
-        "settings": "Settings"
+        "set": {
+          "werkzeuge": "Tools",
+          "assistent": "AI assistant",
+          "statistik": "Statistics",
+          "anbieter": "Providers",
+          "nutzer": "Users",
+          "system": "System",
+          "mascot": "Mascots"
+        }
       },
       "aia": {
-        "use": "Open the AI assistant and read shared {plural}",
+        "use": "Open and read shared {plural}",
         "workspace": {
           "create": "Create and manage own {plural}"
         }
@@ -1625,31 +1637,31 @@
       },
       "settings": {
         "werkzeuge": {
-          "release": "Release and block tools",
+          "release": "Release and block",
           "jobs": "See everyone's jobs",
-          "stats": "Tool statistics",
-          "limits": "Change tool limits"
+          "stats": "Tools",
+          "limits": "Change limits"
         },
         "assistent": {
           "sources": "Sources and context budgets",
           "level": "Language level, AI behaviour and prompts",
-          "usage": "AI assistant usage"
+          "usage": "AI assistant"
         },
-        "anbieter": "Providers, models and feature routing",
+        "anbieter": "Add models and route features",
         "nutzer": {
           "pending": "Approve pending sign-ups",
           "whitelist": "Maintain the whitelist",
           "users": "All users and their quotas",
           "roles": "Assign roles and permissions"
         },
-        "system": "System, maintenance, labels and notice",
-        "mascot": "Mascots",
+        "system": "Maintenance, labels and notice",
+        "mascot": "Hilde and Francis",
         "statistik": {
-          "nutzer": "Statistics: users and presence",
-          "modelle": "Statistics: models and tokens"
+          "nutzer": "Users and presence",
+          "modelle": "Models and tokens"
         },
         "wartung": {
-          "zugang": "Access to the platform during maintenance"
+          "zugang": "Access during maintenance"
         }
       }
     },
