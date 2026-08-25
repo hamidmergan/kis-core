@@ -13,6 +13,7 @@ from src.features.admin.repository.roles import RoleNameTaken
 from src.i18n import get_locale, t
 from src.permissions_registry import (
     ALL_PERMISSION_KEYS,
+    GROUP_CHAPTER,
     GROUPS,
     PERMISSION_GROUPS,
     PERM_SET_USERS_ROLES,
@@ -53,7 +54,12 @@ async def list_roles(admin=Depends(_require)):
     perms = permissions_of(admin)
     return {
         "groups": [
-            {"key": g, "permissions": list(PERMISSION_GROUPS[g])} for g in GROUPS
+            {
+                "key": g,
+                "chapter": GROUP_CHAPTER[g],
+                "permissions": list(PERMISSION_GROUPS[g]),
+            }
+            for g in GROUPS
         ],
         "system_roles": [
             {"key": r, "permissions": list(SYSTEM_ROLE_PERMISSIONS[r])}
