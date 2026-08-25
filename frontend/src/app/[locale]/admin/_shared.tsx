@@ -1,6 +1,8 @@
 "use client";
 
 import { useTranslations } from "next-intl";
+import StatusMark from "@/components/ui/StatusMark";
+import { jobStatusDisplay } from "@/lib/jobStatusDisplay";
 
 export interface PendingUser {
   id: number;
@@ -36,13 +38,14 @@ export interface AdminJob {
 
 export function JobStatusBadge({ status }: { status: string }) {
   const t = useTranslations("admin.jobStatus");
-  if (status === "success")
-    return <span className="text-xs font-medium text-success-strong bg-success-bg px-2 py-0.5 rounded-full">{t("success")}</span>;
-  if (status === "failed")
-    return <span className="text-xs font-medium text-error-strong bg-error-bg px-2 py-0.5 rounded-full">{t("failed")}</span>;
-  if (status === "running")
-    return <span className="text-xs font-medium text-info-strong bg-info-bg px-2 py-0.5 rounded-full animate-pulse">{t("running")}</span>;
-  if (status === "queued")
-    return <span className="text-xs font-medium text-info-strong bg-info-bg px-2 py-0.5 rounded-full">{t("queued")}</span>;
-  return <span className="text-xs font-medium text-warn-strong bg-warn-bg px-2 py-0.5 rounded-full">{t("pending")}</span>;
+  const anzeige = jobStatusDisplay(status, {});
+  // Fortsetzen kommt in dieser Liste nicht vor, der Adminbereich zeigt nur die
+  // fuenf Zustaende, fuer die er auch Beschriftungen hat.
+  const key = anzeige.kind === "action" ? "pending" : anzeige.key;
+  const tone = anzeige.kind === "action" ? "warn" : anzeige.tone;
+  return (
+    <StatusMark tone={tone} pulse={anzeige.kind === "mark" && anzeige.pulse} className="text-xs">
+      {t(key as "success" | "failed" | "running" | "queued" | "pending")}
+    </StatusMark>
+  );
 }
