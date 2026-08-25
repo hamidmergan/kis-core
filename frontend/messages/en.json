@@ -636,7 +636,7 @@
         "zusammenfassungMitNeu": "{dabei} of {total} slides in the screencast · {neu, plural, one {# slide will be} other {# slides will be}} re-voiced",
         "erstlaufHinweis": "After rendering you can re-voice single slides here without redoing everything.",
         "stimmeGewechselt": "The voice has changed. Slides without a tick keep the old voice.",
-        "spalteScreencast": "Screencast",
+        "spalteScreencast": "in screencast",
         "spalteNeu": "re-voice",
         "alle": "All",
         "keine": "None",

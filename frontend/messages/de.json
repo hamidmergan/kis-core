@@ -636,7 +636,7 @@
         "zusammenfassungMitNeu": "{dabei} von {total} Folien im Screencast · {neu, plural, one {# Folie wird} other {# Folien werden}} neu vertont",
         "erstlaufHinweis": "Nach dem Rendern lassen sich hier einzelne Folien neu vertonen, ohne alles neu zu erzeugen.",
         "stimmeGewechselt": "Die Stimme ist gewechselt. Folien ohne Haken behalten die alte Stimme.",
-        "spalteScreencast": "Screencast",
+        "spalteScreencast": "im Screencast",
         "spalteNeu": "neu sprechen",
         "alle": "Alle",
         "keine": "Keine",
