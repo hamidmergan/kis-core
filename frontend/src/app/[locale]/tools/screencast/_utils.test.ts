@@ -279,4 +279,24 @@ describe("ausgeschlosseneFolien", () => {
   it("die Nummern kommen aufsteigend", () => {
     expect(ausgeschlosseneFolien(6, [], [1, 3, 5])).toEqual([0, 2, 4]);
   });
+
+  it("ohne Fortschritt und ohne Ergebnis wird aus der Auswahl gerechnet", () => {
+    expect(ausgeschlosseneFolien(5, [], null, [0, 2, 4])).toEqual([1, 3]);
+  });
+
+  it("das Ergebnis gewinnt gegen die Auswahl", () => {
+    expect(ausgeschlosseneFolien(5, [], [0, 1, 2, 3, 4], [0, 2, 4])).toEqual([]);
+  });
+
+  it("der Fortschritt gewinnt gegen Ergebnis und Auswahl", () => {
+    expect(ausgeschlosseneFolien(5, [1], [0, 1, 2, 3, 4], [0, 2, 4])).toEqual([1]);
+  });
+
+  it("eine leere Auswahl fuehrt nicht dazu, dass alle Folien als ausgeschlossen gelten", () => {
+    expect(ausgeschlosseneFolien(5, [], null, [])).toEqual([]);
+  });
+
+  it("sind alle Folien in der Auswahl, ist die Liste leer", () => {
+    expect(ausgeschlosseneFolien(3, [], null, [0, 1, 2])).toEqual([]);
+  });
 });

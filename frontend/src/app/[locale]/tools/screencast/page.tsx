@@ -95,8 +95,6 @@ function ScreencastPageInner() {
 
   // Zurueck auf Rendern kommt man nur, wenn das Video schon fertig ist.
   const rueckblick = step === "rendering" && videoUrl !== null;
-  // Nach einem Neuladen kommt die Auswahl aus dem Ergebnis statt aus dem Fortschritt.
-  const ausgeschlossen = ausgeschlosseneFolien(slides.length, nichtDabei, videoFolien);
 
   const autosaveScripts = useScriptAutosave({ jobUuid: translateJobUuid });
   const {
@@ -145,6 +143,8 @@ function ScreencastPageInner() {
       : null,
     bereit: standGeladen,
   });
+  // Nach einem Neuladen kommt die Auswahl aus dem Ergebnis statt aus dem Fortschritt.
+  const ausgeschlossen = ausgeschlosseneFolien(slides.length, nichtDabei, videoFolien, auswahl.imScreencast);
   const zeigtNeu = hatTon.some(Boolean);
   const stimmeGewechselt = !!stand && (stand.voice_id !== voiceId || stand.provider_id !== providerId || stand.target_lang !== targetLang);
   const laufStand: LaufStand = {

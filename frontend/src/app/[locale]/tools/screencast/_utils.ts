@@ -215,14 +215,17 @@ function gleicheNummern(a: number[], b: number[]): boolean {
   return x.every((wert, i) => wert === y[i]);
 }
 
-/** Welche Folien nicht im Video sind, aus dem Fortschritt oder aus dem Ergebnis. */
+/** Welche Folien nicht im Video sind, aus dem Fortschritt, dem Ergebnis oder der Auswahl. */
 export function ausgeschlosseneFolien(
   anzahl: number,
   ausDemFortschritt: number[],
   videoFolien: number[] | null,
+  ausDerAuswahl: number[] = [],
 ): number[] {
   if (ausDemFortschritt.length > 0) return ausDemFortschritt;
-  if (!videoFolien) return [];
-  const dabei = new Set(videoFolien);
+  // Waehrend des Laufs gibt es noch kein Ergebnis, dann zaehlt die abgeschickte Auswahl.
+  const dabeiListe = videoFolien ?? (ausDerAuswahl.length ? ausDerAuswahl : null);
+  if (!dabeiListe) return [];
+  const dabei = new Set(dabeiListe);
   return Array.from({ length: anzahl }, (_, i) => i).filter((i) => !dabei.has(i));
 }
