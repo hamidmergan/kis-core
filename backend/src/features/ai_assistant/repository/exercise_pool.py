@@ -18,6 +18,10 @@ from src.core.db.pool import get_connection
 # bleibt der Vorrat kleiner; aufgefuellt wird nie mit Wiederholungen.
 POOL_MAX_ITEMS = 1000
 
+# Werkzeuge mit Vorrat. Die Liste steht hier statt beim Erzeugen, weil sie eine
+# Eigenschaft der Tabelle ist: nur diese Werte kommen in ``tool`` vor.
+POOL_TOOLS = frozenset({"flashcards", "karteikarten", "quiz", "grammatik", "wortschatz"})
+
 # Felder, die eine Aufgabe im Vorrat traegt. Ein Satz verweist nur noch hierher, deshalb
 # muss der Vorrat alles halten, was die Anzeige braucht.
 _ITEM_FIELDS = (
@@ -218,6 +222,43 @@ def materialize_pool_items_for_topic(topic_id: int) -> int:
     return _materialize("p.topic_id = %s", topic_id)
 
 
+def pool_counts_by_tool() -> dict[str, int]:
+    """Wie viele Aufgaben je Werkzeug im Vorrat liegen, ueber alle Kursraeume.
+
+    Fuer die Admin-Karte: wer einen Vorrat wegwirft, soll vorher sehen, was weggeht.
+    """
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute("SELECT tool, COUNT(*) FROM aia_exercise_pool GROUP BY tool")
+            return {row[0]: row[1] for row in cur.fetchall()}
+
+
+def clear_pool_for_tools(tools) -> int:
+    """Den Vorrat der genannten Werkzeuge plattformweit wegwerfen.
+
+    Bewusst ohne Quellen- oder Kursraum-Bedingung: das ist der Admin-Knopf, der einen
+    Werkzeug-Vorrat ueberall leert. Der Inhalt wird vorher in die Saetze
+    zurueckgeschrieben, die darauf zeigen, danach setzt der Fremdschluessel deren
+    Verweis auf NULL. Fertige Saetze und Fortschritt bleiben damit lesbar.
+
+    Ein unbekannter Name ist ein Fehler und kein leerer Lauf: sonst meldet ein
+    Tippfehler Erfolg, obwohl nichts passiert ist.
+    """
+    tools = list(tools)
+    unbekannt = [t for t in tools if t not in POOL_TOOLS]
+    if unbekannt:
+        raise ValueError(f"kein Werkzeug mit Vorrat: {', '.join(unbekannt)}")
+    if not tools:
+        return 0
+    _materialize("p.tool = ANY(%s)", tools)
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute("DELETE FROM aia_exercise_pool WHERE tool = ANY(%s)", (tools,))
+            geloescht = cur.rowcount
+        conn.commit()
+    return geloescht
+
+
 def clear_pool_for_source(source_id: int) -> int:
     """Vorrat einer Quelle wegwerfen. Gibt die Zahl der geloeschten Aufgaben zurueck.
 
@@ -238,8 +279,11 @@ def clear_pool_for_source(source_id: int) -> int:
 
 __all__ = [
     "POOL_MAX_ITEMS",
+    "POOL_TOOLS",
     "add_pool_items",
     "clear_pool_for_source",
+    "clear_pool_for_tools",
+    "pool_counts_by_tool",
     "materialize_pool_items",
     "pool_size",
     "seen_fingerprints",

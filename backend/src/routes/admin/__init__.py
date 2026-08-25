@@ -12,6 +12,7 @@ from src.routes.admin.jobs import router as _jobs_router
 from src.routes.admin.load import router as _load_router
 from src.routes.admin.ldap_users import router as _ldap_users_router
 from src.routes.admin.maintenance import router as _maintenance_router
+from src.routes.admin.pools import router as _pools_router
 from src.routes.admin.providers import router as _providers_router
 from src.routes.admin.quota import router as _quota_router
 from src.routes.admin.roles import router as _roles_router
@@ -24,6 +25,7 @@ router = APIRouter(prefix="/admin")
 router.include_router(_settings_router)
 router.include_router(_diagnosis_plan_router)
 router.include_router(_maintenance_router)
+router.include_router(_pools_router)
 router.include_router(_tools_router)
 router.include_router(_users_router)
 router.include_router(_stats_router)

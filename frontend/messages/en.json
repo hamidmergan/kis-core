@@ -1359,6 +1359,21 @@
       "lastRunFailed": ", {n} errors",
       "activateMaintenance": "Activate maintenance mode (System tab) before starting."
     },
+    "poolClearCard": {
+      "title": "Clear stocks",
+      "description": "Exercises and schedule extractions build up through use and belong to the source, not the workspace. This clears them platform-wide. Finished exercise sets, progress and scheduled dates stay.",
+      "schedule": "Schedule extractions",
+      "items": "{n, plural, =0 {empty} =1 {1 exercise} other {# exercises}}",
+      "sources": "{n, plural, =0 {empty} =1 {1 source} other {# sources}}",
+      "clear": "Clear selected stocks",
+      "confirmTitle": "Clear stocks?",
+      "confirmBody": "{n, plural, =1 {1 entry} other {# entries}} will be deleted.",
+      "confirmWarning": "This cannot be undone. Whatever is needed afterwards costs another model call.",
+      "cancel": "Cancel",
+      "confirm": "Clear for good",
+      "done": "Deleted {items} exercises and {extractions} extractions.",
+      "failed": "Clearing failed."
+    },
     "languageTrainerCard": {
       "title": "Language trainer",
       "description": "The language trainer is a practice area in the studio for everyone following the course in a foreign language. It holds vocabulary cards for technical terms and a grammar exercise, each built from the workspace sources. While it is on, every reader is assessed once and chat answers as well as exercises are pitched at that level. The language trainer works in German only.",
@@ -1746,7 +1761,7 @@
         "colTokens": "Tokens"
       },
       "heat": {
-        "title": "When things happen",
+        "title": "Usage by weekday and hour",
         "hint": "Average per weekday and hour in the chosen period. One cell means: this much happens on a typical Monday at 10.",
         "hintAssistant": "Average per weekday and hour in the chosen period. One cell means: this many requests on a typical Monday at 10.",
         "low": "almost nothing",

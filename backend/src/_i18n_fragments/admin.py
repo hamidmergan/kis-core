@@ -106,6 +106,11 @@ MESSAGES: dict[str, dict[str, str]] = {
         "de": "Reindex läuft bereits",
         "en": "Reindex already running",
     },
+    # Vorraete
+    "admin.pools.nothingChosen": {
+        "de": "Kein Vorrat gewählt",
+        "en": "No stock selected",
+    },
     # Users
     "admin.user.notFound": {
         "de": "User nicht gefunden",

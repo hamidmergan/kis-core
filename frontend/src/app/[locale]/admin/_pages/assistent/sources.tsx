@@ -23,6 +23,7 @@ import { useWorkspaceLabel } from "@/hooks/useWorkspaceLabel";
 import { useSetting } from "../../_settings/SettingsProvider";
 import { NumberSetting, SelectSetting, ToggleSetting } from "../../_settings/fields";
 import ReindexCard from "../../_settings/ReindexCard";
+import PoolClearCard from "../../_settings/PoolClearCard";
 
 /** Grobe Schätzung, etwa 3,5 Zeichen je Token bei gemischtem Text. Nur zur
  *  Orientierung, deshalb auf Tausender gerundet. */
@@ -150,6 +151,9 @@ export default function SourcesPage() {
           Einstellung. Man liest die Regeln von oben nach unten und handelt am
           Ende, nicht mittendrin. */}
       <ReindexCard />
+      {/* Direkt darunter, weil beides ein Vorgang ist und nicht eine
+          Einstellung: der eine baut neu auf, der andere raeumt weg. */}
+      <PoolClearCard />
     </div>
   );
 }

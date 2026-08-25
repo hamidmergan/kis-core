@@ -13,6 +13,9 @@ import hashlib
 from loguru import logger
 
 from src import database as db
+# Die Liste der Werkzeuge mit Vorrat steht am Vorrat selbst, weil auch das Leeren im
+# Adminbereich sie braucht.
+from src.features.ai_assistant.repository.exercise_pool import POOL_TOOLS
 from src.features.ai_assistant.tasks.language_training._dedup import item_key
 
 # Werkzeuge mit Vorrat. Die Grammatik-Uebung ist dabei, obwohl ihre Aufgaben zusaetzlich
@@ -25,7 +28,6 @@ from src.features.ai_assistant.tasks.language_training._dedup import item_key
 # ist bei ihm ein GANZER Text und nicht eine einzelne Aufgabe, denn ein Set ist eine
 # Aufgabe. Aus Lernkarten läuft er unter mode='cards' und fällt damit von selbst aus
 # uses_pool heraus: zwei Personen haben nicht dieselben Karten.
-POOL_TOOLS = frozenset({"flashcards", "karteikarten", "quiz", "grammatik", "wortschatz"})
 
 # Felder, die eine Vorratszeile mitbringt und eine Aufgabe im Satz braucht.
 _CARRIED = (

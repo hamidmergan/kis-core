@@ -1359,6 +1359,21 @@
       "lastRunFailed": ", {n} Fehler",
       "activateMaintenance": "Wartungsmodus aktivieren (Tab \"System\"), bevor du startest."
     },
+    "poolClearCard": {
+      "title": "Vorräte leeren",
+      "description": "Aufgaben und Zeitplan-Auswertungen entstehen beim Benutzen und liegen an der Quelle, nicht am Workspace. Hier lassen sie sich plattformweit wegwerfen. Fertige Aufgabensätze, Fortschritt und eingetragene Termine bleiben stehen.",
+      "schedule": "Zeitplan-Auswertungen",
+      "items": "{n, plural, =0 {leer} =1 {1 Aufgabe} other {# Aufgaben}}",
+      "sources": "{n, plural, =0 {leer} =1 {1 Quelle} other {# Quellen}}",
+      "clear": "Ausgewählte Vorräte leeren",
+      "confirmTitle": "Vorräte leeren?",
+      "confirmBody": "{n, plural, =1 {1 Eintrag wird} other {# Einträge werden}} gelöscht.",
+      "confirmWarning": "Das lässt sich nicht rückgängig machen. Was danach gebraucht wird, kostet wieder einen Modellaufruf.",
+      "cancel": "Abbrechen",
+      "confirm": "Endgültig leeren",
+      "done": "{items} Aufgaben und {extractions} Auswertungen gelöscht.",
+      "failed": "Leeren fehlgeschlagen."
+    },
     "languageTrainerCard": {
       "title": "Sprachtrainer",
       "description": "Der Sprachtrainer ist ein Übungsbereich im Studio für alle, die dem Kurs in einer Fremdsprache folgen. Er enthält Lernkarten für Fachbegriffe und eine Grammatik-Übung, jeweils aus den Materialien des Workspace gebaut. Ist er eingeschaltet, wird der Sprachstand einmalig eingestuft, und Chat-Antworten sowie Aufgaben werden auf dieses Niveau angepasst. Der Sprachtrainer arbeitet ausschließlich auf Deutsch.",
@@ -1746,7 +1761,7 @@
         "colTokens": "Tokens"
       },
       "heat": {
-        "title": "Wann ist was los",
+        "title": "Nutzung nach Wochentag und Stunde",
         "hint": "Durchschnitt je Wochentag und Stunde im gewählten Zeitraum. Ein Feld heißt: so viel passiert an einem typischen Montag um 10 Uhr.",
         "hintAssistant": "Durchschnitt je Wochentag und Stunde im gewählten Zeitraum. Ein Feld heißt: so viele Anfragen an einem typischen Montag um 10 Uhr.",
         "low": "fast nichts",
