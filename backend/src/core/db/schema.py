@@ -1672,6 +1672,12 @@ def _init_db(admin_email: Optional[str] = None) -> None:
             # heisst, dort stand nur ein Monat ("im Juli 2026"). due_date traegt dann den
             # Monatsersten als Sortierpunkt, die Ansicht zeigt dafuer keine Tagesnummer.
             cur.execute("ALTER TABLE aia_schedule_entries ADD COLUMN IF NOT EXISTS date_precision TEXT NOT NULL DEFAULT 'day'")
+            # Gesetzt heisst: der Termin geht an diesem Tag bis zu dieser Uhrzeit.
+            cur.execute("ALTER TABLE aia_schedule_entries ADD COLUMN IF NOT EXISTS end_time TIME")
+            # Gesetzt heisst: die Quelle nennt einen Anfang und ausdruecklich KEIN Ende
+            # ("ab 15.09. freigeschaltet"). So ein Termin ist nie vorbei, die Ansicht
+            # blendet ihn deshalb nie ab.
+            cur.execute("ALTER TABLE aia_schedule_entries ADD COLUMN IF NOT EXISTS is_open_ended BOOLEAN NOT NULL DEFAULT FALSE")
             # Drop legacy columns (were single-position; replaced by source_refs array)
             cur.execute("ALTER TABLE aia_schedule_entries DROP COLUMN IF EXISTS source_ids")
             cur.execute("ALTER TABLE aia_schedule_entries DROP COLUMN IF EXISTS raw_quote")

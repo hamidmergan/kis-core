@@ -166,7 +166,9 @@ export function ScheduleView({
       title: input.title,
       description: input.description || null,
       due_date: input.due_date || null,
+      end_date: input.end_date || null,
       due_time: input.due_time || null,
+      end_time: input.end_time || null,
       date_precision: input.date_precision,
       is_optional: input.is_optional,
     });
@@ -185,6 +187,8 @@ export function ScheduleView({
     };
     if (input.due_date) patch.due_date = input.due_date; else patch.clear_date = true;
     if (input.due_time) patch.due_time = input.due_time; else patch.clear_time = true;
+    if (input.end_date) patch.end_date = input.end_date; else patch.clear_end_date = true;
+    if (input.end_time) patch.end_time = input.end_time; else patch.clear_end_time = true;
 
     const updated = await apiUpdateEntry(workspaceUuid, editing.id, patch);
     setEntries((prev) => prev.map((e) => e.id === editing.id ? updated : e));

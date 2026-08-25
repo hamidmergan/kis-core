@@ -1,8 +1,8 @@
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import { Check, Clock, PencilSimple, Trash } from "@phosphor-icons/react";
 import type { ScheduleEntry } from "../../_types";
 import { _chunkLabel, _getChipIcon } from "../../_utils";
-import { cleanScheduleDescription } from "@/components/schedule/utils";
+import { cleanScheduleDescription, formatRangeEnd } from "@/components/schedule/utils";
 
 interface SourceLike { uuid: string; filename: string; }
 
@@ -31,6 +31,10 @@ export function ScheduleEntryCard({
 }) {
   const t = useTranslations("workspace.detail.studio.schedule.entry");
   const tChip = useTranslations("sourceChip");
+  const locale = useLocale();
+  // Die Zeitspanne steht immer als Zeile unter dem Titel, nie in der Datumsplakette.
+  // Die Plakette beschriftet den Punkt auf der Achse, zwei Daten machen sie mehrdeutig.
+  const spannenEnde = formatRangeEnd(entry.due_date, entry.end_date, locale);
   const baseStyle: React.CSSProperties = {
     border: "1px solid var(--border)",
     // Dim whenever the deadline has passed — including today's entries whose
@@ -94,8 +98,16 @@ export function ScheduleEntryCard({
           >
             {entry.title}
           </div>
+          {spannenEnde && (
+            <div
+              className="mt-0.5 text-2xs font-semibold"
+              style={{ color: urgency ?? "var(--kb)" }}
+            >
+              {t("until", { datum: spannenEnde })}
+            </div>
+          )}
           {(() => {
-            const description = cleanScheduleDescription(entry.description, entry.due_time);
+            const description = cleanScheduleDescription(entry.description, entry.due_time, entry.due_date);
             if (!entry.due_time && !description) return null;
             return (
               <div
@@ -108,7 +120,9 @@ export function ScheduleEntryCard({
                     style={urgency ? { color: urgency } : undefined}
                   >
                     <Clock size={10} weight="bold" />
-                    {entry.due_time}
+                    {entry.end_time
+                      ? t("timeRange", { von: entry.due_time, bis: entry.end_time })
+                      : entry.due_time}
                   </span>
                 )}
                 {entry.due_time && description && <span>·</span>}

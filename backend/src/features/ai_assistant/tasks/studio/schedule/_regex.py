@@ -118,6 +118,44 @@ def _date_in_neighbouring_column(text: str, start: int, end: int) -> bool:
     return False
 
 
+# Zwei Daten dicht beieinander in derselben Zeile sind meist EINE Zeitspanne
+# ("28.09.2026 bis 02.11.2026"). Welches Wort dazwischen steht, ist sprachabhaengig und
+# wird darum nicht geprueft, nur der Abstand und was dort NICHT stehen darf. Der Regex
+# schlaegt die Spanne nur vor, bestaetigen muss sie die Klassifikation.
+_RANGE_MAX_GAP = 15
+
+# Ein Komma, ein Semikolon, ein Schraegstrich zwischen zwei Daten heisst Aufzaehlung,
+# nicht Spanne. Das gilt sprachuebergreifend.
+_LIST_SEPARATORS = frozenset(",;/&+")
+
+
+def _looks_like_range(text: str, end_of_first: int, start_of_second: int) -> bool:
+    """Verbindet der Text zwischen zwei Daten sie zu einer Zeitspanne?
+
+    Geprueft wird nur, was ohne Sprachkenntnis entscheidbar ist. Ein Zeilenumbruch oder
+    eine Spaltengrenze trennt zwei Tabellenzeilen, eine Ziffer dazwischen ist ein
+    drittes Datum, ein blosses Komma ist eine Aufzaehlung, und gar nichts dazwischen
+    sind zwei Spalten ohne Trennzeichen.
+
+    Mehrfache Leerzeichen zaehlen hier NICHT als Spaltengrenze: in einer Tabellenzelle
+    steht "28.09.2026    bis    02.11.2026" mit weiten Abstaenden, das Wort dazwischen
+    gehoert trotzdem zur selben Zelle.
+    """
+    if not 0 < start_of_second - end_of_first <= _RANGE_MAX_GAP * 4:
+        return False
+    gap = text[end_of_first:start_of_second]
+    if "\n" in gap or "|" in gap or "\t" in gap:
+        return False
+    if any(ch.isdigit() for ch in gap):
+        return False
+    kern = " ".join(gap.split())
+    if not kern or len(kern) > _RANGE_MAX_GAP:
+        return False
+    if all(ch in _LIST_SEPARATORS for ch in kern):
+        return False
+    return True
+
+
 def _date_candidates_in_text(text: str) -> list[tuple[int, int, str, bool, str]]:
     """Return list of (start_index, end_index, matched_string, has_year, precision).
 

@@ -30,9 +30,36 @@ from src.features.ai_assistant.tasks.studio.schedule._harmonize import (
 from src.features.ai_assistant.tasks.studio.schedule._parse import (
     _parse_date,
     _parse_time,
+    _range_end_date,
     _resolve_current_year,
 )
 from src.features.ai_assistant.tasks.studio.schedule._titles import _find_merge_target
+
+
+def _split_rejected_ranges(candidates: list[dict],
+                           classifications: list[dict]) -> tuple[list[dict], list[dict]]:
+    """Was das Modell nicht als Spanne bestaetigt hat, wird wieder zu zwei Terminen.
+
+    Der Kandidatenschritt schlaegt eine Paarung nur vor, er sieht ja nur den Abstand.
+    Lehnt die Klassifikation sie ab ("Abgabe 01.09.2026 Klausur 27.09.2026"), darf das
+    zweite Datum nicht verloren gehen, sonst waere die Spannen-Erkennung ein Rueckschritt
+    gegenueber dem Stand ohne sie.
+    """
+    cands: list[dict] = []
+    cls_out: list[dict] = []
+    for cand, cls in zip(candidates, classifications):
+        cands.append(cand)
+        cls_out.append(cls)
+        if cls.get("is_range") or not cand.get("date_end_raw") or not cls.get("keep"):
+            continue
+        zweiter = dict(cand)
+        zweiter["date_raw"] = cand["date_end_raw"]
+        zweiter["date_iso"] = cand.get("date_end_iso")
+        zweiter["partial_date"] = cand.get("date_end_partial")
+        zweiter["date_end_raw"] = zweiter["date_end_iso"] = zweiter["date_end_partial"] = None
+        cands.append(zweiter)
+        cls_out.append(dict(cls))
+    return cands, cls_out
 
 
 @celery_app.task(bind=True, name="aia.generate_schedule", queue="aia",
@@ -141,6 +168,10 @@ def run_generate_schedule(self, job_id: int, workspace_id: int, user_id: int,
             all_candidates.extend(cands)
             classifications.extend(cls)
 
+        # Abgelehnte Paarungen zurueck in zwei Termine, bevor irgendetwas die beiden
+        # Listen ueber ihre Position miteinander verbindet.
+        all_candidates, classifications = _split_rejected_ranges(all_candidates, classifications)
+
         if not all_candidates:
             for src in pending:
                 db.mark_source_processed(workspace_id, user_id, src["id"])
@@ -198,6 +229,11 @@ def run_generate_schedule(self, job_id: int, workspace_id: int, user_id: int,
             # "month" heisst: die Quelle nannte nur einen Monat. due_date traegt dann den
             # Monatsersten als Sortierpunkt, die Ansicht zeigt keine Tagesnummer.
             precision = "month" if cand.get("date_precision") == "month" else "day"
+            end_date_obj = (
+                _range_end_date(cand, due_date_obj, today_d) if cls.get("is_range") else None
+            )
+            # Ein Ende und "laeuft unbegrenzt weiter" schliessen sich aus.
+            offenes_ende = bool(cls.get("is_open_ended")) and end_date_obj is None
 
             ref = {
                 "source_uuid": cand["source_uuid"],
@@ -212,6 +248,7 @@ def run_generate_schedule(self, job_id: int, workspace_id: int, user_id: int,
             # also no-date + fuzzy title or same source text).
             merge_target = _find_merge_target(
                 existing_entries, due_date_obj, precision, cls["title"], ref,
+                end_date=end_date_obj,
             )
             if merge_target:
                 db.append_source_ref_to_entry(merge_target["id"], ref)
@@ -229,8 +266,11 @@ def run_generate_schedule(self, job_id: int, workspace_id: int, user_id: int,
                 title=(cls["title"] or cand["date_iso"])[:200],
                 description=cls["description"],
                 due_date=due_date_obj,
+                end_date=end_date_obj,
                 due_time=_parse_time(cls["due_time"]),
+                end_time=_parse_time(cls.get("end_time")),
                 date_precision=precision,
+                is_open_ended=offenes_ende,
                 is_optional=cls["is_optional"],
                 origin="llm",
                 source_refs=[ref],

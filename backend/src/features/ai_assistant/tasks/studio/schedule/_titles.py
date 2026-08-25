@@ -4,7 +4,7 @@ from difflib import SequenceMatcher
 
 
 def _find_merge_target(entries: list[dict], due_date, precision: str,
-                       title: str, ref: dict) -> dict | None:
+                       title: str, ref: dict, end_date=None) -> dict | None:
     """Der Eintrag, in den dieser Fund gehoert, oder None fuer einen neuen.
 
     Mit Datum bindet der Tag, dazu reicht ein aehnlicher Titel. Ohne Datum faellt der
@@ -15,10 +15,15 @@ def _find_merge_target(entries: list[dict], due_date, precision: str,
     Die Genauigkeit muss ebenfalls passen. "im Juli" und der 01.07. teilen sich zwar den
     Sortierpunkt, sind aber nicht dieselbe Aussage, und der eine darf den anderen nicht
     schlucken.
+
+    Das Ende zaehlt aus demselben Grund mit. Eine Spanne vom 28.09. bis zum 02.11. und
+    ein einzelner Termin am 28.09. beginnen am selben Tag, sind aber nicht dasselbe.
     """
     same_title = _fuzzy_same_undated if due_date is None else _fuzzy_same
     for e in entries:
         if e.get("due_date") != due_date:
+            continue
+        if e.get("end_date") != end_date:
             continue
         if (e.get("date_precision") or "day") != (precision or "day"):
             continue

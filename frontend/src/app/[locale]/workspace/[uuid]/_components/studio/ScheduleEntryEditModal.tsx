@@ -11,6 +11,10 @@ export interface EditInput {
   description: string;
   due_date: string;      // '' == leer
   due_time: string;      // '' == leer
+  // Leer heisst: keine Spanne, der Termin gilt nur an seinem Tag.
+  end_date: string;
+  // Leer heisst: keine Uhrzeit-Spanne.
+  end_time: string;
   // 'month' heisst: nur der Monat ist bekannt. due_date traegt dann den Monatsersten
   // als Sortierpunkt, die Zeitleiste zeigt ihn nie als Tagesnummer.
   date_precision: "day" | "month";
@@ -36,6 +40,8 @@ export function ScheduleEntryEditModal({
   const [description, setDescription] = useState(initial?.description || "");
   const [dueDate, setDueDate] = useState(initial?.due_date || "");
   const [dueTime, setDueTime] = useState(initial?.due_time || "");
+  const [endDate, setEndDate] = useState(initial?.end_date || "");
+  const [endTime, setEndTime] = useState(initial?.end_time || "");
   const [monthOnly, setMonthOnly] = useState(initial?.date_precision === "month");
   const [isOptional, setIsOptional] = useState(initial?.is_optional || false);
   const [submitting, setSubmitting] = useState(false);
@@ -48,6 +54,9 @@ export function ScheduleEntryEditModal({
     if (next && dueDate) setDueDate(`${dueDate.slice(0, 7)}-01`);
   }
 
+  // Ein Ende vor dem Anfang ist keine Spanne, sondern ein Vertipper.
+  const endeVerkehrt = !!endDate && !!dueDate && endDate < dueDate;
+
   useEffect(() => {
     const esc = (e: KeyboardEvent) => { if (e.key === "Escape") onCancel(); };
     document.addEventListener("keydown", esc);
@@ -56,7 +65,7 @@ export function ScheduleEntryEditModal({
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!titleVal.trim()) return;
+    if (!titleVal.trim() || endeVerkehrt) return;
     setSubmitting(true);
     try {
       await onSubmit({
@@ -65,6 +74,8 @@ export function ScheduleEntryEditModal({
         description: description.trim(),
         due_date: dueDate,
         due_time: dueTime,
+        end_date: endDate,
+        end_time: endTime,
         date_precision: monthOnly ? "month" : "day",
         is_optional: isOptional,
       });
@@ -137,6 +148,46 @@ export function ScheduleEntryEditModal({
             </label>
           </div>
 
+          {/* Leer heisst kein Ende. Ein eigener Schalter dafuer waere ein Klick ohne
+              Gewinn, das leere Feld sagt dasselbe. Bei "nur Monat" gibt es kein Ende,
+              dort ist schon der Anfang keine Tagesangabe. */}
+          {!monthOnly && (
+            <div className="grid grid-cols-2 gap-2">
+              <label className="block">
+                <span className="text-sm font-medium block mb-1" style={{ color: "var(--muted)" }}>{t("endDateField")}</span>
+                <input
+                  type="date"
+                  value={endDate}
+                  min={dueDate || undefined}
+                  onChange={(e) => setEndDate(e.target.value)}
+                  aria-invalid={endeVerkehrt}
+                  className="w-full px-3 py-2 rounded-lg text-base border-2 hover:border-[var(--kb)] focus:border-[var(--kb)] focus:outline-none transition-colors"
+                  style={{
+                    backgroundColor: "var(--surface)",
+                    color: "var(--foreground)",
+                    borderColor: endeVerkehrt ? "var(--error)" : "var(--border)",
+                  }}
+                />
+              </label>
+              <label className="block">
+                <span className="text-sm font-medium block mb-1" style={{ color: "var(--muted)" }}>{t("endTimeField")}</span>
+                <input
+                  type="time"
+                  value={endTime}
+                  onChange={(e) => setEndTime(e.target.value)}
+                  className="w-full px-3 py-2 rounded-lg text-base border-2 border-[var(--border)] hover:border-[var(--kb)] focus:border-[var(--kb)] focus:outline-none transition-colors"
+                  style={{ backgroundColor: "var(--surface)", color: "var(--foreground)" }}
+                />
+              </label>
+            </div>
+          )}
+
+          {endeVerkehrt && (
+            <p className="text-xs font-medium" style={{ color: "var(--error)" }}>
+              {t("endBeforeStart")}
+            </p>
+          )}
+
           <label className="flex items-center gap-2 cursor-pointer">
             <button
               type="button"
@@ -194,7 +245,7 @@ export function ScheduleEntryEditModal({
           </button>
           <button
             type="submit"
-            disabled={submitting || !titleVal.trim()}
+            disabled={submitting || !titleVal.trim() || endeVerkehrt}
             className="btn-fill-accent px-4 py-2 rounded-lg text-xs font-semibold transition-colors disabled:opacity-40"
           >
             {submitting ? t("submitting") : submitLabel}

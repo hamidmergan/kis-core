@@ -9,6 +9,7 @@ from src.features.ai_assistant.tasks.studio.schedule._regex import (
     _TBD_PATTERNS,
     _date_candidates_in_text,
     _date_in_neighbouring_column,
+    _looks_like_range,
 )
 from src.features.ai_assistant.tasks.studio.schedule._discover import (
     _discover_in_blocks,
@@ -21,6 +22,29 @@ from src.features.ai_assistant.tasks.studio.schedule._parse import (
 )
 from src.features.ai_assistant.routes._helpers import _load_transcript_segments
 from src.services.aia_transcript_offsets import TranscriptIndex
+
+
+def _spannen_ende(raw: str, has_year: bool, start_iso: str | None) -> dict | None:
+    """Das zweite Datum einer Spanne als Ende, oder None wenn es sich nicht lesen laesst.
+
+    Ohne eigene Jahreszahl erbt es das Jahr des Anfangs: "28.09.2026 bis 02.11." meint
+    dasselbe Jahr. Faellt es damit vor den Anfang, ist der Jahreswechsel gemeint
+    ("28.12.2026 bis 02.01."). Fehlt auch dem Anfang das Jahr, bleibt es beim
+    Tag-Monat-Paar, beide legt der Auftrag spaeter gemeinsam auf das laufende Jahr.
+    """
+    if has_year:
+        iso = _normalize_date(raw)
+        return {"iso": iso, "partial": None} if iso else None
+    teil = _normalize_partial_date(raw)
+    if teil is None:
+        return None
+    if not start_iso:
+        return {"iso": None, "partial": teil}
+    jahr = int(start_iso[:4])
+    iso = f"{jahr:04d}-{teil[0]:02d}-{teil[1]:02d}"
+    if iso < start_iso:
+        iso = f"{jahr + 1:04d}-{teil[0]:02d}-{teil[1]:02d}"
+    return {"iso": iso, "partial": None}
 
 
 def _load_source_chunks(source_id: int) -> list[dict]:
@@ -195,8 +219,14 @@ def _build_candidates_for_source(src: dict, client=None, model=None) -> list[dic
         # Date-based candidates. Die Spannen werden mitgeschrieben, damit ein Fund des
         # Modells an derselben Stelle nicht ein zweites Mal denselben Termin erzeugt.
         date_spans: list[tuple[int, int]] = list(shorthand_spans)
-        for s, e, raw_date, has_year, precision in _date_candidates_in_text(content):
+        gefundene_daten = _date_candidates_in_text(content)
+        # Wurde ein Datum schon als ENDE einer Spanne verbraucht, ist es kein eigener
+        # Termin mehr. Genau hier entstanden bisher die Dubletten.
+        als_ende_verbraucht: set[int] = set()
+        for di, (s, e, raw_date, has_year, precision) in enumerate(gefundene_daten):
             if any(cs <= s < ce for cs, ce in shorthand_spans):
+                continue
+            if di in als_ende_verbraucht:
                 continue
             date_spans.append((s, e))
             if precision == "month":
@@ -216,16 +246,38 @@ def _build_candidates_for_source(src: dict, client=None, model=None) -> list[dic
                 if partial is None:
                     continue
                 date_iso = None
+
+            # Steht direkt dahinter ein zweites Datum, ist das meist das Ende einer
+            # Zeitspanne. Der Kandidat traegt es mit, bestaetigen muss es die
+            # Klassifikation. Ein Monat ohne Tag taugt nicht als Ende, dort waere
+            # unklar, ob der Erste oder der Letzte gemeint ist.
+            ende_iso = ende_raw = None
+            ende_partial = None
+            e_bis = e
+            if di + 1 < len(gefundene_daten):
+                s2, e2, raw2, hy2, prec2 = gefundene_daten[di + 1]
+                if prec2 == "day" and precision == "day" and _looks_like_range(content, e, s2):
+                    ende = _spannen_ende(raw2, hy2, date_iso)
+                    passt = ende is not None and (
+                        (ende["iso"] and date_iso and ende["iso"] > date_iso)
+                        or (ende["partial"] and partial and ende["partial"] > partial)
+                    )
+                    if passt:
+                        ende_iso, ende_partial, ende_raw = ende["iso"], ende["partial"], raw2
+                        als_ende_verbraucht.add(di + 1)
+                        date_spans.append((s2, e2))
+                        e_bis = e2
+
             # +/-450 chars so table headers with time (e.g. "17:30") at the top of a
             # schedule listing are visible to the classifier for every row below.
             ctx_start = max(0, s - 450)
-            ctx_end = min(len(content), e + 450)
+            ctx_end = min(len(content), e_bis + 450)
             ctx = content[ctx_start:ctx_end].replace("\n", " ").strip()
             # Short snippet for the frontend highlight search. Start AT the date
             # (no chars before) so the PDF-viewer match lands on the date and
             # doesn't bleed into the preceding bullet. Stop at the next newline
             # to catch exactly one bullet/line; cap at 200 chars for safety.
-            nl_pos = content.find("\n", e)
+            nl_pos = content.find("\n", e_bis)
             hl_end = min(len(content), s + 200)
             if nl_pos != -1 and nl_pos < hl_end:
                 hl_end = nl_pos
@@ -235,6 +287,9 @@ def _build_candidates_for_source(src: dict, client=None, model=None) -> list[dic
                 "date_iso": date_iso,
                 "partial_date": partial,
                 "date_precision": precision,
+                "date_end_raw": ende_raw,
+                "date_end_iso": ende_iso,
+                "date_end_partial": ende_partial,
                 "is_tbd": False,
                 "context": ctx,
                 "raw_quote": quote,
@@ -248,15 +303,43 @@ def _build_candidates_for_source(src: dict, client=None, model=None) -> list[dic
         # Regex kennt nur Zahlformate und deutsche/englische Monatsnamen, deshalb kommt
         # hier alles dazu, was er nicht lesen konnte. Was er gelesen hat, steht schon
         # oben, deshalb faellt jede Stelle raus, die sich mit einem Regex-Fund ueberlappt.
-        for treffer in modell_daten.get(chunk_idx) or []:
+        # Auch hier gilt die Spannen-Regel: "3 Temmuz 2026 kadar 17 Temmuz 2026" ist EIN
+        # Termin. Sonst haetten nur deutsche und englische Quellen Zeitspannen.
+        modell_treffer = sorted(modell_daten.get(chunk_idx) or [], key=lambda t: t["span"])
+        modell_als_ende: set[int] = set()
+        for mi, treffer in enumerate(modell_treffer):
             s, e = treffer["span"]
             if any(s < ce and cs < e for cs, ce in date_spans):
                 continue
+            if mi in modell_als_ende:
+                continue
             date_spans.append((s, e))
+
+            ende_iso = ende_raw = None
+            ende_partial = None
+            e_bis = e
+            if treffer["date_precision"] == "day" and mi + 1 < len(modell_treffer):
+                naechster = modell_treffer[mi + 1]
+                s2, e2 = naechster["span"]
+                if naechster["date_precision"] == "day" and _looks_like_range(content, e, s2):
+                    kandidat = naechster["date_iso"]
+                    passt = (
+                        (kandidat and treffer["date_iso"] and kandidat > treffer["date_iso"])
+                        or (naechster["partial_date"] and treffer["partial_date"]
+                            and naechster["partial_date"] > treffer["partial_date"])
+                    )
+                    if passt:
+                        ende_iso = kandidat
+                        ende_partial = naechster["partial_date"] if not kandidat else None
+                        ende_raw = content[s2:e2]
+                        modell_als_ende.add(mi + 1)
+                        date_spans.append((s2, e2))
+                        e_bis = e2
+
             ctx_start = max(0, s - 450)
-            ctx_end = min(len(content), e + 450)
+            ctx_end = min(len(content), e_bis + 450)
             ctx = content[ctx_start:ctx_end].replace("\n", " ").strip()
-            nl_pos = content.find("\n", e)
+            nl_pos = content.find("\n", e_bis)
             hl_end = min(len(content), s + 200)
             if nl_pos != -1 and nl_pos < hl_end:
                 hl_end = nl_pos
@@ -266,6 +349,9 @@ def _build_candidates_for_source(src: dict, client=None, model=None) -> list[dic
                 "date_iso": treffer["date_iso"],
                 "partial_date": treffer["partial_date"],
                 "date_precision": treffer["date_precision"],
+                "date_end_raw": ende_raw,
+                "date_end_iso": ende_iso,
+                "date_end_partial": ende_partial,
                 "is_tbd": False,
                 "context": ctx,
                 "raw_quote": quote,

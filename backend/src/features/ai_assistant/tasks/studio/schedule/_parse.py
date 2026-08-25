@@ -114,6 +114,27 @@ def _normalize_partial_date(raw: str) -> Optional[tuple[int, int]]:
     return None
 
 
+def _range_end_date(cand: dict, due_date_obj: Optional[date],
+                    today_d: date) -> Optional[date]:
+    """Das Enddatum einer bestaetigten Spanne, oder None.
+
+    Ohne Jahr im Text gilt dasselbe laufende Jahr wie beim Anfang. Faellt das Ende damit
+    vor den Anfang, ist der Jahreswechsel gemeint. Ein Ende, das nicht nach dem Anfang
+    liegt, ist keine Spanne und faellt weg.
+    """
+    ende = None
+    if cand.get("date_end_iso"):
+        ende = _parse_date(cand["date_end_iso"])
+    elif cand.get("date_end_partial"):
+        mo, da = cand["date_end_partial"]
+        ende = _resolve_current_year(today_d, mo, da)
+        if ende and due_date_obj and ende < due_date_obj:
+            ende = _resolve_current_year(today_d.replace(year=today_d.year + 1), mo, da)
+    if ende and due_date_obj and ende <= due_date_obj:
+        return None
+    return ende
+
+
 def _resolve_current_year(today_d: date, month: int, day: int) -> Optional[date]:
     """Year-less dates ALWAYS resolve to the current year. If the resulting date
     is in the past, it's shown dimmed by the UI - we do NOT hallucinate a future

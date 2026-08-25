@@ -194,7 +194,9 @@
       "cancel": "Cancel",
       "save": "Add",
       "saveError": "The entry could not be saved."
-    }
+    },
+    "fromMark": "from",
+    "untilMark": "by"
   },
   "imprint": {
     "title": "Imprint",
@@ -2642,7 +2644,9 @@
             "uncheckAria": "Mark as not done",
             "checkAria": "Mark as done",
             "edit": "Edit",
-            "delete": "Delete"
+            "delete": "Delete",
+            "until": "until {datum}",
+            "timeRange": "{von} to {bis}"
           },
           "modal": {
             "newTitle": "New entry",
@@ -2661,7 +2665,10 @@
             "optionalLabel": "Optional",
             "optionalAria": "Mark as optional",
             "notOptionalAria": "Not optional",
-            "cancel": "Cancel"
+            "cancel": "Cancel",
+            "endDateField": "Runs until",
+            "endTimeField": "Ends at",
+            "endBeforeStart": "The end is before the start."
           }
         },
         "common": {

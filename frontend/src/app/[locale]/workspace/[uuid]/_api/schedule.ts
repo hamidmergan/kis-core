@@ -59,7 +59,9 @@ export async function createEntry(workspaceUuid: string, input: {
   title: string;
   description?: string | null;
   due_date?: string | null;
+  end_date?: string | null;
   due_time?: string | null;
+  end_time?: string | null;
   date_precision?: "day" | "month";
   is_optional?: boolean;
 }): Promise<ScheduleEntry> {
@@ -73,7 +75,7 @@ export async function createEntry(workspaceUuid: string, input: {
   return r.json();
 }
 
-export async function updateEntry(workspaceUuid: string, entryId: number, patch: Partial<Omit<ScheduleEntry, "id" | "origin" | "source_ids" | "raw_quote" | "created_at" | "updated_at" | "checked_at">> & { clear_date?: boolean; clear_time?: boolean }): Promise<ScheduleEntry> {
+export async function updateEntry(workspaceUuid: string, entryId: number, patch: Partial<Omit<ScheduleEntry, "id" | "origin" | "source_ids" | "raw_quote" | "created_at" | "updated_at" | "checked_at">> & { clear_date?: boolean; clear_time?: boolean; clear_end_date?: boolean; clear_end_time?: boolean }): Promise<ScheduleEntry> {
   const r = await fetch(`${base(workspaceUuid)}/entries/${entryId}`, {
     method: "PUT",
     headers: { "Content-Type": "application/json" },

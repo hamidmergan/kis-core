@@ -64,6 +64,11 @@ def _classify_candidates_batch(client, model, batch: list[dict], today_d: date,
             item["month_only"] = True
         if c.get("is_tbd"):
             item["date_tbd"] = True
+        # Der Kandidatenschritt hat direkt dahinter ein zweites Datum gefunden und haelt
+        # es fuer das Ende einer Spanne. Ob es wirklich eine ist, entscheidet das Modell.
+        if c.get("date_end_raw"):
+            item["date_end_raw"] = c["date_end_raw"]
+            item["date_end_iso"] = c.get("date_end_iso")
         payload.append(item)
 
     user_msg = (
@@ -130,6 +135,11 @@ def _classify_candidates_batch(client, model, batch: list[dict], today_d: date,
             "title": (r.get("title") or "").strip(),
             "description": (r.get("description") or None),
             "due_time": (r.get("due_time") or None),
+            # Nur bestaetigte Spannen tragen ein Ende. Ohne zweites Datum im Kandidaten
+            # ist die Antwort des Modells dazu bedeutungslos.
+            "is_range": bool(r.get("is_range")) and bool(batch[i].get("date_end_raw")),
+            "end_time": (r.get("end_time") or None),
+            "is_open_ended": bool(r.get("is_open_ended")),
             "is_optional": bool(r.get("is_optional")),
         })
     return out

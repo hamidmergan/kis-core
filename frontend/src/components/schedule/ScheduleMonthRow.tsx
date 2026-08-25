@@ -5,7 +5,7 @@ import { Check, PencilSimple, Trash } from "@phosphor-icons/react";
 import { Link } from "@/i18n/navigation";
 import IconButton from "@/components/ui/IconButton";
 import type { ScheduleListEntry } from "./ScheduleEntryCardGlobal";
-import { cleanScheduleDescription, urgencyColor } from "./utils";
+import { cleanScheduleDescription, dateQualifier, formatRangeEnd, urgencyColor } from "./utils";
 
 function parseYMD(s: string): Date {
   const [y, m, d] = s.split("-").map(Number);
@@ -32,6 +32,7 @@ export default function ScheduleMonthRow({
 }: Props) {
   const t = useTranslations("schedule.card");
   const tMonth = useTranslations("schedule.month");
+  const tPlan = useTranslations("schedule");
   const locale = useLocale();
   const tag = locale === "en" ? "en-US" : "de-DE";
 
@@ -44,19 +45,15 @@ export default function ScheduleMonthRow({
     ? entry.due_date.slice(0, 7) < today.slice(0, 7)
     : entry.due_date < today;
   const urgency = urgencyColor(entry.due_date, today);
-  const description = cleanScheduleDescription(entry.description, entry.due_time);
-  const bis = entry.end_date ? parseYMD(entry.end_date) : null;
-  const istSpanne = bis !== null && entry.end_date !== entry.due_date;
-  // Nur innerhalb eines Monats ergibt "22-30" Sinn. Geht die Spanne darueber
-  // hinaus, stuende dort "22-11", also nennt der Text das Ende im Klartext.
-  const gleicherMonat =
-    istSpanne && (entry.end_date as string).slice(0, 7) === entry.due_date.slice(0, 7);
-  const bisText =
-    istSpanne && !gleicherMonat && bis
-      ? tMonth("until", {
-          datum: new Intl.DateTimeFormat(tag, { day: "numeric", month: "long" }).format(bis),
-        })
-      : null;
+  const description = cleanScheduleDescription(entry.description, entry.due_time, entry.due_date);
+  // Die Spanne steht IMMER als Textzeile, nie in der Plakette. Die Plakette beschriftet
+  // den Tag, an dem der Termin anfaengt, zwei Zahlen darin machen sie mehrdeutig. Bis zum
+  // 25.08.2026 trug sie bei Spannen innerhalb eines Monats "22-30", das war eine zweite
+  // Form fuer dieselbe Sache und las sich beim Ueberfliegen zufaellig.
+  const spannenEnde = formatRangeEnd(entry.due_date, entry.end_date, locale);
+  // "ab" oder "bis" ueber der Tagesnummer, wenn die Quelle den Tag eingegrenzt hat.
+  const marke = dateQualifier(entry);
+  const bisText = spannenEnde ? tMonth("until", { datum: spannenEnde }) : null;
   const eigener = entry.workspace_uuid === null;
 
   const inhalt = (
@@ -117,20 +114,25 @@ export default function ScheduleMonthRow({
 
       {/* Feste Höhe, sonst wird die Plakette ohne Tagesnummer niedriger als die anderen. */}
       <div
-        className={`flex-shrink-0 ${gleicherMonat ? "w-16" : "w-12"} min-h-[62px] rounded-lg py-1.5 flex flex-col justify-center text-center`}
+        className="flex-shrink-0 w-12 min-h-[62px] rounded-lg py-1.5 flex flex-col justify-center text-center"
         style={{ backgroundColor: "var(--surface)" }}
       >
         {/* Die Kopfzeile tritt zurueck, sonst traegt die Plakette drei Zeilen im selben Gewicht. */}
+        {marke && (
+          <div className="text-3xs font-bold" style={{ color: "var(--muted-soft)" }}>
+            {marke === "from" ? tPlan("fromMark") : tPlan("untilMark")}
+          </div>
+        )}
         <div className="text-3xs font-bold uppercase tracking-wide" style={{ color: "var(--muted)" }}>
           {month}
         </div>
         {/* Nennt die Quelle nur einen Monat, steht hier keine Tagesnummer. */}
         {!monthOnly && (
           <div
-            className={`font-extrabold leading-none mt-0.5 ${gleicherMonat ? "text-sm" : "text-base"}`}
+            className="font-extrabold leading-none mt-0.5 text-base"
             style={{ color: urgency ?? "var(--foreground)" }}
           >
-            {gleicherMonat ? `${date.getDate()}\u2013${bis!.getDate()}` : date.getDate()}
+            {date.getDate()}
           </div>
         )}
         {/* Die Jahreszahl ist nur Beiwerk und darf nie nach Fehler aussehen. */}

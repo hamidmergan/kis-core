@@ -188,10 +188,16 @@ class ScheduleEntryCreateBody(BaseModel):
     title: str = Field(..., max_length=200)
     description: Optional[str] = Field(None, max_length=2000)
     due_date: Optional[str] = None  # ISO date 'YYYY-MM-DD' or None
+    # Gesetzt heisst: der Termin laeuft bis zu diesem Tag.
+    end_date: Optional[str] = None
     due_time: Optional[str] = None  # 'HH:MM' or None
+    # Gesetzt heisst: er endet an diesem Tag zu dieser Uhrzeit.
+    end_time: Optional[str] = None
     # 'day' | 'month'. Bei 'month' kennt der Termin nur den Monat, due_date traegt
     # dann den Monatsersten als Sortierpunkt.
     date_precision: Optional[str] = None
+    # Gesetzt heisst: Anfang bekannt, Ende ausdruecklich offen ("ab 15.09.").
+    is_open_ended: bool = False
     is_optional: bool = False
 
 
@@ -200,12 +206,17 @@ class ScheduleEntryUpdateBody(BaseModel):
     title: Optional[str] = Field(None, max_length=200)
     description: Optional[str] = Field(None, max_length=2000)
     due_date: Optional[str] = None
+    end_date: Optional[str] = None
     due_time: Optional[str] = None
+    end_time: Optional[str] = None
     date_precision: Optional[str] = None
+    is_open_ended: Optional[bool] = None
     is_optional: Optional[bool] = None
     is_checked: Optional[bool] = None
     clear_date: bool = False  # explicitly set to NULL
     clear_time: bool = False
+    clear_end_date: bool = False
+    clear_end_time: bool = False
 
 
 # Grenzen fuer eigene Termine, dieselben Zahlen stehen im Dialog im Frontend.

@@ -371,7 +371,13 @@ export interface ScheduleEntry {
   title: string;
   description: string | null;
   due_date: string | null;   // 'YYYY-MM-DD'
+  /** Gesetzt heisst: der Termin laeuft bis zu diesem Tag. */
+  end_date: string | null;
   due_time: string | null;   // 'HH:MM'
+  /** Gesetzt heisst: er endet an seinem Tag zu dieser Uhrzeit. */
+  end_time: string | null;
+  /** Anfang bekannt, Ende ausdruecklich offen ("ab 15.09."). Wird nie abgeblendet. */
+  is_open_ended?: boolean;
   /** 'day' oder 'month'. Bei 'month' nannte die Quelle nur einen Monat, due_date traegt
    *  dann den Monatsersten als Sortierpunkt und die Ansicht zeigt keine Tagesnummer. */
   date_precision?: "day" | "month" | null;

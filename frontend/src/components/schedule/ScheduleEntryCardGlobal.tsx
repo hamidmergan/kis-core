@@ -57,7 +57,7 @@ export function ScheduleEntryCardGlobal({
 
   const isOwned = entry.module_relation === "owned";
   const RelIcon = isOwned ? Folder : Users;
-  const description = cleanScheduleDescription(entry.description, entry.due_time);
+  const description = cleanScheduleDescription(entry.description, entry.due_time, entry.due_date);
 
   return (
     <div

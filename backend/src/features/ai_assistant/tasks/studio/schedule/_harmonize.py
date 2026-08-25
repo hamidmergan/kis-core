@@ -11,6 +11,7 @@ from src.features.ai_assistant.prompts.schedule_prompts import AIA_SCHEDULE_HARM
 
 from src.features.ai_assistant.tasks.studio.schedule._classify import _CLASSIFY_TIMEOUT_SECS
 from src.features.ai_assistant.tasks.studio.schedule._parse import (
+    _range_end_date,
     _parse_date,
     _resolve_current_year,
 )
@@ -47,14 +48,18 @@ def _harmonize_same_date_titles(
             d = _resolve_current_year(today_d, mo, da)
         else:
             d = None
-        cand_groups[(d, cand.get("date_precision") or "day")].append(idx)
+        # Das Ende gehoert in den Schluessel: eine Spanne ab dem 28.09. und ein
+        # einzelner Termin am 28.09. fangen gleich an und sind trotzdem verschieden.
+        ende = _range_end_date(cand, d, today_d) if cls.get("is_range") else None
+        cand_groups[(d, ende, cand.get("date_precision") or "day")].append(idx)
 
     existing_by_date: dict[tuple, list[dict]] = defaultdict(list)
     for e in existing_entries:
-        existing_by_date[(e.get("due_date"), e.get("date_precision") or "day")].append(e)
+        existing_by_date[(e.get("due_date"), e.get("end_date"),
+                          e.get("date_precision") or "day")].append(e)
 
-    for (d, precision), indices in cand_groups.items():
-        existing_at_d = existing_by_date.get((d, precision), [])
+    for (d, ende, precision), indices in cand_groups.items():
+        existing_at_d = existing_by_date.get((d, ende, precision), [])
         titles = {classifications[i]["title"] for i in indices}
         # Skip only if: no existing entries AND candidates already share a title
         if not existing_at_d and len(titles) <= 1:

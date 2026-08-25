@@ -10,7 +10,8 @@ from src.core.db.pool import get_connection
 
 
 _ENTRY_COLS = (
-    "id, workspace_id, type, title, description, due_date, end_date, due_time, date_precision, "
+    "id, workspace_id, type, title, description, due_date, end_date, "
+    "due_time, end_time, date_precision, is_open_ended, "
     "is_optional, is_checked, checked_at, origin, "
     "source_refs, created_at, updated_at"
 )
@@ -55,7 +56,8 @@ def get_schedule_entries_for_user(
 
     sql = f"""
         SELECT s.id, s.type, s.title, s.description,
-               s.due_date, s.end_date, s.due_time, s.date_precision,
+               s.due_date, s.end_date, s.due_time, s.end_time,
+               s.date_precision, s.is_open_ended,
                s.is_optional, s.is_checked, s.checked_at, s.origin,
                s.source_refs, s.created_at, s.updated_at,
                m.uuid AS workspace_uuid,
@@ -160,6 +162,9 @@ def create_schedule_entry(
     origin: str,
     source_refs: list[dict],
     date_precision: str = "day",
+    end_date: Optional[date] = None,
+    end_time: Optional[time] = None,
+    is_open_ended: bool = False,
 ) -> dict:
     """Create a schedule entry. source_refs is a list of
     {source_uuid, page_number?, start_time?, raw_quote?} dicts.
@@ -173,15 +178,16 @@ def create_schedule_entry(
                 f"""
                 INSERT INTO aia_schedule_entries
                     (workspace_id, user_id, type, title, description,
-                     due_date, due_time, date_precision, is_optional, origin, source_refs)
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                     due_date, end_date, due_time, end_time, date_precision,
+                     is_open_ended, is_optional, origin, source_refs)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                 RETURNING {_ENTRY_COLS}
                 """,
                 (
                     workspace_id, user_id, type, title, description,
-                    due_date, due_time,
+                    due_date, end_date, due_time, end_time,
                     date_precision if date_precision in ("day", "month") else "day",
-                    is_optional, origin,
+                    is_open_ended, is_optional, origin,
                     json.dumps(source_refs),
                 ),
             )
@@ -199,12 +205,17 @@ def update_schedule_entry(
     description: Optional[str] = None,
     due_date: Optional[date] = None,
     due_time: Optional[time] = None,
+    end_date: Optional[date] = None,
+    end_time: Optional[time] = None,
     date_precision: Optional[str] = None,
+    is_open_ended: Optional[bool] = None,
     is_optional: Optional[bool] = None,
     is_checked: Optional[bool] = None,
     source_refs: Optional[list[dict]] = None,
     clear_date: bool = False,
     clear_time: bool = False,
+    clear_end_date: bool = False,
+    clear_end_time: bool = False,
 ) -> Optional[dict]:
     """Partial update. Pass only fields to change."""
     sets: list[str] = []
@@ -229,9 +240,22 @@ def update_schedule_entry(
     elif due_time is not None:
         sets.append("due_time = %s")
         params.append(due_time)
+    if clear_end_date:
+        sets.append("end_date = NULL")
+    elif end_date is not None:
+        sets.append("end_date = %s")
+        params.append(end_date)
+    if clear_end_time:
+        sets.append("end_time = NULL")
+    elif end_time is not None:
+        sets.append("end_time = %s")
+        params.append(end_time)
     if date_precision in ("day", "month"):
         sets.append("date_precision = %s")
         params.append(date_precision)
+    if is_open_ended is not None:
+        sets.append("is_open_ended = %s")
+        params.append(is_open_ended)
     if is_optional is not None:
         sets.append("is_optional = %s")
         params.append(is_optional)
@@ -467,6 +491,30 @@ def upsert_source_extraction(
                 (source_id, json.dumps(candidates), json.dumps(classifications)),
             )
         conn.commit()
+
+
+def count_source_extractions() -> int:
+    """Wie viele Quellen eine gespeicherte Auswertung haben, ueber alle Kursraeume."""
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute("SELECT COUNT(*) FROM aia_schedule_source_extractions")
+            return cur.fetchone()[0]
+
+
+def clear_source_extractions() -> int:
+    """Die gespeicherten Auswertungen wegwerfen. Gibt die Zahl der Zeilen zurueck.
+
+    Nur der Vorrat faellt. Der Merker "schon ausgewertet" bleibt ausdruecklich stehen:
+    ginge er mit, wuerde der naechste Lauf bei denselben Leuten neu auswerten und ihnen
+    dieselben Termine ein zweites Mal in den Plan legen. Wer eine Quelle noch nicht
+    ausgewertet hat, bekommt so oder so einen frischen Modellauf.
+    """
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute("DELETE FROM aia_schedule_source_extractions")
+            geloescht = cur.rowcount
+        conn.commit()
+    return geloescht
 
 
 # ─── Eigene Termine ─────────────────────────────────────────────────────────

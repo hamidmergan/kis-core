@@ -1,11 +1,17 @@
 import type { ReactNode } from "react";
 import { useLocale, useTranslations } from "next-intl";
-import { todayISO, urgencyColor } from "./utils";
+import { dateQualifier, effectiveDueDate, todayISO, urgencyColor } from "./utils";
 
 export interface DatedEntry {
   id: number | string;
   due_date: string | null;
+  /** Gesetzt heisst: der Termin laeuft bis zu diesem Tag. */
+  end_date?: string | null;
   due_time?: string | null;
+  /** Anfang bekannt, Ende ausdruecklich offen ("ab 15.09."). */
+  is_open_ended?: boolean | null;
+  /** 'deadline' ohne Spanne heisst: die Quelle sagte "bis <Tag>". */
+  type?: string | null;
   /** "month": die Quelle nannte nur einen Monat, dann steht keine Tagesnummer da. */
   date_precision?: string | null;
   is_checked?: boolean;
@@ -63,6 +69,20 @@ function isToday(dateStr: string, today: Date): boolean {
   );
 }
 
+/**
+ * Abgeblendet wird erst, wenn der Termin wirklich vorbei ist.
+ *
+ * Bei einer Zeitspanne ist das der letzte Tag, nicht der erste: eine Betreuungszeit vom
+ * 28.09. bis zum 21.01. laeuft vier Monate und darf in dieser Zeit nicht grau aussehen.
+ * Ein Termin mit offenem Ende ("ab 15.09. freigeschaltet") ist nie vorbei, er hat nur
+ * angefangen.
+ */
+function entryIsPast(entry: DatedEntry, now: Date): boolean {
+  if (entry.is_open_ended) return false;
+  if (entry.end_date) return isPast(entry.end_date, null, now);
+  return isPast(entry.due_date!, entry.due_time, now);
+}
+
 function isPast(dateStr: string, dueTime: string | null | undefined, now: Date): boolean {
   const d = parseYMD(dateStr);
   const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
@@ -102,12 +122,18 @@ export function ScheduleTimeline<T extends DatedEntry>({
         {dated.map((entry, i) => {
           const monthOnly = entry.date_precision === "month";
           const today_ = !monthOnly && isToday(entry.due_date!, today);
-          const past_ = isPast(entry.due_date!, entry.due_time, today);
+          const past_ = entryIsPast(entry, today);
           const { day, month, year } = formatDay(entry.due_date!, locale, monthOnly);
           // Die Jahreszahl steht nur dort, wo ein Jahr anfängt. Danach reicht der Monat.
           const prev = i > 0 ? dated[i - 1].due_date : null;
           const startsYear = !prev || String(parseYMD(prev).getFullYear()) !== year;
-          const urgency = urgencyColor(entry.due_date, todayStr);
+          // Dringend wird ein Termin an seinem LETZTEN Tag, nicht an seinem ersten.
+          // Ein Termin ohne festes Ende wird nie dringend, er hat ja keine Frist.
+          // "ab" oder "bis" ueber der Tagesnummer, wenn die Quelle den Tag eingegrenzt hat.
+          const marke = dateQualifier(entry);
+          const urgency = entry.is_open_ended
+            ? null
+            : urgencyColor(effectiveDueDate(entry), todayStr);
 
           return (
             <div
@@ -132,6 +158,14 @@ export function ScheduleTimeline<T extends DatedEntry>({
               </div>
 
               <div className="text-right pr-1">
+                {marke && (
+                  <div
+                    className="font-semibold leading-none mb-0.5"
+                    style={{ color: "var(--muted-soft)", fontSize: "0.625rem" }}
+                  >
+                    {marke === "from" ? t("fromMark") : t("untilMark")}
+                  </div>
+                )}
                 {day && (
                   <div
                     className="font-bold leading-none"

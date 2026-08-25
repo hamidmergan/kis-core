@@ -194,7 +194,9 @@
       "cancel": "Abbrechen",
       "save": "Eintragen",
       "saveError": "Der Termin konnte nicht gespeichert werden."
-    }
+    },
+    "fromMark": "ab",
+    "untilMark": "bis"
   },
   "imprint": {
     "title": "Impressum",
@@ -2642,7 +2644,9 @@
             "uncheckAria": "Erledigt aufheben",
             "checkAria": "Als erledigt markieren",
             "edit": "Bearbeiten",
-            "delete": "Löschen"
+            "delete": "Löschen",
+            "until": "bis {datum}",
+            "timeRange": "{von} bis {bis} Uhr"
           },
           "modal": {
             "newTitle": "Neuer Eintrag",
@@ -2661,7 +2665,10 @@
             "optionalLabel": "Optional (freiwillig)",
             "optionalAria": "Als optional markieren",
             "notOptionalAria": "Nicht optional",
-            "cancel": "Abbrechen"
+            "cancel": "Abbrechen",
+            "endDateField": "Läuft bis",
+            "endTimeField": "Endet um",
+            "endBeforeStart": "Das Ende liegt vor dem Anfang."
           }
         },
         "common": {
