@@ -5,7 +5,7 @@ import { useCallback, useState } from "react";
 interface ApplyOptions {
   audioId?: string;
   audioCount?: number;
-  resultStem?: string;
+  laufStempel?: string;
   hasSubtitles?: boolean;
   videoFolien?: number[] | null;
 }
@@ -14,7 +14,7 @@ export function useRenderResult() {
   const [videoUrl, setVideoUrl] = useState<string | null>(null);
   const [audioId, setAudioId] = useState<string>("");
   const [audioCount, setAudioCount] = useState(0);
-  const [resultStem, setResultStem] = useState<string>("");
+  const [laufStempel, setLaufStempel] = useState<string>("");
   const [hasSubtitles, setHasSubtitles] = useState(false);
   const [videoFolien, setVideoFolien] = useState<number[] | null>(null);
 
@@ -23,7 +23,7 @@ export function useRenderResult() {
     setHasSubtitles(opts.hasSubtitles === true);
     if (opts.audioId) setAudioId(opts.audioId);
     if (opts.audioCount !== undefined) setAudioCount(opts.audioCount);
-    if (opts.resultStem) setResultStem(opts.resultStem);
+    if (opts.laufStempel) setLaufStempel(opts.laufStempel);
     setVideoFolien(opts.videoFolien ?? null);
     setVideoUrl(url);
   }, []);
@@ -32,10 +32,10 @@ export function useRenderResult() {
     setVideoUrl(null);
     setAudioId("");
     setAudioCount(0);
-    setResultStem("");
+    setLaufStempel("");
     setHasSubtitles(false);
     setVideoFolien(null);
   }, []);
 
-  return { videoUrl, audioId, audioCount, resultStem, hasSubtitles, videoFolien, apply, clear };
+  return { videoUrl, audioId, audioCount, laufStempel, hasSubtitles, videoFolien, apply, clear };
 }

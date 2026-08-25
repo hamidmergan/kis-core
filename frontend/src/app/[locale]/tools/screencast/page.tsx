@@ -91,7 +91,7 @@ function ScreencastPageInner() {
   const [translationProviders, setTranslationProviders] = useState<{ id: number; name: string }[]>([]);
   const [translationProviderId, setTranslationProviderId] = useState<number | null>(null);
   const renderResult = useRenderResult();
-  const { videoUrl, audioId, hasSubtitles, videoFolien, resultStem, clear: clearRenderResult } = renderResult;
+  const { videoUrl, audioId, hasSubtitles, videoFolien, laufStempel, clear: clearRenderResult } = renderResult;
 
   // Zurueck auf Rendern kommt man nur, wenn das Video schon fertig ist.
   const rueckblick = step === "rendering" && videoUrl !== null;
@@ -808,7 +808,7 @@ function ScreencastPageInner() {
             videoUrl={videoUrl}
             audioId={audioId}
             hasSubtitles={hasSubtitles}
-            resultStem={resultStem}
+            laufStempel={laufStempel}
             onDownloadMp4={handleDownload}
             onReset={() => resetAll(false)}
             onNeuVertonen={() => dispatch({ type: "SET_STEP", step: "tts-settings" })}

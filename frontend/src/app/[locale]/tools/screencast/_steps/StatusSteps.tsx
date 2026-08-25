@@ -116,7 +116,7 @@ export function DoneStep({
   videoUrl,
   audioId,
   hasSubtitles = false,
-  resultStem,
+  laufStempel,
   onDownloadMp4,
   onReset,
   onNeuVertonen,
@@ -124,7 +124,7 @@ export function DoneStep({
   videoUrl: string | null;
   audioId: string;
   hasSubtitles?: boolean;
-  resultStem: string;
+  laufStempel: string;
   onDownloadMp4: () => void;
   onReset: () => void;
   onNeuVertonen: () => void;
@@ -155,7 +155,7 @@ export function DoneStep({
             {hasSubtitles && audioId && (
               <track
                 kind="subtitles"
-                src={mitLaufStempel(`/api/jobs/${audioId}/subtitles`, resultStem)}
+                src={mitLaufStempel(`/api/jobs/${audioId}/subtitles`, laufStempel)}
                 label={t("done.subtitleTrack")}
                 default
               />

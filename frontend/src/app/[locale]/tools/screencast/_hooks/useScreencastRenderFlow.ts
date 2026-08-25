@@ -7,7 +7,7 @@ import type { SlideData } from "@/types";
 import type { ProviderWithVoices } from "@/hooks/useVoices";
 import type { useFailedRender } from "@/hooks/useFailedRender";
 import type { useRenderResult } from "@/hooks/useRenderResult";
-import { computeVoiceLabel, mitLaufStempel, renderProgress, type RenderProgress } from "../_utils";
+import { computeVoiceLabel, laufStempelAusMeta, mitLaufStempel, renderProgress, type RenderProgress } from "../_utils";
 import type { FlowAction } from "../_reducer";
 
 const RENDER_SESSION_KEY = "kis_screencast_active_render";
@@ -114,12 +114,12 @@ export function useScreencastRenderFlow(opts: UseScreencastRenderFlowOptions) {
     async (jobResult: JobStatus) => {
       sessionStorage.removeItem(RENDER_SESSION_KEY);
       const meta = jobResult.meta ?? {};
-      const resultStem = meta.result_stem as string | undefined;
-      const videoUrl = mitLaufStempel(`/api/jobs/${jobResult.job_uuid}/video`, resultStem ?? "");
+      const laufStempel = laufStempelAusMeta(meta);
+      const videoUrl = mitLaufStempel(`/api/jobs/${jobResult.job_uuid}/video`, laufStempel);
       renderResult.apply(videoUrl, {
         audioId: meta.audio_id as string | undefined,
         audioCount: meta.audio_count as number | undefined,
-        resultStem,
+        laufStempel,
         hasSubtitles: meta.subtitles === true,
         videoFolien: (meta.video_folien as number[] | undefined) ?? null,
       });

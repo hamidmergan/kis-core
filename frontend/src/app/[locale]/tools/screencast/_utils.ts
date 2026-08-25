@@ -24,6 +24,11 @@ export function mitLaufStempel(adresse: string, stempel: string): string {
   return `${adresse}${trenner}v=${encodeURIComponent(stempel)}`;
 }
 
+/** Sekundengenauer Stempel aus den Job-Angaben, faellt auf den minutengenauen Dateinamen zurueck. */
+export function laufStempelAusMeta(meta: { gerendert_am?: unknown; result_stem?: unknown }): string {
+  return String(meta.gerendert_am ?? meta.result_stem ?? "");
+}
+
 export type RenderProgress =
   | { kind: "queue" }
   | { kind: "translatePresentation" }

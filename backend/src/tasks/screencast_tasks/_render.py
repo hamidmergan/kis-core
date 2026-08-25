@@ -1,6 +1,7 @@
 """Celery task: render the final MP4 from edited scripts + stored PPTX."""
 
 import json
+import time
 from pathlib import Path
 
 from loguru import logger
@@ -120,7 +121,8 @@ def run_screencast_render(
         save_result_meta(
             user_id,
             translate_job_uuid,
-            {**meta_existing, "result_stem": result_stem},
+            # gerendert_am ist sekundengenau und steuert nur den Browser-Zwischenspeicher, kein Dateiname.
+            {**meta_existing, "result_stem": result_stem, "gerendert_am": int(time.time())},
         )
         with job_heartbeat(translate_job_uuid):
             save_result_and_evict(user_id, translate_job_uuid, result["result_path"], result_filename)

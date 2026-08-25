@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { renderProgress, geaenderteFolien, markeFuerFolie, laufWaereUmsonst, nichtsWirdGesprochen, stimmwechselOhneWirkung, ausgeschlosseneFolien, mitLaufStempel, type VertonterStand, type LaufStand } from "./_utils";
+import { renderProgress, geaenderteFolien, markeFuerFolie, laufWaereUmsonst, nichtsWirdGesprochen, stimmwechselOhneWirkung, ausgeschlosseneFolien, mitLaufStempel, laufStempelAusMeta, type VertonterStand, type LaufStand } from "./_utils";
 import type { JobStatus } from "@/lib/api";
 import type { SlideData } from "@/types";
 
@@ -325,5 +325,25 @@ describe("mitLaufStempel", () => {
     const erste = mitLaufStempel("/api/jobs/abc/video", "lauf_2026-08-24_2318");
     const zweite = mitLaufStempel("/api/jobs/abc/video", "lauf_2026-08-24_2319");
     expect(erste).not.toBe(zweite);
+  });
+
+  it("zwei Laeufe binnen einer Sekunde ergeben mit sekundengenauen Stempeln zwei verschiedene Adressen", () => {
+    const erste = mitLaufStempel("/api/jobs/abc/video", String(1_755_999_000));
+    const zweite = mitLaufStempel("/api/jobs/abc/video", String(1_755_999_001));
+    expect(erste).not.toBe(zweite);
+  });
+});
+
+describe("laufStempelAusMeta", () => {
+  it("nimmt gerendert_am, wenn vorhanden", () => {
+    expect(laufStempelAusMeta({ gerendert_am: 1_755_999_001, result_stem: "mini_2026-08-24_2318" })).toBe("1755999001");
+  });
+
+  it("faellt ohne gerendert_am auf result_stem zurueck, fuer alte Auftraege", () => {
+    expect(laufStempelAusMeta({ result_stem: "mini_2026-08-24_2318" })).toBe("mini_2026-08-24_2318");
+  });
+
+  it("ohne beides kommt eine leere Zeichenkette", () => {
+    expect(laufStempelAusMeta({})).toBe("");
   });
 });
