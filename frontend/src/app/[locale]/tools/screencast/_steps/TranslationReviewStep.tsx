@@ -11,6 +11,7 @@ interface TranslationReviewStepProps {
   loading: boolean;
   correctedFileName: string | null;
   uploadFehler: string;
+  skipTranslation: boolean;
   onLightboxOpen: (index: number) => void;
   onDownloadTranslatedPptx: () => Promise<boolean>;
   onUploadCorrectedPptx: (f: File) => void;
@@ -23,6 +24,7 @@ export default function TranslationReviewStep({
   loading,
   correctedFileName,
   uploadFehler,
+  skipTranslation,
   onLightboxOpen,
   onDownloadTranslatedPptx,
   onUploadCorrectedPptx,
@@ -35,8 +37,12 @@ export default function TranslationReviewStep({
   const istFolienzahlFehler = /folien(nummer|zahl)|slide (number|count)/i.test(uploadFehler);
   return (
     <section className="animate-[fadeIn_0.3s_ease-out]">
-      <h2 className="text-lg font-bold mb-2">{t("translationReview.heading")}</h2>
-      <p className="text-sm text-muted mb-6">{t("translationReview.intro")}</p>
+      <h2 className="text-lg font-bold mb-2">
+        {t(skipTranslation ? "translationReview.headingOhneUebersetzung" : "translationReview.heading")}
+      </h2>
+      <p className="text-sm text-muted mb-6">
+        {t(skipTranslation ? "translationReview.introOhneUebersetzung" : "translationReview.intro")}
+      </p>
 
       {unchangedCount > 0 && (
         <div className="mb-4 rounded-md border border-warn-border bg-warn-bg px-3 py-2">
@@ -139,7 +145,7 @@ export default function TranslationReviewStep({
 
       <StepFooter
         onBack={onBack}
-        nextLabel={t("translationReview.acceptAndNext")}
+        nextLabel={t(skipTranslation ? "translationReview.weiterOhneUebersetzung" : "translationReview.acceptAndNext")}
         onNext={onAcceptAndNext}
         nextDisabled={loading}
       />

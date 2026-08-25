@@ -26,8 +26,8 @@ describe("nieBetretbar", () => {
     expect(nieBetretbar(1, false)).toBe(true);
   });
 
-  it("meldet uebersprungene Uebersetzung als fuer immer zu", () => {
-    expect(nieBetretbar(2, true)).toBe(true);
+  it("meldet Pruefen trotz uebersprungener Uebersetzung nicht als fuer immer zu", () => {
+    expect(nieBetretbar(2, true)).toBe(false);
     expect(nieBetretbar(2, false)).toBe(false);
   });
 
@@ -57,9 +57,18 @@ describe("istErreichbar", () => {
     expect(istErreichbar(2, 3, false, "user-prompt")).toBe(true);
   });
 
-  it("sperrt Pruefen, wenn die Uebersetzung uebersprungen wurde", () => {
-    expect(istErreichbar(2, ALLE_ERREICHT, true, "user-prompt")).toBe(false);
+  it("laesst Pruefen zu, auch wenn die Uebersetzung uebersprungen wurde", () => {
+    expect(istErreichbar(2, ALLE_ERREICHT, true, "user-prompt")).toBe(true);
     expect(istErreichbar(2, ALLE_ERREICHT, false, "user-prompt")).toBe(true);
+  });
+
+  it("Index 2 ist erreichbar, wenn die Uebersetzung uebersprungen wurde und maxReachedIdx hoch genug ist", () => {
+    expect(istErreichbar(2, 2, true, "user-prompt")).toBe(true);
+    expect(istErreichbar(2, 1, true, "user-prompt")).toBe(false);
+  });
+
+  it("Index 1 bleibt gesperrt, wenn die Uebersetzung uebersprungen wurde", () => {
+    expect(istErreichbar(1, ALLE_ERREICHT, true, "user-prompt")).toBe(false);
   });
 
   it("sperrt alles, solange etwas laeuft", () => {
@@ -99,9 +108,9 @@ describe("istErreichbar", () => {
     expect(istErreichbar(5, 3, false, "rendering", true)).toBe(false);
   });
 
-  it("skipTranslation blendet die Uebersetzung weiterhin aus, auch mit fertigem Video", () => {
+  it("skipTranslation blendet nur die Uebersetzung aus, Pruefen bleibt frei, auch mit fertigem Video", () => {
     expect(istErreichbar(1, ALLE_ERREICHT, true, "rendering", true)).toBe(false);
-    expect(istErreichbar(2, ALLE_ERREICHT, true, "rendering", true)).toBe(false);
+    expect(istErreichbar(2, ALLE_ERREICHT, true, "rendering", true)).toBe(true);
   });
 
   it("von Schritt 5 aus ist Schritt 6 erreichbar, wenn ein Video fertig ist", () => {
@@ -124,8 +133,9 @@ describe("vorherErreichbar", () => {
     expect(vorherErreichbar(2, ALLE_ERREICHT, false, "translation-review")).toBeNull();
   });
 
-  it("ueberspringt die uebersprungene Uebersetzung", () => {
-    expect(vorherErreichbar(3, ALLE_ERREICHT, true, "user-prompt")).toBeNull();
+  it("ueberspringt nur noch das uebersprungene Uebersetzen, Pruefen bleibt Ziel", () => {
+    expect(vorherErreichbar(3, ALLE_ERREICHT, true, "user-prompt")).toBe(2);
+    expect(vorherErreichbar(2, ALLE_ERREICHT, true, "translation-review")).toBeNull();
     expect(vorherErreichbar(4, ALLE_ERREICHT, true, "script-review")).toBe(3);
   });
 

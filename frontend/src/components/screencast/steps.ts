@@ -57,7 +57,7 @@ export function indexToStep(index: number): ScreencastStep | null {
 
 /** Diese Schritte sind fuer immer zu, nicht nur gerade eben. */
 export function nieBetretbar(index: number, skipTranslation: boolean): boolean {
-  if (skipTranslation && (index === 1 || index === 2)) return true;
+  if (skipTranslation && index === 1) return true;
   return indexToStep(index) === null;
 }
 
@@ -74,7 +74,7 @@ export function istErreichbar(
   if (step === "rendering" && !hatErgebnis) return false;
   if (index === 6 && step !== "done" && !hatErgebnis) return false;
   if (index > maxReachedIdx) return false;
-  if (skipTranslation && (index === 1 || index === 2)) return false;
+  if (skipTranslation && index === 1) return false;
   return indexToStep(index) !== null;
 }
 

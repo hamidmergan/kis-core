@@ -676,6 +676,7 @@ function ScreencastPageInner() {
             loading={loading}
             correctedFileName={correctedFileName}
             uploadFehler={uploadFehler}
+            skipTranslation={skipTranslation}
             onLightboxOpen={(idx) => dispatch({ type: "SET_LIGHTBOX", index: idx })}
             onDownloadTranslatedPptx={handleDownloadTranslatedPptx}
             onUploadCorrectedPptx={handleUploadCorrectedPptx}
