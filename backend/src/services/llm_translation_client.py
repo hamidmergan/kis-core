@@ -7,6 +7,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from loguru import logger
 from openai import APIError, OpenAI, RateLimitError
+from src.security.usage_log import log_llm_response as _verbrauch
 
 
 _CHUNK_SIZE = 20
@@ -121,6 +122,7 @@ class LLMTranslationClient:
                     max_tokens=max_tokens or self._max_tokens_for(user, item_count),
                     extra_body=self._extra_body() or None,
                 )
+                _verbrauch("translation", self, response)
                 choice = response.choices[0]
                 return choice.message.content or "", getattr(choice, "finish_reason", "stop") or "stop"
             except RateLimitError as e:

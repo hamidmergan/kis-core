@@ -3,6 +3,7 @@ from ._shared import (
     json, datetime, timedelta, timezone,
     psycopg2, get_connection, _notify_job_update,
 )
+from ._counts import count_job, count_started, messpunkt
 
 
 def create_job(
@@ -23,6 +24,7 @@ def create_job(
                 """,
                 (job_uuid, user_id, tool, original_filename, input_path, locale),
             )
+            count_started(cur, tool)
         conn.commit()
 
 
@@ -91,6 +93,15 @@ def update_job_status(
                     (status, error_message, progress_json, now, now, job_uuid),
                 )
             elif status in ("success", "failed"):
+                # Erst die Zeile sperren und den bisherigen Zustand lesen. Nur
+                # wer noch nicht fertig war, wird gleich mitgezaehlt: sonst
+                # zaehlte ein zweiter Aufruf denselben Auftrag doppelt.
+                cur.execute(
+                    """SELECT status, tool, started_at, render_started_at
+                       FROM jobs WHERE job_uuid = %s FOR UPDATE""",
+                    (job_uuid,),
+                )
+                vorher = cur.fetchone()
                 cur.execute(
                     """UPDATE jobs
                        SET status = %s, error_message = %s, progress = %s,
@@ -98,6 +109,11 @@ def update_job_status(
                        WHERE job_uuid = %s AND status != 'awaiting_user'""",
                     (status, error_message, progress_json, now, now, job_uuid),
                 )
+                if vorher and cur.rowcount and vorher[0] not in ("success", "failed"):
+                    count_job(
+                        cur, vorher[1], status,
+                        messpunkt(vorher[1], vorher[2], vorher[3]), now,
+                    )
             else:
                 cur.execute(
                     """UPDATE jobs

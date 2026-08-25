@@ -9,6 +9,7 @@ from fastapi.responses import StreamingResponse
 from src import database as db
 from src.dependencies import get_current_user, is_admin_user
 from src.i18n import get_locale
+from src.security import presence
 
 from src.routes.jobs._shared import (
     _REDIS_URL,
@@ -67,6 +68,10 @@ async def job_stream(
         pubsub = r.pubsub()
         await pubsub.subscribe(f"jobs:{user_id}")
         last_sent = time.monotonic()
+        # Die Stunde wird selten geschrieben, das Lebenszeichen oft.
+        last_hour = 0.0
+        presence.touch(user_id)
+        presence.mark_hour(user_id)
         try:
             while True:
                 if await request.is_disconnected():
@@ -81,6 +86,14 @@ async def job_stream(
                     # dropping an idle connection, which would restart the client.
                     yield ": ping\n\n"
                     last_sent = time.monotonic()
+                    # Dieselbe Schleife traegt die Anwesenheit. Sie laeuft
+                    # ohnehin fuer jeden offenen Tab, kostet also nichts
+                    # zusaetzlich. Redis merkt sich "gerade da", die Stunde
+                    # landet hoechstens einmal in der Datenbank.
+                    presence.touch(user_id)
+                    if time.monotonic() - last_hour >= 300:
+                        presence.mark_hour(user_id)
+                        last_hour = time.monotonic()
         finally:
             await pubsub.unsubscribe(f"jobs:{user_id}")
             await r.aclose()

@@ -465,6 +465,112 @@ def _init_db(admin_email: Optional[str] = None) -> None:
                 )
             """)
             cur.execute("ALTER TABLE jobs ADD COLUMN IF NOT EXISTS render_queued_at TIMESTAMP")
+
+            # Der Zaehler fuer die Statistik.
+            #
+            # Warum eine eigene Tabelle: aus `jobs` faellt pro Nutzer alles ueber
+            # dem Vorrat wieder heraus (siehe jobs/repository/_retention.py). Eine
+            # Statistik "ueber die ganze Zeit" waere damit keine, sondern eine
+            # ueber die Reste. Hier wird jeder Auftrag beim Abschluss genau einmal
+            # hochgezaehlt und nie wieder geloescht.
+            #
+            # Eine Zeile fasst Tag, Stunde, Werkzeug und Ausgang zusammen. Daraus
+            # faellt alles heraus, was der Statistikbereich braucht: Verlauf je
+            # Monat, Wochentag mal Stunde, Erfolgsquote je Werkzeug. Die Stunde
+            # steht in Ortszeit, weil die Frage "wann ist was los" eine Frage nach
+            # dem Arbeitstag ist und nicht nach UTC.
+            #
+            # Groesse: hoechstens 24 * 9 Werkzeuge * 2 Ausgaenge Zeilen am Tag,
+            # in echt ein Bruchteil davon, weil die meisten Felder leer bleiben.
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS job_counts (
+                    day       DATE     NOT NULL,
+                    hour      SMALLINT NOT NULL,
+                    tool      TEXT     NOT NULL,
+                    status    TEXT     NOT NULL,
+                    runs      INTEGER  NOT NULL DEFAULT 0,
+                    seconds   BIGINT   NOT NULL DEFAULT 0,
+                    PRIMARY KEY (day, hour, tool, status)
+                )
+            """)
+            cur.execute("""
+                CREATE INDEX IF NOT EXISTS idx_job_counts_day
+                ON job_counts(day)
+            """)
+
+            # Wer wann da war. Eine Zeile je Nutzer und Stunde, mehr nicht:
+            # daraus faellt "wie viele waren an dem Tag da" genauso heraus wie
+            # die Verteilung ueber den Tag, und die Bindung ueber die Zahl der
+            # Tage mit Anwesenheit.
+            #
+            # Warum nicht aus den Auftraegen ableiten: wer nur Uebungen macht
+            # oder ein PDF liest, startet nie einen Auftrag und waere unsichtbar.
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS user_presence (
+                    user_id INTEGER  NOT NULL,
+                    day     DATE     NOT NULL,
+                    hour    SMALLINT NOT NULL,
+                    PRIMARY KEY (user_id, day, hour)
+                )
+            """)
+            cur.execute("""
+                CREATE INDEX IF NOT EXISTS idx_user_presence_day
+                ON user_presence(day)
+            """)
+
+            # Einmalig nachtragen, was noch in `jobs` steht. Das holt die
+            # Geschichte nicht zurueck, die die Aufbewahrung schon entfernt hat,
+            # aber es startet nicht bei null. Laeuft genau einmal: ein zweiter
+            # Lauf wuerde alles doppelt zaehlen, deshalb der Merker.
+            # `settings` entsteht erst weiter unten. Auf einer leeren Datenbank
+            # gibt es ohnehin nichts nachzutragen, dann faellt der Block aus.
+            if _table_exists(cur, "settings"):
+                cur.execute("SELECT value FROM settings WHERE key = 'job_counts_backfill_done'")
+                nachtragen = not cur.fetchone()
+            else:
+                nachtragen = False
+            if nachtragen:
+                cur.execute("""
+                    INSERT INTO job_counts (day, hour, tool, status, runs, seconds)
+                    SELECT (completed_at AT TIME ZONE 'UTC' AT TIME ZONE 'Europe/Berlin')::date,
+                           EXTRACT(HOUR FROM (completed_at AT TIME ZONE 'UTC' AT TIME ZONE 'Europe/Berlin')),
+                           tool, status, COUNT(*),
+                           COALESCE(SUM(GREATEST(0, EXTRACT(EPOCH FROM (completed_at - COALESCE(
+                               CASE WHEN tool IN ('screencast_render', 'screencast_translate')
+                                    THEN render_started_at END,
+                               started_at, completed_at)))))::bigint, 0)
+                    FROM jobs
+                    WHERE status IN ('success', 'failed') AND completed_at IS NOT NULL
+                    GROUP BY 1, 2, tool, status
+                    ON CONFLICT (day, hour, tool, status) DO NOTHING
+                """)
+                cur.execute(
+                    """INSERT INTO settings (key, value) VALUES ('job_counts_backfill_done', 'true')
+                       ON CONFLICT (key) DO UPDATE SET value = 'true'"""
+                )
+
+            # Dasselbe fuer die Zeile beim Anlegen. Sie kam spaeter dazu, und
+            # ohne sie faehrt die Statistik nur die Auftraege, die einen
+            # Endzustand erreicht haben. Ebenfalls genau einmal.
+            if _table_exists(cur, "settings"):
+                cur.execute("SELECT value FROM settings WHERE key = 'job_counts_started_backfill_done'")
+                nachtragen = not cur.fetchone()
+            else:
+                nachtragen = False
+            if nachtragen:
+                cur.execute("""
+                    INSERT INTO job_counts (day, hour, tool, status, runs, seconds)
+                    SELECT (created_at AT TIME ZONE 'UTC' AT TIME ZONE 'Europe/Berlin')::date,
+                           EXTRACT(HOUR FROM (created_at AT TIME ZONE 'UTC' AT TIME ZONE 'Europe/Berlin')),
+                           tool, 'started', COUNT(*), 0
+                    FROM jobs
+                    GROUP BY 1, 2, tool
+                    ON CONFLICT (day, hour, tool, status) DO NOTHING
+                """)
+                cur.execute(
+                    """INSERT INTO settings (key, value) VALUES ('job_counts_started_backfill_done', 'true')
+                       ON CONFLICT (key) DO UPDATE SET value = 'true'"""
+                )
             cur.execute("ALTER TABLE jobs DROP COLUMN IF EXISTS username")
             # Locale at job-creation time, used by Celery workers (no HTTP context)
             # to localize error_message strings on timeout / provider failure.

@@ -28,6 +28,14 @@ export const PERM = {
   usersRoles: "settings.nutzer.roles",
   system: "settings.system",
   mascot: "settings.mascot",
+  // Der Bereich Statistik hat vier Reiter. Zwei sind umgezogen und behalten
+  // ihren alten Schluessel (toolsStats, aiaUsage), damit bestehende Rollen
+  // nichts verlieren. Nur die zwei neuen brauchen eigene.
+  statsUsers: "settings.statistik.nutzer",
+  statsModels: "settings.statistik.modelle",
+  // Kein Recht, etwas einzustellen, sondern weitermachen zu duerfen, waehrend
+  // die Plattform fuer alle anderen zu ist.
+  maintenanceAccess: "settings.wartung.zugang",
 } as const;
 
 export type PermissionKey = (typeof PERM)[keyof typeof PERM] | string;
@@ -48,6 +56,9 @@ export const SETTINGS_PERMS: string[] = [
   PERM.usersRoles,
   PERM.system,
   PERM.mascot,
+  PERM.statsUsers,
+  PERM.statsModels,
+  PERM.maintenanceAccess,
 ];
 
 export const EMPTY_PERMS: UserPermissions = {

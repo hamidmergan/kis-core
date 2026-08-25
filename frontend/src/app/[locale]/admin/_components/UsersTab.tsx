@@ -2,13 +2,16 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
-import { Users } from "@phosphor-icons/react";
+import { Trash, Users } from "@phosphor-icons/react";
+import IconButton from "@/components/ui/IconButton";
 import Select from "@/components/ui/Select";
 import Spinner from "@/components/ui/Spinner";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { formatDate } from "@/lib/format";
 import type { AdminUser } from "../_shared";
+import { canDeleteUser } from "./canDeleteUser";
 import CreateLdapUserDialog from "./CreateLdapUserDialog";
+import DeleteUserConfirmDialog from "./DeleteUserConfirmDialog";
 
 export default function UsersTab({ onOpenQuota }: { onOpenQuota: (userId: number) => void }) {
   const t = useTranslations("admin");
@@ -23,6 +26,8 @@ export default function UsersTab({ onOpenQuota }: { onOpenQuota: (userId: number
   const [dateTo, setDateTo] = useState("");
   const [roleOptions, setRoleOptions] = useState<{ value: string; label: string; customId: number | null }[]>([]);
   const [adminEmail, setAdminEmail] = useState<string>("");
+  const [meineId, setMeineId] = useState(0);
+  const [zuLoeschen, setZuLoeschen] = useState<AdminUser | null>(null);
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [allowLdapCreate, setAllowLdapCreate] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
@@ -83,6 +88,7 @@ export default function UsersTab({ onOpenQuota }: { onOpenQuota: (userId: number
       .then((r) => r.ok ? r.json() : null)
       .then((s) => {
         if (s?.email) setAdminEmail(String(s.email).toLowerCase());
+        setMeineId(Number(s?.user_id ?? 0));
         setAllowLdapCreate(Boolean(s?.permissions?.allow_ldap_user_create));
       });
   }, [t]);
@@ -171,6 +177,7 @@ export default function UsersTab({ onOpenQuota }: { onOpenQuota: (userId: number
                 <th className="px-4 py-3 text-left">{t("roles.userRoleLabel")}</th>
                 <th className="px-4 py-3 text-left">{t("users.colCreated")}</th>
                 <th className="px-4 py-3 text-left">{t("users.colQuotas")}</th>
+                <th className="px-4 py-3 text-left">{t("users.colActions")}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-border-soft bg-background">
@@ -236,6 +243,18 @@ export default function UsersTab({ onOpenQuota }: { onOpenQuota: (userId: number
                       {t("users.details")}
                     </button>
                   </td>
+                  <td className="px-4 py-3">
+                    {canDeleteUser(u, { userId: meineId, email: adminEmail }) && (
+                      <IconButton
+                        size="sm"
+                        title={t("users.delete.buttonTitle")}
+                        aria-label={t("users.delete.buttonTitle")}
+                        onClick={() => setZuLoeschen(u)}
+                      >
+                        <Trash size={14} weight="bold" />
+                      </IconButton>
+                    )}
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -280,6 +299,18 @@ export default function UsersTab({ onOpenQuota }: { onOpenQuota: (userId: number
             ›
           </button>
         </div>
+      )}
+
+      {zuLoeschen && (
+        <DeleteUserConfirmDialog
+          userId={zuLoeschen.id}
+          userName={zuLoeschen.display_name || zuLoeschen.ldap_username}
+          onCancel={() => setZuLoeschen(null)}
+          onDeleted={() => {
+            setZuLoeschen(null);
+            setRefreshKey((k) => k + 1);
+          }}
+        />
       )}
 
       {showCreateDialog && (

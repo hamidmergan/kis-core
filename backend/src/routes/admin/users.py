@@ -1,9 +1,15 @@
 """User-Management: Liste/Approve und Whitelist-Verwaltung."""
 
 from fastapi import APIRouter, Depends, HTTPException, Query
+from loguru import logger
 from pydantic import BaseModel
 
 from src import database as db
+from src.features.admin.repository.user_delete import (
+    count_user_footprint,
+    delete_user_completely,
+)
+from src.storage import delete_user_folder
 from src.dependencies import get_settings
 from src.dependencies_rbac import assert_may_grant, permissions_of, require_permission
 from src.permissions_registry import (
@@ -148,3 +154,50 @@ async def update_user_role(
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     return {"status": "ok"}
+
+
+# ── Konto loeschen ─────────────────────────────────────────────────────────────
+
+@router.get("/users/{user_id}/deletion-preview")
+async def preview_user_deletion(
+    user_id: int,
+    _admin=Depends(_require_users),
+    locale: str = Depends(get_locale),
+):
+    """Die Zahlen fuer die Rueckfrage vor dem Loeschen."""
+    if db.get_user_by_id(user_id) is None:
+        raise HTTPException(status_code=404, detail=t("admin.user.notFound", locale))
+    return count_user_footprint(user_id)
+
+
+@router.delete("/users/{user_id}")
+async def delete_user(
+    user_id: int,
+    admin=Depends(_require_users),
+    locale: str = Depends(get_locale),
+):
+    """Loescht Konto, Arbeitsbereiche, Spuren in fremden Bereichen und Dateien.
+
+    Zwei Sperren: das eigene Konto und das env-Konto. Beides waere ein Weg,
+    sich selbst dauerhaft aus der Verwaltung auszusperren.
+    """
+    target = db.get_user_by_id(user_id)
+    if target is None:
+        raise HTTPException(status_code=404, detail=t("admin.user.notFound", locale))
+    if user_id == admin.get("user_id"):
+        raise HTTPException(status_code=400, detail=t("admin.user.cannotDeleteSelf", locale))
+    settings = get_settings()
+    email = (target.get("email") or "").lower()
+    if settings.admin_email and email == settings.admin_email.strip().lower():
+        raise HTTPException(status_code=403, detail=t("admin.user.envAdminProtected", locale))
+
+    delete_user_completely(user_id)
+    # Die Ablage kommt nach der Datenbank, damit ein Abbruch dort wiederholbar
+    # bleibt.
+    try:
+        entfernt = delete_user_folder(user_id)
+    except Exception as e:
+        entfernt = 0
+        logger.warning("Konto {}: Dateien nicht geloescht: {}", user_id, e)
+    logger.info("Konto {} geloescht von {}, {} Dateien", user_id, admin.get("user_id"), entfernt)
+    return {"deleted": user_id, "files": entfernt}

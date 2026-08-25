@@ -733,6 +733,15 @@ def delete_aia_workspace_folder(user_id: int, workspace_uuid: str) -> int:
     return delete_prefix(aia_workspace_prefix(user_id, workspace_uuid))
 
 
+def delete_user_folder(user_id: int) -> int:
+    """Alle Dateien eines Nutzers, Aufgaben wie Arbeitsbereiche.
+
+    Der Schraegstrich am Ende ist Pflicht, sonst nimmt Nutzer 4 auch Nutzer 42
+    mit.
+    """
+    return delete_prefix(f"users/{user_id}/")
+
+
 # --- Result saving with eviction ---
 
 def evict_jobs_over_cap(user_id: int) -> int:

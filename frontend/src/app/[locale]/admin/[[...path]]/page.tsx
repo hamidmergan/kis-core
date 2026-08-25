@@ -17,7 +17,7 @@ import { use, useEffect } from "react";
 import { useTranslations } from "next-intl";
 import { useSearchParams } from "next/navigation";
 import { useRouter } from "@/i18n/navigation";
-import { allowed, firstAllowed, resolve } from "../_nav/registry";
+import { allowed, allowedTabs, firstAllowed, resolve } from "../_nav/registry";
 import PageTabs from "../_nav/PageTabs";
 import { useAdminPerms } from "../_nav/AdminAuth";
 
@@ -48,10 +48,12 @@ export default function AdminPage({ params }: { params: Promise<{ path?: string[
   const base = page ? `${section.key}.${page.key}` : section.key;
 
   // Reiter kann sowohl eine Unterseite haben als auch ein Bereich, der selbst
-  // die Seite ist.
-  const tabs = page?.tabs ?? section.tabs;
+  // die Seite ist. Gefiltert wird auch hier: bei der Statistik haengt jeder
+  // Reiter an einem eigenen Recht, und wer nur eines davon hat, soll nicht auf
+  // einem gesperrten Reiter landen.
+  const tabs = allowedTabs(page?.tabs ?? section.tabs, section, perms.keys);
   const wanted = search.get("ansicht");
-  const active = tabs ? (tabs.find((x) => x.slug === wanted) ?? tabs[0]) : null;
+  const active = tabs.length ? (tabs.find((x) => x.slug === wanted) ?? tabs[0]) : null;
   const Body = active ? active.Component : (page?.Component ?? section.Component);
   if (!Body) return null;
 
@@ -68,7 +70,7 @@ export default function AdminPage({ params }: { params: Promise<{ path?: string[
       <h2 className={`text-lg font-semibold${hasSub ? "" : " mb-6"}`}>{ts(`${base}.label`)}</h2>
       {hasSub && <p className="text-xs text-muted mt-1 mb-6 max-w-2xl">{ts(`${base}.sub`)}</p>}
 
-      {tabs && active && (
+      {active && tabs.length > 1 && (
         <PageTabs
           base={page ? `/admin/${section.slug}/${page.slug}` : `/admin/${section.slug}`}
           tabs={tabs.map((x) => ({ slug: x.slug, label: ts(`${base}.tabs.${x.labelKey}`) }))}

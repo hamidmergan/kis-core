@@ -9,6 +9,7 @@ from src.tool_prompts import (
 )
 
 from src.services.openai_compat_llm.base import load_prompt
+from src.security.usage_log import log_llm_response as _verbrauch
 
 # Enough text for a reliable language call, small enough to stay cheap.
 _LANGUAGE_SAMPLE_CHARS = 1500
@@ -68,6 +69,7 @@ class _SummaryMixin:
                 ],
                 temperature=0,
             )
+            _verbrauch("summary", self, response)
             return _clean_language_name(response.choices[0].message.content)
         except Exception:
             return None
@@ -104,6 +106,7 @@ class _SummaryMixin:
                 ],
                 temperature=0.3,
             )
+            _verbrauch("summary", self, response)
             content = response.choices[0].message.content
             if content is None:
                 raise RuntimeError("LLM hat keine Antwort generiert")

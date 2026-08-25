@@ -65,6 +65,16 @@ PERM_SET_USERS_ROLES = "settings.nutzer.roles"
 # stehen jetzt auf der System-Seite und haengen an PERM_SET_SYSTEM.
 PERM_SET_SYSTEM = "settings.system"
 PERM_SET_MASCOT = "settings.mascot"
+# Der Bereich Statistik hat vier Reiter. Zwei davon sind umgezogen und behalten
+# ihren alten Schluessel, damit bestehende Rollen nichts verlieren: die
+# Werkzeug-Zahlen bleiben an PERM_SET_TOOLS_STATS, die des Assistenten an
+# PERM_SET_AIA_USAGE. Nur die zwei neuen Reiter brauchen eigene Schluessel.
+PERM_SET_STATS_USERS = "settings.statistik.nutzer"
+PERM_SET_STATS_MODELS = "settings.statistik.modelle"
+# Kein Recht, etwas einzustellen, sondern eines, weitermachen zu duerfen, waehrend
+# die Plattform fuer alle anderen zu ist. Braucht wer bei einer Wartung
+# nachschauen soll, ohne die Verwaltung ganz in die Hand zu bekommen.
+PERM_MAINTENANCE_ACCESS = "settings.wartung.zugang"
 
 SETTINGS_KEYS: tuple[str, ...] = (
     PERM_SET_TOOLS_RELEASE,
@@ -81,6 +91,9 @@ SETTINGS_KEYS: tuple[str, ...] = (
     PERM_SET_USERS_ROLES,
     PERM_SET_SYSTEM,
     PERM_SET_MASCOT,
+    PERM_SET_STATS_USERS,
+    PERM_SET_STATS_MODELS,
+    PERM_MAINTENANCE_ACCESS,
 )
 
 # === Der ganze Katalog =======================================================

@@ -105,7 +105,7 @@ def run_generate_data_table(self, data_table_id: int, source_ids: list[int],
         # always parses, so a single flaky generation no longer fails the table.
         table_data = None
         for attempt in range(2):
-            response = create_with_shrink(client, model=model, messages=messages, temperature=0.2)
+            response = create_with_shrink(client, endpoint="datentabelle", model=model, messages=messages, temperature=0.2)
             raw = response.choices[0].message.content
             if not raw:
                 continue
