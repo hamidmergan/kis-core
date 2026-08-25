@@ -134,6 +134,9 @@ export function useScreencastRenderFlow(opts: UseScreencastRenderFlowOptions) {
     setTtsSettingsError("");
     // Ohne das haelt ein altes Video den neuen Lauf faelschlich fuer einen Rueckblick.
     renderResult.clear();
+    // Die Listen des letzten Laufs wuerden den neuen sonst falsch beschriften.
+    setFertigeFolien([]);
+    setNichtDabei([]);
     if (!translateJobUuid) {
       const ok = await checkBeforeSubmit();
       if (!ok) return;
@@ -203,6 +206,7 @@ export function useScreencastRenderFlow(opts: UseScreencastRenderFlowOptions) {
     slides, translateJobUuid, targetLang, voiceId, providerId, providers,
     speed, slidePause, dpi, subtitles, videoFolien, neuVertonen,
     newSignal, onRenderProgress, setRenderProgressLabel, setTtsSettingsError,
+    setFertigeFolien, setNichtDabei,
     failedRender, renderResult, processRenderResultFromJob,
     checkBeforeSubmit, goError, dispatch, currentJobUuidRef, messages,
   ]);
