@@ -51,7 +51,9 @@ export default function AdminPage({ params }: { params: Promise<{ path?: string[
   // die Seite ist. Gefiltert wird auch hier: bei der Statistik haengt jeder
   // Reiter an einem eigenen Recht, und wer nur eines davon hat, soll nicht auf
   // einem gesperrten Reiter landen.
-  const tabs = allowedTabs(page?.tabs ?? section.tabs, section, perms.keys);
+  const tabs = page
+    ? allowedTabs(page.tabs, page.perm, perms.keys)
+    : allowedTabs(section.tabs, section.perm, perms.keys);
   const wanted = search.get("ansicht");
   const active = tabs.length ? (tabs.find((x) => x.slug === wanted) ?? tabs[0]) : null;
   const Body = active ? active.Component : (page?.Component ?? section.Component);

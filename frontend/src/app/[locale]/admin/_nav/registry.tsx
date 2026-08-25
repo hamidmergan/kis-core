@@ -55,7 +55,8 @@ export interface AdminTab {
   /** Schluessel unter admin.sections.<bereich>.<seite>.tabs */
   labelKey: string;
   Component: ComponentType;
-  /** Rechte-Schluessel, ohne den der Reiter nicht erscheint.
+  /** Rechte-Schluessel, ohne den der Reiter nicht erscheint. Leer heisst: es
+   *  gilt das Recht dessen, der die Reiter traegt.
    *
    *  Nur wo die Reiter wirklich getrennte Gegenstaende sind, also bei der
    *  Statistik. Sprachniveau und Anbieter lassen das leer: dort liegen die
@@ -324,24 +325,30 @@ export function pageAllowed(page: AdminPage, keys: string[]): boolean {
   return keys.includes(page.perm);
 }
 
-/** Reiter ohne eigenes Recht haengen am Recht ihres Bereichs. */
-export function tabAllowed(tab: AdminTab, section: AdminSection, keys: string[]): boolean {
+/**
+ * Reiter ohne eigenes Recht haengen am Recht dessen, der sie traegt.
+ *
+ * Das ist mal der Bereich und mal die Unterseite. Frueher stand hier fest der
+ * Bereich, und weil Bereiche mit Unterseiten selbst gar kein Recht tragen,
+ * fielen die Reiter des Sprachniveaus weg und die Seite blieb leer.
+ */
+export function tabAllowed(tab: AdminTab, ownerPerm: string | undefined, keys: string[]): boolean {
   if (tab.perm) return keys.includes(tab.perm);
-  return !!section.perm && keys.includes(section.perm);
+  return !!ownerPerm && keys.includes(ownerPerm);
 }
 
 /** Die sichtbaren Reiter eines Bereichs oder einer Seite. */
 export function allowedTabs(
   tabs: AdminTab[] | undefined,
-  section: AdminSection,
+  ownerPerm: string | undefined,
   keys: string[],
 ): AdminTab[] {
-  return (tabs ?? []).filter((t) => tabAllowed(t, section, keys));
+  return (tabs ?? []).filter((t) => tabAllowed(t, ownerPerm, keys));
 }
 
 export function sectionAllowed(section: AdminSection, keys: string[]): boolean {
   if (section.pages) return section.pages.some((p) => pageAllowed(p, keys));
-  if (section.tabs?.some((t) => t.perm)) return allowedTabs(section.tabs, section, keys).length > 0;
+  if (section.tabs?.some((t) => t.perm)) return allowedTabs(section.tabs, section.perm, keys).length > 0;
   return !!section.perm && keys.includes(section.perm);
 }
 
@@ -349,7 +356,7 @@ export function sectionAllowed(section: AdminSection, keys: string[]): boolean {
 export function allowedSections(keys: string[]): AdminSection[] {
   return SECTIONS.filter((s) => sectionAllowed(s, keys)).map((s) => {
     if (s.pages) return { ...s, pages: s.pages.filter((p) => pageAllowed(p, keys)) };
-    if (s.tabs?.some((t) => t.perm)) return { ...s, tabs: allowedTabs(s.tabs, s, keys) };
+    if (s.tabs?.some((t) => t.perm)) return { ...s, tabs: allowedTabs(s.tabs, s.perm, keys) };
     return s;
   });
 }

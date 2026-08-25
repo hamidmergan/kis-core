@@ -13,6 +13,9 @@ export default defineConfig({
   },
   test: {
     environment: "node",
+    // next-intl liefert ESM aus, das "next/navigation" ohne Dateiendung
+    // importiert. Node loest das nur auf, wenn Vite das Paket mit uebersetzt.
+    server: { deps: { inline: [/next-intl/] } },
     include: ["src/**/*.test.{ts,tsx}"],
     exclude: ["node_modules", ".next", "e2e"],
     coverage: {
