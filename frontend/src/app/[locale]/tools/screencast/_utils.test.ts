@@ -175,7 +175,7 @@ describe("laufWaereUmsonst", () => {
     expect(laufWaereUmsonst({ ...basis, imScreencast: [0] })).toBe(false);
   });
 
-  it("ein alter Abzug ohne die vier neuen Felder kippt nicht, er gilt bei sonst gleichen Werten als umsonst", () => {
+  it("ein alter Abzug ohne die vier Felder gilt NICHT als unveraendert", () => {
     const standOhneNeueFelder: VertonterStand = {
       scripts: ["Skript eins", "Skript zwei"],
       folientexte: ["Folie eins", "Folie zwei"],
@@ -183,7 +183,27 @@ describe("laufWaereUmsonst", () => {
       provider_id: 2,
       target_lang: "EN-US",
     };
-    expect(laufWaereUmsonst({ ...basis, stand: standOhneNeueFelder })).toBe(true);
+    expect(laufWaereUmsonst({ ...basis, stand: standOhneNeueFelder })).toBe(false);
+  });
+
+  it("fehlt speed im Abzug, ist der Lauf nicht umsonst", () => {
+    const { speed: _speed, ...standOhneSpeed } = standMitAllenFeldern;
+    expect(laufWaereUmsonst({ ...basis, stand: standOhneSpeed })).toBe(false);
+  });
+
+  it("fehlt slide_pause im Abzug, ist der Lauf nicht umsonst", () => {
+    const { slide_pause: _slidePause, ...standOhneSlidePause } = standMitAllenFeldern;
+    expect(laufWaereUmsonst({ ...basis, stand: standOhneSlidePause })).toBe(false);
+  });
+
+  it("fehlt subtitles im Abzug, ist der Lauf nicht umsonst", () => {
+    const { subtitles: _subtitles, ...standOhneSubtitles } = standMitAllenFeldern;
+    expect(laufWaereUmsonst({ ...basis, stand: standOhneSubtitles })).toBe(false);
+  });
+
+  it("fehlt video_folien im Abzug, ist der Lauf nicht umsonst", () => {
+    const { video_folien: _videoFolien, ...standOhneVideoFolien } = standMitAllenFeldern;
+    expect(laufWaereUmsonst({ ...basis, stand: standOhneVideoFolien })).toBe(false);
   });
 });
 

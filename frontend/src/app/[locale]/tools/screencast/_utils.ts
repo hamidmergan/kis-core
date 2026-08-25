@@ -196,11 +196,11 @@ export function laufWaereUmsonst(s: LaufStand): boolean {
   if (s.stand.voice_id !== s.voiceId) return false;
   if (s.stand.provider_id !== s.providerId) return false;
   if (s.stand.target_lang !== s.targetLang) return false;
-  if (s.stand.speed !== undefined && rundeZwei(s.stand.speed) !== rundeZwei(s.speed)) return false;
-  if (s.stand.slide_pause !== undefined && rundeZwei(s.stand.slide_pause) !== rundeZwei(s.slidePause)) return false;
-  if (s.stand.subtitles !== undefined && s.stand.subtitles !== s.subtitles) return false;
-  if (s.stand.video_folien !== undefined
-      && !gleicheNummern(s.stand.video_folien, s.imScreencast)) return false;
+  // Was sich nicht nachpruefen laesst, gilt nicht als unveraendert.
+  if (s.stand.speed === undefined || rundeZwei(s.stand.speed) !== rundeZwei(s.speed)) return false;
+  if (s.stand.slide_pause === undefined || rundeZwei(s.stand.slide_pause) !== rundeZwei(s.slidePause)) return false;
+  if (s.stand.subtitles === undefined || s.stand.subtitles !== s.subtitles) return false;
+  if (s.stand.video_folien === undefined || !gleicheNummern(s.stand.video_folien, s.imScreencast)) return false;
   return true;
 }
 
