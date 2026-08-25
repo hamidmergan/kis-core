@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { renderProgress, geaenderteFolien, markeFuerFolie, laufWaereUmsonst, nichtsWirdGesprochen, stimmwechselOhneWirkung, ausgeschlosseneFolien, type VertonterStand, type LaufStand } from "./_utils";
+import { renderProgress, geaenderteFolien, markeFuerFolie, laufWaereUmsonst, nichtsWirdGesprochen, stimmwechselOhneWirkung, ausgeschlosseneFolien, mitLaufStempel, type VertonterStand, type LaufStand } from "./_utils";
 import type { JobStatus } from "@/lib/api";
 import type { SlideData } from "@/types";
 
@@ -298,5 +298,32 @@ describe("ausgeschlosseneFolien", () => {
 
   it("sind alle Folien in der Auswahl, ist die Liste leer", () => {
     expect(ausgeschlosseneFolien(3, [], null, [0, 1, 2])).toEqual([]);
+  });
+});
+
+describe("mitLaufStempel", () => {
+  it("ohne Stempel bleibt die Adresse unveraendert", () => {
+    expect(mitLaufStempel("/api/jobs/abc/video", "")).toBe("/api/jobs/abc/video");
+  });
+
+  it("mit Stempel haengt ein Abfrageteil an", () => {
+    expect(mitLaufStempel("/api/jobs/abc/video", "translated_2026-08-24_2318"))
+      .toBe("/api/jobs/abc/video?v=translated_2026-08-24_2318");
+  });
+
+  it("hat die Adresse schon einen Abfrageteil, wird mit einem Und-Zeichen angehaengt", () => {
+    expect(mitLaufStempel("/api/jobs/abc/video?foo=bar", "stempel"))
+      .toBe("/api/jobs/abc/video?foo=bar&v=stempel");
+  });
+
+  it("Sonderzeichen im Stempel werden verschluesselt", () => {
+    expect(mitLaufStempel("/api/jobs/abc/video", "a b&c"))
+      .toBe("/api/jobs/abc/video?v=a%20b%26c");
+  });
+
+  it("zwei verschiedene Stempel ergeben zwei verschiedene Adressen", () => {
+    const erste = mitLaufStempel("/api/jobs/abc/video", "lauf_2026-08-24_2318");
+    const zweite = mitLaufStempel("/api/jobs/abc/video", "lauf_2026-08-24_2319");
+    expect(erste).not.toBe(zweite);
   });
 });

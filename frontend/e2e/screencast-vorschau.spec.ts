@@ -102,7 +102,8 @@ test("Fertiges Ergebnis laesst sich wieder oeffnen", async ({ page }) => {
   await page.goto(`/de/tools/screencast?resume=${fertigUuid}`, { waitUntil: "domcontentloaded" });
 
   await expect(page.getByText("Fertig!", { exact: false })).toBeVisible({ timeout: 60_000 });
-  await expect(page.locator("video source")).toHaveAttribute("src", `/api/jobs/${fertigUuid}/video`);
+  // Der Lauf-Stempel haengt als Abfrageteil an, sonst zeigt der Browser nach einem neuen Lauf das alte Video.
+  await expect(page.locator("video source")).toHaveAttribute("src", `/api/jobs/${fertigUuid}/video?v=mini_screencast`);
 
   await page.waitForTimeout(300);
   await page.screenshot({ path: "e2e/screens/screencast-ergebnis-wieder.png" });

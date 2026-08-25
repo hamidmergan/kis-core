@@ -17,6 +17,13 @@ export function computeVoiceLabel(
 }
 
 
+/** Haengt den Lauf-Stempel an, damit der Browser nach einem neuen Lauf nicht das alte Video zeigt. */
+export function mitLaufStempel(adresse: string, stempel: string): string {
+  if (!stempel) return adresse;
+  const trenner = adresse.includes("?") ? "&" : "?";
+  return `${adresse}${trenner}v=${encodeURIComponent(stempel)}`;
+}
+
 export type RenderProgress =
   | { kind: "queue" }
   | { kind: "translatePresentation" }

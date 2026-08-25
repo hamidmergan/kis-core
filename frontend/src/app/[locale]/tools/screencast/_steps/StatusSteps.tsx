@@ -2,6 +2,7 @@
 
 import { useTranslations } from "next-intl";
 import Spinner from "@/components/ui/Spinner";
+import { mitLaufStempel } from "../_utils";
 
 const cancelIcon = (
   <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -115,6 +116,7 @@ export function DoneStep({
   videoUrl,
   audioId,
   hasSubtitles = false,
+  resultStem,
   onDownloadMp4,
   onReset,
   onNeuVertonen,
@@ -122,6 +124,7 @@ export function DoneStep({
   videoUrl: string | null;
   audioId: string;
   hasSubtitles?: boolean;
+  resultStem: string;
   onDownloadMp4: () => void;
   onReset: () => void;
   onNeuVertonen: () => void;
@@ -152,7 +155,7 @@ export function DoneStep({
             {hasSubtitles && audioId && (
               <track
                 kind="subtitles"
-                src={`/api/jobs/${audioId}/subtitles`}
+                src={mitLaufStempel(`/api/jobs/${audioId}/subtitles`, resultStem)}
                 label={t("done.subtitleTrack")}
                 default
               />
