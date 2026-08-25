@@ -939,7 +939,25 @@
       "colQuotas": "Quotas",
       "active": "Active",
       "inactive": "Inactive",
-      "details": "Details"
+      "details": "Details",
+      "colActions": "Action",
+      "delete": {
+        "buttonTitle": "Delete account",
+        "title": "Delete account “{name}”?",
+        "loading": "Checking what belongs to this account...",
+        "intro": "Deleting the account also removes everything attached to it:",
+        "workspaces": "{n, plural, one {# workspace with all uploaded files} other {# workspaces with all uploaded files}}",
+        "sources": "{n, plural, one {# source including transcript and subtitles} other {# sources including transcripts and subtitles}}",
+        "messages": "{n, plural, one {# chat message} other {# chat messages}}",
+        "jobs": "{n, plural, one {# tool result} other {# tool results}}",
+        "enrollments": "{n, plural, one {# enrolment in someone else's workspace} other {# enrolments in other people's workspaces}}",
+        "nothing": "Nothing is attached to this account.",
+        "participantsWarning": "Everyone working in those workspaces loses access.",
+        "warningIrreversible": "This action can NOT be undone.",
+        "confirm": "Delete",
+        "cancel": "Cancel",
+        "failed": "Deletion failed"
+      }
     },
     "createLdapUser": {
       "buttonLabel": "+ Add user",

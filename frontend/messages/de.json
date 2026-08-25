@@ -939,7 +939,25 @@
       "colQuotas": "Kontingente",
       "active": "Aktiv",
       "inactive": "Inaktiv",
-      "details": "Details"
+      "details": "Details",
+      "colActions": "Aktion",
+      "delete": {
+        "buttonTitle": "Konto löschen",
+        "title": "Konto „{name}\" löschen?",
+        "loading": "Wird ermittelt, was an diesem Konto hängt...",
+        "intro": "Mit dem Konto verschwindet alles, was daran hängt:",
+        "workspaces": "{n, plural, one {# Arbeitsbereich mit allen hochgeladenen Dateien} other {# Arbeitsbereiche mit allen hochgeladenen Dateien}}",
+        "sources": "{n, plural, one {# Quelle samt Transkript und Untertiteln} other {# Quellen samt Transkripten und Untertiteln}}",
+        "messages": "{n, plural, one {# Chat-Nachricht} other {# Chat-Nachrichten}}",
+        "jobs": "{n, plural, one {# Ergebnis aus den Werkzeugen} other {# Ergebnisse aus den Werkzeugen}}",
+        "enrollments": "{n, plural, one {# Teilnahme in einem fremden Arbeitsbereich} other {# Teilnahmen in fremden Arbeitsbereichen}}",
+        "nothing": "An diesem Konto hängen keine Daten.",
+        "participantsWarning": "Wer in diesen Arbeitsbereichen mitarbeitet, verliert den Zugang.",
+        "warningIrreversible": "Diese Aktion kann NICHT rückgängig gemacht werden.",
+        "confirm": "Löschen",
+        "cancel": "Abbrechen",
+        "failed": "Löschen fehlgeschlagen"
+      }
     },
     "createLdapUser": {
       "buttonLabel": "+ Benutzer anlegen",

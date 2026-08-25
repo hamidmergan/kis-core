@@ -115,6 +115,14 @@ MESSAGES: dict[str, dict[str, str]] = {
         "de": "User hat keine Email-Adresse",
         "en": "User has no email address",
     },
+    "admin.user.cannotDeleteSelf": {
+        "de": "Du kannst dein eigenes Konto nicht löschen.",
+        "en": "You cannot delete your own account.",
+    },
+    "admin.user.envAdminProtected": {
+        "de": "Das Admin-Konto aus der Konfiguration kann nicht gelöscht werden.",
+        "en": "The admin account from the configuration cannot be deleted.",
+    },
     # Whitelist
     "admin.whitelist.invalidEmail": {
         "de": "Ungültige Email-Adresse",
