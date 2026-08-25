@@ -2,10 +2,10 @@ import { describe, expect, it } from "vitest";
 import { laneCount, weekSegments, type RangeEntry } from "./_ranges";
 
 const klausurphase: RangeEntry = {
-  id: 1, title: "Klausurphase", due_date: "2027-02-15", end_date: "2027-02-26", color: "#0F766E",
+  id: 1, title: "Klausurphase", due_date: "2027-02-15", end_date: "2027-02-26", color: "#0F766E", is_checked: false,
 };
 const abgabefenster: RangeEntry = {
-  id: 2, title: "Abgabefenster", due_date: "2027-02-22", end_date: "2027-03-05", color: "#9D174D",
+  id: 2, title: "Abgabefenster", due_date: "2027-02-22", end_date: "2027-03-05", color: "#9D174D", is_checked: false,
 };
 
 describe("weekSegments", () => {

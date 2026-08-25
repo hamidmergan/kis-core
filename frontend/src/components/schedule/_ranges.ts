@@ -5,6 +5,8 @@ export interface RangeEntry {
   due_date: string;
   end_date: string;
   color: string;
+  /** Erledigt heisst: der Balken steht durchgestrichen und blass da, wie die Tages-Kachel. */
+  is_checked: boolean;
   /** Setzt die Schriftfarbe im Balken, wenn die aus der Farbe abgeleitete zu blass waere. */
   ink?: string;
 }

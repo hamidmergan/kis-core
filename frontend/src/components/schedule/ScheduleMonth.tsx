@@ -10,6 +10,7 @@ import ScheduleMonthRow from "./ScheduleMonthRow";
 import ScheduleEntryModal from "./ScheduleEntryModal";
 import ScheduleBars, { barsSpace, BAR_TOP, BAR_GAP } from "./ScheduleBars";
 import { laneCount, weekSegments, type RangeEntry } from "./_ranges";
+import { useHiddenIds } from "./_hidden";
 import { todayISO } from "./utils";
 
 /** Kleine feste Palette, damit mehrere Workspaces im Raster unterscheidbar bleiben. */
@@ -115,6 +116,7 @@ export default function ScheduleMonth() {
   // Merkt den letzten Klick, damit ein Doppelklick oder Doppeltipp erkannt wird.
   const letzterKlick = useRef<{ iso: string; zeit: number } | null>(null);
   const [editing, setEditing] = useState<ScheduleListEntry | null>(null);
+  const { hidden, toggleHidden } = useHiddenIds();
 
   useEffect(() => {
     let cancelled = false;
@@ -264,14 +266,20 @@ export default function ScheduleMonth() {
     usedWorkspaces.set("__privat__", { title: t("month.personal"), color: PRIV_COLOR });
   }
 
+  // Nur das Raster laesst Ausgeblendetes weg, die Liste rechts zeigt weiter alles.
+  const imRaster = (e: ScheduleListEntry) => !hidden.has(e.id);
+  const noDayGrid = noDay.filter(imRaster);
+
   // Ein Zeitraum hat ein Ende, alles andere ist ein einzelner Tag.
   const ranges: RangeEntry[] = monthRanges
+    .filter(imRaster)
     .map((e) => ({
       id: e.id,
       title: e.title,
       due_date: e.due_date,
       end_date: e.end_date as string,
       color: colorFor(e.workspace_uuid),
+      is_checked: !!e.is_checked,
     }));
 
   const monthLabel = new Intl.DateTimeFormat(tag, { month: "long", year: "numeric" })
@@ -306,6 +314,8 @@ export default function ScheduleMonth() {
           color={colorFor(entry.workspace_uuid)}
           today={today}
           onToggleChecked={(checked) => handleToggleChecked(entry, checked)}
+          hidden={hidden.has(entry.id)}
+          onToggleHidden={() => toggleHidden(entry.id)}
           onEdit={entry.workspace_uuid === null ? () => setEditing(entry) : undefined}
           onDelete={entry.workspace_uuid === null ? () => handleDelete(entry) : undefined}
         />
@@ -407,7 +417,7 @@ export default function ScheduleMonth() {
             );
           }
           const iso = ymd(y, m, day);
-          const items = byDay.get(iso) ?? [];
+          const items = (byDay.get(iso) ?? []).filter(imRaster);
           const spannen = rangesOn(iso);
           // Ein Zeitraum ohne Balken ist fuer diesen Tag genauso ein versteckter Eintrag
           // wie eine weggelassene Kachel, beide zaehlen in denselben Rest.
@@ -488,7 +498,7 @@ export default function ScheduleMonth() {
       </div>
 
       {/* Ab xl stehen diese Termine in der rechten Spalte, hier wären sie doppelt. */}
-      {noDay.length > 0 && (
+      {noDayGrid.length > 0 && (
         <div
           className="mt-3 rounded-lg px-3 py-2.5 flex items-center gap-2.5 flex-wrap xl:hidden"
           style={{ border: "1px dashed var(--border)", backgroundColor: "var(--surface)" }}
@@ -496,7 +506,7 @@ export default function ScheduleMonth() {
           <span className="text-2xs font-bold uppercase tracking-wide" style={{ color: "var(--muted)" }}>
             {t("month.noDay")}
           </span>
-          {noDay.map((e) => (
+          {noDayGrid.map((e) => (
             <span
               key={e.id}
               className="inline-flex items-center gap-1.5 text-xs font-semibold rounded-full px-2.5 py-1"

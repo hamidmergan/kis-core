@@ -53,10 +53,14 @@ export default function ScheduleBars({ segments }: { segments: Segment[] }) {
             borderBottomLeftRadius: s.openLeft ? 0 : BAR_RADIUS,
             borderTopRightRadius: s.openRight ? 0 : BAR_RADIUS,
             borderBottomRightRadius: s.openRight ? 0 : BAR_RADIUS,
-            // Volle Farbe wie bei der Tages-Kachel, sonst sieht derselbe Termin
-            // als Balken anders aus als als Kachel.
-            backgroundColor: s.entry.color,
-            color: s.entry.ink ?? "#fff",
+            // Volle Farbe wuerde ueber eine ganze Woche den Monat erschlagen, darum
+            // nur ein Hauch davon mit duenner Kante.
+            backgroundColor: `color-mix(in srgb, ${s.entry.color} 18%, transparent)`,
+            boxShadow: `inset 0 0 0 1px color-mix(in srgb, ${s.entry.color} 40%, transparent)`,
+            color: s.entry.ink ?? "var(--foreground)",
+            // Erledigt sieht am Balken aus wie an der Tages-Kachel.
+            opacity: s.entry.is_checked ? 0.45 : 1,
+            textDecoration: s.entry.is_checked ? "line-through" : undefined,
           }}
         >
           {s.openLeft ? "… " : ""}

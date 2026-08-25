@@ -1,7 +1,7 @@
 "use client";
 
 import { useLocale, useTranslations } from "next-intl";
-import { Check, PencilSimple, Trash } from "@phosphor-icons/react";
+import { Check, Eye, EyeSlash, PencilSimple, Trash } from "@phosphor-icons/react";
 import { Link } from "@/i18n/navigation";
 import IconButton from "@/components/ui/IconButton";
 import type { ScheduleListEntry } from "./ScheduleEntryCardGlobal";
@@ -18,6 +18,9 @@ interface Props {
   color: string;
   today: string;
   onToggleChecked: (checked: boolean) => void;
+  /** Gesetzt heisst: das Raster laesst diesen Termin weg, die Zeile bleibt hier stehen. */
+  hidden: boolean;
+  onToggleHidden: () => void;
   /** Nur bei eigenen Terminen gesetzt, Workspace-Termine aendert man im Workspace. */
   onEdit?: () => void;
   onDelete?: () => void;
@@ -28,7 +31,7 @@ interface Props {
  * Bewusst flacher als die Karte in der Liste, weil die Spalte schmal ist.
  */
 export default function ScheduleMonthRow({
-  entry, color, today, onToggleChecked, onEdit, onDelete,
+  entry, color, today, onToggleChecked, hidden, onToggleHidden, onEdit, onDelete,
 }: Props) {
   const t = useTranslations("schedule.card");
   const tMonth = useTranslations("schedule.month");
@@ -98,19 +101,33 @@ export default function ScheduleMonthRow({
       className="flex items-start gap-3 py-3.5"
       style={{ opacity: isPast ? 0.6 : 1 }}
     >
-      <button
-        type="button"
-        aria-label={entry.is_checked ? t("uncheckAria") : t("checkAria")}
-        onClick={() => onToggleChecked(!entry.is_checked)}
-        className="flex-shrink-0 w-5.5 h-5.5 rounded-md flex items-center justify-center transition-colors mt-1.5 border-2"
-        style={{
-          borderColor: entry.is_checked ? "var(--kb)" : "var(--border)",
-          backgroundColor: entry.is_checked ? "var(--kb)" : "var(--background)",
-          color: "#fff",
-        }}
-      >
-        {entry.is_checked && <Check size={12} weight="bold" />}
-      </button>
+      {/* Haken und Auge stehen uebereinander: erledigt und im Raster sichtbar sind
+          zwei getrennte Schalter fuer denselben Termin. */}
+      <span className="flex flex-col items-center gap-1.5 flex-shrink-0">
+        <button
+          type="button"
+          aria-label={entry.is_checked ? t("uncheckAria") : t("checkAria")}
+          onClick={() => onToggleChecked(!entry.is_checked)}
+          className="w-5.5 h-5.5 rounded-md flex items-center justify-center transition-colors mt-1.5 border-2"
+          style={{
+            borderColor: entry.is_checked ? "var(--kb)" : "var(--border)",
+            backgroundColor: entry.is_checked ? "var(--kb)" : "var(--background)",
+            color: "#fff",
+          }}
+        >
+          {entry.is_checked && <Check size={12} weight="bold" />}
+        </button>
+        <IconButton
+          size="sm"
+          onClick={onToggleHidden}
+          aria-label={hidden ? tMonth("showInCalendar") : tMonth("hideInCalendar")}
+          title={hidden ? tMonth("showInCalendar") : tMonth("hideInCalendar")}
+          aria-pressed={hidden}
+          style={{ color: hidden ? "var(--muted)" : "var(--foreground-soft)" }}
+        >
+          {hidden ? <EyeSlash size={14} weight="bold" /> : <Eye size={14} weight="bold" />}
+        </IconButton>
+      </span>
 
       {/* Feste Höhe, sonst wird die Plakette ohne Tagesnummer niedriger als die anderen. */}
       <div
