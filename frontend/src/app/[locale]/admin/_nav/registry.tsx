@@ -20,6 +20,7 @@ import type { ComponentType } from "react";
 import { PERM } from "@/lib/permissions";
 import {
   Bird,
+  ChartBar,
   GearSix,
   Notebook,
   Sparkle,
@@ -54,6 +55,13 @@ export interface AdminTab {
   /** Schluessel unter admin.sections.<bereich>.<seite>.tabs */
   labelKey: string;
   Component: ComponentType;
+  /** Rechte-Schluessel, ohne den der Reiter nicht erscheint.
+   *
+   *  Nur wo die Reiter wirklich getrennte Gegenstaende sind, also bei der
+   *  Statistik. Sprachniveau und Anbieter lassen das leer: dort liegen die
+   *  Werte im selben Datensatz, ein getrenntes Recht koennte der Torwaechter
+   *  nicht halten. */
+  perm?: string;
 }
 
 /** Zweite Ebene: eine Unterseite, klappt in der Seitenleiste auf. */
@@ -96,13 +104,16 @@ export interface AdminSection {
 
 import ToolReleasePage from "../_pages/werkzeuge/release";
 import ToolJobsPage from "../_pages/werkzeuge/jobs";
-import ToolStatsPage from "../_pages/werkzeuge/stats";
 import ToolLimitsPage from "../_pages/werkzeuge/limits";
 
 import SourcesPage from "../_pages/assistent/sources";
 import LanguageLevelPage from "../_pages/assistent/language-level";
 import AiBehaviourPage from "../_pages/assistent/behaviour";
-import AiaUsagePage from "../_pages/assistent/usage";
+
+import StatistikNutzerPage from "../_pages/statistik/nutzer";
+import StatistikWerkzeugePage from "../_pages/statistik/werkzeuge";
+import StatistikAssistentPage from "../_pages/statistik/assistent";
+import StatistikModellePage from "../_pages/statistik/modelle";
 
 import ProviderListPage from "../_pages/anbieter/list";
 import ProviderRoutesPage from "../_pages/anbieter/routes";
@@ -132,7 +143,6 @@ export const SECTIONS: AdminSection[] = [
     pages: [
       { slug: "freigabe", key: "release", world: "tools", perm: PERM.toolsRelease, Component: ToolReleasePage },
       { slug: "auftraege", key: "jobs", world: "tools", perm: PERM.toolsJobs, Component: ToolJobsPage, home: true },
-      { slug: "statistik", key: "stats", world: "tools", perm: PERM.toolsStats, Component: ToolStatsPage },
       { slug: "grenzen", key: "limits", world: "tools", perm: PERM.toolsLimits, Component: ToolLimitsPage },
     ],
   },
@@ -163,7 +173,28 @@ export const SECTIONS: AdminSection[] = [
           { slug: "ki-verhalten", labelKey: "behaviour", Component: AiBehaviourPage },
         ],
       },
-      { slug: "nutzung", key: "usage", world: "aia", perm: PERM.aiaUsage, Component: AiaUsagePage },
+    ],
+  },
+  // Zahlen zum Lesen, nicht Knoepfe zum Drehen. Die eigentliche Trennlinie im
+  // Adminbereich laeuft nicht zwischen den beiden Produkten, sondern zwischen
+  // Einstellen und Nachschauen. Deshalb stehen die Zahlen beider Produkte hier
+  // zusammen und nicht verstreut in ihren Bereichen.
+  //
+  // Jeder Reiter traegt sein eigenes Recht. Die zwei umgezogenen behalten das
+  // alte, sonst haetten bestehende Rollen ueber Nacht den Zugang verloren.
+  {
+    slug: "statistik",
+    key: "statistik",
+    Icon: ChartBar,
+    world: "both",
+    rank: "admin",
+    // Nutzer zuerst: wer den Bereich oeffnet, will meist wissen, ob gerade
+    // jemand da ist, nicht wie viele Screencasts letzten Monat liefen.
+    tabs: [
+      { slug: "nutzer", labelKey: "nutzer", perm: PERM.statsUsers, Component: StatistikNutzerPage },
+      { slug: "werkzeuge", labelKey: "werkzeuge", perm: PERM.toolsStats, Component: StatistikWerkzeugePage },
+      { slug: "ki-assistent", labelKey: "assistent", perm: PERM.aiaUsage, Component: StatistikAssistentPage },
+      { slug: "modelle", labelKey: "modelle", perm: PERM.statsModels, Component: StatistikModellePage },
     ],
   },
   // Ein Punkt in der Leiste, zwei Reiter auf der Seite. Anbieter und
@@ -288,16 +319,34 @@ export function pageAllowed(page: AdminPage, keys: string[]): boolean {
   return keys.includes(page.perm);
 }
 
-export function sectionAllowed(section: AdminSection, keys: string[]): boolean {
-  if (section.pages) return section.pages.some((p) => pageAllowed(p, keys));
+/** Reiter ohne eigenes Recht haengen am Recht ihres Bereichs. */
+export function tabAllowed(tab: AdminTab, section: AdminSection, keys: string[]): boolean {
+  if (tab.perm) return keys.includes(tab.perm);
   return !!section.perm && keys.includes(section.perm);
 }
 
-/** Die Bereiche samt ihrer erlaubten Seiten. Leere Bereiche fallen weg. */
+/** Die sichtbaren Reiter eines Bereichs oder einer Seite. */
+export function allowedTabs(
+  tabs: AdminTab[] | undefined,
+  section: AdminSection,
+  keys: string[],
+): AdminTab[] {
+  return (tabs ?? []).filter((t) => tabAllowed(t, section, keys));
+}
+
+export function sectionAllowed(section: AdminSection, keys: string[]): boolean {
+  if (section.pages) return section.pages.some((p) => pageAllowed(p, keys));
+  if (section.tabs?.some((t) => t.perm)) return allowedTabs(section.tabs, section, keys).length > 0;
+  return !!section.perm && keys.includes(section.perm);
+}
+
+/** Die Bereiche samt ihrer erlaubten Seiten und Reiter. Leere fallen weg. */
 export function allowedSections(keys: string[]): AdminSection[] {
-  return SECTIONS.filter((s) => sectionAllowed(s, keys)).map((s) =>
-    s.pages ? { ...s, pages: s.pages.filter((p) => pageAllowed(p, keys)) } : s,
-  );
+  return SECTIONS.filter((s) => sectionAllowed(s, keys)).map((s) => {
+    if (s.pages) return { ...s, pages: s.pages.filter((p) => pageAllowed(p, keys)) };
+    if (s.tabs?.some((t) => t.perm)) return { ...s, tabs: allowedTabs(s.tabs, s, keys) };
+    return s;
+  });
 }
 
 /** Darf diese Adresse geoeffnet werden? */

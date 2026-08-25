@@ -22,7 +22,7 @@ from loguru import logger
 from src.services import model_limits
 
 
-def create_with_shrink(client, *, model: str, messages: list[dict], **kwargs):
+def create_with_shrink(client, *, model: str, messages: list[dict], endpoint: str = "tool", **kwargs):
     """``client.chat.completions.create`` mit Kuerzen und einem zweiten Versuch.
 
     Lehnt der Anbieter ab und nennt dabei seine Fenstergroesse, wird sie gemerkt, der
@@ -30,7 +30,9 @@ def create_with_shrink(client, *, model: str, messages: list[dict], **kwargs):
     Fehler: blind kuerzen und wiederholen kostet nur Zeit.
     """
     try:
-        return client.chat.completions.create(model=model, messages=messages, **kwargs)
+        antwort = client.chat.completions.create(model=model, messages=messages, **kwargs)
+        _mitschreiben(endpoint, client, model, antwort)
+        return antwort
     except Exception as e:  # noqa: BLE001 — die Absage IST die Information
         provider_id = _provider_id_for_chat()
         if not provider_id:
@@ -45,7 +47,34 @@ def create_with_shrink(client, *, model: str, messages: list[dict], **kwargs):
             "Werkzeug-Kontext war zu gross fuer {}, auf {} Token gekuerzt und wiederholt",
             model, fenster,
         )
-        return client.chat.completions.create(model=model, messages=gekuerzt, **kwargs)
+        antwort = client.chat.completions.create(model=model, messages=gekuerzt, **kwargs)
+        _mitschreiben(endpoint, client, model, antwort)
+        return antwort
+
+
+def _mitschreiben(endpoint: str, client, model: str, antwort) -> None:
+    """Verbrauch ins Nutzungs-Log. Fehlerfrei oder gar nicht.
+
+    Bis hierher schrieb nur der Chat mit, und die Statistik konnte deshalb nur
+    ueber ihn Auskunft geben. Diese eine Stelle deckt alles ab, was ueber das
+    Kuerzen laeuft: Uebungen, Lernkarten, Mindmap, Datentabelle, Glossar.
+
+    Die Nutzernummer kennt diese Ebene nicht, sie steht nicht im Aufruf. Fuer die
+    Summen je Modell reicht das, fuer eine Zuordnung je Person nicht.
+    """
+    try:
+        from src.security.usage_log import log_request
+        nutzung = getattr(antwort, "usage", None)
+        log_request(
+            user_id=-1,
+            endpoint=endpoint,
+            provider=getattr(client, "_provider", None),
+            model=model,
+            tokens_in=getattr(nutzung, "prompt_tokens", None),
+            tokens_out=getattr(nutzung, "completion_tokens", None),
+        )
+    except Exception as e:  # noqa: BLE001
+        logger.warning("Verbrauch nicht mitgeschrieben ({}): {}", endpoint, e)
 
 
 def _provider_id_for_chat() -> int | None:

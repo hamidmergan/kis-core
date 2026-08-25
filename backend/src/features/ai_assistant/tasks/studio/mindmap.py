@@ -121,9 +121,7 @@ def run_generate_mindmap(self, mindmap_id: int, source_ids: list[int], source_uu
         # single flaky generation no longer fails the whole mind map.
         mindmap = None
         for attempt in range(2):
-            response = create_with_shrink(
-                client,
-                model=model,
+            response = create_with_shrink(client, endpoint="mindmap", model=model,
                 messages=messages,
                 temperature=0.2,
             )

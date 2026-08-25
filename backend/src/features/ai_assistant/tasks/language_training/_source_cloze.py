@@ -303,7 +303,7 @@ def generate_cloze_from_source(
                                     f"Sources:\n\n{ctx.context}"},
     ]
     try:
-        response = create_with_shrink(client, model=model, messages=messages,
+        response = create_with_shrink(client, endpoint="wortschatz", model=model, messages=messages,
                                       temperature=0.6)
         data = json.loads(_clean_llm_json(response.choices[0].message.content or ""))
     except Exception as e:  # noqa: BLE001

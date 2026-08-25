@@ -48,7 +48,7 @@ def generate_cards_from_source(
     ]
     # 0.6 for a little wording diversity; the real variation is the context sweep in
     # build_source_context (different chunks per run). Still JSON-safe.
-    response = create_with_shrink(client, model=model, messages=messages, temperature=0.6)
+    response = create_with_shrink(client, endpoint="karteikarten", model=model, messages=messages, temperature=0.6)
     try:
         data = json.loads(_clean_llm_json(response.choices[0].message.content or ""))
     except json.JSONDecodeError as e:

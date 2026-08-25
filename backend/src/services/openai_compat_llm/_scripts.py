@@ -9,6 +9,7 @@ from loguru import logger
 from src.tool_prompts import SCRIPT_REFINE_DEFAULT as _SCRIPT_REFINE_DEFAULT
 
 from src.services.openai_compat_llm.base import load_prompt
+from src.security.usage_log import log_llm_response as _verbrauch
 
 # Wartezeit vor dem zweiten Versuch eines Stapels. Als Konstante, damit Tests
 # nicht wirklich warten müssen.
@@ -206,6 +207,7 @@ class _ScriptsMixin:
                 max_tokens=800,
                 extra_body=self._extra_body or None,
             )
+            _verbrauch("screencast", self, response)
             content = response.choices[0].message.content
             if content is None:
                 raise RuntimeError("LLM returned empty response")
@@ -275,6 +277,7 @@ class _ScriptsMixin:
                 timeout=self._batch_timeout,
                 extra_body=self._extra_body or None,
             )
+            _verbrauch("screencast", self, response)
             content = response.choices[0].message.content or ""
             if not content:
                 raise RuntimeError(f"Batch {batch_index + 1}/{batch_count}: LLM returned empty response")

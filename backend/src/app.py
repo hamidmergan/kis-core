@@ -192,6 +192,15 @@ def create_app() -> FastAPI:
 
         return await call_next(request)
 
+    def _darf_bei_wartung(data: dict) -> bool:
+        """Traegt die Sitzung das Recht auf Zugang waehrend der Wartung?"""
+        try:
+            from src.dependencies_rbac import permissions_of
+            from src.permissions_registry import PERM_MAINTENANCE_ACCESS
+            return permissions_of(data).has(PERM_MAINTENANCE_ACCESS)
+        except Exception:
+            return False
+
     @application.middleware("http")
     async def maintenance_gate(request: Request, call_next) -> Response:
         if request.method == "OPTIONS":
@@ -215,12 +224,13 @@ def create_app() -> FastAPI:
         # Admin keeps full access during maintenance so they can keep working.
         # Mirrors is_admin_user(): env-admin OR DB-role 'admin' — otherwise a
         # role='admin' user gets locked out of every non-/admin/ endpoint.
+        # Daneben kommt durch, wer das Recht auf Zugang waehrend der Wartung hat.
         token = request.cookies.get("session")
         if token:
             store = get_session_store()
             if store.validate(token):
                 data = store.get_data(token) or {}
-                if is_admin_user(data):
+                if is_admin_user(data) or _darf_bei_wartung(data):
                     return await call_next(request)
         from src.i18n import parse_accept_language, t
         locale = parse_accept_language(request.headers.get("accept-language"))

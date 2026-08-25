@@ -148,7 +148,7 @@ def generate_mc_from_source(
     ]
     # 0.6 (not 0.3): a little sampling diversity for wording. The real variation comes from the
     # context sweep in build_source_context (a different window per run). Still JSON-safe.
-    response = create_with_shrink(client, model=model, messages=messages, temperature=0.6)
+    response = create_with_shrink(client, endpoint="quiz", model=model, messages=messages, temperature=0.6)
     answer = _clean_llm_json(response.choices[0].message.content or "")
     data = json.loads(answer)
     # Preferred shape is {"title": ..., "exercises": [...]} so the title comes free with the

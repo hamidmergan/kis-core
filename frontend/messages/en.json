@@ -813,6 +813,16 @@
       "kiCrumb": "AI · {section}"
     },
     "sections": {
+      "statistik": {
+        "label": "Statistics",
+        "sub": "Numbers to read. Nothing here is a setting.",
+        "tabs": {
+          "nutzer": "Users",
+          "werkzeuge": "Tools",
+          "assistent": "AI assistant",
+          "modelle": "Models"
+        }
+      },
       "nutzer": {
         "label": "Users",
         "sub": "Who gets in and who may do what.",
@@ -847,10 +857,6 @@
         "jobs": {
           "label": "Jobs"
         },
-        "stats": {
-          "label": "Statistics",
-          "sub": "Runs, failure rates and duration over a period."
-        },
         "limits": {
           "label": "Limits",
           "sub": "How large and how much the tools accept."
@@ -870,10 +876,6 @@
             "assessment": "Assessment",
             "behaviour": "AI behaviour"
           }
-        },
-        "usage": {
-          "label": "Usage",
-          "sub": "Participants, exercises and chat per module."
         }
       },
       "anbieter": {
@@ -1623,7 +1625,14 @@
           "roles": "Assign roles and permissions"
         },
         "system": "System, maintenance, labels and notice",
-        "mascot": "Mascots"
+        "mascot": "Mascots",
+        "statistik": {
+          "nutzer": "Statistics: users and presence",
+          "modelle": "Statistics: models and tokens"
+        },
+        "wartung": {
+          "zugang": "Access to the platform during maintenance"
+        }
       }
     },
     "toolLimits": {
@@ -1656,6 +1665,144 @@
         "hint": "How many screencasts someone may have in progress at once, script review included. Only one runs at a time anyway, so a higher number just allows more preparation. Use -1 for unlimited.",
         "unit": "jobs",
         "outOfRange": "Value must be between 1 and 100, or -1 for unlimited."
+      }
+    },
+    "statistik": {
+      "loadError": "The numbers could not be loaded.",
+      "noData": "No numbers yet.",
+      "users": {
+        "total": "Users in total",
+        "active": "Active",
+        "activeFoot": "last 30 days",
+        "newThisMonth": "New this month",
+        "onlineNow": "Online now",
+        "onlineHint": "Anyone who gave a sign of life in the last five minutes.",
+        "nobodyOnline": "Nobody is here right now.",
+        "showMore": "and {n} more",
+        "showLess": "show fewer",
+        "today": "Today, hour by hour",
+        "todayHint": "The current hour is missing, it is not over yet.",
+        "perDay": "Online per day",
+        "perDayHint": "Distinct people, last 30 days.",
+        "newPerMonth": "New users per month",
+        "retention": "Who sticks around",
+        "retentionHint": "Days on which someone was signed in for more than five minutes.",
+        "regular": "More than {n} days",
+        "occasional": "2 to {n} days",
+        "once": "Exactly one day",
+        "roles": "Roles",
+        "now": "now",
+        "colSince": "since",
+        "sinceMinutes": "{n} min",
+        "cumulativeHint": "Everyone who ever used KIS, added up."
+      },
+      "models": {
+        "onlyChat": "Only chat is recorded so far. Pre-calls, exercises, ingestion, transcription and speech are missing from these numbers.",
+        "requests": "Requests",
+        "tokensIn": "Tokens in",
+        "tokensOut": "Tokens out",
+        "tokensOutFoot": "{p} % of the whole",
+        "perMonth": "AI requests per month",
+        "all": "All models",
+        "colModel": "Model",
+        "colProvider": "Provider",
+        "colRequests": "Requests",
+        "colTokens": "Tokens"
+      },
+      "heat": {
+        "title": "When things happen",
+        "hint": "Average per weekday and hour in the chosen period. One cell means: this much happens on a typical Monday at 10.",
+        "hintAssistant": "Average per weekday and hour in the chosen period. One cell means: this many requests on a typical Monday at 10.",
+        "low": "almost nothing",
+        "high": "the most",
+        "unitJobs": "jobs started",
+        "unitRequests": "requests to the AI"
+      },
+      "range": {
+        "all": "All",
+        "year": "12 months",
+        "days30": "30 days"
+      },
+      "tools": {
+        "jobs": "Jobs",
+        "perTool": "Jobs per tool",
+        "colJobs": "Jobs",
+        "names": {
+          "screencast": "Screencast",
+          "transcription": "Transcription",
+          "translation": "Translation",
+          "tts": "Text to speech",
+          "summary": "Summary",
+          "image_generate": "Image generation",
+          "image_edit": "Image editing",
+          "image_analyze": "Image analysis"
+        },
+        "perToolHint": "How often each tool was started, over the whole period. Counted at the start: a job someone cancels or deletes stays in."
+      },
+      "assistant": {
+        "workspaces": "Modules",
+        "answered": "Exercises answered",
+        "chat": "Questions in chat",
+        "levels": "Language level of participants",
+        "levelsHint": "Comes straight from the assessment. Tells you which level the exercises must target.",
+        "materials": "Materials",
+        "materialsHint": "Word and PowerPoint are converted to PDF on upload and counted there.",
+        "tools": "Tools in the assistant",
+        "groupSource": "Subject language trainer",
+        "groupGlossary": "Language trainer",
+        "modules": "Modules",
+        "modulesHint": "Click a row to see everything about that module.",
+        "nothingFound": "Nothing found.",
+        "total": "Total",
+        "colTool": "Tool",
+        "colCreated": "Exercises created",
+        "colAnswered": "Exercises answered",
+        "colKind": "Kind",
+        "colCount": "Count",
+        "colChunks": "Chunks",
+        "colModule": "Module",
+        "colOwner": "Created by",
+        "colSources": "Sources",
+        "colMembers": "Participants",
+        "colChat": "Chat",
+        "colLast": "Last",
+        "toolsHint": "How often each of the seven tools was used.",
+        "groupEmpty": "Nothing used yet."
+      },
+      "detail": {
+        "searchPerson": "Look at a single user",
+        "searchPersonHint": "Type a name and pick it. Everything about that person appears below.",
+        "searchPersonPlaceholder": "Search name",
+        "pickPerson": "Nobody picked yet. Type a name in the field above.",
+        "level": "Level {level}",
+        "never": "never",
+        "sinceLast": "here since {since} · last {last} · present on {days} days",
+        "jobs": "Jobs",
+        "answered": "Exercises",
+        "chat": "Questions in chat",
+        "tools": "Tools used",
+        "toolsHint": "Only reaches back as far as this person\\u2019s retained jobs.",
+        "modules": "Modules",
+        "noModules": "In no module.",
+        "colRole": "Role",
+        "roleOwner": "Owner",
+        "roleMember": "Participant",
+        "recent": "Recent jobs",
+        "recentHint": "The five most recent jobs of this person.",
+        "noJobs": "No jobs yet.",
+        "colWhen": "When",
+        "active": "active",
+        "inactive": "inactive",
+        "ownerSince": "by {owner} · created {since}",
+        "lastUsed": "last {date}",
+        "sourceHint": "Built from this module\\u2019s materials.",
+        "trainerOff": "Not used for this module.",
+        "noMaterials": "Nothing uploaded yet.",
+        "noMembers": "Nobody in this module yet.",
+        "members": "Participants",
+        "colFile": "File",
+        "colState": "State",
+        "colName": "Name"
       }
     }
   },
@@ -1997,7 +2144,7 @@
           "loading": "Loading statistics…",
           "emptyData": "No data yet. Start exercises to see your statistics.",
           "activity": "Activity",
-          "calendar": "Calendar",
+          "calendar": "Heatmap",
           "period30": "30 days",
           "period180": "6 months",
           "noActivityRange": "No activity in this period.",
@@ -2301,7 +2448,7 @@
           "glossary": "Glossary",
           "notes": "Notes",
           "statistik": "Stats",
-          "schedule": "Calendar"
+          "schedule": "Schedule"
         },
         "headings": {
           "learningTools": "Technical language trainer",
@@ -2405,10 +2552,10 @@
           },
           "newEntry": "New entry",
           "deleteAll": "Delete all",
-          "loading": "Loading calendar...",
+          "loading": "Loading schedule...",
           "empty": "No entries yet. Select sources on the left and generate, or create entries manually.",
           "confirmDeleteAll": {
-            "title": "Delete the entire calendar?",
+            "title": "Delete the entire schedule?",
             "body": "All entries will be removed and every source becomes available for generation again. This action cannot be undone.",
             "cancel": "Cancel",
             "confirm": "Delete all"

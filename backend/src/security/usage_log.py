@@ -32,8 +32,13 @@ def log_request(
     """Schreibt eine Zeile in ``aia_llm_usage_log``. Fail-safe.
 
     ``status``: ``"ok"`` | ``"error"`` | ``"rate_limited"``.
+
+    ``user_id`` ist ``-1`` fuer Aufrufe ohne Sitzung, etwa aus einem Hintergrund-
+    lauf. Die Summen je Modell stimmen damit, eine Zuordnung je Person nicht.
+    Null heisst dagegen "unbekannt" und wird verworfen, sonst haengt Verbrauch an
+    einem Nutzer, den es nicht gibt.
     """
-    if user_id <= 0:
+    if user_id == 0:
         return
 
     try:
@@ -51,3 +56,19 @@ def log_request(
             "usage_log insert fehlgeschlagen (user={}, endpoint={}): {}",
             user_id, endpoint, e,
         )
+
+
+def log_llm_response(endpoint: str, client, response) -> None:
+    """Verbrauch einer Antwort mitschreiben, ohne Nutzernummer und fail-safe."""
+    try:
+        nutzung = getattr(response, "usage", None)
+        log_request(
+            user_id=-1,
+            endpoint=endpoint,
+            provider=getattr(client, "_provider", None),
+            model=getattr(client, "_model", None),
+            tokens_in=getattr(nutzung, "prompt_tokens", None),
+            tokens_out=getattr(nutzung, "completion_tokens", None),
+        )
+    except Exception as e:  # noqa: BLE001
+        logger.warning("Verbrauch nicht mitgeschrieben ({}): {}", endpoint, e)

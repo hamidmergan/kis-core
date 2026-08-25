@@ -813,6 +813,16 @@
       "kiCrumb": "KI · {section}"
     },
     "sections": {
+      "statistik": {
+        "label": "Statistik",
+        "sub": "Zahlen zum Lesen. Was hier steht, wird nicht eingestellt.",
+        "tabs": {
+          "nutzer": "Nutzer",
+          "werkzeuge": "Werkzeuge",
+          "assistent": "KI-Assistent",
+          "modelle": "Modelle"
+        }
+      },
       "nutzer": {
         "label": "Nutzer",
         "sub": "Wer darf herein und wer darf was.",
@@ -847,10 +857,6 @@
         "jobs": {
           "label": "Aufträge"
         },
-        "stats": {
-          "label": "Statistik",
-          "sub": "Läufe, Fehlerquoten und Dauer über einen Zeitraum."
-        },
         "limits": {
           "label": "Grenzen",
           "sub": "Wie groß und wie viel die Werkzeuge annehmen."
@@ -870,10 +876,6 @@
             "assessment": "Einstufung",
             "behaviour": "KI-Verhalten"
           }
-        },
-        "usage": {
-          "label": "Nutzung",
-          "sub": "Teilnehmer, Übungen und Chat je Modul."
         }
       },
       "anbieter": {
@@ -1623,7 +1625,14 @@
           "roles": "Rollen und Rechte vergeben"
         },
         "system": "System, Wartung, Beschriftungen und Hinweis",
-        "mascot": "Maskottchen"
+        "mascot": "Maskottchen",
+        "statistik": {
+          "nutzer": "Statistik: Nutzer und Anwesenheit",
+          "modelle": "Statistik: Modelle und Tokens"
+        },
+        "wartung": {
+          "zugang": "Zugriff auf die Plattform während der Wartung"
+        }
       }
     },
     "toolLimits": {
@@ -1656,6 +1665,144 @@
         "hint": "Wie viele Screencasts jemand gleichzeitig in Arbeit haben darf, das Prüfen der Skripte zählt mit. Es läuft ohnehin nur einer nach dem anderen, eine höhere Zahl lässt nur mehr vorbereiten. Mit -1 unbegrenzt.",
         "unit": "Aufträge",
         "outOfRange": "Wert muss zwischen 1 und 100 liegen, oder -1 für unbegrenzt."
+      }
+    },
+    "statistik": {
+      "loadError": "Die Zahlen konnten nicht geladen werden.",
+      "noData": "Noch keine Zahlen.",
+      "users": {
+        "total": "Nutzer insgesamt",
+        "active": "Aktiv",
+        "activeFoot": "letzte 30 Tage",
+        "newThisMonth": "Neu diesen Monat",
+        "onlineNow": "Gerade online",
+        "onlineHint": "Wer in den letzten fünf Minuten ein Lebenszeichen gegeben hat.",
+        "nobodyOnline": "Gerade ist niemand da.",
+        "showMore": "und {n} weitere",
+        "showLess": "weniger zeigen",
+        "today": "Heute im Tagesverlauf",
+        "todayHint": "Stunde für Stunde. Die laufende Stunde fehlt, sie ist noch nicht vorbei.",
+        "perDay": "Online je Tag",
+        "perDayHint": "Verschiedene Personen, letzte 30 Tage.",
+        "newPerMonth": "Neue Nutzer je Monat",
+        "retention": "Wer bleibt dabei",
+        "retentionHint": "Tage, an denen jemand länger als fünf Minuten angemeldet war.",
+        "regular": "Mehr als {n} Tage",
+        "occasional": "2 bis {n} Tage",
+        "once": "Genau ein Tag",
+        "roles": "Rollen",
+        "now": "jetzt",
+        "colSince": "seit",
+        "sinceMinutes": "seit {n} min",
+        "cumulativeHint": "Alle, die KIS jemals benutzt haben, aufsummiert."
+      },
+      "models": {
+        "onlyChat": "Bisher schreibt nur der Chat mit. Vor-Calls, Übungen, Einlesen, Transkription und Vertonung fehlen in diesen Zahlen.",
+        "requests": "Anfragen",
+        "tokensIn": "Tokens hinein",
+        "tokensOut": "Tokens hinaus",
+        "tokensOutFoot": "{p} % des Ganzen",
+        "perMonth": "KI-Anfragen je Monat",
+        "all": "Alle Modelle",
+        "colModel": "Modell",
+        "colProvider": "Anbieter",
+        "colRequests": "Anfragen",
+        "colTokens": "Tokens"
+      },
+      "heat": {
+        "title": "Wann ist was los",
+        "hint": "Durchschnitt je Wochentag und Stunde im gewählten Zeitraum. Ein Feld heißt: so viel passiert an einem typischen Montag um 10 Uhr.",
+        "hintAssistant": "Durchschnitt je Wochentag und Stunde im gewählten Zeitraum. Ein Feld heißt: so viele Anfragen an einem typischen Montag um 10 Uhr.",
+        "low": "fast nichts",
+        "high": "am meisten",
+        "unitJobs": "Jobs gestartet",
+        "unitRequests": "Anfragen an die KI"
+      },
+      "range": {
+        "all": "Alles",
+        "year": "12 Monate",
+        "days30": "30 Tage"
+      },
+      "tools": {
+        "jobs": "Jobs",
+        "perTool": "Jobs je Werkzeug",
+        "colJobs": "Jobs",
+        "names": {
+          "screencast": "Screencast",
+          "transcription": "Transkription",
+          "translation": "Übersetzung",
+          "tts": "Text in Sprache",
+          "summary": "Zusammenfassung",
+          "image_generate": "Bild-Generierung",
+          "image_edit": "Bild-Bearbeitung",
+          "image_analyze": "Bild-Analyse"
+        },
+        "perToolHint": "Wie oft jedes Werkzeug gestartet wurde, über die ganze Zeit. Gezählt wird beim Start: ein Auftrag, den jemand abbricht oder löscht, bleibt drin."
+      },
+      "assistant": {
+        "workspaces": "Module",
+        "answered": "Beantwortete Übungen",
+        "chat": "Fragen im Chat",
+        "levels": "Sprachniveau der Teilnehmer",
+        "levelsHint": "Kommt fertig aus der Einstufung. Sagt, für welches Niveau die Aufgaben gebaut werden müssen.",
+        "materials": "Materialien",
+        "materialsHint": "Word und PowerPoint werden beim Hochladen in PDF umgewandelt und zählen deshalb dort mit.",
+        "tools": "Werkzeuge im Assistenten",
+        "groupSource": "Fachsprachentrainer",
+        "groupGlossary": "Sprachtrainer",
+        "modules": "Module",
+        "modulesHint": "Auf eine Zeile klicken, um alles zu diesem Modul zu sehen.",
+        "nothingFound": "Nichts gefunden.",
+        "total": "Gesamt",
+        "colTool": "Werkzeug",
+        "colCreated": "Übungen erzeugt",
+        "colAnswered": "Übungen beantwortet",
+        "colKind": "Art",
+        "colCount": "Anzahl",
+        "colChunks": "Abschnitte",
+        "colModule": "Modul",
+        "colOwner": "Angelegt von",
+        "colSources": "Quellen",
+        "colMembers": "Teilnehmer",
+        "colChat": "Chat",
+        "colLast": "Zuletzt",
+        "toolsHint": "Wie oft jedes der sieben Werkzeuge benutzt wurde.",
+        "groupEmpty": "Noch nichts benutzt."
+      },
+      "detail": {
+        "searchPerson": "Einzelnen Nutzer ansehen",
+        "searchPersonHint": "Namen eintippen und auswählen. Darunter steht alles zu dieser Person an einer Stelle.",
+        "searchPersonPlaceholder": "Name suchen",
+        "pickPerson": "Noch niemand ausgewählt. Tippe einen Namen in das Feld darüber.",
+        "level": "Niveau {level}",
+        "never": "nie",
+        "sinceLast": "dabei seit {since} · zuletzt {last} · {days} Tage anwesend",
+        "jobs": "Jobs",
+        "answered": "Übungen",
+        "chat": "Fragen im Chat",
+        "tools": "Benutzte Werkzeuge",
+        "toolsHint": "Reicht nur so weit zurück wie der Vorrat dieser Person.",
+        "modules": "Module",
+        "noModules": "In keinem Modul.",
+        "colRole": "Rolle",
+        "roleOwner": "Eigentümer",
+        "roleMember": "Teilnehmend",
+        "recent": "Letzte Jobs",
+        "recentHint": "Die fünf jüngsten Aufträge dieser Person.",
+        "noJobs": "Noch keine Jobs.",
+        "colWhen": "Wann",
+        "active": "aktiv",
+        "inactive": "inaktiv",
+        "ownerSince": "von {owner} · angelegt {since}",
+        "lastUsed": "zuletzt {date}",
+        "sourceHint": "Aus den Materialien dieses Moduls gebaut.",
+        "trainerOff": "Für dieses Modul nicht benutzt.",
+        "noMaterials": "Noch nichts hochgeladen.",
+        "noMembers": "Noch niemand in diesem Modul.",
+        "members": "Teilnehmer",
+        "colFile": "Datei",
+        "colState": "Stand",
+        "colName": "Name"
       }
     }
   },
@@ -1997,7 +2144,7 @@
           "loading": "Statistik wird geladen…",
           "emptyData": "Noch keine Daten vorhanden. Starte Übungen, um deine Statistik zu sehen.",
           "activity": "Aktivität",
-          "calendar": "Kalender",
+          "calendar": "Heatmap",
           "period30": "30 Tage",
           "period180": "6 Monate",
           "noActivityRange": "Noch keine Aktivitäten in diesem Zeitraum.",
@@ -2301,7 +2448,7 @@
           "glossary": "Glossar",
           "notes": "Notizen",
           "statistik": "Statistik",
-          "schedule": "Kalender"
+          "schedule": "Zeitplan"
         },
         "headings": {
           "learningTools": "Fachsprachentrainer",
@@ -2405,10 +2552,10 @@
           },
           "newEntry": "Neuer Eintrag",
           "deleteAll": "Alles löschen",
-          "loading": "Lade Kalender...",
+          "loading": "Lade Zeitplan...",
           "empty": "Noch keine Einträge. Wähle Materialien links aus und generiere, oder erstelle manuelle Einträge.",
           "confirmDeleteAll": {
-            "title": "Kalender komplett löschen?",
+            "title": "Zeitplan komplett löschen?",
             "body": "Alle Einträge werden gelöscht und alle Materialien werden wieder generierbar. Diese Aktion kann nicht rückgängig gemacht werden.",
             "cancel": "Abbrechen",
             "confirm": "Alles löschen"

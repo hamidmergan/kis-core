@@ -42,6 +42,7 @@ from ._lifecycle import (
     get_stale_awaiting_user_jobs,
     get_stuck_running_jobs,
 )
+from ._counts import get_counts
 from ._stats import (
     get_job_stats,
     get_job_activity_log,
@@ -63,5 +64,5 @@ __all__ = [
     "reset_stuck_jobs", "set_render_started_at", "set_render_queued_at",
     "touch_job_heartbeat", "get_stale_awaiting_user_jobs", "get_stuck_running_jobs",
     # stats
-    "get_job_stats", "get_job_activity_log",
+    "get_job_stats", "get_job_activity_log", "get_counts",
 ]
