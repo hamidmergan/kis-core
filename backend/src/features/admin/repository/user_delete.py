@@ -17,7 +17,6 @@ SWEEP_BY_USER_ID = (
     "user_presence",
     "user_quotas",
     "user_quota_overrides",
-    "user_quota_resets",
     "aia_llm_usage_log",
     # Haengt zwar an einem Arbeitsbereich, aber womoeglich an einem fremden.
     "aia_enrollments",

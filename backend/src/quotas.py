@@ -1,7 +1,8 @@
 """Per-user rate limiting / quota enforcement.
 
-Each tool has its own independent counter. Counters reset 4 hours after
-the limit is first hit (staggered reset - no thundering herd).
+Each tool has its own independent counter and its own window. The window starts
+with the first use of that tool and runs for the configured hours, so the
+counter is only ever a count within a running window.
 
 Admin users bypass all checks entirely.
 """
@@ -16,6 +17,13 @@ from fastapi import HTTPException
 from src.database import get_connection
 from src.i18n import DEFAULT_LOCALE, t
 from src.limits import QUOTA_DEFAULTS
+
+
+def _iso_z(ts: Optional[datetime]) -> Optional[str]:
+    """UTC timestamp as ...Z, without a second zone marker from isoformat()."""
+    if ts is None:
+        return None
+    return ts.astimezone(timezone.utc).replace(tzinfo=None).isoformat() + "Z"
 
 
 def _effective_limit(user_id: int, quota_type: str) -> int:
@@ -39,8 +47,9 @@ def check_and_consume_quota(
         {"allowed": bool, "used": int, "limit": int, "reset_at": str | None}
 
     Admins always get allowed=True without any DB write.
-    Uses a global per-user reset timer (user_quota_resets table): when any tool
-    hits its limit a single reset timer is set for all tools of that user.
+    The window is per tool and starts with the first use: the first consume sets
+    reset_at, later ones in the same window leave it alone, and once it has
+    passed the counter starts over at 1.
     """
     if is_admin:
         return {"allowed": True, "used": 0, "limit": -1, "reset_at": None}
@@ -56,28 +65,6 @@ def check_and_consume_quota(
         with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
             now = datetime.now(timezone.utc)
 
-            # --- Global reset check ---
-            cur.execute(
-                "SELECT reset_at FROM user_quota_resets WHERE user_id = %s FOR UPDATE",
-                (user_id,),
-            )
-            global_row = cur.fetchone()
-            global_reset_at: Optional[datetime] = global_row["reset_at"] if global_row else None
-
-            if global_reset_at is not None and global_reset_at.tzinfo is None:
-                global_reset_at = global_reset_at.replace(tzinfo=timezone.utc)
-
-            if global_reset_at is not None and global_reset_at <= now:
-                # Timer expired: zero all tools for user and clear global reset
-                cur.execute(
-                    """UPDATE user_quotas
-                       SET used = 0, window_started_at = NULL, reset_at = NULL, updated_at = NOW()
-                       WHERE user_id = %s""",
-                    (user_id,),
-                )
-                cur.execute("DELETE FROM user_quota_resets WHERE user_id = %s", (user_id,))
-                global_reset_at = None
-
             # --- Ensure tool row exists ---
             cur.execute(
                 """INSERT INTO user_quotas (user_id, quota_type, used)
@@ -88,13 +75,21 @@ def check_and_consume_quota(
 
             # --- Lock tool row ---
             cur.execute(
-                """SELECT used FROM user_quotas
+                """SELECT used, reset_at FROM user_quotas
                    WHERE user_id = %s AND quota_type = %s
                    FOR UPDATE""",
                 (user_id, quota_type),
             )
             row = cur.fetchone()
             used = row["used"]
+            reset_at: Optional[datetime] = row["reset_at"]
+            if reset_at is not None and reset_at.tzinfo is None:
+                reset_at = reset_at.replace(tzinfo=timezone.utc)
+
+            # Without a running window the counter has no meaning.
+            if reset_at is None or reset_at <= now:
+                used = 0
+                reset_at = None
 
             # --- Check limit ---
             if used >= limit:
@@ -103,26 +98,25 @@ def check_and_consume_quota(
                     "allowed": False,
                     "used": used,
                     "limit": limit,
-                    "reset_at": (global_reset_at.isoformat() + "Z") if global_reset_at else None,
+                    "reset_at": _iso_z(reset_at),
                 }
 
-            # --- Consume ---
+            # --- Consume, starting a fresh window when none is running ---
             new_used = used + 1
-            cur.execute(
-                """UPDATE user_quotas
-                   SET used = %s, updated_at = NOW()
-                   WHERE user_id = %s AND quota_type = %s""",
-                (new_used, user_id, quota_type),
-            )
-
-            # --- Set global reset when limit is first hit ---
-            if new_used >= limit and global_reset_at is None:
-                global_reset_at = now + timedelta(hours=window_hours)
+            if reset_at is None:
+                reset_at = now + timedelta(hours=window_hours)
                 cur.execute(
-                    """INSERT INTO user_quota_resets (user_id, reset_at)
-                       VALUES (%s, %s)
-                       ON CONFLICT (user_id) DO UPDATE SET reset_at = EXCLUDED.reset_at""",
-                    (user_id, global_reset_at),
+                    """UPDATE user_quotas
+                       SET used = %s, window_started_at = %s, reset_at = %s, updated_at = NOW()
+                       WHERE user_id = %s AND quota_type = %s""",
+                    (new_used, now, reset_at, user_id, quota_type),
+                )
+            else:
+                cur.execute(
+                    """UPDATE user_quotas
+                       SET used = %s, updated_at = NOW()
+                       WHERE user_id = %s AND quota_type = %s""",
+                    (new_used, user_id, quota_type),
                 )
 
         conn.commit()
@@ -131,7 +125,7 @@ def check_and_consume_quota(
         "allowed": True,
         "used": new_used,
         "limit": limit,
-        "reset_at": (global_reset_at.isoformat() + "Z") if global_reset_at else None,
+        "reset_at": _iso_z(reset_at),
     }
 
 

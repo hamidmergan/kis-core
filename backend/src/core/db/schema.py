@@ -633,12 +633,9 @@ def _init_db(admin_email: Optional[str] = None) -> None:
                     UNIQUE (user_id, quota_type)
                 )
             """)
-            cur.execute("""
-                CREATE TABLE IF NOT EXISTS user_quota_resets (
-                    user_id  INTEGER PRIMARY KEY,
-                    reset_at TIMESTAMP NOT NULL
-                )
-            """)
+            # Jedes Werkzeug hat sein eigenes Fenster in user_quotas, ein
+            # gemeinsames Fensterende je Nutzer gibt es nicht mehr.
+            cur.execute("DROP TABLE IF EXISTS user_quota_resets")
             # Per-user terminology glossaries for the translation tool. The id is
             # a client-visible opaque string (uuid hex) generated server-side, so
             # the frontend Glossary.id stays a plain string. entries is a flat

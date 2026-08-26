@@ -1068,7 +1068,7 @@
       "promptUser": "Bitte einen User über",
       "promptUserPath": "Alle User → Kontingente →",
       "promptUserSuffix": "auswählen.",
-      "globalResetActive": "Globaler Reset aktiv - alle Tools werden zurückgesetzt ab {time} Uhr.",
+      "windowEnds": "Fenster bis {time} Uhr",
       "colTool": "Tool",
       "colUsed": "Verbraucht",
       "colLimit": "Limit (Standard)",

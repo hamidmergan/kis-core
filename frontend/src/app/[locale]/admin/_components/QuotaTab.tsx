@@ -19,7 +19,6 @@ interface QuotaUser {
   ldap_username: string;
   display_name: string;
   quotas: QuotaEntry[];
-  global_reset_at: string | null;
 }
 
 interface QuotaDefaults {
@@ -65,7 +64,7 @@ export default function QuotaTab({ targetUserId, onConsumed, onBack }: QuotaTabP
       inputs[q.quota_type] = q.override !== null ? String(q.override) : "";
     }
     setOverrideInputs(inputs);
-    setSelectedUser({ ...u, quotas: data.quotas ?? u.quotas, global_reset_at: data.global_reset_at ?? null });
+    setSelectedUser({ ...u, quotas: data.quotas ?? u.quotas });
   }, []);
 
   useEffect(() => {
@@ -75,7 +74,6 @@ export default function QuotaTab({ targetUserId, onConsumed, onBack }: QuotaTabP
       display_name: "",
       ldap_username: "",
       quotas: [],
-      global_reset_at: null,
     });
     onConsumed();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -138,22 +136,6 @@ export default function QuotaTab({ targetUserId, onConsumed, onBack }: QuotaTabP
           <span className="text-sm font-medium text-foreground">{selectedUser.display_name}</span>
         </div>
 
-        {selectedUser.global_reset_at && (
-          <div className="flex items-center gap-2 text-xs text-warn-strong bg-warn-bg border border-warn-border rounded-lg px-4 py-2.5">
-            <span>
-              {t("quota.globalResetActive", {
-                time: new Date(selectedUser.global_reset_at).toLocaleString(dateLocale, {
-                  hour: "2-digit",
-                  minute: "2-digit",
-                  day: "2-digit",
-                  month: "2-digit",
-                  timeZone: "Europe/Berlin",
-                }),
-              })}
-            </span>
-          </div>
-        )}
-
         <div className="border border-border-soft rounded-xl bg-background overflow-x-auto">
           <table className="w-full min-w-160 text-sm">
             <thead className="bg-surface border-b border-border-soft">
@@ -192,6 +174,19 @@ export default function QuotaTab({ targetUserId, onConsumed, onBack }: QuotaTabP
                       </div>
                       {!q.limit_is_unlimited && q.used >= q.limit && (
                         <p className="text-xs text-warn mt-0.5">{t("quota.blocked")}</p>
+                      )}
+                      {q.reset_at && (
+                        <p className="text-xs text-muted-soft mt-0.5">
+                          {t("quota.windowEnds", {
+                            time: new Date(q.reset_at).toLocaleString(dateLocale, {
+                              hour: "2-digit",
+                              minute: "2-digit",
+                              day: "2-digit",
+                              month: "2-digit",
+                              timeZone: "Europe/Berlin",
+                            }),
+                          })}
+                        </p>
                       )}
                     </td>
                     <td className="px-4 py-3 text-muted">

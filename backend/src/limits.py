@@ -43,7 +43,7 @@ UPLOAD_HOURLY_WINDOW_SECONDS    = 3600
 
 # --- Quota: per-user tool limits ---------------------------------------------
 # limit:        max requests per time window
-# window_hours: hours until reset (starts when the limit is first hit)
+# window_hours: length of the window, it starts with the first use of that tool
 # label:        display name for admin UI and error messages
 QUOTA_DEFAULTS: dict[str, dict] = {
     "tts":            {"limit": 100, "window_hours": 4, "label": "Text in Sprache"},
