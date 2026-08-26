@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
+import { CalendarBlank, Lock } from "@phosphor-icons/react";
 import { useRouter } from "@/i18n/navigation";
 import Spinner from "@/components/ui/Spinner";
 import HomeNotice from "./HomeNotice";
@@ -11,9 +12,22 @@ import WorkspaceList from "./WorkspaceList";
 interface LinkPreview {
   workspace_uuid: string;
   title: string;
+  /** Freiwillig gepflegt, deshalb faellt die Zeile ohne sie ersatzlos weg. */
+  description?: string | null;
+  /** Name der Lehrperson, damit der Link ein Gesicht bekommt. */
+  owner_name?: string | null;
+  access_until?: string | null;
   /** Whether this person may enter right now. False while the owner has the
    *  workspace switched off. Joining still works, the room just stays shut. */
   is_open?: boolean;
+}
+
+/** Zwei Buchstaben aus dem Namen fuer den Kreis neben der Lehrperson. */
+function initialen(name: string): string {
+  const teile = name.trim().split(/\s+/).filter(Boolean);
+  if (teile.length === 0) return "";
+  const ersterBuchstabe = (wort: string) => [...wort][0] ?? "";
+  return (ersterBuchstabe(teile[0]) + (teile.length > 1 ? ersterBuchstabe(teile[teile.length - 1]) : "")).toUpperCase();
 }
 
 interface Props {
@@ -113,36 +127,100 @@ export default function WorkspaceHome({ canCreate, firstName }: Props) {
   }
 
   if (linkPreview) {
+    const zu = linkPreview.is_open === false;
+    const zugangBis = linkPreview.access_until
+      ? new Date(linkPreview.access_until).toLocaleDateString(locale === "en" ? "en-US" : "de-DE", {
+          day: "2-digit",
+          month: "2-digit",
+          year: "numeric",
+          timeZone: "Europe/Berlin",
+        })
+      : null;
     return (
       <div className="px-4 sm:px-6 md:px-8 pt-10 pb-20 lg:pt-15 lg:pb-30">
-        <div className="max-w-5xl mx-auto">
+        <div className="max-w-2xl mx-auto">
           <section
-            className="rounded-xl p-10 mb-12 flex flex-col items-center text-center"
+            className="rounded-xl p-6 sm:p-8 flex flex-col gap-5"
             style={{ backgroundColor: "var(--surface)", boxShadow: "var(--shadow)" }}
           >
-            <h2 className="text-2xl font-semibold mb-6" style={{ color: "var(--foreground)" }}>
-              {linkPreview.title}
-            </h2>
-            {/* Der Raum ist zu. Einschreiben geht trotzdem, deshalb steht der
-                Hinweis ueber dem Knopf und nicht an seiner Stelle. */}
-            {linkPreview.is_open === false && (
-              <p
-                className="mb-6 max-w-md text-sm rounded-lg px-4 py-3"
-                style={{ backgroundColor: "var(--surface-dim)", color: "var(--muted)" }}
-              >
+            <div>
+              <p className="text-2xs font-semibold uppercase tracking-wider" style={{ color: "var(--muted)" }}>
+                {t("enrollEyebrow")}
+              </p>
+              <h2 className="text-2xl font-semibold mt-2" style={{ color: "var(--foreground)" }}>
+                {linkPreview.title}
+              </h2>
+              {linkPreview.description && (
+                <p className="text-sm mt-2 max-w-prose" style={{ color: "var(--foreground-soft)" }}>
+                  {linkPreview.description}
+                </p>
+              )}
+            </div>
+
+            {(linkPreview.owner_name || zugangBis || zu) && (
+              <hr style={{ borderColor: "var(--border-soft)" }} />
+            )}
+
+            {linkPreview.owner_name && (
+              <div className="flex items-center gap-3">
+                <span
+                  className="flex items-center justify-center rounded-full shrink-0 text-xs font-semibold w-9 h-9"
+                  style={{ backgroundColor: "var(--kb20)", color: "var(--kb)" }}
+                  aria-hidden="true"
+                >
+                  {initialen(linkPreview.owner_name)}
+                </span>
+                <span className="min-w-0">
+                  <span className="block text-sm font-medium truncate">{linkPreview.owner_name}</span>
+                  <span className="block text-xs" style={{ color: "var(--muted)" }}>
+                    {t("enrollOwnerRole")}
+                  </span>
+                </span>
+              </div>
+            )}
+
+            {(zugangBis || zu) && (
+              <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-xs" style={{ color: "var(--muted)" }}>
+                {zugangBis && (
+                  <span className="inline-flex items-center gap-1 whitespace-nowrap">
+                    <CalendarBlank size={13} />
+                    {t("enrollAccessUntil", { date: zugangBis })}
+                  </span>
+                )}
+                {/* Der Raum ist zu, das Einschreiben geht trotzdem. */}
+                {zu && (
+                  <span className="inline-flex items-center gap-1 whitespace-nowrap font-medium">
+                    <Lock size={13} weight="fill" />
+                    {t("closedBadge")}
+                  </span>
+                )}
+              </div>
+            )}
+
+            {zu && (
+              <p className="text-sm max-w-prose" style={{ color: "var(--muted)" }}>
                 {t("closedJoinHint")}
               </p>
             )}
-            <button
-              type="button"
-              onClick={handleEnrollLink}
-              disabled={enrolling}
-              className="btn-primary px-8 py-3 rounded-lg text-base font-medium disabled:opacity-50"
-            >
-              {enrolling ? "…" : t("enroll")}
-            </button>
+
+            <div className="flex flex-wrap items-center gap-3">
+              <button
+                type="button"
+                onClick={handleEnrollLink}
+                disabled={enrolling}
+                className="btn-primary px-8 py-3 rounded-lg text-base font-medium disabled:opacity-50"
+              >
+                {enrolling ? t("enrolling") : t("enroll")}
+              </button>
+              {firstName && (
+                <span className="text-xs" style={{ color: "var(--muted)" }}>
+                  {t("enrollAs", { name: firstName })}
+                </span>
+              )}
+            </div>
+
             {enrollError && (
-              <p className="mt-4 text-sm" style={{ color: "var(--error)" }}>
+              <p className="text-sm" style={{ color: "var(--error)" }}>
                 {enrollError}
               </p>
             )}

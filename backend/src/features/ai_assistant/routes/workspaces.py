@@ -485,6 +485,19 @@ def _is_open_for(workspace: dict, user_id: int) -> bool:
     return db.is_workspace_tutor(workspace["id"], user_id)
 
 
+def _einschreibe_karte(workspace: dict, gueltig_bis, user_id: int) -> dict:
+    """Alles, was vor der Einschreibung auf der Karte steht, aus einer Hand."""
+    owner = db.get_user_by_id(workspace["user_id"])
+    return {
+        "workspace_uuid": workspace["uuid"],
+        "title": workspace["title"],
+        "description": workspace.get("description") or None,
+        "owner_name": owner["display_name"] if owner else None,
+        "access_until": gueltig_bis.isoformat() + "Z" if gueltig_bis else None,
+        "is_open": _is_open_for(workspace, user_id),
+    }
+
+
 @router.get("/ai-assistant/access-link/preview")
 async def preview_access_link(
     code: str,
@@ -494,20 +507,13 @@ async def preview_access_link(
     user_id = current_user["user_id"]
     result = db.get_workspace_by_access_link_code(code)
     if result:
-        workspace, _link = result
-        return {
-            "workspace_uuid": workspace["uuid"],
-            "title": workspace["title"],
-            "is_open": _is_open_for(workspace, user_id),
-        }
+        workspace, link = result
+        return _einschreibe_karte(workspace, link["expires_at"], user_id)
     workspace = db.get_workspace_by_enroll_code(code)
     if not workspace:
         raise HTTPException(status_code=404, detail=t("ai.workspace.invalidEnrollCode", locale))
-    return {
-        "workspace_uuid": workspace["uuid"],
-        "title": workspace["title"],
-        "is_open": _is_open_for(workspace, user_id),
-    }
+    # Auf dem alten Weg haengt die Frist am Workspace statt an einem Link.
+    return _einschreibe_karte(workspace, workspace.get("enroll_code_expires"), user_id)
 
 @router.post("/ai-assistant/enroll")
 async def enroll(
