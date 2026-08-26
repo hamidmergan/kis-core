@@ -945,6 +945,17 @@
       "colStatus": "Status",
       "colCreated": "Erstellt",
       "colQuotas": "Kontingente",
+      "colDemo": "Demo",
+      "demoHint": "Die aktiven Kurse dieses Kontos stehen bei allen anderen auf der Startseite",
+      "demoConfirm": {
+        "titleRemove": "Demo-Haken entfernen?",
+        "titleSwitch": "Demo-Konto wechseln?",
+        "bodyRemove": "Die Kurse von {name} verschwinden bei allen, die über die Demo beigetreten sind. Ihre Einschreibungen werden gelöscht.",
+        "bodySwitch": "{old} verliert den Haken. Die Kurse von {old} verschwinden bei allen, die über die Demo beigetreten sind.",
+        "keeps": "Was die Teilnehmer im Kurs erarbeitet haben, bleibt liegen und ist nach einem erneuten Beitritt wieder da.",
+        "cancel": "Abbrechen",
+        "confirm": "Ja, fortfahren"
+      },
       "active": "Aktiv",
       "inactive": "Inaktiv",
       "details": "Details",
@@ -2712,6 +2723,16 @@
         "wortschatz": "Wortschatzübungen",
         "quiz": "Quiz"
       }
+    },
+    "demo": {
+      "title": "Demo ausprobieren",
+      "subtitle": "Beispiel-Kurse zum Anschauen",
+      "sources": "{n} Quellen",
+      "button": "Demo",
+      "join": "Beitreten",
+      "leave": "Verlassen",
+      "alreadyIn": "existiert bereits",
+      "joinAll": "Allen beitreten"
     },
     "list": {
       "headerTitle": "Hallo, {name}",

@@ -14,7 +14,7 @@ from src.core.db.pool import get_connection
 
 def enroll_student(
     workspace_id: int, user_id: int, enrolled_until: datetime | None,
-    link_id: int | None = None, role: str = "student",
+    link_id: int | None = None, role: str = "student", via_demo: bool = False,
 ) -> int | None:
     """Enroll a user. Returns enrollment id, or None if already enrolled here.
 
@@ -29,15 +29,43 @@ def enroll_student(
     with get_connection() as conn:
         with conn.cursor() as cur:
             cur.execute(
-                """INSERT INTO aia_enrollments (workspace_id, user_id, link_id, enrolled_until, role)
-                   VALUES (%s, %s, %s, %s, %s)
+                """INSERT INTO aia_enrollments
+                          (workspace_id, user_id, link_id, enrolled_until, role, via_demo)
+                   VALUES (%s, %s, %s, %s, %s, %s)
                    ON CONFLICT (workspace_id, user_id) DO NOTHING
                    RETURNING id""",
-                (workspace_id, user_id, link_id, enrolled_until, role),
+                (workspace_id, user_id, link_id, enrolled_until, role, via_demo),
             )
             row = cur.fetchone()
         conn.commit()
     return row[0] if row else None
+
+def delete_demo_enrollment(workspace_id: int, user_id: int) -> bool:
+    """Loescht nur eine ueber die Demo entstandene Einschreibung, nie eine echte."""
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                "DELETE FROM aia_enrollments "
+                "WHERE workspace_id = %s AND user_id = %s AND via_demo",
+                (workspace_id, user_id),
+            )
+            geloescht = cur.rowcount > 0
+        conn.commit()
+    return geloescht
+
+def delete_demo_enrollments_of_owner(owner_id: int) -> int:
+    """Raeumt alle ueber die Demo entstandenen Einschreibungen in den Kursen dieses Kontos ab."""
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """DELETE FROM aia_enrollments e
+                    USING aia_workspaces m
+                    WHERE e.workspace_id = m.id AND m.user_id = %s AND e.via_demo""",
+                (owner_id,),
+            )
+            anzahl = cur.rowcount
+        conn.commit()
+    return anzahl
 
 def is_workspace_tutor(workspace_id: int, user_id: int) -> bool:
     """True if the user joined this workspace through a tutor link.

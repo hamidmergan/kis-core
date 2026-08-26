@@ -17,6 +17,7 @@ interface WorkspaceTableProps {
   onEdit: (uuid: string, newTitle: string, newDescription: string) => Promise<boolean>;
   onLinksChanged: (uuid: string, links: AccessLink[]) => void;
   onRolesChanged: () => void;
+  onLeaveDemo?: (uuid: string) => void;
 }
 
 export default function WorkspaceTable({
@@ -26,6 +27,7 @@ export default function WorkspaceTable({
   onEdit,
   onLinksChanged,
   onRolesChanged,
+  onLeaveDemo,
 }: WorkspaceTableProps) {
   const t = useTranslations("workspace.list");
   const labels = useWorkspaceLabel();
@@ -102,7 +104,10 @@ export default function WorkspaceTable({
                         onRolesChanged={onRolesChanged}
                       />
                     ) : (
-                      <WorkspaceTableStudentRow workspace={m} />
+                      <WorkspaceTableStudentRow
+                        workspace={m}
+                        onLeave={onLeaveDemo}
+                      />
                     )}
                   </React.Fragment>
                 );

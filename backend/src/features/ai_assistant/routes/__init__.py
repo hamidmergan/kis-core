@@ -12,6 +12,7 @@ from src.features.ai_assistant.routes import (
     notes,
     glossary,
     schedule_personal,
+    demo,
 )
 from src.features.ai_assistant.routes.studio import (
     mindmap,
@@ -31,6 +32,7 @@ router = APIRouter(dependencies=[Depends(require_aia_access)])
 
 for m in [
     popup, workspaces, sources, chat, messages, notes, glossary, schedule_personal,
+    demo,
     mindmap, flashcards, data_table, schedule, exercises, grammar_topics,
     stats, diagnosis, speak,
 ]:

@@ -2,6 +2,8 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
+import Checkbox from "@/components/ui/Checkbox";
+import DemoConfirmDialog from "./DemoConfirmDialog";
 import { Trash, Users } from "@phosphor-icons/react";
 import IconButton from "@/components/ui/IconButton";
 import Select from "@/components/ui/Select";
@@ -30,6 +32,7 @@ export default function UsersTab({ onOpenQuota }: { onOpenQuota: (userId: number
   const [meineId, setMeineId] = useState(0);
   const [zuLoeschen, setZuLoeschen] = useState<AdminUser | null>(null);
   const [showCreateDialog, setShowCreateDialog] = useState(false);
+  const [demoFrage, setDemoFrage] = useState<{ user: AdminUser; wert: boolean } | null>(null);
   const [allowLdapCreate, setAllowLdapCreate] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
 
@@ -93,6 +96,32 @@ export default function UsersTab({ onOpenQuota }: { onOpenQuota: (userId: number
         setAllowLdapCreate(Boolean(s?.permissions?.allow_ldap_user_create));
       });
   }, [t]);
+
+  /** Fragt nach, wenn ein Konto den Haken verliert, sonst schaltet es direkt um. */
+  function askDemo(user: AdminUser, value: boolean) {
+    const bisher = users.find((u) => u.is_demo);
+    const verliert = value ? bisher && bisher.id !== user.id : user.is_demo;
+    if (verliert) {
+      setDemoFrage({ user, wert: value });
+      return;
+    }
+    changeDemo(user.id, value);
+  }
+
+  async function changeDemo(userId: number, value: boolean) {
+    const res = await fetch(`/api/admin/users/${userId}/demo`, {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ is_demo: value }),
+    });
+    if (res.ok) {
+      // Es gibt nur ein Demo-Konto, beim Anhaken verlieren alle anderen den Haken.
+      setUsers((prev) => prev.map((u) =>
+        u.id === userId ? { ...u, is_demo: value } : value ? { ...u, is_demo: false } : u,
+      ));
+    }
+  }
 
   async function changeRole(userId: number, value: string) {
     const opt = roleOptions.find((o) => o.value === value);
@@ -176,6 +205,7 @@ export default function UsersTab({ onOpenQuota }: { onOpenQuota: (userId: number
                 <th className="px-4 py-3 text-left">{t("users.colEmail")}</th>
                 <th className="px-4 py-3 text-left">{t("users.colStatus")}</th>
                 <th className="px-4 py-3 text-left">{t("roles.userRoleLabel")}</th>
+                <th className="px-4 py-3 text-left" title={t("users.demoHint")}>{t("users.colDemo")}</th>
                 <th className="px-4 py-3 text-left">{t("users.colCreated")}</th>
                 <th className="px-4 py-3 text-left">{t("users.colQuotas")}</th>
                 <th className="px-4 py-3 text-left">{t("users.colActions")}</th>
@@ -232,6 +262,14 @@ export default function UsersTab({ onOpenQuota }: { onOpenQuota: (userId: number
                         </select>
                       );
                     })()}
+                  </td>
+                  <td className="px-4 py-3">
+                    <Checkbox
+                      checked={!!u.is_demo}
+                      onChange={(v) => askDemo(u, v)}
+                      label={t("users.colDemo")}
+                      labelClassName="sr-only"
+                    />
                   </td>
                   <td className="px-4 py-3 text-muted-soft text-xs whitespace-nowrap">
                     {formatDate(u.created_at)}
@@ -300,6 +338,20 @@ export default function UsersTab({ onOpenQuota }: { onOpenQuota: (userId: number
             ›
           </button>
         </div>
+      )}
+
+      {demoFrage && (
+        <DemoConfirmDialog
+          verlierer={(demoFrage.wert
+            ? users.find((u) => u.is_demo)?.display_name
+            : demoFrage.user.display_name) ?? ""}
+          wechsel={demoFrage.wert}
+          onCancel={() => setDemoFrage(null)}
+          onConfirm={async () => {
+            await changeDemo(demoFrage.user.id, demoFrage.wert);
+            setDemoFrage(null);
+          }}
+        />
       )}
 
       {zuLoeschen && (

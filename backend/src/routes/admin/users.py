@@ -20,7 +20,7 @@ from src.permissions_registry import (
 )
 from src.i18n import get_locale, t
 
-from src.routes.admin._models import AddWhitelistRequest
+from src.routes.admin._models import AddWhitelistRequest, SetUserDemoRequest
 
 router = APIRouter(tags=["admin: users"])
 
@@ -157,6 +157,23 @@ async def update_user_role(
 
 
 # ── Konto loeschen ─────────────────────────────────────────────────────────────
+
+@router.post("/users/{user_id}/demo")
+async def update_user_demo(
+    user_id: int,
+    body: SetUserDemoRequest,
+    _admin=Depends(_require_users),
+):
+    """Der Haken, mit dem die Kurse eines Kontos in der Demo landen."""
+    if not db.get_user_by_id(user_id):
+        raise HTTPException(status_code=404, detail="User nicht gefunden")
+    # Wer den Haken verliert, verliert auch seine ueber die Demo beigetretenen Teilnehmer.
+    for verlorenes_konto in db.set_user_demo(user_id, body.is_demo):
+        anzahl = db.delete_demo_enrollments_of_owner(verlorenes_konto)
+        logger.info("Demo-Konto {} abgeraeumt: {} Einschreibungen", verlorenes_konto, anzahl)
+    logger.info("Demo-Konto {}: is_demo={}", user_id, body.is_demo)
+    return {"is_demo": body.is_demo}
+
 
 @router.get("/users/{user_id}/deletion-preview")
 async def preview_user_deletion(

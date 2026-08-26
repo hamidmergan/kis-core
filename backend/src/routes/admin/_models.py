@@ -180,3 +180,7 @@ class ExportedConfig(BaseModel):
 
 class ImportConfigRequest(BaseModel):
     config: ExportedConfig
+
+
+class SetUserDemoRequest(BaseModel):
+    is_demo: bool
