@@ -323,7 +323,7 @@ def parse_question_plan(raw: str) -> list[dict]:
 DEFAULT_GERMAN_QUESTION_PLAN = [
     {
         "type": FREE_TEXT_TYPE,
-        "text": "Setze das passende Wort ein.\n\nIch ___ jeden Tag zur Arbeit.",
+        "text": "Setze das Wort in Klammern in der richtigen Form ein.\n\nIch ___ (gehen) jeden Tag zur Arbeit.",
         "answers": ["gehe"],
     },
     {
