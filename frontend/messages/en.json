@@ -1068,7 +1068,7 @@
       "promptUser": "Please select a user via",
       "promptUserPath": "All users → Quotas →",
       "promptUserSuffix": ".",
-      "globalResetActive": "Global reset active - all tools will be reset on {time}.",
+      "windowEnds": "Window until {time}",
       "colTool": "Tool",
       "colUsed": "Used",
       "colLimit": "Limit (default)",

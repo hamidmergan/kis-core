@@ -1,5 +1,4 @@
 import os
-from datetime import datetime
 from typing import Optional
 from zoneinfo import ZoneInfo
 
@@ -48,7 +47,7 @@ def quota_remove_override(user_id: int, quota_type: str) -> None:
         conn.commit()
 
 def quota_reset(user_id: int, quota_type: str) -> None:
-    """Admin: immediately zero a user's quota counter and clear the global reset timer."""
+    """Admin: immediately zero a user's quota counter and end its window."""
     with get_connection() as conn:
         with conn.cursor() as cur:
             cur.execute(
@@ -57,14 +56,10 @@ def quota_reset(user_id: int, quota_type: str) -> None:
                    WHERE user_id = %s AND quota_type = %s""",
                 (user_id, quota_type),
             )
-            cur.execute(
-                "DELETE FROM user_quota_resets WHERE user_id = %s",
-                (user_id,),
-            )
         conn.commit()
 
-def quota_get_all_for_user(user_id: int) -> tuple[list[dict], Optional[datetime]]:
-    """Return all quota rows for a user (used, reset_at, override if any) plus the global reset_at."""
+def quota_get_all_for_user(user_id: int) -> list[dict]:
+    """Return all quota rows for a user (used, reset_at, override if any)."""
     with get_connection() as conn:
         with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
             cur.execute(
@@ -80,13 +75,7 @@ def quota_get_all_for_user(user_id: int) -> tuple[list[dict], Optional[datetime]
                 (user_id,),
             )
             rows = cur.fetchall()
-            cur.execute(
-                "SELECT reset_at FROM user_quota_resets WHERE user_id = %s",
-                (user_id,),
-            )
-            gr = cur.fetchone()
-            global_reset_at: Optional[datetime] = gr["reset_at"] if gr else None
-    return [dict(row) for row in rows], global_reset_at
+    return [dict(row) for row in rows]
 
 def quota_get_all_users_usage() -> list[dict]:
     """Admin: return all active users with quota data (used=0 if no activity yet)."""
@@ -104,15 +93,7 @@ def quota_get_all_users_usage() -> list[dict]:
                    ORDER BY u.display_name, q.quota_type"""
             )
             rows = cur.fetchall()
-            cur.execute("SELECT user_id, reset_at FROM user_quota_resets")
-            global_resets = cur.fetchall()
-    result = [dict(row) for row in rows]
-    resets_by_uid = {gr["user_id"]: gr["reset_at"] for gr in global_resets}
-    for row in result:
-        uid = row["user_id"]
-        gr_at = resets_by_uid.get(uid)
-        row["global_reset_at"] = (gr_at.isoformat() + "Z") if gr_at else None
-    return result
+    return [dict(row) for row in rows]
 
 # --- KI Tutor: Modules ---
 

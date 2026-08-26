@@ -48,7 +48,6 @@ async def get_quota_overview(_admin=Depends(_require)):
                 "ldap_username": row["ldap_username"],
                 "display_name": row["display_name"],
                 "quotas": [],
-                "global_reset_at": row.get("global_reset_at"),
             }
         if row["quota_type"] is None:
             # User exists but has no quota entries yet - fill from QUOTA_DEFAULTS
@@ -81,7 +80,7 @@ async def get_quota_overview(_admin=Depends(_require)):
 @router.get("/quota/users/{user_id}")
 async def get_user_quota(user_id: int, _admin=Depends(_require)):
     """All quota types for a specific user."""
-    rows, global_reset_at = db.quota_get_all_for_user(user_id)
+    rows = db.quota_get_all_for_user(user_id)
     result = []
     for cfg_type, cfg in QUOTA_DEFAULTS.items():
         row = next((r for r in rows if r["quota_type"] == cfg_type), None)
@@ -101,7 +100,6 @@ async def get_user_quota(user_id: int, _admin=Depends(_require)):
     return {
         "user_id": user_id,
         "quotas": result,
-        "global_reset_at": _iso_z(global_reset_at),
     }
 
 
@@ -139,7 +137,7 @@ async def reset_user_quota(
     _admin=Depends(_require),
     locale: str = Depends(get_locale),
 ):
-    """Reset quota counter to 0 immediately and clear the reset timer."""
+    """Reset quota counter to 0 immediately and end its window."""
     _ensure_known_quota_type(quota_type, locale)
     db.quota_reset(user_id, quota_type)
     return {"ok": True}
