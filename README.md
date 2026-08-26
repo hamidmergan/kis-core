@@ -2,7 +2,7 @@
 
 [![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
 
-AI-powered media and learning platform for TH Lübeck. Translates documents, generates lecture screencasts, transcribes audio/video, and provides an AI study assistant with workspaces, mindmaps, schedules, and language training.
+AI-powered media and learning platform for TH Lübeck. Translates documents, generates lecture screencasts, transcribes audio/video, and provides an AI study assistant with modules, mindmaps, schedules, and language training.
 
 > Built by **Hamid Mergan** at Institut für Interaktive Systeme (ISy), Technische Hochschule Lübeck.
 > Contact: hamid.mergan@th-luebeck.de
@@ -20,7 +20,7 @@ AI-powered media and learning platform for TH Lübeck. Translates documents, gen
 - Automatic screencast creation from PPTX (translation → script → TTS → video)
 
 **AI study assistant**
-- Workspaces per course or topic
+- Modules per course or topic
 - Source ingestion (PDF, audio, video, web)
 - Chat with sources (RAG) — answers carry **chunk-grounded citations**: the model cites the exact source chunk it used, verified, resolved to the real PDF page / media timestamp + in-text highlight
 - Mindmaps, exercises, flashcards, multiple-choice

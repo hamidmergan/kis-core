@@ -66,8 +66,8 @@ MESSAGES: dict[str, dict[str, str]] = {
         "en": "You do not have access to the AIA area.",
     },
     "auth.workspaceCreateForbidden": {
-        "de": "Du darfst keine neuen Workspaces erstellen.",
-        "en": "You may not create new workspaces.",
+        "de": "Du darfst keine neuen Module erstellen.",
+        "en": "You may not create new modules.",
     },
     "auth.toolForbidden": {
         "de": "Du darfst dieses Tool nicht nutzen.",
@@ -92,13 +92,13 @@ MESSAGES: dict[str, dict[str, str]] = {
         "en": "The role “{name}” already exists.",
     },
     # Common errors (broadly reused across feature routes)
-    "workspace.notFound": {"de": "Modul nicht gefunden", "en": "Workspace not found"},
+    "workspace.notFound": {"de": "Modul nicht gefunden", "en": "Module not found"},
     "workspace.accessDenied": {"de": "Kein Zugriff", "en": "Access denied"},
     # Der Workspace steht auf inaktiv. Das ist kein fehlendes Recht, sondern ein
     # geschlossener Raum, deshalb ein eigener Text und ein eigener Statuscode.
     "workspace.inactive": {
-        "de": "Dieser Workspace ist gerade nicht freigegeben.",
-        "en": "This workspace is currently not open.",
+        "de": "Dieses Modul ist gerade nicht freigegeben.",
+        "en": "This module is currently not open.",
     },
     "job.notFound": {"de": "Job nicht gefunden", "en": "Job not found"},
     "job.accessDenied": {
@@ -189,8 +189,8 @@ MESSAGES: dict[str, dict[str, str]] = {
         "en": "This exercise is being created right now or is already finished",
     },
     "grammar.typeInvalid": {
-        "de": "Thema ist in diesem Workspace nicht verfügbar",
-        "en": "This topic is not available in this workspace",
+        "de": "Thema ist in diesem Modul nicht verfügbar",
+        "en": "This topic is not available in this module",
     },
     "grammar.topicNotFound": {
         "de": "Thema nicht gefunden",

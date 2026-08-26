@@ -15,8 +15,8 @@ MESSAGES: dict[str, dict[str, str]] = {
         "en": "The language trainer is switched off on this platform",
     },
     "ai.workspace.languageTrainingOff": {
-        "de": "Der Sprachtrainer ist in diesem Workspace ausgeschaltet",
-        "en": "The language trainer is switched off in this workspace",
+        "de": "Der Sprachtrainer ist in diesem Modul ausgeschaltet",
+        "en": "The language trainer is switched off in this module",
     },
     "ai.userSettings.popupTranslateLangInvalid": {
         "de": "Ungültige Zielsprache für die Übersetzung in der Auswahlleiste",
@@ -32,7 +32,7 @@ MESSAGES: dict[str, dict[str, str]] = {
     },
     "ai.workspace.maxAccessLinks": {
         "de": "Maximal {max} Einschreibelinks pro Modul erlaubt. Bitte lösche zuerst einen alten Link.",
-        "en": "Maximum {max} enrollment links per workspace allowed. Please delete an old link first.",
+        "en": "Maximum {max} enrollment links per module allowed. Please delete an old link first.",
     },
     # Sources
     "ai.source.maxPerWorkspace": {
@@ -136,8 +136,8 @@ MESSAGES: dict[str, dict[str, str]] = {
     },
     # Notes
     "ai.notes.maxPerWorkspace": {
-        "de": "Maximal {max} Notizen pro Workspace erlaubt. Bitte lösche nicht mehr benötigte Notizen.",
-        "en": "Maximum {max} notes per workspace allowed. Please delete notes you no longer need.",
+        "de": "Maximal {max} Notizen pro Modul erlaubt. Bitte lösche nicht mehr benötigte Notizen.",
+        "en": "Maximum {max} notes per module allowed. Please delete notes you no longer need.",
     },
     # Schedule
     "ai.schedule.invalidDate": {

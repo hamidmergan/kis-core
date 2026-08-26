@@ -61,7 +61,7 @@ def _workspace_label(locale: str) -> str:
     auseinanderlaufen.
     """
     key = "workspace_label_singular_en" if locale == "en" else "workspace_label_singular_de"
-    return db.get_setting(key, db.get_setting("workspace_label_singular", "Workspace"))
+    return db.get_setting(key, db.get_setting("workspace_label_singular", "Modul"))
 
 
 __all__ = [

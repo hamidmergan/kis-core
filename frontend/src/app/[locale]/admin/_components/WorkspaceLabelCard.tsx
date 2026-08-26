@@ -15,8 +15,8 @@ interface Labels {
 }
 
 const DEFAULTS: Labels = {
-  de: { singular: "Workspace", plural: "Workspaces" },
-  en: { singular: "Workspace", plural: "Workspaces" },
+  de: { singular: "Modul", plural: "Module" },
+  en: { singular: "Module", plural: "Modules" },
 };
 
 const MAX_LEN = 40;

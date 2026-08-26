@@ -161,8 +161,8 @@
     "card": {
       "uncheckAria": "Mark as not done",
       "checkAria": "Mark as done",
-      "ownTooltip": "Own workspace",
-      "sharedTooltip": "Shared workspace"
+      "ownTooltip": "Own module",
+      "sharedTooltip": "Shared module"
     },
     "month": {
       "prev": "Previous month",
@@ -192,7 +192,7 @@
       "to": "To",
       "time": "Time, if there is one",
       "note": "Description (optional)",
-      "hint": "Your own entries belong to you alone. They show up in the calendar, in the list and in the home page panel, but in no workspace.",
+      "hint": "Your own entries belong to you alone. They show up in the calendar, in the list and in the home page panel, but in no module.",
       "cancel": "Cancel",
       "save": "Add",
       "saveError": "The entry could not be saved."
@@ -965,13 +965,13 @@
         "title": "Delete account “{name}”?",
         "loading": "Checking what belongs to this account...",
         "intro": "Deleting the account also removes everything attached to it:",
-        "workspaces": "{n, plural, one {# workspace with all uploaded files} other {# workspaces with all uploaded files}}",
+        "workspaces": "{n, plural, one {# module with all uploaded files} other {# modules with all uploaded files}}",
         "sources": "{n, plural, one {# source including transcript and subtitles} other {# sources including transcripts and subtitles}}",
         "messages": "{n, plural, one {# chat message} other {# chat messages}}",
         "jobs": "{n, plural, one {# tool result} other {# tool results}}",
-        "enrollments": "{n, plural, one {# enrolment in someone else's workspace} other {# enrolments in other people's workspaces}}",
+        "enrollments": "{n, plural, one {# enrolment in someone else's module} other {# enrolments in other people's modules}}",
         "nothing": "Nothing is attached to this account.",
-        "participantsWarning": "Everyone working in those workspaces loses access.",
+        "participantsWarning": "Everyone working in those modules loses access.",
         "warningIrreversible": "This action can NOT be undone.",
         "confirm": "Delete",
         "cancel": "Cancel",
@@ -1231,7 +1231,7 @@
         "image_gen": "Text-to-image",
         "image_edit": "Edit images via prompt",
         "doc_translate": "The user picks a provider inside the tool. (Document Translation, Screencast Translation)",
-        "transcript_translate": "AIA workspace: translate a transcript into the owner-chosen target language. Source language is detected automatically. Provider and model are admin-configured. Use an instruct model, not a reasoning model."
+        "transcript_translate": "AIA module: translate a transcript into the owner-chosen target language. Source language is detected automatically. Provider and model are admin-configured. Use an instruct model, not a reasoning model."
       },
       "exportImport": {
         "modal": {
@@ -1374,7 +1374,7 @@
     },
     "poolClearCard": {
       "title": "Clear stocks",
-      "description": "Exercises and schedule extractions build up through use and belong to the source, not the workspace. This clears them platform-wide. Finished exercise sets, progress and scheduled dates stay.",
+      "description": "Exercises and schedule extractions build up through use and belong to the source, not the module. This clears them platform-wide. Finished exercise sets, progress and scheduled dates stay.",
       "schedule": "Schedule extractions",
       "items": "{n, plural, =0 {empty} =1 {1 exercise} other {# exercises}}",
       "sources": "{n, plural, =0 {empty} =1 {1 source} other {# sources}}",
@@ -1389,7 +1389,7 @@
     },
     "languageTrainerCard": {
       "title": "Language trainer",
-      "description": "The language trainer is a practice area in the studio for everyone following the course in a foreign language. It holds vocabulary cards for technical terms and a grammar exercise, each built from the workspace sources. While it is on, every reader is assessed once and chat answers as well as exercises are pitched at that level. The language trainer works in German only.",
+      "description": "The language trainer is a practice area in the studio for everyone following the course in a foreign language. It holds vocabulary cards for technical terms and a grammar exercise, each built from the module sources. While it is on, every reader is assessed once and chat answers as well as exercises are pitched at that level. The language trainer works in German only.",
       "disabled": "Off. The language trainer appears nowhere. Choices already made stay stored and apply again as soon as you switch this on.",
       "toggleAria": "Toggle language trainer"
     },
@@ -1397,7 +1397,7 @@
       "title": "OCR for scans & image pages",
       "active": "Active - image/scan-heavy pages are captured via OCR during indexing (slower, costs one vision call per page).",
       "disabled": "Disabled - OCR is skipped system-wide. Indexing is faster and cheaper, but pure scan/image pages stay empty for search.",
-      "hint": "Applies to all workspaces and new indexing. Existing documents are only affected after re-indexing.",
+      "hint": "Applies to all modules and new indexing. Existing documents are only affected after re-indexing.",
       "toggleAria": "Toggle OCR"
     },
     "homeNoticeCard": {
@@ -1411,7 +1411,7 @@
     },
     "languageDiagnosisCard": {
       "title": "Language diagnosis prompt",
-      "description": "Controls how the AI asks, judges and grades in the diagnosis chat. Applies to every workspace. German only for now.",
+      "description": "Controls how the AI asks, judges and grades in the diagnosis chat. Applies to every module. German only for now.",
       "hint": "Controls the flow, the question style and the output format of the test. Four placeholders in the text are filled in: '{language}' with the language of the test, '{grading}' with the grading rules below, '{levels}' with the descriptions from the Levels A1 to C2 card and '{examples}' with the example sentences from there. A placeholder you delete is appended at the end, so the AI never loses it.",
       "reset": "Restore default",
       "saveFailed": "Saving failed"
@@ -1541,8 +1541,8 @@
       "saveFailed": "Save failed."
     },
     "workspaceLabel": {
-      "title": "\"Workspace\" label",
-      "description": "How the term is shown in the frontend (e.g. \"module\" / \"modules\" or \"course\" / \"courses\"). Default: workspace / workspaces. Configured per language.",
+      "title": "\"Module\" label",
+      "description": "How the term is shown in the frontend (e.g. \"course\" / \"courses\" or \"workspace\" / \"workspaces\"). Default: Module / Modules. Configured per language.",
       "singular": "Singular",
       "plural": "Plural",
       "deSection": "German",
@@ -1630,8 +1630,8 @@
       },
       "systemRoleHint": {
         "admin": "The administrator may do everything. Not editable.",
-        "staff": "Staff uses the AI assistant with own workspaces and all tools, but no settings. Not editable.",
-        "user": "User only opens shared workspaces. Not editable."
+        "staff": "Staff uses the AI assistant with own modules and all tools, but no settings. Not editable.",
+        "user": "User only opens shared modules. Not editable."
       },
       "more": "More"
     },
@@ -1918,7 +1918,7 @@
     "locked": {
       "aia": "This area is locked for your account.",
       "tool": "This tool is locked for your account.",
-      "workspaceCreate": "You cannot create new workspaces. You only have access to assigned workspaces."
+      "workspaceCreate": "You cannot create new modules. You only have access to assigned modules."
     }
   },
   "privacy": {
@@ -1946,12 +1946,12 @@
     },
     "jobs": {
       "heading": "4. Processing of user uploads and job data",
-      "intro": "When you use the platform, uploaded files (e.g. videos, PDFs, presentations, audio files) and the results derived from them (e.g. transcripts, summaries) are stored in your workspace. For each processing job, the following metadata is also stored:",
+      "intro": "When you use the platform, uploaded files (e.g. videos, PDFs, presentations, audio files) and the results derived from them (e.g. transcripts, summaries) are stored in your module. For each processing job, the following metadata is also stored:",
       "item1": "Tool used (e.g. transcription, summary)",
       "item2": "Original file name",
       "item3": "Time of creation and completion",
       "item4": "Processing status",
-      "retention": "Uploaded files and the results derived from them remain stored in your workspace until you or a workspace administrator deletes them. Job metadata for individual processing jobs is retained <strong>only to a limited extent</strong>. The most recent jobs are kept and older ones are removed automatically."
+      "retention": "Uploaded files and the results derived from them remain stored in your module until you or a module administrator deletes them. Job metadata for individual processing jobs is retained <strong>only to a limited extent</strong>. The most recent jobs are kept and older ones are removed automatically."
     },
     "thirdParty": {
       "heading": "5. Third parties and external AI services",
@@ -2057,7 +2057,7 @@
   "workspace": {
     "detail": {
       "closed": {
-        "title": "This workspace is closed",
+        "title": "This module is closed",
         "text": "Your teacher has set it to inactive for now. Your enrollment stays in place, and you will get back in as soon as it is open again.",
         "back": "Back to overview"
       },
@@ -2344,9 +2344,9 @@
         "title": "Settings",
         "feedbackQuestion": "Feedback or issues?",
         "sectionPersonalTitle": "Personal",
-        "sectionPersonalDescription": "Applies to you only. Others in the workspace do not see any of this.",
-        "sectionWorkspaceTitle": "Workspace",
-        "sectionWorkspaceDescription": "Applies to everyone in the workspace. Only workspace admins can change it.",
+        "sectionPersonalDescription": "Applies to you only. Others in the module do not see any of this.",
+        "sectionWorkspaceTitle": "Module",
+        "sectionWorkspaceDescription": "Applies to everyone in the module. Only module admins can change it.",
         "mascotTitle": "Mascot",
         "mascotDescription": "Pick your companion in chat.",
         "mascotHilde": "Hilde",
@@ -2354,9 +2354,9 @@
         "studioTitle": "Studio",
         "studioDescription": "Show the studio panel with mind maps, notes and tools.",
         "languageTrainingPersonalTitle": "Language trainer",
-        "languageTrainingPersonalDescription": "Shows the language trainer for you, with vocabulary cards and grammar exercise. Switching it on assesses your language level once if you do not have one yet. Applies to you only and only in this workspace.",
+        "languageTrainingPersonalDescription": "Shows the language trainer for you, with vocabulary cards and grammar exercise. Switching it on assesses your language level once if you do not have one yet. Applies to you only and only in this module.",
         "languageTrainingTitle": "Language trainer",
-        "languageTrainingDescription": "Releases the language trainer in this workspace, with vocabulary cards and grammar exercise. Everyone then decides in their own settings whether to use it. Every exercise is built from the sources of this workspace. That needs suitable sources on the grammar of the course language, otherwise the exercises are useless. Only release this when you know which sources are here.",
+        "languageTrainingDescription": "Releases the language trainer in this module, with vocabulary cards and grammar exercise. Everyone then decides in their own settings whether to use it. Every exercise is built from the sources of this module. That needs suitable sources on the grammar of the course language, otherwise the exercises are useless. Only release this when you know which sources are here.",
         "translationModeTitle": "Transcript translation",
         "translationModeDescription": "Translates subtitles of audio/video sources into the target language chosen below. The source language is detected automatically. Students can switch between original and translation in the transcript panel. Translation runs as a background job and can take a few minutes.",
         "translationModeOff": "Off",
@@ -2760,9 +2760,9 @@
       "unknownError": "Unknown error",
       "noEnrollments": "No enrollments yet.",
       "closedBadge": "Not open",
-      "closedHint": "Your teacher has closed this workspace for now. Your enrollment stays in place.",
-      "closedJoinHint": "This workspace is not open at the moment. You can still enroll and will get in as soon as your teacher opens it.",
-      "closedJoinedNotice": "You are enrolled. The workspace is not open at the moment, you can see it in your list and will get in as soon as your teacher opens it.",
+      "closedHint": "Your teacher has closed this module for now. Your enrollment stays in place.",
+      "closedJoinHint": "This module is not open at the moment. You can still enroll and will get in as soon as your teacher opens it.",
+      "closedJoinedNotice": "You are enrolled. The module is not open at the moment, you can see it in your list and will get in as soon as your teacher opens it.",
       "untilDate": "until {date}",
       "open": "Open",
       "upcomingTitle": "Upcoming dates",

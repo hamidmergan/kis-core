@@ -344,7 +344,7 @@ export default function ScheduleMonth() {
         >
           {t("month.today")}
         </button>
-        {/* Gleicher Knopf wie "+ Workspace" auf der Startseite. */}
+        {/* Gleicher Knopf wie "+ Modul" auf der Startseite. */}
         <button
           type="button"
           onClick={() => { setModalDate(""); setModalOpen(true); }}
