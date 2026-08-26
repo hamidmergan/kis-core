@@ -43,3 +43,26 @@ describe("isFullAdmin", () => {
     expect(areaLabelKey(perms(SETTINGS_PERMS))).toBe("admin");
   });
 });
+
+// Die Statistik hat einen fuenften Reiter bekommen, der als einziger nicht die
+// ganze Plattform aufmacht.
+describe("Statistik nur fuer eigene Module", () => {
+  it("kennt den Schluessel aus dem Katalog des Servers", () => {
+    expect(PERM.statsOwn).toBe("settings.statistik.eigene");
+  });
+
+  it("zaehlt zu den Einstellungsrechten und oeffnet damit den Bereich", () => {
+    expect(SETTINGS_PERMS).toContain(PERM.statsOwn);
+    expect(perms([PERM.statsOwn]).allow_admin_panel).toBe(true);
+  });
+
+  it("macht aus einer Lehrperson keinen Administrator", () => {
+    const dozentin = perms([PERM.aiaUse, PERM.statsOwn]);
+    expect(isFullAdmin(dozentin)).toBe(false);
+    expect(areaLabelKey(dozentin)).toBe("settings");
+  });
+
+  it("schliesst die globale Statistik nicht mit auf", () => {
+    expect(hasPerm(perms([PERM.statsOwn]), PERM.aiaUsage, PERM.statsUsers)).toBe(false);
+  });
+});

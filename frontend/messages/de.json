@@ -821,6 +821,7 @@
         "label": "Statistik",
         "sub": "Zahlen zum Lesen. Was hier steht, wird nicht eingestellt.",
         "tabs": {
+          "eigene": "Meine Module",
           "nutzer": "Nutzer",
           "werkzeuge": "Werkzeuge",
           "assistent": "KI-Assistent",
@@ -1679,7 +1680,7 @@
         "assistent": {
           "sources": "Materialien und Kontext-Budgets",
           "level": "Sprachniveau, KI-Verhalten und Prompts",
-          "usage": "KI-Assistent"
+          "usage": "KI-Assistent (alle Module)"
         },
         "anbieter": "Modelle eintragen und Funktionen zuordnen",
         "nutzer": {
@@ -1692,7 +1693,8 @@
         "mascot": "Hilde und Francis",
         "statistik": {
           "nutzer": "Nutzer und Anwesenheit",
-          "modelle": "Modelle und Tokens"
+          "modelle": "Modelle und Tokens",
+          "eigene": "KI-Assistent (nur eigene und betreute Module)"
         },
         "wartung": {
           "zugang": "Zugriff während der Wartung"
@@ -1866,7 +1868,17 @@
         "members": "Teilnehmer",
         "colFile": "Datei",
         "colState": "Stand",
-        "colName": "Name"
+        "colName": "Name",
+        "roleTutor": "Tutor"
+      },
+      "eigene": {
+        "workspaces": "Eigene Module",
+        "ownAndTutored": "{own} eigene, {tutored} betreut",
+        "modules": "Meine Module",
+        "modulesHint": "Auf eine Zeile klicken, um alles zu diesem Modul zu sehen. Es stehen nur Module hier, die dir gehören oder die du als Tutor betreust.",
+        "none": "Du hast noch kein eigenes Modul und betreust keins.",
+        "groupOwned": "Mir gehören",
+        "groupTutored": "Ich betreue als Tutor"
       }
     },
     "invites": {

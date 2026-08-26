@@ -6,7 +6,9 @@ from src import database as db
 from src.dependencies_rbac import require_permission
 from src.features.stats import (
     assistant_overview,
+    may_see_workspace,
     model_usage,
+    own_workspaces,
     tool_overview,
     user_detail,
     user_overview,
@@ -15,6 +17,7 @@ from src.features.stats import (
 from src.permissions_registry import (
     PERM_SET_AIA_USAGE,
     PERM_SET_STATS_MODELS,
+    PERM_SET_STATS_OWN,
     PERM_SET_STATS_USERS,
     PERM_SET_TOOLS_STATS,
 )
@@ -29,6 +32,7 @@ _require_tool_stats = require_permission(PERM_SET_TOOLS_STATS)
 _require_aia_usage = require_permission(PERM_SET_AIA_USAGE)
 _require_stats_users = require_permission(PERM_SET_STATS_USERS)
 _require_stats_models = require_permission(PERM_SET_STATS_MODELS)
+_require_stats_own = require_permission(PERM_SET_STATS_OWN)
 
 
 @router.get("/stats")
@@ -116,6 +120,27 @@ async def get_user_detail(user_id: int, _admin=Depends(_require_stats_users)):
 @router.get("/stats/workspaces/{uuid}")
 async def get_workspace_detail(uuid: str, _admin=Depends(_require_aia_usage)):
     """Alles zu einem Modul an einer Stelle."""
+    daten = workspace_detail(uuid)
+    if daten is None:
+        raise HTTPException(status_code=404, detail="Unbekanntes Modul")
+    return daten
+
+
+@router.get("/stats/eigene")
+async def get_own_stats(user=Depends(_require_stats_own)):
+    """Die Module, die dem Anrufer gehoeren oder die er als Tutor betreut."""
+    return own_workspaces(user["user_id"])
+
+
+@router.get("/stats/eigene/{uuid}")
+async def get_own_workspace_detail(uuid: str, user=Depends(_require_stats_own)):
+    """Dasselbe Modul wie oben, aber erst nach der Besitzpruefung.
+
+    Ein fremdes Modul antwortet mit 404 und nicht mit 403: sonst verraet die
+    Antwort, dass es das Modul gibt.
+    """
+    if not may_see_workspace(uuid, user["user_id"]):
+        raise HTTPException(status_code=404, detail="Unbekanntes Modul")
     daten = workspace_detail(uuid)
     if daten is None:
         raise HTTPException(status_code=404, detail="Unbekanntes Modul")

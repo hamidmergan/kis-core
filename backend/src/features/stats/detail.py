@@ -102,6 +102,7 @@ def workspace_detail(uuid: str) -> dict | None:
         with conn.cursor(cursor_factory=RealDictCursor) as cur:
             cur.execute(
                 """SELECT m.id, m.uuid, m.title, m.is_active, m.created_at,
+                          m.user_id AS owner_id,
                           COALESCE(u.display_name, u.ldap_username, 'Unbekannt') AS owner
                    FROM aia_workspaces m JOIN users u ON m.user_id = u.id
                    WHERE m.uuid = %s""",
@@ -149,21 +150,37 @@ def workspace_detail(uuid: str) -> dict | None:
                 eintrag["created"] += int(r["erzeugt"])
                 eintrag["answered"] += int(r["beantwortet"])
 
+            # Der Eigentuemer steht in keiner Einschreibung und fehlte deshalb
+            # ganz. Die Einschreibungen werden zusammengefasst: wer ueber zwei
+            # Links kam, hat zwei Zeilen und ist ein Mensch, und die staerkere
+            # Rolle gewinnt.
             cur.execute(
                 """SELECT COALESCE(u.display_name, u.ldap_username, 'Unbekannt') AS name,
+                          t.rolle,
                           (SELECT COUNT(*) FROM aia_exercise_progress p
                              JOIN aia_exercise_sets s ON s.id = p.set_id
                             WHERE s.workspace_id = %s AND p.user_id = u.id) AS uebungen,
                           (SELECT COUNT(*) FROM aia_messages msg
                             WHERE msg.workspace_id = %s AND msg.user_id = u.id
                               AND msg.role = 'user') AS chat
-                   FROM aia_enrollments e JOIN users u ON e.user_id = u.id
-                   WHERE e.workspace_id = %s
-                   ORDER BY 2 DESC""",
-                (mid, mid, mid),
+                   FROM (
+                       SELECT %s::int AS user_id, 'owner' AS rolle
+                       UNION ALL
+                       SELECT e.user_id,
+                              CASE WHEN BOOL_OR(e.role = 'tutor')
+                                   THEN 'tutor' ELSE 'student' END
+                       FROM aia_enrollments e
+                       WHERE e.workspace_id = %s AND e.user_id <> %s
+                       GROUP BY e.user_id
+                   ) t
+                   JOIN users u ON u.id = t.user_id
+                   ORDER BY CASE t.rolle WHEN 'owner' THEN 0
+                                         WHEN 'tutor' THEN 1 ELSE 2 END, 3 DESC""",
+                (mid, mid, kopf["owner_id"], mid, kopf["owner_id"]),
             )
             leute = [
-                {"name": r["name"], "answered": r["uebungen"], "chat": r["chat"]}
+                {"name": r["name"], "role": r["rolle"],
+                 "answered": r["uebungen"], "chat": r["chat"]}
                 for r in cur.fetchall()
             ]
 

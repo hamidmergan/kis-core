@@ -74,18 +74,21 @@ PERM_SET_USERS_ROLES = "settings.nutzer.roles"
 # stehen jetzt auf der System-Seite und haengen an PERM_SET_SYSTEM.
 PERM_SET_SYSTEM = "settings.system"
 PERM_SET_MASCOT = "settings.mascot"
-# Der Bereich Statistik hat vier Reiter. Zwei davon sind umgezogen und behalten
+# Der Bereich Statistik hat fuenf Reiter. Zwei davon sind umgezogen und behalten
 # ihren alten Schluessel, damit bestehende Rollen nichts verlieren: die
 # Werkzeug-Zahlen bleiben an PERM_SET_TOOLS_STATS, die des Assistenten an
-# PERM_SET_AIA_USAGE. Nur die zwei neuen Reiter brauchen eigene Schluessel.
+# PERM_SET_AIA_USAGE. Die uebrigen drei haben eigene Schluessel.
 PERM_SET_STATS_USERS = "settings.statistik.nutzer"
 PERM_SET_STATS_MODELS = "settings.statistik.modelle"
+# Der einzige Schluessel der Gruppe, der nicht die ganze Plattform aufmacht: er
+# zeigt nur Module, die dem Anrufer gehoeren oder die er als Tutor betreut.
+PERM_SET_STATS_OWN = "settings.statistik.eigene"
 # Kein Recht, etwas einzustellen, sondern eines, weitermachen zu duerfen, waehrend
 # die Plattform fuer alle anderen zu ist. Braucht wer bei einer Wartung
 # nachschauen soll, ohne die Verwaltung ganz in die Hand zu bekommen.
 PERM_MAINTENANCE_ACCESS = "settings.wartung.zugang"
 
-# Eine Gruppe je Bereich der Seitenleiste. Die vier Rechte, die je einen Reiter
+# Eine Gruppe je Bereich der Seitenleiste. Die fuenf Rechte, die je einen Reiter
 # der Statistik aufschliessen, stehen dadurch beieinander statt an drei Stellen.
 SET_TOOLS_KEYS: tuple[str, ...] = (
     PERM_SET_TOOLS_RELEASE,
@@ -93,10 +96,15 @@ SET_TOOLS_KEYS: tuple[str, ...] = (
     PERM_SET_TOOLS_LIMITS,
 )
 SET_AIA_KEYS: tuple[str, ...] = (PERM_SET_AIA_SOURCES, PERM_SET_AIA_LEVEL)
+# Zuerst das Paar, das von Modulen handelt: dieselbe Sache einmal auf die
+# eigenen beschraenkt und einmal fuer die ganze Plattform. Standen zwei fremde
+# Zeilen dazwischen, las man sie als zwei Themen statt als Auswahl zwischen
+# zweien und hakte im Zweifel beide an.
 SET_STATS_KEYS: tuple[str, ...] = (
+    PERM_SET_STATS_OWN,
+    PERM_SET_AIA_USAGE,
     PERM_SET_STATS_USERS,
     PERM_SET_TOOLS_STATS,
-    PERM_SET_AIA_USAGE,
     PERM_SET_STATS_MODELS,
 )
 SET_PROVIDER_KEYS: tuple[str, ...] = (PERM_SET_PROVIDERS,)

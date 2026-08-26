@@ -24,7 +24,7 @@ interface Detail {
   source_tools: Werkzeug[];
   glossary_tools: Werkzeug[];
   materials: { name: string; kind: string; chunks: number; status: string }[];
-  members: { name: string; answered: number; chat: number }[];
+  members: { name: string; role: string; answered: number; chat: number }[];
 }
 
 function KleineZahl({ titel, wert }: { titel: string; wert: number }) {
@@ -66,7 +66,14 @@ function TrainerTabelle({ zeilen, leer }: { zeilen: Werkzeug[]; leer: string }) 
   );
 }
 
-export function ModulAnsicht({ uuid }: { uuid: string }) {
+export function ModulAnsicht({
+  uuid,
+  basis = "/api/admin/stats/workspaces",
+}: {
+  uuid: string;
+  /** Die Lehrperson holt dasselbe Modul ueber den Weg mit Besitzpruefung. */
+  basis?: string;
+}) {
   const t = useTranslations("admin.statistik");
   const [d, setD] = useState<Detail | null>(null);
   const [fehler, setFehler] = useState(false);
@@ -74,14 +81,18 @@ export function ModulAnsicht({ uuid }: { uuid: string }) {
   useEffect(() => {
     setD(null);
     setFehler(false);
-    fetch(`/api/admin/stats/workspaces/${uuid}`, { credentials: "include" })
+    fetch(`${basis}/${uuid}`, { credentials: "include" })
       .then((r) => (r.ok ? r.json() : Promise.reject()))
       .then(setD)
       .catch(() => setFehler(true));
-  }, [uuid]);
+  }, [uuid, basis]);
 
   if (fehler) return <p className="text-sm text-error">{t("loadError")}</p>;
   if (!d) return <Ladeanzeige />;
+
+  /** Unbekanntes steht so da, wie es kam, statt die Zeile leer zu lassen. */
+  const rolle = (r: string) =>
+    ({ owner: t("detail.roleOwner"), tutor: t("detail.roleTutor"), student: t("detail.roleMember") })[r] ?? r;
 
   return (
     <div className="space-y-4">
@@ -151,6 +162,7 @@ export function ModulAnsicht({ uuid }: { uuid: string }) {
                 <thead>
                   <tr className="border-b border-border-soft text-left text-2xs uppercase text-muted">
                     <th className="py-2 pr-4">{t("detail.colName")}</th>
+                    <th className="py-2 pr-4">{t("detail.colRole")}</th>
                     <th className="py-2 pr-4 text-right">{t("assistant.colAnswered")}</th>
                     <th className="py-2 text-right">{t("assistant.colChat")}</th>
                   </tr>
@@ -158,7 +170,8 @@ export function ModulAnsicht({ uuid }: { uuid: string }) {
                 <tbody>
                   {d.members.map((p, i) => (
                     <tr key={i} className="border-b border-border-soft last:border-0">
-                      <td className="py-2 pr-4 text-foreground-soft">{p.name}</td>
+                      <td className="py-2 pr-4 text-foreground-soft whitespace-nowrap">{p.name}</td>
+                      <td className="py-2 pr-4 text-muted whitespace-nowrap">{rolle(p.role)}</td>
                       <td className="py-2 pr-4 text-right tabular-nums">{p.answered.toLocaleString("de-DE")}</td>
                       <td className="py-2 text-right tabular-nums text-muted">{p.chat.toLocaleString("de-DE")}</td>
                     </tr>

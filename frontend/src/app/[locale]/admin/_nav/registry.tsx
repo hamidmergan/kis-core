@@ -111,6 +111,7 @@ import SourcesPage from "../_pages/assistent/sources";
 import LanguageLevelPage from "../_pages/assistent/language-level";
 import AiBehaviourPage from "../_pages/assistent/behaviour";
 
+import StatistikEigenePage from "../_pages/statistik/eigene";
 import StatistikNutzerPage from "../_pages/statistik/nutzer";
 import StatistikWerkzeugePage from "../_pages/statistik/werkzeuge";
 import StatistikAssistentPage from "../_pages/statistik/assistent";
@@ -190,9 +191,12 @@ export const SECTIONS: AdminSection[] = [
     Icon: ChartBar,
     world: "both",
     rank: "admin",
-    // Nutzer zuerst: wer den Bereich oeffnet, will meist wissen, ob gerade
-    // jemand da ist, nicht wie viele Screencasts letzten Monat liefen.
+    // Meine Module zuerst: es ist der einzige Reiter, den eine Lehrperson
+    // bekommt, und der einzige, der nicht die ganze Plattform zeigt. Danach
+    // Nutzer, denn wer den Bereich oeffnet, will meist wissen, ob gerade jemand
+    // da ist, nicht wie viele Screencasts letzten Monat liefen.
     tabs: [
+      { slug: "meine-module", labelKey: "eigene", perm: PERM.statsOwn, Component: StatistikEigenePage },
       { slug: "nutzer", labelKey: "nutzer", perm: PERM.statsUsers, Component: StatistikNutzerPage },
       { slug: "werkzeuge", labelKey: "werkzeuge", perm: PERM.toolsStats, Component: StatistikWerkzeugePage },
       { slug: "ki-assistent", labelKey: "assistent", perm: PERM.aiaUsage, Component: StatistikAssistentPage },

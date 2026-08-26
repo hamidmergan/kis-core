@@ -821,6 +821,7 @@
         "label": "Statistics",
         "sub": "Numbers to read. Nothing here is a setting.",
         "tabs": {
+          "eigene": "My modules",
           "nutzer": "Users",
           "werkzeuge": "Tools",
           "assistent": "AI assistant",
@@ -1679,7 +1680,7 @@
         "assistent": {
           "sources": "Sources and context budgets",
           "level": "Language level, AI behaviour and prompts",
-          "usage": "AI assistant"
+          "usage": "AI assistant (all modules)"
         },
         "anbieter": "Add models and route features",
         "nutzer": {
@@ -1692,7 +1693,8 @@
         "mascot": "Hilde and Francis",
         "statistik": {
           "nutzer": "Users and presence",
-          "modelle": "Models and tokens"
+          "modelle": "Models and tokens",
+          "eigene": "AI assistant (only own and tutored modules)"
         },
         "wartung": {
           "zugang": "Access during maintenance"
@@ -1866,7 +1868,17 @@
         "members": "Participants",
         "colFile": "File",
         "colState": "State",
-        "colName": "Name"
+        "colName": "Name",
+        "roleTutor": "Tutor"
+      },
+      "eigene": {
+        "workspaces": "Own modules",
+        "ownAndTutored": "{own} own, {tutored} tutored",
+        "modules": "My modules",
+        "modulesHint": "Click a row to see everything about that module. Only modules you own or tutor are listed here.",
+        "none": "You do not own or tutor a module yet.",
+        "groupOwned": "I own",
+        "groupTutored": "I tutor"
       }
     },
     "invites": {
