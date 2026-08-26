@@ -139,6 +139,26 @@ def activate_user(user_id: int) -> None:
             cur.execute("UPDATE users SET active = 1 WHERE id = %s", (user_id,))
         conn.commit()
 
+def set_user_demo(user_id: int, is_demo: bool) -> list[int]:
+    """Setzt genau ein Demo-Konto und meldet zurueck, wer den Haken dabei verloren hat."""
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            if is_demo:
+                cur.execute(
+                    "UPDATE users SET is_demo = (id = %s) WHERE is_demo OR id = %s "
+                    "RETURNING id, is_demo",
+                    (user_id, user_id),
+                )
+                verloren = [zeile[0] for zeile in cur.fetchall() if not zeile[1]]
+            else:
+                cur.execute(
+                    "UPDATE users SET is_demo = FALSE WHERE id = %s AND is_demo RETURNING id",
+                    (user_id,),
+                )
+                verloren = [zeile[0] for zeile in cur.fetchall()]
+        conn.commit()
+    return verloren
+
 def deactivate_user_by_email(email: str) -> None:
     """Set active=0 for any user with the given email."""
     with get_connection() as conn:

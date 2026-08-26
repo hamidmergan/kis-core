@@ -169,7 +169,8 @@ def test_beitritt_immer_als_lernender(monkeypatch):
     monkeypatch.setattr(enrollments, "get_connection", lambda: FakeConn())
 
     enrollments.enroll_student(7, LERNENDER, None, link_id=6)
-    assert gespeichert["params"][-1] == "student"
+    # Die Rolle steht an der Stelle der Spalte role, hinter workspace, user, link und Frist.
+    assert gespeichert["params"][4] == "student"
 
 
 def test_befoerdern_erfasst_alle_einschreibungen(monkeypatch):

@@ -324,6 +324,8 @@ def _init_db(admin_email: Optional[str] = None) -> None:
             # adaptive chat can pitch every level, not only "needs support" vs not.
             cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS language_level TEXT CHECK (language_level IN ('A1','A2','B1','B2','C1','C2'))")
             cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS language_level_set_at TIMESTAMP WITH TIME ZONE")
+            # Demo-Konto: seine aktiven Kurse stehen bei allen anderen auf der Startseite.
+            cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS is_demo BOOLEAN NOT NULL DEFAULT FALSE")
             # Migration: the five per-skill scores are gone. Only the result screen
             # ever showed them, and a model that forgot one failed the whole grading
             # turn and cost a repair call, so the column goes with them.
@@ -748,6 +750,9 @@ def _init_db(admin_email: Optional[str] = None) -> None:
             """)
             # Migration: add link_id column if table already existed without it
             cur.execute("ALTER TABLE aia_enrollments ADD COLUMN IF NOT EXISTS link_id INTEGER REFERENCES aia_access_links(id) ON DELETE SET NULL")
+            # Ueber die Demo beigetreten, damit sich genau diese Einschreibungen wieder
+            # abraeumen lassen, wenn das Konto den Demo-Haken verliert.
+            cur.execute("ALTER TABLE aia_enrollments ADD COLUMN IF NOT EXISTS via_demo BOOLEAN NOT NULL DEFAULT FALSE")
             # A member is either a learner or a tutor. Tutors manage the workspace
             # with the same rights as its owner, minus inviting: only the owner
             # decides who gets in and who becomes a tutor.

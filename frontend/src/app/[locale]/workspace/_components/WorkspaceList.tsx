@@ -7,6 +7,8 @@ import Spinner from "@/components/ui/Spinner";
 import { EmptyState } from "@/components/ui/EmptyState";
 import CreateWorkspaceModal from "./CreateWorkspaceModal";
 import WorkspaceTable from "./WorkspaceTable";
+import DemoModal from "./DemoModal";
+import { useDemoWorkspaces } from "./useDemoWorkspaces";
 import { useWorkspaceLabel } from "@/hooks/useWorkspaceLabel";
 import { canManage, type AccessLink, type KiTutorWorkspace } from "../_shared";
 
@@ -24,6 +26,9 @@ export default function WorkspaceList({ canCreate }: Props) {
   const [workspaces, setWorkspaces] = useState<KiTutorWorkspace[]>([]);
   const [loading, setLoading] = useState(true);
   const [showCreate, setShowCreate] = useState(false);
+  const [showDemo, setShowDemo] = useState(false);
+  const tDemo = useTranslations("workspace.demo");
+  const demo = useDemoWorkspaces();
 
   const load = useCallback(async () => {
     try {
@@ -93,6 +98,16 @@ export default function WorkspaceList({ canCreate }: Props) {
     );
   }
 
+  async function demoJoin(uuid: string | null) {
+    await demo.join(uuid);
+    await load();
+  }
+
+  async function demoLeave(uuid: string) {
+    await demo.leave(uuid);
+    await load();
+  }
+
   const heading = workspaces.some((m) => !canManage(m.access))
     ? t("allWorkspaces", { label: labels.plural })
     : t("myWorkspaces", { label: labels.plural });
@@ -109,6 +124,18 @@ export default function WorkspaceList({ canCreate }: Props) {
       <section>
         <div className="flex items-center justify-between gap-3">
           <h2 className="text-lg md:text-xl font-semibold">{heading}</h2>
+          <div className="flex items-center gap-2">
+          {demo.items.some((m) => !m.owned) && (
+            <button
+              type="button"
+              data-testid="demo-open"
+              onClick={() => setShowDemo(true)}
+              className="whitespace-nowrap text-xs font-semibold px-3.5 py-1.5 rounded border-2 border-transparent hover:border-black transition-colors"
+              style={{ backgroundColor: "rgb(245, 158, 11)", color: "rgb(0, 0, 0)" }}
+            >
+              {tDemo("button")}
+            </button>
+          )}
           {canCreate && (
             <button
               type="button"
@@ -120,7 +147,17 @@ export default function WorkspaceList({ canCreate }: Props) {
               <span className="hidden md:inline">+ {labels.singular}</span>
             </button>
           )}
+          </div>
         </div>
+
+        <DemoModal
+          open={showDemo}
+          onClose={() => setShowDemo(false)}
+          items={demo.items.filter((m) => !m.owned)}
+          busy={demo.busy}
+          onJoin={demoJoin}
+          onLeave={demoLeave}
+        />
 
         {loading ? (
           <div className="flex items-center justify-center min-h-[40vh]">
@@ -142,6 +179,7 @@ export default function WorkspaceList({ canCreate }: Props) {
               onEdit={handleEdit}
               onLinksChanged={handleLinksChanged}
               onRolesChanged={load}
+              onLeaveDemo={demoLeave}
             />
           </div>
         )}

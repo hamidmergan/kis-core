@@ -154,6 +154,9 @@ async def list_workspaces(current_user: dict = Depends(get_current_user)):
             "enrollment_id": m.get("enrollment_id"),
             "enrolled_until": m["enrolled_until"].isoformat() + "Z" if m.get("enrolled_until") else None,
             "created_at": m["created_at"].isoformat() + "Z" if m["created_at"] else None,
+            # Ueber die Demo beigetreten oder ueber einen richtigen Link, das
+            # entscheidet ueber Abzeichen und Verlassen in der Zeile.
+            "via_demo": bool(m.get("via_demo")),
         })
 
     # A student row for a workspace the user also tutors would be a duplicate

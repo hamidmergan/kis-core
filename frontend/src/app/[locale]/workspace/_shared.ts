@@ -32,6 +32,8 @@ export interface KiTutorWorkspace {
   // enrollments with separate chat histories.
   enrollment_id?: number | null;
   enrolled_until?: string | null;
+  /** Ueber die Demo beigetreten, nicht ueber einen richtigen Link. */
+  via_demo?: boolean;
   // Legacy
   enroll_code: string | null;
   enroll_code_expires: string | null;

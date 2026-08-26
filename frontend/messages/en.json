@@ -945,6 +945,17 @@
       "colStatus": "Status",
       "colCreated": "Created",
       "colQuotas": "Quotas",
+      "colDemo": "Demo",
+      "demoHint": "The active courses of this account appear on everyone else's home page",
+      "demoConfirm": {
+        "titleRemove": "Remove the demo tick?",
+        "titleSwitch": "Switch the demo account?",
+        "bodyRemove": "The courses of {name} disappear for everyone who joined through the demo. Their enrolments are deleted.",
+        "bodySwitch": "{old} loses the tick. The courses of {old} disappear for everyone who joined through the demo.",
+        "keeps": "Whatever people worked on inside the course stays and is back as soon as they join again.",
+        "cancel": "Cancel",
+        "confirm": "Yes, go ahead"
+      },
       "active": "Active",
       "inactive": "Inactive",
       "details": "Details",
@@ -2712,6 +2723,16 @@
         "wortschatz": "Vocabulary exercises",
         "quiz": "Quiz"
       }
+    },
+    "demo": {
+      "title": "Try the demo",
+      "subtitle": "Example courses to look around in",
+      "sources": "{n} sources",
+      "button": "Demo",
+      "join": "Join",
+      "leave": "Leave",
+      "alreadyIn": "already exists",
+      "joinAll": "Join all"
     },
     "list": {
       "headerTitle": "Hello, {name}",

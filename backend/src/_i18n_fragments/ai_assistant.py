@@ -26,6 +26,10 @@ MESSAGES: dict[str, dict[str, str]] = {
         "de": "Ungültiger oder abgelaufener Einschreibecode",
         "en": "Invalid or expired enrollment code",
     },
+    "ai.demo.notFound": {
+        "de": "Dieser Kurs gehört nicht zur Demo",
+        "en": "This course is not part of the demo",
+    },
     "ai.workspace.maxAccessLinks": {
         "de": "Maximal {max} Einschreibelinks pro Modul erlaubt. Bitte lösche zuerst einen alten Link.",
         "en": "Maximum {max} enrollment links per workspace allowed. Please delete an old link first.",

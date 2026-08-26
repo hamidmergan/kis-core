@@ -86,7 +86,7 @@ def get_aia_workspaces_for_member(user_id: int) -> list[dict]:
         with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
             cur.execute(
                 """SELECT m.*, e.id AS enrollment_id, e.link_id, e.enrolled_until,
-                          e.role AS member_role,
+                          e.role AS member_role, e.via_demo,
                           al.code AS link_code, al.expires_at AS link_expires_at
                    FROM aia_workspaces m
                    JOIN aia_enrollments e ON e.workspace_id = m.id
@@ -115,6 +115,29 @@ def get_aia_workspaces_for_student(user_id: int) -> list[dict]:
             )
             rows = cur.fetchall()
     return [dict(row) for row in rows]
+
+def get_demo_workspaces(viewer_id: int) -> list[dict]:
+    """Aktive Kurse aller Demo-Konten, mit dem Merker ob der Betrachter schon drin ist."""
+    with get_connection() as conn:
+        with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
+            cur.execute(
+                """SELECT m.id, m.uuid, m.title, m.description,
+                          (SELECT COUNT(*) FROM aia_sources s
+                            WHERE s.workspace_id = m.id) AS source_count,
+                          (e.id IS NOT NULL) AS joined,
+                          COALESCE(e.via_demo, FALSE) AS via_demo,
+                          (m.user_id = %s) AS owned
+                     FROM aia_workspaces m
+                     JOIN users u ON u.id = m.user_id
+                     LEFT JOIN aia_enrollments e
+                            ON e.workspace_id = m.id AND e.user_id = %s
+                    WHERE u.is_demo AND m.is_active
+                    ORDER BY m.title""",
+                (viewer_id, viewer_id),
+            )
+            rows = cur.fetchall()
+    return [dict(row) for row in rows]
+
 
 def update_aia_workspace(
     uuid: str, title: str, description: str | None, is_active: bool

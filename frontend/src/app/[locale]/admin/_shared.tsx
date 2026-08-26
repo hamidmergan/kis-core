@@ -21,6 +21,7 @@ export interface AdminUser {
   created_at: string;
   role?: "admin" | "staff" | "user" | "custom";
   custom_role_id?: number | null;
+  is_demo?: boolean;
 }
 
 export interface AdminJob {

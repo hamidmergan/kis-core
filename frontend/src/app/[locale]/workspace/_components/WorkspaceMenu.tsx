@@ -3,23 +3,30 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useTranslations } from "next-intl";
-import { ChartBar, DotsThreeVertical, LinkSimple, PencilSimple, Trash, Users } from "@phosphor-icons/react";
+import { ChartBar, DotsThreeVertical, LinkSimple, PencilSimple, SignOut, Trash, Users } from "@phosphor-icons/react";
 import IconButton from "@/components/ui/IconButton";
 
 interface WorkspaceMenuProps {
-  onStats: () => void;
-  onParticipants: () => void;
-  onLinks: () => void;
-  onEdit: () => void;
+  /** Jeder Eintrag erscheint nur, wenn es ihn fuer diese Zeile gibt. */
+  onStats?: () => void;
+  onParticipants?: () => void;
+  onLinks?: () => void;
+  onEdit?: () => void;
   /** Left out for tutors: deleting the workspace stays with the owner. */
   onDelete?: () => void;
+  /** Nur bei Demo-Kursen, echte Kurse lassen sich hier nicht verlassen. */
+  onLeave?: () => void;
+  testId?: string;
 }
 
 const MENU_WIDTH = 220;
 const GAP = 6;
 
-export default function WorkspaceMenu({ onStats, onParticipants, onLinks, onEdit, onDelete }: WorkspaceMenuProps) {
+export default function WorkspaceMenu({
+  onStats, onParticipants, onLinks, onEdit, onDelete, onLeave, testId,
+}: WorkspaceMenuProps) {
   const t = useTranslations("workspace.list");
+  const tDemo = useTranslations("workspace.demo");
   const [open, setOpen] = useState(false);
   const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
@@ -66,6 +73,7 @@ export default function WorkspaceMenu({ onStats, onParticipants, onLinks, onEdit
         ref={triggerRef}
         onClick={(e: React.MouseEvent) => { e.stopPropagation(); setOpen(!open); }}
         title={t("more")}
+        data-testid={testId}
       >
         <DotsThreeVertical size={13} weight="bold" />
       </IconButton>
@@ -82,6 +90,7 @@ export default function WorkspaceMenu({ onStats, onParticipants, onLinks, onEdit
             boxShadow: "rgba(0, 0, 0, 0.12) 0px 4px 16px",
           }}
         >
+          {onStats && (
           <button
             type="button"
             onClick={() => handle(onStats)}
@@ -91,6 +100,8 @@ export default function WorkspaceMenu({ onStats, onParticipants, onLinks, onEdit
             <ChartBar size={16} weight="bold" />
             {t("stats")}
           </button>
+          )}
+          {onParticipants && (
           <button
             type="button"
             onClick={() => handle(onParticipants)}
@@ -100,6 +111,8 @@ export default function WorkspaceMenu({ onStats, onParticipants, onLinks, onEdit
             <Users size={16} weight="bold" />
             {t("participants")}
           </button>
+          )}
+          {onLinks && (
           <button
             type="button"
             onClick={() => handle(onLinks)}
@@ -109,6 +122,8 @@ export default function WorkspaceMenu({ onStats, onParticipants, onLinks, onEdit
             <LinkSimple size={16} weight="bold" />
             {t("linksTitle")}
           </button>
+          )}
+          {onEdit && (
           <button
             type="button"
             onClick={() => handle(onEdit)}
@@ -118,6 +133,19 @@ export default function WorkspaceMenu({ onStats, onParticipants, onLinks, onEdit
             <PencilSimple size={16} weight="bold" />
             {t("edit")}
           </button>
+          )}
+          {onLeave && (
+            <button
+              type="button"
+              data-testid="demo-leave-row"
+              onClick={() => handle(onLeave)}
+              className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-left hover:bg-[var(--surface-dim)] transition-colors"
+              style={{ color: "var(--foreground)" }}
+            >
+              <SignOut size={16} weight="bold" />
+              {tDemo("leave")}
+            </button>
+          )}
           {onDelete && (
             <button
               type="button"
