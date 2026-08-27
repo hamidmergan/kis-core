@@ -29,14 +29,14 @@ async def ui_labels():
     return {
         "workspace_singular_de": db.get_setting(
             "workspace_label_singular_de",
-            db.get_setting("workspace_label_singular", "Workspace"),
+            db.get_setting("workspace_label_singular", "Modul"),
         ),
         "workspace_plural_de": db.get_setting(
             "workspace_label_plural_de",
-            db.get_setting("workspace_label_plural", "Workspaces"),
+            db.get_setting("workspace_label_plural", "Module"),
         ),
-        "workspace_singular_en": db.get_setting("workspace_label_singular_en", "Workspace"),
-        "workspace_plural_en": db.get_setting("workspace_label_plural_en", "Workspaces"),
+        "workspace_singular_en": db.get_setting("workspace_label_singular_en", "Module"),
+        "workspace_plural_en": db.get_setting("workspace_label_plural_en", "Modules"),
         # Home-page notice banner: shown to all users on the start page above
         # "Nächste Termine". Read here (public) so the home page renders it
         # without admin rights.

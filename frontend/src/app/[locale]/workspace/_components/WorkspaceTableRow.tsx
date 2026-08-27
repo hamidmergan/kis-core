@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import { useTranslations } from "next-intl";
-import { Users } from "@phosphor-icons/react";
 import WorkspaceMenu from "./WorkspaceMenu";
 import WorkspaceModals from "./WorkspaceModals";
 import { type AccessLink, type KiTutorWorkspace } from "../_shared";
@@ -62,16 +61,6 @@ export default function WorkspaceTableRow({
         >
           <span className="font-medium text-foreground-soft truncate flex items-center gap-1.5" title={workspace.title}>
             <span className="truncate">{workspace.title}</span>
-            {workspace.shared && (
-              <Users
-                size={15}
-                weight="fill"
-                className="flex-shrink-0 text-muted-soft"
-                aria-label={isOwner ? t("sharedByMe") : t("sharedWithMe")}
-              >
-                <title>{isOwner ? t("sharedByMe") : t("sharedWithMe")}</title>
-              </Users>
-            )}
             {/* The row looks the same whether it is owned or tutored, so say which. */}
             {!isOwner && (
               <span

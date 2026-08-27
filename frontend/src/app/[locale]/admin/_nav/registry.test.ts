@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { PERM } from "@/lib/permissions";
-import { SECTIONS, allowedTabs, resolve } from "./registry";
+import { SECTIONS, allowedSections, allowedTabs, resolve } from "./registry";
 
 /** Die Reiter einer Unterseite haengen am Recht dieser Seite, nicht am
  *  Bereich: Bereiche mit Unterseiten tragen selbst gar kein Recht. */
@@ -30,5 +30,33 @@ describe("Jeder Eintrag rendert etwas", () => {
       if (!section.pages && !section.Component && !section.tabs?.length) leer.push(section.slug);
     }
     expect(leer).toEqual([]);
+  });
+});
+
+/** Eine Lehrperson bekommt genau ein Recht und darf davon genau einen Reiter
+ *  sehen. Alles andere in der Statistik zeigt die ganze Plattform. */
+describe("Statistik einer Lehrperson", () => {
+  const dozentin = [PERM.statsOwn];
+
+  it("laesst genau den Bereich Statistik uebrig", () => {
+    expect(allowedSections(dozentin).map((s) => s.slug)).toEqual(["statistik"]);
+  });
+
+  it("zeigt darin nur Meine Module", () => {
+    const statistik = allowedSections(dozentin)[0];
+    expect(statistik.tabs?.map((t) => t.slug)).toEqual(["meine-module"]);
+  });
+
+  it("stellt Meine Module vor die vier globalen Reiter", () => {
+    const alle = SECTIONS.find((s) => s.slug === "statistik");
+    expect(alle?.tabs?.map((t) => t.slug)).toEqual([
+      "meine-module", "nutzer", "werkzeuge", "ki-assistent", "modelle",
+    ]);
+  });
+
+  it("laesst niemanden ohne das Recht hinein", () => {
+    const statistik = SECTIONS.find((s) => s.slug === "statistik")!;
+    const fremde = allowedTabs(statistik.tabs, statistik.perm, [PERM.statsUsers]);
+    expect(fremde.map((t) => t.slug)).toEqual(["nutzer"]);
   });
 });

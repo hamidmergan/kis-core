@@ -13,6 +13,7 @@ from src.permissions_registry import (
     GROUPS,
     PERM_SET_AIA_USAGE,
     PERM_SET_STATS_MODELS,
+    PERM_SET_STATS_OWN,
     PERM_SET_STATS_USERS,
     PERM_SET_TOOLS_STATS,
     PERMISSION_GROUPS,
@@ -47,11 +48,14 @@ def test_groups_stand_in_two_chapters_in_display_order():
     ]
 
 
-def test_the_four_statistics_rights_stand_together():
+def test_the_statistics_rights_stand_together_scoped_one_first():
+    """Die eigenen Module zuerst: der einzige Schluessel der Gruppe, den eine
+    Lehrperson bekommt, und der einzige, der nicht die Plattform aufmacht."""
     assert PERMISSION_GROUPS["set.statistik"] == (
+        PERM_SET_STATS_OWN,
+        PERM_SET_AIA_USAGE,
         PERM_SET_STATS_USERS,
         PERM_SET_TOOLS_STATS,
-        PERM_SET_AIA_USAGE,
         PERM_SET_STATS_MODELS,
     )
 

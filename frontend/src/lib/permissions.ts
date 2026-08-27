@@ -28,11 +28,14 @@ export const PERM = {
   usersRoles: "settings.nutzer.roles",
   system: "settings.system",
   mascot: "settings.mascot",
-  // Der Bereich Statistik hat vier Reiter. Zwei sind umgezogen und behalten
+  // Der Bereich Statistik hat fuenf Reiter. Zwei sind umgezogen und behalten
   // ihren alten Schluessel (toolsStats, aiaUsage), damit bestehende Rollen
-  // nichts verlieren. Nur die zwei neuen brauchen eigene.
+  // nichts verlieren. Die anderen drei haben eigene.
   statsUsers: "settings.statistik.nutzer",
   statsModels: "settings.statistik.modelle",
+  // Der einzige Schluessel der Gruppe, der nicht die ganze Plattform aufmacht:
+  // er zeigt nur Module, die dem Anrufer gehoeren oder die er betreut.
+  statsOwn: "settings.statistik.eigene",
   // Kein Recht, etwas einzustellen, sondern weitermachen zu duerfen, waehrend
   // die Plattform fuer alle anderen zu ist.
   maintenanceAccess: "settings.wartung.zugang",
@@ -58,6 +61,7 @@ export const SETTINGS_PERMS: string[] = [
   PERM.mascot,
   PERM.statsUsers,
   PERM.statsModels,
+  PERM.statsOwn,
   PERM.maintenanceAccess,
 ];
 

@@ -241,3 +241,13 @@ export function ausgeschlosseneFolien(
   const dabei = new Set(dabeiListe);
   return Array.from({ length: anzahl }, (_, i) => i).filter((i) => !dabei.has(i));
 }
+
+/** Sprache der Oberflaeche auf eine angebotene Sprach-Kennung abbilden, sonst null. */
+export function sprachIdFuerLocale(
+  locale: string,
+  languages: { id: string }[],
+): string | null {
+  const praefix = locale.toLowerCase().split("-")[0];
+  const treffer = languages.find((l) => l.id.toLowerCase().split("-")[0] === praefix);
+  return treffer ? treffer.id : null;
+}

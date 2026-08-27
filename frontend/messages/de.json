@@ -192,7 +192,7 @@
       "to": "Bis",
       "time": "Uhrzeit, wenn es eine gibt",
       "note": "Beschreibung (optional)",
-      "hint": "Eigene Termine gehören nur dir. Sie erscheinen im Kalender, in der Liste und im Feld auf der Startseite, aber in keinem Workspace.",
+      "hint": "Eigene Termine gehören nur dir. Sie erscheinen im Kalender, in der Liste und im Feld auf der Startseite, aber in keinem Modul.",
       "cancel": "Abbrechen",
       "save": "Eintragen",
       "saveError": "Der Termin konnte nicht gespeichert werden."
@@ -545,9 +545,11 @@
         "dropBrowse": "durchsuchen",
         "replaceHint": "Klicken oder ziehen Sie eine andere Datei hierher",
         "onlyPptx": "Nur .pptx-Datei",
-        "skipTranslation": "Präsentation bereits übersetzt (Übersetzung überspringen)",
+        "skipTranslation": "Übersetzung überspringen",
         "targetLang": "Zielsprache",
         "autoDetectHint": "Die Quellsprache wird automatisch erkannt.",
+        "scriptLang": "Sprache der Sprechtexte",
+        "scriptLangHint": "In dieser Sprache schreibt die KI die Sprechtexte.",
         "translationProvider": "Übersetzungsanbieter"
       },
       "translating": {
@@ -821,6 +823,7 @@
         "label": "Statistik",
         "sub": "Zahlen zum Lesen. Was hier steht, wird nicht eingestellt.",
         "tabs": {
+          "eigene": "Meine Module",
           "nutzer": "Nutzer",
           "werkzeuge": "Werkzeuge",
           "assistent": "KI-Assistent",
@@ -965,13 +968,13 @@
         "title": "Konto „{name}\" löschen?",
         "loading": "Wird ermittelt, was an diesem Konto hängt...",
         "intro": "Mit dem Konto verschwindet alles, was daran hängt:",
-        "workspaces": "{n, plural, one {# Arbeitsbereich mit allen hochgeladenen Dateien} other {# Arbeitsbereiche mit allen hochgeladenen Dateien}}",
+        "workspaces": "{n, plural, one {# Modul mit allen hochgeladenen Dateien} other {# Module mit allen hochgeladenen Dateien}}",
         "sources": "{n, plural, one {# Quelle samt Transkript und Untertiteln} other {# Quellen samt Transkripten und Untertiteln}}",
         "messages": "{n, plural, one {# Chat-Nachricht} other {# Chat-Nachrichten}}",
         "jobs": "{n, plural, one {# Ergebnis aus den Werkzeugen} other {# Ergebnisse aus den Werkzeugen}}",
-        "enrollments": "{n, plural, one {# Teilnahme in einem fremden Arbeitsbereich} other {# Teilnahmen in fremden Arbeitsbereichen}}",
+        "enrollments": "{n, plural, one {# Teilnahme in einem fremden Modul} other {# Teilnahmen in fremden Modulen}}",
         "nothing": "An diesem Konto hängen keine Daten.",
-        "participantsWarning": "Wer in diesen Arbeitsbereichen mitarbeitet, verliert den Zugang.",
+        "participantsWarning": "Wer in diesen Modulen mitarbeitet, verliert den Zugang.",
         "warningIrreversible": "Diese Aktion kann NICHT rückgängig gemacht werden.",
         "confirm": "Löschen",
         "cancel": "Abbrechen",
@@ -1231,7 +1234,7 @@
         "image_gen": "Text-zu-Bild",
         "image_edit": "Bilder bearbeiten via Prompt",
         "doc_translate": "Nutzer wählt im Tool, welcher Anbieter verwendet wird.",
-        "transcript_translate": "AIA-Arbeitsbereich: Transkript in die vom Owner gewählte Zielsprache übersetzen. Quellsprache wird automatisch erkannt. Anbieter und Modell werden vom Admin konfiguriert. Instruct-Modell empfohlen, keine Reasoning-Modelle."
+        "transcript_translate": "AIA-Modul: Transkript in die vom Owner gewählte Zielsprache übersetzen. Quellsprache wird automatisch erkannt. Anbieter und Modell werden vom Admin konfiguriert. Instruct-Modell empfohlen, keine Reasoning-Modelle."
       },
       "exportImport": {
         "modal": {
@@ -1374,7 +1377,7 @@
     },
     "poolClearCard": {
       "title": "Vorräte leeren",
-      "description": "Aufgaben und Zeitplan-Auswertungen entstehen beim Benutzen und liegen an der Quelle, nicht am Workspace. Hier lassen sie sich plattformweit wegwerfen. Fertige Aufgabensätze, Fortschritt und eingetragene Termine bleiben stehen.",
+      "description": "Aufgaben und Zeitplan-Auswertungen entstehen beim Benutzen und liegen an der Quelle, nicht am Modul. Hier lassen sie sich plattformweit wegwerfen. Fertige Aufgabensätze, Fortschritt und eingetragene Termine bleiben stehen.",
       "schedule": "Zeitplan-Auswertungen",
       "items": "{n, plural, =0 {leer} =1 {1 Aufgabe} other {# Aufgaben}}",
       "sources": "{n, plural, =0 {leer} =1 {1 Quelle} other {# Quellen}}",
@@ -1389,7 +1392,7 @@
     },
     "languageTrainerCard": {
       "title": "Sprachtrainer",
-      "description": "Der Sprachtrainer ist ein Übungsbereich im Studio für alle, die dem Kurs in einer Fremdsprache folgen. Er enthält Lernkarten für Fachbegriffe und eine Grammatik-Übung, jeweils aus den Materialien des Workspace gebaut. Ist er eingeschaltet, wird der Sprachstand einmalig eingestuft, und Chat-Antworten sowie Aufgaben werden auf dieses Niveau angepasst. Der Sprachtrainer arbeitet ausschließlich auf Deutsch.",
+      "description": "Der Sprachtrainer ist ein Übungsbereich im Studio für alle, die dem Kurs in einer Fremdsprache folgen. Er enthält Lernkarten für Fachbegriffe und eine Grammatik-Übung, jeweils aus den Materialien des Moduls gebaut. Ist er eingeschaltet, wird der Sprachstand einmalig eingestuft, und Chat-Antworten sowie Aufgaben werden auf dieses Niveau angepasst. Der Sprachtrainer arbeitet ausschließlich auf Deutsch.",
       "disabled": "Aus. Der Sprachtrainer taucht nirgendwo auf. Bereits getroffene Entscheidungen bleiben gespeichert und gelten wieder, sobald du hier einschaltest.",
       "toggleAria": "Sprachtrainer umschalten"
     },
@@ -1397,7 +1400,7 @@
       "title": "OCR für Scans & Bild-Seiten",
       "active": "Aktiv - bild-/scanlastige Seiten werden beim Indexieren per OCR erfasst (langsamer, kostet pro Seite einen Vision-Aufruf).",
       "disabled": "Deaktiviert - OCR wird systemweit übersprungen. Indexierung ist schneller und günstiger, aber reine Scan-/Bild-Seiten bleiben durchsuchbar leer.",
-      "hint": "Gilt für alle Workspaces und neue Indexierungen. Bestehende Dokumente erst nach erneutem Indexieren betroffen.",
+      "hint": "Gilt für alle Module und neue Indexierungen. Bestehende Dokumente erst nach erneutem Indexieren betroffen.",
       "toggleAria": "OCR umschalten"
     },
     "homeNoticeCard": {
@@ -1411,7 +1414,7 @@
     },
     "languageDiagnosisCard": {
       "title": "Sprachdiagnose-Prompt",
-      "description": "Steuert, wie die KI im Diagnose-Chat fragt, bewertet und einstuft. Gilt für alle Workspaces. Aktuell nur Deutsch.",
+      "description": "Steuert, wie die KI im Diagnose-Chat fragt, bewertet und einstuft. Gilt für alle Module. Aktuell nur Deutsch.",
       "hint": "Steuert Ablauf, Fragestil und Ausgabeformat des Tests. Vier Platzhalter im Text werden ersetzt: '{language}' durch die Sprache des Tests, '{grading}' durch die Einstufungs-Regeln von unten, '{levels}' durch die Beschreibungen aus der Karte Stufen A1 bis C2 und '{examples}' durch die Beispielsätze von dort. Ein Platzhalter, den du löschst, wird hinten angehängt, damit die KI ihn nie verliert.",
       "reset": "Auf Standard zurücksetzen",
       "saveFailed": "Speichern fehlgeschlagen"
@@ -1541,8 +1544,8 @@
       "saveFailed": "Speichern fehlgeschlagen."
     },
     "workspaceLabel": {
-      "title": "Bezeichnung \"Workspace\"",
-      "description": "Wie der Begriff im Frontend angezeigt wird (z. B. \"Modul\" / \"Module\" oder \"Kurs\" / \"Kurse\"). Default: Workspace / Workspaces. Pro Sprache separat einstellbar.",
+      "title": "Bezeichnung \"Modul\"",
+      "description": "Wie der Begriff im Frontend angezeigt wird (z. B. \"Kurs\" / \"Kurse\" oder \"Workspace\" / \"Workspaces\"). Default: Modul / Module. Pro Sprache separat einstellbar.",
       "singular": "Singular",
       "plural": "Plural",
       "deSection": "Deutsch",
@@ -1630,8 +1633,8 @@
       },
       "systemRoleHint": {
         "admin": "Der Administrator darf alles. Nicht änderbar.",
-        "staff": "Staff nutzt den KI-Assistenten mit eigenen Workspaces und alle Werkzeuge, aber keine Einstellungen. Nicht änderbar.",
-        "user": "User öffnet nur geteilte Workspaces. Nicht änderbar."
+        "staff": "Staff nutzt den KI-Assistenten mit eigenen Modulen und alle Werkzeuge, aber keine Einstellungen. Nicht änderbar.",
+        "user": "User öffnet nur geteilte Module. Nicht änderbar."
       },
       "more": "Mehr"
     },
@@ -1679,7 +1682,7 @@
         "assistent": {
           "sources": "Materialien und Kontext-Budgets",
           "level": "Sprachniveau, KI-Verhalten und Prompts",
-          "usage": "KI-Assistent"
+          "usage": "KI-Assistent (alle Module)"
         },
         "anbieter": "Modelle eintragen und Funktionen zuordnen",
         "nutzer": {
@@ -1692,7 +1695,8 @@
         "mascot": "Hilde und Francis",
         "statistik": {
           "nutzer": "Nutzer und Anwesenheit",
-          "modelle": "Modelle und Tokens"
+          "modelle": "Modelle und Tokens",
+          "eigene": "KI-Assistent (nur eigene und betreute Module)"
         },
         "wartung": {
           "zugang": "Zugriff während der Wartung"
@@ -1866,7 +1870,17 @@
         "members": "Teilnehmer",
         "colFile": "Datei",
         "colState": "Stand",
-        "colName": "Name"
+        "colName": "Name",
+        "roleTutor": "Tutor"
+      },
+      "eigene": {
+        "workspaces": "Eigene Module",
+        "ownAndTutored": "{own} eigene, {tutored} betreut",
+        "modules": "Meine Module",
+        "modulesHint": "Auf eine Zeile klicken, um alles zu diesem Modul zu sehen. Es stehen nur Module hier, die dir gehören oder die du als Tutor betreust.",
+        "none": "Du hast noch kein eigenes Modul und betreust keins.",
+        "groupOwned": "Mir gehören",
+        "groupTutored": "Ich betreue als Tutor"
       }
     },
     "invites": {
@@ -1918,7 +1932,7 @@
     "locked": {
       "aia": "Dieser Bereich ist für deinen Account gesperrt.",
       "tool": "Dieses Tool ist für deinen Account gesperrt.",
-      "workspaceCreate": "Du kannst keine neuen Workspaces erstellen. Du hast nur Zugriff auf zugewiesene Workspaces."
+      "workspaceCreate": "Du kannst keine neuen Module erstellen. Du hast nur Zugriff auf zugewiesene Module."
     }
   },
   "privacy": {
@@ -1946,12 +1960,12 @@
     },
     "jobs": {
       "heading": "4. Verarbeitung von Nutzer-Uploads und Job-Daten",
-      "intro": "Bei der Nutzung der Plattform werden hochgeladene Dateien (z. B. Videos, PDFs, Präsentationen, Audio-Dateien) sowie die daraus erzeugten Ergebnisse (z. B. Transkripte, Zusammenfassungen) in Ihrem Workspace gespeichert. Pro Verarbeitungsauftrag (Job) wird zusätzlich gespeichert:",
+      "intro": "Bei der Nutzung der Plattform werden hochgeladene Dateien (z. B. Videos, PDFs, Präsentationen, Audio-Dateien) sowie die daraus erzeugten Ergebnisse (z. B. Transkripte, Zusammenfassungen) in Ihrem Modul gespeichert. Pro Verarbeitungsauftrag (Job) wird zusätzlich gespeichert:",
       "item1": "Genutztes Tool (z. B. Transkription, Zusammenfassung)",
       "item2": "Ursprünglicher Dateiname",
       "item3": "Zeitpunkt der Erstellung und Fertigstellung",
       "item4": "Verarbeitungsstatus",
-      "retention": "Hochgeladene Dateien und die daraus erzeugten Ergebnisse bleiben in Ihrem Workspace gespeichert, bis Sie oder ein Workspace-Administrator sie löschen. Job-Metadaten zu einzelnen Verarbeitungsaufträgen werden nur <strong>in begrenztem Umfang</strong> vorgehalten. Gespeichert bleiben jeweils die neuesten Aufträge, ältere werden automatisch entfernt."
+      "retention": "Hochgeladene Dateien und die daraus erzeugten Ergebnisse bleiben in Ihrem Modul gespeichert, bis Sie oder ein Modul-Administrator sie löschen. Job-Metadaten zu einzelnen Verarbeitungsaufträgen werden nur <strong>in begrenztem Umfang</strong> vorgehalten. Gespeichert bleiben jeweils die neuesten Aufträge, ältere werden automatisch entfernt."
     },
     "thirdParty": {
       "heading": "5. Drittanbieter und externe KI-Dienste",
@@ -2057,8 +2071,8 @@
   "workspace": {
     "detail": {
       "closed": {
-        "title": "Dieser Workspace ist geschlossen",
-        "text": "Die Lehrperson hat ihn gerade auf inaktiv gestellt. Deine Einschreibung bleibt bestehen, du kommst wieder hinein, sobald er geöffnet ist.",
+        "title": "Dieses Modul ist geschlossen",
+        "text": "Die Lehrperson hat es gerade auf inaktiv gestellt. Deine Einschreibung bleibt bestehen, du kommst wieder hinein, sobald es geöffnet ist.",
         "back": "Zur Übersicht"
       },
       "languageTraining": {
@@ -2344,9 +2358,9 @@
         "title": "Einstellungen",
         "feedbackQuestion": "Feedback oder Probleme?",
         "sectionPersonalTitle": "Persönlich",
-        "sectionPersonalDescription": "Gilt nur für dich. Andere im Workspace sehen davon nichts.",
-        "sectionWorkspaceTitle": "Workspace",
-        "sectionWorkspaceDescription": "Gilt für alle im Workspace. Nur die Verwaltung kann das ändern.",
+        "sectionPersonalDescription": "Gilt nur für dich. Andere im Modul sehen davon nichts.",
+        "sectionWorkspaceTitle": "Modul",
+        "sectionWorkspaceDescription": "Gilt für alle im Modul. Nur die Verwaltung kann das ändern.",
         "mascotTitle": "Maskottchen",
         "mascotDescription": "Wähle deinen Begleiter im Chat.",
         "mascotHilde": "Hilde",
@@ -2354,9 +2368,9 @@
         "studioTitle": "Studio",
         "studioDescription": "Studio-Panel mit Mindmaps, Notizen und Tools einblenden.",
         "languageTrainingPersonalTitle": "Sprachtrainer",
-        "languageTrainingPersonalDescription": "Blendet den Sprachtrainer für dich ein, mit Lernkarten und Grammatik-Übung. Beim Einschalten wirst du einmalig eingestuft, wenn du noch kein Sprachniveau hast. Gilt nur für dich und nur in diesem Workspace.",
+        "languageTrainingPersonalDescription": "Blendet den Sprachtrainer für dich ein, mit Lernkarten und Grammatik-Übung. Beim Einschalten wirst du einmalig eingestuft, wenn du noch kein Sprachniveau hast. Gilt nur für dich und nur in diesem Modul.",
         "languageTrainingTitle": "Sprachtrainer",
-        "languageTrainingDescription": "Gibt den Sprachtrainer im Workspace frei, mit Lernkarten und Grammatik-Übung. Danach entscheidet jede Person in ihren eigenen Einstellungen, ob sie ihn nutzt. Alle Übungen werden aus den Materialien dieses Workspace gebaut. Dafür müssen passende Materialien zur Grammatik der Kurssprache hochgeladen sein, sonst sind die Übungen unbrauchbar. Gib das nur frei, wenn du weißt, welche Materialien hier liegen.",
+        "languageTrainingDescription": "Gibt den Sprachtrainer im Modul frei, mit Lernkarten und Grammatik-Übung. Danach entscheidet jede Person in ihren eigenen Einstellungen, ob sie ihn nutzt. Alle Übungen werden aus den Materialien dieses Moduls gebaut. Dafür müssen passende Materialien zur Grammatik der Kurssprache hochgeladen sein, sonst sind die Übungen unbrauchbar. Gib das nur frei, wenn du weißt, welche Materialien hier liegen.",
         "translationModeTitle": "Übersetzung der Transkripte",
         "translationModeDescription": "Übersetzt Untertitel von Audio-/Video-Materialien in die unten gewählte Zielsprache. Die Quellsprache wird automatisch erkannt. Studierende können im Transkript-Panel zwischen Original und Übersetzung umschalten. Die Übersetzung läuft als Hintergrund-Job und kann ein paar Minuten dauern.",
         "translationModeOff": "Aus",
@@ -2756,13 +2770,18 @@
       "emptyText": "Mit dem Button oben anlegen.",
       "welcomeTitle": "Willkommen bei KIS",
       "enroll": "Einschreiben",
+      "enrollEyebrow": "Einladung",
+      "enrollOwnerRole": "Lehrperson",
+      "enrollAccessUntil": "Zugang bis {date}",
+      "enrollAs": "Du wirst eingeschrieben als {name}",
+      "enrolling": "Wird eingeschrieben …",
       "enrollInvalidCode": "Ungültiger Code",
       "unknownError": "Unbekannter Fehler",
       "noEnrollments": "Noch keine Einschreibung vorhanden.",
       "closedBadge": "Nicht freigegeben",
-      "closedHint": "Die Lehrperson hat diesen Workspace gerade geschlossen. Deine Einschreibung bleibt bestehen.",
-      "closedJoinHint": "Dieser Workspace ist gerade nicht freigegeben. Du kannst dich einschreiben und kommst hinein, sobald die Lehrperson ihn öffnet.",
-      "closedJoinedNotice": "Du bist eingeschrieben. Der Workspace ist gerade nicht freigegeben, du siehst ihn in deiner Liste und kommst hinein, sobald die Lehrperson ihn öffnet.",
+      "closedHint": "Die Lehrperson hat dieses Modul gerade geschlossen. Deine Einschreibung bleibt bestehen.",
+      "closedJoinHint": "Dieses Modul ist gerade nicht freigegeben. Du kannst dich einschreiben und kommst hinein, sobald die Lehrperson es öffnet.",
+      "closedJoinedNotice": "Du bist eingeschrieben. Das Modul ist gerade nicht freigegeben, du siehst es in deiner Liste und kommst hinein, sobald die Lehrperson es öffnet.",
       "untilDate": "bis {date}",
       "open": "Öffnen",
       "upcomingTitle": "Nächste Termine",
@@ -2781,7 +2800,7 @@
       "colLinks": "Links",
       "colStatus": "Status",
       "statusHelp": "Aktiv: Studierende können sich über Zugangslinks einschreiben und die Inhalte nutzen. Inaktiv: für Studierende gesperrt. Bestehende Einschreibungen bleiben erhalten.",
-      "paginationInfo": "Zeige {from} bis {to} von {total} {label}",
+      "paginationInfo": "Zeige {label} {from} bis {to} von {total}",
       "prev": "Zurück",
       "next": "Weiter",
       "more": "Mehr",

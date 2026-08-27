@@ -99,14 +99,14 @@ async def get_settings(_admin=Depends(require_any_settings)):
         # UI labels (per locale; legacy unsuffixed keys fall back as DE defaults)
         "workspace_label_singular_de": db.get_setting(
             "workspace_label_singular_de",
-            db.get_setting("workspace_label_singular", "Workspace"),
+            db.get_setting("workspace_label_singular", "Modul"),
         ),
         "workspace_label_plural_de": db.get_setting(
             "workspace_label_plural_de",
-            db.get_setting("workspace_label_plural", "Workspaces"),
+            db.get_setting("workspace_label_plural", "Module"),
         ),
-        "workspace_label_singular_en": db.get_setting("workspace_label_singular_en", "Workspace"),
-        "workspace_label_plural_en": db.get_setting("workspace_label_plural_en", "Workspaces"),
+        "workspace_label_singular_en": db.get_setting("workspace_label_singular_en", "Module"),
+        "workspace_label_plural_en": db.get_setting("workspace_label_plural_en", "Modules"),
         # Sprachtrainer (system-wide, off by default). Owners can only switch the
         # trainer on in their workspace while this is on.
         "language_training_enabled": _enabled("language_training_enabled", "false"),

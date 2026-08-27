@@ -135,7 +135,11 @@ def _workspaces(cur) -> list[dict]:
         """SELECT m.uuid, m.title, m.is_active, m.created_at,
                   COALESCE(u.display_name, u.ldap_username, 'Unbekannt') AS owner,
                   (SELECT COUNT(*) FROM aia_sources s WHERE s.workspace_id = m.id) AS quellen,
-                  (SELECT COUNT(*) FROM aia_enrollments e WHERE e.workspace_id = m.id) AS teilnehmer,
+                  -- Der Eigentuemer steht in keiner Einschreibung. Ohne das
+                  -- "+ 1" stuende in der Zeile eine andere Zahl als im Fenster,
+                  -- das dieselbe Zeile oeffnet.
+                  (SELECT COUNT(DISTINCT e.user_id) FROM aia_enrollments e
+                    WHERE e.workspace_id = m.id AND e.user_id <> m.user_id) + 1 AS teilnehmer,
                   (SELECT COUNT(*) FROM aia_exercise_items i
                      JOIN aia_exercise_sets es ON es.id = i.set_id
                     WHERE es.workspace_id = m.id) AS erzeugt,

@@ -15,8 +15,8 @@ interface AllLabels {
 }
 
 const DEFAULTS: AllLabels = {
-  de: { singular: "Workspace", plural: "Workspaces" },
-  en: { singular: "Workspace", plural: "Workspaces" },
+  de: { singular: "Modul", plural: "Module" },
+  en: { singular: "Module", plural: "Modules" },
 };
 const LABELS_CHANGED_EVENT = "workspace-labels-changed";
 

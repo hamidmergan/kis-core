@@ -2,7 +2,7 @@
 
 import { Suspense, useCallback, useEffect, useReducer, useRef, useState } from "react";
 import { Trash } from "@phosphor-icons/react";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import ProtectedRoute from "@/components/auth/ProtectedRoute";
 import { useGlossaries } from "@/hooks/useGlossaries";
 
@@ -26,7 +26,7 @@ import Lightbox from "./_components/Lightbox";
 import RenderVorschau from "./_components/RenderVorschau";
 import RegenChatModal, { type RegenApplyMode } from "./_components/RegenChatModal";
 import ExitConfirmModal from "./_components/ExitConfirmModal";
-import { parseScriptJsonFile, checkHasActiveJob, checkJobValidity, checkJobFolderExists, computeVoiceLabel, laufWaereUmsonst, stimmwechselOhneWirkung, ausgeschlosseneFolien, type LaufStand } from "./_utils";
+import { parseScriptJsonFile, checkHasActiveJob, checkJobValidity, checkJobFolderExists, computeVoiceLabel, laufWaereUmsonst, stimmwechselOhneWirkung, ausgeschlosseneFolien, sprachIdFuerLocale, type LaufStand } from "./_utils";
 import { flowReducer, INITIAL_FLOW_STATE } from "./_reducer";
 import { useScreencastRenderFlow } from "./_hooks/useScreencastRenderFlow";
 import { useScreencastTranslateFlow } from "./_hooks/useScreencastTranslateFlow";
@@ -211,6 +211,17 @@ function ScreencastPageInner() {
     speed, slidePause, dpi, subtitles, auswahl.imScreencast, auswahl.neuVertonen,
   ]);
   const [skipTranslation, setSkipTranslation] = useState(false);
+  const locale = useLocale();
+
+  // Ohne Uebersetzung ist das Sprachfeld die Sprache der Sprechtexte. Sein Standard
+  // stammt aus dem Uebersetzungswerkzeug und ist hier meist falsch, deshalb die
+  // Sprache der Oberflaeche vorschlagen.
+  const skipTranslationSetzen = useCallback((an: boolean) => {
+    setSkipTranslation(an);
+    if (!an) return;
+    const id = sprachIdFuerLocale(locale, languages);
+    if (id) setTargetLang(id);
+  }, [languages, locale, setTargetLang]);
   const [hasActiveJob, setHasActiveJob] = useActiveJobCheck("screencast");
 
   useEffect(() => {
@@ -608,7 +619,7 @@ function ScreencastPageInner() {
             onDragLeave={handleDragLeave}
             onDrop={handleDrop}
             onFileSelect={handleFileSelect}
-            onSkipTranslationChange={setSkipTranslation}
+            onSkipTranslationChange={skipTranslationSetzen}
             onTargetLangChange={setTargetLang}
             onGlossaryIdsChange={setGlossaryIds}
             translationProviders={translationProviders}
