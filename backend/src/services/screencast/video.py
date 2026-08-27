@@ -5,6 +5,7 @@ from pathlib import Path
 
 from loguru import logger
 
+from src.services.screencast.outro import KI_HINWEIS
 from src.services.screencast.process import run_proc
 
 # Zuschlag auf die Bildlänge, damit die Tonspur und nicht das Bild das Ende bestimmt.
@@ -192,6 +193,8 @@ def apply_faststart(input_path: Path, output_path: Path, subtitle_path: Path | N
         cmd += ["-map", "1:0", "-c:s", "mov_text"]
         if subtitle_lang:
             cmd += ["-metadata:s:s:0", f"language={subtitle_lang}"]
+    # Kennzeichnung an der Datei, damit sie auch ohne Ansehen des Videos auslesbar ist.
+    cmd += ["-metadata", f"comment={KI_HINWEIS}"]
     cmd += ["-c:v", "copy", "-c:a", "copy", "-movflags", "+faststart", str(output_path)]
     result = subprocess.run(cmd, capture_output=True, text=True, timeout=120)
     if result.returncode != 0:

@@ -254,6 +254,25 @@ def _run_render_pipeline(
                         raise _JobCancelled()
                     _assert_not_cancelled(job_uuid)
 
+        # ── KI-Hinweis (gleiche Folie am Anfang und am Ende, 3s stumm) ────
+        _assert_not_cancelled(job_uuid)
+        if _cancelled_by_watcher.is_set():
+            raise _JobCancelled()
+        from src.services.screencast.outro import rahme_clips
+        hat_sprache = [audio_paths[i] is not None for i in clip_folien]
+        hinweis_clip = None
+        try:
+            hinweis_w, hinweis_h = _get_image_dimensions(slide_images[clip_folien[0]])
+            hinweis_img = tmp / "ki_hinweis.png"
+            hinweis_clip = tmp / "clip_ki_hinweis.mp4"
+            _create_outro_image(hinweis_w, hinweis_h, hinweis_img)
+            _create_slide_video(hinweis_img, None, hinweis_clip, pause=0.0, crf=23, job_uuid=job_uuid, silent_duration=3.0)
+        except Exception as e:
+            hinweis_clip = None
+            logger.warning("KI-Hinweis konnte nicht erzeugt werden, das Video laeuft ohne: {}", e)
+        # Der Hinweis muss vor der Untertitel-Spur stehen, sonst liegen alle Zeitmarken daneben.
+        clip_paths, hat_sprache = rahme_clips(clip_paths, hat_sprache, hinweis_clip)
+
         # ── Untertitel (eigene Spur, nicht eingebrannt) ───────────────────
         spur_pfad = None
         spur_sprache = ""
@@ -261,27 +280,12 @@ def _run_render_pipeline(
             db.update_job_status(job_uuid, "running", progress={"step": "subtitles"})
             from src.services.screencast.subtitles import create_subtitle_track, vtt_sprachkennung
             with messe(user_id, job_uuid, "untertitel") as spur_zahlen:
-                hat_sprache = [audio_paths[i] is not None for i in clip_folien]
                 spur_zahlen["folien_mit_ton"] = sum(1 for hat in hat_sprache if hat)
                 spur_pfad = create_subtitle_track(clip_paths, tmp, hat_sprache)
                 spur_sprache = vtt_sprachkennung(target_lang)
                 spur_zahlen["sprache"] = spur_sprache
                 if spur_pfad is not None:
                     save_job_file(user_id, job_uuid, "untertitel.vtt", spur_pfad.read_bytes())
-
-        # ── Outro (KI-Hinweis, 3s silent) ─────────────────────────────────
-        _assert_not_cancelled(job_uuid)
-        if _cancelled_by_watcher.is_set():
-            raise _JobCancelled()
-        try:
-            outro_w, outro_h = _get_image_dimensions(slide_images[clip_folien[0]])
-            outro_img = tmp / "outro.png"
-            outro_clip = tmp / "clip_outro.mp4"
-            _create_outro_image(outro_w, outro_h, outro_img)
-            _create_slide_video(outro_img, None, outro_clip, pause=0.0, crf=23, job_uuid=job_uuid, silent_duration=3.0)
-            clip_paths.append(outro_clip)
-        except Exception as e:
-            logger.warning("Outro generation failed, continuing without outro: {}", e)
 
         # ── Concatenate ───────────────────────────────────────────────────
         _assert_not_cancelled(job_uuid)

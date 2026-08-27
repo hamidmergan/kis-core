@@ -1,4 +1,4 @@
-"""Outro-Slide für Screencasts: KI-Hinweis am Videoende (Transparenzpflicht).
+"""KI-Hinweis für Screencasts: gleiche Folie am Anfang und am Ende (Transparenzpflicht).
 
 Lädt ein statisches Bild aus ``assets/screencast-outro.png`` und passt es
 passend zur Slide-Auflösung (weisses Padding) an, damit ffmpeg-Concat per
@@ -38,3 +38,15 @@ def get_image_dimensions(image_path: Path) -> tuple[int, int]:
     """Return (width, height) of the given image."""
     with Image.open(image_path) as img:
         return img.size
+
+
+KI_HINWEIS = "Dieses Video wurde mithilfe von KI erstellt. This video was created with AI assistance."
+
+
+def rahme_clips(
+    clips: list[Path], hat_sprache: list[bool], hinweis: Path | None
+) -> tuple[list[Path], list[bool]]:
+    """Setzt den Hinweis-Clip vor und hinter die Folien, er gilt dabei als stumm."""
+    if hinweis is None:
+        return list(clips), list(hat_sprache)
+    return [hinweis, *clips, hinweis], [False, *hat_sprache, False]
