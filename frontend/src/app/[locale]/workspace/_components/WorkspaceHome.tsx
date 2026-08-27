@@ -212,11 +212,6 @@ export default function WorkspaceHome({ canCreate, firstName }: Props) {
               >
                 {enrolling ? t("enrolling") : t("enroll")}
               </button>
-              {firstName && (
-                <span className="text-xs" style={{ color: "var(--muted)" }}>
-                  {t("enrollAs", { name: firstName })}
-                </span>
-              )}
             </div>
 
             {enrollError && (

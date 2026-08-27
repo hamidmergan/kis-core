@@ -204,7 +204,6 @@ export function SettingsMenu({
               <p className="text-sm font-medium" style={{ color: "var(--foreground)" }}>
                 {tDiag("resetSetting")} <span className="ml-1 px-1.5 py-0.5 rounded text-xs" style={{ backgroundColor: "var(--kb)", color: "var(--on-accent)" }}>{languageLevel}</span>
               </p>
-              <p className="text-xs mt-0.5" style={{ color: "var(--muted)" }}>{tDiag("resetConfirmBody")}</p>
             </div>
             <button
               type="button"
