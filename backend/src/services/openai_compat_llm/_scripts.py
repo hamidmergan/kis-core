@@ -254,6 +254,7 @@ class _ScriptsMixin:
             if (is_first_batch and add_greeting) else
             "- Do not use any greeting or welcome phrase.\n"
         )
+        # Ohne festen Anhang heisst add_closing nur noch: ein Schlusswort ist erlaubt.
         closing_rule = (
             "" if (is_last_batch and add_closing) else
             "- Do not add any closing statement or thank-you.\n"
@@ -450,14 +451,5 @@ class _ScriptsMixin:
         ordered: list[str] = []
         for idx in range(batch_count):
             ordered.extend(results[idx])
-
-        # Ensure closing is appended to the last non-empty script
-        if add_closing:
-            _CLOSING_PHRASES = ("thank you", "thanks for", "thanks everyone", "that's all")
-            for i in range(len(ordered) - 1, -1, -1):
-                if ordered[i].strip():
-                    if not any(p in ordered[i].lower() for p in _CLOSING_PHRASES):
-                        ordered[i] = ordered[i].rstrip().rstrip(".") + ". Thank you for your attention."
-                    break
 
         return ordered

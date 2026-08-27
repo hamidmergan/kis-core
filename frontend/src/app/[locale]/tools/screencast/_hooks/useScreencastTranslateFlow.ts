@@ -281,7 +281,8 @@ export function useScreencastTranslateFlow(opts: UseScreencastTranslateFlowOptio
           glossary_json: mergeToApiJson(glossaryIds),
           translate_job_uuid: translateJobUuid || null,
           add_greeting: true,
-          add_closing: true,
+          // Kein Schlusswort, sonst endet das Video auf einer Floskel.
+          add_closing: false,
           min_chars: 1500,
           max_chars: 2000,
           source_lang: "",
