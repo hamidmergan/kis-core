@@ -137,11 +137,13 @@ export function StaffNoteBox({ text, links, isOwner, workspaceUuid, onEdit }: St
 
 function LinkChip({ url, label }: { url: string; label: string }) {
   const domain = extractDomain(url);
+  const istMail = url.toLowerCase().startsWith("mailto:");
   return (
     <a
       href={url}
-      target="_blank"
-      rel="noopener noreferrer"
+      /* Ein mailto: im neuen Tab laesst einen leeren Fehler-Tab zurueck. */
+      target={istMail ? undefined : "_blank"}
+      rel={istMail ? undefined : "noopener noreferrer"}
       className="group flex items-center gap-2 rounded-md px-2.5 py-1.5 transition-colors"
       style={{
         backgroundColor: "rgba(var(--kb-rgb), 0.08)",
