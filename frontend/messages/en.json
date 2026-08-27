@@ -545,9 +545,11 @@
         "dropBrowse": "browse",
         "replaceHint": "Click or drag another file here",
         "onlyPptx": "Only .pptx file",
-        "skipTranslation": "Presentation already translated (skip translation)",
+        "skipTranslation": "Skip translation",
         "targetLang": "Target language",
         "autoDetectHint": "The source language is detected automatically.",
+        "scriptLang": "Narration language",
+        "scriptLangHint": "The AI writes the narration scripts in this language.",
         "translationProvider": "Translation provider"
       },
       "translating": {

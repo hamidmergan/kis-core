@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { renderProgress, geaenderteFolien, markeFuerFolie, laufWaereUmsonst, nichtsWirdGesprochen, stimmwechselOhneWirkung, ausgeschlosseneFolien, mitLaufStempel, laufStempelAusMeta, type VertonterStand, type LaufStand } from "./_utils";
+import { renderProgress, geaenderteFolien, markeFuerFolie, laufWaereUmsonst, nichtsWirdGesprochen, stimmwechselOhneWirkung, ausgeschlosseneFolien, mitLaufStempel, laufStempelAusMeta, sprachIdFuerLocale, type VertonterStand, type LaufStand } from "./_utils";
 import type { JobStatus } from "@/lib/api";
 import type { SlideData } from "@/types";
 
@@ -345,5 +345,27 @@ describe("laufStempelAusMeta", () => {
 
   it("ohne beides kommt eine leere Zeichenkette", () => {
     expect(laufStempelAusMeta({})).toBe("");
+  });
+});
+
+describe("sprachIdFuerLocale", () => {
+  const angeboten = [{ id: "DE" }, { id: "EN-US" }];
+
+  it("findet die Sprache der Oberflaeche", () => {
+    expect(sprachIdFuerLocale("de", angeboten)).toBe("DE");
+  });
+
+  it("trifft auch bei abweichendem Laendercode", () => {
+    expect(sprachIdFuerLocale("en", angeboten)).toBe("EN-US");
+    expect(sprachIdFuerLocale("en-GB", angeboten)).toBe("EN-US");
+    expect(sprachIdFuerLocale("de-AT", angeboten)).toBe("DE");
+  });
+
+  it("liefert null, wenn die Sprache nicht angeboten wird", () => {
+    expect(sprachIdFuerLocale("fr", angeboten)).toBeNull();
+  });
+
+  it("liefert null bei leerer Auswahl", () => {
+    expect(sprachIdFuerLocale("de", [])).toBeNull();
   });
 });

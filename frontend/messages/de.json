@@ -545,9 +545,11 @@
         "dropBrowse": "durchsuchen",
         "replaceHint": "Klicken oder ziehen Sie eine andere Datei hierher",
         "onlyPptx": "Nur .pptx-Datei",
-        "skipTranslation": "Präsentation bereits übersetzt (Übersetzung überspringen)",
+        "skipTranslation": "Übersetzung überspringen",
         "targetLang": "Zielsprache",
         "autoDetectHint": "Die Quellsprache wird automatisch erkannt.",
+        "scriptLang": "Sprache der Sprechtexte",
+        "scriptLangHint": "In dieser Sprache schreibt die KI die Sprechtexte.",
         "translationProvider": "Übersetzungsanbieter"
       },
       "translating": {

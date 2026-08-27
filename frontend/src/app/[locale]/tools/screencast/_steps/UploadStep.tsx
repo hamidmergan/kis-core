@@ -159,20 +159,27 @@ export default function UploadStep(props: UploadStepProps) {
         </span>
       </label>
 
+      {/* Die Sprache steuert nicht nur die Uebersetzung, sondern auch die Sprache der
+          Sprechtexte. Wird die Uebersetzung uebersprungen, muss das Feld deshalb sichtbar
+          bleiben, sonst gilt still der Standard und das Video spricht die falsche Sprache. */}
+      {languages.length > 0 && (
+        <div className="mb-4">
+          <label className="block text-xs font-medium text-muted mb-1">
+            {skipTranslation ? t("upload.scriptLang") : t("upload.targetLang")}
+          </label>
+          <Select
+            value={targetLang}
+            onChange={onTargetLangChange}
+            options={languages.map((l) => ({ value: l.id, label: l.label }))}
+          />
+          <p className="mt-1 text-xs text-muted">
+            {skipTranslation ? t("upload.scriptLangHint") : t("upload.autoDetectHint")}
+          </p>
+        </div>
+      )}
+
       {!skipTranslation && (
         <>
-          {languages.length > 0 && (
-            <div className="mb-4">
-              <label className="block text-xs font-medium text-muted mb-1">{t("upload.targetLang")}</label>
-              <Select
-                value={targetLang}
-                onChange={onTargetLangChange}
-                options={languages.map((l) => ({ value: l.id, label: l.label }))}
-              />
-              <p className="mt-1 text-xs text-muted">{t("upload.autoDetectHint")}</p>
-            </div>
-          )}
-
           <GlossarySelector values={glossaryIds} onChange={onGlossaryIdsChange} />
 
           {translationProviders.length > 1 && (
