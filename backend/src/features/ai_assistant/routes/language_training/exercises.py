@@ -24,6 +24,10 @@ router = APIRouter(tags=["ki-assistent: language-training"])
 # numbered legend under the exercises never grows past it either.
 _MAX_SET_SOURCES = 5
 
+# Die Werkzeuge des Sprachtrainers. Karteikarten und Quiz laufen ueber dieselbe
+# Route, gehoeren aber zu den Lernwerkzeugen und bleiben ohne ihn benutzbar.
+LANGUAGE_TRAINING_TOOLS: frozenset[str] = frozenset({"flashcards", "wortschatz", "grammatik"})
+
 
 def _numbered_sources(ex_set: dict) -> list[dict]:
     """The set's sources as ``[{number, filename}]``, numbered in selection order.
@@ -66,10 +70,10 @@ async def create_exercise_set(
     if not is_owner and not is_enrolled:
         raise HTTPException(status_code=403, detail=t("workspace.accessDenied", locale))
 
-    # Ist der Trainer im Workspace aus, gibt es hier nichts mehr zu bauen. Ein
-    # offen gebliebenes Fenster kennt die Kacheln noch und wuerde sonst
-    # weiterhin Modell-Aufrufe ausloesen.
-    if not db.is_language_training_active(workspace["id"]):
+    # Ist der Trainer im Workspace aus, gibt es fuer seine Werkzeuge nichts mehr
+    # zu bauen. Ein offen gebliebenes Fenster kennt die Kacheln noch und wuerde
+    # sonst weiterhin Modell-Aufrufe ausloesen.
+    if body.tool in LANGUAGE_TRAINING_TOOLS and not db.is_language_training_active(workspace["id"]):
         raise HTTPException(status_code=403, detail=t("ai.workspace.languageTrainingOff", locale))
 
     enforce_aia_burst(user_id, locale)
@@ -168,16 +172,17 @@ async def retry_exercise_set(
     if not workspace:
         raise HTTPException(status_code=404, detail=t("workspace.notFound", locale))
 
-    # Vor dem Nachschlagen des Satzes: ein abgeschalteter Trainer erzeugt nichts
-    # mehr, auch keinen zweiten Anlauf.
-    if not db.is_language_training_active(workspace["id"]):
-        raise HTTPException(status_code=403, detail=t("ai.workspace.languageTrainingOff", locale))
-
     meta = db.get_exercise_set_meta(set_id)
     # Same 404-not-403 rule as the other single-set routes: the serial id must not
     # reveal that another user's set exists.
     if not meta or meta["user_id"] != user_id or meta["workspace_id"] != workspace["id"]:
         raise HTTPException(status_code=404, detail=t("set.notFound", locale))
+
+    # Ein abgeschalteter Trainer erzeugt nichts mehr, auch keinen zweiten Anlauf.
+    # Zu welchem Lager der Satz gehoert, steht erst im Satz selbst, darum nach
+    # dem Nachschlagen.
+    if meta["tool"] in LANGUAGE_TRAINING_TOOLS and not db.is_language_training_active(workspace["id"]):
+        raise HTTPException(status_code=403, detail=t("ai.workspace.languageTrainingOff", locale))
 
     # A retry costs the same model calls as the first attempt, so it is charged the
     # same way. Checked before the reset, so a rejected retry leaves the card failed
